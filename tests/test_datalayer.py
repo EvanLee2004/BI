@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, db, schema, ingest, profit  # noqa: E402
+import loaders, db, schema, ingest, profit, columns  # noqa: E402
 import regress_db_vs_files as regress  # noqa: E402
 
 
@@ -86,6 +86,32 @@ class TestHumanTablesSurvive(unittest.TestCase):
         ingest.build_std_db(cfg, loaders.pinned_today(cfg).year, conn=conn)  # 全量重建标准表
         n = conn.execute("SELECT COUNT(*) FROM adj_调整记录").fetchone()[0]
         self.assertEqual(n, 1)  # 人工表不被标准表重建清空
+
+
+class TestUnclassifiedQuery(unittest.TestCase):
+    """B3：query_detail(unclassified=True) 只返回"未填对应报表大类"的费用明细行，
+    且笔数与 build_unclassified_summary(全年)一致（DB费用明细只含当年台账）。"""
+    def test_unclassified_filter_matches_summary(self):
+        cfg = loaders.load_config()
+        yr = loaders.pinned_today(cfg).year
+        conn = _tmp_conn()
+        ingest.build_std_db(cfg, yr, conn=conn)
+        res = db.query_detail(conn, "费用明细", unclassified=True, page_size=500)
+        # 每行的"对应报表大类"都为空
+        for r in res["rows"]:
+            self.assertIn(str(r.get("对应报表大类") or "").strip(), ("", "None"))
+        # 笔数与体检口径一致
+        lh, lr = db.load_ledger(cfg, conn)
+        lcols = columns.resolve_ledger_columns(lh)
+        summ = columns.build_unclassified_summary(lr, cfg, lcols)
+        self.assertEqual(res["total"], summ["expense"]["count"])
+
+    def test_unclassified_rejects_other_tables(self):
+        cfg = loaders.load_config()
+        conn = _tmp_conn()
+        ingest.build_std_db(cfg, loaders.pinned_today(cfg).year, conn=conn)
+        with self.assertRaises(KeyError):
+            db.query_detail(conn, "收入明细", unclassified=True)
 
 
 class TestRegressionRedline(unittest.TestCase):

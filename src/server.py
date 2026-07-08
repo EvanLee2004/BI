@@ -182,9 +182,20 @@ padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
 button{background:var(--vio);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
 button.mini{padding:3px 8px;font-size:12px}button:disabled{opacity:.5;cursor:wait}
-a{color:var(--vio)}#tabs{display:flex;gap:4px;flex-wrap:wrap;padding:8px 14px;background:#172033}
-.tab{padding:6px 12px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--mut)}
-.tab.on{background:var(--vio);color:#fff}.sec{display:none;padding:14px}.sec.on{display:block}
+a{color:var(--vio)}
+/* 顶层三区 */
+#groups{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;background:#172033}
+.gtab{padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--mut);border:1px solid transparent;border-bottom:none}
+.gtab.on{background:var(--bg);color:var(--fg);border-color:var(--line)}
+/* 二级分段（改数据6项 / 复核3项） */
+#subnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:#172033;border-bottom:1px solid var(--line);min-height:0}
+.subgrp{display:none;gap:6px;align-items:center;flex-wrap:wrap}
+.stab{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 13px;border-radius:20px;font-size:13px;cursor:pointer}
+.stab.on{background:var(--vio);color:#fff;border-color:var(--vio)}
+.subsep{width:1px;height:18px;background:var(--line);margin:0 4px}
+.subgrp .badge{background:#7f1d1d;color:#fca5a5;border-radius:20px;padding:0 6px;font-size:11px;margin-left:5px}
+.subgrp .badge.zero{background:#14532d;color:#86efac}
+.sec{display:none;padding:14px}.sec.on{display:block}
 input,select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px;font-size:13px}
 table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
 th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;white-space:nowrap}
@@ -201,29 +212,40 @@ th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}
   <span style="margin-left:auto"></span>
   <a href="/admin/logout">退出</a>
 </div>
-<div id="tabs">
-  <div class="tab on" data-t="dash" onclick="showTab('dash')">驾驶舱</div>
-  <div class="tab" data-t="detail" onclick="showTab('detail')">明细编辑</div>
-  <div class="tab" data-t="manual" onclick="showTab('manual')">手填</div>
-  <div class="tab" data-t="suspect" onclick="showTab('suspect')">可疑单</div>
-  <div class="tab" data-t="ledger" onclick="showTab('ledger')">调整台账</div>
+<div id="groups">
+  <div class="gtab on" data-g="see" onclick="showGroup('see')">看</div>
+  <div class="gtab" data-g="edit" onclick="showGroup('edit')">改数据</div>
+  <div class="gtab" data-g="review" onclick="showGroup('review')">复核</div>
+</div>
+<div id="subnav">
+  <span class="subgrp" id="sub-edit" data-g="edit">
+    <button class="stab on" data-t="收入明细" onclick="pickTable('收入明细')">收入明细</button>
+    <button class="stab" data-t="下单" onclick="pickTable('下单')">下单</button>
+    <button class="stab" data-t="回款" onclick="pickTable('回款')">回款</button>
+    <button class="stab" data-t="内部译员" onclick="pickTable('内部译员')">内部译员</button>
+    <button class="stab" data-t="费用明细" onclick="pickTable('费用明细')">费用明细</button>
+    <span class="subsep"></span>
+    <button class="stab" data-t="手填" onclick="showManual()">手填</button>
+  </span>
+  <span class="subgrp" id="sub-review" data-g="review">
+    <button class="stab on" data-t="suspect" onclick="showReview('suspect')">可疑单</button>
+    <button class="stab" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
+    <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">未填分类<span id="ucBadge" class="badge zero">0</span></button>
+  </span>
 </div>
 
 <div id="dash" class="sec on"><iframe id="dashFrame" src="/"></iframe>
   <div class="note">改数后此驾驶舱会自动刷新（秒级重算）。</div></div>
 
 <div id="detail" class="sec">
-  <div>
-    <select id="dTable" onchange="dQuery()">
-      <option>收入明细</option><option>下单</option><option>回款</option><option>内部译员</option><option>费用明细</option>
-    </select>
+  <div>当前表：<b id="dTableName">收入明细</b> &nbsp;
     月份<select id="dY"></select><select id="dM"></select>
     搜索<input id="dQ" placeholder="订单号/客户…" size="12">
     <button onclick="dQuery()">查询</button>
     <span id="dInfo" class="muted"></span>
   </div>
-  <div class="note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在调整台账撤销）。</div>
-  <div class="wrap"><table id="dTbl"></table></div>
+  <div class="note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在调整台账撤销）。滚动到底自动加载更多。</div>
+  <div class="wrap" id="dWrap"><table id="dTbl"></table></div>
 </div>
 
 <div id="manual" class="sec">
@@ -244,12 +266,20 @@ th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}
   <div class="wrap"><table id="lTbl"></table></div>
 </div>
 
+<div id="unclassified" class="sec">
+  <button onclick="ucLoad()">刷新未填分类</button><span id="ucInfo" class="muted"></span>
+  <div class="note">这些费用明细未填「对应报表大类」→ 未计入费用（利润会偏高）。当场选大类补上即写调整记录、秒级重算，驾驶舱费用随之增加。</div>
+  <div class="wrap" id="ucWrap"><table id="ucTbl"></table></div>
+</div>
+
 <script>
 const ADJ_FIELDS={"收入明细":["整单交付日期","交付额","项目成本"],"下单":["下单日期","下单预估额"],
 "回款":["到账日期","到账金额"],"内部译员":["任务提交日期","结算金额"],"费用明细":["含税金额","对应报表大类","业务BU"]};
 const STD={"收入明细":"std_收入明细","下单":"std_下单","回款":"std_回款","内部译员":"std_内部译员","费用明细":"std_费用明细"};
 const MANUAL_ITEMS=["营销人力成本","管理人力成本","研发人力成本","财务费用补充","PM人力成本","VM人力成本",
 "实际内部译员成本","税费损失","技术流量成本","其他（生产成本）","其他损益"];
+// 补分类可选大类（口径同 config：included 5 类 + excluded 3 类）
+const CATEGORIES=["市场费用","管理费用","固定运营费用","技术服务费","财务费用","成本","工资","非利润表"];
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function msg(t){document.getElementById("msg").textContent=t||"";}
 async function api(path,opts){const r=await fetch(path,Object.assign({credentials:"same-origin"},opts||{}));
@@ -257,26 +287,44 @@ async function api(path,opts){const r=await fetch(path,Object.assign({credential
 async function jget(p){const r=await api(p);return r.json();}
 async function jpost(p,body){const r=await api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("HTTP "+r.status));return d;}
-function showTab(t){document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("on",e.dataset.t===t));
-  document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===t));
-  if(t==="suspect")sLoad();if(t==="ledger")lLoad();if(t==="manual")mLoad();if(t==="detail"&&!document.getElementById("dTbl").innerHTML)dQuery();}
+function showSec(id){document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===id));}
+// 顶层三区：看 / 改数据 / 复核
+function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.toggle("on",e.dataset.g===g));
+  document.querySelectorAll(".subgrp").forEach(e=>e.style.display=e.dataset.g===g?"flex":"none");
+  if(g==="see")showSec("dash");
+  else if(g==="edit")pickTable(curTable);
+  else if(g==="review")showReview("suspect");}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
   el.textContent="体检 "+(h.result||"?")+" · "+(h.run_time||"")+(h.warnings&&h.warnings.length?(" · "+h.warnings.length+"警"):"");}catch(e){}}
 async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;msg("更新中…");
-  try{await jpost("/api/refresh",{});msg("已更新");reloadDash();loadHealth();}catch(e){msg("更新失败:"+e.message);}b.disabled=false;}
+  try{await jpost("/api/refresh",{});msg("已更新");reloadDash();loadHealth();refreshUcBadge();}catch(e){msg("更新失败:"+e.message);}b.disabled=false;}
 
-// ---- 明细编辑 ----
-async function dQuery(){const t=document.getElementById("dTable").value,m=ymVal("dY","dM"),
-  q=document.getElementById("dQ").value.trim();let u="/api/detail?table="+encodeURIComponent(t)+"&page_size=50";
-  if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);
-  const d=await jget(u);document.getElementById("dInfo").textContent="共"+d.total+"行（显示前"+d.rows.length+"）";
-  const cols=d.columns;let h="<tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+"<th>操作</th></tr>";
-  d.rows.forEach(r=>{const key=r["定位键"];h+="<tr>"+cols.map(c=>"<td>"+esc(r[c])+"</td>").join("")+
-    '<td><button class="mini" onclick=\'editRow("'+STD[t]+'","'+encodeURIComponent(key)+'","'+t+'")\'>改</button> '+
-    '<button class="mini ghost" onclick=\'removeRow("'+STD[t]+'","'+encodeURIComponent(key)+'")\'>剔除</button></td></tr>';});
-  document.getElementById("dTbl").innerHTML=h;}
+// ---- 明细编辑（无限滚动加载）----
+let curTable="收入明细";
+const detail={page:0,pages:1,loading:false,loaded:0,
+  url(p){let u="/api/detail?table="+encodeURIComponent(curTable)+"&page="+p+"&page_size=50";
+    const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
+    if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);return u;},
+  reset(){this.page=0;this.pages=1;this.loaded=0;document.getElementById("dTbl").innerHTML="";
+    document.getElementById("dWrap").scrollTop=0;this.next();},
+  async next(){if(this.loading||this.page>=this.pages)return;this.loading=true;
+    try{const d=await jget(this.url(this.page+1));this.page=d.page;this.pages=d.pages;
+      const cols=d.columns,tbl=document.getElementById("dTbl");
+      if(this.page===1)tbl.innerHTML="<tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+"<th>操作</th></tr>";
+      let h="";d.rows.forEach(r=>{const key=r["定位键"];h+="<tr>"+cols.map(c=>"<td>"+esc(r[c])+"</td>").join("")+
+        '<td><button class="mini" onclick=\'editRow("'+STD[curTable]+'","'+encodeURIComponent(key)+'","'+curTable+'")\'>改</button> '+
+        '<button class="mini ghost" onclick=\'removeRow("'+STD[curTable]+'","'+encodeURIComponent(key)+'")\'>剔除</button></td></tr>';});
+      tbl.insertAdjacentHTML("beforeend",h);this.loaded+=d.rows.length;
+      document.getElementById("dInfo").textContent="共"+d.total+"行（已载入"+this.loaded+"）";
+    }catch(e){msg("查询失败:"+e.message);}this.loading=false;}};
+function pickTable(t){curTable=t;
+  document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
+function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t==="手填"));
+  showSec("manual");mLoad();}
+function dQuery(){detail.reset();}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
   const opts=ADJ_FIELDS[tkey].map(f=>"<option>"+f+"</option>").join("");
   const id="ef_"+Math.random().toString(36).slice(2);
@@ -289,10 +337,10 @@ function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
   document.getElementById(id+"_s").onclick=async()=>{try{
     await jpost("/api/adjust",{目标表:std,定位键:key,字段:document.getElementById(id+"_f").value,
       新值:document.getElementById(id+"_v").value,原因:document.getElementById(id+"_r").value,类型:"改值"});
-    box.remove();msg("已保存调整（秒级重算）");reloadDash();loadHealth();dQuery();}catch(e){alert("保存失败："+e.message);}};}
+    box.remove();msg("已保存调整（秒级重算）");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("保存失败："+e.message);}};}
 async function removeRow(std,keyEnc){const key=decodeURIComponent(keyEnc);if(!confirm("剔除该行？（软删，可撤销）"))return;
   try{await jpost("/api/adjust",{目标表:std,定位键:key,字段:"",新值:"",原因:"剔除",类型:"剔除"});
-    msg("已剔除");reloadDash();loadHealth();dQuery();}catch(e){alert("失败："+e.message);}}
+    msg("已剔除");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("失败："+e.message);}}
 
 // ---- 手填 ----
 async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
@@ -307,7 +355,9 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
     msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
 
-// ---- 可疑单 ----
+// ---- 复核（可疑单 / 调整台账 / 未填分类）----
+function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
+  showSec(which);if(which==="suspect")sLoad();if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();}
 async function sLoad(){const d=await jget("/api/suspects");document.getElementById("sInfo").textContent="待确认 "+d.length+" 条";
   let h="<tr><th>规则</th><th>摘要</th><th>目标表</th><th>定位键</th><th>操作</th></tr>";
   d.forEach(s=>{h+="<tr><td>"+esc(s["规则"])+"</td><td>"+esc(s["摘要"])+"</td><td>"+esc(s["目标表"])+"</td><td>"+esc(s["定位键"])+"</td>"+
@@ -317,8 +367,6 @@ async function sLoad(){const d=await jget("/api/suspects");document.getElementBy
 async function sResolve(id,action,ym){try{await jpost("/api/suspects",{id:id,action:action,新归属月:ym});
   msg("已处理");reloadDash();loadHealth();sLoad();}catch(e){alert("失败："+e.message);}}
 function sAdjust(id){const ym=prompt("挪到哪个月？填 YYYY-MM");if(!ym)return;sResolve(id,"调整",ym.trim());}
-
-// ---- 调整台账 ----
 async function lLoad(){const d=await jget("/api/adjustments");document.getElementById("lInfo").textContent="共 "+d.length+" 条";
   let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
   d.forEach(a=>{const exp=a["状态"]==="过期疑似";h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
@@ -327,6 +375,31 @@ async function lLoad(){const d=await jget("/api/adjustments");document.getElemen
   document.getElementById("lTbl").innerHTML=h;}
 async function lRevoke(id){if(!confirm("撤销该调整？"))return;try{await jpost("/api/adjust/"+id+"/revoke",{});
   msg("已撤销");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
+
+// ---- 未填分类：一键看 + 当场补（走调整记录）----
+let ucTotal=0;
+function ucUrl(p){return "/api/detail?table="+encodeURIComponent("费用明细")+"&unclassified=1&page="+p+"&page_size=200";}
+async function ucLoad(){const tbl=document.getElementById("ucTbl");tbl.innerHTML="";
+  let page=1,pages=1;
+  try{do{const d=await jget(ucUrl(page));pages=d.pages;ucTotal=d.total;
+    if(page===1)tbl.innerHTML="<tr><th>收单日期</th><th>金额</th><th>业务BU</th><th>预算明细费用类型</th><th>补对应报表大类</th></tr>";
+    let h="";d.rows.forEach(r=>{const key=encodeURIComponent(r["定位键"]);
+      const opt=CATEGORIES.map(c=>"<option>"+c+"</option>").join("");
+      h+="<tr><td>"+esc(r["收单日期"]||r["收单月份"])+"</td><td>"+esc(r["含税金额"])+"</td><td>"+esc(r["业务BU"])+
+        "</td><td>"+esc(r["预算明细费用类型"])+"</td>"+
+        "<td><select class='ucsel' data-k='"+key+"'><option value=''>选大类…</option>"+opt+"</select> "+
+        "<button class='mini' onclick='ucSave(this)'>补</button></td></tr>";});
+    tbl.insertAdjacentHTML("beforeend",h);page++;
+  }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
+  document.getElementById("ucInfo").textContent="未填分类 "+ucTotal+" 笔";setUcBadge(ucTotal);}
+async function ucSave(btn){const tr=btn.closest("tr"),sel=tr.querySelector(".ucsel"),cat=sel.value;
+  if(!cat){alert("先选一个大类");return;}const key=decodeURIComponent(sel.dataset.k);
+  try{await jpost("/api/adjust",{目标表:"std_费用明细",定位键:key,字段:"对应报表大类",新值:cat,原因:"补分类",类型:"改值"});
+    msg("已补分类（秒级重算）");tr.remove();ucTotal=Math.max(0,ucTotal-1);
+    document.getElementById("ucInfo").textContent="未填分类 "+ucTotal+" 笔";setUcBadge(ucTotal);
+    reloadDash();loadHealth();}catch(e){alert("失败："+e.message);}}
+function setUcBadge(n){const b=document.getElementById("ucBadge");b.textContent=n;b.className="badge"+(n?"":" zero");}
+async function refreshUcBadge(){try{const d=await jget(ucUrl(1).replace("page_size=200","page_size=1"));setUcBadge(d.total);}catch(e){}}
 
 // ---- 年月下拉（数据自2026起，年份随时间自动往后长；2026前不给选）----
 function pad2(n){return String(n).padStart(2,"0");}
@@ -340,7 +413,9 @@ function initYM(){const d=new Date();
   document.getElementById("mY").value=String(Math.max(d.getFullYear(),2026));document.getElementById("mM").value=d.getMonth()+1;
   fillY("dY",true);fillM("dM",true);}                                   // 明细筛选：可选、默认全部
 initYM();
-loadHealth();setInterval(loadHealth,30000);
+document.getElementById("dWrap").addEventListener("scroll",function(){
+  if(this.scrollTop+this.clientHeight>=this.scrollHeight-80)detail.next();});
+loadHealth();refreshUcBadge();setInterval(loadHealth,30000);
 </script></body></html>"""
 
 
@@ -379,14 +454,15 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/detail")
     def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
-                   q: str | None = None, page: int = 1, page_size: int = 50):
+                   q: str | None = None, page: int = 1, page_size: int = 50,
+                   unclassified: bool = False):
         user = _user(request)
         if not user:
             raise HTTPException(status_code=401, detail="需要管理员登录")
         conn = db.connect(cfg, root)
         try:
             try:
-                return JSONResponse(db.query_detail(conn, table, month, q, page, page_size))
+                return JSONResponse(db.query_detail(conn, table, month, q, page, page_size, unclassified))
             except KeyError as e:
                 raise HTTPException(status_code=400, detail=str(e))
         finally:
