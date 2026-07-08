@@ -2,10 +2,23 @@
   "_comment": "经营驾驶舱 v6 业务口径唯一配置源。切换测试/正式数据只改 data_dir 与 period_pin 两处，代码不动。",
 
   "data_dir": "数据",
-  "_data_dir_note": "产品数据目录——6个数据源固定放这里(文件名见files)。每月用新导出/新填的数据覆盖同名文件即可，程序永远读这个目录。当前放的是2026年测试数据(当正式数据对待)，来了真数据直接覆盖。",
+  "_data_dir_note": "产品数据目录——6个数据源固定放这里(文件名见files)。程序永远读这个目录，每月用新导出/新填的数据覆盖同名文件即可。⚠随程序分发时此目录不含任何数据(只有README)，真实数据放在部署机本地、绝不进git、绝不外传。",
 
   "period_pin": null,
-  "_period_pin_note": "null=用系统当天（正式版/2026多月测试数据都用这个，年份自动跟当前年走，2027/2028照常）。要复现历史某月可填 {year,month}。",
+  "_period_pin_note": "null=用系统当天（正式版都用这个，年份自动跟当前年走，2027/2028照常）。要复现历史某月可填 {year,month}。",
+
+  "db_path": "看板.db",
+  "_db_path_note": "标准表+人工表+队列+运行日志的单文件 SQLite；相对 data_dir（默认 数据/看板.db）。绝不进 git（含真实金额/客户名）。",
+
+  "ledger_share_path": "\\\\<财务共享服务器>\\<共享目录>\\收单台账.xlsx",
+  "_ledger_share_path_note": "收单台账内网 SMB 共享路径（部署机上定时任务从这里拉到 data_dir）。本机(macOS)读不到属正常：路径可达才拉、不可达走数据目录现有台账+体检黄，不中断管道。",
+
+  "schedule_time": "09:30",
+  "_schedule_time_note": "每日自动更新时间（Windows 计划任务）；改后由注册脚本重写计划任务（刀4 落地）。",
+
+  "server_host": "0.0.0.0",
+  "server_port": 8018,
+  "_server_note": "内网双端服务：0.0.0.0=同WiFi手机/电脑可访问 http://本机IP:8018/（用户端）与 /admin（管理员端）。管理员密码哈希+会话密钥存 数据/管理员密钥.json（不进git）；首次起服务自动生成，默认密码见 README/部署文档，可用环境变量 KANBAN_ADMIN_PW 覆盖。",
 
   "files": {
     "project_detail_stem": "项目明细",

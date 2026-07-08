@@ -188,11 +188,13 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
 
 # ---------- 顶层 ----------
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                  ledger_header, ledger_rows, ledger_year, today):
+                  ledger_header, ledger_rows, ledger_year, today, manual_raw=None):
     cols_cfg = cfg["columns"]
     lcols = columns.resolve_ledger_columns(ledger_header)
     ranges = periods.all_period_ranges(today)
-    manual_raw = load_manual_safe(cfg)
+    # manual_raw 由调用方注入（run.py 从库读 db.load_manual）；不传则回退读手填 xlsx（现有测试路径）
+    if manual_raw is None:
+        manual_raw = load_manual_safe(cfg)
     filled_manual = build_manual_monthly(cfg, manual_raw, today.year, today.month)
 
     P: dict[str, Any] = {}

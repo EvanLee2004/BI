@@ -114,8 +114,8 @@ def _parent(key, name, impact, children_html):
 
 def render_pl_table(p, fine):
     e = p["expense"]; man = p["manual"]; led = p["ledger_expenses"]
-    prod_manual = (man["PM人力成本"] + man["VM人力成本"] + man["实际内部译员成本"]
-                   + man["税费损失"] + man["技术流量成本"] + man["其他（生产成本）"])
+    # 生产成本手填6项逐行展示（陆总2026-07-08：不合成一个金额、别漏"实际内部译员成本"），求和仍在profit.py
+    prod_manual_names = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
     def _cchild(name, impact, kind, src):
         return (f'<div class="pl-row child pl-child" data-c="cost"><span class="dot {kind}"></span>'
                 f'<div class="pl-name">{name}<span class="src">{src}</span></div>{_amt(impact)}</div>')
@@ -123,7 +123,7 @@ def render_pl_table(p, fine):
     rows.append(_parent("cost", "成本（生产成本）", -p["production_cost"],
         _cchild("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
         + _cchild("减：系统内部译员成本", p["inhouse_cost"], "system", "in-house结算")
-        + _cchild("加：手填成本项", -prod_manual, "manual", "PM/VM/税费损失等")))
+        + "".join(_cchild(f"加：{n}", -man[n], "manual", "手填·默认上月") for n in prod_manual_names)))
     rows.append(_row("毛利", p["gross_profit"], "", total=True))
     rows.append(_parent("sales", "营销费用", -e["营销费用"],
         _manual_leaf("sales", "营销人力成本", man["营销人力成本"], "手填·默认上月")

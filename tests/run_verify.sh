@@ -1,11 +1,21 @@
 #!/bin/sh
-# 一键验证：语法 → 端到端跑 → 回归测试
+# 一键验证：语法 → 端到端跑 → 回归红线(库vs文件) → 回归测试 + 数据层/调整/服务测试
+# 优先用项目 venv 的 python（含 fastapi/openpyxl）；没有则退回 python3。
 set -e
 cd "$(dirname "$0")/.."
-echo "[1/3] 语法检查"
-python3 -m py_compile src/*.py run.py tests/*.py
-echo "[2/3] 端到端生成"
-python3 run.py >/dev/null
-echo "[3/3] 回归测试"
-python3 tests/test_cockpit.py
+PY=python3
+[ -x .venv/bin/python ] && PY=.venv/bin/python
+echo "用解释器：$PY"
+echo "[1/4] 语法检查"
+$PY -m py_compile src/*.py src/ingest/*.py run.py tests/*.py
+echo "[2/4] 端到端生成"
+$PY run.py >/dev/null
+echo "[3/4] 回归红线：从库算 == 从文件算（一分不差）"
+$PY tests/regress_db_vs_files.py
+echo "[4/4] 回归测试"
+$PY tests/test_cockpit.py
+$PY tests/test_datalayer.py
+$PY tests/test_adjust_suspect.py
+$PY tests/test_server.py
+$PY tests/test_admin_edit.py
 echo "✓ 全部通过"

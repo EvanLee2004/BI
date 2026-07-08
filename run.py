@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""经营驾驶舱 v6 一键生成：读 6 个数据源 → 算利润 → 出自包含 HTML。
+"""经营驾驶舱：更新管道 + 出 HTML；或起内网双端服务。
 
-用法：  python run.py
-切换测试/正式数据：改 config.json 的 data_dir（+ period_pin）即可，代码不动。
+用法：
+  python run.py                 更新一次（跑管道→算利润→写 output/HTML+JSON），默认手动触发
+  python run.py --scheduled     同上，触发方式记为 schedule（供 Windows 计划任务调用）
+  python run.py --serve         起 FastAPI 内网服务（用户端 / + 管理员端 /admin），端口见 config
+切换测试/正式数据：改 config.json 的 data_dir（+ period_pin），代码不动。
 """
 from __future__ import annotations
 
@@ -14,39 +17,36 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, profit, render, assets, validate  # noqa: E402
+import loaders, validate  # noqa: E402
+import db, core  # noqa: E402
 
 
-def main() -> int:
+def run_batch(trigger="manual") -> int:
+    """更新一次并写 output/（原 main 行为）。"""
     cfg = loaders.load_config()
     today = loaders.pinned_today(cfg)
-    ledger_year = today.year
-
     print(f"数据目录：{cfg['data_dir']}  周期基准：{today}")
 
     # 进门验证：格式不对先拦下，报"哪个源、哪一列、第几行"，不出一份算错的报表
-    rep = validate.validate_all(cfg, ledger_year)
+    rep = validate.validate_all(cfg, today.year)
     validate.print_report(rep)
     if rep.errors:
         print(f"\n✗ 数据格式有 {len(rep.errors)} 处问题，先修源文件再跑（定位见上）。本次不生成报表。")
         return 1
-    project = loaders.load_project_detail(cfg)
-    orders = loaders.load_orders(cfg)
-    receipts = loaders.load_receipts(cfg)
-    inhouse = loaders.load_inhouse(cfg)
-    lheader, lrows = loaders.load_ledger(cfg, str(ledger_year))
-    print(f"读入：项目明细{len(project)} 下单{len(orders)} 回款{len(receipts)} 内部译员{len(inhouse)} 台账{len(lrows)}")
 
-    summary = profit.build_summary(cfg, project, orders, receipts, inhouse, lheader, lrows, ledger_year, today)
+    summary, html, ing = core.generate(cfg, today, trigger=trigger)
+    print(f"数据库：{db.db_path(cfg)}  台账fetch：{ing['fetch']['status']}（{ing['fetch']['detail']}）")
+    print("  标准表：" + " ".join(f"{k}={v}" for k, v in ing["counts"].items())
+          + f"  手填迁移：{ing['migrate_manual']['status']}({ing['migrate_manual']['imported']})")
+    _s, _a = ing["suspects"], ing["adjust"]
+    print(f"  运行结果：{ing['result']}  可疑单：周期变{_s['period_shift']}/月初{_s['month_edge']}  "
+          f"调整：套用{_a['applied']}/过期{_a['expired']}/剔除{_a['removed']}")
 
     out_dir = ROOT / cfg["output_dir"]
     out_dir.mkdir(exist_ok=True)
     json_path = ROOT / cfg["output_json"]
     json_path.parent.mkdir(exist_ok=True)
     json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    logo = assets.load_logo_base64(cfg)
-    html = render.render_dashboard(summary, cfg, logo)
     html_path = out_dir / cfg["output_html"]
     html_path.write_text(html, encoding="utf-8")
 
@@ -70,5 +70,19 @@ def main() -> int:
     return 0
 
 
+def serve() -> int:
+    import server
+    server.serve()
+    return 0
+
+
+def main(argv) -> int:
+    if "--serve" in argv:
+        return serve()
+    if "--scheduled" in argv:
+        return run_batch(trigger="schedule")
+    return run_batch(trigger="manual")
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

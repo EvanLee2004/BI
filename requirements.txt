@@ -1,0 +1,9 @@
+# 看板正式程序 运行依赖（精确版本，2026-07-08 本机 macOS + Python 3.12 实测通过）
+# 离线部署：在同版本 Python 上 pip download 这些 + 依赖 wheel，拷到部署机 pip install --no-index。
+openpyxl==3.1.5
+fastapi==0.139.0
+uvicorn==0.50.2
+# fastapi 传递依赖（pip 自动装，列出便于离线打 wheel）：starlette==1.3.1 pydantic==2.13.4
+
+# 仅测试用（TestClient）：
+# httpx==0.28.1
