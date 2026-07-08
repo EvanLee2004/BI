@@ -217,7 +217,7 @@ th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}
     <select id="dTable" onchange="dQuery()">
       <option>收入明细</option><option>下单</option><option>回款</option><option>内部译员</option><option>费用明细</option>
     </select>
-    月份<input id="dMonth" placeholder="YYYY-MM" size="8">
+    月份<select id="dY"></select><select id="dM"></select>
     搜索<input id="dQ" placeholder="订单号/客户…" size="12">
     <button onclick="dQuery()">查询</button>
     <span id="dInfo" class="muted"></span>
@@ -227,7 +227,7 @@ th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}
 </div>
 
 <div id="manual" class="sec">
-  月份<input id="mMonth" placeholder="YYYY-MM" size="8"><button onclick="mLoad()">查询</button>
+  月份<select id="mY"></select><select id="mM"></select><button onclick="mLoad()">查询</button>
   <span class="muted">改手填即留痕（manual_历史），当月覆盖。</span>
   <div class="wrap"><table id="mTbl"></table></div>
 </div>
@@ -259,7 +259,7 @@ async function jpost(p,body){const r=await api(p,{method:"POST",headers:{"Conten
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("HTTP "+r.status));return d;}
 function showTab(t){document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("on",e.dataset.t===t));
   document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===t));
-  if(t==="suspect")sLoad();if(t==="ledger")lLoad();if(t==="detail"&&!document.getElementById("dTbl").innerHTML)dQuery();}
+  if(t==="suspect")sLoad();if(t==="ledger")lLoad();if(t==="manual")mLoad();if(t==="detail"&&!document.getElementById("dTbl").innerHTML)dQuery();}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
@@ -268,7 +268,7 @@ async function doRefresh(){const b=document.getElementById("btnRefresh");b.disab
   try{await jpost("/api/refresh",{});msg("已更新");reloadDash();loadHealth();}catch(e){msg("更新失败:"+e.message);}b.disabled=false;}
 
 // ---- 明细编辑 ----
-async function dQuery(){const t=document.getElementById("dTable").value,m=document.getElementById("dMonth").value.trim(),
+async function dQuery(){const t=document.getElementById("dTable").value,m=ymVal("dY","dM"),
   q=document.getElementById("dQ").value.trim();let u="/api/detail?table="+encodeURIComponent(t)+"&page_size=50";
   if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);
   const d=await jget(u);document.getElementById("dInfo").textContent="共"+d.total+"行（显示前"+d.rows.length+"）";
@@ -295,7 +295,7 @@ async function removeRow(std,keyEnc){const key=decodeURIComponent(keyEnc);if(!co
     msg("已剔除");reloadDash();loadHealth();dQuery();}catch(e){alert("失败："+e.message);}}
 
 // ---- 手填 ----
-async function mLoad(){const m=document.getElementById("mMonth").value.trim();if(!m){alert("填月份 YYYY-MM");return;}
+async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
   const cur=await jget("/api/manual?month="+encodeURIComponent(m));const map={};cur.forEach(x=>map[x["项目"]]=x["金额"]);
   let h="<tr><th>项目</th><th>当前金额</th><th>新值</th><th></th></tr>";
   MANUAL_ITEMS.forEach(it=>{const id="mi_"+MANUAL_ITEMS.indexOf(it);
@@ -328,6 +328,18 @@ async function lLoad(){const d=await jget("/api/adjustments");document.getElemen
 async function lRevoke(id){if(!confirm("撤销该调整？"))return;try{await jpost("/api/adjust/"+id+"/revoke",{});
   msg("已撤销");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
 
+// ---- 年月下拉（数据自2026起，年份随时间自动往后长；2026前不给选）----
+function pad2(n){return String(n).padStart(2,"0");}
+function ymVal(y,m){const yy=document.getElementById(y).value,mm=document.getElementById(m).value;return (yy&&mm)?(yy+"-"+pad2(mm)):"";}
+function fillY(sel,withAll){const top=Math.max(new Date().getFullYear(),2026);let h=withAll?'<option value="">全部年</option>':"";
+  for(let y=top;y>=2026;y--)h+="<option value='"+y+"'>"+y+"年</option>";document.getElementById(sel).innerHTML=h;}
+function fillM(sel,withAll){let h=withAll?'<option value="">全部月</option>':"";
+  for(let m=1;m<=12;m++)h+="<option value='"+m+"'>"+m+"月</option>";document.getElementById(sel).innerHTML=h;}
+function initYM(){const d=new Date();
+  fillY("mY",false);fillM("mM",false);                                  // 手填：必选、默认当前年月
+  document.getElementById("mY").value=String(Math.max(d.getFullYear(),2026));document.getElementById("mM").value=d.getMonth()+1;
+  fillY("dY",true);fillM("dM",true);}                                   // 明细筛选：可选、默认全部
+initYM();
 loadHealth();setInterval(loadHealth,30000);
 </script></body></html>"""
 
