@@ -146,6 +146,29 @@ class TestValidate(unittest.TestCase):
             self.assertIn("第6行", msgs)
 
 
+class TestReceiptOrderRatio(unittest.TestCase):
+    """A2 回款下单率：每期 = 回款÷下单×100（无下单置 None）；逐月序列与月周期对齐。"""
+    def test_period_ratio_matches_formula(self):
+        _, S = _summary()
+        for key, p in S["periods"].items():
+            r = p["receipt_order_ratio_pct"]
+            if p["orders"]:
+                self.assertAlmostEqual(r, round(p["receipts"] / p["orders"] * 100, 2), places=2, msg=key)
+            else:
+                self.assertIsNone(r, msg=key)
+
+    def test_monthly_series_aligns(self):
+        _, S = _summary()
+        month_keys = S["meta"]["tab_groups"]["月"]
+        rom = S["receipt_order_monthly"]
+        self.assertEqual(len(rom), len(month_keys))
+        for (label, rec, order, ratio), k in zip(rom, month_keys):
+            p = S["periods"][k]
+            self.assertAlmostEqual(rec, p["receipts"], places=2)
+            self.assertAlmostEqual(order, p["orders"], places=2)
+            self.assertEqual(ratio, p["receipt_order_ratio_pct"])
+
+
 class TestRenderGuards(unittest.TestCase):
     """前端守卫：自包含 + 不做金额运算 + 含关键结构。"""
     @classmethod

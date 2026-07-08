@@ -46,6 +46,29 @@ def mini_ring(pct: float, color: str | None = None, size: int = 64) -> str:
     )
 
 
+def sparkline(values: Sequence[float], color: str = BLUE, w: int = 108, h: int = 30) -> str:
+    """迷你趋势线：一串数值画成小折线（KPI 卡用）。值全部 Python 侧传入，前端不算数。
+    纵向按本串 min..max 归一（含负值也能画）；末点加圆点强调最新。"""
+    vals = [v for v in values if v is not None]
+    if len(vals) < 2:
+        return f'<svg viewBox="0 0 {w} {h}" class="spark" preserveAspectRatio="none"></svg>'
+    lo, hi = min(vals), max(vals)
+    span = (hi - lo) or 1.0
+    pad = 3.0
+    n = len(vals)
+    pts = []
+    for i, v in enumerate(vals):
+        x = pad + (w - 2 * pad) * (i / (n - 1))
+        y = pad + (h - 2 * pad) * (1 - (v - lo) / span)
+        pts.append((x, y))
+    poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    ex, ey = pts[-1]
+    return (f'<svg viewBox="0 0 {w} {h}" class="spark" preserveAspectRatio="none">'
+            f'<polyline points="{poly}" fill="none" stroke="{color}" stroke-width="1.6" '
+            f'stroke-linejoin="round" stroke-linecap="round"/>'
+            f'<circle cx="{ex:.1f}" cy="{ey:.1f}" r="2.1" fill="{color}"/></svg>')
+
+
 def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_value: str,
           size: int = 190, detail: dict | None = None) -> str:
     total = sum(max(v, 0) for _, v, _ in segs) or 1
@@ -156,6 +179,55 @@ def month_bar_chart(series: list[tuple[str, float]], color: str = BLUE) -> str:
         hits.append(f'<rect class="hit" data-tip="{label}&nbsp;回款&nbsp;{fmt_wan(v)}万" x="{pl+gw*i:.1f}" '
                     f'y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>'
+
+
+def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE) -> str:
+    """回款按月柱图 + 叠加"每月回款下单率"折线。series=[(label, 回款, 下单, 率%或None), ...]。
+    率线按本串最大率归一（无第二坐标轴，精确值看悬浮，沿用组合图做法）；率为 None 的月不画点。"""
+    w, h = 580, 210
+    pl, pr, pt, pb = 64, 40, 16, 30
+    plot_w, plot_h = w - pl - pr, h - pt - pb
+    n = len(series)
+    if n == 0:
+        return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
+    mx = max((v for _, v, _, _ in series), default=0) or 1
+    ratios = [r for _, _, _, r in series if r is not None]
+    rmx = max(ratios) if ratios else 0
+    rmx_axis = rmx or 1
+    gw = plot_w / n
+    bw = min(gw * 0.5, 34)
+    parts, hits, line_pts = [], [], []
+    for frac in (0, 0.5, 1.0):
+        y = pt + plot_h * (1 - frac)
+        parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
+        parts.append(f'<text x="{pl-8}" y="{y+3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
+                     f'{"0" if frac==0 else fmt_wan(mx*frac)+"万"}</text>')
+        if ratios:  # 右轴：回款下单率刻度
+            parts.append(f'<text x="{w-pr+7}" y="{y+3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
+                         f'{rmx_axis*frac:.0f}%</text>')
+    for i, (label, rec, _order, ratio) in enumerate(series):
+        cx = pl + gw * i + gw / 2
+        bh = max(1.0, rec / mx * plot_h)
+        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" '
+                     f'fill="{color}" style="filter:drop-shadow(0 0 5px {color})"/>')
+        parts.append(f'<text x="{cx:.1f}" y="{h-pb+17:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
+        if ratio is not None:
+            ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
+            line_pts.append((cx, ly))
+        rtip = f"<br>回款下单率&nbsp;{ratio:.1f}%" if ratio is not None else "<br>回款下单率&nbsp;—（当月无下单）"
+        _o = f"{fmt_wan(_order)}万"
+        hits.append(f'<rect class="hit" data-tip="{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{_o}{rtip}" '
+                    f'x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
+    if len(line_pts) >= 2:
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.5" '
+                     f'stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 4px {ORANGE})"/>')
+    for x, y in line_pts:
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{ORANGE}"/>')
+    legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额</span>'
+              f'<span><i style="background:{ORANGE}"></i>回款下单率</span>'
+              f'<span style="margin-left:auto;color:{MUT2}">悬浮看当月回款/下单/率</span></div>')
+    return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
 
 def hbar_list(items: list[tuple[str, float]], color: str = BLUE) -> str:

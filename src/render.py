@@ -16,6 +16,35 @@ GROUP_COLORS = {"营销费用": "var(--blue)", "管理费用": "var(--purple)", 
 LED_OF = {"营销费用": "市场费用", "管理费用": "管理费用", "固定运营费用": "固定运营费用",
           "研发费用": "技术服务费", "财务费用": "财务费用"}
 
+# 基本情况 KPI 卡（陆总口径：4 张，各配环比+迷你趋势线）：(标签, 取值键, 来源, 涨为好, 附率键, 趋势线色)
+KPI_CARDS = [
+    ("收入", "revenue_net", "智云·交付额÷1.06", True, None, "var(--blue)"),
+    ("成本费用合计", "_cost_total", "生产成本＋期间费用", False, None, "var(--cost)"),
+    ("税前利润", "pretax_profit", "毛利−费用−附加税+其他", True, "pretax_margin_pct", "var(--pos)"),
+    ("回款额", "receipts", "智云·回款(到账)", True, None, "var(--teal)"),
+]
+# 回款下单率防误读小字（回款柱图 + 回款额卡下方两处都放，防姜总误读）
+RECEIPT_NOTE = "当月回款多对应往月下单，反映资金回笼节奏，非当月回收率"
+
+
+def _kpi_val(p, key):
+    """KPI 取值：成本费用合计=生产成本+期间费用（展示聚合，非新口径），其余直接取。"""
+    if key == "_cost_total":
+        return p["production_cost"] + p["expense"]["total"]
+    return p[key]
+
+
+def _prev_period_key(pkey, year):
+    """环比的上一同粒度周期 key：年→无（缺上年数据）；季→上季(Q1无)；月→上月(1月无)。"""
+    yk = f"{year}年"
+    if pkey == yk:
+        return None
+    if "Q" in pkey:
+        q = int(pkey.split("Q")[1])
+        return f"{yk}Q{q - 1}" if q > 1 else None
+    m = int(pkey.split("年")[1].replace("月", ""))
+    return f"{yk}{m - 1}月" if m > 1 else None
+
 
 def _wan(v):
     return charts.fmt_wan(v) + "万"
@@ -29,19 +58,45 @@ def _amt(v, colored=False, muted=False):
     return f'<span class="{cls}">{s}</span>'
 
 
-# ---------- 板块① 基本情况（单周期，5 KPI）----------
-def render_basic(p):
-    def card(label, val, src, is_pct=False):
-        v = f'{val:.1f}<span class="u">%</span>' if is_pct else f'{charts.fmt_wan(val)}<span class="u">万</span>'
-        return (f'<div class="kpi"><div class="kpi-l">{label}</div>'
-                f'<div class="kpi-cum">{v}</div><div class="kpi-src">{src}</div></div>')
-    return ('<div class="kpi-grid">'
-            + card("下单额", p["orders"], "智云·下单")
-            + card("回款额", p["receipts"], "智云·回款(到账)")
-            + card("收入", p["revenue_net"], "智云·交付额÷1.06")
-            + card("毛利率", p["gross_margin_pct"], "(收入−生产成本)/收入", True)
-            + card("税前利润率", p["pretax_margin_pct"], "税前利润/收入", True)
-            + '</div>')
+# ---------- 板块① 基本情况（单周期，4 KPI：值+环比+迷你趋势线）----------
+def _spark_cache(P, month_keys):
+    """每张卡的迷你趋势线（全年逐月，与所选周期无关）——一次算好、各周期视图共用。"""
+    cache = {}
+    for _, key, _, _, _, color in KPI_CARDS:
+        cache[key] = charts.sparkline([_kpi_val(P[mk], key) for mk in month_keys], color)
+    return cache
+
+
+def render_basic(pkey, P, year, spark_cache):
+    p = P[pkey]
+    prev = _prev_period_key(pkey, year)
+    cards = ""
+    for label, key, src, up_good, pctkey, _color in KPI_CARDS:
+        val = _kpi_val(p, key)
+        vhtml = f'{charts.fmt_wan(val)}<span class="u">万</span>'
+        # 环比上期（同粒度）：涨/跌方向配"favorable"上色，成本涨=红、收入涨=绿
+        if prev is not None and _kpi_val(P[prev], key):
+            pv = _kpi_val(P[prev], key)
+            d = (val - pv) / abs(pv) * 100
+            good = (d >= 0) == up_good
+            arrow = "▲" if d >= 0 else "▼"
+            delta = f'<div class="kpi-delta {"up" if good else "down"}">{arrow} {abs(d):.1f}% <span>环比上期</span></div>'
+        else:
+            delta = '<div class="kpi-delta muted">— 无上期对比</div>'
+        # 附加行：税前利润卡显利润率；回款额卡显总回款下单率 + 防误读小字
+        sub = ""
+        if pctkey:
+            sub = f'<div class="kpi-sub">利润率 <b>{p[pctkey]:.1f}%</b></div>'
+        if key == "receipts":
+            r = p["receipt_order_ratio_pct"]
+            rtxt = f'{r:.1f}%' if r is not None else '—'
+            sub = (f'<div class="kpi-sub">总回款下单率 <b>{rtxt}</b></div>'
+                   f'<div class="kpi-note">{RECEIPT_NOTE}</div>')
+        cards += (f'<div class="kpi"><div class="kpi-l">{label}</div>'
+                  f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}'
+                  f'<div class="kpi-spark">{spark_cache[key]}</div>'
+                  f'<div class="kpi-src">{src}</div></div>')
+    return f'<div class="kpi-grid">{cards}</div>'
 
 
 # ---------- 板块②-1 收入毛利趋势（整年，静态）----------
@@ -152,23 +207,28 @@ def render_pl_table(p, fine):
     return f'<div class="pl">{"".join(rows)}</div>{kinds}'
 
 
-# ---------- 板块②-3 回款按月（整年，静态）----------
-def render_receipts(receipt_monthly):
-    return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 只取到账额（不含核销）</span></div>'
-            f'{charts.month_bar_chart(receipt_monthly)}</div>')
+# ---------- 板块②-3 回款按月（整年，静态）+ 每月回款下单率线 ----------
+def render_receipts(receipt_order_monthly):
+    return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 柱=到账额，线=每月回款下单率</span></div>'
+            f'{charts.receipt_order_chart(receipt_order_monthly)}'
+            f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div>')
 
 
-# ---------- 全局周期选择器 ----------
+# ---------- 全局周期选择器（下拉菜单）----------
 def render_period_bar(summary):
     tg = summary["meta"]["tab_groups"]
     yk = summary["meta"]["year_key"]
-    btns = f'<button class="pbtn on" data-blk="{yk}">{summary["meta"]["year"]}年</button><span class="pbar-sep"></span>'
-    for q in tg["季度"]:
-        btns += f'<button class="pbtn" data-blk="{q}">{q.split("年")[1]}</button>'
-    btns += '<span class="pbar-sep"></span>'
-    for m in tg["月"]:
-        btns += f'<button class="pbtn" data-blk="{m}">{m.split("年")[1]}</button>'
-    return f'<div class="pbar"><span class="pbar-l">看哪段</span>{btns}</div>'
+    opts = f'<optgroup label="年"><option value="{yk}" selected>{summary["meta"]["year"]}年</option></optgroup>'
+    if tg["季度"]:
+        opts += ('<optgroup label="季度">'
+                 + "".join(f'<option value="{q}">{q.split("年")[1]}</option>' for q in tg["季度"])
+                 + '</optgroup>')
+    if tg["月"]:
+        opts += ('<optgroup label="月">'
+                 + "".join(f'<option value="{m}">{m.split("年")[1]}</option>' for m in tg["月"])
+                 + '</optgroup>')
+    return (f'<div class="pbar"><label class="pbar-l" for="periodSel">看哪段</label>'
+            f'<select id="periodSel" class="psel" aria-label="选择周期">{opts}</select></div>')
 
 
 def _pv(key, default_key, inner):
@@ -183,10 +243,9 @@ JS = """
  try{setL(localStorage.getItem('cockpit-theme')==='light');}catch(e){}
  btn.addEventListener('click',function(){var l=!root.classList.contains('theme-light');setL(l);
    try{localStorage.setItem('cockpit-theme',l?'light':'dark');}catch(e){}});
- document.querySelectorAll('.pbtn').forEach(function(b){b.addEventListener('click',function(){
-   var k=b.getAttribute('data-blk');
-   document.querySelectorAll('.pbtn').forEach(function(x){x.classList.toggle('on',x===b);});
-   document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===k?'':'none';});});});
+ var psel=document.getElementById('periodSel');
+ if(psel){psel.addEventListener('change',function(){var k=psel.value;
+   document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===k?'':'none';});});}
  document.addEventListener('click',function(e){var p=e.target.closest('.pl-row.parent');if(!p)return;
    var k=p.getAttribute('data-p'),on=p.classList.toggle('open');
    p.parentNode.querySelectorAll('.pl-child[data-c="'+k+'"]').forEach(function(c){
@@ -302,7 +361,9 @@ def render_dashboard(summary, cfg, logo_b64):
     banner = (f'<div class="banner"><b>提示</b> 收单台账有 {unc["count"]} 笔未填「对应报表大类」（{_wan(unc["amount"])}），未计入费用，请补分类。</div>'
               if unc["count"] else "")
 
-    kpi_views = "".join(_pv(k, yk, render_basic(P[k])) for k in all_keys)
+    month_keys = meta["tab_groups"]["月"]
+    spark_cache = _spark_cache(P, month_keys)
+    kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], spark_cache)) for k in all_keys)
     donut_views = "".join(_pv(k, yk, render_donut(P[k])) for k in all_keys)
     pl_views = "".join(_pv(k, yk, render_pl_table(P[k], FT.get(k, {}))) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
@@ -332,7 +393,7 @@ def render_dashboard(summary, cfg, logo_b64):
    <div>{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
- <div style="margin-top:16px">{render_receipts(summary['receipt_monthly'])}</div>
+ <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'])}</div>
 
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；

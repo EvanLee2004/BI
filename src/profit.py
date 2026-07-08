@@ -164,6 +164,11 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     period_expense = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
     pretax = round(gross_profit - period_expense - surtax + other_pl, 2)
 
+    orders_amt = compute_orders(order_rows, cols_cfg, start, end)
+    receipts_amt = compute_receipts(receipt_rows, cols_cfg, start, end)
+    # 回款下单率 = 本期回款 ÷ 本期下单（资金回笼节奏参考，非当期回收率）；无下单则无意义置 None
+    receipt_order_ratio = round(receipts_amt / orders_amt * 100, 2) if orders_amt else None
+
     return {
         "label": label,
         "delivery_count": rc["delivery_count"],
@@ -181,8 +186,9 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
         "surtax": surtax, "other_pl": other_pl,
         "pretax_profit": pretax,
         "pretax_margin_pct": round(pretax / net * 100, 2) if net else 0.0,
-        "orders": compute_orders(order_rows, cols_cfg, start, end),
-        "receipts": compute_receipts(receipt_rows, cols_cfg, start, end),
+        "orders": orders_amt,
+        "receipts": receipts_amt,
+        "receipt_order_ratio_pct": receipt_order_ratio,
     }
 
 
@@ -212,6 +218,9 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     trend = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["revenue_net"], P[k]["production_cost"],
               P[k]["gross_margin_pct"]) for k in month_keys]
     receipt_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"]) for k in month_keys]
+    # 回款柱图叠加"每月回款下单率"用：逐月 (标签, 回款, 下单, 回款下单率%)；率为 None 表示当月无下单
+    receipt_order_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"],
+                             P[k]["orders"], P[k]["receipt_order_ratio_pct"]) for k in month_keys]
 
     unclassified = columns.build_unclassified_summary(
         ledger_rows, cfg, lcols,
@@ -232,6 +241,7 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
         },
         "periods": P, "expense_fine_type": fine,
         "trend": trend, "receipt_monthly": receipt_monthly,
+        "receipt_order_monthly": receipt_order_monthly,
     }
 
 
