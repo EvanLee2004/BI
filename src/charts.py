@@ -91,8 +91,14 @@ def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_valu
                      f'L{x3:.1f} {y3:.1f} A{ri:.1f} {ri:.1f} 0 {large} 0 {x4:.1f} {y4:.1f} Z" fill="{color}"{tip}/>')
         start = end
     body = "".join(paths) or f'<circle cx="{cx}" cy="{cy}" r="{ro}" fill="{TRACK}"/>'
+    import math as _m
+    rmid = (ro + ri) / 2
+    sweep = (f'<circle class="donut-sweep" cx="{cx}" cy="{cy}" r="{rmid:.1f}" fill="none" stroke="#eafcff" '
+             f'stroke-width="{ro - ri:.1f}" stroke-dasharray="30 {2 * _m.pi * rmid:.0f}" stroke-linecap="round">'
+             f'<animateTransform attributeName="transform" type="rotate" from="0 {cx} {cy}" to="360 {cx} {cy}" '
+             f'dur="6s" repeatCount="indefinite"/></circle>')
     return (f'<svg viewBox="0 0 {size} {size}" style="max-width:100%;max-height:{size}px;display:block;margin:0 auto">'
-            f'{body}<text x="{cx}" y="{cy-6}" text-anchor="middle" font-size="12" fill="{MUT}">{center_label}</text>'
+            f'{body}{sweep}<text x="{cx}" y="{cy-6}" text-anchor="middle" font-size="12" fill="{MUT}">{center_label}</text>'
             f'<text x="{cx}" y="{cy+17}" text-anchor="middle" font-size="20" font-weight="700" fill="{INK}">{center_value}</text></svg>')
 
 
@@ -129,10 +135,10 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
         rh = max(1.0, rev / mx * plot_h); chh = max(1.0, cost / mx * plot_h)
         is_hl = highlight_label is not None and label == highlight_label
         # 趋势图每月柱子一样亮（都是真实数据，不调暗）；当前月只靠下方标签加粗做轻提示
-        parts.append(f'<rect x="{cx-bw-2:.1f}" y="{pt+plot_h-rh:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" '
-                     f'fill="{BLUE}" style="filter:drop-shadow(0 0 5px {BLUE})"/>')
-        parts.append(f'<rect x="{cx+2:.1f}" y="{pt+plot_h-chh:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" '
-                     f'fill="{COST}"/>')
+        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {BLUE})" '
+                     f'x="{cx-bw-2:.1f}" y="{pt+plot_h-rh:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" fill="{BLUE}"/>')
+        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s" '
+                     f'x="{cx+2:.1f}" y="{pt+plot_h-chh:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" fill="{COST}"/>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+18:.1f}" text-anchor="middle" font-size="11.5" '
                      f'font-weight="{"700" if is_hl else "400"}" fill="{INK if is_hl else MUT}">{label}</text>')
         ly = pt + plot_h * (1 - max(0.0, min(margin, 100.0)) / 100)
@@ -142,8 +148,13 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
                     f'height="{plot_h:.1f}" fill="transparent"/>')
     if len(line_pts) >= 2:
         poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.5" '
                      f'stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 4px {ORANGE})"/>')
+        parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2.5" '
+                     f'stroke-linejoin="round" stroke-linecap="round"/>')
+        parts.append(f'<circle class="comet" r="3.6" fill="#fff">'
+                     f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
     for x, y in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{ORANGE}"/>')
     legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>收入</span>'
@@ -173,8 +184,8 @@ def month_bar_chart(series: list[tuple[str, float]], color: str = BLUE) -> str:
     for i, (label, v) in enumerate(series):
         cx = pl + gw * i + gw / 2
         bh = max(1.0, v / mx * plot_h)
-        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" '
-                     f'fill="{color}" style="filter:drop-shadow(0 0 5px {color})"/>')
+        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
+                     f'x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+17:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
         hits.append(f'<rect class="hit" data-tip="{label}&nbsp;回款&nbsp;{fmt_wan(v)}万" x="{pl+gw*i:.1f}" '
                     f'y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
@@ -208,8 +219,8 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     for i, (label, rec, _order, ratio) in enumerate(series):
         cx = pl + gw * i + gw / 2
         bh = max(1.0, rec / mx * plot_h)
-        parts.append(f'<rect x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" '
-                     f'fill="{color}" style="filter:drop-shadow(0 0 5px {color})"/>')
+        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
+                     f'x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+17:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
         if ratio is not None:
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
@@ -220,8 +231,13 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
                     f'x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
     if len(line_pts) >= 2:
         poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.5" '
                      f'stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 4px {ORANGE})"/>')
+        parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2.5" '
+                     f'stroke-linejoin="round" stroke-linecap="round"/>')
+        parts.append(f'<circle class="comet" r="3.6" fill="#fff">'
+                     f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
     for x, y in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{ORANGE}"/>')
     legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额</span>'

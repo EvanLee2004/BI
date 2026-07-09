@@ -26,6 +26,33 @@ KPI_CARDS = [
 # 回款下单率防误读小字（回款柱图 + 回款额卡下方两处都放，防姜总误读）
 RECEIPT_NOTE = "当月回款多对应往月下单，反映资金回笼节奏，非当月回收率"
 
+# 右侧抽屉（点利润表大类看构成）——单例，放 body 末尾
+DRAWER_HTML = ('<div id="drawer" class="drawer" aria-hidden="true">'
+               '<div class="drawer-mask" data-close></div>'
+               '<aside class="drawer-panel" role="dialog" aria-modal="true">'
+               '<div class="drawer-h"><span id="drawerTitle"></span>'
+               '<button class="drawer-x" data-close aria-label="关闭">×</button></div>'
+               '<div class="drawer-body" id="drawerBody"></div></aside></div>')
+
+# 背景粒子流（科技风环境动效）——固定位置表，纯装饰、不进任何计算/回归
+# (left%, 直径px, 时长s, 延迟s, 颜色变量)
+_PARTICLES = [(4, 2, 20, -3, "--blue"), (9, 3, 15, -9, "--purple"), (15, 2, 22, -14, "--teal"),
+              (20, 2, 17, -5, "--blue"), (26, 3, 24, -18, "--purple"), (31, 2, 14, -2, "--teal"),
+              (37, 2, 21, -11, "--blue"), (43, 3, 27, -7, "--purple"), (48, 2, 16, -15, "--teal"),
+              (54, 2, 25, -20, "--teal"), (59, 2, 19, -12, "--blue"), (65, 3, 13, -6, "--purple"),
+              (70, 3, 26, -16, "--teal"), (76, 2, 18, -9, "--blue"), (81, 2, 23, -3, "--purple"),
+              (87, 2, 15, -13, "--teal"), (92, 3, 28, -8, "--blue"), (97, 2, 20, -17, "--purple"),
+              (12, 2, 12, -1, "--blue"), (34, 2, 30, -22, "--teal"), (46, 2, 11, -4, "--purple"),
+              (57, 3, 29, -10, "--teal"), (68, 2, 13, -19, "--blue"), (79, 2, 24, -6, "--purple"),
+              (90, 2, 16, -14, "--teal"), (24, 3, 21, -2, "--blue"), (50, 2, 27, -11, "--purple"),
+              (72, 2, 14, -7, "--teal")]
+PARTICLES_HTML = ('<div class="particles" aria-hidden="true">' + "".join(
+    f'<i style="left:{l}%;width:{s}px;height:{s}px;background:var({c});box-shadow:0 0 6px var({c});'
+    f'animation-duration:{d}s;animation-delay:{dl}s"></i>' for l, s, d, dl, c in _PARTICLES) + '</div>')
+
+# 磁力流体：跟随鼠标、带粘滞缓动拖尾的柔光（纯装饰）
+CURSOR_GLOW_HTML = '<div class="cursor-glow" aria-hidden="true"></div>'
+
 
 def _kpi_val(p, key):
     """KPI 取值：成本费用合计=生产成本+期间费用（展示聚合，非新口径），其余直接取。"""
@@ -124,7 +151,7 @@ def render_donut(p):
             f'<div class="legend">{legend}</div></div>')
 
 
-# ---------- 板块②-2 管理利润表（可展开 + 台账下钻细类）----------
+# ---------- 板块②-2 管理利润表（点大类→侧边抽屉看构成，主表定高不再顶下方图表）----------
 def _row(name, impact, kind, src="", total=False, grand=False):
     cls = "pl-row" + (" total grand" if grand else " total" if total else "")
     dot = f'<span class="dot {kind}"></span>' if kind else '<span class="dot none"></span>'
@@ -132,79 +159,84 @@ def _row(name, impact, kind, src="", total=False, grand=False):
     return f'<div class="{cls}">{dot}<div class="pl-name">{name}{src_html}</div>{_amt(impact, colored=(total or grand))}</div>'
 
 
-def _fine_rows(sub, fine_pairs, limit=8):
+def _open_row(cat, name, impact):
+    """可点大类行：点击弹出右侧抽屉看构成（不再就地展开、不顶下方图表）。"""
+    return (f'<div class="pl-row pl-open" data-cat="{cat}" role="button" tabindex="0">'
+            f'<span class="dot none"></span>'
+            f'<div class="pl-name">{name}<span class="pl-more">查看构成 ›</span></div>{_amt(impact)}</div>')
+
+
+def _drow(name, impact, kind, src="", sub=False):
+    """抽屉内明细行（始终展开、无需切换）。"""
+    cls = "pl-drow" + (" sub" if sub else "")
+    dot = f'<span class="dot {kind}"></span>' if kind else '<span class="dot none"></span>'
+    src_html = f'<span class="src">{src}</span>' if src else ""
+    return f'<div class="{cls}">{dot}<div class="pl-name">{name}{src_html}</div>{_amt(impact)}</div>'
+
+
+def _d_ledger(name, amount, src, fine_pairs, limit=8):
+    """抽屉内台账叶子 + 其费用明细细类（平铺，不再二次点开）。"""
+    out = _drow(name, -amount, "ledger", src)
     pairs = sorted(fine_pairs or [], key=lambda x: -x[1])
-    rows = ""
     for n, a in pairs[:limit]:
-        rows += (f'<div class="pl-row child gchild pl-child" data-c="{sub}">'
-                 f'<span class="dot none"></span><div class="pl-name">{n}</div>{_amt(-a)}</div>')
+        out += _drow(n, -a, "", "", sub=True)
     rest = pairs[limit:]
     if rest:
-        rows += (f'<div class="pl-row child gchild pl-child" data-c="{sub}"><span class="dot none"></span>'
-                 f'<div class="pl-name">其他{len(rest)}项</div>{_amt(-sum(a for _, a in rest))}</div>')
-    return rows
+        out += _drow(f"其他{len(rest)}项", -sum(a for _, a in rest), "", "", sub=True)
+    return out
 
 
-def _ledger_leaf(gkey, name, amount, src, fine_pairs):
-    """台账费用叶子：本身可再展开到费用明细细类（到'交通费总额'即止）。"""
-    sub = f"{gkey}_f"
-    if not fine_pairs:
-        return (f'<div class="pl-row child pl-child" data-c="{gkey}"><span class="dot ledger"></span>'
-                f'<div class="pl-name">{name}<span class="src">{src}</span></div>{_amt(-amount)}</div>')
-    head = (f'<div class="pl-row child parent pl-child" data-c="{gkey}" data-p="{sub}"><span class="dot ledger"></span>'
-            f'<div class="pl-name">{name}<span class="src">{src}·点开看明细</span></div>{_amt(-amount)}</div>')
-    return head + _fine_rows(sub, fine_pairs)
-
-
-def _manual_leaf(gkey, name, amount, src):
-    return (f'<div class="pl-row child pl-child" data-c="{gkey}"><span class="dot manual"></span>'
-            f'<div class="pl-name">{name}<span class="src">{src}</span></div>{_amt(-amount)}</div>')
-
-
-def _parent(key, name, impact, children_html):
-    head = (f'<div class="pl-row parent" data-p="{key}"><span class="dot none"></span>'
-            f'<div class="pl-name">{name}</div>{_amt(impact)}</div>')
-    return head + children_html
+def _detail_block(cat, title, inner):
+    return f'<div class="pl-detail" data-cat="{cat}" data-title="{title}">{inner}</div>'
 
 
 def render_pl_table(p, fine):
     e = p["expense"]; man = p["manual"]; led = p["ledger_expenses"]
-    # 生产成本手填6项逐行展示（陆总2026-07-08：不合成一个金额、别漏"实际内部译员成本"），求和仍在profit.py
-    prod_manual_names = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
-    def _cchild(name, impact, kind, src):
-        return (f'<div class="pl-row child pl-child" data-c="cost"><span class="dot {kind}"></span>'
-                f'<div class="pl-name">{name}<span class="src">{src}</span></div>{_amt(impact)}</div>')
+    # 生产成本手填6项（陆总2026-07-08：别漏"实际内部译员成本"），求和仍在profit.py
+    prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
+    # 主表只留一级行；费用大类点开→抽屉看构成
     rows = [_row("收入（不含税）", p["revenue_net"], "system", "智云交付额÷1.06")]
-    rows.append(_parent("cost", "成本（生产成本）", -p["production_cost"],
-        _cchild("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
-        + _cchild("减：系统内部译员成本", p["inhouse_cost"], "system", "in-house结算")
-        + "".join(_cchild(f"加：{n}", -man[n], "manual", "手填·默认上月") for n in prod_manual_names)))
+    rows.append(_open_row("cost", "成本（生产成本）", -p["production_cost"]))
     rows.append(_row("毛利", p["gross_profit"], "", total=True))
-    rows.append(_parent("sales", "营销费用", -e["营销费用"],
-        _manual_leaf("sales", "营销人力成本", man["营销人力成本"], "手填·默认上月")
-        + _ledger_leaf("sales", "市场费用", led["市场费用"], "台账", fine.get("市场费用"))))
-    rows.append(_parent("admin", "管理费用", -e["管理费用"],
-        _manual_leaf("admin", "管理人力成本", man["管理人力成本"], "手填·默认上月")
-        + _ledger_leaf("admin", "管理费用", led["管理费用"], "台账", fine.get("管理费用"))))
-    rows.append(_parent("fixed", "固定运营费用", -e["固定运营费用"],
-        _ledger_leaf("fixed", "固定运营费用明细", led["固定运营费用"], "台账", fine.get("固定运营费用"))))
-    rows.append(_parent("rd", "研发费用", -e["研发费用"],
-        _manual_leaf("rd", "研发人力成本", man["研发人力成本"], "手填·默认上月")
-        + _ledger_leaf("rd", "技术服务费", led["技术服务费"], "台账", fine.get("技术服务费"))))
-    rows.append(_parent("fin", "财务费用", -e["财务费用"],
-        _ledger_leaf("fin", "财务费用（台账）", led["财务费用"], "台账", fine.get("财务费用"))
-        + _manual_leaf("fin", "财务费用补充", man["财务费用补充"], "手填·多为银行自动扣")))
+    rows.append(_open_row("sales", "营销费用", -e["营销费用"]))
+    rows.append(_open_row("admin", "管理费用", -e["管理费用"]))
+    rows.append(_open_row("fixed", "固定运营费用", -e["固定运营费用"]))
+    rows.append(_open_row("rd", "研发费用", -e["研发费用"]))
+    rows.append(_open_row("fin", "财务费用", -e["财务费用"]))
     rows.append(_row("附加税费", -p["surtax"], "system", "收入×6%×12%"))
     rows.append(_row("其他损益", p["other_pl"], "manual", "手填·默认无"))
     rows.append(_row("税前利润", p["pretax_profit"], "", grand=True))
+
+    # 抽屉明细片段（每大类一块，藏起来；点击时 JS 拷进抽屉）
+    cost_inner = (_drow("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
+                  + _drow("减：系统内部译员成本", p["inhouse_cost"], "system", "in-house结算")
+                  + "".join(_drow(f"加：{n}", -man[n], "manual", "手填·默认上月") for n in prod_manual))
+    details = "".join([
+        _detail_block("cost", "成本（生产成本）构成", cost_inner),
+        _detail_block("sales", "营销费用构成",
+                      _drow("营销人力成本", -man["营销人力成本"], "manual", "手填·默认上月")
+                      + _d_ledger("市场费用", led["市场费用"], "台账", fine.get("市场费用"))),
+        _detail_block("admin", "管理费用构成",
+                      _drow("管理人力成本", -man["管理人力成本"], "manual", "手填·默认上月")
+                      + _d_ledger("管理费用", led["管理费用"], "台账", fine.get("管理费用"))),
+        _detail_block("fixed", "固定运营费用构成",
+                      _d_ledger("固定运营费用明细", led["固定运营费用"], "台账", fine.get("固定运营费用"))),
+        _detail_block("rd", "研发费用构成",
+                      _drow("研发人力成本", -man["研发人力成本"], "manual", "手填·默认上月")
+                      + _d_ledger("技术服务费", led["技术服务费"], "台账", fine.get("技术服务费"))),
+        _detail_block("fin", "财务费用构成",
+                      _d_ledger("财务费用（台账）", led["财务费用"], "台账", fine.get("财务费用"))
+                      + _drow("财务费用补充", -man["财务费用补充"], "manual", "手填·多为银行自动扣")),
+    ])
     kinds = ('<div class="kinds"><span class="ktip" data-tip="智云系统自动取数（项目明细/任务/下单/回款）">'
              '<i style="background:var(--kind-system)"></i>智云系统</span>'
              '<span class="ktip" data-tip="财务收单台账取数，可在台账里改">'
              '<i style="background:var(--kind-ledger)"></i>收单台账</span>'
              '<span class="ktip" data-tip="手填与调整表（系统没有的数，财务每月填，不填默认上月）">'
              '<i style="background:var(--kind-manual)"></i>手填与调整表</span>'
-             '<span style="margin-left:auto;color:var(--mut2)">点大类展开构成，台账项再点看费用明细</span></div>')
-    return f'<div class="pl">{"".join(rows)}</div>{kinds}'
+             '<span style="margin-left:auto;color:var(--mut2)">点费用大类 → 右侧看构成明细</span></div>')
+    return (f'<div class="pl">{"".join(rows)}</div>{kinds}'
+            f'<div class="pl-details" hidden>{details}</div>')
 
 
 # ---------- 板块②-3 回款按月（整年，静态）+ 每月回款下单率线 ----------
@@ -246,18 +278,31 @@ JS = """
  var psel=document.getElementById('periodSel');
  if(psel){psel.addEventListener('change',function(){var k=psel.value;
    document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===k?'':'none';});});}
- document.addEventListener('click',function(e){var p=e.target.closest('.pl-row.parent');if(!p)return;
-   var k=p.getAttribute('data-p'),on=p.classList.toggle('open');
-   p.parentNode.querySelectorAll('.pl-child[data-c="'+k+'"]').forEach(function(c){
-     c.classList.toggle('on',on);
-     if(!on&&c.classList.contains('parent')){c.classList.remove('open');
-       var k2=c.getAttribute('data-p');
-       p.parentNode.querySelectorAll('.pl-child[data-c="'+k2+'"]').forEach(function(g){g.classList.remove('on');});}});});
+ // 利润表大类 → 右侧抽屉看构成（主表定位不动、不再顶下方图表）
+ var dr=document.getElementById('drawer'),dbody=document.getElementById('drawerBody'),dttl=document.getElementById('drawerTitle');
+ function openDrawer(cat,scope){var el=scope.querySelector('.pl-detail[data-cat="'+cat+'"]');if(!el||!dr)return;
+   dttl.textContent=el.getAttribute('data-title');dbody.innerHTML=el.innerHTML;
+   dr.classList.add('open');dr.setAttribute('aria-hidden','false');}
+ function closeDrawer(){if(!dr)return;dr.classList.remove('open');dr.setAttribute('aria-hidden','true');}
+ document.addEventListener('click',function(e){
+   var op=e.target.closest('.pl-open');
+   if(op){openDrawer(op.getAttribute('data-cat'),op.closest('.pv')||document);return;}
+   if(e.target.closest('[data-close]'))closeDrawer();});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
  var tip=document.getElementById('tip');
  document.addEventListener('mousemove',function(e){var el=e.target.closest('[data-tip]');
    if(!el){tip.style.opacity=0;return;}tip.innerHTML=el.getAttribute('data-tip');tip.style.opacity=1;
    var x=e.clientX+14,y=e.clientY+14;if(x+tip.offsetWidth>innerWidth)x=e.clientX-tip.offsetWidth-14;
    if(y+tip.offsetHeight>innerHeight)y=e.clientY-tip.offsetHeight-14;tip.style.left=x+'px';tip.style.top=y+'px';});
+ // 磁力流体：柔光以粘滞缓动追随鼠标（拖尾滞后感）
+ var glow=document.querySelector('.cursor-glow');
+ if(glow&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)){
+   var tx=innerWidth/2,ty=innerHeight/2,gx=tx,gy=ty,shown=false;
+   addEventListener('mousemove',function(e){tx=e.clientX;ty=e.clientY;
+     if(!shown){shown=true;glow.style.opacity=1;}});
+   (function loop(){gx+=(tx-gx)*0.12;gy+=(ty-gy)*0.12;
+     glow.style.transform='translate('+gx+'px,'+gy+'px)';requestAnimationFrame(loop);})();
+ }
 })();
 """
 
@@ -374,8 +419,11 @@ def render_dashboard(summary, cfg, logo_b64):
     export_json = json.dumps(export_book.build_export_book(summary, cfg), ensure_ascii=False).replace("</", "<\\/")
 
     body = f"""
+{PARTICLES_HTML}
+{CURSOR_GLOW_HTML}
+<div class="scanline" aria-hidden="true"></div>
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
- <span class="tb-right"><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 <div class="wrap">
@@ -396,6 +444,7 @@ def render_dashboard(summary, cfg, logo_b64):
   数据源：智云项目明细/任务/下单/回款 + 收单台账 + 手填与调整表。
  </div>
 </div>
+{DRAWER_HTML}
 <div id="tip"></div>
 <script type="application/json" id="cockpit-export">{export_json}</script>
 <script>{JS}{EXPORT_JS}</script>

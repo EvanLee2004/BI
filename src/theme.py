@@ -6,14 +6,15 @@
 def get_css() -> str:
     return """
 :root{
-  --bg:#070b16; --panel:rgba(20,28,50,.60); --panel-2:rgba(28,38,66,.70); --panel-solid:#121a30;
-  --line:rgba(125,211,252,.14); --line-2:rgba(125,211,252,.22);
-  --ink:#e8eefb; --mut:#93a1c0; --mut2:#5f6d92;
+  --bg:#04060d; --panel:rgba(16,24,46,.55); --panel-2:rgba(26,36,64,.72); --panel-solid:#0d1526;
+  --line:rgba(125,211,252,.16); --line-2:rgba(125,211,252,.30);
+  --ink:#eaf1ff; --mut:#93a1c0; --mut2:#5f6d92;
   --blue:#22d3ee; --cost:#64769e; --pos:#34d399; --neg:#fb7185; --orange:#fbbf24;
   --purple:#c084fc; --teal:#2dd4bf; --track:rgba(148,163,184,.14);
   --kind-system:#38bdf8; --kind-ledger:#c084fc; --kind-manual:#fbbf24;
-  --accent:#22d3ee; --radius:14px;
-  --tb:rgba(8,12,24,.72); --glow:0 0 22px rgba(34,211,238,.10);
+  --accent:#22d3ee; --radius:12px;
+  --num-font:"DIN Alternate","SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --tb:rgba(6,10,22,.78); --glow:0 0 26px rgba(34,211,238,.14);
 }
 .theme-light{
   --bg:#eef1f5; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
@@ -33,7 +34,10 @@ body{
   background-image:
     radial-gradient(680px 460px at 8% -6%, rgba(34,211,238,.10), transparent 60%),
     radial-gradient(720px 520px at 100% 4%, rgba(192,132,252,.10), transparent 62%),
-    radial-gradient(620px 620px at 46% 108%, rgba(45,212,191,.08), transparent 60%);
+    radial-gradient(620px 620px at 46% 108%, rgba(45,212,191,.08), transparent 60%),
+    linear-gradient(rgba(125,211,252,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,211,252,.05) 1px, transparent 1px);
+  background-size:auto,auto,auto,46px 46px,46px 46px;
   background-attachment:fixed; min-height:100vh;
 }
 .theme-light body,body.theme-light{background-image:none}
@@ -108,12 +112,16 @@ body{
 .pl-row.total .pl-amt{font-size:16px;font-weight:800}
 .pl-row.grand{margin-top:4px;background:linear-gradient(90deg,rgba(34,211,238,.08),transparent);
   border-radius:8px;padding:12px 8px}
-.pl-row.parent{cursor:pointer}
+.pl-row.parent{cursor:pointer;transition:background .15s ease}
+.pl-row.parent:hover{background:var(--track)}
+.pl-row.child.parent:hover{background:var(--panel-2)}
 .pl-row.parent .pl-name::after{content:"›";margin-left:2px;color:var(--mut2);
   transform:rotate(90deg);display:inline-block;transition:.2s;font-size:15px}
 .pl-row.parent.open .pl-name::after{transform:rotate(-90deg)}
-.pl-child{display:none}
-.pl-child.on{display:grid}
+/* 平滑手风琴：用 max-height/opacity/padding 过渡替掉 display 切换（display 无法过渡→原来生硬弹开+整页猛跳）*/
+.pl-child{display:grid;overflow:hidden;max-height:0;opacity:0;padding-top:0;padding-bottom:0;
+  transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .24s ease,padding .32s cubic-bezier(.4,0,.2,1)}
+.pl-child.on{max-height:72px;opacity:1;padding-top:9px;padding-bottom:9px}
 .pl-row.child{padding-left:8px;background:var(--track);border-bottom:1px solid transparent}
 .pl-row.child .pl-name{font-size:12.5px;color:var(--mut);padding-left:14px}
 .pl-row.child .pl-amt{font-size:12.5px;font-weight:500;color:var(--mut)}
@@ -173,6 +181,156 @@ body{
 .pl-row.child.parent .pl-name{cursor:pointer}
 
 .pos{color:var(--pos)} .neg{color:var(--neg)}
+
+/* ==================== 动效层（纯 CSS · 不碰金额 · 不改任何数字 · 守"前端不算数"铁律）==================== */
+/* —— 一次性入场 —— */
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.pbar,.sec,.kpi,.card,.faint-note,.foot{animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both}
+.pbar{animation-delay:.02s}
+.sec{animation-delay:.05s}
+.kpi-grid .kpi:nth-child(1){animation-delay:.10s}
+.kpi-grid .kpi:nth-child(2){animation-delay:.16s}
+.kpi-grid .kpi:nth-child(3){animation-delay:.22s}
+.kpi-grid .kpi:nth-child(4){animation-delay:.28s}
+.card{animation-delay:.18s}
+.kpi{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.kpi:hover{transform:translateY(-3px);border-color:var(--line-2);box-shadow:0 10px 28px rgba(0,0,0,.22),var(--glow)}
+
+/* —— 持续流动（环境动效·科技感）—— */
+/* 背景光晕缓慢漂移 */
+@keyframes auroraDrift{0%,100%{background-position:0% 0%,0% 0%,0% 0%}50%{background-position:4% 3%,-4% 4%,3% -3%}}
+body{animation:auroraDrift 30s ease-in-out infinite}
+/* 柱子从底部生长 + 持续呼吸（grow 一次，breathe 无限）；stagger delay 在 charts.py 内联 */
+@keyframes barBreathe{0%,100%{opacity:.82}50%{opacity:1}}
+.bar{transform-box:fill-box;transform-origin:bottom;
+  animation:barGrow .7s cubic-bezier(.2,.75,.25,1) both,barBreathe 4.5s ease-in-out infinite}
+/* 折线流光：一道白色短光沿线游走（底线仍是实线）*/
+@keyframes lineflow{to{stroke-dashoffset:-226}}
+.flowline{stroke-dasharray:16 210;opacity:.85;filter:drop-shadow(0 0 5px #fff);animation:lineflow 3.2s linear infinite}
+/* 税前利润柔和呼吸发光 */
+@keyframes heroGlow{0%,100%{text-shadow:0 0 0 rgba(52,211,153,0)}50%{text-shadow:0 0 16px rgba(52,211,153,.55)}}
+.pl-row.grand .pl-amt{animation:heroGlow 3.6s ease-in-out infinite}
+/* KPI 左侧色条微光下扫 */
+@keyframes kpiShimmer{0%{background-position-y:-40%}100%{background-position-y:140%}}
+.kpi::before{background:linear-gradient(180deg,transparent 0,rgba(255,255,255,.55) 50%,transparent 100%) left top/100% 40% no-repeat,var(--accent);
+  animation:kpiShimmer 3.6s ease-in-out infinite}
+/* 背景粒子上浮 */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.particles i{position:absolute;bottom:-12px;border-radius:50%;opacity:0;
+  animation-name:floatUp;animation-timing-function:linear;animation-iteration-count:infinite}
+@keyframes floatUp{0%{transform:translateY(0);opacity:0}12%{opacity:.6}88%{opacity:.45}100%{transform:translateY(-104vh);opacity:0}}
+.wrap{position:relative;z-index:1}
+
+/* —— 图表级重效果：卡片玻璃流光斜扫 / 飞线彗星 / 环形扫光 / 磁力流体 —— */
+/* 卡片流光：一道斜向亮带周期扫过（入场 riseIn 与流光 cardSheen 合并，避免互相覆盖）*/
+@keyframes cardSheen{0%{background-position:200% 0}60%,100%{background-position:-70% 0}}
+.kpi,.card{background-color:var(--panel);
+  background-image:linear-gradient(115deg,transparent 37%,rgba(130,225,255,.09) 47%,rgba(130,225,255,.03) 55%,transparent 65%);
+  background-size:260% 100%;background-repeat:no-repeat;
+  animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both,cardSheen 6.5s ease-in-out infinite}
+.kpi-grid .kpi:nth-child(1){animation-delay:.10s,0s}
+.kpi-grid .kpi:nth-child(2){animation-delay:.16s,.9s}
+.kpi-grid .kpi:nth-child(3){animation-delay:.22s,1.8s}
+.kpi-grid .kpi:nth-child(4){animation-delay:.28s,2.7s}
+.card{animation-delay:.18s,1.3s}
+.theme-light .kpi,.theme-light .card{background-image:none;animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both}
+/* 折线飞线彗星（沿线飞行的发光头）*/
+.comet{filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 11px var(--orange))}
+/* 环形图旋转扫光 */
+.donut-sweep{opacity:.16;mix-blend-mode:screen;filter:blur(1px)}
+.theme-light .donut-sweep{display:none}
+/* 磁力流体：跟随鼠标、粘滞缓动拖尾的柔光 */
+.cursor-glow{position:fixed;left:0;top:0;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;
+  pointer-events:none;z-index:3;opacity:0;transition:opacity .5s;mix-blend-mode:screen;
+  background:radial-gradient(circle,rgba(34,211,238,.13),rgba(124,132,255,.06) 45%,transparent 66%)}
+.theme-light .cursor-glow{display:none}
+
+/* —— 右侧抽屉（点利润表大类看构成）—— */
+.drawer{position:fixed;inset:0;z-index:60;visibility:hidden}
+.drawer.open{visibility:visible}
+.drawer-mask{position:absolute;inset:0;background:rgba(4,8,20,.5);opacity:0;transition:opacity .3s;
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.drawer.open .drawer-mask{opacity:1}
+.drawer-panel{position:absolute;top:0;right:0;height:100%;width:min(430px,92vw);background:var(--panel-solid);
+  border-left:1px solid var(--line-2);box-shadow:-14px 0 44px rgba(0,0,0,.45);transform:translateX(100%);
+  transition:transform .34s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.drawer.open .drawer-panel{transform:none}
+.drawer-h{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;
+  border-bottom:1px solid var(--line);flex:0 0 auto}
+.drawer-h span{font-size:15px;font-weight:700;color:var(--ink)}
+.drawer-x{cursor:pointer;background:none;border:0;color:var(--mut);font-size:24px;line-height:1;padding:0 6px;font-family:inherit}
+.drawer-x:hover{color:var(--ink)}
+.drawer-body{padding:6px 20px 26px;overflow-y:auto}
+/* 可点大类行 + 抽屉内明细行 */
+.pl-open{cursor:pointer;transition:background .15s ease}
+.pl-open:hover{background:var(--track)}
+.pl-more{font-size:10.5px;color:var(--accent);opacity:.85;margin-left:6px;font-weight:600}
+.pl-drow{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.pl-drow:last-child{border-bottom:0}
+.pl-drow .pl-name{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.pl-drow .pl-name .src{font-size:10.5px;color:var(--mut2)}
+.pl-drow.sub .pl-name{padding-left:22px;font-size:12px;color:var(--mut)}
+.pl-drow.sub .pl-name .src{display:none}
+.pl-drow .pl-amt{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.pl-drow.sub .pl-amt{font-weight:500;color:var(--mut)}
+
+/* 尊重系统"减少动态效果"偏好：全部降为静态 */
+@media(prefers-reduced-motion:reduce){
+  .pbar,.sec,.kpi,.card,.faint-note,.foot,.bar,body,.pl-row.grand .pl-amt,.kpi::before,.donut-sweep{animation:none}
+  .flowline,.particles,.comet,.donut-sweep,.cursor-glow{display:none}
+  .kpi,.card{background-image:none}
+  .kpi:hover{transform:none}
+  .drawer-panel{transition:none}
+}
+
+/* ==================== FUI 科技大屏层（框线/角标/网格/扫描·纯装饰不碰数据）==================== */
+/* 数字用等宽数码字体 + 辉光 */
+.kpi-cum,.pl-amt,.pl-drow .pl-amt,.hbar-v{font-family:var(--num-font)}
+.kpi-cum{font-size:29px;text-shadow:0 0 18px rgba(34,211,238,.30)}
+.theme-light .kpi-cum{text-shadow:none}
+
+/* 面板四角发光角标（FUI 特征）——所有 .card 与 KPI */
+.card{position:relative;border-color:var(--line-2)}
+.card::before,.card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;
+  opacity:.55;transition:opacity .25s;filter:drop-shadow(0 0 4px var(--accent))}
+.card::before{top:7px;left:7px;border-top:2px solid var(--accent);border-left:2px solid var(--accent)}
+.card::after{bottom:7px;right:7px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
+.card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(34,211,238,.12),var(--glow)}
+.card:hover::before,.card:hover::after{opacity:1}
+.kpi::after{content:"";position:absolute;top:7px;right:7px;width:12px;height:12px;pointer-events:none;
+  border-top:2px solid var(--accent);border-right:2px solid var(--accent);opacity:.5;
+  filter:drop-shadow(0 0 3px var(--accent))}
+/* 卡片标题前发光竖条 */
+.card-h::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);flex:0 0 auto}
+
+/* HUD 分区标题：斜切角标序号 + 发光标题 + 向右延伸装饰线 */
+.sec{align-items:center}
+.sec-n{color:#04101c;background:var(--accent);border:0;border-radius:0;padding:3px 11px;letter-spacing:1px;
+  clip-path:polygon(0 0,100% 0,100% 68%,86% 100%,0 100%);box-shadow:0 0 14px rgba(34,211,238,.5)}
+.sec-t{font-size:18px;font-weight:700;letter-spacing:1px;text-shadow:0 0 12px rgba(34,211,238,.25)}
+.theme-light .sec-t{text-shadow:none}
+.sec::after{content:"";flex:1;height:1px;margin-left:4px;
+  background:linear-gradient(90deg,var(--line-2),transparent)}
+
+/* 顶栏 HUD 化：底部发光线 + 标题辉光 + 实时脉冲点 */
+.topbar{border-bottom:1px solid var(--line-2);box-shadow:0 3px 24px rgba(0,0,0,.45)}
+.tb-title b{text-shadow:0 0 12px var(--accent)}
+.live{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--pos);letter-spacing:.5px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--pos);box-shadow:0 0 8px var(--pos);
+  animation:livePulse 1.8s ease-in-out infinite}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* 科技网格背景已烤进 body 背景（随 attachment:fixed，避免独立 fixed 层滚动重绘故障；浅色置空见顶部规则）*/
+/* 全屏扫描线缓慢下扫 */
+.scanline{position:fixed;left:0;right:0;top:0;height:130px;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(34,211,238,.06) 55%,rgba(34,211,238,.10),transparent);
+  animation:scan 8s linear infinite}
+@keyframes scan{0%{transform:translateY(-150px)}100%{transform:translateY(102vh)}}
+.theme-light .scanline{display:none}
+
+@media(prefers-reduced-motion:reduce){.scanline{display:none}.live i{animation:none}}
 
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
