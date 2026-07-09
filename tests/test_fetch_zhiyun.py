@@ -43,6 +43,12 @@ class TestParseCell(unittest.TestCase):
         c = ctrl("c1", "坏")
         self.assertEqual(fz.parse_cell("[not json", c), "[not json")
 
+    def test_cell_already_object(self):
+        c = ctrl("c1", "人")
+        self.assertEqual(fz.parse_cell([{"fullname": "于占国"}], c), "于占国")
+        c2 = ctrl("c2", "单选", options=[{"key": "k1", "value": "美元"}])
+        self.assertEqual(fz.parse_cell(["k1"], c2), "美元")
+
 
 class TestRowsToRecords(unittest.TestCase):
     def test_maps_control_names(self):
@@ -81,6 +87,17 @@ class TestPagination(unittest.TestCase):
     def test_empty_table(self):
         rows = fz.fetch_all_rows(lambda p, b: {"data": {"data": []}}, "ws1", "app1")
         self.assertEqual(rows, [])
+
+    def test_runaway_pagination_raises(self):
+        full = [{"i": 1}] * fz.PAGE_SIZE  # 永远回满页 → 必须撞上限而不是死循环
+        with self.assertRaises(RuntimeError):
+            fz.fetch_all_rows(lambda p, b: {"data": {"data": full}}, "ws1", "app1")
+
+    def test_write_empty_records_raises(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(ValueError):
+                fz.write_records_xlsx([], Path(td) / "x.xlsx")
 
 
 class TestFetchSourceStates(unittest.TestCase):

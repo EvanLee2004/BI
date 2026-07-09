@@ -41,6 +41,7 @@ SOURCES = {
 }
 
 PAGE_SIZE = 1000
+MAX_PAGES = 500  # 翻页安全上限（50万行，远超任何表；防接口异常时死循环）
 
 
 # ---------- 纯函数层（离线可测） ----------
@@ -49,13 +50,16 @@ def parse_cell(cell, ctrl: dict) -> str:
     """按明道云字段类型把单元格解析成导出同款文本（成员/部门/选项/关联通用，解析失败回退原串）。"""
     if cell in (None, ""):
         return ""
-    s = str(cell)
-    if s[:1] not in ("[", "{"):
-        return s
-    try:
-        v = json.loads(s)
-    except (ValueError, TypeError):
-        return s
+    if isinstance(cell, (list, dict)):  # 已是对象（个别接口不回 JSON 串）直接走结构解析
+        v, s = cell, json.dumps(cell, ensure_ascii=False)
+    else:
+        s = str(cell)
+        if s[:1] not in ("[", "{"):
+            return s
+        try:
+            v = json.loads(s)
+        except (ValueError, TypeError):
+            return s
     if not isinstance(v, list):
         return s
     if v and isinstance(v[0], str):  # 选项 key → 中文
@@ -87,7 +91,7 @@ def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str
 def fetch_all_rows(post, worksheet_id: str, app_id: str) -> list[dict]:
     """翻页拉全量。post(path, body)->dict 由调用方注入（真实 requests 或测试桩）。"""
     out, page = [], 1
-    while True:
+    while page <= MAX_PAGES:
         body = {"worksheetId": worksheet_id, "appId": app_id, "pageSize": PAGE_SIZE,
                 "pageIndex": page, "status": 1, "sortControls": [],
                 "notGetTotal": page > 1, "searchType": 1, "keyWords": "",
@@ -98,10 +102,13 @@ def fetch_all_rows(post, worksheet_id: str, app_id: str) -> list[dict]:
         if len(rows) < PAGE_SIZE:
             return out
         page += 1
+    raise RuntimeError(f"翻页超过安全上限 {MAX_PAGES} 页仍未拉完，接口行为异常（拒收疑似坏数据）")
 
 
 def write_records_xlsx(records: list[dict[str, str]], dest: Path) -> None:
     """写成与人工导出同构的 xlsx（单 sheet、首行表头）。原子替换：先写临时文件再换名。"""
+    if not records:
+        raise ValueError("空数据不落盘（调用方应先走必需列护栏）")
     from openpyxl import Workbook
     wb = Workbook()
     ws = wb.active
