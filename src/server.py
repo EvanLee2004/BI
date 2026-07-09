@@ -280,6 +280,9 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   月份<select id="mY"></select><select id="mM"></select><button onclick="mLoad()">查询</button>
   <span class="muted">改手填即留痕（manual_历史），当月覆盖。</span>
   <div class="wrap"><table id="mTbl"></table></div>
+  <div class="note" style="margin-top:18px">年度预算（经营目标·全公司口径）：下单/回款两个年度数，年初定、年中改留痕；填了老板端回款图即出预算线与完成率。</div>
+  年份<select id="bY"></select>
+  <div class="wrap"><table id="bTbl"></table></div>
 </div>
 
 <div id="suspect" class="sec">
@@ -393,7 +396,23 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
     h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?map[it]:"（空）")+"</td>"+
     "<td><input id='"+id+"' size='12' value='"+(map[it]!=null?map[it]:"")+"'></td>"+
     "<td><button class='mini' onclick=\"mSave('"+encodeURIComponent(m)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
-  document.getElementById("mTbl").innerHTML=h;}
+  document.getElementById("mTbl").innerHTML=h;bLoad();}
+const BUDGET_METRICS=["下单年预算","回款年预算"];
+async function bLoad(){const sel=document.getElementById("bY");
+  if(!sel.options.length){const my=document.getElementById("mY");
+    sel.innerHTML=my.innerHTML;sel.value=my.value;sel.onchange=bLoad;}
+  const y=sel.value;const cur=await jget("/api/budget?year="+encodeURIComponent(y));
+  const map={};cur.forEach(x=>map[x["指标"]]=x["金额"]);
+  let h="<tr><th>指标</th><th>当前金额(元)</th><th>新值</th><th></th></tr>";
+  BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
+    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?map[it]:"（未填·图上无预算线）")+"</td>"+
+    "<td><input id='"+id+"' size='14' value='"+(map[it]!=null?map[it]:"")+"'></td>"+
+    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
+  document.getElementById("bTbl").innerHTML=h;}
+async function bSave(yEnc,itEnc,id){const v=document.getElementById(id).value.trim();
+  if(v===""||isNaN(parseFloat(v))){alert("请输入数字金额（元）");return;}
+  try{await jpost("/api/budget",{年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v)});
+    msg("已保存年度预算（留痕·驾驶舱已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
 async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.trim();if(v===""){alert("填金额");return;}
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
     msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
@@ -600,6 +619,36 @@ def create_app(cfg, root=None) -> FastAPI:
         conn = _conn()
         try:
             db.set_manual(conn, payload.get("归属月", ""), item, 金额, user)
+        finally:
+            conn.close()
+        recompute(cfg, root)
+        return {"status": "ok", "built_at": _state["built_at"]}
+
+    @app.get("/api/budget")
+    def api_budget_get(request: Request, year: str | None = None):
+        _require(request)
+        conn = _conn()
+        try:
+            return db.get_budget(conn, year)
+        finally:
+            conn.close()
+
+    @app.post("/api/budget")
+    def api_budget_set(request: Request, payload: dict = Body(default={})):
+        user = _require(request)
+        metric = payload.get("指标", "")
+        if metric not in db.BUDGET_METRICS:
+            raise HTTPException(status_code=400, detail=f"未知预算指标：{metric}")
+        year = str(payload.get("年份", "")).strip()
+        if not (year.isdigit() and len(year) == 4):
+            raise HTTPException(status_code=400, detail="年份须为4位数字")
+        try:
+            金额 = float(payload.get("金额"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="金额须为数字")
+        conn = _conn()
+        try:
+            db.set_budget(conn, year, metric, 金额, user)
         finally:
             conn.close()
         recompute(cfg, root)

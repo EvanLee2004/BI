@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
-BLUE = "var(--blue)"; COST = "var(--cost)"; ORANGE = "var(--orange)"
+BLUE = "var(--blue)"; COST = "var(--cost)"; ORANGE = "var(--orange)"; TEAL = "var(--teal)"
 POS = "var(--pos)"; NEG = "var(--neg)"; PURPLE = "var(--purple)"
 INK = "var(--ink)"; MUT = "var(--mut)"; MUT2 = "var(--mut2)"
 LINE = "var(--line)"; TRACK = "var(--track)"
@@ -192,7 +192,8 @@ def month_bar_chart(series: list[tuple[str, float]], color: str = BLUE) -> str:
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>'
 
 
-def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE) -> str:
+def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
+                        budget_month: float | None = None) -> str:
     """回款按月柱图 + 叠加"每月回款下单率"折线。series=[(label, 回款, 下单, 率%或None), ...]。
     率线按本串最大率归一（无第二坐标轴，精确值看悬浮，沿用组合图做法）；率为 None 的月不画点。"""
     w, h = 580, 210
@@ -202,6 +203,8 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     if n == 0:
         return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
     mx = max((v for _, v, _, _ in series), default=0) or 1
+    if budget_month:
+        mx = max(mx, budget_month * 1.15)  # 预算线要在图内，柱轴上限随之抬
     ratios = [r for _, _, _, r in series if r is not None]
     rmx = max(ratios) if ratios else 0
     rmx_axis = rmx or 1
@@ -229,6 +232,12 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         _o = f"{fmt_wan(_order)}万"
         hits.append(f'<rect class="hit" data-tip="{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{_o}{rtip}" '
                     f'x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
+    if budget_month:
+        by = pt + plot_h * (1 - budget_month / mx)
+        parts.append(f'<line x1="{pl}" y1="{by:.1f}" x2="{w-pr}" y2="{by:.1f}" stroke="{TEAL}" '
+                     f'stroke-width="1.6" stroke-dasharray="6 5" opacity="0.9"/>')
+        parts.append(f'<text x="{w-pr-4}" y="{by-5:.1f}" text-anchor="end" font-size="10" fill="{TEAL}">'
+                     f'月均预算 {fmt_wan(budget_month)}万</text>')
     if len(line_pts) >= 2:
         poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
         mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)

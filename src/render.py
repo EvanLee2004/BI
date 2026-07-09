@@ -50,9 +50,6 @@ PARTICLES_HTML = ('<div class="particles" aria-hidden="true">' + "".join(
     f'<i style="left:{l}%;width:{s}px;height:{s}px;background:var({c});box-shadow:0 0 6px var({c});'
     f'animation-duration:{d}s;animation-delay:{dl}s"></i>' for l, s, d, dl, c in _PARTICLES) + '</div>')
 
-# 磁力流体：跟随鼠标、带粘滞缓动拖尾的柔光（纯装饰）
-CURSOR_GLOW_HTML = '<div class="cursor-glow" aria-hidden="true"></div>'
-
 
 def _kpi_val(p, key):
     """KPI 取值：成本费用合计=生产成本+期间费用（展示聚合，非新口径），其余直接取。"""
@@ -240,9 +237,25 @@ def render_pl_table(p, fine):
 
 
 # ---------- 板块②-3 回款按月（整年，静态）+ 每月回款下单率线 ----------
-def render_receipts(receipt_order_monthly):
-    return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 柱=到账额，线=每月回款下单率</span></div>'
-            f'{charts.receipt_order_chart(receipt_order_monthly)}'
+def _budget_tag(budget):
+    """预算完成标签（卡头）：没填预算 → 空串（页面与无预算时代一分不差）。"""
+    if not budget:
+        return ""
+    parts = []
+    for key, name in (("receipt", "回款"), ("order", "下单")):
+        b = budget.get(key)
+        if b:
+            pct = f'{b["pct"]:.1f}%' if b["pct"] is not None else "—"
+            parts.append(f'{name}年预算 {charts.fmt_wan(b["target"])}万 · 已完成 <b>{pct}</b>')
+    return f'<span class="tag">{"　".join(parts)}</span>' if parts else ""
+
+
+def render_receipts(receipt_order_monthly, budget=None):
+    rb = (budget or {}).get("receipt") if budget else None
+    budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
+    return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 柱=到账额，线=每月回款下单率</span>'
+            f'{_budget_tag(budget)}</div>'
+            f'{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}'
             f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div>')
 
 
@@ -294,15 +307,6 @@ JS = """
    if(!el){tip.style.opacity=0;return;}tip.innerHTML=el.getAttribute('data-tip');tip.style.opacity=1;
    var x=e.clientX+14,y=e.clientY+14;if(x+tip.offsetWidth>innerWidth)x=e.clientX-tip.offsetWidth-14;
    if(y+tip.offsetHeight>innerHeight)y=e.clientY-tip.offsetHeight-14;tip.style.left=x+'px';tip.style.top=y+'px';});
- // 磁力流体：柔光以粘滞缓动追随鼠标（拖尾滞后感）
- var glow=document.querySelector('.cursor-glow');
- if(glow&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)){
-   var tx=innerWidth/2,ty=innerHeight/2,gx=tx,gy=ty,shown=false;
-   addEventListener('mousemove',function(e){tx=e.clientX;ty=e.clientY;
-     if(!shown){shown=true;glow.style.opacity=1;}});
-   (function loop(){gx+=(tx-gx)*0.12;gy+=(ty-gy)*0.12;
-     glow.style.transform='translate('+gx+'px,'+gy+'px)';requestAnimationFrame(loop);})();
- }
 })();
 """
 
@@ -420,8 +424,6 @@ def render_dashboard(summary, cfg, logo_b64):
 
     body = f"""
 {PARTICLES_HTML}
-{CURSOR_GLOW_HTML}
-<div class="scanline" aria-hidden="true"></div>
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
@@ -436,7 +438,7 @@ def render_dashboard(summary, cfg, logo_b64):
    <div>{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
- <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'])}</div>
+ <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；

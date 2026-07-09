@@ -18,7 +18,7 @@ def summary_from_conn(cfg, conn, today):
         cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
         db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
         *db.load_ledger(cfg, conn), today.year, today,
-        manual_raw=db.load_manual(cfg, conn))
+        manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn))
 
 
 def generate(cfg, today, trigger="manual"):

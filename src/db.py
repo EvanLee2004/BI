@@ -227,6 +227,45 @@ def set_manual(conn: sqlite3.Connection, 归属月: str, 项目: str, 金额: fl
     conn.commit()
 
 
+# ---------------- 年度预算（写：留痕 manual_预算历史；管理员端 /api/budget）----------------
+BUDGET_METRICS = ("下单年预算", "回款年预算")  # 指标白名单（陆总0708拍板：只做这两个经营目标数）
+
+
+def load_budget(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
+    """{年份: {指标: 金额}}，只取范围=全公司（BU 预算数据结构已留位、呈现后置）。"""
+    out: dict[str, dict[str, float]] = {}
+    for 年份, 指标, 金额 in conn.execute(
+            "SELECT 年份,指标,金额 FROM manual_预算 WHERE 范围='全公司'").fetchall():
+        if 年份 is None or 指标 is None or 金额 is None:
+            continue
+        out.setdefault(str(年份), {})[str(指标)] = float(金额)
+    return out
+
+
+def get_budget(conn: sqlite3.Connection, year: str | None = None) -> list[dict]:
+    cols = ["年份", "指标", "范围", "金额", "填写时间", "经手人"]
+    if year:
+        rows = conn.execute(
+            f"SELECT {','.join(cols)} FROM manual_预算 WHERE 年份=? ORDER BY 指标", (str(year),)).fetchall()
+    else:
+        rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_预算 ORDER BY 年份,指标").fetchall()
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def set_budget(conn: sqlite3.Connection, 年份: str, 指标: str, 金额: float, 经手人: str,
+               范围: str = "全公司") -> None:
+    """写年度预算：先记 manual_预算历史（旧值→新值），再 REPLACE 覆盖（年中改数留痕可查）。"""
+    old = conn.execute("SELECT 金额 FROM manual_预算 WHERE 年份=? AND 指标=? AND 范围=?",
+                       (年份, 指标, 范围)).fetchone()
+    旧值 = old[0] if old else None
+    now = _now()
+    conn.execute("INSERT INTO manual_预算历史(时间,经手人,年份,指标,范围,旧值,新值) VALUES(?,?,?,?,?,?,?)",
+                 (now, 经手人, 年份, 指标, 范围, 旧值, float(金额)))
+    conn.execute("INSERT OR REPLACE INTO manual_预算(年份,指标,范围,金额,填写时间,经手人) VALUES(?,?,?,?,?,?)",
+                 (年份, 指标, 范围, float(金额), now, 经手人))
+    conn.commit()
+
+
 # ---------------- 可疑单（管理员端 /api/suspects）----------------
 def list_suspects(conn: sqlite3.Connection, status: str = "待确认") -> list[dict]:
     cols = ["id", "发现时间", "目标表", "定位键", "规则", "摘要", "建议字段", "当前值", "状态"]

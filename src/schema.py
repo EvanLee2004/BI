@@ -105,6 +105,18 @@ HUMAN_TABLES: dict[str, str] = {
             时间 TEXT, 经手人 TEXT,
             归属月 TEXT, 项目 TEXT, 旧值 REAL, 新值 REAL
         )""",
+    "manual_预算": """
+        CREATE TABLE IF NOT EXISTS manual_预算 (
+            年份 TEXT, 指标 TEXT, 范围 TEXT DEFAULT '全公司',
+            金额 REAL, 填写时间 TEXT, 经手人 TEXT,
+            PRIMARY KEY (年份, 指标, 范围)
+        )""",
+    "manual_预算历史": """
+        CREATE TABLE IF NOT EXISTS manual_预算历史 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 经手人 TEXT,
+            年份 TEXT, 指标 TEXT, 范围 TEXT, 旧值 REAL, 新值 REAL
+        )""",
     "suspect_待确认": """
         CREATE TABLE IF NOT EXISTS suspect_待确认 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

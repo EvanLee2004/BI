@@ -19,4 +19,5 @@ $PY tests/test_adjust_suspect.py
 $PY tests/test_server.py
 $PY tests/test_admin_edit.py
 $PY tests/test_fetch_zhiyun.py
+$PY tests/test_budget.py
 echo "✓ 全部通过"

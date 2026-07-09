@@ -193,8 +193,27 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
 
 
 # ---------- 顶层 ----------
+def build_budget_block(budget_raw, year, year_period) -> dict | None:
+    """年度预算完成块：{目标/累计/完成率}×下单+回款。没填预算数 → None（页面维持现状）。
+    完成率分母=0 或指标没填 → 对应项为 None，前端显示需防 None。"""
+    y = (budget_raw or {}).get(str(year)) or {}
+    order_t, receipt_t = y.get("下单年预算"), y.get("回款年预算")
+    if order_t is None and receipt_t is None:
+        return None
+
+    def _item(target, done):
+        if target is None:
+            return None
+        return {"target": target, "done": done,
+                "pct": (done / target * 100.0) if target else None}
+    return {"year": year,
+            "order": _item(order_t, year_period["orders"]),
+            "receipt": _item(receipt_t, year_period["receipts"])}
+
+
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                  ledger_header, ledger_rows, ledger_year, today, manual_raw=None):
+                  ledger_header, ledger_rows, ledger_year, today, manual_raw=None,
+                  budget_raw=None):
     cols_cfg = cfg["columns"]
     lcols = columns.resolve_ledger_columns(ledger_header)
     ranges = periods.all_period_ranges(today)
@@ -236,6 +255,7 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
             "year": today.year, "year_key": year_key, "current_month_key": cur_month_key,
             "current_month_label": P[cur_month_key]["label"],
             "ledger_sheet_used": str(ledger_year), "tab_groups": tab_groups,
+            "budget": build_budget_block(budget_raw, today.year, P[year_key]),
             "unclassified": unclassified,
             "health": health,
         },
