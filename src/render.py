@@ -170,7 +170,7 @@ def _hbar_rows(rows, prefix):
         if rest:
             inner += _drow(f"其他{len(rest)}项", -sum(a for _, a in rest), "", "", sub=True)
         details.append(_detail_block(key, f"{name} · 费用构成（{charts.fmt_wan(val)}万）", inner))
-    return f'<div class="ev-list">{"".join(out)}</div>{"".join(details)}'
+    return f'<div class="ev-list">{"".join(out)}</div><div class="pl-details" hidden>{"".join(details)}</div>'
 
 
 def _ledger_subtotal(rows):
