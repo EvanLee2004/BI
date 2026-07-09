@@ -143,9 +143,75 @@ def render_donut(p):
         "财务费用": [("财务费用(台账)", led["财务费用"]), ("财务费用补充(手填)", man["财务费用补充"])],
     }
     legend = "".join(f'<span><i style="background:{GROUP_COLORS[g]}"></i>{g} {charts.fmt_wan(e[g])}万</span>' for g in groups)
-    return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">五类合计 {charts.fmt_wan(e["total"])}万 · 悬浮看构成</span></div>'
-            f'{charts.donut(segs, "期间费用", charts.fmt_wan(e["total"]) + "万", detail=detail)}'
-            f'<div class="legend">{legend}</div></div>')
+    return (f'{charts.donut(segs, "期间费用", charts.fmt_wan(e["total"]) + "万", detail=detail)}'
+            f'<div class="legend">{legend}</div>')
+
+
+def _hbar_rows(rows, prefix):
+    """横向条形列表（台账白名单口径分组）+ 每组的抽屉明细块。rows=[(组名,合计,[(细类,金额),...]),...]。
+    宽度按最大组归一（服务端算好，前端零运算）；「未分类」灰色沉底。"""
+    if rows is None:
+        return '<div class="ev-empty">收单台账无「预算归属部门」列（老台账），换新表头台账后自动出现</div>'
+    if not rows:
+        return '<div class="ev-empty">本期无台账费用</div>'
+    ordered = [r for r in rows if r[0] != "未分类"] + [r for r in rows if r[0] == "未分类"]
+    mx = max(v for _, v, _ in rows) or 1
+    out, details = [], []
+    for name, val, fine in ordered:
+        key = f"{prefix}:{name}"
+        w = max(2.0, val / mx * 100)
+        cls = " unfilled" if name == "未分类" else ""
+        out.append(f'<div class="ev-row pl-open{cls}" data-cat="{key}" role="button" tabindex="0">'
+                   f'<span class="ev-name">{name}</span>'
+                   f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
+                   f'<span class="ev-amt">{charts.fmt_wan(val)}万</span></div>')
+        inner = "".join(_drow(n, -a, "", "", sub=True) for n, a in fine[:12])
+        rest = fine[12:]
+        if rest:
+            inner += _drow(f"其他{len(rest)}项", -sum(a for _, a in rest), "", "", sub=True)
+        details.append(_detail_block(key, f"{name} · 费用构成（{charts.fmt_wan(val)}万）", inner))
+    return f'<div class="ev-list">{"".join(out)}</div>{"".join(details)}'
+
+
+def _ledger_subtotal(rows):
+    return charts.fmt_wan(sum(v for _, v, _ in rows)) + "万" if rows else "0万"
+
+
+def render_expense_views(p, dept_rows, pc_rows):
+    """期间费用构成卡：按大类（环形图）｜按部门｜按利润中心 三态切换。口径同一（白名单内含税）。"""
+    e = p["expense"]
+    tabs = ('<span class="ev-tabs">'
+            '<button class="ev-tab on" data-ev="cat">按大类</button>'
+            '<button class="ev-tab" data-ev="dept">按部门</button>'
+            '<button class="ev-tab" data-ev="pc">按利润中心</button></span>')
+    return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e["total"])}万</span>{tabs}</div>'
+            f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
+            f'<div class="ev-pane" data-ev="dept" style="display:none">{_hbar_rows(dept_rows, "dept")}'
+            f'<div class="chart-note">按收单台账「预算归属部门」，台账部分小计 {_ledger_subtotal(dept_rows)}（白名单内含税；不含手填人力，故小于卡头合计）；点部门看细类。</div></div>'
+            f'<div class="ev-pane" data-ev="pc" style="display:none">{_hbar_rows(pc_rows, "pc")}'
+            f'<div class="chart-note">按收单台账「利润归属中心」（语言/数据/游戏/公共），台账部分小计 {_ledger_subtotal(pc_rows)}（口径同左）；点条看细类。</div></div></div>')
+
+
+def render_dept_budget(dept_budget):
+    """部门费用预算执行卡（管理员填了部门费用年预算才出现；没填=不渲染，页面与旧版一分不差）。"""
+    if not dept_budget or not dept_budget.get("rows"):
+        return ""
+    rows_html = ""
+    for r in dept_budget["rows"]:
+        pct = r["pct"]
+        if pct is None:
+            cls, w, ptxt = "warn", 100.0, "—（预算为0）"
+        else:
+            cls = "ok" if pct < 80 else ("warn" if pct <= 100 else "over")
+            w, ptxt = min(pct, 100.0), f"{pct:.1f}%"
+        rows_html += (f'<div class="bud-row"><span class="bud-name">{r["dept"]}</span>'
+                      f'<span class="bud-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
+                      f'<span class="bud-num">{charts.fmt_wan(r["used"])} / {charts.fmt_wan(r["target"])}万'
+                      f' · <b class="{cls}">{ptxt}</b></span></div>')
+    return (f'<div class="card" style="margin-top:16px"><div class="card-h">部门费用预算执行 '
+            f'<span class="tag">{dept_budget["year"]}年 · 已用/年预算 · 口径：台账白名单内含税·年累计·含特批</span></div>'
+            f'<div class="bud-list">{rows_html}</div>'
+            f'<div class="chart-note">已用=收单台账按「预算归属部门」年累计；预算在管理员端·手填·年度预算维护（改动留痕）。</div></div>')
 
 
 # ---------- 板块②-2 管理利润表（点大类→侧边抽屉看构成，主表定高不再顶下方图表）----------
@@ -302,6 +368,10 @@ JS = """
    if(op){openDrawer(op.getAttribute('data-cat'),op.closest('.pv')||document);return;}
    if(e.target.closest('[data-close]'))closeDrawer();});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+ document.addEventListener('click',function(e){var tb=e.target.closest('.ev-tab');if(!tb)return;
+   var m=tb.getAttribute('data-ev');
+   document.querySelectorAll('.ev-tab').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-ev')===m);});
+   document.querySelectorAll('.ev-pane').forEach(function(x){x.style.display=x.getAttribute('data-ev')===m?'':'none';});});
  var tip=document.getElementById('tip');
  document.addEventListener('mousemove',function(e){var el=e.target.closest('[data-tip]');
    if(!el){tip.style.opacity=0;return;}tip.innerHTML=el.getAttribute('data-tip');tip.style.opacity=1;
@@ -415,7 +485,9 @@ def render_dashboard(summary, cfg, logo_b64):
     month_keys = meta["tab_groups"]["月"]
     spark_cache = _spark_cache(P, month_keys)
     kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], spark_cache)) for k in all_keys)
-    donut_views = "".join(_pv(k, yk, render_donut(P[k])) for k in all_keys)
+    BD = summary.get("expense_by_department", {})
+    BP = summary.get("expense_by_profit_center", {})
+    donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
     pl_views = "".join(_pv(k, yk, render_pl_table(P[k], FT.get(k, {}))) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
@@ -439,6 +511,7 @@ def render_dashboard(summary, cfg, logo_b64):
    <div class="card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
  <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
+ {render_dept_budget(meta.get('dept_budget'))}
  {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；

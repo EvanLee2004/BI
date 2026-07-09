@@ -222,30 +222,45 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 @keyframes floatUp{0%{transform:translateY(0);opacity:0}12%{opacity:.6}88%{opacity:.45}100%{transform:translateY(-104vh);opacity:0}}
 .wrap{position:relative;z-index:1}
 
-/* —— 图表级重效果：卡片玻璃流光斜扫 / 飞线彗星 / 环形扫光 / 磁力流体 —— */
-/* 卡片流光：一道斜向亮带周期扫过（入场 riseIn 与流光 cardSheen 合并，避免互相覆盖）*/
-@keyframes cardSheen{0%{background-position:200% 0}60%,100%{background-position:-70% 0}}
-.kpi,.card{background-color:var(--panel);
-  background-image:linear-gradient(115deg,transparent 37%,rgba(130,225,255,.09) 47%,rgba(130,225,255,.03) 55%,transparent 65%);
-  background-size:260% 100%;background-repeat:no-repeat;
-  animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both,cardSheen 6.5s ease-in-out infinite}
-.kpi-grid .kpi:nth-child(1){animation-delay:.10s,0s}
-.kpi-grid .kpi:nth-child(2){animation-delay:.16s,.9s}
-.kpi-grid .kpi:nth-child(3){animation-delay:.22s,1.8s}
-.kpi-grid .kpi:nth-child(4){animation-delay:.28s,2.7s}
-.card{animation-delay:.18s,1.3s}
-.theme-light .kpi,.theme-light .card{background-image:none;animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both}
+/* —— 图表级效果：飞线彗星 / 环形扫光（卡片流光、磁力流体已移除·减少发热）—— */
 /* 折线飞线彗星（沿线飞行的发光头）*/
 .comet{filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 11px var(--orange))}
 /* 环形图旋转扫光 */
 .donut-sweep{opacity:.16;mix-blend-mode:screen;filter:blur(1px)}
 .theme-light .donut-sweep{display:none}
-/* 磁力流体：跟随鼠标、粘滞缓动拖尾的柔光 */
-.cursor-glow{position:fixed;left:0;top:0;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;
-  pointer-events:none;z-index:3;opacity:0;transition:opacity .5s;mix-blend-mode:screen;
-  background:radial-gradient(circle,rgba(34,211,238,.13),rgba(124,132,255,.06) 45%,transparent 66%)}
-.theme-light .cursor-glow{display:none}
 
+/* —— 费用构成三态切换 + 横条视角（按部门/按利润中心）—— */
+.ev-tabs{margin-left:auto;display:inline-flex;gap:4px}
+.ev-tab{background:none;border:1px solid var(--line);color:var(--mut);font-size:11.5px;
+ padding:3px 10px;border-radius:999px;cursor:pointer;font-family:inherit}
+.ev-tab.on{color:var(--ink);border-color:var(--purple);background:rgba(139,92,246,.12)}
+.ev-tab:hover{color:var(--ink)}
+.ev-list{max-height:300px;overflow-y:auto;padding:4px 2px}
+.ev-row{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:7px;cursor:pointer}
+.ev-row:hover{background:rgba(139,92,246,.08)}
+.ev-name{flex:0 0 108px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-track{flex:1;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.ev-track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--teal),var(--blue));
+ box-shadow:0 0 6px var(--teal)}
+.ev-row.unfilled .ev-track i{background:var(--mut);box-shadow:none;opacity:.55}
+.ev-row.unfilled .ev-name{color:var(--mut)}
+.ev-amt{flex:0 0 76px;text-align:right;font-size:12.5px;font-family:var(--mono,inherit);color:var(--ink)}
+.ev-empty{padding:22px 8px;font-size:12.5px;color:var(--mut);text-align:center}
+/* —— 部门费用预算执行 —— */
+.bud-list{padding:4px 2px}
+.bud-row{display:flex;align-items:center;gap:12px;padding:6px}
+.bud-name{flex:0 0 110px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bud-track{flex:1;height:12px;border-radius:6px;background:var(--line);overflow:hidden}
+.bud-track i{display:block;height:100%;border-radius:6px}
+.bud-track i.ok{background:var(--teal)}
+.bud-track i.warn{background:var(--orange)}
+.bud-track i.over{background:#f8717166;outline:1px solid #f87171}
+.bud-num{flex:0 0 190px;text-align:right;font-size:12px;color:var(--mut)}
+.bud-num b.ok{color:var(--teal)}.bud-num b.warn{color:var(--orange)}.bud-num b.over{color:#f87171;font-size:13px}
+@media (max-width:520px){
+ .ev-name{flex-basis:78px;font-size:11.5px}.ev-amt{flex-basis:64px;font-size:11.5px}
+ .bud-name{flex-basis:74px;font-size:11.5px}.bud-num{flex-basis:130px;font-size:11px}
+ .ev-tabs{margin-left:0;width:100%;order:9}.card-h{flex-wrap:wrap;row-gap:6px}}
 /* —— 右侧抽屉（点利润表大类看构成）—— */
 .drawer{position:fixed;inset:0;z-index:60;visibility:hidden}
 .drawer.open{visibility:visible}
@@ -278,8 +293,7 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 /* 尊重系统"减少动态效果"偏好：全部降为静态 */
 @media(prefers-reduced-motion:reduce){
   .pbar,.sec,.kpi,.card,.faint-note,.foot,.bar,body,.pl-row.grand .pl-amt,.kpi::before,.donut-sweep{animation:none}
-  .flowline,.particles,.comet,.donut-sweep,.cursor-glow{display:none}
-  .kpi,.card{background-image:none}
+  .flowline,.particles,.comet,.donut-sweep{display:none}
   .kpi:hover{transform:none}
   .drawer-panel{transition:none}
 }
@@ -323,14 +337,9 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
 
 /* 科技网格背景已烤进 body 背景（随 attachment:fixed，避免独立 fixed 层滚动重绘故障；浅色置空见顶部规则）*/
-/* 全屏扫描线缓慢下扫 */
-.scanline{position:fixed;left:0;right:0;top:0;height:130px;z-index:2;pointer-events:none;
-  background:linear-gradient(180deg,transparent,rgba(34,211,238,.06) 55%,rgba(34,211,238,.10),transparent);
-  animation:scan 8s linear infinite}
-@keyframes scan{0%{transform:translateY(-150px)}100%{transform:translateY(102vh)}}
-.theme-light .scanline{display:none}
+/* 扫描线已移除（降 GPU 负载·减少发热）*/
 
-@media(prefers-reduced-motion:reduce){.scanline{display:none}.live i{animation:none}}
+@media(prefers-reduced-motion:reduce){.live i{animation:none}}
 
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr)}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""内网双端服务（FastAPI + uvicorn）。刀3：双端只读上线（尚无编辑，编辑在刀4）。
+"""内网双端服务（FastAPI + uvicorn）：用户端只读 + 管理员控制台（明细编辑/手填/年度预算/可疑单/调整台账）。
 
 - 用户端 `/`：无密码，只含汇总（利润驾驶舱 HTML）；**明细数据不进用户端页面、也无明细接口可达**。
 - 管理员端 `/admin`：无有效会话 → 密码页；登录后看同一驾驶舱（刀4 加编辑/明细/台账）。
@@ -283,6 +283,8 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <div class="note" style="margin-top:18px">年度预算（经营目标·全公司口径）：下单/回款两个年度数，年初定、年中改留痕；填了老板端回款图即出预算线与完成率。</div>
   年份<select id="bY"></select>
   <div class="wrap"><table id="bTbl"></table></div>
+  <div class="note" style="margin-top:14px">部门费用年预算：按收单台账「预算归属部门」逐部门填；填了老板端即出「部门费用预算执行」卡（已用=白名单内含税年累计）。改已有值需确认、全程留痕。</div>
+  <div class="wrap"><table id="bdTbl"></table></div>
 </div>
 
 <div id="suspect" class="sec">
@@ -405,14 +407,28 @@ async function bLoad(){const sel=document.getElementById("bY");
   const map={};cur.forEach(x=>map[x["指标"]]=x["金额"]);
   let h="<tr><th>指标</th><th>当前金额(元)</th><th>新值</th><th></th></tr>";
   BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
-    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?map[it]:"（未填·图上无预算线）")+"</td>"+
-    "<td><input id='"+id+"' size='14' value='"+(map[it]!=null?map[it]:"")+"'></td>"+
-    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
-  document.getElementById("bTbl").innerHTML=h;}
-async function bSave(yEnc,itEnc,id){const v=document.getElementById(id).value.trim();
+    const old=map[it]!=null?map[it]:null;
+    h+="<tr><td>"+esc(it)+"</td><td>"+esc(old!=null?old:"（未填·图上无预算线）")+"</td>"+
+    "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
+    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it)+"','"+id+"',null,"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
+  document.getElementById("bTbl").innerHTML=h;bdLoad(y);}
+async function bSave(yEnc,itEnc,id,scope,oldVal){const v=document.getElementById(id).value.trim();
   if(v===""||isNaN(parseFloat(v))){alert("请输入数字金额（元）");return;}
-  try{await jpost("/api/budget",{年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v)});
+  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+(scope?"·"+decodeURIComponent(scope):"")+"」已有预算 "+oldVal+"，确认改为 "+v+"？（改动会留痕）"))return;
+  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v)};
+  if(scope)body["范围"]=decodeURIComponent(scope);
+  try{await jpost("/api/budget",body);
     msg("已保存年度预算（留痕·驾驶舱已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
+async function bdLoad(y){
+  const [depts,cur]=await Promise.all([jget("/api/budget_depts"),jget("/api/budget?year="+encodeURIComponent(y))]);
+  const map={};cur.filter(x=>x["指标"]==="费用年预算").forEach(x=>map[x["范围"]]=x["金额"]);
+  if(!depts.length){document.getElementById("bdTbl").innerHTML="<tr><td class='muted'>台账暂无「预算归属部门」数据（老台账没这列或全空）</td></tr>";return;}
+  let h="<tr><th>预算归属部门</th><th>当前年预算(元)</th><th>新值</th><th></th></tr>";
+  depts.forEach((d,ix)=>{const id="bd_"+ix;const old=map[d]!=null?map[d]:null;
+    h+="<tr><td>"+esc(d)+"</td><td>"+esc(old!=null?old:"（未填·不进执行卡）")+"</td>"+
+    "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
+    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent("费用年预算")+"','"+id+"','"+encodeURIComponent(d)+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
+  document.getElementById("bdTbl").innerHTML=h;}
 async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.trim();if(v===""){alert("填金额");return;}
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
     msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
@@ -646,13 +662,27 @@ def create_app(cfg, root=None) -> FastAPI:
             金额 = float(payload.get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="金额须为数字")
+        scope = str(payload.get("范围", "全公司")).strip() or "全公司"
+        if metric == "费用年预算" and scope == "全公司":
+            raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
+        if metric != "费用年预算" and scope != "全公司":
+            raise HTTPException(status_code=400, detail=f"{metric} 只支持全公司口径")
         conn = _conn()
         try:
-            db.set_budget(conn, year, metric, 金额, user)
+            db.set_budget(conn, year, metric, 金额, user, 范围=scope)
         finally:
             conn.close()
         recompute(cfg, root)
         return {"status": "ok", "built_at": _state["built_at"]}
+
+    @app.get("/api/budget_depts")
+    def api_budget_depts(request: Request):
+        _require(request)
+        conn = _conn()
+        try:
+            return db.list_budget_depts(conn)
+        finally:
+            conn.close()
 
     @app.get("/api/suspects")
     def api_suspects_get(request: Request):

@@ -4,7 +4,6 @@
 独立成模块以免 run↔server 循环导入。"""
 from __future__ import annotations
 
-import loaders
 import profit
 import render
 import assets
@@ -18,7 +17,8 @@ def summary_from_conn(cfg, conn, today):
         cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
         db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
         *db.load_ledger(cfg, conn), today.year, today,
-        manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn))
+        manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn),
+        dept_budget_raw=db.load_dept_budget(conn))
 
 
 def generate(cfg, today, trigger="manual"):

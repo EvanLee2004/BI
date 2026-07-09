@@ -114,6 +114,7 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
     import periods
     c_m, c_d, c_amt = lcols["收单月份"], lcols["收单日期"], lcols["含税金额"]
     c_bu, c_cat, c_fine = lcols["业务BU"], lcols["对应报表大类"], lcols["预算明细费用类型"]
+    c_dept = lcols.get("预算归属部门")  # 软字段：老台账可能没有
 
     def _txt(row, i):
         v = row[i] if len(row) > i else None
@@ -125,11 +126,13 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
         金额 = _amt(row[c_amt] if len(row) > c_amt else None)
         金额_store = None if (len(row) <= c_amt or row[c_amt] is None or str(row[c_amt]).strip() == "") else 金额
         bu, cat, fine = _txt(row, c_bu), _txt(row, c_cat), _txt(row, c_fine)
+        dept = _txt(row, c_dept) if c_dept is not None else None
         parts = periods.ledger_row_date(row, ledger_year, lcols)
         ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
         out.append({
             "收单月份": 月份, "收单日期": 日期, "含税金额": 金额_store,
             "业务BU": bu, "对应报表大类": cat, "预算明细费用类型": fine,
+            "预算归属部门": dept,
             "归属月": ym, "原值_归属月": ym,
             "定位键": _hash(月份, 日期, 金额_store, bu, cat, fine),  # 台账无自然ID，行哈希
         })

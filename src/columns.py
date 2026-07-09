@@ -20,7 +20,11 @@ LEDGER_COLUMN_ALIASES: dict[str, list[str]] = {
     "业务BU": ["业务BU", "利润归属中心"],
     "对应报表大类": ["对应报表大类"],
     "预算明细费用类型": ["预算明细费用类型"],
+    "预算归属部门": ["预算归属部门"],
 }
+
+# 软字段：老台账没这列不算错，跳过即可（下游用 lcols.get() 判在不在）
+SOFT_LEDGER_FIELDS = {"预算归属部门"}
 
 
 def resolve_ledger_columns(header_row: Sequence[Any]) -> dict[str, int]:
@@ -30,7 +34,8 @@ def resolve_ledger_columns(header_row: Sequence[Any]) -> dict[str, int]:
     for field, aliases in LEDGER_COLUMN_ALIASES.items():
         hits = [a for a in aliases if a in header]
         if not hits:
-            missing.append(f"「{field}」（试过的表头文字：{'/'.join(aliases)}）")
+            if field not in SOFT_LEDGER_FIELDS:
+                missing.append(f"「{field}」（试过的表头文字：{'/'.join(aliases)}）")
             continue
         if any(header.count(a) > 1 for a in hits) or len(hits) > 1:
             raise ValueError(

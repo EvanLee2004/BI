@@ -108,6 +108,57 @@ def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lco
     return {c: sorted(d.items(), key=lambda x: -x[1]) for c, d in out.items()}
 
 
+EXPENSE_GROUP_UNFILLED = "未分类"  # 分组列没填的行的展示名（部门/利润中心视角共用）
+
+
+def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, group_field):
+    """白名单内费用按台账某列分组（预算归属部门/业务BU 两个视角共用）+ 组内细类嵌套。
+    返回 [(组名, 合计, [(细类, 金额), ...按金额降序]), ...按合计降序]；
+    台账没有该列 → None（前端降级提示"台账无此列"）。
+    口径与 compute_ledger_expenses 完全一致（白名单8大类内、含税、同期间）——守恒：各组合计==期间费用合计。"""
+    c_grp = lcols.get(group_field)
+    if c_grp is None:
+        return None
+    included = set(cfg["expense_categories_included"])
+    fine_label = cfg["unclassified_label_fine_type"]
+    c_amt, c_fine = lcols["含税金额"], lcols["预算明细费用类型"]
+    agg: dict[str, float] = defaultdict(float)
+    fine: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for row in ledger_rows:
+        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        if amt == 0.0:
+            continue
+        if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
+            continue
+        if columns.classify_expense_category(row, cfg, lcols)[0] not in included:
+            continue
+        grp_raw = row[c_grp] if len(row) > c_grp else None
+        grp = str(grp_raw).strip() if grp_raw not in (None, "") else EXPENSE_GROUP_UNFILLED
+        fine_raw = row[c_fine] if len(row) > c_fine else None
+        f = str(fine_raw).strip() if fine_raw not in (None, "") else fine_label
+        agg[grp] += amt
+        fine[grp][f] += amt
+    return [(g, round(v, 2), sorted(fine[g].items(), key=lambda x: -x[1]))
+            for g, v in sorted(agg.items(), key=lambda x: -x[1])]
+
+
+def build_dept_budget_block(dept_budget_raw, dept_rows_year, year):
+    """部门费用预算执行：{年预算(手填) vs 已用(台账白名单内年累计·含特批)}。
+    dept_budget_raw={年份:{部门:金额}}；dept_rows_year=compute_expenses_by_group 全年结果（可为 None）。
+    没填任何部门预算 → None（页面不出卡）。只列有预算的部门（执行卡本意=管控）。"""
+    budgets = (dept_budget_raw or {}).get(str(year)) or {}
+    if not budgets:
+        return None
+    used = {g: v for g, v, _ in (dept_rows_year or [])}
+    rows = []
+    for dept, target in budgets.items():
+        u = used.get(dept, 0.0)
+        rows.append({"dept": dept, "target": target, "used": round(u, 2),
+                     "pct": (u / target * 100.0) if target else None})
+    rows.sort(key=lambda r: (r["pct"] is None, -(r["pct"] or 0)))
+    return {"year": year, "rows": rows}
+
+
 # ---------- 手填（月度填充 + 按周期汇总） ----------
 def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> dict[tuple[int, int], dict[str, float]]:
     """把手填表补成每月一份（1..cur_month）：default=prev 缺则取上月、default=zero 缺则取0。"""
@@ -213,7 +264,7 @@ def build_budget_block(budget_raw, year, year_period) -> dict | None:
 
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                   ledger_header, ledger_rows, ledger_year, today, manual_raw=None,
-                  budget_raw=None):
+                  budget_raw=None, dept_budget_raw=None):
     cols_cfg = cfg["columns"]
     lcols = columns.resolve_ledger_columns(ledger_header)
     ranges = periods.all_period_ranges(today)
@@ -224,11 +275,15 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
 
     P: dict[str, Any] = {}
     fine: dict[str, Any] = {}
+    by_dept: dict[str, Any] = {}
+    by_pc: dict[str, Any] = {}
     tab_groups = {"年": [], "季度": [], "月": []}
     for key, (label, start, end, group) in ranges.items():
         P[key] = build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                               ledger_rows, ledger_year, lcols, filled_manual, label, start, end, today)
         fine[key] = compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lcols)
+        by_dept[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "预算归属部门")
+        by_pc[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "业务BU")
         tab_groups[group].append(key)
 
     year_key = f"{today.year}年"
@@ -256,10 +311,12 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
             "current_month_label": P[cur_month_key]["label"],
             "ledger_sheet_used": str(ledger_year), "tab_groups": tab_groups,
             "budget": build_budget_block(budget_raw, today.year, P[year_key]),
+            "dept_budget": build_dept_budget_block(dept_budget_raw, by_dept.get(year_key), today.year),
             "unclassified": unclassified,
             "health": health,
         },
         "periods": P, "expense_fine_type": fine,
+        "expense_by_department": by_dept, "expense_by_profit_center": by_pc,
         "trend": trend, "receipt_monthly": receipt_monthly,
         "receipt_order_monthly": receipt_order_monthly,
     }

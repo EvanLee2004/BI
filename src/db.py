@@ -76,7 +76,7 @@ def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 # 台账列在标准表里的固定顺序（读回时据此拼回 (表头, 数据行)）
-LEDGER_STD_COLS = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型"]
+LEDGER_STD_COLS = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"]
 
 
 def load_ledger(cfg: dict, conn: sqlite3.Connection) -> tuple[list, list[tuple]]:
@@ -84,12 +84,10 @@ def load_ledger(cfg: dict, conn: sqlite3.Connection) -> tuple[list, list[tuple]]
     逐行原样（含全空行）按 id 顺序返回，保证行数与旧读法一致（体检面板行数回归红线）。"""
     header = list(LEDGER_STD_COLS)
     rows = conn.execute(
-        "SELECT 收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型 FROM std_费用明细 WHERE 已删除=0 ORDER BY id"
+        "SELECT 收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门 FROM std_费用明细 WHERE 已删除=0 ORDER BY id"
     ).fetchall()
     # 值原样返回：文本列给 str（None→None 保留空行语义），金额列给 float/None
-    body: list[tuple] = []
-    for 月份, 日期, 金额, bu, 大类, 细类 in rows:
-        body.append((月份, 日期, 金额, bu, 大类, 细类))
+    body: list[tuple] = list(rows)
     return header, body
 
 
@@ -116,7 +114,7 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     "下单": ("std_下单", ["定位键", "订单号", "下单日期", "下单预估额", "归属月"], ["订单号"]),
     "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "归属月"], ["回款ID"]),
     "内部译员": ("std_内部译员", ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "归属月"], ["任务ID", "译员类型"]),
-    "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "归属月"],
+    "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月"],
                 ["业务BU", "对应报表大类", "预算明细费用类型"]),
 }
 
@@ -228,7 +226,7 @@ def set_manual(conn: sqlite3.Connection, 归属月: str, 项目: str, 金额: fl
 
 
 # ---------------- 年度预算（写：留痕 manual_预算历史；管理员端 /api/budget）----------------
-BUDGET_METRICS = ("下单年预算", "回款年预算")  # 指标白名单（陆总0708拍板：只做这两个经营目标数）
+BUDGET_METRICS = ("下单年预算", "回款年预算", "费用年预算")  # 指标白名单（陆总0708拍板：只做这两个经营目标数）
 
 
 def load_budget(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
@@ -240,6 +238,26 @@ def load_budget(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
             continue
         out.setdefault(str(年份), {})[str(指标)] = float(金额)
     return out
+
+
+def load_dept_budget(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
+    """{年份: {部门: 金额}}，取 指标='费用年预算' 且 范围≠全公司 的行（部门费用预算执行卡用）。"""
+    out: dict[str, dict[str, float]] = {}
+    for 年份, 范围, 金额 in conn.execute(
+            "SELECT 年份,范围,金额 FROM manual_预算 WHERE 指标='费用年预算' AND 范围<>'全公司'").fetchall():
+        if 年份 is None or 范围 is None or 金额 is None:
+            continue
+        out.setdefault(str(年份), {})[str(范围)] = float(金额)
+    return out
+
+
+def list_budget_depts(conn: sqlite3.Connection) -> list[str]:
+    """部门费用预算矩阵的行清单：台账里实际出现过的预算归属部门 ∪ 已填过预算的部门（不硬编码）。"""
+    depts = {r[0] for r in conn.execute(
+        "SELECT DISTINCT 预算归属部门 FROM std_费用明细 WHERE 已删除=0 AND 预算归属部门 IS NOT NULL AND TRIM(预算归属部门)<>''")}
+    depts |= {r[0] for r in conn.execute(
+        "SELECT DISTINCT 范围 FROM manual_预算 WHERE 指标='费用年预算' AND 范围<>'全公司'")}
+    return sorted(depts)
 
 
 def get_budget(conn: sqlite3.Connection, year: str | None = None) -> list[dict]:

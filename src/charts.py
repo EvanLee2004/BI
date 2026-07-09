@@ -28,24 +28,6 @@ def _polar(cx, cy, r, deg):
     return cx + r * math.cos(rad), cy + r * math.sin(rad)
 
 
-def mini_ring(pct: float, color: str | None = None, size: int = 64) -> str:
-    color = color or value_color(pct)
-    cx = cy = size / 2
-    r = size * 0.38
-    sw = size * 0.15
-    circ = 2 * math.pi * r
-    dash = circ * max(0.0, min(pct, 100.0)) / 100
-    return (
-        f'<svg viewBox="0 0 {size} {size}" width="{size}" height="{size}" style="display:block;flex:0 0 auto">'
-        f'<circle cx="{cx}" cy="{cy}" r="{r:.1f}" fill="none" stroke="{TRACK}" stroke-width="{sw:.1f}"/>'
-        f'<circle cx="{cx}" cy="{cy}" r="{r:.1f}" fill="none" stroke="{color}" stroke-width="{sw:.1f}" '
-        f'stroke-linecap="round" stroke-dasharray="{dash:.1f} {circ:.1f}" transform="rotate(-90 {cx} {cy})" '
-        f'style="filter:drop-shadow(0 0 4px {color})"/>'
-        f'<text x="{cx}" y="{cy+size*0.08:.1f}" text-anchor="middle" font-size="{size*0.24:.0f}" '
-        f'font-weight="700" fill="{INK}">{pct:.0f}%</text></svg>'
-    )
-
-
 def sparkline(values: Sequence[float], color: str = BLUE, w: int = 108, h: int = 30) -> str:
     """迷你趋势线：一串数值画成小折线（KPI 卡用）。值全部 Python 侧传入，前端不算数。
     纵向按本串 min..max 归一（含负值也能画）；末点加圆点强调最新。"""
@@ -164,34 +146,6 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
 
-def month_bar_chart(series: list[tuple[str, float]], color: str = BLUE) -> str:
-    """[(label, amount), ...] 简单月度柱状图（回款按月）。"""
-    w, h = 580, 210
-    pl, pr, pt, pb = 64, 18, 16, 30
-    plot_w, plot_h = w - pl - pr, h - pt - pb
-    n = len(series)
-    if n == 0:
-        return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
-    mx = max((v for _, v in series), default=0) or 1
-    gw = plot_w / n
-    bw = min(gw * 0.5, 34)
-    parts, hits = [], []
-    for frac in (0, 0.5, 1.0):
-        y = pt + plot_h * (1 - frac)
-        parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
-        parts.append(f'<text x="{pl-8}" y="{y+3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
-                     f'{"0" if frac==0 else fmt_wan(mx*frac)+"万"}</text>')
-    for i, (label, v) in enumerate(series):
-        cx = pl + gw * i + gw / 2
-        bh = max(1.0, v / mx * plot_h)
-        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
-                     f'x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" fill="{color}"/>')
-        parts.append(f'<text x="{cx:.1f}" y="{h-pb+17:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
-        hits.append(f'<rect class="hit" data-tip="{label}&nbsp;回款&nbsp;{fmt_wan(v)}万" x="{pl+gw*i:.1f}" '
-                    f'y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
-    return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>'
-
-
 def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
                         budget_month: float | None = None) -> str:
     """回款按月柱图 + 叠加"每月回款下单率"折线。series=[(label, 回款, 下单, 率%或None), ...]。
@@ -254,15 +208,3 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
               f'<span style="margin-left:auto;color:{MUT2}">悬浮看当月回款/下单/率</span></div>')
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
-
-def hbar_list(items: list[tuple[str, float]], color: str = BLUE) -> str:
-    if not items:
-        return f'<div style="color:{MUT2};font-size:12px;padding:8px 0">暂无数据</div>'
-    mx = max((v for _, v in items), default=0) or 1
-    rows = []
-    for name, v in items:
-        pct = max(0.0, min(v / mx * 100, 100.0))
-        rows.append(f'<div class="hbar"><span class="hbar-n" title="{name}">{name}</span>'
-                    f'<div class="hbar-t"><div class="hbar-f" style="width:{pct:.1f}%;background:{color}"></div></div>'
-                    f'<span class="hbar-v">{fmt_wan(v)}万</span></div>')
-    return "".join(rows)

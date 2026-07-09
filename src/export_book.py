@@ -16,7 +16,6 @@
 """
 from __future__ import annotations
 
-from typing import Any
 
 # 利润表行项（(表头名, summary 取值函数)）——顺序即 Excel 里从上到下的行
 _PL_LINES = [
