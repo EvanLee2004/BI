@@ -18,4 +18,5 @@ $PY tests/test_datalayer.py
 $PY tests/test_adjust_suspect.py
 $PY tests/test_server.py
 $PY tests/test_admin_edit.py
+$PY tests/test_fetch_zhiyun.py
 echo "✓ 全部通过"
