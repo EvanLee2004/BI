@@ -90,17 +90,15 @@ class TestRunReasons(unittest.TestCase):
         rs = server._run_reasons({"fetch": {"status": "no_source"}})
         self.assertTrue(any("无可用数据源" in r for r in rs))
 
-    def test_expired_and_suspects(self):
+    def test_expired_adjustments(self):
         rs = server._run_reasons({"fetch": {"status": "fetched"},
-                                  "adjust": {"expired": 2},
-                                  "suspects": {"period_shift": 1, "month_edge": 3}})
+                                  "adjust": {"expired": 2}})
         joined = " ".join(rs)
         self.assertIn("2 条调整", joined)      # 过期疑似
-        self.assertIn("4 条可疑单", joined)     # 1+3
 
     def test_all_clean_no_reasons(self):
         rs = server._run_reasons({"fetch": {"status": "fetched"},
-                                  "adjust": {"expired": 0}, "suspects": {}})
+                                  "adjust": {"expired": 0}})
         self.assertEqual(rs, [])
 
 

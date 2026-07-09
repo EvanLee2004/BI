@@ -38,9 +38,8 @@ def run_batch(trigger="manual") -> int:
     print(f"数据库：{db.db_path(cfg)}  台账fetch：{ing['fetch']['status']}（{ing['fetch']['detail']}）")
     print("  标准表：" + " ".join(f"{k}={v}" for k, v in ing["counts"].items())
           + f"  手填迁移：{ing['migrate_manual']['status']}({ing['migrate_manual']['imported']})")
-    _s, _a = ing["suspects"], ing["adjust"]
-    print(f"  运行结果：{ing['result']}  可疑单：周期变{_s['period_shift']}/月初{_s['month_edge']}  "
-          f"调整：套用{_a['applied']}/过期{_a['expired']}/剔除{_a['removed']}")
+    _a = ing["adjust"]
+    print(f"  运行结果：{ing['result']}  调整：套用{_a['applied']}/过期{_a['expired']}/剔除{_a['removed']}")
 
     out_dir = ROOT / cfg["output_dir"]
     out_dir.mkdir(exist_ok=True)

@@ -15,7 +15,7 @@ $PY tests/regress_db_vs_files.py
 echo "[4/4] 回归测试"
 $PY tests/test_cockpit.py
 $PY tests/test_datalayer.py
-$PY tests/test_adjust_suspect.py
+$PY tests/test_adjust.py
 $PY tests/test_server.py
 $PY tests/test_admin_edit.py
 $PY tests/test_fetch_zhiyun.py

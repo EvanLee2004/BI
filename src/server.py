@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""内网双端服务（FastAPI + uvicorn）：用户端只读 + 管理员控制台（明细编辑/手填/年度预算/可疑单/调整台账）。
+"""内网双端服务（FastAPI + uvicorn）：用户端只读 + 管理员控制台（明细编辑/手填/年度预算/调整台账）。
 
 - 用户端 `/`：无密码，只含汇总（利润驾驶舱 HTML）；**明细数据不进用户端页面、也无明细接口可达**。
 - 管理员端 `/admin`：无有效会话 → 密码页；登录后看同一驾驶舱（刀4 加编辑/明细/台账）。
@@ -142,13 +142,13 @@ def recompute(cfg, root=None) -> None:
 
 
 def _admin_page(dash_html: str, summary: dict) -> str:
-    """管理员控制台：体检条 + 立即更新 + 明细编辑/手填/可疑单/调整台账 标签页 + 内嵌驾驶舱。"""
+    """管理员控制台：体检条 + 立即更新 + 明细编辑/手填/调整台账 标签页 + 内嵌驾驶舱。"""
     return _ADMIN_CONSOLE
 
 
 def _run_reasons(report: dict) -> list[str]:
     """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
-    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、可疑单待确认。
+    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整。
     注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
     report = report or {}
     reasons: list[str] = []
@@ -161,10 +161,6 @@ def _run_reasons(report: dict) -> list[str]:
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
         reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『复核·调整台账』看")
-    sus = report.get("suspects", {}) or {}
-    nsus = (sus.get("period_shift", 0) or 0) + (sus.get("month_edge", 0) or 0)
-    if nsus:
-        reasons.append(f"{nsus} 条可疑单待确认（周期变动/月初1号交付）→ 去『复核·可疑单』处理")
     return reasons
 
 
@@ -256,8 +252,7 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
     <button class="stab" data-t="手填" onclick="showManual()">手填</button>
   </span>
   <span class="subgrp" id="sub-review" data-g="review">
-    <button class="stab on" data-t="suspect" onclick="showReview('suspect')">可疑单</button>
-    <button class="stab" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
+    <button class="stab on" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
     <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">未填分类<span id="ucBadge" class="badge zero">0</span></button>
   </span>
 </div>
@@ -287,12 +282,6 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <div class="wrap"><table id="bdTbl"></table></div>
 </div>
 
-<div id="suspect" class="sec">
-  <button onclick="sLoad()">刷新待确认</button><span id="sInfo" class="muted"></span>
-  <div class="note">可疑单=系统筛出的周期变动/月初1号交付；确认正常或挪月（写调整记录）。</div>
-  <div class="wrap"><table id="sTbl"></table></div>
-</div>
-
 <div id="ledger" class="sec">
   <button onclick="lLoad()">刷新台账</button><span id="lInfo" class="muted"></span>
   <div class="note">过期疑似（红）= 源头已改、调整未套用，请复核。</div>
@@ -306,8 +295,8 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 </div>
 
 <script>
-const ADJ_FIELDS={"收入明细":["整单交付日期","交付额","项目成本"],"下单":["下单日期","下单预估额"],
-"回款":["到账日期","到账金额"],"内部译员":["任务提交日期","结算金额"],"费用明细":["含税金额","对应报表大类","业务BU"]};
+let ADJ_FIELDS={};  // R1：可调字段由服务端下发（schema 黑名单制推导），不再前端写死
+async function loadAdjFields(){try{ADJ_FIELDS=await jget("/api/adjust_fields");}catch(e){}}
 const STD={"收入明细":"std_收入明细","下单":"std_下单","回款":"std_回款","内部译员":"std_内部译员","费用明细":"std_费用明细"};
 const MANUAL_ITEMS=["营销人力成本","管理人力成本","研发人力成本","财务费用补充","PM人力成本","VM人力成本",
 "实际内部译员成本","税费损失","技术流量成本","其他（生产成本）","其他损益"];
@@ -324,7 +313,7 @@ function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.
   document.querySelectorAll(".subgrp").forEach(e=>e.style.display=e.dataset.g===g?"flex":"none");
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
-  else if(g==="review")showReview("suspect");}
+  else if(g==="review")showReview("ledger");}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
@@ -334,11 +323,11 @@ async function loadHealth(){try{const h=await jget("/api/health");window._health
 function toggleHealth(){const d=document.getElementById("hDetail");
   if(d.style.display==="block"){d.style.display="none";return;}renderHealth(window._health||{});d.style.display="block";}
 function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warnings||[];
-  // 两套信号分开讲：①「黄/红」=管道运行（fetch/过期/可疑单）②「警」=数据体检（未填分类等）
+  // 两套信号分开讲：①「黄/红」=管道运行（fetch/过期调整）②「警」=数据体检（未填分类等）
   let html="<h4>体检明细 · 运行 "+esc(h.run_time||"?")+"</h4>";
   html+="<div class='grp'><div class='k'>① 管道运行："+esc(h.result||"?")+"</div>";
   html+=reasons.length?("<ul>"+reasons.map(r=>"<li>"+esc(r)+"</li>").join("")+"</ul>")
-    :"<div class='ok'>✓ 运行正常（fetch/调整/可疑单无异常）</div>";
+    :"<div class='ok'>✓ 运行正常（fetch/调整无异常）</div>";
   html+="</div><div class='grp'><div class='k'>② 数据体检："+(warns.length?(warns.length+" 警"):"无")+"</div>";
   html+=warns.length?("<ul>"+warns.map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul>")
     :"<div class='ok'>✓ 无数据质量告警</div>";
@@ -374,7 +363,7 @@ function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.
 function dQuery(){detail.reset();}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
   document.querySelectorAll("#detail .row-form").forEach(b=>b.remove());  // 同屏只留一个编辑器：重复点“改”=替换不追加
-  const opts=ADJ_FIELDS[tkey].map(f=>"<option>"+f+"</option>").join("");
+  const opts=(ADJ_FIELDS[tkey]||[]).map(f=>"<option>"+f+"</option>").join("");
   const id="ef_"+Math.random().toString(36).slice(2);
   const box=document.createElement("div");box.className="row-form";box.innerHTML=
     "定位键 "+esc(key)+" ｜ 字段<select id='"+id+"_f'>"+opts+"</select> 新值<input id='"+id+"_v' size='12'> "+
@@ -433,18 +422,9 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
     msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
 
-// ---- 复核（可疑单 / 调整台账 / 未填分类）----
+// ---- 复核（调整台账 / 未填分类）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
-  showSec(which);if(which==="suspect")sLoad();if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();}
-async function sLoad(){const d=await jget("/api/suspects");document.getElementById("sInfo").textContent="待确认 "+d.length+" 条";
-  let h="<tr><th>规则</th><th>摘要</th><th>目标表</th><th>定位键</th><th>操作</th></tr>";
-  d.forEach(s=>{h+="<tr><td>"+esc(s["规则"])+"</td><td>"+esc(s["摘要"])+"</td><td>"+esc(s["目标表"])+"</td><td>"+esc(s["定位键"])+"</td>"+
-    "<td><button class='mini' onclick='sResolve("+s.id+",\"正常\")'>确认正常</button> "+
-    "<button class='mini ghost' onclick='sAdjust("+s.id+")'>挪月</button></td></tr>";});
-  document.getElementById("sTbl").innerHTML=h||"（无）";}
-async function sResolve(id,action,ym){try{await jpost("/api/suspects",{id:id,action:action,新归属月:ym});
-  msg("已处理");reloadDash();loadHealth();sLoad();}catch(e){alert("失败："+e.message);}}
-function sAdjust(id){const ym=prompt("挪到哪个月？填 YYYY-MM");if(!ym)return;sResolve(id,"调整",ym.trim());}
+  showSec(which);if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();}
 async function lLoad(){const d=await jget("/api/adjustments");document.getElementById("lInfo").textContent="共 "+d.length+" 条";
   let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
   d.forEach(a=>{const exp=a["状态"]==="过期疑似";h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
@@ -484,7 +464,7 @@ function initYM(){const d=new Date();
 initYM();
 document.getElementById("dWrap").addEventListener("scroll",function(){
   if(this.scrollTop+this.clientHeight>=this.scrollHeight-80)detail.next();});
-loadHealth();refreshUcBadge();setInterval(loadHealth,30000);
+loadHealth();refreshUcBadge();loadAdjFields();setInterval(loadHealth,30000);
 </script></body></html>"""
 
 
@@ -553,7 +533,7 @@ def create_app(cfg, root=None) -> FastAPI:
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
             "warnings": health.get("warnings", []),          # 「警」：数据体检（未填分类等）
-            "run_reasons": _run_reasons((run_log or {}).get("体检", {})),  # 「黄/红」：为啥（fetch/过期/可疑单）
+            "run_reasons": _run_reasons((run_log or {}).get("体检", {})),  # 「黄/红」：为啥（fetch/过期调整）
         }
 
     def _require(request: Request) -> str:
@@ -684,28 +664,11 @@ def create_app(cfg, root=None) -> FastAPI:
         finally:
             conn.close()
 
-    @app.get("/api/suspects")
-    def api_suspects_get(request: Request):
+    @app.get("/api/adjust_fields")
+    def api_adjust_fields(request: Request):
+        """R1：各明细表可调整字段（schema 黑名单制推导），管理员端字段下拉数据源。"""
         _require(request)
-        conn = _conn()
-        try:
-            return db.list_suspects(conn)
-        finally:
-            conn.close()
-
-    @app.post("/api/suspects")
-    def api_suspects_post(request: Request, payload: dict = Body(default={})):
-        user = _require(request)
-        conn = _conn()
-        try:
-            res = db.resolve_suspect(conn, int(payload.get("id")), payload.get("action", ""),
-                                     user, payload.get("新归属月"))
-        except (ValueError, TypeError) as e:
-            conn.close()
-            raise HTTPException(status_code=400, detail=str(e))
-        conn.close()
-        recompute(cfg, root)
-        return {"status": "ok", **res, "built_at": _state["built_at"]}
+        return db.adjustable_fields()
 
     return app
 

@@ -8,7 +8,7 @@
 - **标准表（std_*）每次更新全量重建、永不手改**；用自增 id 做主键（保证每源行一条、绝不塌行，
   守刀1回归红线）；`定位键`=内容哈希，仅作刀2调整匹配用的索引，不当主键（造数把同 ID 复制成 7 个
   月度变体、金额/日期各异，故 ID 不唯一——2026-07-08 首日核实结论，退行哈希）。
-- **人工表（adj_/manual_/suspect_/meta_）重建时永不清空**。
+- **人工表（adj_/manual_/meta_）重建时永不清空**。
 """
 from __future__ import annotations
 
@@ -66,14 +66,28 @@ STD_TABLES: dict[str, str] = {
         )""",
 }
 
-# 每张标准表：可被"改值"调整的字段 → 该字段规范化前原始值所在列（过期校验/重放用）。
-# 重放先把 std 重建成原始值，故重放当刻"当前值"即原始值；日期改值会连带重算 归属月。
-ADJUSTABLE_FIELDS: dict[str, dict[str, str]] = {
-    "std_收入明细": {"整单交付日期": "原值_交付日期", "交付额": "交付额", "项目成本": "项目成本"},
-    "std_下单": {"下单日期": "下单日期", "下单预估额": "下单预估额"},
-    "std_回款": {"到账日期": "到账日期", "到账金额": "到账金额"},
-    "std_内部译员": {"任务提交日期": "任务提交日期", "结算金额": "结算金额"},
-    "std_费用明细": {"含税金额": "含税金额", "对应报表大类": "对应报表大类", "业务BU": "业务BU"},
+# R1 全字段可调=黑名单制：可调整字段 = 各 std 表全部列 − 黑名单（派生/系统字段锁死）。
+# 黑名单：id（主键）、定位键（调整匹配索引）、归属月（由日期字段派生）、原值_*（重放基准）、已删除（软删标记）。
+# 重放先把 std 重建成原始值，故重放当刻"当前值"即原始值；日期改值会连带重算 归属月（PERIOD_DATE_FIELD）。
+NON_ADJUSTABLE = ("id", "定位键", "归属月", "已删除")
+
+
+def _std_columns() -> dict[str, list[str]]:
+    """从 STD_TABLES 的 DDL 推导各表全部列名（按建表顺序）。"""
+    conn = sqlite3.connect(":memory:")
+    try:
+        cols: dict[str, list[str]] = {}
+        for name, ddl in STD_TABLES.items():
+            conn.execute(ddl)
+            cols[name] = [r[1] for r in conn.execute(f"PRAGMA table_info({name})")]
+        return cols
+    finally:
+        conn.close()
+
+
+ADJUSTABLE_FIELDS: dict[str, tuple[str, ...]] = {
+    t: tuple(c for c in cols if c not in NON_ADJUSTABLE and not c.startswith("原值_"))
+    for t, cols in _std_columns().items()
 }
 
 # 各标准表"归属月由哪个日期字段决定"——改值改了该日期字段就要重算归属月
@@ -118,14 +132,6 @@ HUMAN_TABLES: dict[str, str] = {
             时间 TEXT, 经手人 TEXT,
             年份 TEXT, 指标 TEXT, 范围 TEXT, 旧值 REAL, 新值 REAL
         )""",
-    "suspect_待确认": """
-        CREATE TABLE IF NOT EXISTS suspect_待确认 (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            发现时间 TEXT, 目标表 TEXT, 定位键 TEXT,
-            规则 TEXT,
-            摘要 TEXT, 建议字段 TEXT, 当前值 TEXT,
-            状态 TEXT DEFAULT '待确认' CHECK(状态 IN ('待确认','已确认正常','已调整'))
-        )""",
     "meta_运行日志": """
         CREATE TABLE IF NOT EXISTS meta_运行日志 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,11 +166,12 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
 
 
 def create_all(conn: sqlite3.Connection) -> None:
-    """建齐所有表（幂等）+ 给存量库补后加的列。"""
+    """建齐所有表（幂等）+ 给存量库补后加的列 + 清掉已废弃表。"""
     cur = conn.cursor()
     for ddl in {**STD_TABLES, **HUMAN_TABLES}.values():
         cur.execute(ddl)
     _ensure_columns(conn)
+    cur.execute("DROP TABLE IF EXISTS suspect_待确认")  # R0：可疑单机制整套删除，存量库顺手清表
     conn.commit()
 
 

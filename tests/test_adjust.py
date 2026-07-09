@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""刀2 测试：调整重放/过期校验 + diff分级/可疑单规则（用构造的唯一键用例，符合验收"造用例"）。
-跑：python3 tests/test_adjust_suspect.py"""
+"""调整重放/过期校验 + R1 全字段可调（黑名单制）测试（用构造的唯一键用例）。
+跑：python3 tests/test_adjust.py"""
 import datetime
 import sqlite3
 import sys
@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import schema, db, profit, loaders  # noqa: E402
-from ingest import adjust, suspects  # noqa: E402
+from ingest import adjust  # noqa: E402
 
 NOW = "2026-07-08 10:00:00"
 
@@ -95,56 +95,64 @@ class TestReplay(unittest.TestCase):
         self.assertAlmostEqual(v, 1500.0)
 
 
-class TestDiffSuspects(unittest.TestCase):
-    def test_period_shift_flagged(self):
-        """周期变（归属月跨月）→ 进待确认队列。"""
+def _ins_expense(conn, 定位键, 含税金额=100.0, 预算归属部门="市场部", 归属月="2026-06"):
+    conn.execute(
+        "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,0)",
+        (定位键, 归属月, f"{归属月}-15", 含税金额, "语言", "管理费用", "办公费", 预算归属部门, 归属月, 归属月))
+    conn.commit()
+
+
+class TestAdjustableFieldsBlacklist(unittest.TestCase):
+    """R1：可调整字段 = std 表全部列 − 黑名单（id/定位键/归属月/原值_*/已删除）。"""
+
+    def test_blacklist_locked_all_tables(self):
+        for t, fields in schema.ADJUSTABLE_FIELDS.items():
+            for banned in schema.NON_ADJUSTABLE:
+                self.assertNotIn(banned, fields, f"{t} 不应可调 {banned}")
+            self.assertFalse(any(f.startswith("原值_") for f in fields), f"{t} 不应可调 原值_* 列")
+
+    def test_all_business_columns_open(self):
+        """全部业务列开放：以费用明细为例逐列核对（含新开放的 预算归属部门）。"""
+        self.assertEqual(
+            set(schema.ADJUSTABLE_FIELDS["std_费用明细"]),
+            {"收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"})
+        self.assertIn("客户", schema.ADJUSTABLE_FIELDS["std_收入明细"])
+        self.assertIn("订单号", schema.ADJUSTABLE_FIELDS["std_下单"])
+
+    def test_new_field_adjust_applies_and_survives_refetch(self):
+        """新开放字段（费用明细.预算归属部门）可调整，且重抓（重建原始值）后重放仍生效。"""
         conn = _conn()
-        _ins_income(conn, "SOD_E", "2026-06-30", 原值月="2026-06")
-        old = suspects.snapshot_before_reset(conn)
+        _ins_expense(conn, "LED_A", 预算归属部门="市场部")
+        aid = db.add_adjustment(conn, "明昊", "std_费用明细", "LED_A", "预算归属部门", "数据部", "测试R1", "改值")
+        self.assertGreater(aid, 0)
+        adjust.apply_adjustments(conn, NOW)
+        v = conn.execute("SELECT 预算归属部门 FROM std_费用明细 WHERE 定位键='LED_A'").fetchone()[0]
+        self.assertEqual(v, "数据部")
+        # 模拟重抓：重建回原始值，重放后调整不丢
         schema.reset_std_tables(conn)
-        _ins_income(conn, "SOD_E", "2026-07-02", 原值月="2026-07")   # 重抓：周期从6月挪到7月
-        r = suspects.detect(conn, old, NOW)
-        self.assertEqual(r["period_shift"], 1)
-        n = conn.execute("SELECT COUNT(*) FROM suspect_待确认 WHERE 规则='PERIOD_SHIFT'").fetchone()[0]
-        self.assertEqual(n, 1)
+        _ins_expense(conn, "LED_A", 预算归属部门="市场部")
+        adjust.apply_adjustments(conn, NOW)
+        v2 = conn.execute("SELECT 预算归属部门 FROM std_费用明细 WHERE 定位键='LED_A'").fetchone()[0]
+        self.assertEqual(v2, "数据部")
 
-    def test_amount_change_no_suspect(self):
-        """金额变（归属月没变）→ 无人工介入，不入队。"""
+    def test_blacklist_field_rejected(self):
+        """黑名单字段（id/定位键/归属月/原值_*/已删除）提交调整 → ValueError（接口层转 400）。"""
         conn = _conn()
-        _ins_income(conn, "SOD_F", "2026-06-10", 交付额=1000.0, 原值月="2026-06")
-        old = suspects.snapshot_before_reset(conn)
-        schema.reset_std_tables(conn)
-        _ins_income(conn, "SOD_F", "2026-06-10", 交付额=1200.0, 原值月="2026-06")  # 只金额变
-        r = suspects.detect(conn, old, NOW)
-        self.assertEqual(r["period_shift"], 0)
+        _ins_expense(conn, "LED_B")
+        for banned in ("定位键", "归属月", "原值_归属月", "已删除", "id"):
+            with self.assertRaises(ValueError, msg=f"{banned} 应被拒"):
+                db.add_adjustment(conn, "明昊", "std_费用明细", "LED_B", banned, "x", "测试", "改值")
 
-    def test_month_edge_night_new_row(self):
-        """本次新出现、当月1号交付 → MONTH_EDGE_NIGHT 待确认。"""
+    def test_date_field_still_recomputes_period(self):
+        """改日期字段连带重算归属月的既有逻辑保留（黑名单制不破坏 PERIOD_DATE_FIELD）。"""
         conn = _conn()
-        old = suspects.snapshot_before_reset(conn)     # 空
-        _ins_income(conn, "SOD_G", "2026-07-01")       # 当月(7月)1号，新出现
-        today = datetime.date(2026, 7, 8)
-        r = suspects.detect(conn, old, NOW, today=today)
-        self.assertEqual(r["month_edge"], 1)
-
-    def test_month_edge_ignores_non_current_month(self):
-        conn = _conn()
-        old = suspects.snapshot_before_reset(conn)
-        _ins_income(conn, "SOD_H", "2026-03-01")       # 1号但非当月
-        r = suspects.detect(conn, old, NOW, today=datetime.date(2026, 7, 8))
-        self.assertEqual(r["month_edge"], 0)
-
-    def test_resolved_suspect_not_renagged(self):
-        """已确认正常的可疑单不再重复入队。"""
-        conn = _conn()
-        _ins_income(conn, "SOD_I", "2026-07-01")
-        conn.execute("INSERT INTO suspect_待确认(发现时间,目标表,定位键,规则,摘要,状态)"
-                     " VALUES(?,?,?,?,?,?)", (NOW, "std_收入明细", "SOD_I", "MONTH_EDGE_NIGHT", "x", "已确认正常"))
-        conn.commit()
-        old = suspects.snapshot_before_reset(conn)   # SOD_I 已在库
-        # 新一轮：SOD_I 仍在（不是新出现），且已确认——不该再报
-        r = suspects.detect(conn, old, NOW, today=datetime.date(2026, 7, 8))
-        self.assertEqual(r["month_edge"], 0)
+        _ins_income(conn, "SOD_P", "2026-07-01")
+        db.add_adjustment(conn, "明昊", "std_收入明细", "SOD_P", "整单交付日期", "2026-06-30", "挪月", "改值")
+        adjust.apply_adjustments(conn, NOW)
+        d, ym, _ = _income(conn, "SOD_P")
+        self.assertEqual(d, "2026-06-30")
+        self.assertEqual(ym, "2026-06")
 
 
 class TestReplayEndToEnd(unittest.TestCase):

@@ -119,6 +119,11 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
 }
 
 
+def adjustable_fields() -> dict[str, list[str]]:
+    """{表键: 可调整字段列表}——R1：由 schema 黑名单制自动推导，管理员端字段下拉从服务端下发。"""
+    return {k: list(schema.ADJUSTABLE_FIELDS[v[0]]) for k, v in DETAIL_TABLES.items()}
+
+
 def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = None,
                  q: str | None = None, page: int = 1, page_size: int = 50,
                  unclassified: bool = False) -> dict:
@@ -282,42 +287,6 @@ def set_budget(conn: sqlite3.Connection, 年份: str, 指标: str, 金额: float
     conn.execute("INSERT OR REPLACE INTO manual_预算(年份,指标,范围,金额,填写时间,经手人) VALUES(?,?,?,?,?,?)",
                  (年份, 指标, 范围, float(金额), now, 经手人))
     conn.commit()
-
-
-# ---------------- 可疑单（管理员端 /api/suspects）----------------
-def list_suspects(conn: sqlite3.Connection, status: str = "待确认") -> list[dict]:
-    cols = ["id", "发现时间", "目标表", "定位键", "规则", "摘要", "建议字段", "当前值", "状态"]
-    rows = conn.execute(
-        f"SELECT {','.join(cols)} FROM suspect_待确认 WHERE 状态=? ORDER BY id DESC", (status,)).fetchall()
-    return [dict(zip(cols, r)) for r in rows]
-
-
-def resolve_suspect(conn: sqlite3.Connection, sid: int, action: str, 经手人: str,
-                    新归属月: str | None = None) -> dict:
-    """处理可疑单：'正常'→已确认正常；'调整'→代写一条调整记录把该行日期挪到 新归属月 末日、标已调整。"""
-    import calendar
-    import schema
-    row = conn.execute("SELECT 目标表,定位键,规则 FROM suspect_待确认 WHERE id=?", (sid,)).fetchone()
-    if not row:
-        raise ValueError(f"可疑单不存在：{sid}")
-    目标表, 定位键, _规则 = row
-    if action == "正常":
-        conn.execute("UPDATE suspect_待确认 SET 状态='已确认正常' WHERE id=?", (sid,))
-        conn.commit()
-        return {"action": "正常", "id": sid}
-    if action == "调整":
-        if not 新归属月 or len(新归属月) != 7:
-            raise ValueError("调整需提供 新归属月（YYYY-MM）")
-        date_field = schema.PERIOD_DATE_FIELD.get(目标表)
-        if not date_field:
-            raise ValueError(f"{目标表} 无可挪月的日期字段")
-        y, m = int(新归属月[:4]), int(新归属月[5:7])
-        新值 = f"{y:04d}-{m:02d}-{calendar.monthrange(y, m)[1]:02d}"  # 挪到该月最后一天
-        aid = add_adjustment(conn, 经手人, 目标表, 定位键, date_field, 新值, f"可疑单挪月→{新归属月}", "改值")
-        conn.execute("UPDATE suspect_待确认 SET 状态='已调整' WHERE id=?", (sid,))
-        conn.commit()
-        return {"action": "调整", "id": sid, "adj_id": aid, "新值": 新值}
-    raise ValueError(f"未知处理动作：{action}")
 
 
 def latest_run(conn: sqlite3.Connection) -> dict | None:

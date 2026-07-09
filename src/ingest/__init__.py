@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""更新管道（刀1 子集）：fetch 台账 → 读原始 → 规范化 → 全量重建标准表 → 一次性迁移手填。
-
-刀2 会在此基础上补：diff 分级 / 套用调整 / 可疑单规则 / 运行日志。刀1 只做"标准表落库 + 手填迁移"，
-让 profit 改从库读，且数字与 v6-final 一分不差。
+"""更新管道：fetch 台账 → 读原始 → 规范化 → 全量重建标准表 → 一次性迁移手填 →
+重放调整/过期校验 → 写运行日志。profit 只从库读，数字与 v6-final 一分不差（回归红线）。
+（可疑单/diff 分级机制已于 R0 整套删除，见 4_管理过程/10_迭代计划_数据库分层改造R系列.md 三。）
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ from pathlib import Path
 import columns
 import db
 import schema
-from ingest import readers, normalize, fetch, migrate, suspects, adjust, archive
+from ingest import readers, normalize, fetch, migrate, adjust, archive
 
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
 
@@ -36,8 +35,8 @@ def _insert(conn, table: str, records: list[dict]) -> None:
 def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
                  conn=None, today=None, trigger: str = "manual",
                  archive_backups: bool = False) -> dict:
-    """跑一次更新管道（刀1+刀2 子集）：fetch → 规范化 → diff 快照 → 全量重建 → 手填迁移 →
-    diff分级/可疑单 → 重放调整/过期校验 → 写运行日志。返回状态报告 dict。"""
+    """跑一次更新管道：fetch → 规范化 → 全量重建 → 手填迁移 → 重放调整/过期校验 →
+    写运行日志。返回状态报告 dict。"""
     own = conn is None
     if own:
         conn = db.connect(cfg, root)
@@ -60,9 +59,6 @@ def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
     records = {"std_收入明细": proj, "std_下单": orders, "std_回款": receipts,
                "std_内部译员": inhouse, "std_费用明细": ledger}
 
-    # 2.5) diff 快照：重建前抓上次原始归属月（供 diff 分级比对"周期是否变"）
-    old_snap = suspects.snapshot_before_reset(conn)
-
     # 3) 全量重建标准表（人工表不动）
     _rebuild_std(conn, records)
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
@@ -70,16 +66,13 @@ def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
     # 4) 一次性迁移手填（仅当 manual_手填 为空）
     report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root)
 
-    # 5) diff 分级 + 可疑单规则（金额变覆盖已由重建完成；周期变/月初1号入待确认队列）
-    report["suspects"] = suspects.detect(conn, old_snap, now, today=today)
-
-    # 6) 重放调整 + 过期校验（改数不改结果、只记指令）
+    # 5) 重放调整 + 过期校验（改数不改结果、只记指令）
     report["adjust"] = adjust.apply_adjustments(conn, now)
 
-    # 7) 写运行日志（结果绿/黄/红）——注意不把 records 塞进日志 JSON
+    # 6) 写运行日志（结果绿/黄/红）——注意不把 records 塞进日志 JSON
     report["result"] = _log_run(conn, now, trigger, report)
 
-    # 8) db 每日滚动备份（30份）+ 月末快照（仅真实跑，测试/回归不落盘污染数据目录）
+    # 7) db 每日滚动备份（30份）+ 月末快照（仅真实跑，测试/回归不落盘污染数据目录）
     if archive_backups:
         d = today if isinstance(today, datetime.date) else datetime.date.today()
         report["backup"] = archive.backup_db(cfg, d, root)
@@ -101,7 +94,7 @@ def _rebuild_std(conn, records: dict) -> None:
 
 def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     """**轻量重算**（管理员保存后秒级重算用）：用缓存的原始记录重置标准表 → 重放全部生效调整。
-    不 fetch、不读 xlsx、不重跑 diff/可疑单（无新数据）。返回 adjust 报告。"""
+    不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。"""
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     _rebuild_std(conn, records)
     rep = adjust.apply_adjustments(conn, now)
@@ -110,12 +103,10 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
 
 
 def _log_run(conn, now: str, trigger: str, report: dict) -> str:
-    """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似 / 有待确认。"""
+    """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似。"""
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
-    sus = report.get("suspects", {})
-    yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or \
-        (sus.get("period_shift", 0) + sus.get("month_edge", 0)) > 0
+    yellow = (not fetch_ok) or adj.get("expired", 0) > 0
     red = report["fetch"]["status"] == "no_source"
     结果 = "红" if red else ("黄" if yellow else "绿")
     conn.execute(

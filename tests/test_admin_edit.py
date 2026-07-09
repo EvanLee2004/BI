@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""刀4 测试：管理员端写接口（明细编辑/手填/可疑单/撤销/立即更新互斥）+ db 写函数 + 归档。
+"""刀4 测试：管理员端写接口（明细编辑/手填/撤销/立即更新互斥）+ db 写函数 + 归档。
 跑：.venv/bin/python tests/test_admin_edit.py  （需 fastapi/httpx，venv 里已装）
 
 策略：把 server.recompute 换成轻量桩（只翻 built_at），隔离验证「HTTP→鉴权→写库→触发重算」
-这条链，不跑重渲染；「改数真改结果」的端到端已由 test_adjust_suspect.py 覆盖。
+这条链，不跑重渲染；「改数真改结果」的端到端已由 test_adjust.py 覆盖。
 """
 import datetime
 import sqlite3
@@ -21,18 +21,16 @@ from ingest import archive  # noqa: E402
 
 
 def _seed(cfg, root):
-    """在 endpoints 用的同一个库里种一行收入明细 + 一条可疑单，返回 suspect id。"""
+    """在 endpoints 用的同一个库里种一行收入明细 + 一行费用明细（R1 新开放字段用）。"""
     conn = db.connect(cfg, root)
     conn.execute(
         "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
         " VALUES('K1','SO1','客A','传统营销','2026-07-15',1000,300,'2026-07','2026-07-15','2026-07',0)")
-    cur = conn.execute(
-        "INSERT INTO suspect_待确认(发现时间,目标表,定位键,规则,摘要,建议字段,当前值,状态)"
-        " VALUES('2026-07-08','std_收入明细','K1','PERIOD_SHIFT','测试','整单交付日期','2026-07-15','待确认')")
-    sid = cur.lastrowid
+    conn.execute(
+        "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
+        " VALUES('L1','2026-06','2026-06-15',100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)")
     conn.commit()
     conn.close()
-    return sid
 
 
 class TestAdminWrite(unittest.TestCase):
@@ -42,7 +40,7 @@ class TestAdminWrite(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
-        cls.sid = _seed(cls.cfg, cls.root)
+        _seed(cls.cfg, cls.root)
         # 轻量桩：只翻 built_at，避免测试跑重渲染/重管道
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
@@ -66,7 +64,7 @@ class TestAdminWrite(unittest.TestCase):
     # ---- 鉴权：写接口一律要会话 ----
     def test_write_requires_login(self):
         for method, path in [("post", "/api/adjust"), ("post", "/api/manual"),
-                             ("post", "/api/suspects"), ("post", "/api/refresh"),
+                             ("post", "/api/refresh"), ("get", "/api/adjust_fields"),
                              ("get", "/api/adjustments"), ("post", "/api/adjust/1/revoke")]:
             r = getattr(self.anon, method)(path)   # 未登录：_require 在函数体首行先拦，body 走默认
             self.assertEqual(r.status_code, 401, f"{method} {path} 未登录应 401")
@@ -141,14 +139,30 @@ class TestAdminWrite(unittest.TestCase):
                              json={"归属月": "2026-07", "项目": "营销人力成本", "金额": "abc"})
         self.assertEqual(r.status_code, 400)
 
-    # ---- 可疑单：确认正常 ----
-    def test_suspect_resolve_normal(self):
-        r = self.client.post("/api/suspects", headers=self.hdr, json={"id": self.sid, "action": "正常"})
+    # ---- R1：字段下拉从服务端下发（全部可调列），新开放字段可写、黑名单字段 400 ----
+    def test_adjust_fields_served_full_lists(self):
+        r = self.client.get("/api/adjust_fields", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
-        conn = self._conn()
-        st = conn.execute("SELECT 状态 FROM suspect_待确认 WHERE id=?", (self.sid,)).fetchone()[0]
-        conn.close()
-        self.assertEqual(st, "已确认正常")
+        j = r.json()
+        self.assertEqual(set(j), {"收入明细", "下单", "回款", "内部译员", "费用明细"})
+        self.assertIn("预算归属部门", j["费用明细"])       # 新开放字段进了下拉
+        self.assertIn("客户", j["收入明细"])
+        for fields in j.values():                          # 黑名单字段不下发
+            for banned in ("id", "定位键", "归属月", "已删除"):
+                self.assertNotIn(banned, fields)
+
+    def test_adjust_new_open_field_ok(self):
+        r = self.client.post("/api/adjust", headers=self.hdr, json={
+            "目标表": "std_费用明细", "定位键": "L1", "字段": "预算归属部门",
+            "新值": "数据部", "原因": "测试R1", "类型": "改值"})
+        self.assertEqual(r.status_code, 200, r.text)
+
+    def test_adjust_blacklist_field_400(self):
+        for banned in ("定位键", "归属月", "原值_归属月", "已删除"):
+            r = self.client.post("/api/adjust", headers=self.hdr, json={
+                "目标表": "std_费用明细", "定位键": "L1", "字段": banned,
+                "新值": "x", "类型": "改值"})
+            self.assertEqual(r.status_code, 400, f"{banned} 应 400")
 
     # ---- 立即更新：运行中互斥 → 409 ----
     def test_refresh_mutex_returns_409(self):
