@@ -146,6 +146,28 @@ def _admin_page(dash_html: str, summary: dict) -> str:
     return _ADMIN_CONSOLE
 
 
+def _run_reasons(report: dict) -> list[str]:
+    """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
+    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、可疑单待确认。
+    注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
+    report = report or {}
+    reasons: list[str] = []
+    fetch = report.get("fetch", {}) or {}
+    st = fetch.get("status")
+    if st == "no_source":
+        reasons.append("收单台账无可用数据源（共享路径与本地副本都没有）→ 判红")
+    elif st and st != "fetched":
+        reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
+    adj = report.get("adjust", {}) or {}
+    if adj.get("expired", 0):
+        reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『复核·调整台账』看")
+    sus = report.get("suspects", {}) or {}
+    nsus = (sus.get("period_shift", 0) or 0) + (sus.get("month_edge", 0) or 0)
+    if nsus:
+        reasons.append(f"{nsus} 条可疑单待确认（周期变动/月初1号交付）→ 去『复核·可疑单』处理")
+    return reasons
+
+
 _LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>管理员登录 · 经营驾驶舱</title>
@@ -177,7 +199,7 @@ _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,"PingFang SC",sans-serif;background:var(--bg);color:var(--fg)}
 #bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
 padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
-#bar b{font-size:15px}.pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+#bar b{font-size:15px}.pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;user-select:none}
 .g{background:#14532d;color:#86efac}.y{background:#713f12;color:#fde68a}.r{background:#7f1d1d;color:#fca5a5}
 button{background:var(--vio);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
@@ -203,15 +225,21 @@ th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}
 .wrap{overflow:auto;max-height:70vh}.row-form{margin:6px 0;padding:8px;background:#172033;border-radius:7px}
 .muted{color:var(--mut);font-size:12px}iframe{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:#fff}
 .note{color:var(--mut);font-size:12px;margin:6px 0}
+#hDetail{display:none;position:absolute;top:46px;left:14px;z-index:30;max-width:560px;background:var(--panel);
+border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.6;box-shadow:0 10px 30px #0009}
+#hDetail h4{margin:0 0 4px;font-size:13px}#hDetail .grp{margin-top:10px}
+#hDetail .k{color:var(--mut);font-weight:600;margin-bottom:2px}
+#hDetail ul{margin:3px 0 0;padding-left:18px}#hDetail .ok{color:#86efac}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
-  <span id="health" class="pill y">体检…</span>
+  <span id="health" class="pill y" onclick="toggleHealth()" title="点开看体检明细">体检…</span>
   <button id="btnRefresh" onclick="doRefresh()">立即更新</button>
   <span id="msg" class="muted"></span>
   <span style="margin-left:auto"></span>
   <a href="/admin/logout">退出</a>
 </div>
+<div id="hDetail"></div>
 <div id="groups">
   <div class="gtab on" data-g="see" onclick="showGroup('see')">看</div>
   <div class="gtab" data-g="edit" onclick="showGroup('edit')">改数据</div>
@@ -295,9 +323,25 @@ function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.
   else if(g==="edit")pickTable(curTable);
   else if(g==="review")showReview("suspect");}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
-async function loadHealth(){try{const h=await jget("/api/health");const el=document.getElementById("health");
+async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
-  el.textContent="体检 "+(h.result||"?")+" · "+(h.run_time||"")+(h.warnings&&h.warnings.length?(" · "+h.warnings.length+"警"):"");}catch(e){}}
+  const nWarn=(h.warnings&&h.warnings.length)||0;
+  el.textContent="体检 "+(h.result||"?")+(nWarn?(" · "+nWarn+"警"):"")+" ▾";
+  if(document.getElementById("hDetail").style.display==="block")renderHealth(h);}catch(e){}}
+function toggleHealth(){const d=document.getElementById("hDetail");
+  if(d.style.display==="block"){d.style.display="none";return;}renderHealth(window._health||{});d.style.display="block";}
+function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warnings||[];
+  // 两套信号分开讲：①「黄/红」=管道运行（fetch/过期/可疑单）②「警」=数据体检（未填分类等）
+  let html="<h4>体检明细 · 运行 "+esc(h.run_time||"?")+"</h4>";
+  html+="<div class='grp'><div class='k'>① 管道运行："+esc(h.result||"?")+"</div>";
+  html+=reasons.length?("<ul>"+reasons.map(r=>"<li>"+esc(r)+"</li>").join("")+"</ul>")
+    :"<div class='ok'>✓ 运行正常（fetch/调整/可疑单无异常）</div>";
+  html+="</div><div class='grp'><div class='k'>② 数据体检："+(warns.length?(warns.length+" 警"):"无")+"</div>";
+  html+=warns.length?("<ul>"+warns.map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul>")
+    :"<div class='ok'>✓ 无数据质量告警</div>";
+  html+="</div><div class='grp'><div class='k'>数据源覆盖</div><div>"+
+    (h.sources||[]).map(s=>esc(s.name)+"："+s.rows+"行").join("　")+"</div></div>";
+  document.getElementById("hDetail").innerHTML=html;}
 async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;msg("更新中…");
   try{await jpost("/api/refresh",{});msg("已更新");reloadDash();loadHealth();refreshUcBadge();}catch(e){msg("更新失败:"+e.message);}b.disabled=false;}
 
@@ -479,11 +523,12 @@ def create_app(cfg, root=None) -> FastAPI:
         meta = (_state.get("summary") or {}).get("meta", {})
         health = meta.get("health", {})
         return {
-            "result": (run_log or {}).get("结果"),
+            "result": (run_log or {}).get("结果"),          # 黄/红/绿：管道运行日志
             "run_time": (run_log or {}).get("时间"),
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
-            "warnings": health.get("warnings", []),
+            "warnings": health.get("warnings", []),          # 「警」：数据体检（未填分类等）
+            "run_reasons": _run_reasons((run_log or {}).get("体检", {})),  # 「黄/红」：为啥（fetch/过期/可疑单）
         }
 
     def _require(request: Request) -> str:

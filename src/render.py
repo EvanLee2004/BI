@@ -358,8 +358,10 @@ def render_dashboard(summary, cfg, logo_b64):
     all_keys = [yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
     logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
     unc = meta["unclassified"]["expense"]
-    banner = (f'<div class="banner"><b>提示</b> 收单台账有 {unc["count"]} 笔未填「对应报表大类」（{_wan(unc["amount"])}），未计入费用，请补分类。</div>'
-              if unc["count"] else "")
+    # C1'：老板端不放体检徽章/预警 banner（财务自检工具，只留管理员端），但保留一行极淡小字兜底
+    # 防"利润悄悄虚高"——未分类费用未计入会让税前利润偏高。金额取 summary 现成的未分类额，不新算。
+    faint_note = (f'<div class="faint-note">口径提示：另含 {_wan(unc["amount"])} 待分类费用尚未计入（税前利润略偏高）</div>'
+                  if unc["count"] else "")
 
     month_keys = meta["tab_groups"]["月"]
     spark_cache = _spark_cache(P, month_keys)
@@ -371,20 +373,13 @@ def render_dashboard(summary, cfg, logo_b64):
     # 导出数据（每格已算好）嵌进页面，供前端一键导出；转义 </ 防止提前闭合 <script>
     export_json = json.dumps(export_book.build_export_book(summary, cfg), ensure_ascii=False).replace("</", "<\\/")
 
-    h = meta["health"]
-    src_lines = "<br>".join(f"{s['name']}：{s['rows']}行 · 覆盖{('、'.join(str(m)+'月' for m in s['months']) or '无')}" for s in h["sources"])
-    warn_lines = ("<br>⚠ " + "<br>⚠ ".join(h["warnings"])) if h["warnings"] else "<br>✓ 无异常"
-    hb_cls, hb_txt = ("hb-ok", "数据体检 ✓") if h["ok"] else ("hb-warn", f"数据体检 ⚠{len(h['warnings'])}")
-    health_badge = f'<span class="hbadge {hb_cls}" data-tip="{src_lines}{warn_lines}">{hb_txt}</span>'
-
     body = f"""
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
- <span class="tb-right">{health_badge}<span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <span class="tb-right"><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 <div class="wrap">
  {render_period_bar(summary)}
- {banner}
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
  {kpi_views}
 
@@ -394,7 +389,7 @@ def render_dashboard(summary, cfg, logo_b64):
    <div class="card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
  <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'])}</div>
-
+ {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
   税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(收入×6%×12%)+其他损益 &nbsp;|&nbsp;

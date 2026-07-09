@@ -70,7 +70,38 @@ class TestServerAuth(unittest.TestCase):
     def test_health_public_no_amounts(self):
         r = self.client.get("/api/health")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("result", r.json())
+        j = r.json()
+        self.assertIn("result", j)
+        self.assertIn("run_reasons", j)      # C2：新增「黄的原因」字段
+        self.assertIsInstance(j["run_reasons"], list)
+
+
+class TestRunReasons(unittest.TestCase):
+    """C2：_run_reasons 从运行日志(体检JSON)推导"为啥黄/红"，与 ingest._log_run 判定口径一致。"""
+    def test_empty(self):
+        self.assertEqual(server._run_reasons({}), [])
+        self.assertEqual(server._run_reasons(None), [])
+
+    def test_fetch_local_fallback(self):
+        rs = server._run_reasons({"fetch": {"status": "local_fallback"}})
+        self.assertTrue(any("本地副本" in r for r in rs))
+
+    def test_no_source_red(self):
+        rs = server._run_reasons({"fetch": {"status": "no_source"}})
+        self.assertTrue(any("无可用数据源" in r for r in rs))
+
+    def test_expired_and_suspects(self):
+        rs = server._run_reasons({"fetch": {"status": "fetched"},
+                                  "adjust": {"expired": 2},
+                                  "suspects": {"period_shift": 1, "month_edge": 3}})
+        joined = " ".join(rs)
+        self.assertIn("2 条调整", joined)      # 过期疑似
+        self.assertIn("4 条可疑单", joined)     # 1+3
+
+    def test_all_clean_no_reasons(self):
+        rs = server._run_reasons({"fetch": {"status": "fetched"},
+                                  "adjust": {"expired": 0}, "suspects": {}})
+        self.assertEqual(rs, [])
 
 
 if __name__ == "__main__":

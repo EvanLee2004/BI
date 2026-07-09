@@ -148,7 +148,10 @@ body{
 .hb-ok{color:var(--pos);border-color:var(--pos);background:rgba(52,211,153,.08)}
 .hb-warn{color:var(--orange);border-color:var(--orange);background:rgba(251,191,36,.1)}
 
-.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--mut2);line-height:1.7}
+/* C1' 极淡小字：老板端不放预警 banner，仅留一行很淡的兜底提示（未分类费用未计入→利润略偏高）*/
+.faint-note{margin-top:14px;text-align:center;font-size:11px;color:var(--mut2);opacity:.65}
+
+.foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--mut2);line-height:1.7}
 
 /* 全局周期选择器 */
 .pbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:4px 0 2px;padding:9px 13px;
