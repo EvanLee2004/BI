@@ -368,6 +368,7 @@ function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.
   showSec("manual");mLoad();}
 function dQuery(){detail.reset();}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
+  document.querySelectorAll("#detail .row-form").forEach(b=>b.remove());  // 同屏只留一个编辑器：重复点“改”=替换不追加
   const opts=ADJ_FIELDS[tkey].map(f=>"<option>"+f+"</option>").join("");
   const id="ef_"+Math.random().toString(36).slice(2);
   const box=document.createElement("div");box.className="row-form";box.innerHTML=
