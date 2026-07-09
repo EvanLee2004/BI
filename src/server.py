@@ -296,7 +296,7 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 
 <div id="unclassified" class="sec">
   <button onclick="ucLoad()">刷新未填分类</button><span id="ucInfo" class="muted"></span>
-  <div class="note">这些费用明细未填「对应报表大类」→ 未计入费用（利润会偏高）。当场选大类补上即写调整记录、秒级重算，驾驶舱费用随之增加。</div>
+  <div class="note">这些费用明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头收单台账补填，下次更新自动计入。</div>
   <div class="wrap" id="ucWrap"><table id="ucTbl"></table></div>
 </div>
 
@@ -306,8 +306,6 @@ const ADJ_FIELDS={"收入明细":["整单交付日期","交付额","项目成本
 const STD={"收入明细":"std_收入明细","下单":"std_下单","回款":"std_回款","内部译员":"std_内部译员","费用明细":"std_费用明细"};
 const MANUAL_ITEMS=["营销人力成本","管理人力成本","研发人力成本","财务费用补充","PM人力成本","VM人力成本",
 "实际内部译员成本","税费损失","技术流量成本","其他（生产成本）","其他损益"];
-// 补分类可选大类（口径同 config：included 5 类 + excluded 3 类）
-const CATEGORIES=["市场费用","管理费用","固定运营费用","技术服务费","财务费用","成本","工资","非利润表"];
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function msg(t){document.getElementById("msg").textContent=t||"";}
 async function api(path,opts){const r=await fetch(path,Object.assign({credentials:"same-origin"},opts||{}));
@@ -420,28 +418,19 @@ async function lLoad(){const d=await jget("/api/adjustments");document.getElemen
 async function lRevoke(id){if(!confirm("撤销该调整？"))return;try{await jpost("/api/adjust/"+id+"/revoke",{});
   msg("已撤销");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
 
-// ---- 未填分类：一键看 + 当场补（走调整记录）----
+// ---- 未填分类：只读清单（不提供当场补；请在源头收单台账补填，下次更新自动计入）----
 let ucTotal=0;
 function ucUrl(p){return "/api/detail?table="+encodeURIComponent("费用明细")+"&unclassified=1&page="+p+"&page_size=200";}
 async function ucLoad(){const tbl=document.getElementById("ucTbl");tbl.innerHTML="";
   let page=1,pages=1;
   try{do{const d=await jget(ucUrl(page));pages=d.pages;ucTotal=d.total;
-    if(page===1)tbl.innerHTML="<tr><th>收单日期</th><th>金额</th><th>业务BU</th><th>预算明细费用类型</th><th>补对应报表大类</th></tr>";
-    let h="";d.rows.forEach(r=>{const key=encodeURIComponent(r["定位键"]);
-      const opt=CATEGORIES.map(c=>"<option>"+c+"</option>").join("");
+    if(page===1)tbl.innerHTML="<tr><th>收单日期</th><th>金额</th><th>业务BU</th><th>预算明细费用类型</th></tr>";
+    let h="";d.rows.forEach(r=>{
       h+="<tr><td>"+esc(r["收单日期"]||r["收单月份"])+"</td><td>"+esc(r["含税金额"])+"</td><td>"+esc(r["业务BU"])+
-        "</td><td>"+esc(r["预算明细费用类型"])+"</td>"+
-        "<td><select class='ucsel' data-k='"+key+"'><option value=''>选大类…</option>"+opt+"</select> "+
-        "<button class='mini' onclick='ucSave(this)'>补</button></td></tr>";});
+        "</td><td>"+esc(r["预算明细费用类型"])+"</td></tr>";});
     tbl.insertAdjacentHTML("beforeend",h);page++;
   }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
   document.getElementById("ucInfo").textContent="未填分类 "+ucTotal+" 笔";setUcBadge(ucTotal);}
-async function ucSave(btn){const tr=btn.closest("tr"),sel=tr.querySelector(".ucsel"),cat=sel.value;
-  if(!cat){alert("先选一个大类");return;}const key=decodeURIComponent(sel.dataset.k);
-  try{await jpost("/api/adjust",{目标表:"std_费用明细",定位键:key,字段:"对应报表大类",新值:cat,原因:"补分类",类型:"改值"});
-    msg("已补分类（秒级重算）");tr.remove();ucTotal=Math.max(0,ucTotal-1);
-    document.getElementById("ucInfo").textContent="未填分类 "+ucTotal+" 笔";setUcBadge(ucTotal);
-    reloadDash();loadHealth();}catch(e){alert("失败："+e.message);}}
 function setUcBadge(n){const b=document.getElementById("ucBadge");b.textContent=n;b.className="badge"+(n?"":" zero");}
 async function refreshUcBadge(){try{const d=await jget(ucUrl(1).replace("page_size=200","page_size=1"));setUcBadge(d.total);}catch(e){}}
 

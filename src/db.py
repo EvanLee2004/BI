@@ -126,7 +126,7 @@ def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = N
                  unclassified: bool = False) -> dict:
     """明细分页查询（带按月 + 关键词筛选）。仅读未删除行。表键须在白名单内（防注入）。
     unclassified=True 仅对「费用明细」有效：只返回「对应报表大类」为空且金额非零的行
-    （= 页面"未填分类"提示所指、可当场补分类的那批；口径与 build_unclassified_summary 一致）。"""
+    （= 页面"未填分类"只读清单所列那批，提示到源头收单台账补填；口径与 build_unclassified_summary 一致）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
     table, cols, searchable = DETAIL_TABLES[table_key]
