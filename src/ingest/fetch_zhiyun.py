@@ -234,7 +234,13 @@ def _make_post(zy: dict, cfg: dict | None = None, root: Path | None = None):
             except ValueError:
                 need_relogin = False
         if need_relogin and cfg is not None:
-            state["token"] = _auto_login(zy, cfg, root)  # 失效→重登一次
+            if state.get("login_failed"):  # 本轮已登录失败过：不再反复试（慢+密码错反复试有锁号风险）
+                raise RuntimeError("智云登录失败（本轮更新不再重试，请检查账号密码）")
+            try:
+                state["token"] = _auto_login(zy, cfg, root)  # 失效→重登一次
+            except Exception:
+                state["login_failed"] = True
+                raise
             r = _do(path, body)
         r.raise_for_status()
         return r.json()
@@ -317,8 +323,11 @@ def fetch_all(cfg: dict, root: Path | None = None) -> dict[str, dict]:
         if not zy.get("md_pss_id"):
             try:
                 _auto_login(zy, cfg, root)  # 首次/空 token：先登录
-            except Exception:  # noqa: BLE001 登录失败→post 留空，各源降级
-                zy = None
-        if zy:
-            post = _make_post(zy, cfg, root)
+            except Exception as e:  # noqa: BLE001 登录失败→四源整体快速降级
+                # ⚠不能把 zy 置 None 后继续调 fetch_source——那样它会自己重读配置再建 post，
+                # 四个源各重试一次登录（慢+密码错时反复试有锁号风险）。直接全部降级。
+                det = f"智云自动登录失败（{type(e).__name__}: {e}），用数据目录现有文件（体检黄）"
+                return {s: {"status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+                            "detail": det} for s in SOURCES}
+        post = _make_post(zy, cfg, root)
     return {s: fetch_source(cfg, s, root, post=post, zy=zy) for s in SOURCES}

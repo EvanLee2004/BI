@@ -238,6 +238,64 @@ class TestFetchSourceStates(unittest.TestCase):
         finally:
             fz._server_reachable = orig
 
+    def test_fetch_all_login_failure_fast_fallback_single_attempt(self):
+        """登录失败：四源整体快速降级，且只试一次登录（不逐源重试——慢+密码错反复试有锁号风险）。"""
+        import json as _json
+        import tempfile
+        from ingest import login_zhiyun
+        calls = {"n": 0}
+        def boom(zy, headless=True):
+            calls["n"] += 1
+            raise login_zhiyun.LoginError("账号或密码错误")
+        orig_login, orig_reach = login_zhiyun.login, fz._server_reachable
+        login_zhiyun.login, fz._server_reachable = boom, (lambda b, timeout=5: True)
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                cfg = self._cfg(Path(td))
+                (Path(td) / "下单.xlsx").write_bytes(b"PK\x03\x04")
+                (Path(td) / "智云配置.json").write_text(_json.dumps(
+                    {"base_url": "http://x", "username": "u", "password": "bad",
+                     "app_id": "a", "account_id": "acc", "md_pss_id": "",
+                     "tables": {s: {"worksheetId": "w"} for s in fz.SOURCES}}), encoding="utf-8")
+                res = fz.fetch_all(cfg, root=Path(td))
+                self.assertEqual(calls["n"], 1)                       # 只登录一次
+                self.assertEqual(res["orders"]["status"], "local_fallback")
+                self.assertIn("登录失败", res["orders"]["detail"])
+        finally:
+            login_zhiyun.login, fz._server_reachable = orig_login, orig_reach
+
+    def test_make_post_no_relogin_loop_after_failure(self):
+        """共享 post：token 失效且重登失败后，后续调用不再反复起浏览器登录。"""
+        from ingest import login_zhiyun
+        calls = {"n": 0}
+        def boom(zy, headless=True):
+            calls["n"] += 1
+            raise login_zhiyun.LoginError("密码错")
+        orig = login_zhiyun.login
+        login_zhiyun.login = boom
+        try:
+            import types, sys
+            zy = {"base_url": "http://x", "account_id": "a", "md_pss_id": "DEAD",
+                  "username": "u", "password": "bad"}
+            # 桩掉 requests：永远返回 state==0 需登录
+            class _R:
+                status_code = 200
+                def json(self): return {"state": 0, "exception": "请重新登录"}
+                def raise_for_status(self): pass
+            fake = types.ModuleType("requests")
+            fake.post = lambda *a, **k: _R()
+            sys.modules["requests"] = fake
+            try:
+                post = fz._make_post(zy, cfg={}, root=None)
+                for _ in range(3):
+                    with self.assertRaises(Exception):
+                        post("Worksheet/GetFilterRows", {})
+            finally:
+                del sys.modules["requests"]
+            self.assertEqual(calls["n"], 1)   # 三次调用只登录一次
+        finally:
+            login_zhiyun.login = orig
+
     def test_api_error_keeps_old_file(self):
         import tempfile
 
