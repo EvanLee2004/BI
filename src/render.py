@@ -5,10 +5,7 @@
 所有金额 Python 算好，JS 只做主题切换/周期切换/展开折叠/提示定位，不做任何金额运算。"""
 from __future__ import annotations
 
-import json
-
 import charts
-import export_book
 import theme
 
 GROUP_COLORS = {"营销费用": "var(--blue)", "管理费用": "var(--purple)", "固定运营费用": "var(--teal)",
@@ -418,7 +415,8 @@ JS = """
  var pbtn=document.getElementById('periodBtn'),ppanel=document.getElementById('ppanel');
  if(pbtn&&ppanel){
   var pYear=pbtn.getAttribute('data-year'),pCur=+pbtn.getAttribute('data-cur'),pStart=null;
-  function applyPeriod(key,label){
+  window._curBlk=pYear+'年';
+  function applyPeriod(key,label){window._curBlk=key;
     document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
     pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
     ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});}
@@ -468,93 +466,22 @@ JS = """
 })();
 """
 
-# 一键导出：点击 → 用户选文件夹（showDirectoryPicker，不支持则回退普通下载）→
-# 落一个多 sheet 真·xlsx（纯手写 zip，零外部库、过"自包含"守卫）+ 一份当前 HTML 快照。
-# 铁律：每格的值都是 Python 侧算好嵌进 JSON 的，这里只做打包/存盘，不做任何金额运算。
+# 导出=当前所选周期的整页图片（服务端 Playwright 截图返回 PNG，前端只发请求零运算）。
+# 双击打开的静态文件版没有服务，点了给提示。旧"Excel+HTML快照 zip"导出已按明昊要求移除（2026-07-11）。
 EXPORT_JS = r"""
 (function(){
- var btn=document.getElementById('exportBtn'),dataEl=document.getElementById('cockpit-export');
- if(!btn||!dataEl)return;
- var CRC=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++){c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);}t[n]=c>>>0;}return t;})();
- function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++){c=CRC[(c^b[i])&0xFF]^(c>>>8);}return (c^0xFFFFFFFF)>>>0;}
- var enc=new TextEncoder();
- function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
- function col(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
- function isN(v){return typeof v==='number'&&isFinite(v);}
- function sheetXml(sh){
-   var o=['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'];
-   var all=[sh.columns].concat(sh.rows);
-   for(var r=0;r<all.length;r++){var cs=all[r];o.push('<row r="'+(r+1)+'">');
-     for(var c=0;c<cs.length;c++){var ref=col(c)+(r+1),v=cs[c];
-       if(r>0&&isN(v)){o.push('<c r="'+ref+'"><v>'+v+'</v></c>');}
-       else{o.push('<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xe(v==null?'':v)+'</t></is></c>');}}
-     o.push('</row>');}
-   o.push('</sheetData></worksheet>');return o.join('');}
- function sName(n,used){n=String(n).replace(/[\\\/\*\?\:\[\]]/g,' ').slice(0,31)||'Sheet';
-   var b=n,i=1;while(used[n]){n=b.slice(0,28)+'_'+(i++);}used[n]=1;return n;}
- function buildXlsxBytes(sheets){
-   var used={},names=sheets.map(function(s){return sName(s.name,used);}),files=[];
-   files.push(['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
-     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
-     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
-     '<Default Extension="xml" ContentType="application/xml"/>'+
-     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
-     sheets.map(function(s,i){return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';}).join('')+'</Types>']);
-   files.push(['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
-     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
-     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>']);
-   files.push(['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
-     '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
-     names.map(function(nm,i){return '<sheet name="'+xe(nm)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>';}).join('')+'</sheets></workbook>']);
-   files.push(['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
-     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
-     sheets.map(function(s,i){return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>';}).join('')+'</Relationships>']);
-   sheets.forEach(function(s,i){files.push(['xl/worksheets/sheet'+(i+1)+'.xml',sheetXml(s)]);});
-   return zipBytes(files.map(function(f){return [f[0],enc.encode(f[1])];}),false);}
- // 通用 store 法 zip → Uint8Array。files=[[名字, Uint8Array], ...]；utf8=true 置 UTF-8 文件名标志(中文名必须)。
- // xlsx 本身就是个 zip（装 xml），打包下载兜底也复用它（装 xlsx+html 快照）。
- function zipBytes(files,utf8){
-   var flag=utf8?0x0800:0,chunks=[],central=[],offset=0;
-   function u16(n){return [n&0xFF,(n>>>8)&0xFF];}
-   function u32(n){return [n&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF];}
-   files.forEach(function(f){
-     var nb=enc.encode(f[0]),db=f[1],crc=crc32(db),sz=db.length;
-     var loc=[].concat(u32(0x04034b50),u16(20),u16(flag),u16(0),u16(0),u16(0),u32(crc),u32(sz),u32(sz),u16(nb.length),u16(0));
-     chunks.push(new Uint8Array(loc),nb,db);
-     var cen=[].concat(u32(0x02014b50),u16(20),u16(20),u16(flag),u16(0),u16(0),u16(0),u32(crc),u32(sz),u32(sz),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
-     central.push({h:new Uint8Array(cen),n:nb});
-     offset+=loc.length+nb.length+db.length;});
-   var cdStart=offset,cdSize=0;
-   central.forEach(function(c){chunks.push(c.h,c.n);cdSize+=c.h.length+c.n.length;});
-   var eo=[].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cdSize),u32(cdStart),u16(0));
-   chunks.push(new Uint8Array(eo));
-   var total=0;chunks.forEach(function(c){total+=c.length;});
-   var out=new Uint8Array(total),pos=0;chunks.forEach(function(c){out.set(c,pos);pos+=c.length;});return out;}
- function dl(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
-   document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
- async function writeInto(dir,name,bytes){var fh=await dir.getFileHandle(name,{create:true});var w=await fh.createWritable();await w.write(bytes);await w.close();}
- function toast(msg){var t=document.createElement('div');t.textContent=msg;
-   t.style.cssText='position:fixed;left:50%;bottom:32px;transform:translateX(-50%);background:rgba(20,24,36,.95);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.4)';
-   document.body.appendChild(t);setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity=0;setTimeout(function(){t.remove();},400);},2400);}
- btn.addEventListener('click',async function(){
-   var snap='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-   btn.disabled=true;
-   try{
-     var data=JSON.parse(dataEl.textContent);
-     var stamp=(data.meta&&data.meta.stamp)||'export';
-     var xN='经营驾驶舱数据_'+stamp+'.xlsx',hN='经营驾驶舱快照_'+stamp+'.html';
-     var xB=buildXlsxBytes(data.sheets),hB=enc.encode(snap);
-     if(window.showDirectoryPicker){
-       var dir=null;
-       try{dir=await window.showDirectoryPicker();}catch(e){if(e&&e.name==='AbortError'){btn.disabled=false;return;}dir=null;}
-       if(dir){try{await writeInto(dir,xN,xB);await writeInto(dir,hN,hB);toast('已导出到所选文件夹：Excel + HTML 快照');btn.disabled=false;return;}catch(e2){/* 落到打包下载兜底 */}}}
-     // 兜底：两份装进一个 zip 单次下载——单次下载不会被浏览器丢第二个文件
-     var bundle=zipBytes([[xN,xB],[hN,hB]],true);
-     dl(new Blob([bundle],{type:'application/zip'}),'经营驾驶舱导出_'+stamp+'.zip');
-     toast('已下载压缩包：内含 Excel + HTML 快照（解压即用）');
-   }catch(err){toast('导出失败：'+((err&&err.message)||err));}
-   btn.disabled=false;});
+ var btn=document.getElementById('exportBtn');if(!btn)return;
+ btn.addEventListener('click',function(){
+   if(location.protocol==='file:'){alert('图片导出需在看板服务页面使用（浏览器打开 http://服务器:端口/）');return;}
+   var k=window._curBlk||'';var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span>⬇</span> 生成中…';
+   fetch('/export.png?blk='+encodeURIComponent(k)).then(function(r){
+     if(!r.ok){return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});}
+     var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'经营驾驶舱.png';
+     return r.blob().then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);
+       a.download=fn;document.body.appendChild(a);a.click();a.remove();});
+   }).catch(function(e){alert('导出失败：'+e.message);})
+     .finally(function(){btn.disabled=false;btn.innerHTML=old;});
+ });
 })();
 """
 
@@ -581,8 +508,6 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
-    # 导出数据（每格已算好）嵌进页面，供前端一键导出；转义 </ 防止提前闭合 <script>
-    export_json = json.dumps(export_book.build_export_book(summary, cfg), ensure_ascii=False).replace("</", "<\\/")
 
     body = f"""
 {PARTICLES_HTML}
@@ -614,7 +539,6 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script type="application/json" id="cockpit-export">{export_json}</script>
 <script>{JS}{EXPORT_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'

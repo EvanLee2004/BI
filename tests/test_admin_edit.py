@@ -252,6 +252,27 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(self.anon.get("/api/history").status_code, 401)
         self.assertEqual(self.anon.get("/api/history/20260710").status_code, 401)
 
+    def test_export_png(self):
+        """导出图片：截图函数打桩，验证 PNG 返回/文件名头/未知周期400。"""
+        orig = server._screenshot_png
+        server._screenshot_png = lambda html, blk="", width=1440: b"\x89PNGFAKE"
+        orig_sum = server._state.get("summary")
+        server._state["summary"] = {"periods": {"2026年": {}, "2026年3月": {}},
+                                    "meta": {"year_key": "2026年"}}
+        try:
+            r = self.client.get("/export.png")                      # 用户端功能：无需登录
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.headers["content-type"], "image/png")
+            self.assertIn("filename", r.headers["content-disposition"])
+            self.assertEqual(r.content, b"\x89PNGFAKE")
+            r = self.client.get("/export.png", params={"blk": "2026年3月"})
+            self.assertEqual(r.status_code, 200)
+            r = self.client.get("/export.png", params={"blk": "1999年"})
+            self.assertEqual(r.status_code, 400)                     # 未知周期
+        finally:
+            server._screenshot_png = orig
+            server._state["summary"] = orig_sum
+
     def test_history_list_and_page(self):
         """历史快照：列表倒序 + 按天取页面 + 非法日期400 + 无档404。"""
         bdir = loaders.data_dir(self.cfg, self.root) / "备份"

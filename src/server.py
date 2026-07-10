@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 import loaders
 import db
@@ -805,6 +805,27 @@ def create_app(cfg, root=None) -> FastAPI:
                 "last": _state["last_refresh"], "built_at": _state["built_at"],
                 "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch"))}
 
+    @app.get("/export.png")
+    def api_export_png(blk: str = ""):
+        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。用户端功能，与用户页同样无需登录。"""
+        html = _state.get("user_html")
+        if not html:
+            raise HTTPException(status_code=503, detail="页面尚未构建，稍后再试")
+        keys = set(((_state.get("summary") or {}).get("periods") or {}).keys())
+        if blk and keys and blk not in keys:
+            raise HTTPException(status_code=400, detail="未知周期")
+        try:
+            png = _screenshot_png(html, blk)
+        except Exception as e:  # noqa: BLE001 chromium 未装/超时等
+            raise HTTPException(status_code=503,
+                                detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium")
+        label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
+        from urllib.parse import quote
+        fn = quote(f"经营驾驶舱_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        return Response(content=png, media_type="image/png",
+                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
+                                 "X-Filename": fn})
+
     @app.get("/api/history")
     def api_history(request: Request):
         """历史页面快照列表（按天，倒序）。供管理员端「历史快照」页。"""
@@ -963,6 +984,31 @@ def create_app(cfg, root=None) -> FastAPI:
         return db.adjustable_fields()
 
     return app
+
+
+def _screenshot_png(html: str, blk: str = "", width: int = 1440) -> bytes:
+    """把用户页 HTML 在无头浏览器里渲开并整页截图。blk 非空=先切到该周期视图。
+    reduced_motion 关掉全部动效（粒子/扫描线/生长动画），截出来是静止完整帧。"""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        br = p.chromium.launch(headless=True)
+        try:
+            ctx = br.new_context(viewport={"width": width, "height": 900},
+                                 reduced_motion="reduce", device_scale_factor=2)
+            pg = ctx.new_page()
+            pg.set_content(html, wait_until="load")
+            if blk:
+                pg.evaluate(
+                    "k=>{document.querySelectorAll('.pv').forEach(x=>{"
+                    "x.style.display=x.getAttribute('data-blk')===k?'':'none';});"
+                    "var b=document.getElementById('periodBtn');"
+                    "if(b)b.childNodes[0].textContent=k+' ';}", blk)
+            # 截图里去掉纯装饰/交互件（粒子层、导出与主题按钮）
+            pg.add_style_tag(content=".particles,#exportBtn,#themeBtn{display:none!important}")
+            pg.wait_for_timeout(400)
+            return pg.screenshot(full_page=True, type="png")
+        finally:
+            br.close()
 
 
 def serve(cfg=None, root=None):
