@@ -58,6 +58,48 @@ class TestRowsToRecords(unittest.TestCase):
         self.assertEqual(recs[0], {"下单日期": "2026-06-23", "下单预估额/本币": "100.5"})
         self.assertEqual(recs[1]["下单预估额/本币"], "")
 
+    def test_duplicate_name_non_empty_wins(self):
+        """同名列合并：空值不覆盖有值（防两个"整单交付日期"的空把有值清掉）。"""
+        controls = [ctrl("c_val", "整单交付日期"), ctrl("c_empty", "整单交付日期")]
+        rows = [{"c_val": "2026-06-30", "c_empty": ""}]      # 有值在前、空在后
+        self.assertEqual(fz.rows_to_records(rows, controls)[0]["整单交付日期"], "2026-06-30")
+        rows2 = [{"c_val": "", "c_empty": "2026-06-30"}]     # 空在前、有值在后
+        self.assertEqual(fz.rows_to_records(rows2, controls)[0]["整单交付日期"], "2026-06-30")
+
+
+class TestDateSinceFilter(unittest.TestCase):
+    CTRLS = [{"controlId": "d1", "controlName": "下单日期", "type": 15}]
+
+    def test_builds_filter_for_known_col(self):
+        fc = fz.build_date_since_filter(self.CTRLS, "下单日期", "2026-01-01")
+        self.assertEqual(len(fc), 1)
+        self.assertEqual(fc[0]["controlId"], "d1")
+        self.assertEqual(fc[0]["filterType"], 13)      # 13 = 该日及以后（实测语义）
+        self.assertEqual(fc[0]["value"], "2026-01-01")
+
+    def test_empty_when_no_since_or_missing_col(self):
+        self.assertEqual(fz.build_date_since_filter(self.CTRLS, "下单日期", ""), [])
+        self.assertEqual(fz.build_date_since_filter(self.CTRLS, "不存在的列", "2026-01-01"), [])
+
+
+class TestAuthExpiry(unittest.TestCase):
+    def test_detects_expired(self):
+        self.assertTrue(fz._is_auth_expired({"state": 0, "exception": "帐号已退出，请重新登录"}))
+        self.assertTrue(fz._is_auth_expired({"state": "0", "message": "请登录"}))
+
+    def test_not_expired_on_success_or_other_error(self):
+        self.assertFalse(fz._is_auth_expired({"state": 1, "data": {}}))
+        self.assertFalse(fz._is_auth_expired({"state": 0, "exception": "无权限查看该表"}))
+        self.assertFalse(fz._is_auth_expired("非字典"))
+
+
+class TestLoginGuards(unittest.TestCase):
+    def test_missing_credentials_raises(self):
+        from ingest import login_zhiyun as lz
+        for zy in ({}, {"base_url": "http://x"}, {"base_url": "http://x", "username": "u"}):
+            with self.assertRaises(lz.LoginError):
+                lz.login(zy)
+
 
 class TestRequiredColumns(unittest.TestCase):
     CFG = {"columns": {"order_amount": "下单预估额/本币", "order_date": "下单日期"}}
@@ -158,6 +200,43 @@ class TestFetchSourceStates(unittest.TestCase):
             self.assertEqual(r["status"], "no_source")
             self.assertIn("缺必需列", r["detail"])
             self.assertFalse((Path(td) / "下单.xlsx").exists())  # 坏产物绝不落盘
+
+    def test_min_rows_guard_blocks_permission_starved_account(self):
+        """行数门槛：抓到的行数 < tables.<源>.min_rows（=账号行级权限不足，如亮晶号在
+        任务表只看得到『我的任务』85行）→ 降级、绝不用残缺数据覆盖现有文件。"""
+        import tempfile
+        zy = self._zy()
+        zy["tables"]["orders"]["min_rows"] = 100   # 桩只返回1行 < 100
+        with tempfile.TemporaryDirectory() as td:
+            old = Path(td) / "下单.xlsx"
+            old.write_bytes(b"OLD")
+            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td),
+                                post=self._post_ok, zy=zy)
+            self.assertEqual(r["status"], "local_fallback")
+            self.assertIn("门槛", r["detail"])
+            self.assertEqual(old.read_bytes(), b"OLD")   # 现有文件原样保留
+
+    def test_fetch_all_unreachable_server_fast_fallback(self):
+        """连通性探测：内网不可达 → 四源整体快速降级（不逐源等超时）。"""
+        import json as _json
+        import tempfile
+        orig = fz._server_reachable
+        fz._server_reachable = lambda base_url, timeout=5: False
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                cfg = self._cfg(Path(td))
+                (Path(td) / "下单.xlsx").write_bytes(b"PK\x03\x04")
+                (Path(td) / "智云配置.json").write_text(_json.dumps(
+                    {"base_url": "http://10.9.9.9", "username": "u", "password": "p",
+                     "app_id": "a", "account_id": "acc",
+                     "tables": {s: {"worksheetId": "w"} for s in fz.SOURCES}}), encoding="utf-8")
+                res = fz.fetch_all(cfg, root=Path(td))
+                self.assertEqual(set(res), set(fz.SOURCES))
+                self.assertEqual(res["orders"]["status"], "local_fallback")   # 有本地文件
+                self.assertEqual(res["receipts"]["status"], "no_source")      # 无本地文件
+                self.assertIn("不可达", res["orders"]["detail"])
+        finally:
+            fz._server_reachable = orig
 
     def test_api_error_keeps_old_file(self):
         import tempfile

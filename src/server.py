@@ -19,6 +19,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -40,7 +41,9 @@ DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", "kanban2026")
 IDENTITIES = ("明昊", "陆总")
 
 # 服务内存态：当前汇总 + 渲染好的两端页面 + 上次规范化的原始记录（供秒级重算）
-_state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None}
+# refreshing/last_refresh：后台「立即更新」的进行中标记与最近一次结果（/api/refresh_status 用）
+_state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None,
+                "refreshing": None, "last_refresh": None}
 _LOCK = threading.Lock()  # 写库/重算全局互斥（03：写库一把锁，运行中排队）
 
 
@@ -133,6 +136,122 @@ def refresh(cfg, root=None, trigger="manual") -> dict:
     """完整更新（fetch+重读xlsx+重建+重放）+ 渲染两端，刷新缓存。启动与 /api/refresh 用。"""
     with _LOCK:
         return _do_full(cfg, root, trigger)
+
+
+def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
+    """后台线程跑完整更新（在线抓开着约80秒，不能同步阻塞按钮）。
+    拿到锁→起线程返回 True；拿不到（已在更新）返回 False。进度看 _state["refreshing"]/["last_refresh"]。"""
+    if not _LOCK.acquire(blocking=False):
+        return False
+    _state["refreshing"] = {"started_at": time.strftime("%Y-%m-%d %H:%M:%S"), "trigger": trigger}
+
+    def _job():
+        t0 = time.time()
+        try:
+            ing = _do_full(cfg, root, trigger)
+            _state["last_refresh"] = {"status": "ok", "result": ing.get("result"),
+                                      "seconds": round(time.time() - t0, 1),
+                                      "finished_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+        except Exception as e:  # 失败也要落状态，前端能看到为啥
+            _state["last_refresh"] = {"status": "error", "detail": f"{type(e).__name__}: {e}",
+                                      "seconds": round(time.time() - t0, 1),
+                                      "finished_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+        finally:
+            _state["refreshing"] = None
+            _LOCK.release()
+
+    threading.Thread(target=_job, daemon=True).start()
+    return True
+
+
+# ---------------- 设置（config.json 可改项：自动更新时间/备份保留天数/在线抓开关） ----------------
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+SCHTASK_NAME = "经营驾驶舱每日更新"  # 与 注册每日更新.bat 里的 TN 一致
+
+EDITABLE_SETTINGS = ("schedule_time", "backup_keep_days", "zhiyun_auto_fetch")
+
+
+def _config_file(root=None) -> Path:
+    return (root or loaders.ROOT) / "config.json"
+
+
+def _zhiyun_cfg_file(cfg, root=None) -> Path:
+    return loaders.data_dir(cfg, root) / "智云配置.json"
+
+
+def read_zhiyun_creds(cfg, root=None) -> dict:
+    """读智云账号密码（给设置页显示；管理员会话内可见，与部署机本地明文配置同权限层级）。"""
+    p = _zhiyun_cfg_file(cfg, root)
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+        return {"username": d.get("username", ""), "password": d.get("password", "")}
+    except (OSError, ValueError):
+        return {"username": "", "password": ""}
+
+
+def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
+    """账号或密码变了才写：更新 username/password + 清掉旧会话（md_pss_id/account_id），
+    下次更新自动用新账号登录、account_id 登录时自动获取——换陆总号只需在界面填这两样。
+    返回是否发生了变更。"""
+    p = _zhiyun_cfg_file(cfg, root)
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = {}
+    if d.get("username") == username and d.get("password") == password:
+        return False
+    d["username"], d["password"] = username, password
+    d["md_pss_id"] = ""      # 旧会话作废，强制新账号重登
+    d["account_id"] = ""     # 登录时从页面全局变量自动取新账号的 GUID
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    return True
+
+
+def save_settings(cfg, root, payload: dict) -> dict:
+    """校验并落盘设置：改运行中 cfg（即时生效）+ 重写 config.json（重启不丢）。
+    Windows 上改 schedule_time 会顺手 schtasks /Change 已注册的计划任务（没注册过则提示跑 bat）。"""
+    st = str(payload.get("schedule_time", cfg.get("schedule_time", "09:30"))).strip()
+    if not _TIME_RE.match(st):
+        raise ValueError("自动更新时间格式须为 HH:MM（24小时制），如 09:30")
+    try:
+        keep = int(payload.get("backup_keep_days", cfg.get("backup_keep_days", 30)))
+    except (TypeError, ValueError):
+        raise ValueError("备份保留天数须为整数")
+    if not (1 <= keep <= 365):
+        raise ValueError("备份保留天数须在 1~365 之间")
+    auto = bool(payload.get("zhiyun_auto_fetch", cfg.get("zhiyun_auto_fetch", False)))
+
+    cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
+    p = _config_file(root)
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schedule_time"], raw["backup_keep_days"], raw["zhiyun_auto_fetch"] = st, keep, auto
+    p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    # 智云账号（可选字段；两者都给才处理，改了才写+清旧会话）
+    zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
+    cred_note = ""
+    if zu is not None and zp is not None:
+        zu, zp = str(zu).strip(), str(zp)
+        if not zu or not zp:
+            raise ValueError("智云账号和密码都不能为空")
+        if save_zhiyun_creds(cfg, root, zu, zp):
+            cred_note = "；智云账号已更新（下次更新自动用新账号登录）"
+
+    note = "已保存" + cred_note
+    import sys
+    if sys.platform == "win32":
+        import subprocess
+        try:
+            r = subprocess.run(["schtasks", "/Change", "/TN", SCHTASK_NAME, "/ST", st],
+                               capture_output=True, timeout=15)
+            note += "；计划任务时间已改" if r.returncode == 0 else \
+                "；⚠计划任务未改成（可能还没注册）——请以管理员身份跑一次 注册每日更新.bat"
+        except Exception:
+            note += "；⚠改计划任务出错——请以管理员身份跑一次 注册每日更新.bat"
+    else:
+        note += "（本机非 Windows：计划任务时间在部署机上生效）"
+    return {"schedule_time": st, "backup_keep_days": keep, "zhiyun_auto_fetch": auto, "note": note}
 
 
 def recompute(cfg, root=None) -> None:
@@ -240,6 +359,7 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <div class="gtab on" data-g="see" onclick="showGroup('see')">看</div>
   <div class="gtab" data-g="edit" onclick="showGroup('edit')">改数据</div>
   <div class="gtab" data-g="review" onclick="showGroup('review')">复核</div>
+  <div class="gtab" data-g="cfg" onclick="showGroup('cfg')">设置</div>
 </div>
 <div id="subnav">
   <span class="subgrp" id="sub-edit" data-g="edit">
@@ -288,6 +408,51 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <div class="wrap"><table id="lTbl"></table></div>
 </div>
 
+<div id="settings" class="sec">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;max-width:1100px">
+
+    <div class="row-form" style="margin:0;padding:16px 18px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">⏰ 自动更新</div>
+      <div class="muted" style="margin-bottom:14px">每天自动跑一次完整更新（抓数→重算→出页面）</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span>每日更新时间</span><input id="sTime" type="time" style="font-size:15px;padding:8px 10px">
+      </div>
+      <div class="muted">Windows 部署机计划任务的运行时间；保存后自动改已注册的计划任务（首次注册跑一次 注册每日更新.bat）。平时也可随时点顶栏「立即更新」。</div>
+    </div>
+
+    <div class="row-form" style="margin:0;padding:16px 18px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗄 备份清理</div>
+      <div class="muted" style="margin-bottom:14px">每次更新自动把算好的 看板.db 备份到 数据/备份/（每天一份）</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span>备份保留</span><input id="sKeep" type="number" min="1" max="365" style="width:80px;font-size:15px;padding:8px 10px"><span>天</span>
+      </div>
+      <div class="muted">超过天数自动删最旧的，防止磁盘一直涨；月末快照存档（快照存档/）是财务时点档案，不受影响、永久保留。</div>
+      <div id="sBakInfo" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔑 智云账号（在线抓数用）</div>
+      <div class="muted" style="margin-bottom:14px">每次更新用这个账号自动登录智云抓数。换账号（如启用专用只读账号）只需改这两项并保存——账号内部ID登录时自动获取，下次「立即更新」即用新账号；账号密码错了会抓不到数（体检黄），改对即恢复。</div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <span>账号 <input id="sZyUser" type="password" autocomplete="off" style="width:180px;font-size:14px;padding:8px 10px"></span>
+        <span>密码 <input id="sZyPwd" type="password" autocomplete="off" style="width:180px;font-size:14px;padding:8px 10px"></span>
+        <button class="ghost mini" type="button" onclick="toggleZyReveal()" id="sZyEye">👁 显示</button>
+      </div>
+    </div>
+
+    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔌 数据从哪来（固定流程·无需配置）</div>
+      <div class="muted" style="margin-bottom:10px">每次更新固定做两路抓数：① 自动登录智云在线抓四张表；② 从共享盘拉最新收单台账。哪个源抓不到（不在内网/账号权限不足/服务器没开）就自动沿用 数据/ 里现有文件继续算，并在顶栏体检里标黄——不中断、不用管。</div>
+      <div class="wrap"><table id="sSrcTbl"></table></div>
+    </div>
+
+  </div>
+  <div style="margin-top:14px">
+    <button onclick="saveSettings()">保存设置</button>
+    <span id="sMsg" class="muted"></span>
+  </div>
+</div>
+
 <div id="unclassified" class="sec">
   <button onclick="ucLoad()">刷新未填分类</button><span id="ucInfo" class="muted"></span>
   <div class="note">这些费用明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头收单台账补填，下次更新自动计入。</div>
@@ -313,7 +478,8 @@ function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.
   document.querySelectorAll(".subgrp").forEach(e=>e.style.display=e.dataset.g===g?"flex":"none");
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
-  else if(g==="review")showReview("ledger");}
+  else if(g==="review")showReview("ledger");
+  else if(g==="cfg"){showSec("settings");loadSettings();}}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
@@ -334,8 +500,50 @@ function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warning
   html+="</div><div class='grp'><div class='k'>数据源覆盖</div><div>"+
     (h.sources||[]).map(s=>esc(s.name)+"："+s.rows+"行").join("　")+"</div></div>";
   document.getElementById("hDetail").innerHTML=html;}
-async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;msg("更新中…");
-  try{await jpost("/api/refresh",{});msg("已更新");reloadDash();loadHealth();refreshUcBadge();}catch(e){msg("更新失败:"+e.message);}b.disabled=false;}
+// 立即更新：后台跑+轮询进度（在线抓开着约80秒，同步等会像卡死）
+let refT0=0;
+async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;refT0=Date.now();
+  try{await jpost("/api/refresh",{});}catch(e){/* 409=已在更新 → 直接跟着轮询 */}
+  msg("更新中…");pollRefresh();}
+async function pollRefresh(){const b=document.getElementById("btnRefresh");
+  try{const s=await jget("/api/refresh_status");
+    if(s.running){const el=Math.round((Date.now()-refT0)/1000);
+      msg("更新中… "+el+"s"+(s.zhiyun_auto_fetch?"（含智云在线抓数，约1~2分钟）":""));
+      setTimeout(pollRefresh,2000);return;}
+    b.disabled=false;const L=s.last;
+    if(L&&L.status==="error")msg("更新失败："+L.detail);
+    else msg("已更新"+(L&&L.seconds?("（"+L.seconds+"s）"):""));
+    reloadDash();loadHealth();refreshUcBadge();
+  }catch(e){b.disabled=false;msg("查询更新状态失败:"+e.message);}}
+// 设置页
+// 数据来源标注（固定流程，只展示不可配）：各表从哪来 + 抓不到时的兜底
+const SRC_MAP=[["下单(智云)","智云在线抓（自动登录，每次更新）"],
+  ["回款(智云)","智云在线抓（自动登录，每次更新）"],
+  ["项目明细(智云)","智云在线抓（自动登录，每次更新）"],
+  ["内部译员·IN-HOUSE(智云)","智云在线抓（当前账号权限不足时自动沿用现有文件·体检黄，待专用账号）"],
+  ["收单台账","共享盘自动拉取（部署机内网；不可达沿用本地副本·体检黄）"],
+  ["手填与调整","管理员端「改数据→手填」填写，全程留痕"]];
+function toggleZyReveal(){const u=document.getElementById("sZyUser"),p=document.getElementById("sZyPwd"),
+  e=document.getElementById("sZyEye"),show=u.type==="password";
+  u.type=p.type=show?"text":"password";e.textContent=show?"🙈 隐藏":"👁 显示";}
+async function loadSettings(){try{const s=await jget("/api/settings");
+  document.getElementById("sTime").value=s.schedule_time||"09:30";
+  document.getElementById("sKeep").value=s.backup_keep_days||30;
+  document.getElementById("sZyUser").value=s.zhiyun_username||"";
+  document.getElementById("sZyPwd").value=s.zhiyun_password||"";
+  const b=s.backup_stats||{};
+  document.getElementById("sBakInfo").textContent="当前备份："+(b.count||0)+" 份，共 "+(b.mb||0)+" MB";
+  const rows={};(window._health&&window._health.sources||[]).forEach(x=>rows[x.name]=x.rows);
+  document.getElementById("sSrcTbl").innerHTML="<tr><th>数据</th><th>从哪来</th><th>当前行数</th></tr>"+
+    SRC_MAP.map(([n,src])=>"<tr><td>"+esc(n)+"</td><td>"+esc(src)+"</td><td>"+
+      (rows[n]!=null?rows[n]:"—")+"</td></tr>").join("");
+  }catch(e){msg("读取设置失败:"+e.message);}}
+async function saveSettings(){const m=document.getElementById("sMsg");m.textContent="保存中…";
+  try{const d=await jpost("/api/settings",{schedule_time:document.getElementById("sTime").value,
+    backup_keep_days:parseInt(document.getElementById("sKeep").value,10),
+    zhiyun_username:document.getElementById("sZyUser").value,
+    zhiyun_password:document.getElementById("sZyPwd").value});
+    m.textContent=d.note||"已保存";}catch(e){m.textContent="保存失败："+e.message;}}
 
 // ---- 明细编辑（无限滚动加载）----
 let curTable="收入明细";
@@ -440,9 +648,9 @@ function ucUrl(p){return "/api/detail?table="+encodeURIComponent("费用明细")
 async function ucLoad(){const tbl=document.getElementById("ucTbl");tbl.innerHTML="";
   let page=1,pages=1;
   try{do{const d=await jget(ucUrl(page));pages=d.pages;ucTotal=d.total;
-    if(page===1)tbl.innerHTML="<tr><th>收单日期</th><th>金额</th><th>业务BU</th><th>预算明细费用类型</th></tr>";
+    if(page===1)tbl.innerHTML="<tr><th>收单日期</th><th>金额</th><th>预算明细费用类型</th></tr>";
     let h="";d.rows.forEach(r=>{
-      h+="<tr><td>"+esc(r["收单日期"]||r["收单月份"])+"</td><td>"+esc(r["含税金额"])+"</td><td>"+esc(r["业务BU"])+
+      h+="<tr><td>"+esc(r["收单日期"]||r["收单月份"])+"</td><td>"+esc(r["含税金额"])+
         "</td><td>"+esc(r["预算明细费用类型"])+"</td></tr>";});
     tbl.insertAdjacentHTML("beforeend",h);page++;
   }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
@@ -465,6 +673,8 @@ initYM();
 document.getElementById("dWrap").addEventListener("scroll",function(){
   if(this.scrollTop+this.clientHeight>=this.scrollHeight-80)detail.next();});
 loadHealth();refreshUcBadge();loadAdjFields();setInterval(loadHealth,30000);
+// 打开页面时若更新已在跑（别处/定时触发），按钮跟着进入进度态
+jget("/api/refresh_status").then(s=>{if(s.running){document.getElementById("btnRefresh").disabled=true;refT0=Date.now();pollRefresh();}}).catch(()=>{});
 </script></body></html>"""
 
 
@@ -547,15 +757,39 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.post("/api/refresh")
     def api_refresh(request: Request):
-        """立即更新=完整 pipeline（fetch+重读+重建+重放）。运行中互斥，重复点返回进行中。"""
+        """立即更新=完整 pipeline（fetch+重读+重建+重放），后台线程跑、立即返回（在线抓约80秒）。
+        运行中互斥，重复点返回进行中；进度轮询 /api/refresh_status。"""
         _require(request)
-        if not _LOCK.acquire(blocking=False):
+        if not start_refresh_async(cfg, root, "manual"):
             return JSONResponse({"status": "running", "detail": "更新进行中，请稍候"}, status_code=409)
+        return {"status": "started", "refreshing": _state["refreshing"]}
+
+    @app.get("/api/refresh_status")
+    def api_refresh_status(request: Request):
+        _require(request)
+        return {"running": bool(_state["refreshing"]), "refreshing": _state["refreshing"],
+                "last": _state["last_refresh"], "built_at": _state["built_at"],
+                "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch"))}
+
+    @app.get("/api/settings")
+    def api_settings_get(request: Request):
+        _require(request)
+        out = {k: cfg.get(k) for k in EDITABLE_SETTINGS}
+        creds = read_zhiyun_creds(cfg, root)
+        out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
+        bdir = loaders.data_dir(cfg, root) / "备份"
+        baks = sorted(bdir.glob("看板_*.db")) if bdir.exists() else []
+        out["backup_stats"] = {"count": len(baks),
+                               "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
+        return out
+
+    @app.post("/api/settings")
+    def api_settings_post(request: Request, payload: dict = Body(default={})):
+        _require(request)
         try:
-            ing = _do_full(cfg, root, "manual")
-        finally:
-            _LOCK.release()
-        return {"status": "ok", "result": ing.get("result"), "built_at": _state["built_at"]}
+            return save_settings(cfg, root, payload)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     @app.post("/api/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):
@@ -683,7 +917,9 @@ def serve(cfg=None, root=None):
         print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/refresh 或重启）")
     app = create_app(cfg, root)
     import uvicorn
-    host, port = cfg.get("server_host", "0.0.0.0"), int(cfg.get("server_port", 8018))
+    host = cfg.get("server_host", "0.0.0.0")
+    # 环境变量 KANBAN_PORT 可覆盖端口（本机多会话调试时避开 config 固定端口，不影响部署默认值）
+    port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
     print(f"[server] 内网服务：用户端 http://<本机IP>:{port}/   管理员端 http://<本机IP>:{port}/admin")
     uvicorn.run(app, host=host, port=port, log_level="info")
 

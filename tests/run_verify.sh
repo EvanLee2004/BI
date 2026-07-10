@@ -3,6 +3,8 @@
 # 优先用项目 venv 的 python（含 fastapi/openpyxl）；没有则退回 python3。
 set -e
 cd "$(dirname "$0")/.."
+# 测试/回归一律离线：不碰智云网络、不改进料口（在线抓的正确性由 test_fetch_zhiyun 桩测覆盖）
+export KANBAN_OFFLINE=1
 PY=python3
 [ -x .venv/bin/python ] && PY=.venv/bin/python
 echo "用解释器：$PY"

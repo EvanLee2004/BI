@@ -1,25 +1,24 @@
 {
   "_comment": "经营驾驶舱 v6 业务口径唯一配置源。切换测试/正式数据只改 data_dir 与 period_pin 两处，代码不动。",
-
   "data_dir": "数据",
   "_data_dir_note": "产品数据目录——6个数据源固定放这里(文件名见files)。程序永远读这个目录，每月用新导出/新填的数据覆盖同名文件即可。⚠随程序分发时此目录不含任何数据(只有README)，真实数据放在部署机本地、绝不进git、绝不外传。",
-
   "period_pin": null,
   "_period_pin_note": "null=用系统当天（正式版都用这个，年份自动跟当前年走，2027/2028照常）。要复现历史某月可填 {year,month}。",
-
   "db_path": "看板.db",
   "_db_path_note": "标准表+人工表+队列+运行日志的单文件 SQLite；相对 data_dir（默认 数据/看板.db）。绝不进 git（含真实金额/客户名）。",
-
   "ledger_share_path": "\\\\<财务共享服务器>\\<共享目录>\\收单台账.xlsx",
   "_ledger_share_path_note": "收单台账内网 SMB 共享路径（部署机上定时任务从这里拉到 data_dir）。本机(macOS)读不到属正常：路径可达才拉、不可达走数据目录现有台账+体检黄，不中断管道。",
-
+  "zhiyun_auto_fetch": true,
+  "_zhiyun_auto_fetch_note": "true(默认·2026-07-10 S2对数通过后改)=每次更新先从智云在线抓四源(下单/回款/项目明细/内部译员)覆盖进料口，抓不到的源自动用 数据/ 现有文件+体检黄(5秒连通探测·不在内网快速降级)；内部译员靠 智云配置.json 的 min_rows 门槛挡权限不足账号。false=只用现有文件(应急/离线调试用)。",
+  "zhiyun_since": "2026-01-01",
+  "_zhiyun_since_note": "智云在线抓的起始日期：服务器端只返各源归属日期(下单=下单日期/回款=到账日期/项目明细=整单交付日期) >= 此日的行。只要2026起(以前年份看板暂不需要、收单台账也只有2026)，少抓快抓。留空=抓全量。以后要往前补历史改早此日即可。",
   "schedule_time": "09:30",
-  "_schedule_time_note": "每日自动更新时间（Windows 计划任务）；改后由注册脚本重写计划任务（刀4 落地）。",
-
+  "_schedule_time_note": "每日自动更新时间（Windows 计划任务）；管理员端「设置」页可改（Windows 上自动改注册的计划任务；首次注册仍跑 注册每日更新.bat）。",
+  "backup_keep_days": 30,
+  "_backup_keep_days_note": "数据/备份/ 里每日 看板.db 备份的滚动保留天数（每天一份，超过自动删最旧的，防磁盘一直涨）；管理员端「设置」页可改。月末快照存档（快照存档/）为财务时点档案，不受此配置影响、不自动清。",
   "server_host": "0.0.0.0",
   "server_port": 8018,
   "_server_note": "内网双端服务：0.0.0.0=同WiFi手机/电脑可访问 http://本机IP:8018/（用户端）与 /admin（管理员端）。管理员密码哈希+会话密钥存 数据/管理员密钥.json（不进git）；首次起服务自动生成，默认密码见 README/部署文档，可用环境变量 KANBAN_ADMIN_PW 覆盖。",
-
   "files": {
     "project_detail_stem": "项目明细",
     "ledger": "收单台账.xlsx",
@@ -28,13 +27,11 @@
     "inhouse": "内部译员.xlsx",
     "manual": "手填与调整.xlsx"
   },
-
   "tax": {
     "vat_rate": 0.06,
     "surtax_rate": 0.12,
     "_note": "收入(不含税)=交付额/(1+vat_rate)；附加税费=收入(不含税)×vat_rate×surtax_rate（陆总：收入×6%×12%）"
   },
-
   "columns": {
     "project_delivery_date": "整单交付日期",
     "project_revenue": "交付额/本币",
@@ -49,33 +46,85 @@
     "inhouse_type": "译员类型",
     "_inhouse_type_note": "只取 译员类型 含 IN-HOUSE 的行（内部专职译员）作系统内部译员成本"
   },
-
   "inhouse_keyword": "IN-HOUSE",
-
-  "expense_categories_included": ["市场费用", "管理费用", "固定运营费用", "技术服务费", "财务费用"],
-  "expense_categories_excluded": ["成本", "工资", "非利润表"],
+  "expense_categories_included": [
+    "市场费用",
+    "管理费用",
+    "固定运营费用",
+    "技术服务费",
+    "财务费用"
+  ],
+  "expense_categories_excluded": [
+    "成本",
+    "工资",
+    "非利润表"
+  ],
   "unclassified_label_expense": "未分类",
   "unclassified_label_bu": "未分类BU",
   "unclassified_label_fine_type": "未标注明细类型",
-
   "manual_items": [
-    { "name": "营销人力成本",   "role": "营销费用", "default": "prev" },
-    { "name": "管理人力成本",   "role": "管理费用", "default": "prev" },
-    { "name": "研发人力成本",   "role": "研发费用", "default": "prev" },
-    { "name": "财务费用补充",   "role": "财务费用", "default": "prev" },
-    { "name": "PM人力成本",     "role": "生产成本", "default": "prev" },
-    { "name": "VM人力成本",     "role": "生产成本", "default": "prev" },
-    { "name": "实际内部译员成本", "role": "生产成本", "default": "prev" },
-    { "name": "税费损失",       "role": "生产成本", "default": "prev" },
-    { "name": "技术流量成本",   "role": "生产成本", "default": "prev" },
-    { "name": "其他（生产成本）", "role": "生产成本", "default": "prev" },
-    { "name": "其他损益",       "role": "利润表",   "default": "zero" }
+    {
+      "name": "营销人力成本",
+      "role": "营销费用",
+      "default": "prev"
+    },
+    {
+      "name": "管理人力成本",
+      "role": "管理费用",
+      "default": "prev"
+    },
+    {
+      "name": "研发人力成本",
+      "role": "研发费用",
+      "default": "prev"
+    },
+    {
+      "name": "财务费用补充",
+      "role": "财务费用",
+      "default": "prev"
+    },
+    {
+      "name": "PM人力成本",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "VM人力成本",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "实际内部译员成本",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "税费损失",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "技术流量成本",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "其他（生产成本）",
+      "role": "生产成本",
+      "default": "prev"
+    },
+    {
+      "name": "其他损益",
+      "role": "利润表",
+      "default": "zero"
+    }
   ],
   "_manual_note": "系统导不出、财务每月手填；default=prev 不填默认上月，default=zero 不填默认0。归属见 role。",
-
   "output_dir": "output",
   "output_html": "经营驾驶舱.html",
   "output_json": "data/驾驶舱数据.json",
-
-  "logo": { "parents_up": 4, "rel": "图片/Logo.png" }
+  "logo": {
+    "parents_up": 4,
+    "rel": "图片/Logo.png"
+  }
 }

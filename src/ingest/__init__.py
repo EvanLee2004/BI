@@ -8,19 +8,20 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 from pathlib import Path
 
 import columns
 import db
 import schema
-from ingest import readers, normalize, fetch, migrate, adjust, archive
+from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, archive
 
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
 
 _STD_INSERT = {
     "std_收入明细": (["定位键", "订单号", "客户", "业务线", "整单交付日期", "交付额", "项目成本", "归属月", "原值_交付日期", "原值_归属月"]),
-    "std_下单": (["定位键", "订单号", "下单日期", "下单预估额", "归属月", "原值_归属月"]),
-    "std_回款": (["定位键", "回款ID", "到账日期", "到账金额", "归属月", "原值_归属月"]),
+    "std_下单": (["定位键", "订单号", "下单日期", "下单预估额", "部门", "销售", "归属月", "原值_归属月"]),
+    "std_回款": (["定位键", "回款ID", "到账日期", "到账金额", "客户", "归属月", "原值_归属月"]),
     "std_内部译员": (["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "归属月", "原值_归属月"]),
     "std_费用明细": (["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月", "原值_归属月"]),
 }
@@ -46,6 +47,11 @@ def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
 
     # 1) fetch 收单台账（可达才拉、不可达走本地副本，不中断）
     report["fetch"] = fetch.fetch_ledger(cfg, root)
+
+    # 1b) 智云四源在线抓（默认常开=更新必抓，抓不到降级；config.zhiyun_auto_fetch=false 仅应急后门）。
+    # KANBAN_OFFLINE=1 强制跳过（测试/回归用：不碰网络、不动进料口，跑得快且可复现）。
+    if cfg.get("zhiyun_auto_fetch") and not os.environ.get("KANBAN_OFFLINE"):
+        report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root)
 
     # 2) 读原始 + 规范化
     proj = normalize.norm_project_detail(readers.read_project_detail(cfg, root), c)
@@ -106,7 +112,10 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似。"""
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
-    yellow = (not fetch_ok) or adj.get("expired", 0) > 0
+    # 智云在线抓时：任一源没抓到（走本地副本/无源）也算黄（诚实反映数据陈旧）
+    zy = report.get("fetch_zhiyun") or {}
+    zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
+    yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or zy_degraded
     red = report["fetch"]["status"] == "no_source"
     结果 = "红" if red else ("黄" if yellow else "绿")
     conn.execute(

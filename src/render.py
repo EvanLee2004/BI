@@ -66,7 +66,10 @@ def _prev_period_key(pkey, year):
     if "Q" in pkey:
         q = int(pkey.split("Q")[1])
         return f"{yk}Q{q - 1}" if q > 1 else None
-    m = int(pkey.split("年")[1].replace("月", ""))
+    mpart = pkey.split("年")[1].replace("月", "")
+    if "-" in mpart:   # 自定义月区间：无"同粒度上期"概念
+        return None
+    m = int(mpart)
     return f"{yk}{m - 1}月" if m > 1 else None
 
 
@@ -164,7 +167,8 @@ def _hbar_rows(rows, prefix):
         out.append(f'<div class="ev-row pl-open{cls}" data-cat="{key}" role="button" tabindex="0">'
                    f'<span class="ev-name">{name}</span>'
                    f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
-                   f'<span class="ev-amt">{charts.fmt_wan(val)}万</span></div>')
+                   f'<span class="ev-amt">{charts.fmt_wan(val)}万</span>'
+                   f'<span class="pl-more ev-more">构成 ›</span></div>')
         inner = "".join(_drow(n, -a, "", "", sub=True) for n, a in fine[:12])
         rest = fine[12:]
         if rest:
@@ -185,11 +189,13 @@ def render_expense_views(p, dept_rows, pc_rows):
             '<button class="ev-tab" data-ev="dept">按部门</button>'
             '<button class="ev-tab" data-ev="pc">按利润中心</button></span>')
     return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e["total"])}万</span>{tabs}</div>'
+            f'<div class="ev-body">'
             f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
             f'<div class="ev-pane" data-ev="dept" style="display:none">{_hbar_rows(dept_rows, "dept")}'
             f'<div class="chart-note">按收单台账「预算归属部门」，台账部分小计 {_ledger_subtotal(dept_rows)}（白名单内含税；不含手填人力，故小于卡头合计）；点部门看细类。</div></div>'
             f'<div class="ev-pane" data-ev="pc" style="display:none">{_hbar_rows(pc_rows, "pc")}'
-            f'<div class="chart-note">按收单台账「利润归属中心」（语言/数据/游戏/公共），台账部分小计 {_ledger_subtotal(pc_rows)}（口径同左）；点条看细类。</div></div></div>')
+            f'<div class="chart-note">按收单台账「利润归属中心」（语言/数据/游戏/公共），台账部分小计 {_ledger_subtotal(pc_rows)}（口径同左）；点条看细类。</div></div>'
+            f'</div></div>')
 
 
 def render_dept_budget(dept_budget):
@@ -325,21 +331,75 @@ def render_receipts(receipt_order_monthly, budget=None):
             f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div>')
 
 
+# ---------- 板块③ 下单与回款排名（随周期切）----------
+def _esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _rank_amt(v):
+    """排名金额显示：负数（红冲/退款净额）用全角负号，与利润表 _amt 一致。"""
+    return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+
+def _rank_card(title, tag, rk):
+    """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。"""
+    items = (rk or {}).get("items") or []
+    if not items:
+        body = '<div class="ev-empty">本期无数据</div>'
+    else:
+        mx = max(it["amount"] for it in items) or 1
+        total = rk.get("total") or 0
+        rows = []
+        for i, it in enumerate(items, 1):
+            w = max(it["amount"] / mx * 100, 0)
+            share = f'{it["amount"] / total * 100:.0f}%' if total > 0 else "—"
+            rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
+                        f'<span class="ev-name" title="{_esc(it["name"])}">{_esc(it["name"])}</span>'
+                        f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
+                        f'<span class="ev-amt">{_rank_amt(it["amount"])}</span>'
+                        f'<span class="rk-meta">{it["count"]}笔·{share}</span></div>')
+        others = rk.get("others")
+        if others:
+            rows.append(f'<div class="ev-row rk-row rk-others"><span class="rk-no">…</span>'
+                        f'<span class="ev-name">其余 {others["names"]} 个</span>'
+                        f'<span class="ev-track"></span>'
+                        f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
+                        f'<span class="rk-meta">{others["count"]}笔</span></div>')
+        body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
+    return (f'<div class="card"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
+
+
+def render_rankings(p):
+    rk = p.get("rankings") or {}
+    return (f'<div class="grid-3 rk-grid">'
+            f'{_rank_card("下单 · 按部门", "期内下单额降序 · 智云", rk.get("orders_by_dept"))}'
+            f'{_rank_card("下单 · 按销售", "期内下单额降序 · 智云", rk.get("orders_by_sales"))}'
+            f'{_rank_card("回款 · 按客户", "期内到账额降序 · 智云", rk.get("receipts_by_customer"))}'
+            f'</div>')
+
+
 # ---------- 全局周期选择器（下拉菜单）----------
 def render_period_bar(summary):
-    tg = summary["meta"]["tab_groups"]
-    yk = summary["meta"]["year_key"]
-    opts = f'<optgroup label="年"><option value="{yk}" selected>{summary["meta"]["year"]}年</option></optgroup>'
-    if tg["季度"]:
-        opts += ('<optgroup label="季度">'
-                 + "".join(f'<option value="{q}">{q.split("年")[1]}</option>' for q in tg["季度"])
-                 + '</optgroup>')
-    if tg["月"]:
-        opts += ('<optgroup label="月">'
-                 + "".join(f'<option value="{m}">{m.split("年")[1]}</option>' for m in tg["月"])
-                 + '</optgroup>')
-    return (f'<div class="pbar"><label class="pbar-l" for="periodSel">看哪段</label>'
-            f'<select id="periodSel" class="psel" aria-label="选择周期">{opts}</select></div>')
+    """周期选择器：按钮 + 日历面板（快捷段：全年/季度；月份网格：点起始月再点结束月=自选区间）。
+    所有可选周期（含全部月区间组合）都已后端预渲染成 .pv 块，前端只做显示切换、不算任何数。"""
+    meta = summary["meta"]
+    tg = meta["tab_groups"]
+    year, yk = meta["year"], meta["year_key"]
+    cur_month = len(tg["月"])
+    chips = f'<button class="pp-chip on" data-key="{yk}">全年</button>'
+    chips += "".join(f'<button class="pp-chip" data-key="{q}">{q.split("年")[1]}</button>' for q in tg["季度"])
+    cells = "".join(
+        f'<button class="pp-m" data-m="{m}"{"" if m <= cur_month else " disabled"}>{m}月</button>'
+        for m in range(1, 13))
+    return (f'<div class="pbar"><label class="pbar-l">看哪段</label>'
+            f'<button id="periodBtn" class="psel pbtn" data-year="{year}" data-cur="{cur_month}" '
+            f'aria-haspopup="true" aria-expanded="false">{year}年 <span class="pbtn-c">▾</span></button>'
+            f'<div id="ppanel" class="ppanel" hidden>'
+            f'<div class="pp-row">{chips}</div>'
+            f'<div class="pp-hint" id="ppHint">自选区间：点起始月，再点结束月</div>'
+            f'<div class="pp-grid">{cells}</div>'
+            f'</div></div>')
 
 
 def _pv(key, default_key, inner):
@@ -354,9 +414,37 @@ JS = """
  try{setL(localStorage.getItem('cockpit-theme')==='light');}catch(e){}
  btn.addEventListener('click',function(){var l=!root.classList.contains('theme-light');setL(l);
    try{localStorage.setItem('cockpit-theme',l?'light':'dark');}catch(e){}});
- var psel=document.getElementById('periodSel');
- if(psel){psel.addEventListener('change',function(){var k=psel.value;
-   document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===k?'':'none';});});}
+ // 周期选择：日历面板。所有周期块已预渲染，这里只切显示、不算任何数。
+ var pbtn=document.getElementById('periodBtn'),ppanel=document.getElementById('ppanel');
+ if(pbtn&&ppanel){
+  var pYear=pbtn.getAttribute('data-year'),pCur=+pbtn.getAttribute('data-cur'),pStart=null;
+  function applyPeriod(key,label){
+    document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
+    pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
+    ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});}
+  function markMonths(a,b){ppanel.querySelectorAll('.pp-m').forEach(function(x){
+    var m=+x.getAttribute('data-m');
+    x.classList.toggle('sel',a!==null&&b!==null&&m>=a&&m<=b);
+    x.classList.toggle('arm',a!==null&&b===null&&m===a);});}
+  function hint(t){document.getElementById('ppHint').textContent=t;}
+  pbtn.addEventListener('click',function(e){e.stopPropagation();
+    var open=ppanel.hasAttribute('hidden');
+    if(open){ppanel.removeAttribute('hidden');pbtn.setAttribute('aria-expanded','true');}
+    else{ppanel.setAttribute('hidden','');pbtn.setAttribute('aria-expanded','false');}});
+  document.addEventListener('click',function(e){
+    if(!ppanel.hasAttribute('hidden')&&!ppanel.contains(e.target)&&e.target!==pbtn){
+      ppanel.setAttribute('hidden','');pbtn.setAttribute('aria-expanded','false');}});
+  ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.addEventListener('click',function(){
+    pStart=null;markMonths(null,null);hint('自选区间：点起始月，再点结束月');
+    var k=c.getAttribute('data-key');applyPeriod(k,c.textContent==='全年'?pYear+'年':pYear+'年'+c.textContent);});});
+  ppanel.querySelectorAll('.pp-m').forEach(function(x){x.addEventListener('click',function(){
+    var m=+x.getAttribute('data-m');if(m>pCur)return;
+    if(pStart===null||m===pStart){pStart=m;markMonths(m,m);
+      applyPeriod(pYear+'年'+m+'月',pYear+'年'+m+'月');hint('已选 '+m+'月，再点另一个月拉成区间');}
+    else{var a=Math.min(pStart,m),b=Math.max(pStart,m);markMonths(a,b);
+      applyPeriod(pYear+'年'+a+'-'+b+'月',pYear+'年'+a+'~'+b+'月');
+      hint('已选 '+a+'~'+b+'月，点任意月重新开始');pStart=null;}});});
+ }
  // 利润表大类 → 右侧抽屉看构成（主表定位不动、不再顶下方图表）
  var dr=document.getElementById('drawer'),dbody=document.getElementById('drawerBody'),dttl=document.getElementById('drawerTitle');
  function openDrawer(cat,scope){var el=scope.querySelector('.pl-detail[data-cat="'+cat+'"]');if(!el||!dr)return;
@@ -474,7 +562,8 @@ EXPORT_JS = r"""
 def render_dashboard(summary, cfg, logo_b64):
     meta = summary["meta"]; P = summary["periods"]; FT = summary["expense_fine_type"]
     yk = meta["year_key"]
-    all_keys = [yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
+    all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
+                + meta["tab_groups"].get("区间", []))
     logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
     unc = meta["unclassified"]["expense"]
     # C1'：老板端不放体检徽章/预警 banner（财务自检工具，只留管理员端），但保留一行极淡小字兜底
@@ -489,6 +578,7 @@ def render_dashboard(summary, cfg, logo_b64):
     BP = summary.get("expense_by_profit_center", {})
     donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
     pl_views = "".join(_pv(k, yk, render_pl_table(P[k], FT.get(k, {}))) for k in all_keys)
+    rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
     # 导出数据（每格已算好）嵌进页面，供前端一键导出；转义 </ 防止提前闭合 <script>
@@ -512,6 +602,9 @@ def render_dashboard(summary, cfg, logo_b64):
  </div>
  <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {render_dept_budget(meta.get('dept_budget'))}
+
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span></div>
+ {rank_views}
  {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；

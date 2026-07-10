@@ -31,14 +31,21 @@ import loaders
 
 # 每个源：进料口文件名的 config.files 键 + 必需列的 config.columns 键
 SOURCES = {
-    "orders": {"file_key": "orders", "required_cols": ["order_amount", "order_date"]},
-    "receipts": {"file_key": "receipts", "required_cols": ["receipt_amount", "receipt_date"]},
+    "orders": {"file_key": "orders", "required_cols": ["order_amount", "order_date"],
+               "date_col_key": "order_date"},
+    "receipts": {"file_key": "receipts", "required_cols": ["receipt_amount", "receipt_date"],
+                 "date_col_key": "receipt_date"},
     "project_detail": {"file_key": "project_detail_stem",
                        "required_cols": ["project_delivery_date", "project_revenue",
-                                         "project_cost", "project_line"]},
+                                         "project_cost", "project_line"],
+                       "date_col_key": "project_delivery_date"},
     "inhouse": {"file_key": "inhouse",
-                "required_cols": ["inhouse_amount", "inhouse_date", "inhouse_type"]},
+                "required_cols": ["inhouse_amount", "inhouse_date", "inhouse_type"],
+                "date_col_key": "inhouse_date"},
 }
+# date_col_key = 该源"归属月"所依据的日期字段（与清洗层 normalize 一致）；
+# 服务器端只抓这个日期 >= config.zhiyun_since 的行（只要当年、少抓快抓）。
+# 日期为空的行本就归属月=None、看板不计入任何月份，被服务器过滤掉不影响口径。
 
 PAGE_SIZE = 1000
 MAX_PAGES = 500  # 翻页安全上限（50万行，远超任何表；防接口异常时死循环）
@@ -76,9 +83,22 @@ def parse_cell(cell, ctrl: dict) -> str:
 
 
 def rows_to_records(rows: list[dict], controls: list[dict]) -> list[dict[str, str]]:
-    """原始行（controlId 为键）→ 中文列名记录（全字段，等价人工导出勾"导出所有字段"）。"""
+    """原始行（controlId 为键）→ 中文列名记录（全字段，等价人工导出勾"导出所有字段"）。
+
+    ⚠同名列合并：智云可有多个同名控件（如两个"整单交付日期"，一个有值一个空）。
+    按控件顺序取**首个非空**值，空值不覆盖已有非空——否则空的同名列会把有值的清掉
+    （2026-07-10 踩坑：项目明细归月依据"整单交付日期"因此被清空、收入归不到月）。
+    """
     cols = [(c["controlName"], c) for c in controls if c.get("controlName")]
-    return [{name: parse_cell(row.get(c["controlId"]), c) for name, c in cols} for row in rows]
+    out = []
+    for row in rows:
+        rec: dict[str, str] = {}
+        for name, c in cols:
+            val = parse_cell(row.get(c["controlId"]), c)
+            if name not in rec or (not rec[name] and val):
+                rec[name] = val
+        out.append(rec)
+    return out
 
 
 def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str) -> list[str]:
@@ -88,14 +108,30 @@ def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str
     return [w for w in wanted if w not in have]
 
 
-def fetch_all_rows(post, worksheet_id: str, app_id: str) -> list[dict]:
-    """翻页拉全量。post(path, body)->dict 由调用方注入（真实 requests 或测试桩）。"""
+def build_date_since_filter(controls: list[dict], date_col_name: str,
+                            since: str) -> list[dict]:
+    """构造"该日期字段 >= since"的服务器端过滤（filterType=13=当日及以后）。
+    找不到该列/未给 since → 返回 []（不过滤，退回全量，安全降级）。"""
+    if not since or not date_col_name:
+        return []
+    ctrl = next((c for c in controls if c.get("controlName") == date_col_name), None)
+    if not ctrl:
+        return []
+    return [{"controlId": ctrl["controlId"], "dataType": ctrl.get("type", 15),
+             "spec": {}, "filterType": 13, "dateRange": 0, "value": since, "values": []}]
+
+
+def fetch_all_rows(post, worksheet_id: str, app_id: str,
+                   filter_controls: list[dict] | None = None) -> list[dict]:
+    """翻页拉全量。post(path, body)->dict 由调用方注入（真实 requests 或测试桩）。
+    filter_controls 非空时只抓命中过滤的行（如"日期>=2026-01-01"）。"""
+    fc = filter_controls or []
     out, page = [], 1
     while page <= MAX_PAGES:
         body = {"worksheetId": worksheet_id, "appId": app_id, "pageSize": PAGE_SIZE,
                 "pageIndex": page, "status": 1, "sortControls": [],
                 "notGetTotal": page > 1, "searchType": 1, "keyWords": "",
-                "filterControls": [], "fastFilters": [], "navGroupFilters": []}
+                "filterControls": fc, "fastFilters": [], "navGroupFilters": []}
         d = post("Worksheet/GetFilterRows", body).get("data") or {}
         rows = d.get("data") or []
         out.extend(rows)
@@ -124,8 +160,12 @@ def write_records_xlsx(records: list[dict[str, str]], dest: Path) -> None:
 
 # ---------- 接线层（要内网 + 智云配置.json） ----------
 
+def _zhiyun_cfg_path(cfg: dict, root: Path | None) -> Path:
+    return loaders.data_dir(cfg, root) / "智云配置.json"
+
+
 def _load_zhiyun_cfg(cfg: dict, root: Path | None) -> dict | None:
-    p = loaders.data_dir(cfg, root) / "智云配置.json"
+    p = _zhiyun_cfg_path(cfg, root)
     if not p.exists():
         return None
     try:
@@ -134,16 +174,68 @@ def _load_zhiyun_cfg(cfg: dict, root: Path | None) -> dict | None:
         return None
 
 
-def _make_post(zy: dict):
+def _save_session(cfg: dict, root: Path | None, token: str, account_id: str | None) -> None:
+    """把新 md_pss_id（和登录时取到的 account_id）回写进 智云配置.json，保留其余内容。失败静默。"""
+    p = _zhiyun_cfg_path(cfg, root)
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        data["md_pss_id"] = token
+        if account_id:
+            data["account_id"] = account_id
+        p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except (ValueError, OSError):
+        pass
+
+
+def _auto_login(zy: dict, cfg: dict, root: Path | None) -> str:
+    """账号密码登录换新 token（顺带取 account_id→换账号零配置），回写配置 + 更新内存 zy。返回 token。"""
+    from ingest import login_zhiyun
+    token, account_id = login_zhiyun.login(zy)
+    zy["md_pss_id"] = token
+    if account_id:
+        zy["account_id"] = account_id
+    _save_session(cfg, root, token, account_id)
+    return token
+
+
+def _is_auth_expired(j) -> bool:
+    """智云 token 失效时回 HTTP 200 但 state==0 且提示退出/登录。"""
+    if not isinstance(j, dict) or j.get("state") not in (0, "0"):
+        return False
+    msg = str(j.get("exception") or j.get("message") or "")
+    return ("登录" in msg) or ("退出" in msg) or ("登陆" in msg)
+
+
+def _make_post(zy: dict, cfg: dict | None = None, root: Path | None = None):
+    """构造 post(path, body)。token 失效（state==0 需登录 / HTTP 401）时自动重登一次。
+
+    cfg 为 None 时不自动重登（离线测试用桩注入，不走这里）。
+    """
     import requests
-    headers = {"Content-Type": "application/json",
-               "Authorization": f"md_pss_id {zy['md_pss_id']}",
-               "AccountId": zy["account_id"],
-               "X-Requested-With": "XMLHttpRequest"}
+    state = {"token": zy.get("md_pss_id", "")}
+
+    def _headers():
+        return {"Content-Type": "application/json",
+                "Authorization": f"md_pss_id {state['token']}",
+                "AccountId": zy.get("account_id", ""),
+                "X-Requested-With": "XMLHttpRequest"}
+
+    def _do(path, body):
+        r = requests.post(f"{zy['base_url']}/wwwapi/{path}", headers=_headers(),
+                          json=body, timeout=120)
+        return r
 
     def post(path: str, body: dict) -> dict:
-        r = requests.post(f"{zy['base_url']}/wwwapi/{path}", headers=headers,
-                          json=body, timeout=120)
+        r = _do(path, body)
+        need_relogin = r.status_code == 401
+        if not need_relogin and r.status_code == 200:
+            try:
+                need_relogin = _is_auth_expired(r.json())
+            except ValueError:
+                need_relogin = False
+        if need_relogin and cfg is not None:
+            state["token"] = _auto_login(zy, cfg, root)  # 失效→重登一次
+            r = _do(path, body)
         r.raise_for_status()
         return r.json()
     return post
@@ -174,22 +266,59 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None,
         return fallback(f"智云配置缺 tables.{source}.worksheetId")
 
     try:
-        post = post or _make_post(zy)
+        post = post or _make_post(zy, cfg, root)
         info = post("Worksheet/getWorksheetInfo",
                     {"worksheetId": tbl["worksheetId"], "appId": zy["app_id"],
                      "getTemplate": True})
         controls = info["data"]["template"]["controls"]
-        rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"])
+        # 服务器端只抓"归属日期 >= config.zhiyun_since"的行（只要当年、少抓快抓）
+        since = cfg.get("zhiyun_since") or ""
+        date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
+        fc = build_date_since_filter(controls, date_col, since)
+        rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
         records = rows_to_records(rows, controls)
         missing = check_required_columns(records, cfg, source)
         if missing:
             return fallback(f"抓到 {len(records)} 行但缺必需列 {missing}（可能无权限/表不对）")
+        # 行数门槛护栏（智云配置.json tables.<源>.min_rows）：抓到的行数异常少=账号行级权限不足
+        # （如亮晶号在「任务」表只看得到『我的任务』85行），当失败降级、绝不用残缺数据覆盖现有文件。
+        min_rows = int(tbl.get("min_rows") or 0)
+        if len(records) < min_rows:
+            return fallback(f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）")
         write_records_xlsx(records, local)
         return {"status": "fetched", "detail": f"智云抓取 {len(records)} 行 → {local.name}"}
     except Exception as e:  # noqa: BLE001 铁律：抓失败不中断管道
         return fallback(f"智云抓取失败（{type(e).__name__}: {e}）")
 
 
+def _server_reachable(base_url: str, timeout: int = 5) -> bool:
+    """5秒连通性探测：内网不可达（在家/断网）快速降级，别让每源各自等 2 分钟超时。"""
+    import requests
+    try:
+        requests.get(base_url, timeout=timeout)
+        return True
+    except Exception:  # noqa: BLE001 连不上就是连不上，原因不重要
+        return False
+
+
 def fetch_all(cfg: dict, root: Path | None = None) -> dict[str, dict]:
-    """抓全部四源，返回 {source: {status, detail}}。供 pipeline/体检使用。"""
-    return {s: fetch_source(cfg, s, root) for s in SOURCES}
+    """抓全部四源，返回 {source: {status, detail}}。供 pipeline/体检使用。
+
+    token 为空时先自动登录一次；四源共享同一个带自动重登的 post（不重复登录）。
+    内网不可达/登录失败则各源自然降级为 local_fallback（体检黄），不中断管道。
+    """
+    zy = _load_zhiyun_cfg(cfg, root)
+    if zy and zy.get("base_url") and not _server_reachable(zy["base_url"]):
+        det = "智云服务器不可达（不在公司内网？），用数据目录现有文件（体检黄）"
+        return {s: {"status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+                    "detail": det} for s in SOURCES}
+    post = None
+    if zy and zy.get("base_url") and zy.get("username") and zy.get("password"):
+        if not zy.get("md_pss_id"):
+            try:
+                _auto_login(zy, cfg, root)  # 首次/空 token：先登录
+            except Exception:  # noqa: BLE001 登录失败→post 留空，各源降级
+                zy = None
+        if zy:
+            post = _make_post(zy, cfg, root)
+    return {s: fetch_source(cfg, s, root, post=post, zy=zy) for s in SOURCES}

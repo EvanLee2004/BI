@@ -74,6 +74,7 @@ def norm_orders(rows: list[dict[str, str]], c: dict) -> list[dict]:
         amt = _amt(r.get(c["order_amount"]))
         so = str(r.get("订单号") or r.get("SO") or "").strip()
         out.append({"订单号": so, "下单日期": iso, "下单预估额": amt,
+                    "部门": str(r.get("部门") or "").strip(), "销售": str(r.get("销售") or "").strip(),
                     "归属月": ym, "原值_归属月": ym, "定位键": _locator(so, so, iso, amt)})
     return out
 
@@ -85,6 +86,7 @@ def norm_receipts(rows: list[dict[str, str]], c: dict) -> list[dict]:
         amt = _amt(r.get(c["receipt_amount"]))
         rid = str(r.get("回款记录ID") or "").strip()
         out.append({"回款ID": rid, "到账日期": iso, "到账金额": amt,
+                    "客户": str(r.get("客户") or "").strip(),
                     "归属月": ym, "原值_归属月": ym, "定位键": _locator(rid, rid, iso, amt)})
     return out
 

@@ -58,6 +58,25 @@ def compute_receipts(receipt_rows, cols_cfg, start, end):
     return _sum_amount_in_period(receipt_rows, cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end)
 
 
+def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）"):
+    """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None, total}。
+    count=笔数；amount 已 round(2)。名字为空归"（未填）"。"""
+    agg: dict[str, list] = {}
+    for r in rows:
+        if not periods.date_in_range(loaders.parse_date_parts(r.get(date_col)), start, end):
+            continue
+        name = str(r.get(name_col) or "").strip() or empty_label
+        a = agg.setdefault(name, [0.0, 0])
+        a[0] += loaders.parse_amount(r.get(amount_col))
+        a[1] += 1
+    ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])
+    items = [{"name": n, "amount": round(v[0], 2), "count": v[1]} for n, v in ranked[:top]]
+    rest = ranked[top:]
+    others = ({"names": len(rest), "amount": round(sum(v[0] for _, v in rest), 2),
+               "count": sum(v[1] for _, v in rest)} if rest else None)
+    return {"items": items, "others": others, "total": round(sum(v[0] for _, v in ranked), 2)}
+
+
 def compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end):
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     tcol = cols_cfg["inhouse_type"]
@@ -240,6 +259,15 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
         "orders": orders_amt,
         "receipts": receipts_amt,
         "receipt_order_ratio_pct": receipt_order_ratio,
+        # 板块③ 排名：下单按部门/按销售，回款按客户（期内汇总降序，前10+其余合计）
+        "rankings": {
+            "orders_by_dept": compute_ranking(order_rows, "部门", cols_cfg["order_amount"],
+                                              cols_cfg["order_date"], start, end),
+            "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
+                                               cols_cfg["order_date"], start, end),
+            "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
+                                                    cols_cfg["receipt_date"], start, end),
+        },
     }
 
 
@@ -277,7 +305,7 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     fine: dict[str, Any] = {}
     by_dept: dict[str, Any] = {}
     by_pc: dict[str, Any] = {}
-    tab_groups = {"年": [], "季度": [], "月": []}
+    tab_groups = {"年": [], "季度": [], "月": [], "区间": []}
     for key, (label, start, end, group) in ranges.items():
         P[key] = build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                               ledger_rows, ledger_year, lcols, filled_manual, label, start, end, today)

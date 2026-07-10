@@ -19,8 +19,11 @@ import loaders
 import db
 
 
-def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None = None, keep: int = 30) -> dict:
-    """拷 看板.db → 数据/备份/看板_YYYYMMDD.db，滚动保留最近 keep 份。"""
+def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None = None, keep: int | None = None) -> dict:
+    """拷 看板.db → 数据/备份/看板_YYYYMMDD.db，滚动保留最近 keep 份（每天一份≈保留 keep 天）。
+    keep 不传 → 读 config.backup_keep_days（缺省 30），管理员端「设置」页可改。"""
+    if keep is None:
+        keep = max(1, int(cfg.get("backup_keep_days", 30) or 30))
     src = db.db_path(cfg, root)
     if not src.exists():
         return {"status": "skip", "detail": "库文件不存在"}

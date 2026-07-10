@@ -175,6 +175,34 @@ body{
 .psel:hover{border-color:var(--accent)}
 .psel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.18)}
 .psel option,.psel optgroup{background:var(--panel-solid);color:var(--ink)}
+/* 周期日历面板（自选月区间） */
+.pbtn{background-image:none;padding:6px 14px;display:inline-flex;align-items:center;gap:7px}
+.pbtn-c{color:var(--mut);font-size:10px}
+.ppanel{position:absolute;top:calc(100% + 6px);left:96px;z-index:40;min-width:300px;
+  background:var(--panel-solid);border:1px solid var(--line-2);border-radius:12px;
+  padding:12px 14px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.pp-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.pp-chip{cursor:pointer;border:1px solid var(--line-2);background:transparent;color:var(--ink);
+  border-radius:16px;padding:4px 13px;font-size:12.5px;font-family:inherit}
+.pp-chip:hover{border-color:var(--accent)}
+.pp-chip.on{background:var(--accent);color:#04121a;border-color:var(--accent);font-weight:700}
+.pp-hint{font-size:11.5px;color:var(--mut2);margin:2px 0 8px}
+.pp-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.pp-m{cursor:pointer;border:1px solid var(--line-2);background:transparent;color:var(--ink);
+  border-radius:8px;padding:7px 0;font-size:12.5px;font-family:inherit;text-align:center}
+.pp-m:hover:not(:disabled){border-color:var(--accent)}
+.pp-m:disabled{opacity:.28;cursor:not-allowed}
+.pp-m.arm{border-color:var(--accent);color:var(--accent);font-weight:700}
+.pp-m.sel{background:rgba(34,211,238,.16);border-color:var(--accent);color:var(--accent);font-weight:700}
+/* 板块③ 排名 */
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.rk-list{max-height:none}
+.rk-row{cursor:default}
+.rk-row:hover{background:rgba(34,211,238,.06)}
+.rk-no{flex:0 0 20px;text-align:center;font-size:11.5px;color:var(--mut);font-family:var(--mono,inherit)}
+.rk-row:nth-child(1) .rk-no{color:var(--accent);font-weight:800}
+.rk-meta{flex:0 0 74px;text-align:right;font-size:11px;color:var(--mut2);white-space:nowrap}
+.rk-others .ev-name,.rk-others .ev-amt{color:var(--mut2)}
 .pl-row.gchild .pl-name{padding-left:32px;font-size:12px;color:var(--mut2)}
 .pl-row.gchild .pl-name .src{display:none}
 .pl-row.gchild .pl-amt{font-size:12px;color:var(--mut2);font-weight:400}
@@ -235,6 +263,9 @@ body{animation:auroraDrift 30s ease-in-out infinite}
  padding:3px 10px;border-radius:999px;cursor:pointer;font-family:inherit}
 .ev-tab.on{color:var(--ink);border-color:var(--purple);background:rgba(139,92,246,.12)}
 .ev-tab:hover{color:var(--ink)}
+/* 固定卡身高度：切换 按大类(环形)/按部门(15行)/按利润中心(5行) 不再忽高忽低顶动下方 */
+.ev-body{height:360px;overflow:hidden auto}
+.ev-body .ev-pane[data-ev="cat"]{height:100%;display:flex;flex-direction:column;justify-content:center}
 .ev-list{max-height:300px;overflow-y:auto;padding:4px 2px}
 .ev-row{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:7px;cursor:pointer}
 .ev-row:hover{background:rgba(139,92,246,.08)}
@@ -281,6 +312,8 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .pl-open{cursor:pointer;transition:background .15s ease}
 .pl-open:hover{background:var(--track)}
 .pl-more{font-size:10.5px;color:var(--accent);opacity:.85;margin-left:6px;font-weight:600}
+.ev-more{flex:0 0 44px;text-align:right;margin-left:0;opacity:.5;transition:opacity .15s;white-space:nowrap}
+.ev-row:hover .ev-more,.ev-row:focus .ev-more{opacity:1}
 .pl-drow{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .pl-drow:last-child{border-bottom:0}
 .pl-drow .pl-name{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -344,6 +377,8 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
+  .grid-3{grid-template-columns:1fr}
+  .ppanel{left:8px;right:8px;min-width:0}
   .wrap{padding:0 12px 40px}
   .tb-sub{display:none}
   .topbar{padding:10px 12px;flex-wrap:wrap;gap:8px 10px}

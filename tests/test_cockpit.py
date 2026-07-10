@@ -195,5 +195,52 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn(".theme-light{", self.html)
 
 
+class TestRankingsAndRanges(unittest.TestCase):
+    """板块③排名（下单按部门/销售、回款按客户）+ 自定义月区间周期。"""
+
+    def test_compute_ranking_sorted_top_others(self):
+        rows = ([{"名": "甲", "额": 100, "日": "2026-03-05"}] * 2
+                + [{"名": "乙", "额": 350, "日": "2026-03-08"}]
+                + [{"名": "", "额": 50, "日": "2026-03-09"}]        # 空名归（未填）
+                + [{"名": "丙", "额": 999, "日": "2026-07-01"}])     # 期外不计
+        import datetime as dt
+        rk = profit.compute_ranking(rows, "名", "额", "日",
+                                    dt.date(2026, 3, 1), dt.date(2026, 3, 31), top=2)
+        self.assertEqual([i["name"] for i in rk["items"]], ["乙", "甲"])   # 降序
+        self.assertEqual(rk["items"][1], {"name": "甲", "amount": 200.0, "count": 2})
+        self.assertEqual(rk["others"], {"names": 1, "amount": 50.0, "count": 1})  # （未填）挤进其余
+        self.assertAlmostEqual(rk["total"], 600.0)
+
+    def test_period_ranges_include_month_spans(self):
+        import datetime as dt, periods
+        r = periods.all_period_ranges(dt.date(2026, 7, 15))
+        self.assertIn("2026年1-3月", r)
+        label, start, end, group = r["2026年1-3月"]
+        self.assertEqual((label, group), ("2026年1~3月", "区间"))
+        self.assertEqual((start, end), (dt.date(2026, 1, 1), dt.date(2026, 3, 31)))
+        self.assertNotIn("2026年3-1月", r)                # 只生成 m1<m2
+        self.assertNotIn("2026年7-8月", r)                # 未来月不生成
+        # 组合数 = C(7,2)=21
+        self.assertEqual(len([k for k in r if r[k][3] == "区间"]), 21)
+
+    def test_rendered_rankings_and_picker(self):
+        cfg, S = _summary()
+        html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
+        for token in ("下单与回款排名", "下单 · 按部门", "下单 · 按销售", "回款 · 按客户",
+                      "periodBtn", "ppanel", "pp-grid"):
+            self.assertIn(token, html, token)
+        # 区间周期块已预渲染（前端只切显示、不算数）
+        yr = S["meta"]["year"]
+        if S["meta"]["tab_groups"]["区间"]:
+            self.assertIn(f'data-blk="{S["meta"]["tab_groups"]["区间"][0]}"', html)
+        # 区间周期的排名 = 成员月排名之和（口径自洽抽查：1-2月 总额 == 1月+2月）
+        k12, k1, k2 = f"{yr}年1-2月", f"{yr}年1月", f"{yr}年2月"
+        P = S["periods"]
+        if k12 in P:
+            self.assertAlmostEqual(P[k12]["rankings"]["orders_by_dept"]["total"],
+                                   round(P[k1]["rankings"]["orders_by_dept"]["total"]
+                                         + P[k2]["rankings"]["orders_by_dept"]["total"], 2), places=1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -70,7 +70,22 @@ def amount_parse_fails(val: Any) -> bool:
         return True
 
 
+_DATE_PARTS_CACHE: dict = {}
+
+
 def parse_date_parts(val: Any) -> tuple[int, int, int] | None:
+    """解析日期为 (年,月,日)，带结果缓存（周期矩阵含月区间后同一值会被解析几十次）。"""
+    try:
+        return _DATE_PARTS_CACHE[val]
+    except KeyError:
+        r = _parse_date_parts(val)
+        _DATE_PARTS_CACHE[val] = r
+        return r
+    except TypeError:  # 不可哈希的怪值：不缓存直接算
+        return _parse_date_parts(val)
+
+
+def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:
     """解析日期为 (年,月,日)。支持 datetime、YYYY-MM-DD、YYYY/MM/DD、YYYYMMDD。"""
     if val is None:
         return None

@@ -22,6 +22,12 @@ def all_period_ranges(today: datetime.date) -> dict[str, tuple[str, datetime.dat
     for m in range(1, today.month + 1):
         out[f"{year}年{m}月"] = (f"{year}年{m}月", datetime.date(year, m, 1),
                                  datetime.date(year, m, calendar.monthrange(year, m)[1]), "月")
+    # 自定义月区间（日历选段用）：所有 m1<m2 连续段。费用/手填口径按月，区间只到月粒度（不做按天）。
+    for m1 in range(1, today.month + 1):
+        for m2 in range(m1 + 1, today.month + 1):
+            out[f"{year}年{m1}-{m2}月"] = (
+                f"{year}年{m1}~{m2}月", datetime.date(year, m1, 1),
+                datetime.date(year, m2, calendar.monthrange(year, m2)[1]), "区间")
     return out
 
 

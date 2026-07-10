@@ -57,14 +57,16 @@ def load_project_detail(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, s
 
 def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
-    rows = conn.execute("SELECT 下单日期,下单预估额,订单号 FROM std_下单 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["order_date"]: _s(d), c["order_amount"]: a, "订单号": _s(o)} for d, a, o in rows]
+    rows = conn.execute("SELECT 下单日期,下单预估额,订单号,部门,销售 FROM std_下单 WHERE 已删除=0 ORDER BY id").fetchall()
+    return [{c["order_date"]: _s(d), c["order_amount"]: a, "订单号": _s(o), "部门": _s(dep), "销售": _s(sal)}
+            for d, a, o, dep, sal in rows]
 
 
 def load_receipts(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
-    rows = conn.execute("SELECT 到账日期,到账金额,回款ID FROM std_回款 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["receipt_date"]: _s(d), c["receipt_amount"]: a, "回款记录ID": _s(rid)} for d, a, rid in rows]
+    rows = conn.execute("SELECT 到账日期,到账金额,回款ID,客户 FROM std_回款 WHERE 已删除=0 ORDER BY id").fetchall()
+    return [{c["receipt_date"]: _s(d), c["receipt_amount"]: a, "回款记录ID": _s(rid), "客户": _s(cu)}
+            for d, a, rid, cu in rows]
 
 
 def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -111,8 +113,8 @@ def _s(v: Any) -> str:
 DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     "收入明细": ("std_收入明细", ["定位键", "订单号", "客户", "业务线", "整单交付日期", "交付额", "项目成本", "归属月"],
                 ["订单号", "客户", "业务线"]),
-    "下单": ("std_下单", ["定位键", "订单号", "下单日期", "下单预估额", "归属月"], ["订单号"]),
-    "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "归属月"], ["回款ID"]),
+    "下单": ("std_下单", ["定位键", "订单号", "下单日期", "下单预估额", "部门", "销售", "归属月"], ["订单号", "部门", "销售"]),
+    "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "客户", "归属月"], ["回款ID", "客户"]),
     "内部译员": ("std_内部译员", ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "归属月"], ["任务ID", "译员类型"]),
     "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月"],
                 ["业务BU", "对应报表大类", "预算明细费用类型"]),

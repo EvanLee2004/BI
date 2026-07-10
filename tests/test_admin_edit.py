@@ -174,6 +174,82 @@ class TestAdminWrite(unittest.TestCase):
         finally:
             server._LOCK.release()
 
+    # ---- 立即更新：后台跑+状态轮询（_do_full 打桩，不跑真管道） ----
+    def test_refresh_async_and_status(self):
+        import time as _t
+        orig = server._do_full
+        server._do_full = lambda cfg, root, trigger: {"result": "绿"}
+        try:
+            r = self.client.post("/api/refresh", headers=self.hdr, json={})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json().get("status"), "started")
+            for _ in range(50):                     # 最多等 5s，后台线程应瞬间跑完
+                s = self.client.get("/api/refresh_status", headers=self.hdr).json()
+                if not s["running"]:
+                    break
+                _t.sleep(0.1)
+            self.assertFalse(s["running"])
+            self.assertEqual(s["last"]["status"], "ok")
+            self.assertEqual(s["last"]["result"], "绿")
+        finally:
+            server._do_full = orig
+
+    # ---- 设置：读/写/校验（config.json 写进临时 root，不碰真配置） ----
+    def test_settings_roundtrip_and_validation(self):
+        import json as _json, shutil as _sh
+        _sh.copy2(ROOT / "config.json", self.root / "config.json")
+        r = self.client.get("/api/settings", headers=self.hdr)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("schedule_time", r.json())
+        # 非法值 → 400
+        for bad in ({"schedule_time": "25:00"}, {"schedule_time": "9点半"},
+                    {"backup_keep_days": 0}, {"backup_keep_days": "abc"}):
+            r = self.client.post("/api/settings", headers=self.hdr, json=bad)
+            self.assertEqual(r.status_code, 400, f"{bad} 应 400")
+        # 合法保存 → cfg 即时生效 + 文件落盘
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "schedule_time": "08:45", "backup_keep_days": 7, "zhiyun_auto_fetch": False})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(self.cfg["schedule_time"], "08:45")
+        self.assertEqual(self.cfg["backup_keep_days"], 7)
+        raw = _json.loads((self.root / "config.json").read_text(encoding="utf-8"))
+        self.assertEqual(raw["schedule_time"], "08:45")
+        self.assertEqual(raw["backup_keep_days"], 7)
+
+    def test_settings_zhiyun_creds(self):
+        """智云账号：GET 可见 / 改了才写+清旧会话 / 空值 400 / 同值不动。"""
+        import json as _json, shutil as _sh
+        _sh.copy2(ROOT / "config.json", self.root / "config.json")
+        zp = loaders.data_dir(self.cfg, self.root) / "智云配置.json"
+        zp.parent.mkdir(parents=True, exist_ok=True)
+        zp.write_text(_json.dumps({"username": "old.user", "password": "oldpw",
+                                   "md_pss_id": "OLDTOKEN", "account_id": "OLDACC",
+                                   "base_url": "http://x"}), encoding="utf-8")
+        r = self.client.get("/api/settings", headers=self.hdr)
+        self.assertEqual(r.json()["zhiyun_username"], "old.user")
+        # 改账号 → 写入 + 清 md_pss_id/account_id（下次更新强制新账号重登、自动取新GUID）
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_username": "new.user", "zhiyun_password": "newpw"})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("智云账号已更新", r.json()["note"])
+        d = _json.loads(zp.read_text(encoding="utf-8"))
+        self.assertEqual((d["username"], d["password"]), ("new.user", "newpw"))
+        self.assertEqual((d["md_pss_id"], d["account_id"]), ("", ""))
+        self.assertEqual(d["base_url"], "http://x")        # 其余键保留
+        # 同值再存 → 不算变更（不清会话）
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_username": "new.user", "zhiyun_password": "newpw"})
+        self.assertNotIn("智云账号已更新", r.json()["note"])
+        # 空密码 → 400
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_username": "new.user", "zhiyun_password": ""})
+        self.assertEqual(r.status_code, 400)
+
+    def test_settings_requires_login(self):
+        self.assertEqual(self.anon.get("/api/settings").status_code, 401)
+        self.assertEqual(self.anon.post("/api/settings", json={}).status_code, 401)
+        self.assertEqual(self.anon.get("/api/refresh_status").status_code, 401)
+
 
 class TestArchive(unittest.TestCase):
     """归档：db 每日滚动备份保留 N 份 + 月末快照判定。"""
@@ -192,6 +268,21 @@ class TestArchive(unittest.TestCase):
         kept = sorted(bdir.glob("看板_*.db"))
         self.assertEqual(len(kept), 2)            # 滚动只留最近 2 份
         self.assertTrue(kept[-1].name.endswith("20260704.db"))
+
+    def test_backup_keep_reads_config(self):
+        """keep 不传 → 用 config.backup_keep_days（设置页改的就是它）。"""
+        import shutil as _sh
+        tmp2 = Path(tempfile.mkdtemp())
+        db.connect(self.cfg, tmp2).close()
+        cfg = dict(self.cfg)
+        cfg["backup_keep_days"] = 2
+        d0 = datetime.date(2026, 7, 1)
+        for i in range(4):
+            archive.backup_db(cfg, d0 + datetime.timedelta(days=i), tmp2)
+        kept = sorted((loaders.data_dir(cfg, tmp2) / "备份").glob("看板_*.db"))
+        self.assertEqual(len(kept), 2)
+        self.assertTrue(kept[-1].name.endswith("20260704.db"))
+        _sh.rmtree(tmp2, ignore_errors=True)
 
     def test_is_month_end(self):
         self.assertTrue(archive.is_month_end(datetime.date(2026, 2, 28)))
