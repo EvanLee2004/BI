@@ -249,6 +249,23 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(self.anon.get("/api/settings").status_code, 401)
         self.assertEqual(self.anon.post("/api/settings", json={}).status_code, 401)
         self.assertEqual(self.anon.get("/api/refresh_status").status_code, 401)
+        self.assertEqual(self.anon.get("/api/history").status_code, 401)
+        self.assertEqual(self.anon.get("/api/history/20260710").status_code, 401)
+
+    def test_history_list_and_page(self):
+        """历史快照：列表倒序 + 按天取页面 + 非法日期400 + 无档404。"""
+        bdir = loaders.data_dir(self.cfg, self.root) / "备份"
+        bdir.mkdir(parents=True, exist_ok=True)
+        (bdir / "页面_20260709.html").write_text("<html>OLD</html>", encoding="utf-8")
+        (bdir / "页面_20260710.html").write_text("<html>NEW</html>", encoding="utf-8")
+        d = self.client.get("/api/history", headers=self.hdr).json()
+        self.assertEqual([x["day"] for x in d][:2], ["20260710", "20260709"])   # 倒序
+        self.assertEqual(d[0]["label"], "2026-07-10")
+        r = self.client.get("/api/history/20260709", headers=self.hdr)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("OLD", r.text)
+        self.assertEqual(self.client.get("/api/history/2026-7-9", headers=self.hdr).status_code, 400)
+        self.assertEqual(self.client.get("/api/history/19990101", headers=self.hdr).status_code, 404)
 
 
 class TestArchive(unittest.TestCase):
@@ -282,6 +299,27 @@ class TestArchive(unittest.TestCase):
         kept = sorted((loaders.data_dir(cfg, tmp2) / "备份").glob("看板_*.db"))
         self.assertEqual(len(kept), 2)
         self.assertTrue(kept[-1].name.endswith("20260704.db"))
+        _sh.rmtree(tmp2, ignore_errors=True)
+
+    def test_snapshot_page_rolling_and_month_end(self):
+        """页面快照：每天一份滚动保留 + 月末那份另存进快照存档（永久）。"""
+        import shutil as _sh
+        tmp2 = Path(tempfile.mkdtemp())
+        cfg = dict(self.cfg)
+        cfg["backup_keep_days"] = 2
+        for i in range(3):                                   # 7/29、7/30、7/31(月末)
+            d = datetime.date(2026, 7, 29) + datetime.timedelta(days=i)
+            res = archive.snapshot_page(cfg, f"<html>{d}</html>", d, tmp2)
+            self.assertEqual(res["status"], "ok")
+        bdir = loaders.data_dir(cfg, tmp2) / "备份"
+        kept = sorted(bdir.glob("页面_*.html"))
+        self.assertEqual([p.name for p in kept], ["页面_20260730.html", "页面_20260731.html"])
+        snap = loaders.data_dir(cfg, tmp2) / "快照存档" / "2026-07" / "页面_20260731.html"
+        self.assertTrue(snap.exists())                        # 月末页面永久留档
+        # 同天再存 = 覆盖（留当天最后一次），份数不变
+        archive.snapshot_page(cfg, "<html>v2</html>", datetime.date(2026, 7, 31), tmp2)
+        self.assertEqual(len(list(bdir.glob("页面_*.html"))), 2)
+        self.assertIn("v2", (bdir / "页面_20260731.html").read_text(encoding="utf-8"))
         _sh.rmtree(tmp2, ignore_errors=True)
 
     def test_is_month_end(self):

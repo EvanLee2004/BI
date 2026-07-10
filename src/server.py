@@ -374,6 +374,7 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <span class="subgrp" id="sub-review" data-g="review">
     <button class="stab on" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
     <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">未填分类<span id="ucBadge" class="badge zero">0</span></button>
+    <button class="stab" data-t="history" onclick="showReview('history')">历史快照</button>
   </span>
 </div>
 
@@ -406,6 +407,15 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
   <button onclick="lLoad()">刷新台账</button><span id="lInfo" class="muted"></span>
   <div class="note">过期疑似（红）= 源头已改、调整未套用，请复核。</div>
   <div class="wrap"><table id="lTbl"></table></div>
+</div>
+
+<div id="history" class="sec">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    看哪天 <select id="hisSel"></select>
+    <span id="hisInfo" class="muted"></span>
+  </div>
+  <div class="note">每天更新完自动存一份当天页面（同天多次更新=留最后一次），保留天数在「设置」里改；月末那天的随月末快照永久保留。</div>
+  <iframe id="hisFrame" style="margin-top:8px"></iframe>
 </div>
 
 <div id="settings" class="sec">
@@ -632,7 +642,17 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
 
 // ---- 复核（调整台账 / 未填分类）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
-  showSec(which);if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();}
+  showSec(which);if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();}
+// 历史快照：按天回看（每天最后一次更新的页面原样）
+async function hisLoad(){const sel=document.getElementById("hisSel"),info=document.getElementById("hisInfo");
+  try{const d=await jget("/api/history");
+    if(!d.length){info.textContent="还没有历史快照（每次更新后自动生成，明天起就有了）";
+      document.getElementById("hisFrame").src="about:blank";sel.innerHTML="";return;}
+    sel.innerHTML=d.map(x=>'<option value="'+x.day+'">'+x.label+"（存于 "+esc(x.saved_at)+"）</option>").join("");
+    info.textContent="共 "+d.length+" 天";hisShow(d[0].day);
+    sel.onchange=()=>hisShow(sel.value);
+  }catch(e){info.textContent="加载失败:"+e.message;}}
+function hisShow(day){document.getElementById("hisFrame").src="/api/history/"+day;}
 async function lLoad(){const d=await jget("/api/adjustments");document.getElementById("lInfo").textContent="共 "+d.length+" 条";
   let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
   d.forEach(a=>{const exp=a["状态"]==="过期疑似";h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
@@ -771,6 +791,30 @@ def create_app(cfg, root=None) -> FastAPI:
                 "last": _state["last_refresh"], "built_at": _state["built_at"],
                 "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch"))}
 
+    @app.get("/api/history")
+    def api_history(request: Request):
+        """历史页面快照列表（按天，倒序）。供管理员端「历史快照」页。"""
+        _require(request)
+        bdir = loaders.data_dir(cfg, root) / "备份"
+        out = []
+        for p in sorted(bdir.glob("页面_*.html"), reverse=True):
+            d = p.stem.split("_")[1]
+            out.append({"day": d, "label": f"{d[:4]}-{d[4:6]}-{d[6:]}",
+                        "saved_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(p.stat().st_mtime)),
+                        "kb": round(p.stat().st_size / 1024)})
+        return out
+
+    @app.get("/api/history/{day}")
+    def api_history_page(request: Request, day: str):
+        """回看某天的看板页面（当天最后一次更新的原样快照）。"""
+        _require(request)
+        if not re.fullmatch(r"\d{8}", day):
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYYMMDD")
+        p = loaders.data_dir(cfg, root) / "备份" / f"页面_{day}.html"
+        if not p.exists():
+            raise HTTPException(status_code=404, detail="该日无页面快照")
+        return HTMLResponse(p.read_text(encoding="utf-8"))
+
     @app.get("/api/settings")
     def api_settings_get(request: Request):
         _require(request)
@@ -778,7 +822,7 @@ def create_app(cfg, root=None) -> FastAPI:
         creds = read_zhiyun_creds(cfg, root)
         out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
         bdir = loaders.data_dir(cfg, root) / "备份"
-        baks = sorted(bdir.glob("看板_*.db")) if bdir.exists() else []
+        baks = (sorted(bdir.glob("看板_*.db")) + sorted(bdir.glob("页面_*.html"))) if bdir.exists() else []
         out["backup_stats"] = {"count": len(baks),
                                "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
         return out

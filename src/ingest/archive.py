@@ -41,6 +41,31 @@ def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None =
     return {"status": "ok", "path": str(dst), "kept": len(backups), "pruned": pruned}
 
 
+def snapshot_page(cfg: dict, html: str, today: datetime.date | None = None,
+                  root: Path | None = None, keep: int | None = None) -> dict:
+    """存当天渲染好的看板页面 → 数据/备份/页面_YYYYMMDD.html（同天覆盖=留当天最后一次），
+    滚动保留 keep 天（同 backup_keep_days）。供管理员端「历史快照」按天回看。
+    月末那天的页面另随月末快照永久保留（12-31 即年末档）。"""
+    if keep is None:
+        keep = max(1, int(cfg.get("backup_keep_days", 365) or 365))
+    day = today or datetime.date.today()
+    bdir = loaders.data_dir(cfg, root) / "备份"
+    bdir.mkdir(parents=True, exist_ok=True)
+    dest = bdir / f"页面_{day:%Y%m%d}.html"
+    dest.write_text(html, encoding="utf-8")
+    if is_month_end(day):  # 月末页面另存进月末快照夹，永久保留（12-31 即年末档）
+        snap = loaders.data_dir(cfg, root) / "快照存档" / f"{day:%Y-%m}"
+        snap.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(dest, snap / dest.name)
+    pages = sorted(bdir.glob("页面_*.html"))
+    pruned = 0
+    while len(pages) > keep:
+        pages[0].unlink()
+        pages.pop(0)
+        pruned += 1
+    return {"status": "ok", "path": str(dest), "kept": len(pages), "pruned": pruned}
+
+
 def is_month_end(day: datetime.date) -> bool:
     return day.day == calendar.monthrange(day.year, day.month)[1]
 
