@@ -407,8 +407,12 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 </div>
 
 <div id="ledger" class="sec">
-  <button onclick="lLoad()">刷新台账</button><span id="lInfo" class="muted"></span>
-  <div class="note">过期疑似（红）= 源头已改、调整未套用，请复核。</div>
+  <button onclick="lLoad()">刷新台账</button>
+  <label style="margin-left:10px"><input type="checkbox" id="lExpOnly" onchange="lRender()"> 只看过期疑似</label>
+  <button class="mini" id="lBatchBtn" onclick="lBatchAsk()" style="margin-left:10px">一键听源头新值（批量撤销过期疑似）</button>
+  <span id="lInfo" class="muted"></span>
+  <div class="note">过期疑似（红）= 源头已改、我的调整未套用，<b>页面现用源头新值</b>。处理：「坚持我的数」=重新生效继续用我的值（逐条，需确认）；「撤销」=认可源头新值。批量只提供"听源头"方向——批量坚持会把报警的意义废掉，故意不做。</div>
+  <div id="lConfirm" class="note" style="display:none;border:1px solid #f59e0b;border-radius:6px;padding:10px"></div>
   <div class="wrap"><table id="lTbl"></table></div>
 </div>
 
@@ -670,14 +674,39 @@ function hisFillD(){const y=_hisSel("hisY").value,m=_hisSel("hisM").value;
   _hisSel("hisD").innerHTML=days.map(x=>'<option value="'+x.day+'">'+(+x.day.slice(6))+'日（存于 '+esc(x.saved_at)+'）</option>').join("");
   if(days.length)hisShow(days[0].day);}
 function hisShow(day){_hisSel("hisFrame").src="/api/history/"+day;}
-async function lLoad(){const d=await jget("/api/adjustments");document.getElementById("lInfo").textContent="共 "+d.length+" 条";
+let LADJ=[];
+async function lLoad(){LADJ=await jget("/api/adjustments");lRender();}
+function lRender(){const expOnly=document.getElementById("lExpOnly").checked;
+  const d=expOnly?LADJ.filter(a=>a["状态"]==="过期疑似"):LADJ;
+  const nExp=LADJ.filter(a=>a["状态"]==="过期疑似").length;
+  document.getElementById("lInfo").textContent="共 "+LADJ.length+" 条（过期疑似 "+nExp+"）";
+  document.getElementById("lBatchBtn").style.display=nExp?"":"none";
   let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
-  d.forEach(a=>{const exp=a["状态"]==="过期疑似";h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
+  d.forEach(a=>{const exp=a["状态"]==="过期疑似";
+    let ops="";
+    if(exp&&a["类型"]==="改值")ops+="<button class='mini' onclick='lRearm("+a.id+")'>坚持我的数</button> ";
+    if(a["状态"]!=="已撤销")ops+="<button class='mini ghost' onclick='lRevoke("+a.id+")'>撤销</button>";
+    h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
     "</td><td>"+esc(a["目标表"])+"</td><td>"+esc(a["字段"])+"</td><td>"+esc(a["原值"])+" → "+esc(a["新值"])+"</td><td>"+esc(a["类型"])+
-    "</td><td>"+esc(a["状态"])+"</td><td>"+(a["状态"]==="已撤销"?"":"<button class='mini ghost' onclick='lRevoke("+a.id+")'>撤销</button>")+"</td></tr>";});
+    "</td><td>"+esc(a["状态"])+"</td><td>"+ops+"</td></tr>";});
   document.getElementById("lTbl").innerHTML=h;}
-async function lRevoke(id){if(!confirm("撤销该调整？"))return;try{await jpost("/api/adjust/"+id+"/revoke",{});
+async function lRevoke(id){if(!confirm("撤销该调整？（=认可源头新值，页面继续用源头值）"))return;
+  try{await jpost("/api/adjust/"+id+"/revoke",{});
   msg("已撤销");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
+async function lRearm(id){const a=LADJ.find(x=>x.id===id)||{};
+  if(!confirm("坚持我的数？\n"+(a["目标表"]||"")+" · "+(a["字段"]||"")+"：将继续使用你改的值「"+(a["新值"]||"")+"」，覆盖源头新值。"))return;
+  try{await jpost("/api/adjust/"+id+"/rearm",{});
+  msg("已重新生效");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
+function lBatchAsk(){const n=LADJ.filter(a=>a["状态"]==="过期疑似").length;if(!n)return;
+  const box=document.getElementById("lConfirm");
+  box.innerHTML="将批量撤销 <b>"+n+"</b> 条「过期疑似」调整 = 全部认可源头新值（页面本就在用新值，此操作确认事实、清掉黄灯）。"+
+    "撤销后如需恢复某条，去明细里重新改即可。 "+
+    "<button class='mini' onclick='lBatchDo()'>确认保存</button> <button class='mini ghost' onclick='lBatchCancel()'>取消</button>";
+  box.style.display="";}
+function lBatchCancel(){const box=document.getElementById("lConfirm");box.style.display="none";box.innerHTML="";}
+async function lBatchDo(){lBatchCancel();
+  try{const r=await jpost("/api/adjust/expired/revoke_all",{});
+  msg("已批量撤销 "+r.revoked+" 条");reloadDash();loadHealth();lLoad();}catch(e){alert("失败："+e.message);}}
 
 // ---- 未填分类：只读清单（不提供当场补；请在源头收单台账补填，下次更新自动计入）----
 let ucTotal=0;
@@ -905,6 +934,33 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         recompute(cfg, root)
         return {"status": "ok" if ok else "noop", "built_at": _state["built_at"]}
+
+    @app.post("/api/adjust/expired/revoke_all")
+    def api_revoke_all_expired(request: Request):
+        """批量撤销全部「过期疑似」=一键听源头新值。前端走"点按钮→确认保存"两步，这里只管执行。"""
+        _require(request)
+        conn = _conn()
+        try:
+            n = db.revoke_expired_adjustments(conn)
+        finally:
+            conn.close()
+        if n:
+            recompute(cfg, root)
+        return {"status": "ok", "revoked": n, "built_at": _state["built_at"]}
+
+    @app.post("/api/adjust/{adj_id}/rearm")
+    def api_rearm(request: Request, adj_id: int):
+        """坚持我的数（仅过期疑似、仅逐条）：原值刷新为源头现值→重新生效→立即重算。"""
+        _require(request)
+        conn = _conn()
+        try:
+            db.rearm_adjustment(conn, adj_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+        recompute(cfg, root)
+        return {"status": "ok", "built_at": _state["built_at"]}
 
     @app.get("/api/adjustments")
     def api_adjustments(request: Request):

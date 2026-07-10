@@ -352,5 +352,108 @@ class TestArchive(unittest.TestCase):
         self.assertEqual(res["status"], "skip")
 
 
+class TestExpiredBatch(unittest.TestCase):
+    """过期疑似批量处理（2026-07-11）：一键听源头新值（批量撤销）+ 逐条「坚持我的数」（rearm）。
+    设计不对称：批量只给"听源头"方向；坚持只能逐条（批量坚持会废掉报警机制）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        from fastapi.testclient import TestClient
+        cls.tmp = tempfile.mkdtemp()
+        cls.root = Path(cls.tmp)
+        cls.cfg = loaders.load_config()
+        conn = db.connect(cls.cfg, cls.root)
+        conn.execute(
+            "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
+            " VALUES('E1','SO9','客B','传统营销','2026-07-01',2000,500,'2026-07','2026-07-01','2026-07',0)")
+        conn.commit()
+        conn.close()
+        cls._orig_recompute = server.recompute
+        server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
+        server._state["user_html"] = "<html>USER</html>"
+        server._state["admin_html"] = "<html>ADMIN</html>"
+        cls.app = server.create_app(cls.cfg, root=cls.root)
+        cls.client = TestClient(cls.app, follow_redirects=False)
+        cls.anon = TestClient(cls.app, follow_redirects=False)
+        r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
+        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+
+    @classmethod
+    def tearDownClass(cls):
+        server.recompute = cls._orig_recompute
+
+    def _conn(self):
+        return db.connect(self.cfg, self.root)
+
+    def _add_adj(self, conn, 状态, 类型="改值", 定位键="E1", 字段="交付额", 原值="1888", 新值="2333"):
+        cur = conn.execute(
+            "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
+            " VALUES('2026-07-11 09:00:00','明昊','std_收入明细',?,?,?,?,'测试',?,?)",
+            (定位键, 字段, 原值, 新值, 类型, 状态))
+        conn.commit()
+        return cur.lastrowid
+
+    def test_endpoints_require_login(self):
+        for method, path in [("post", "/api/adjust/expired/revoke_all"),
+                             ("post", "/api/adjust/1/rearm")]:
+            r = getattr(self.anon, method)(path)
+            self.assertEqual(r.status_code, 401, f"{method} {path} 未登录应 401")
+
+    def test_revoke_all_only_touches_expired(self):
+        conn = self._conn()
+        a1 = self._add_adj(conn, "过期疑似")
+        a2 = self._add_adj(conn, "过期疑似")
+        a3 = self._add_adj(conn, "生效")
+        conn.close()
+        r = self.client.post("/api/adjust/expired/revoke_all", headers=self.hdr)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["revoked"], 2)
+        conn = self._conn()
+        states = dict(conn.execute(
+            "SELECT id,状态 FROM adj_调整记录 WHERE id IN (?,?,?)", (a1, a2, a3)).fetchall())
+        conn.close()
+        self.assertEqual(states[a1], "已撤销")
+        self.assertEqual(states[a2], "已撤销")
+        self.assertEqual(states[a3], "生效")           # 生效的绝不能被批量误伤
+        # 再点一次：无过期疑似 → revoked=0 幂等
+        r2 = self.client.post("/api/adjust/expired/revoke_all", headers=self.hdr)
+        self.assertEqual(r2.json()["revoked"], 0)
+
+    def test_rearm_refreshes_origin_and_reapplies(self):
+        conn = self._conn()
+        aid = self._add_adj(conn, "过期疑似", 原值="1888", 新值="2333")   # 原值1888已过期（源头现值2000）
+        conn.close()
+        r = self.client.post(f"/api/adjust/{aid}/rearm", headers=self.hdr)
+        self.assertEqual(r.status_code, 200)
+        conn = self._conn()
+        原值, 状态 = conn.execute("SELECT 原值,状态 FROM adj_调整记录 WHERE id=?", (aid,)).fetchone()
+        self.assertEqual(状态, "生效")
+        self.assertEqual(float(原值), 2000.0)          # 原值刷成源头现值（REAL列str后带.0）→ 下轮重放不再判过期
+        from ingest import adjust as adj_mod
+        rep = adj_mod.apply_adjustments(conn, "2026-07-11 10:00:00")
+        self.assertEqual(rep["expired"], 0)
+        val = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='E1'").fetchone()[0]
+        conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=?", (aid,))  # 清场防影响他例
+        conn.execute("UPDATE std_收入明细 SET 交付额=2000 WHERE 定位键='E1'")
+        conn.commit()
+        conn.close()
+        self.assertEqual(float(val), 2333.0)           # 我的值重新套上
+
+    def test_rearm_rejects_wrong_states(self):
+        conn = self._conn()
+        active = self._add_adj(conn, "生效")
+        removed = self._add_adj(conn, "过期疑似", 类型="剔除", 字段="", 新值="")
+        ghost = self._add_adj(conn, "过期疑似", 定位键="不存在的键")
+        conn.close()
+        for aid, why in [(active, "生效不可坚持"), (removed, "剔除类不可坚持"),
+                         (ghost, "源头行不存在不可坚持"), (999999, "id不存在")]:
+            r = self.client.post(f"/api/adjust/{aid}/rearm", headers=self.hdr)
+            self.assertEqual(r.status_code, 400, why)
+        conn = self._conn()
+        conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE id IN (?,?,?)", (active, removed, ghost))
+        conn.commit()
+        conn.close()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

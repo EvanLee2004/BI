@@ -212,6 +212,38 @@ def revoke_adjustment(conn: sqlite3.Connection, adj_id: int) -> bool:
     return cur.rowcount > 0
 
 
+def revoke_expired_adjustments(conn: sqlite3.Connection) -> int:
+    """批量撤销全部「过期疑似」= 认可源头新值（页面本就在用新值，这里只是确认事实、清掉黄灯）。
+    只允许这个方向批量——批量"坚持我的数"会把报警机制废掉，故意不提供。返回撤销条数。"""
+    cur = conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE 状态='过期疑似'")
+    conn.commit()
+    return cur.rowcount
+
+
+def rearm_adjustment(conn: sqlite3.Connection, adj_id: int) -> None:
+    """坚持我的数：把一条「过期疑似」的改值调整重新生效——用源头当前值刷新「原值」，
+    下轮重放即重新套用「新值」。仅限逐条（见 revoke_expired_adjustments 注释）。"""
+    import schema
+    row = conn.execute(
+        "SELECT 目标表,定位键,字段,类型,状态 FROM adj_调整记录 WHERE id=?", (adj_id,)).fetchone()
+    if not row:
+        raise ValueError(f"调整不存在：id={adj_id}")
+    目标表, 定位键, 字段, 类型, 状态 = row
+    if 状态 != "过期疑似":
+        raise ValueError("仅「过期疑似」的调整可坚持（生效中无需处理，已撤销请重新添加）")
+    if 类型 != "改值":
+        raise ValueError("仅「改值」类调整可坚持（剔除类过期疑似=同键重复行，请人工处理）")
+    if 目标表 not in schema.STD_TABLE_NAMES or 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
+        raise ValueError(f"字段不可调整：{目标表}.{字段}")
+    cur = conn.execute(
+        f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
+    if cur is None:
+        raise ValueError("源头行已不存在，无法坚持——只能撤销该调整")
+    源头现值 = "" if cur[0] is None else str(cur[0])
+    conn.execute("UPDATE adj_调整记录 SET 原值=?, 状态='生效' WHERE id=?", (源头现值, adj_id))
+    conn.commit()
+
+
 def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
     cols = ["id", "创建时间", "经手人", "目标表", "定位键", "字段", "原值", "新值", "原因", "类型", "状态"]
     rows = conn.execute(f"SELECT {','.join(cols)} FROM adj_调整记录 ORDER BY id DESC").fetchall()
