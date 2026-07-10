@@ -23,6 +23,12 @@ def fmt_wan(v: float) -> str:
     return f"{v/10000:,.1f}"
 
 
+def esc(s) -> str:
+    """HTML 转义（正文与属性通用）。台账/调整来的自由文本进 HTML 前必须过这里（与 render._esc 同口径）。"""
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
 def _polar(cx, cy, r, deg):
     rad = math.radians(deg - 90)
     return cx + r * math.cos(rad), cy + r * math.sin(rad)
@@ -68,7 +74,9 @@ def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_valu
         tip = ""
         cls = ""
         if detail is not None:
-            cls = ' class="hit-seg"'; tip = f' data-tip="{_tip(name, v, detail.get(name))}"'
+            # 双层转义：getAttribute 解一层实体、innerHTML 再解析一层——_tip 里名称已转义（innerHTML层），
+            # 这里整串再 esc 一次（属性层），<br> 经属性层解码后恢复、名称仍保持转义。
+            cls = ' class="hit-seg"'; tip = f' data-tip="{esc(_tip(name, v, detail.get(name)))}"'
         paths.append(f'<path{cls} d="M{x1:.1f} {y1:.1f} A{ro:.1f} {ro:.1f} 0 {large} 1 {x2:.1f} {y2:.1f} '
                      f'L{x3:.1f} {y3:.1f} A{ri:.1f} {ri:.1f} 0 {large} 0 {x4:.1f} {y4:.1f} Z" fill="{color}"{tip}/>')
         start = end
@@ -85,11 +93,12 @@ def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_valu
 
 
 def _tip(title, total, pairs, limit=6):
-    lines = [f"{title}&nbsp;·&nbsp;{fmt_wan(total)}万"]
+    """悬浮提示文本：动态名称先转义（细类名来自台账自由填写列），<br> 是我们自己拼的富文本、放行。"""
+    lines = [f"{esc(title)}&nbsp;·&nbsp;{fmt_wan(total)}万"]
     if pairs:
         ordered = sorted(pairs, key=lambda x: -x[1])
         for name, amt in ordered[:limit]:
-            lines.append(f"{name}&nbsp;{fmt_wan(amt)}万")
+            lines.append(f"{esc(name)}&nbsp;{fmt_wan(amt)}万")
         if ordered[limit:]:
             lines.append(f"其他{len(ordered[limit:])}项&nbsp;{fmt_wan(sum(a for _, a in ordered[limit:]))}万")
     return "<br>".join(lines)

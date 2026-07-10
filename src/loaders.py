@@ -85,6 +85,11 @@ def parse_date_parts(val: Any) -> tuple[int, int, int] | None:
         return _parse_date_parts(val)
 
 
+def _valid_ymd(y: int, m: int, d: int) -> tuple[int, int, int] | None:
+    """月日合理性校验：出界（如订单号误填进日期列被硬解析）返回 None 交给体检计数，别造出假日期。"""
+    return (y, m, d) if 1 <= m <= 12 and 1 <= d <= 31 else None
+
+
 def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:
     """解析日期为 (年,月,日)。支持 datetime、YYYY-MM-DD、YYYY/MM/DD、YYYYMMDD。"""
     if val is None:
@@ -100,18 +105,18 @@ def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:
     digits = "".join(c for c in s if c.isdigit())
     if len(digits) >= 8:
         try:
-            return int(digits[:4]), int(digits[4:6]), int(digits[6:8])
+            return _valid_ymd(int(digits[:4]), int(digits[4:6]), int(digits[6:8]))
         except ValueError:
             return None
     norm = s.replace("/", "-").split("-")
     if len(norm) >= 3:
         try:
-            return int(norm[0]), int(norm[1]), int(norm[2][:2])
+            return _valid_ymd(int(norm[0]), int(norm[1]), int(norm[2][:2]))
         except ValueError:
             return None
     if len(norm) >= 2:
         try:
-            return int(norm[0]), int(norm[1]), 1
+            return _valid_ymd(int(norm[0]), int(norm[1]), 1)
         except ValueError:
             return None
     return None

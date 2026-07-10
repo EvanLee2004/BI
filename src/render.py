@@ -161,8 +161,8 @@ def _hbar_rows(rows, prefix):
         key = f"{prefix}:{name}"
         w = max(2.0, val / mx * 100)
         cls = " unfilled" if name == "未分类" else ""
-        out.append(f'<div class="ev-row pl-open{cls}" data-cat="{key}" role="button" tabindex="0">'
-                   f'<span class="ev-name">{name}</span>'
+        out.append(f'<div class="ev-row pl-open{cls}" data-cat="{_esc(key)}" role="button" tabindex="0">'
+                   f'<span class="ev-name">{_esc(name)}</span>'
                    f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
                    f'<span class="ev-amt">{charts.fmt_wan(val)}万</span>'
                    f'<span class="pl-more ev-more">构成 ›</span></div>')
@@ -207,7 +207,7 @@ def render_dept_budget(dept_budget):
         else:
             cls = "ok" if pct < 80 else ("warn" if pct <= 100 else "over")
             w, ptxt = min(pct, 100.0), f"{pct:.1f}%"
-        rows_html += (f'<div class="bud-row"><span class="bud-name">{r["dept"]}</span>'
+        rows_html += (f'<div class="bud-row"><span class="bud-name">{_esc(r["dept"])}</span>'
                       f'<span class="bud-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
                       f'<span class="bud-num">{charts.fmt_wan(r["used"])} / {charts.fmt_wan(r["target"])}万'
                       f' · <b class="{cls}">{ptxt}</b></span></div>')
@@ -237,7 +237,7 @@ def _drow(name, impact, kind, src="", sub=False):
     cls = "pl-drow" + (" sub" if sub else "")
     dot = f'<span class="dot {kind}"></span>' if kind else '<span class="dot none"></span>'
     src_html = f'<span class="src">{src}</span>' if src else ""
-    return f'<div class="{cls}">{dot}<div class="pl-name">{name}{src_html}</div>{_amt(impact)}</div>'
+    return f'<div class="{cls}">{dot}<div class="pl-name">{_esc(name)}{src_html}</div>{_amt(impact)}</div>'
 
 
 def _d_ledger(name, amount, src, fine_pairs, limit=8):
@@ -253,7 +253,7 @@ def _d_ledger(name, amount, src, fine_pairs, limit=8):
 
 
 def _detail_block(cat, title, inner):
-    return f'<div class="pl-detail" data-cat="{cat}" data-title="{title}">{inner}</div>'
+    return f'<div class="pl-detail" data-cat="{_esc(cat)}" data-title="{_esc(title)}">{inner}</div>'
 
 
 def render_pl_table(p, fine):
@@ -269,7 +269,7 @@ def render_pl_table(p, fine):
     rows.append(_open_row("fixed", "固定运营费用", -e["固定运营费用"]))
     rows.append(_open_row("rd", "研发费用", -e["研发费用"]))
     rows.append(_open_row("fin", "财务费用", -e["财务费用"]))
-    rows.append(_row("附加税费", -p["surtax"], "system", "收入×6%×12%"))
+    rows.append(_row("附加税费", -p["surtax"], "system", "增值税×12%"))
     rows.append(_row("其他损益", p["other_pl"], "manual", "手填·默认无"))
     rows.append(_row("税前利润", p["pretax_profit"], "", grand=True))
 
@@ -445,7 +445,8 @@ JS = """
  }
  // 利润表大类 → 右侧抽屉看构成（主表定位不动、不再顶下方图表）
  var dr=document.getElementById('drawer'),dbody=document.getElementById('drawerBody'),dttl=document.getElementById('drawerTitle');
- function openDrawer(cat,scope){var el=scope.querySelector('.pl-detail[data-cat="'+cat+'"]');if(!el||!dr)return;
+ function openDrawer(cat,scope){if(cat==null)return;
+   var el=scope.querySelector('.pl-detail[data-cat="'+CSS.escape(String(cat))+'"]');if(!el||!dr)return;
    dttl.textContent=el.getAttribute('data-title');dbody.innerHTML=el.innerHTML;
    dr.classList.add('open');dr.setAttribute('aria-hidden','false');}
  function closeDrawer(){if(!dr)return;dr.classList.remove('open');dr.setAttribute('aria-hidden','true');}
@@ -533,7 +534,7 @@ def render_dashboard(summary, cfg, logo_b64):
  {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
-  税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(收入×6%×12%)+其他损益 &nbsp;|&nbsp;
+  税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(增值税×12%)+其他损益 &nbsp;|&nbsp;
   数据源：智云项目明细/任务/下单/回款 + 收单台账 + 手填与调整表。
  </div>
 </div>

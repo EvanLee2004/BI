@@ -109,13 +109,13 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
 
 
 def _log_run(conn, now: str, trigger: str, report: dict) -> str:
-    """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似。"""
+    """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似 / 有调整定位键失配未套用。"""
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
     # 智云在线抓时：任一源没抓到（走本地副本/无源）也算黄（诚实反映数据陈旧）
     zy = report.get("fetch_zhiyun") or {}
     zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
-    yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or zy_degraded
+    yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or adj.get("missing", 0) > 0 or zy_degraded
     red = report["fetch"]["status"] == "no_source"
     结果 = "红" if red else ("黄" if yellow else "绿")
     conn.execute(

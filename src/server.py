@@ -45,6 +45,7 @@ IDENTITIES = ("明昊", "陆总")
 _state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None,
                 "refreshing": None, "last_refresh": None}
 _LOCK = threading.Lock()  # 写库/重算全局互斥（03：写库一把锁，运行中排队）
+_EXPORT_LOCK = threading.Lock()  # 导出截图互斥：Playwright 整页截图是重活，同一时刻只跑一张，连发返回 429
 
 
 # ---------------- 密钥文件（口令哈希 + 会话签名密钥） ----------------
@@ -280,6 +281,8 @@ def _run_reasons(report: dict) -> list[str]:
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
         reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『复核·调整台账』看")
+    if adj.get("missing", 0):
+        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『复核·调整台账』人工复核")
     return reasons
 
 
@@ -814,11 +817,17 @@ def create_app(cfg, root=None) -> FastAPI:
         keys = set(((_state.get("summary") or {}).get("periods") or {}).keys())
         if blk and keys and blk not in keys:
             raise HTTPException(status_code=400, detail="未知周期")
+        if not _EXPORT_LOCK.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail="正在生成另一张导出图，请稍候几秒再点")
         try:
             png = _screenshot_png(html, blk)
+        except HTTPException:
+            raise
         except Exception as e:  # noqa: BLE001 chromium 未装/超时等
             raise HTTPException(status_code=503,
                                 detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium")
+        finally:
+            _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         from urllib.parse import quote
         fn = quote(f"经营驾驶舱_{label}_{time.strftime('%Y%m%d_%H%M')}.png")

@@ -58,8 +58,10 @@ def _cast(字段: str, 新值: str):
 
 
 def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
-    """重放全部生效调整。返回 {applied, expired, removed, skipped}。"""
-    applied = expired = removed = skipped = 0
+    """重放全部生效调整。返回 {applied, expired, removed, skipped, missing}。
+    missing=定位键失配（源头行删了/键变了，台账键含金额、源头改金额即失配）——调整没套用但记录还在，
+    必须冒泡到体检黄提醒人工复核，否则「剔除」会悄悄复活。"""
+    applied = expired = removed = skipped = missing = 0
     rows = conn.execute(
         "SELECT id,目标表,定位键,字段,原值,新值,类型 FROM adj_调整记录 WHERE 状态='生效' ORDER BY id"
     ).fetchall()
@@ -70,7 +72,7 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
         match_rows = conn.execute(
             f"SELECT id FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchall()
         if not match_rows:
-            skipped += 1  # 定位键在本次抓取里不存在（源头删了/键变了）——不动，留调整待人工看
+            missing += 1  # 定位键在本次抓取里不存在（源头删了/键变了）——不动，留调整待人工看
             continue
         if len(match_rows) > 1:
             # 新批次出现同键重复行（写调整时是唯一的）→ 语义变模糊，按过期疑似标黄、不套用，留人工复核
@@ -108,4 +110,5 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             conn.execute("UPDATE std_费用明细 SET 归属月=? WHERE 定位键=? AND 已删除=0", (ym, 定位键))
         applied += 1
     conn.commit()
-    return {"applied": applied, "expired": expired, "removed": removed, "skipped": skipped}
+    return {"applied": applied, "expired": expired, "removed": removed,
+            "skipped": skipped, "missing": missing}

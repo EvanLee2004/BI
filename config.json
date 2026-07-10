@@ -30,7 +30,7 @@
   "tax": {
     "vat_rate": 0.06,
     "surtax_rate": 0.12,
-    "_note": "收入(不含税)=交付额/(1+vat_rate)；附加税费=收入(不含税)×vat_rate×surtax_rate（陆总：收入×6%×12%）"
+    "_note": "收入(不含税)=交付额/(1+vat_rate)；附加税费=增值税额×surtax_rate（增值税额=不含税收入×vat_rate=交付额−不含税收入）——基数是不含税收入，别写'收入×6%×12%'引歧义"
   },
   "columns": {
     "project_delivery_date": "整单交付日期",
