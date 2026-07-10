@@ -20,6 +20,23 @@ import schema
 
 _AMOUNT_FIELDS = {"交付额", "项目成本", "下单预估额", "到账金额", "结算金额", "含税金额"}
 
+# 费用明细的归属月由 收单日期(优先)/收单月份(退回·配账年) 派生（口径=periods.ledger_row_date）；
+# 改这两个字段要连带重算归属月（R1 开放全字段后补上，与智云四源的 PERIOD_DATE_FIELD 机制对应）
+_LEDGER_DATE_FIELDS = {"收单日期", "收单月份"}
+
+
+def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
+    """费用明细归属月：优先收单日期，退回收单月份+账年——与 periods.ledger_row_date 同口径。"""
+    parts = loaders.parse_date_parts(收单日期)
+    if parts:
+        return f"{parts[0]:04d}-{parts[1]:02d}"
+    if 收单月份 not in (None, ""):
+        try:
+            return f"{ledger_year:04d}-{int(str(收单月份).strip()):02d}"
+        except ValueError:
+            return None
+    return None
+
 
 def _values_match(current, 原值: str) -> bool:
     """库中现值 与 调整记录的原值 是否一致（金额按数值容差、其余按去空白文本）。"""
@@ -55,6 +72,11 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
         if not match_rows:
             skipped += 1  # 定位键在本次抓取里不存在（源头删了/键变了）——不动，留调整待人工看
             continue
+        if len(match_rows) > 1:
+            # 新批次出现同键重复行（写调整时是唯一的）→ 语义变模糊，按过期疑似标黄、不套用，留人工复核
+            conn.execute("UPDATE adj_调整记录 SET 状态='过期疑似' WHERE id=?", (aid,))
+            expired += 1
+            continue
 
         if 类型 == "剔除":
             cur = conn.execute(f"UPDATE {目标表} SET 已删除=1 WHERE 定位键=? AND 已删除=0", (定位键,))
@@ -79,6 +101,11 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             parts = loaders.parse_date_parts(新值)
             ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
             conn.execute(f"UPDATE {目标表} SET 归属月=? WHERE 定位键=? AND 已删除=0", (ym, 定位键))
+        elif 目标表 == "std_费用明细" and 字段 in _LEDGER_DATE_FIELDS:
+            d, m = conn.execute(
+                "SELECT 收单日期,收单月份 FROM std_费用明细 WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
+            ym = _ledger_ym(d, m, int(now[:4]))  # 账年=本轮更新年（与 build_std_db 的 ledger_year 一致）
+            conn.execute("UPDATE std_费用明细 SET 归属月=? WHERE 定位键=? AND 已删除=0", (ym, 定位键))
         applied += 1
     conn.commit()
     return {"applied": applied, "expired": expired, "removed": removed, "skipped": skipped}

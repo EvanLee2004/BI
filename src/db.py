@@ -173,20 +173,29 @@ def _now() -> str:
 # ---------------- 调整记录（写：明细编辑；管理员端 /api/adjust）----------------
 def add_adjustment(conn: sqlite3.Connection, 经手人: str, 目标表: str, 定位键: str,
                    字段: str, 新值: str, 原因: str = "", 类型: str = "改值") -> int:
-    """新增一条调整记录（状态=生效）。原值由服务端从库取。目标表/字段严格白名单（防注入）。"""
+    """新增一条调整记录（状态=生效）。原值由服务端从库取。目标表/字段严格白名单（防注入）。
+    定位键护栏：匹配 0 行拒（键不存在）、匹配多行拒（内容完全相同的重复行，改一条会波及全部——
+    真实台账已实测有撞车行；R2 raw 批次层给行级定位后放开）。"""
     import schema
     if 目标表 not in schema.STD_TABLE_NAMES:
         raise ValueError(f"未知目标表：{目标表}")
     if 类型 not in ("改值", "剔除"):
         raise ValueError(f"未知类型：{类型}")
+    matches = conn.execute(
+        f"SELECT COUNT(*) FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
+    if matches == 0:
+        raise ValueError(f"定位键在 {目标表} 中不存在（或已删除）：{定位键}")
+    if matches > 1:
+        raise ValueError(
+            f"该行与另外 {matches - 1} 行内容完全相同（定位键重复），暂不支持调整/剔除——"
+            f"改一条会同时改动全部相同行。请先在源表里让这些行可区分（如备注加字），或等行级定位（R2）上线。")
     原值 = ""
     if 类型 == "改值":
         if 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
             raise ValueError(f"字段不可调整：{目标表}.{字段}")
-        row = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
-        if row is None:
-            raise ValueError(f"定位键在 {目标表} 中不存在（或已删除）：{定位键}")
-        原值 = "" if row[0] is None else str(row[0])
+        原值_raw = conn.execute(
+            f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
+        原值 = "" if 原值_raw is None else str(原值_raw)
     cur = conn.execute(
         "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
         " VALUES(?,?,?,?,?,?,?,?,?, '生效')",

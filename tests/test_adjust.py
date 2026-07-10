@@ -155,6 +155,60 @@ class TestAdjustableFieldsBlacklist(unittest.TestCase):
         self.assertEqual(ym, "2026-06")
 
 
+class TestLedgerPeriodRecompute(unittest.TestCase):
+    """B2 修复：费用明细改 收单日期/收单月份 → 归属月连带重算（口径=ledger_row_date）。"""
+
+    def test_adjust_ledger_date_recomputes_ym(self):
+        conn = _conn()
+        _ins_expense(conn, "LED_D", 归属月="2026-06")   # 收单日期=2026-06-15
+        db.add_adjustment(conn, "明昊", "std_费用明细", "LED_D", "收单日期", "2026-07-02", "挪月", "改值")
+        adjust.apply_adjustments(conn, "2026-07-10 10:00:00")
+        d, ym = conn.execute("SELECT 收单日期,归属月 FROM std_费用明细 WHERE 定位键='LED_D'").fetchone()
+        self.assertEqual(d, "2026-07-02")
+        self.assertEqual(ym, "2026-07")               # 归属月跟着收单日期走
+
+    def test_adjust_ledger_month_recomputes_ym_when_no_date(self):
+        """收单日期为空的行：改 收单月份 → 归属月=账年-月（退回逻辑）。"""
+        conn = _conn()
+        conn.execute(
+            "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
+            " VALUES('LED_E','06',NULL,100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)")
+        conn.commit()
+        db.add_adjustment(conn, "明昊", "std_费用明细", "LED_E", "收单月份", "03", "改月", "改值")
+        adjust.apply_adjustments(conn, "2026-07-10 10:00:00")
+        ym = conn.execute("SELECT 归属月 FROM std_费用明细 WHERE 定位键='LED_E'").fetchone()[0]
+        self.assertEqual(ym, "2026-03")               # 账年取本轮更新年(now)
+
+
+class TestLocatorCollisionGuard(unittest.TestCase):
+    """B1 护栏：定位键匹配多行（内容完全相同的重复行）→ 写调整被拒；重放遇到新增撞车 → 过期疑似。"""
+
+    def test_add_adjustment_rejected_on_duplicate_rows(self):
+        conn = _conn()
+        _ins_expense(conn, "LED_DUP")
+        _ins_expense(conn, "LED_DUP")                  # 同键两行（真实台账实测存在这种撞车）
+        for 类型, 字段 in (("改值", "含税金额"), ("剔除", "")):
+            with self.assertRaises(ValueError, msg=f"{类型} 应被拒"):
+                db.add_adjustment(conn, "明昊", "std_费用明细", "LED_DUP", 字段, "1", "测试", 类型)
+
+    def test_replay_marks_expired_when_key_becomes_duplicated(self):
+        """写调整时唯一、新批次冒出同键重复行 → 重放不套用、标过期疑似（体检黄）。"""
+        conn = _conn()
+        _ins_expense(conn, "LED_F", 含税金额=100.0)
+        db.add_adjustment(conn, "明昊", "std_费用明细", "LED_F", "含税金额", "200", "测试", "改值")
+        # 模拟重抓后出现重复行
+        schema.reset_std_tables(conn)
+        _ins_expense(conn, "LED_F", 含税金额=100.0)
+        _ins_expense(conn, "LED_F", 含税金额=100.0)
+        r = adjust.apply_adjustments(conn, NOW)
+        self.assertEqual(r["expired"], 1)
+        self.assertEqual(r["applied"], 0)
+        vals = [v[0] for v in conn.execute("SELECT 含税金额 FROM std_费用明细 WHERE 定位键='LED_F'")]
+        self.assertEqual(vals, [100.0, 100.0])         # 一行都没被改
+        st = conn.execute("SELECT 状态 FROM adj_调整记录 WHERE 定位键='LED_F'").fetchone()[0]
+        self.assertEqual(st, "过期疑似")
+
+
 class TestReplayEndToEnd(unittest.TestCase):
     """全链集成：挪月调整 → std → db读 → profit → 利润表数字从 7 月移到 6 月。"""
     def _summary(self, conn, cfg, today):
