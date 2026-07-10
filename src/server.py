@@ -410,11 +410,11 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 </div>
 
 <div id="history" class="sec">
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    看哪天 <select id="hisSel"></select>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    看哪天 <select id="hisY"></select><select id="hisM"></select><select id="hisD" style="min-width:220px"></select>
     <span id="hisInfo" class="muted"></span>
   </div>
-  <div class="note">每天更新完自动存一份当天页面（同天多次更新=留最后一次），保留天数在「设置」里改；月末那天的随月末快照永久保留。</div>
+  <div class="note">每天更新完自动存一份当天页面（同天多次更新=留最后一次），保留天数在「设置」里改；月末那天的随月末快照永久保留（12月末=年末档）。</div>
   <iframe id="hisFrame" style="margin-top:8px"></iframe>
 </div>
 
@@ -643,16 +643,30 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
 // ---- 复核（调整台账 / 未填分类）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
   showSec(which);if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();}
-// 历史快照：按天回看（每天最后一次更新的页面原样）
-async function hisLoad(){const sel=document.getElementById("hisSel"),info=document.getElementById("hisInfo");
-  try{const d=await jget("/api/history");
-    if(!d.length){info.textContent="还没有历史快照（每次更新后自动生成，明天起就有了）";
-      document.getElementById("hisFrame").src="about:blank";sel.innerHTML="";return;}
-    sel.innerHTML=d.map(x=>'<option value="'+x.day+'">'+x.label+"（存于 "+esc(x.saved_at)+"）</option>").join("");
-    info.textContent="共 "+d.length+" 天";hisShow(d[0].day);
-    sel.onchange=()=>hisShow(sel.value);
+// 历史快照：年→月→日 级联回看（每天最后一次更新的页面原样；快照多了也不乱）
+let HIS=[];
+function _hisSel(id){return document.getElementById(id);}
+async function hisLoad(){const info=_hisSel("hisInfo");
+  try{HIS=await jget("/api/history");   // 已按天倒序
+    if(!HIS.length){info.textContent="还没有历史快照（每次更新后自动生成，明天起就有了）";
+      _hisSel("hisFrame").src="about:blank";["hisY","hisM","hisD"].forEach(i=>_hisSel(i).innerHTML="");return;}
+    info.textContent="共 "+HIS.length+" 天";
+    const years=[...new Set(HIS.map(x=>x.day.slice(0,4)))];
+    _hisSel("hisY").innerHTML=years.map(y=>'<option value="'+y+'">'+y+'年</option>').join("");
+    _hisSel("hisY").onchange=()=>hisFillM();
+    _hisSel("hisM").onchange=()=>hisFillD();
+    _hisSel("hisD").onchange=()=>hisShow(_hisSel("hisD").value);
+    hisFillM();
   }catch(e){info.textContent="加载失败:"+e.message;}}
-function hisShow(day){document.getElementById("hisFrame").src="/api/history/"+day;}
+function hisFillM(){const y=_hisSel("hisY").value;
+  const months=[...new Set(HIS.filter(x=>x.day.slice(0,4)===y).map(x=>x.day.slice(4,6)))];
+  _hisSel("hisM").innerHTML=months.map(m=>'<option value="'+m+'">'+(+m)+'月</option>').join("");
+  hisFillD();}
+function hisFillD(){const y=_hisSel("hisY").value,m=_hisSel("hisM").value;
+  const days=HIS.filter(x=>x.day.slice(0,4)===y&&x.day.slice(4,6)===m);
+  _hisSel("hisD").innerHTML=days.map(x=>'<option value="'+x.day+'">'+(+x.day.slice(6))+'日（存于 '+esc(x.saved_at)+'）</option>').join("");
+  if(days.length)hisShow(days[0].day);}
+function hisShow(day){_hisSel("hisFrame").src="/api/history/"+day;}
 async function lLoad(){const d=await jget("/api/adjustments");document.getElementById("lInfo").textContent="共 "+d.length+" 条";
   let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
   d.forEach(a=>{const exp=a["状态"]==="过期疑似";h+="<tr class='"+(exp?"exp":"")+"'><td>"+a.id+"</td><td>"+esc(a["创建时间"])+"</td><td>"+esc(a["经手人"])+
