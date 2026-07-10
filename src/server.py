@@ -862,6 +862,48 @@ def create_app(cfg, root=None) -> FastAPI:
         finally:
             conn.close()
 
+    @app.get("/api/daily")
+    def api_daily(start: str = Query(""), end: str = Query("")):
+        """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
+        公开（与用户页同级、不含比排名更敏感的数据）；**纯只读**、无任何写路径；
+        金额显示串全部后端算好（铁律2：前端不做金额运算）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
+        import datetime as _dt
+        try:
+            s = _dt.date.fromisoformat(start)
+            e = _dt.date.fromisoformat(end)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+        if e < s:
+            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
+        if (e - s).days > 366:
+            raise HTTPException(status_code=400, detail="区间最长 366 天")
+        conn = db.connect(cfg, root)
+        try:
+            orders = db.load_orders(cfg, conn)
+            receipts = db.load_receipts(cfg, conn)
+        finally:
+            conn.close()
+        import charts
+        import profit as _profit
+        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e)
+
+        def _wan(v):   # 显示串：与排名卡一致（负数全角−）
+            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+        for row in d["days"]:
+            row["orders_disp"], row["receipts_disp"] = _wan(row.pop("orders")), _wan(row.pop("receipts"))
+        t = d["totals"]
+        t["orders_disp"], t["receipts_disp"] = _wan(t.pop("orders")), _wan(t.pop("receipts"))
+        for rk in d["rankings"].values():
+            for it in rk["items"]:
+                it["disp"] = _wan(it.pop("amount"))
+            if rk.get("others"):
+                rk["others"]["disp"] = _wan(rk["others"].pop("amount"))
+            if rk.get("unfilled"):
+                rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
+            rk.pop("total", None)   # 用不到就不下发，防前端拿去做运算
+        return {"start": start, "end": end, **d}
+
     @app.get("/api/exceptions")
     def api_exceptions(request: Request):
         """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/health，不在这。"""

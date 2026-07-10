@@ -203,6 +203,17 @@ body{
 .rk-row:nth-child(1) .rk-no{color:var(--accent);font-weight:800}
 .rk-meta{flex:0 0 74px;text-align:right;font-size:11px;color:var(--mut2);white-space:nowrap}
 .rk-others .ev-name,.rk-others .ev-amt{color:var(--mut2)}
+/* 按天明细（批次B）：面板/表格；金额串由后端下发，前端零运算 */
+.daily-btn{order:9;margin-left:8px}
+.daily-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 10px;font-size:13px;color:var(--mut)}
+.daily-bar input[type=date]{background:transparent;border:1px solid var(--line-2);color:var(--ink);border-radius:8px;padding:6px 8px;font-size:13px}
+.daily-note{font-size:11.5px;color:var(--mut2)}
+.daily-wrap{overflow-x:auto}
+.daily-tbl{border-collapse:collapse;width:100%;font-size:12.5px}
+.daily-tbl th,.daily-tbl td{border-bottom:1px solid var(--line);padding:6px 10px;text-align:right;white-space:nowrap}
+.daily-tbl th:first-child,.daily-tbl td:first-child{text-align:left}
+.daily-tbl th{color:var(--mut);font-weight:600}
+.daily-total td{font-weight:700;color:var(--accent);border-top:1px solid var(--line-2)}
 .rk-unfilled{opacity:.62}
 .rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}
 .rk-unfilled .rk-no{color:#f59e0b;font-size:12px}

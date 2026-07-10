@@ -82,6 +82,41 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
     return {"items": items, "others": others, "unfilled": unfilled, "total": total}
 
 
+def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10):
+    """按天明细（/api/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
+    days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
+    只做下单/回款——费用/手填按月，切不出按天利润（2026-07-10 拍板口径）。"""
+    days: dict[str, list] = {}   # day -> [下单额, 下单笔数, 回款额, 回款笔数]
+
+    def _acc(rows, amount_col, date_col, ai, ci):
+        for r in rows:
+            d = loaders.parse_date_parts(r.get(date_col))
+            if not periods.date_in_range(d, start, end):
+                continue
+            slot = days.setdefault(f"{d[0]:04d}-{d[1]:02d}-{d[2]:02d}", [0.0, 0, 0.0, 0])
+            slot[ai] += loaders.parse_amount(r.get(amount_col))
+            slot[ci] += 1
+
+    _acc(order_rows, cols_cfg["order_amount"], cols_cfg["order_date"], 0, 1)
+    _acc(receipt_rows, cols_cfg["receipt_amount"], cols_cfg["receipt_date"], 2, 3)
+    out_days = [{"day": k, "orders": round(v[0], 2), "orders_count": v[1],
+                 "receipts": round(v[2], 2), "receipts_count": v[3]}
+                for k, v in sorted(days.items())]
+    totals = {"orders": round(sum(v[0] for v in days.values()), 2),
+              "orders_count": sum(v[1] for v in days.values()),
+              "receipts": round(sum(v[2] for v in days.values()), 2),
+              "receipts_count": sum(v[3] for v in days.values())}
+    rankings = {
+        "orders_by_dept": compute_ranking(order_rows, "部门", cols_cfg["order_amount"],
+                                          cols_cfg["order_date"], start, end, top),
+        "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
+                                           cols_cfg["order_date"], start, end, top),
+        "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
+                                                cols_cfg["receipt_date"], start, end, top),
+    }
+    return {"days": out_days, "totals": totals, "rankings": rankings}
+
+
 def compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end):
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     tcol = cols_cfg["inhouse_type"]

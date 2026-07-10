@@ -495,6 +495,70 @@ EXPORT_JS = r"""
 """
 
 
+# ---------- 按天明细（迭代计划13批次B）：非预渲染，前端请求 /api/daily 动态展示 ----------
+# 铁律2：金额显示串全部由 /api/daily 后端算好（*_disp），这里的 JS 只拼字符串、零金额运算；
+# 铁律10：接口返回的部门/销售/客户名是自由文本，插 HTML 前必过 esc。file:// 打开时 fetch 失败给提示。
+DAILY_HTML = """
+<div class="card" id="dailyPanel" style="display:none;margin-bottom:16px">
+  <div class="card-h">按天明细 <span class="tag">任意日期区间 · 只看算得准的下单/回款（费用/利润按月）</span></div>
+  <div class="daily-bar">
+    <input type="date" id="dailyS"> ~ <input type="date" id="dailyE">
+    <button class="toggle" id="dailyGo">查询</button>
+    <span class="daily-note">实时从库里算（需服务器版；每天早上「立即更新」后即最新——九点下单日报可直接看这里）</span>
+  </div>
+  <div id="dailyOut"></div>
+</div>"""
+
+DAILY_JS = """
+(function(){
+ var btn=document.getElementById('dailyBtn'),panel=document.getElementById('dailyPanel');
+ if(!btn||!panel)return;
+ var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE');
+ function pad(n){return (n<10?'0':'')+n;}
+ function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+ var today=new Date();
+ iE.value=iso(today);iS.value=iso(new Date(today.getFullYear(),today.getMonth(),1));
+ btn.addEventListener('click',function(){panel.style.display=panel.style.display==='none'?'':'none';});
+ var esc=function(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){
+   return({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c];});};
+ function rkHtml(title,rk){
+  var h='<div class="card"><div class="card-h">'+title+'</div><div class="ev-list rk-list">';
+  var items=(rk&&rk.items)||[];
+  if(!items.length&&!(rk&&rk.unfilled))h+='<div class="ev-empty">本期无数据</div>';
+  items.forEach(function(it,i){h+='<div class="ev-row rk-row"><span class="rk-no">'+(i+1)+'</span>'+
+    '<span class="ev-name" title="'+esc(it.name)+'">'+esc(it.name)+'</span><span class="ev-track"></span>'+
+    '<span class="ev-amt">'+esc(it.disp)+'</span><span class="rk-meta">'+it.count+'笔</span></div>';});
+  if(rk&&rk.others)h+='<div class="ev-row rk-row rk-others"><span class="rk-no">…</span><span class="ev-name">其余 '+rk.others.names+' 个</span>'+
+    '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.others.disp)+'</span><span class="rk-meta">'+rk.others.count+'笔</span></div>';
+  if(rk&&rk.unfilled)h+='<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span><span class="ev-name">（未填）</span>'+
+    '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.unfilled.disp)+'</span><span class="rk-meta">'+rk.unfilled.count+'笔·待归类</span></div>';
+  return h+'</div></div>';}
+ document.getElementById('dailyGo').addEventListener('click',function(){
+  var s=iS.value,e=iE.value,out=document.getElementById('dailyOut');
+  if(!s||!e){out.innerHTML='<div class="ev-empty">请选起止日期</div>';return;}
+  out.innerHTML='<div class="ev-empty">查询中…</div>';
+  fetch('/api/daily?start='+s+'&end='+e).then(function(r){
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
+    return r.json();
+  }).then(function(d){
+    var h='<div class="daily-wrap"><table class="daily-tbl"><tr><th>日期</th><th>下单额</th><th>笔数</th><th>回款额</th><th>笔数</th></tr>';
+    if(!d.days.length)h+='<tr><td colspan="5" class="ev-empty">区间内无下单/回款</td></tr>';
+    d.days.forEach(function(r){h+='<tr><td>'+esc(r.day)+'</td><td>'+esc(r.orders_disp)+'</td><td>'+r.orders_count+
+      '</td><td>'+esc(r.receipts_disp)+'</td><td>'+r.receipts_count+'</td></tr>';});
+    h+='<tr class="daily-total"><td>合计</td><td>'+esc(d.totals.orders_disp)+'</td><td>'+d.totals.orders_count+
+      '</td><td>'+esc(d.totals.receipts_disp)+'</td><td>'+d.totals.receipts_count+'</td></tr></table></div>';
+    h+='<div class="grid-3 rk-grid" style="margin-top:12px">'+
+      rkHtml('下单 · 按部门',d.rankings.orders_by_dept)+
+      rkHtml('下单 · 按销售',d.rankings.orders_by_sales)+
+      rkHtml('回款 · 按客户',d.rankings.receipts_by_customer)+'</div>';
+    out.innerHTML=h;
+  }).catch(function(err){out.innerHTML='<div class="ev-empty">查询失败：'+esc(err.message)+
+    '（此功能要在服务器版页面用；file:// 双击打开的快照不支持）</div>';});
+ });
+})();
+"""
+
+
 def render_dashboard(summary, cfg, logo_b64):
     meta = summary["meta"]; P = summary["periods"]; FT = summary["expense_fine_type"]
     yk = meta["year_key"]
@@ -537,7 +601,9 @@ def render_dashboard(summary, cfg, logo_b64):
  <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {render_dept_budget(meta.get('dept_budget'))}
 
- <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span></div>
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span>
+  <button class="toggle daily-btn" id="dailyBtn"><span>▦</span> 按天明细</button></div>
+ {DAILY_HTML}
  {rank_views}
  {faint_note}
  <div class="foot">
@@ -548,7 +614,7 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script>{JS}{EXPORT_JS}</script>
+<script>{JS}{EXPORT_JS}{DAILY_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
