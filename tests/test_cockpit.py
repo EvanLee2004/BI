@@ -208,7 +208,9 @@ class TestRankingsAndRanges(unittest.TestCase):
                                     dt.date(2026, 3, 1), dt.date(2026, 3, 31), top=2)
         self.assertEqual([i["name"] for i in rk["items"]], ["乙", "甲"])   # 降序
         self.assertEqual(rk["items"][1], {"name": "甲", "amount": 200.0, "count": 2})
-        self.assertEqual(rk["others"], {"names": 1, "amount": 50.0, "count": 1})  # （未填）挤进其余
+        # v7.4：（未填）不再进排名/其余，单拆 unfilled 置底展示（total 仍含它=守恒）
+        self.assertIsNone(rk["others"])
+        self.assertEqual(rk["unfilled"], {"amount": 50.0, "count": 1})
         self.assertAlmostEqual(rk["total"], 600.0)
 
     def test_period_ranges_include_month_spans(self):

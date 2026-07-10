@@ -342,10 +342,11 @@ def _rank_amt(v):
 def _rank_card(title, tag, rk):
     """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。"""
     items = (rk or {}).get("items") or []
-    if not items:
+    unfilled = (rk or {}).get("unfilled")
+    if not items and not unfilled:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
-        mx = max(it["amount"] for it in items) or 1
+        mx = max((it["amount"] for it in items), default=0) or 1
         total = rk.get("total") or 0
         rows = []
         for i, it in enumerate(items, 1):
@@ -363,6 +364,13 @@ def _rank_card(title, tag, rk):
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
                         f'<span class="rk-meta">{others["count"]}笔</span></div>')
+        if unfilled:
+            # 源头没填名字的那组：固定置底+灰显+⚠角标，不藏行（守恒：各组合计==总额）；去管理端「异常处理」归类
+            rows.append(f'<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span>'
+                        f'<span class="ev-name" title="源头未填，去管理端「异常处理→下单未填部门」归类">（未填）</span>'
+                        f'<span class="ev-track"></span>'
+                        f'<span class="ev-amt">{_rank_amt(unfilled["amount"])}</span>'
+                        f'<span class="rk-meta">{unfilled["count"]}笔·待归类</span></div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
     return (f'<div class="card"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
 

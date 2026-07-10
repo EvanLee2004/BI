@@ -126,12 +126,19 @@ def adjustable_fields() -> dict[str, list[str]]:
     return {k: list(schema.ADJUSTABLE_FIELDS[v[0]]) for k, v in DETAIL_TABLES.items()}
 
 
+# 异常清单的 WHERE 口径（异常处理中心与排名「（未填）」/体检「未填分类」共用，改一处两边同步）
+UNCLASSIFIED_WHERE = "(对应报表大类 IS NULL OR TRIM(对应报表大类)='') AND 含税金额 IS NOT NULL AND 含税金额<>0"
+UNFILLED_DEPT_WHERE = "(部门 IS NULL OR TRIM(部门)='') AND 下单预估额 IS NOT NULL AND 下单预估额<>0"
+
+
 def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = None,
                  q: str | None = None, page: int = 1, page_size: int = 50,
-                 unclassified: bool = False) -> dict:
+                 unclassified: bool = False, unfilled_dept: bool = False) -> dict:
     """明细分页查询（带按月 + 关键词筛选）。仅读未删除行。表键须在白名单内（防注入）。
     unclassified=True 仅对「费用明细」有效：只返回「对应报表大类」为空且金额非零的行
-    （= 页面"未填分类"只读清单所列那批，提示到源头收单台账补填；口径与 build_unclassified_summary 一致）。"""
+    （= 页面"费用未分类（台账）"只读清单所列那批，提示到源头收单台账补填；口径与 build_unclassified_summary 一致）。
+    unfilled_dept=True 仅对「下单」有效：只返回「部门」为空且金额非零的行
+    （= 异常处理「下单未填部门」清单；口径与排名「（未填）」组一致，测试守卫）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
     table, cols, searchable = DETAIL_TABLES[table_key]
@@ -140,8 +147,11 @@ def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = N
     if unclassified:
         if table_key != "费用明细":
             raise KeyError("unclassified 仅支持 费用明细 表")
-        where.append("(对应报表大类 IS NULL OR TRIM(对应报表大类)='')")
-        where.append("含税金额 IS NOT NULL AND 含税金额<>0")
+        where.append(UNCLASSIFIED_WHERE)
+    if unfilled_dept:
+        if table_key != "下单":
+            raise KeyError("unfilled_dept 仅支持 下单 表")
+        where.append(UNFILLED_DEPT_WHERE)
     if month:
         where.append("归属月=?")
         args.append(month)
@@ -165,6 +175,24 @@ def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = N
         "total": total, "page": page, "page_size": page_size,
         "pages": (total + page_size - 1) // page_size,
     }
+
+
+def list_order_depts(conn: sqlite3.Connection) -> list[str]:
+    """下单表里实际出现过的部门（非空去重，异常处理「下单未填部门」归类下拉用，不硬编码）。"""
+    return sorted(r[0] for r in conn.execute(
+        "SELECT DISTINCT 部门 FROM std_下单 WHERE 已删除=0 AND 部门 IS NOT NULL AND TRIM(部门)<>''"))
+
+
+def exceptions_summary(conn: sqlite3.Connection) -> dict:
+    """异常处理中心「总览」计数（新增一类异常=这里加一个键+前端注册一张卡）。
+    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/health）。"""
+    n_dept = conn.execute(f"SELECT COUNT(*) FROM std_下单 WHERE 已删除=0 AND {UNFILLED_DEPT_WHERE}").fetchone()[0]
+    n_uc = conn.execute(f"SELECT COUNT(*) FROM std_费用明细 WHERE 已删除=0 AND {UNCLASSIFIED_WHERE}").fetchone()[0]
+    n_exp = conn.execute("SELECT COUNT(*) FROM adj_调整记录 WHERE 状态='过期疑似'").fetchone()[0]
+    run = latest_run(conn) or {}
+    n_missing = int(((run.get("体检") or {}).get("adjust") or {}).get("missing", 0) or 0)
+    return {"order_unfilled_dept": n_dept, "expense_unclassified": n_uc,
+            "adjust_expired": n_exp, "adjust_missing": n_missing}
 
 
 def _now() -> str:

@@ -280,9 +280,9 @@ def _run_reasons(report: dict) -> list[str]:
         reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
-        reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『复核·调整台账』看")
+        reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·调整台账』看")
     if adj.get("missing", 0):
-        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『复核·调整台账』人工复核")
+        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·调整台账』人工复核")
     return reasons
 
 
@@ -327,7 +327,7 @@ a{color:var(--vio)}
 #groups{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;background:#172033}
 .gtab{padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--mut);border:1px solid transparent;border-bottom:none}
 .gtab.on{background:var(--bg);color:var(--fg);border-color:var(--line)}
-/* 二级分段（改数据6项 / 复核3项） */
+/* 二级分段（改数据6项 / 异常处理5项） */
 #subnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:#172033;border-bottom:1px solid var(--line);min-height:0}
 .subgrp{display:none;gap:6px;align-items:center;flex-wrap:wrap}
 .stab{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 13px;border-radius:20px;font-size:13px;cursor:pointer}
@@ -361,7 +361,7 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 <div id="groups">
   <div class="gtab on" data-g="see" onclick="showGroup('see')">看</div>
   <div class="gtab" data-g="edit" onclick="showGroup('edit')">改数据</div>
-  <div class="gtab" data-g="review" onclick="showGroup('review')">复核</div>
+  <div class="gtab" data-g="review" onclick="showGroup('review')">异常处理</div>
   <div class="gtab" data-g="cfg" onclick="showGroup('cfg')">设置</div>
 </div>
 <div id="subnav">
@@ -375,8 +375,10 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
     <button class="stab" data-t="手填" onclick="showManual()">手填</button>
   </span>
   <span class="subgrp" id="sub-review" data-g="review">
-    <button class="stab on" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
-    <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">未填分类<span id="ucBadge" class="badge zero">0</span></button>
+    <button class="stab on" data-t="overview" onclick="showReview('overview')">总览</button>
+    <button class="stab" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
+    <button class="stab" data-t="orderdept" onclick="showReview('orderdept')">下单未填部门<span id="odBadge" class="badge zero">0</span></button>
+    <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">费用未分类（台账）<span id="ucBadge" class="badge zero">0</span></button>
     <button class="stab" data-t="history" onclick="showReview('history')">历史快照</button>
   </span>
 </div>
@@ -471,9 +473,21 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
 </div>
 
 <div id="unclassified" class="sec">
-  <button onclick="ucLoad()">刷新未填分类</button><span id="ucInfo" class="muted"></span>
-  <div class="note">这些费用明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头收单台账补填，下次更新自动计入。</div>
+  <button onclick="ucLoad()">刷新清单</button><span id="ucInfo" class="muted"></span>
+  <div class="note">这些收单（费用）台账明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头收单台账补填，下次更新自动计入。</div>
   <div class="wrap" id="ucWrap"><table id="ucTbl"></table></div>
+</div>
+
+<div id="overview" class="sec">
+  <div class="note">这里集中呈现每次更新后系统查出的数据问题（分诊台）：0=绿=不用管；有数=点卡片进对应清单处理。处理动作与「改数据」是同一套调整机制，只是入口不同。</div>
+  <div id="ovCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;max-width:1100px"></div>
+  <div class="note" style="margin-top:12px">闭环说明：在「下单未填部门」归类后，若之后销售在智云源头补填了部门，那条会变成「过期疑似」（预期行为，不是故障）——去「调整台账」选"听源头"或"坚持我的数"即可。</div>
+</div>
+
+<div id="orderdept" class="sec">
+  <button onclick="odLoad()">刷新清单</button><span id="odInfo" class="muted"></span>
+  <div class="note">这些智云下单源头没填「部门」→ 排名里灰显归入「（未填）」。在此选部门保存=写一条调整（留痕、重抓不丢）；也可以让销售在智云补填，下次更新自动归位。</div>
+  <div class="wrap" id="odWrap"><table id="odTbl"></table></div>
 </div>
 
 <script>
@@ -490,12 +504,12 @@ async function jget(p){const r=await api(p);return r.json();}
 async function jpost(p,body){const r=await api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("HTTP "+r.status));return d;}
 function showSec(id){document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===id));}
-// 顶层三区：看 / 改数据 / 复核
+// 顶层四区：看 / 改数据 / 异常处理 / 设置
 function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.toggle("on",e.dataset.g===g));
   document.querySelectorAll(".subgrp").forEach(e=>e.style.display=e.dataset.g===g?"flex":"none");
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
-  else if(g==="review")showReview("ledger");
+  else if(g==="review")showReview("overview");
   else if(g==="cfg"){showSec("settings");loadSettings();}}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
@@ -647,9 +661,60 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
     msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
 
-// ---- 复核（调整台账 / 未填分类）----
+// ---- 异常处理（总览 / 调整台账 / 下单未填部门 / 费用未分类 / 历史快照）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
-  showSec(which);if(which==="ledger")lLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();}
+  showSec(which);if(which==="overview")ovLoad();if(which==="ledger")lLoad();
+  if(which==="orderdept")odLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();}
+
+// 总览：异常计数卡（新增一类异常=EXC_CARDS 注册一条 + /api/exceptions 加一个键；R4 冲突待确认已留位）
+const EXC_CARDS=[
+  {key:"order_unfilled_dept",label:"下单未填部门",desc:"智云源头没填部门，排名灰显待归类",go:()=>showReview("orderdept")},
+  {key:"expense_unclassified",label:"费用未分类（台账）",desc:"收单台账没填对应报表大类，暂未计入费用",go:()=>showReview("unclassified")},
+  {key:"adjust_expired",label:"过期疑似调整",desc:"源头已改、我的调整未套用，需拍板听谁的",go:()=>showReview("ledger")},
+  {key:"adjust_missing",label:"调整失配",desc:"调整定位键在源头找不到了（行删了/键变了）",go:()=>showReview("ledger")},
+  {key:"__conflict",label:"冲突待确认",desc:"智云改了 vs 这里改了（R4 上线后启用）",disabled:true},
+];
+async function ovLoad(){const el=document.getElementById("ovCards");
+  let ex={};try{ex=await jget("/api/exceptions");}catch(e){el.innerHTML="<div class='muted'>加载失败："+esc(e.message)+"</div>";return;}
+  setBadges(ex);
+  const h=(window._health||{});const hHtml=(h.result&&h.result!=="绿")||((h.warnings||[]).length)
+    ?"<div class='muted' style='margin-top:6px'>另：顶栏体检 "+esc(h.result||"?")+((h.warnings||[]).length?("·"+h.warnings.length+"警"):"")+"（抓数/运行信号，点顶栏「体检」看）</div>":"";
+  el.innerHTML=EXC_CARDS.map(c=>{
+    if(c.disabled)return "<div class='row-form' style='margin:0;padding:14px 16px;opacity:.45'>"+
+      "<div style='font-weight:700'>"+esc(c.label)+"</div><div class='muted' style='margin-top:4px'>"+esc(c.desc)+"</div></div>";
+    const n=ex[c.key]||0,ok=!n;
+    return "<div class='row-form ovcard' data-k='"+esc(c.key)+"' style='margin:0;padding:14px 16px;cursor:pointer;border:1px solid "+(ok?"#14532d":"#7c2d12")+"'>"+
+      "<div style='display:flex;align-items:center;gap:8px'><span style='font-size:22px;font-weight:800;color:"+(ok?"#4ade80":"#fb923c")+"'>"+n+"</span>"+
+      "<span style='font-weight:700'>"+esc(c.label)+"</span></div>"+
+      "<div class='muted' style='margin-top:4px'>"+(ok?"✓ 无待处理":esc(c.desc))+"</div></div>";}).join("")+hHtml;
+  el.querySelectorAll(".ovcard").forEach(d=>{d.onclick=()=>{const c=EXC_CARDS.find(x=>x.key===d.dataset.k);if(c&&c.go)c.go();};});}
+
+// 下单未填部门：清单 + 行内选部门→写调整（复用 /api/adjust，处理后行消失、角标减一）
+let OD_DEPTS=[];
+function odUrl(p){return "/api/detail?table="+encodeURIComponent("下单")+"&unfilled_dept=1&page="+p+"&page_size=200";}
+async function odLoad(){const tbl=document.getElementById("odTbl");tbl.innerHTML="";
+  try{OD_DEPTS=await jget("/api/order_depts");}catch(e){}
+  let page=1,pages=1,total=0;
+  try{do{const d=await jget(odUrl(page));pages=d.pages;total=d.total;
+    if(page===1)tbl.innerHTML="<tr><th>下单日期</th><th>订单号</th><th>销售</th><th>金额</th><th>归到哪个部门</th><th></th></tr>";
+    let h="";d.rows.forEach(r=>{const key=r["定位键"];
+      const opts="<option value=''>选部门…</option>"+OD_DEPTS.map(x=>"<option>"+esc(x)+"</option>").join("");
+      h+="<tr><td>"+esc(r["下单日期"])+"</td><td>"+esc(r["订单号"])+"</td><td>"+esc(r["销售"])+"</td><td>"+esc(r["下单预估额"])+
+        "</td><td><select data-key='"+esc(encodeURIComponent(key))+"'>"+opts+"</select></td>"+
+        "<td><button class='mini' onclick='odSave(this)'>保存</button></td></tr>";});
+    tbl.insertAdjacentHTML("beforeend",h);page++;
+  }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
+  document.getElementById("odInfo").textContent="待归类 "+total+" 笔";
+  const b=document.getElementById("odBadge");b.textContent=total;b.className="badge"+(total?"":" zero");}
+async function odSave(btn){const tr=btn.closest("tr"),sel=tr.querySelector("select");
+  const dept=sel.value;if(!dept){alert("先选部门");return;}
+  const key=decodeURIComponent(sel.dataset.key);btn.disabled=true;
+  try{await jpost("/api/adjust",{目标表:"std_下单",定位键:key,字段:"部门",新值:dept,原因:"异常处理·归类部门",类型:"改值"});
+    tr.remove();msg("已归类（写入调整台账·秒级重算）");reloadDash();loadHealth();refreshUcBadge();
+    const b=document.getElementById("odBadge"),n=Math.max(0,(parseInt(b.textContent,10)||1)-1);
+    b.textContent=n;b.className="badge"+(n?"":" zero");
+    document.getElementById("odInfo").textContent="待归类 "+n+" 笔";
+  }catch(e){btn.disabled=false;alert("保存失败："+e.message);}}
 // 历史快照：年→月→日 级联回看（每天最后一次更新的页面原样；快照多了也不乱）
 let HIS=[];
 function _hisSel(id){return document.getElementById(id);}
@@ -720,9 +785,12 @@ async function ucLoad(){const tbl=document.getElementById("ucTbl");tbl.innerHTML
         "</td><td>"+esc(r["预算明细费用类型"])+"</td></tr>";});
     tbl.insertAdjacentHTML("beforeend",h);page++;
   }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
-  document.getElementById("ucInfo").textContent="未填分类 "+ucTotal+" 笔";setUcBadge(ucTotal);}
+  document.getElementById("ucInfo").textContent="未分类 "+ucTotal+" 笔";setUcBadge(ucTotal);}
 function setUcBadge(n){const b=document.getElementById("ucBadge");b.textContent=n;b.className="badge"+(n?"":" zero");}
-async function refreshUcBadge(){try{const d=await jget(ucUrl(1).replace("page_size=200","page_size=1"));setUcBadge(d.total);}catch(e){}}
+function setBadges(ex){setUcBadge(ex.expense_unclassified||0);
+  const b=document.getElementById("odBadge"),n=ex.order_unfilled_dept||0;
+  b.textContent=n;b.className="badge"+(n?"":" zero");}
+async function refreshUcBadge(){try{setBadges(await jget("/api/exceptions"));}catch(e){}}
 
 // ---- 年月下拉（数据自2026起，年份随时间自动往后长；2026前不给选）----
 function pad2(n){return String(n).padStart(2,"0");}
@@ -780,16 +848,37 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.get("/api/detail")
     def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
                    q: str | None = None, page: int = 1, page_size: int = 50,
-                   unclassified: bool = False):
+                   unclassified: bool = False, unfilled_dept: bool = False):
         user = _user(request)
         if not user:
             raise HTTPException(status_code=401, detail="需要管理员登录")
         conn = db.connect(cfg, root)
         try:
             try:
-                return JSONResponse(db.query_detail(conn, table, month, q, page, page_size, unclassified))
+                return JSONResponse(db.query_detail(conn, table, month, q, page, page_size,
+                                                    unclassified, unfilled_dept))
             except KeyError as e:
                 raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+
+    @app.get("/api/exceptions")
+    def api_exceptions(request: Request):
+        """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/health，不在这。"""
+        _require(request)  # 同函数作用域下文定义，调用时已存在
+        conn = db.connect(cfg, root)
+        try:
+            return db.exceptions_summary(conn)
+        finally:
+            conn.close()
+
+    @app.get("/api/order_depts")
+    def api_order_depts(request: Request):
+        """下单表已出现过的部门清单（「下单未填部门」归类下拉用）。"""
+        _require(request)
+        conn = db.connect(cfg, root)
+        try:
+            return db.list_order_depts(conn)
         finally:
             conn.close()
 

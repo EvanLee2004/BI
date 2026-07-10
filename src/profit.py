@@ -60,8 +60,9 @@ def compute_receipts(receipt_rows, cols_cfg, start, end):
 
 
 def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）"):
-    """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None, total}。
-    count=笔数；amount 已 round(2)。名字为空归"（未填）"。"""
+    """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None,
+    unfilled:{amount,count}|None, total}。count=笔数；amount 已 round(2)。
+    名字为空归"（未填）"→ 单拆 unfilled 固定置底展示（不参与前top排位，但计入 total=守恒：各组合计==总额）。"""
     agg: dict[str, list] = {}
     for r in rows:
         if not periods.date_in_range(loaders.parse_date_parts(r.get(date_col)), start, end):
@@ -70,12 +71,15 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
         a = agg.setdefault(name, [0.0, 0])
         a[0] += loaders.parse_amount(r.get(amount_col))
         a[1] += 1
+    total = round(sum(v[0] for v in agg.values()), 2)
+    uf = agg.pop(empty_label, None)
+    unfilled = {"amount": round(uf[0], 2), "count": uf[1]} if uf else None
     ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])
     items = [{"name": n, "amount": round(v[0], 2), "count": v[1]} for n, v in ranked[:top]]
     rest = ranked[top:]
     others = ({"names": len(rest), "amount": round(sum(v[0] for _, v in rest), 2),
                "count": sum(v[1] for _, v in rest)} if rest else None)
-    return {"items": items, "others": others, "total": round(sum(v[0] for _, v in ranked), 2)}
+    return {"items": items, "others": others, "unfilled": unfilled, "total": total}
 
 
 def compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end):

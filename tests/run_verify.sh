@@ -24,4 +24,5 @@ $PY tests/test_fetch_zhiyun.py
 $PY tests/test_budget.py
 $PY tests/test_expense_views.py
 $PY tests/test_bugfix_0711.py
+$PY tests/test_exceptions.py
 echo "✓ 全部通过"

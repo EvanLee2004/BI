@@ -196,13 +196,16 @@ body{
 .pp-m.sel{background:rgba(34,211,238,.16);border-color:var(--accent);color:var(--accent);font-weight:700}
 /* 板块③ 排名 */
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
-.rk-list{max-height:none}
+.ev-list.rk-list{max-height:none;overflow-y:visible}  /* 排名卡不限高不滚动（.ev-list 的 300px 上限同优先级靠后会赢，须提权重；v7.4 加（未填）置底行后 12 行超 300px 现形） */
 .rk-row{cursor:default}
 .rk-row:hover{background:rgba(34,211,238,.06)}
 .rk-no{flex:0 0 20px;text-align:center;font-size:11.5px;color:var(--mut);font-family:var(--mono,inherit)}
 .rk-row:nth-child(1) .rk-no{color:var(--accent);font-weight:800}
 .rk-meta{flex:0 0 74px;text-align:right;font-size:11px;color:var(--mut2);white-space:nowrap}
 .rk-others .ev-name,.rk-others .ev-amt{color:var(--mut2)}
+.rk-unfilled{opacity:.62}
+.rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}
+.rk-unfilled .rk-no{color:#f59e0b;font-size:12px}
 .pl-row.gchild .pl-name{padding-left:32px;font-size:12px;color:var(--mut2)}
 .pl-row.gchild .pl-name .src{display:none}
 .pl-row.gchild .pl-amt{font-size:12px;color:var(--mut2);font-weight:400}
