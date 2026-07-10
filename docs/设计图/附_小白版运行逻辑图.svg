@@ -1,0 +1,101 @@
+<svg viewBox="0 0 760 980" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>利润看板·小白版运行逻辑</title>
+<desc>系统每天怎么跑、财务经理怎么用的大白话流程</desc>
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7a8699"/></marker>
+<marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+</defs>
+<style>
+.big{fill:#1f2937;font-size:15px;font-weight:700}
+.t{fill:#1f2937;font-size:13px;font-weight:600}
+.s{fill:#4b5563;font-size:12px}
+.step{fill:#ffffff;font-size:13px;font-weight:700}
+.ln{stroke:#7a8699;stroke-width:2;fill:none;marker-end:url(#a)}
+.lo{stroke:#d97706;stroke-width:2;fill:none;marker-end:url(#o);stroke-dasharray:6 4}
+.ot{fill:#d97706;font-size:12px;font-weight:600}
+</style>
+<rect x="0" y="0" width="760" height="980" fill="#ffffff"/>
+
+<text x="380" y="30" class="big" text-anchor="middle">这个系统一天是怎么转起来的</text>
+
+<circle cx="50" cy="80" r="14" fill="#059669"/><text x="50" y="85" class="step" text-anchor="middle">1</text>
+<rect x="80" y="55" width="640" height="50" rx="10" fill="#10b9811a" stroke="#059669"/>
+<text x="95" y="77" class="t">每天早上 9:30，电脑自己醒来干活（不用任何人管）</text>
+<text x="95" y="95" class="s">管理员急了也可以在网页上点一下"立即更新"，效果一样</text>
+
+<path class="ln" d="M400 105 L400 125"/>
+
+<circle cx="50" cy="155" r="14" fill="#3b82f6"/><text x="50" y="160" class="step" text-anchor="middle">2</text>
+<rect x="80" y="130" width="640" height="50" rx="10" fill="#3b82f61a" stroke="#3b82f6"/>
+<text x="95" y="152" class="t">去把最新的数搬回来</text>
+<text x="95" y="170" class="s">智云4表(下单/回款/项目/译员)+收单台账取最新版<tspan fill="#059669" font-weight="700">　※智云已是电脑自动登录去抓(2026-07-10起)，抓不到自动用上次的</tspan></text>
+
+<path class="ln" d="M400 180 L400 200"/>
+
+<circle cx="50" cy="230" r="14" fill="#0891b2"/><text x="50" y="235" class="step" text-anchor="middle">3</text>
+<rect x="80" y="205" width="640" height="66" rx="10" fill="#06b6d41a" stroke="#0891b2"/>
+<text x="95" y="227" class="t">洗数 + 和昨天的比一比</text>
+<text x="95" y="245" class="s">· 只是金额变了 → 直接用新数，不打扰任何人（这种每天成千上万条）</text>
+<text x="95" y="263" class="s">· 日期跨月变了 / 出现"月初凌晨交付"的可疑单 → 记到"待财务经理确认"清单里</text>
+
+<path class="ln" d="M400 271 L400 291"/>
+
+<circle cx="50" cy="321" r="14" fill="#d97706"/><text x="50" y="326" class="step" text-anchor="middle">4</text>
+<rect x="80" y="296" width="640" height="66" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="95" y="318" class="t">把财务经理以前改过的数，全部重新改一遍（最关键的一步）</text>
+<text x="95" y="336" class="s">她改过的每一笔都记在"调整小本本"上；新数搬回来后照着小本本再改一遍，</text>
+<text x="95" y="354" class="s">所以不管重新取多少次数，她的修改永远不会丢</text>
+
+<path class="ln" d="M400 362 L400 382"/>
+
+<circle cx="50" cy="412" r="14" fill="#7c3aed"/><text x="50" y="417" class="step" text-anchor="middle">5</text>
+<rect x="80" y="387" width="640" height="50" rx="10" fill="#8b5cf61a" stroke="#7c3aed"/>
+<text x="95" y="409" class="t">算账：利润表、毛利率、回款下单率、预算完成了百分之几……</text>
+<text x="95" y="427" class="s">顺便自我体检：数对不上就亮黄灯/红灯，绝不装作没事</text>
+
+<path class="ln" d="M400 437 L400 457"/>
+
+<circle cx="50" cy="492" r="14" fill="#db2777"/><text x="50" y="497" class="step" text-anchor="middle">6</text>
+<rect x="80" y="462" width="640" height="66" rx="10" fill="#ec48991a" stroke="#db2777"/>
+<text x="95" y="484" class="t">生成两个网页（手机连公司 WiFi 也能看）</text>
+<text x="95" y="502" class="s">· 普通链接：给领导看——只有汇总图表，看不到明细，也改不了任何东西</text>
+<text x="95" y="520" class="s">· 管理链接（要密码）：给财务经理和管理员——能看明细、能改数、能填数</text>
+
+<text x="380" y="565" class="big" text-anchor="middle">财务经理打开管理页面后，能做的四件事</text>
+
+<rect x="30" y="585" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="45" y="607" class="t">① 发现某笔数不对 → 直接改</text>
+<text x="45" y="625" class="s">比如那 3 笔 7月1日凌晨的单其实是 6 月的：</text>
+<text x="45" y="643" class="s">在明细里点开、把月份改成 6 月、点保存，</text>
+<text x="45" y="661" class="s">几秒后所有图表数字自动变过来</text>
+
+<rect x="390" y="585" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="405" y="607" class="t">② 处理系统抓出来的可疑单</text>
+<text x="405" y="625" class="s">系统主动列出"这几单像跨月的，您看看"，</text>
+<text x="405" y="643" class="s">她逐条点"没事"或"挪到上个月"，</text>
+<text x="405" y="661" class="s">不用再靠自己记着去翻</text>
+
+<rect x="30" y="688" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="45" y="710" class="t">③ 填只有她知道的数</text>
+<text x="45" y="728" class="s">手填成本 6 项、预算数等，每月在表单里填一次，</text>
+<text x="45" y="746" class="s">不填就自动沿用上月；填过的月份都留着底，</text>
+<text x="45" y="764" class="s">以后不用再维护 Excel</text>
+
+<rect x="390" y="688" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="405" y="710" class="t">④ 看台账和红绿灯</text>
+<text x="405" y="728" class="s">谁、什么时候、把哪个数从几改成几，一目了然；</text>
+<text x="405" y="746" class="s">页面顶上有红绿灯：绿=数可信，</text>
+<text x="405" y="764" class="s">黄=有事要看一眼，红=今天更新失败别用</text>
+
+<path class="lo" d="M200 673 L200 683"/>
+<path class="lo" d="M560 673 L560 683"/>
+<path class="lo" d="M380 776 L380 800"/>
+<rect x="80" y="805" width="600" height="46" rx="10" fill="#ffffff" stroke="#d97706"/>
+<text x="380" y="825" class="ot" text-anchor="middle">①②③ 任何一个动作点完 → 系统立刻自动重算 → 刷新就能看到新数字</text>
+<text x="380" y="843" class="s" text-anchor="middle">而且这些修改都记在"小本本"上，明天早上 9:30 重新取数也冲不掉（回到第 4 步）</text>
+
+<rect x="80" y="880" width="600" height="66" rx="10" fill="#10b9811a" stroke="#059669"/>
+<text x="95" y="902" class="t">还有两件系统默默干的事</text>
+<text x="95" y="920" class="s">· 每月最后一天：把当天的数据整体拷一份存档——以后想查"6 月底报的到底是多少"随时有</text>
+<text x="95" y="938" class="s">· 哪天出错了：保留昨天的正常页面 + 亮红灯，绝不静默给你一堆错数</text>
+</svg>

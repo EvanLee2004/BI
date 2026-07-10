@@ -1,0 +1,76 @@
+<svg viewBox="0 0 780 520" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>看板.db ER图（v1.1 · 2026-07-10）</title>
+<desc>SQLite表结构：5张标准表、调整记录、手填/预算、运行日志及其关系（suspect_待确认已于R0删除）</desc>
+<style>
+.h{fill:#1f2937;font-size:13px;font-weight:700}
+.f{fill:#4b5563;font-size:11px}
+.k{fill:#1d4ed8;font-size:11px;font-weight:600}
+.lbl{fill:#6b7280;font-size:11px;font-weight:600}
+.rel{stroke:#d97706;stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+.rt{fill:#d97706;font-size:11px;font-weight:600}
+</style>
+<rect x="0" y="0" width="780" height="520" fill="#ffffff"/>
+
+<text x="20" y="28" class="lbl">标准数据表（每次更新全量重建 · 永不手改）</text>
+<rect x="20" y="38" width="230" height="150" rx="8" fill="#10b9811a" stroke="#059669"/>
+<text x="35" y="60" class="h">std_收入明细</text>
+<text x="35" y="80" class="k">PK 订单号</text>
+<text x="35" y="97" class="f">客户 · 业务线 · 整单交付日期</text>
+<text x="35" y="114" class="f">交付额本币 · 项目成本本币</text>
+<text x="35" y="131" class="f">归属月（套调整后）</text>
+<text x="35" y="148" class="f">原值_交付日期（过期校验用）</text>
+<text x="35" y="168" class="f" font-style="italic">同构：std_下单(订单号＋部门·销售)</text>
+
+<rect x="20" y="200" width="230" height="118" rx="8" fill="#10b9811a" stroke="#059669"/>
+<text x="35" y="222" class="h">std_回款 / std_内部译员</text>
+<text x="35" y="242" class="k">PK 回款ID/任务ID（无则行哈希）</text>
+<text x="35" y="259" class="f">日期 · 金额 · 归属月（回款＋客户列）</text>
+<text x="35" y="276" class="f">std_费用明细：PK 行哈希</text>
+<text x="35" y="293" class="f">＋报表大类 · 费用细类 · 归属BU</text>
+<text x="35" y="310" class="f" font-style="italic">行哈希=SHA1(日期+金额+摘要)[:12]</text>
+
+<text x="290" y="28" class="lbl">人工数据表（重建永不清空）</text>
+<rect x="290" y="38" width="240" height="168" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="305" y="60" class="h">adj_调整记录（只追加）</text>
+<text x="305" y="80" class="k">PK id</text>
+<text x="305" y="97" class="f">目标表 · 定位键 · 字段</text>
+<text x="305" y="114" class="f">原值 · 新值 · 原因 · 经手人 · 时间</text>
+<text x="305" y="131" class="f">类型：改值 | 剔除</text>
+<text x="305" y="148" class="f">状态：生效 | 过期疑似 | 已撤销</text>
+<text x="305" y="170" class="f" font-style="italic">重放规则：按(目标表+定位键+字段)</text>
+<text x="305" y="187" class="f" font-style="italic">套用；原值≠库中现值→标过期疑似</text>
+
+<rect x="290" y="218" width="240" height="100" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="305" y="240" class="h">manual_手填</text>
+<text x="305" y="260" class="k">PK (归属月, 项目)</text>
+<text x="305" y="277" class="f">金额 · 填写时间 · 经手人</text>
+<text x="305" y="294" class="f">项目=手填成本6项+其他损益+预算×2</text>
+<text x="305" y="311" class="f" font-style="italic">重填=REPLACE覆盖 · 历史按月留存</text>
+
+<text x="560" y="28" class="lbl">流程辅助表</text>
+<rect x="560" y="38" width="200" height="150" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
+<text x="575" y="60" class="h">suspect_待确认（已删除）</text>
+<text x="575" y="80" class="f">R0 整套移除（2026-07-10）：</text>
+<text x="575" y="97" class="f">模糊猜测误报多，价值由</text>
+<text x="575" y="114" class="f">R4 精确冲突检测＋明细搜索</text>
+<text x="575" y="131" class="f">改单覆盖（见 10 号计划）。</text>
+<text x="575" y="148" class="f">存量库连接时自动 DROP。</text>
+
+<rect x="560" y="200" width="200" height="100" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
+<text x="575" y="222" class="h">meta_运行日志</text>
+<text x="575" y="242" class="k">PK id</text>
+<text x="575" y="259" class="f">时间 · 触发方式(定时/手动)</text>
+<text x="575" y="276" class="f">结果：绿|黄|红</text>
+<text x="575" y="293" class="f">体检JSON（行数/调整/差异）</text>
+
+<path class="rel" d="M290 120 L250 120"/>
+<text x="150" y="345" class="rt">调整 → 标准表：靠 (目标表名+定位键) 逻辑关联，非外键</text>
+<path class="rel" d="M560 100 L530 100"/>
+<text x="150" y="365" class="rt">手填另有 manual_预算/manual_预算历史（年度与部门预算·留痕）</text>
+
+<text x="20" y="410" class="lbl">约定</text>
+<text x="20" y="430" class="f">· 金额 REAL(元)　日期 TEXT ISO(YYYY-MM-DD)　归属月 TEXT(YYYY-MM)</text>
+<text x="20" y="448" class="f">· 全部表结构由 src/schema.py 唯一定义（建表SQL+字段常量同源）</text>
+<text x="20" y="466" class="f">· 剔除类调整=打删除标记，不物理删行</text>
+<text x="20" y="484" class="f">· 定位键唯一性刀1首日用真实导出核实，不唯一一律退行哈希</text>
+</svg>

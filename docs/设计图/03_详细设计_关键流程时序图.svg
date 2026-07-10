@@ -1,0 +1,56 @@
+<svg viewBox="0 0 780 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>关键流程时序图</title>
+<desc>每日更新管道与管理员改数两条时序</desc>
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4b5563"/></marker>
+<marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+</defs>
+<style>
+.h{fill:#1f2937;font-size:13px;font-weight:700}
+.actor{fill:#1f2937;font-size:12px;font-weight:600}
+.m{fill:#4b5563;font-size:11px}
+.mo{fill:#d97706;font-size:11px;font-weight:600}
+.life{stroke:#9ca3af;stroke-width:1;stroke-dasharray:3 3}
+.msg{stroke:#4b5563;stroke-width:1.3;fill:none;marker-end:url(#a)}
+.msgo{stroke:#d97706;stroke-width:1.3;fill:none;marker-end:url(#ao)}
+.box{fill:#3b82f61a;stroke:#3b82f6;rx:6}
+.note{fill:#f59e0b1a;stroke:#d97706;rx:4}
+.nt{fill:#92400e;font-size:10px}
+</style>
+<rect x="0" y="0" width="780" height="620" fill="#ffffff"/>
+
+<text x="20" y="26" class="h">流程A：每日更新管道（定时9:30 / 立即更新，同一入口）</text>
+<rect x="20" y="38" width="90" height="26" class="box"/><text x="65" y="55" class="actor" text-anchor="middle">调度</text>
+<rect x="150" y="38" width="90" height="26" class="box"/><text x="195" y="55" class="actor" text-anchor="middle">ingest</text>
+<rect x="290" y="38" width="90" height="26" class="box"/><text x="335" y="55" class="actor" text-anchor="middle">看板.db</text>
+<rect x="430" y="38" width="90" height="26" class="box"/><text x="475" y="55" class="actor" text-anchor="middle">计算 profit</text>
+<rect x="570" y="38" width="90" height="26" class="box"/><text x="615" y="55" class="actor" text-anchor="middle">render</text>
+<line x1="65" y1="64" x2="65" y2="300" class="life"/><line x1="195" y1="64" x2="195" y2="300" class="life"/><line x1="335" y1="64" x2="335" y2="300" class="life"/><line x1="475" y1="64" x2="475" y2="300" class="life"/><line x1="615" y1="64" x2="615" y2="300" class="life"/>
+
+<path class="msg" d="M65 84 L190 84"/><text x="72" y="79" class="m">run(trigger)</text>
+<path class="msg" d="M195 108 L330 108"/><text x="202" y="103" class="m">①fetch台账(smb) ②读原始+规范化</text>
+<path class="msg" d="M195 138 L330 138"/><text x="202" y="133" class="m">③diff分级：金额变=覆盖 / 周期变+凌晨单→suspect</text>
+<path class="msgo" d="M335 168 L200 168"/><text x="205" y="163" class="mo">④取生效调整 → 重放（原值不符→标过期疑似）</text>
+<path class="msg" d="M195 196 L330 196"/><text x="202" y="191" class="m">⑤validate → meta_运行日志(绿/黄/红)</text>
+<path class="msg" d="M335 224 L470 224"/><text x="342" y="219" class="m">⑥标准表+manual_手填</text>
+<path class="msg" d="M475 252 L610 252"/><text x="482" y="247" class="m">⑦summary.json</text>
+<path class="msg" d="M615 280 L680 280"/><text x="560" y="275" class="m">⑧出双端页面</text>
+<rect x="530" y="290" width="230" height="24" class="note"/><text x="540" y="306" class="nt">月末最后一天：⑨自动拷快照存档/YYYY-MM/</text>
+<rect x="20" y="290" width="230" height="24" class="note"/><text x="30" y="306" class="nt">任一步错：中止·保留旧页面·日志记红</text>
+
+<text x="20" y="356" class="h">流程B：管理员改一笔明细（挪月案例）</text>
+<rect x="20" y="368" width="90" height="26" class="box"/><text x="65" y="385" class="actor" text-anchor="middle">财务经理/管理员</text>
+<rect x="150" y="368" width="110" height="26" class="box"/><text x="205" y="385" class="actor" text-anchor="middle">管理员端页面</text>
+<rect x="310" y="368" width="90" height="26" class="box"/><text x="355" y="385" class="actor" text-anchor="middle">server.py</text>
+<rect x="450" y="368" width="90" height="26" class="box"/><text x="495" y="385" class="actor" text-anchor="middle">看板.db</text>
+<rect x="590" y="368" width="110" height="26" class="box"/><text x="645" y="385" class="actor" text-anchor="middle">pipeline④→⑧</text>
+<line x1="65" y1="394" x2="65" y2="600" class="life"/><line x1="205" y1="394" x2="205" y2="600" class="life"/><line x1="355" y1="394" x2="355" y2="600" class="life"/><line x1="495" y1="394" x2="495" y2="600" class="life"/><line x1="645" y1="394" x2="645" y2="600" class="life"/>
+
+<path class="msg" d="M65 414 L200 414"/><text x="72" y="409" class="m">明细页点单元格改值+填原因</text>
+<path class="msg" d="M205 442 L350 442"/><text x="212" y="437" class="m">POST /api/adjust（带会话）</text>
+<path class="msgo" d="M355 470 L490 470"/><text x="362" y="465" class="mo">INSERT adj_调整记录（原值服务端取）</text>
+<path class="msg" d="M355 498 L640 498"/><text x="362" y="493" class="m">同步触发重放→重算→重出页面（秒级）</text>
+<path class="msg" d="M355 526 L210 526"/><text x="215" y="521" class="m">200 + 新时间戳</text>
+<path class="msg" d="M205 554 L70 554"/><text x="77" y="549" class="m">页面刷新，数字已变</text>
+<rect x="450" y="566" width="310" height="24" class="note"/><text x="460" y="582" class="nt">日后重抓：调整永在，重放后修改不丢（流程A④）</text>
+</svg>

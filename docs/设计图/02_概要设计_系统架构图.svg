@@ -1,0 +1,122 @@
+<svg viewBox="0 0 780 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>利润看板架构 v1.4（抓数层已建成·2026-07-10）</title>
+<desc>抓数层(智云自动抓已建·台账SMB·手填)→进料口→清洗层→存储→计算→展示；单向数据流+调度触发+人工调整回路</desc>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7a8699"/></marker>
+<marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+<marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#059669"/></marker>
+</defs>
+<style>
+.t{fill:#1f2937;font-size:13px;font-weight:600}
+.s{fill:#4b5563;font-size:11px}
+.xs{fill:#4b5563;font-size:10px}
+.lbl{fill:#6b7280;font-size:11px;font-weight:600}
+.ln{stroke:#7a8699;stroke-width:1.5;fill:none;marker-end:url(#ar)}
+.adj{stroke:#d97706;stroke-width:1.5;fill:none;marker-end:url(#ar2);stroke-dasharray:5 4}
+.sch{stroke:#059669;stroke-width:1.5;fill:none;marker-end:url(#ar3);stroke-dasharray:2 3}
+.at{fill:#d97706;font-size:11px;font-weight:600}
+.gt{fill:#059669;font-size:11px;font-weight:600}
+.todo{fill:#dc2626;font-size:10px;font-weight:700}
+.half{fill:#d97706;font-size:10px;font-weight:700}
+.done{fill:#059669;font-size:10px;font-weight:700}
+</style>
+<rect x="0" y="0" width="780" height="660" fill="#ffffff"/>
+
+<!-- ① 抓数层（采集）-->
+<text x="20" y="30" class="lbl">① 抓数层（采集：把各源数据搬进"进料口"·抓不到自动沿用现有文件+体检黄）</text>
+<rect x="20" y="40" width="126" height="70" rx="8" fill="#3b82f61a" stroke="#3b82f6"/>
+<text x="83" y="60" class="t" text-anchor="middle">智云四源</text>
+<text x="83" y="77" class="xs" text-anchor="middle">账号密码自动登录</text>
+<text x="83" y="94" class="xs" text-anchor="middle">在线抓·5秒内网探测</text>
+<text x="83" y="105" class="done" text-anchor="middle">● 已建·内部译员◧待账号</text>
+<rect x="158" y="40" width="126" height="70" rx="8" fill="#3b82f61a" stroke="#3b82f6"/>
+<text x="221" y="60" class="t" text-anchor="middle">收单台账</text>
+<text x="221" y="77" class="xs" text-anchor="middle">SMB 内网共享</text>
+<text x="221" y="94" class="xs" text-anchor="middle">定时抓取(fetch.py)</text>
+<text x="221" y="105" class="half" text-anchor="middle">◧ 半做·部署机生效</text>
+<rect x="296" y="40" width="126" height="70" rx="8" fill="#3b82f61a" stroke="#3b82f6"/>
+<text x="359" y="60" class="t" text-anchor="middle">手工维护</text>
+<text x="359" y="77" class="xs" text-anchor="middle">管理员表单页填</text>
+<text x="359" y="94" class="xs" text-anchor="middle">按月存历史</text>
+<text x="359" y="105" class="done" text-anchor="middle">● 已做</text>
+
+<!-- 调度触发 -->
+<rect x="452" y="40" width="288" height="52" rx="8" fill="#10b9811a" stroke="#059669"/>
+<text x="596" y="62" class="gt" text-anchor="middle" font-size="13">调度触发</text>
+<text x="596" y="80" class="s" text-anchor="middle">每天9:30自动(设置页可改) + "立即更新"(异步+进度)</text>
+<path class="sch" d="M452 92 L430 118 L422 128"/>
+<text x="452" y="112" class="gt">触发整条管道</text>
+
+<path class="ln" d="M83 110 L83 130"/>
+<path class="ln" d="M221 110 L221 130"/>
+<path class="ln" d="M359 110 L359 130"/>
+
+<!-- 进料口（接缝）-->
+<text x="20" y="127" class="lbl">进料口（抓数层↔清洗层的接缝）</text>
+<rect x="20" y="132" width="402" height="46" rx="8" fill="#f3f4f6" stroke="#9ca3af" stroke-dasharray="5 4"/>
+<text x="221" y="153" class="t" text-anchor="middle">数据／ 文件夹　=　6 个源文件 + 手填库</text>
+<text x="221" y="170" class="xs" text-anchor="middle">换数据源／换抓取方式只动上游抓数层，进料口以下全不改</text>
+
+<path class="ln" d="M221 178 L221 200"/>
+
+<!-- ② 清洗层 -->
+<text x="20" y="196" class="lbl">② 清洗层（读进料口 → 洗成标准表 → 套用调整）</text>
+<rect x="20" y="204" width="402" height="58" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
+<text x="221" y="225" class="t" text-anchor="middle">读原始(readers) + 规范化(normalize) + 套用调整(adjust)</text>
+<text x="221" y="242" class="xs" text-anchor="middle">规范化：金额/日期/归属月/稳定定位键/同名列去重</text>
+<text x="221" y="257" class="xs" text-anchor="middle">重放调整 · 过期校验(源头已改→标黄不套用)</text>
+
+<path class="ln" d="M221 262 L221 286"/>
+
+<!-- ③ 存储层 -->
+<text x="20" y="282" class="lbl">③ 存储层（SQLite 单文件）</text>
+<rect x="20" y="290" width="402" height="72" rx="8" fill="#10b9811a" stroke="#059669"/>
+<text x="221" y="312" class="t" text-anchor="middle">标准数据（程序生成 · 永不手改 · 重抓可重建）</text>
+<text x="221" y="332" class="s" text-anchor="middle">每日 db+页面快照滚动备份(默认365天·同天留最后一次)</text>
+<text x="221" y="350" class="s" text-anchor="middle">月末快照存档永久保留（12-31 即年末档）</text>
+
+<rect x="452" y="290" width="288" height="72" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="596" y="312" class="at" text-anchor="middle" font-size="14">人工表（重建永不清）</text>
+<text x="596" y="332" class="s" text-anchor="middle">调整记录(只追加·可撤销) · 手填(留痕)</text>
+<text x="596" y="350" class="s" text-anchor="middle">年度/部门预算(留痕)</text>
+
+<path class="adj" d="M596 290 L596 233 L422 233"/>
+<text x="606" y="268" class="at">每次重抓后重放</text>
+
+<path class="ln" d="M221 362 L221 386"/>
+
+<!-- ④ 计算层 -->
+<text x="20" y="382" class="lbl">④ 计算层</text>
+<rect x="20" y="390" width="402" height="52" rx="8" fill="#8b5cf61a" stroke="#7c3aed"/>
+<text x="221" y="412" class="t" text-anchor="middle">指标计算（纯函数 · 32周期矩阵=年/季/月/自选月区间）</text>
+<text x="221" y="430" class="s" text-anchor="middle">利润 · 回款下单率 · 预算完成% · 部门/销售/客户排名 → summary</text>
+
+<path class="ln" d="M120 442 L120 472"/>
+<path class="ln" d="M320 442 L320 472"/>
+
+<!-- ⑤ 展示层 -->
+<text x="20" y="468" class="lbl">⑤ 展示层（内网服务 · 两个链接 · 手机可看 · 前端零金额运算）</text>
+<rect x="20" y="476" width="185" height="108" rx="8" fill="#ec48991a" stroke="#db2777"/>
+<text x="112" y="500" class="t" text-anchor="middle">用户端（只读链接）</text>
+<text x="112" y="520" class="s" text-anchor="middle">KPI·图表·排名·预算进度</text>
+<text x="112" y="538" class="s" text-anchor="middle">周期日历(可自选月区间)</text>
+<text x="112" y="556" class="s" text-anchor="middle">图片导出 · 无明细无密码</text>
+<text x="112" y="574" class="s" text-anchor="middle">后续：按账号分级/BU 分页</text>
+
+<rect x="225" y="476" width="197" height="108" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="323" y="500" class="at" text-anchor="middle" font-size="14">管理员端（密码）</text>
+<text x="323" y="520" class="s" text-anchor="middle">看 · 改数据(5表+手填) · 复核</text>
+<text x="323" y="538" class="s" text-anchor="middle">(调整台账/未填分类/历史快照)</text>
+<text x="323" y="556" class="s" text-anchor="middle">设置(更新时间/备份天数/智云账号)</text>
+<text x="323" y="574" class="s" text-anchor="middle">体检状态条(绿/黄/红·点开看因)</text>
+
+<path class="adj" d="M422 521 L596 521 L596 362"/>
+<text x="436" y="512" class="at">保存 → 写入调整记录</text>
+<text x="436" y="538" class="s">（不直接改数）</text>
+<path class="sch" d="M422 572 L758 572 L758 92"/>
+<text x="500" y="565" class="gt">立即更新 → 触发调度</text>
+
+<text x="20" y="614" class="s">实线 = 单向数据流　　绿点线 = 调度触发（定时/手动）</text>
+<text x="20" y="632" class="at">橙虚线 = 人工调整回路：管理员端保存 → 调整记录 → 重抓后重放</text>
+<text x="20" y="650" class="done">● 已建　◧ 半做/待账号　——v1.4(2026-07-10)：抓数层建成默认常开；余量=内部译员专用账号、台账SMB部署机复验</text>
+</svg>
