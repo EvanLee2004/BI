@@ -25,9 +25,20 @@ class TestServerAuth(unittest.TestCase):
         cls.app = server.create_app(cls.cfg, root=Path(cls.tmp))
         cls.client = TestClient(cls.app, follow_redirects=False)
 
-    def test_user_page_public_no_detail(self):
-        r = self.client.get("/")
+    def test_user_page_requires_viewer_login(self):
+        """v7.8 全看板密码制：整体页未登录 → 登录页；密码(初始 8888)登录后才见内容。"""
+        from fastapi.testclient import TestClient
+        anon = TestClient(self.app, follow_redirects=False)   # 独立匿名客户端（不吃别的测试留下的 cookie）
+        r = anon.get("/")
         self.assertEqual(r.status_code, 200)
+        self.assertIn("看板登录", r.text)
+        self.assertNotIn("USER-DASH", r.text)
+        r = anon.post("/login", data={"password": "错的"})
+        self.assertEqual(r.status_code, 401)
+        r = anon.post("/login", data={"password": server.DEFAULT_VIEW_PW})
+        self.assertEqual(r.status_code, 303)
+        vcookie = r.cookies.get(server.VCOOKIE)
+        r = anon.get("/", headers={"Cookie": f"{server.VCOOKIE}={vcookie}"})
         self.assertIn("USER-DASH", r.text)
         self.assertNotIn("管理员控制台", r.text)       # 用户页不含管理员控制台
         self.assertNotIn("/api/detail", r.text)        # 用户页不引用明细接口

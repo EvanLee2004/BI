@@ -13,7 +13,10 @@ git 内只有占位符样例 docs/BU配置样例.json。
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import os
 import secrets
 from pathlib import Path
 
@@ -21,6 +24,28 @@ import loaders
 
 CONFIG_NAME = "BU配置.json"
 TOKEN_MIN_LEN = 32  # 独立链接 token 最短长度（服务端生成 32 位 hex，不可猜）
+DEFAULT_PW = "8888"       # BU 页初始密码（明昊定：先用简单密码，负责人登录后自己改）
+_PW_ITERS = 100_000
+
+
+def hash_pw(pw: str) -> str:
+    """pbkdf2 口令哈希，格式 salt_hex$hash_hex。"""
+    salt = os.urandom(16)
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, _PW_ITERS)
+    return f"{salt.hex()}${h.hex()}"
+
+
+def verify_pw(stored: str | None, pw: str) -> bool:
+    """校验口令；stored 为空 = 还没设过 → 用初始密码 DEFAULT_PW 比对。"""
+    if not stored:
+        # bytes 比较：compare_digest 不支持非 ASCII str（用户输中文密码不该 500）
+        return hmac.compare_digest(pw.encode(), DEFAULT_PW.encode())
+    try:
+        salt_hex, h_hex = stored.split("$", 1)
+        calc = hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt_hex), _PW_ITERS).hex()
+        return hmac.compare_digest(calc, h_hex)
+    except (ValueError, TypeError):
+        return False
 
 
 def config_path(cfg: dict, root: Path | None = None) -> Path:
@@ -53,7 +78,8 @@ def _valid_bu(b: dict) -> dict | None:
         return None
     name = str(b.get("name") or "").strip()
     token = str(b.get("token") or "").strip()
-    if not name or len(token) < TOKEN_MIN_LEN:
+    # token 只允许 URL 安全字符（服务端生成的是 hex；手改配置塞特殊字符会进 URL/HTML 属性，直接拒）
+    if not name or len(token) < TOKEN_MIN_LEN or not all(c.isalnum() or c in "-_" for c in token):
         return None
     ratio = b.get("分摊比例")
     if ratio is not None:
@@ -61,8 +87,10 @@ def _valid_bu(b: dict) -> dict | None:
             ratio = float(ratio)
         except (TypeError, ValueError):
             ratio = None
+    pwh = b.get("密码hash")
     return {"name": name, "负责人": _clean_names(b.get("负责人")),
-            "销售": _clean_names(b.get("销售")), "token": token, "分摊比例": ratio}
+            "销售": _clean_names(b.get("销售")), "token": token, "分摊比例": ratio,
+            "密码hash": str(pwh) if pwh else None}
 
 
 def load_bu_config(cfg: dict, root: Path | None = None) -> dict | None:
@@ -89,7 +117,7 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict]) -> dict:
     不在现有配置里（或为空）一律服务端重新生成，防弱 token/自造 token。
     返回落盘后的 {"bus": [...]}；空列表=写空配置（=功能关闭）。"""
     existing = load_bu_config(cfg, root) or {"bus": []}
-    known = {b["token"] for b in existing["bus"]}
+    known = {b["token"]: b for b in existing["bus"]}
     out = []
     for b in bus if isinstance(bus, list) else []:
         if not isinstance(b, dict):
@@ -100,9 +128,13 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict]) -> dict:
         token = str(b.get("token") or "").strip()
         if token not in known:
             token = new_token()
+        # 密码hash 只认服务端已存值（换链接=换 token 时密码保留在旧条目上→新 token 回到初始密码）；
+        # 客户端 payload 里的 密码hash 一律忽略（前端拿不到、也不许自造）。
+        old_pwh = known.get(token, {}).get("密码hash")
         out.append({"name": name, "负责人": _clean_names(b.get("负责人")),
                     "销售": _clean_names(b.get("销售")), "token": token,
-                    "分摊比例": None})  # 分摊比例本批固定 null=暂不分摊（配置位已留，周一细则后开放）
+                    "分摊比例": None,  # 本批固定 null=暂不分摊（配置位已留，周一细则后开放）
+                    "密码hash": old_pwh})
     # 名/链重复兜底去重（同名保留第一条）
     seen_n, seen_t, dedup = set(), set(), []
     for b in out:
@@ -121,3 +153,19 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict]) -> dict:
 def token_map(bucfg: dict | None) -> dict[str, dict]:
     """{token: BU条目}，供 /bu/{token} 查找。"""
     return {b["token"]: b for b in (bucfg or {}).get("bus", [])}
+
+
+def set_password(cfg: dict, root: Path | None, token: str, new_pw: str) -> bool:
+    """BU 负责人改自己页面的密码：按 token 定位条目、写新 hash 落盘。找不到 token 返回 False。"""
+    data = load_bu_config(cfg, root)
+    if not data:
+        return False
+    hit = False
+    for b in data["bus"]:
+        if b["token"] == token:
+            b["密码hash"] = hash_pw(new_pw)
+            hit = True
+    if hit:
+        p = config_path(cfg, root)
+        p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return hit

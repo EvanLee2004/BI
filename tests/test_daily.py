@@ -6,7 +6,7 @@
 守卫点：
 - ∑按天 == compute_orders/compute_receipts 同区间合计（守恒红线）
 - 空区间/单日边界/非法入参（格式/顺序/超366天）
-- 接口纯只读：POST /api/daily 不存在（405）；公开可访问（与用户页同级）
+- 接口纯只读：POST /api/daily 不存在（405）；v7.8 起须整体页/管理员会话（未登录 401）
 - 用户页含「按天明细」入口与面板；显示串由后端下发（days/totals/rankings 全是 *_disp）
 """
 import datetime
@@ -105,7 +105,15 @@ class TestDailyEndpoint(unittest.TestCase):
         _seed(cls.cfg, cls.root)
         server._state["user_html"] = "<html>USER</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
-        cls.anon = TestClient(cls.app, follow_redirects=False)   # 不登录：接口是公开的
+        cls.raw = TestClient(cls.app, follow_redirects=False)     # 真·未登录（v7.8 起接口要看板会话）
+        cls.anon = TestClient(cls.app, follow_redirects=False)    # 整体页会话（原"公开"改为登录后可用）
+        r = cls.anon.post("/login", data={"password": server.DEFAULT_VIEW_PW})
+        assert r.status_code == 303
+
+    def test_requires_viewer_session(self):
+        """v7.8：/api/daily 是全公司口径出口，未登录 401（防拿 BU 链接的人绕过页面隔离）。"""
+        r = self.raw.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31"})
+        self.assertEqual(r.status_code, 401)
 
     def test_public_and_display_strings(self):
         r = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31"})

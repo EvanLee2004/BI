@@ -36,6 +36,7 @@ import render
 import assets
 
 COOKIE = "kanban_session"
+VCOOKIE = "kanban_view"   # 查看端会话（整体页/BU页，v7.8 全看板密码制）
 SESSION_TTL = 24 * 3600
 PBKDF2_ITERS = 200_000
 DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", "kanban2026")
@@ -77,6 +78,43 @@ def _verify_pw(sec: dict, pw: str) -> bool:
     return hmac.compare_digest(calc, sec["pw_hash"])
 
 
+def _save_secret(cfg, root, sec: dict) -> None:
+    p = _secret_path(cfg, root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(sec, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _set_admin_pw(cfg, root, sec: dict, new_pw: str) -> None:
+    """改管理员口令（设置页·验旧后调用）：换盐重哈希并落盘，现有会话 cookie 不受影响。"""
+    salt = os.urandom(16)
+    sec["salt"] = salt.hex()
+    sec["iters"] = PBKDF2_ITERS
+    sec["pw_hash"] = hashlib.pbkdf2_hmac("sha256", new_pw.encode(), salt, PBKDF2_ITERS).hex()
+    _save_secret(cfg, root, sec)
+
+
+# ---------------- 看板查看口令（v7.8 全看板账号密码制·整体页用） ----------------
+# 明昊 2026-07-11 定：所有看板页面都要密码。整体页口令存 管理员密钥.json（viewer_* 字段），
+# 初始=简单密码 DEFAULT_VIEW_PW，登录后页面右上「密码」可改；BU 页口令在 BU配置.json（bu.verify_pw）。
+DEFAULT_VIEW_PW = "8888"
+
+
+def _verify_viewer_pw(sec: dict, pw: str) -> bool:
+    stored = sec.get("viewer_pw_hash")
+    if not stored:   # 还没设过 → 初始密码（bytes 比较：compare_digest 不吃非 ASCII str，中文密码会 500）
+        return hmac.compare_digest(pw.encode(), DEFAULT_VIEW_PW.encode())
+    calc = hashlib.pbkdf2_hmac("sha256", pw.encode(),
+                               bytes.fromhex(sec["viewer_salt"]), PBKDF2_ITERS).hex()
+    return hmac.compare_digest(calc, stored)
+
+
+def _set_viewer_pw(cfg, root, sec: dict, new_pw: str) -> None:
+    salt = os.urandom(16)
+    sec["viewer_salt"] = salt.hex()
+    sec["viewer_pw_hash"] = hashlib.pbkdf2_hmac("sha256", new_pw.encode(), salt, PBKDF2_ITERS).hex()
+    _save_secret(cfg, root, sec)
+
+
 # ---------------- 会话 token（HMAC 签名，含过期） ----------------
 def _make_token(sec: dict, user: str, now: float | None = None) -> str:
     now = time.time() if now is None else now
@@ -101,6 +139,25 @@ def _check_token(sec: dict, token: str, now: float | None = None) -> str | None:
     if float(exp) < now:
         return None
     return user if user in IDENTITIES else None
+
+
+def _check_vsubject(sec: dict, token: str, now: float | None = None) -> str | None:
+    """查看端会话（cookie kanban_view）：返回主体 "main"（整体页）或 "bu:<token>"（某 BU 页），无效 None。
+    与管理员会话同一套 HMAC 签名机制，只是主体不查 IDENTITIES、cookie 名不同（v7.8）。"""
+    now = time.time() if now is None else now
+    if not token or "." not in token:
+        return None
+    b64, sig = token.rsplit(".", 1)
+    expect = hmac.new(bytes.fromhex(sec["cookie_key"]), b64.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expect, sig):
+        return None
+    try:
+        subject, exp = base64.urlsafe_b64decode(b64.encode()).decode().split("|")
+    except (ValueError, TypeError):
+        return None
+    if float(exp) < now:
+        return None
+    return subject if subject == "main" or subject.startswith("bu:") else None
 
 
 # ---------------- 渲染缓存 ----------------
@@ -315,6 +372,31 @@ def _login_page(err: str = "") -> str:
     return _LOGIN_HTML.format(err=err_html, opts=opts)
 
 
+# 查看端登录页（整体页 / BU 页共用）：只一个密码框。样式与管理员登录页一致。
+_VIEW_LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title} · 经营驾驶舱</title>
+<style>body{{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
+display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}}
+.card{{background:#1e293b;padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px #0006}}
+h1{{font-size:18px;margin:0 0 20px}}label{{font-size:13px;color:#94a3b8}}
+input{{width:100%;box-sizing:border-box;margin:6px 0 16px;padding:9px;border-radius:7px;
+border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px}}
+button{{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
+font-size:15px;cursor:pointer}}.err{{color:#f87171;font-size:13px;margin-bottom:10px}}
+.hint{{color:#64748b;font-size:12px;margin-top:12px}}</style></head>
+<body><form class="card" method="post" action="{action}">
+<h1>{title}</h1>{err}
+<label>密码</label><input type="password" name="password" autofocus autocomplete="current-password">
+<button type="submit">进入</button>
+<div class="hint">登录后可在页面右上「密码」处修改自己的密码。</div></form></body></html>"""
+
+
+def _view_login_page(title: str, action: str, err: str = "") -> str:
+    err_html = f'<div class="err">{err}</div>' if err else ""
+    return _VIEW_LOGIN_HTML.format(title=title, action=action, err=err_html)
+
+
 _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>管理员控制台 · 经营驾驶舱</title>
 <style>
@@ -464,6 +546,17 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
       </div>
     </div>
 
+    <div class="row-form" style="margin:0;padding:16px 18px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔒 登录密码</div>
+      <div class="muted" style="margin-bottom:10px">所有看板都要密码：整体页和各 BU 页初始密码都是 <b>8888</b>，看的人登录后点页面右上「🔑密码」自己改。这里只改<b>管理员端</b>的登录密码（改完下次登录用新密码，当前会话不受影响）。</div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <span>旧密码 <input id="apOld" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
+        <span>新密码 <input id="apNew" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
+        <button class="mini" type="button" onclick="adminPasswd()">改管理员密码</button>
+        <span id="apMsg" class="muted"></span>
+      </div>
+    </div>
+
     <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
       <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏢 BU 配置（按 BU 分页·独立链接）</div>
       <div class="muted" style="margin-bottom:10px">每个 BU 一条独立只读链接（/bu/…），只含本 BU 数据（按销售名单过滤）、部门间严格保密——链接只发给对应负责人。销售名单=智云「销售」字段的名字，用顿号/逗号分隔；改完点下方「保存 BU 配置」立即生效。没配置任何 BU=功能关闭，主看板不受影响。公共费用分摊比例细则待陆总（暂不分摊）。</div>
@@ -585,6 +678,14 @@ async function loadSettings(){try{const s=await jget("/api/settings");
     SRC_MAP.map(([n,src])=>"<tr><td>"+esc(n)+"</td><td>"+esc(src)+"</td><td>"+
       (rows[n]!=null?rows[n]:"—")+"</td></tr>").join("");
   }catch(e){msg("读取设置失败:"+e.message);}}
+// 改管理员密码（v7.8）
+async function adminPasswd(){const m=document.getElementById("apMsg");
+  const old=document.getElementById("apOld").value,nw=document.getElementById("apNew").value;
+  if(nw.length<4){m.textContent="新密码至少 4 位";return;}
+  m.textContent="修改中…";
+  try{const d=await jpost("/api/admin/passwd",{old:old,new:nw});m.textContent=d.note||"已修改";
+    document.getElementById("apOld").value=document.getElementById("apNew").value="";}
+  catch(e){m.textContent="修改失败："+e.message;}}
 // BU 配置卡（迭代14）：内存数组 ↔ 表格；token 服务端管——留空/换链接=保存时服务端重新生成
 let buList=[];
 function buRender(){const t=document.getElementById("buTbl");
@@ -860,18 +961,87 @@ def create_app(cfg, root=None) -> FastAPI:
     def _user(request: Request) -> str | None:
         return _check_token(sec, request.cookies.get(COOKIE, ""))
 
+    def _vsubject(request: Request) -> str | None:
+        return _check_vsubject(sec, request.cookies.get(VCOOKIE, ""))
+
+    def _can_view_main(request: Request) -> bool:
+        """整体页/全公司口径接口的观看权：整体页会话 或 管理员会话。BU 会话不行（只看本 BU）。"""
+        return _vsubject(request) == "main" or bool(_user(request))
+
+    def _set_vcookie(resp, subject: str):
+        resp.set_cookie(VCOOKIE, _make_token(sec, subject), max_age=SESSION_TTL,
+                        httponly=True, samesite="lax")
+        return resp
+
     @app.get("/", response_class=HTMLResponse)
-    def user_page():
+    def user_page(request: Request):
+        """整体页（v7.8 起需密码）：整体口令会话 或 管理员会话可看；否则出登录页。"""
+        if not _can_view_main(request):
+            return HTMLResponse(_view_login_page("看板登录", "/login"))
         return HTMLResponse(_state["user_html"] or "<h1>数据尚未生成，请稍候刷新</h1>")
 
+    @app.post("/login")
+    def viewer_login(password: str = Form("")):
+        if not _verify_viewer_pw(sec, password):
+            return HTMLResponse(_view_login_page("看板登录", "/login", "密码不正确"), status_code=401)
+        return _set_vcookie(RedirectResponse("/", status_code=303), "main")
+
     @app.get("/bu/{token}", response_class=HTMLResponse)
-    def bu_page(token: str):
-        """BU 独立只读页（迭代 14）：token=配置里 ≥32 位随机链接，凭链接即视为该 BU 负责人。
-        错 token 一律 404、不提示存在性；没配置 BU = 一律 404（功能不启用）。"""
+    def bu_page(token: str, request: Request):
+        """BU 独立只读页（迭代 14；v7.8 起链接+密码双要素）：错 token 一律 404、不提示存在性；
+        本 BU 会话 / 整体页会话（姜征陆总本就看全部）/ 管理员会话可看，否则出该页登录框。"""
         page = _state.get("bu_pages", {}).get(token)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
-        return HTMLResponse(page["html"])
+        subject = _vsubject(request)
+        if subject == f"bu:{token}" or subject == "main" or _user(request):
+            return HTMLResponse(page["html"])
+        return HTMLResponse(_view_login_page("BU 看板登录", f"/bu/{token}/login"))
+
+    @app.post("/bu/{token}/login")
+    def bu_login(token: str, password: str = Form("")):
+        page = _state.get("bu_pages", {}).get(token)
+        if not page:
+            raise HTTPException(status_code=404, detail="Not Found")
+        entry = bu.token_map(bu.load_bu_config(cfg, root)).get(token)
+        if not entry or not bu.verify_pw(entry.get("密码hash"), password):
+            return HTMLResponse(_view_login_page("BU 看板登录", f"/bu/{token}/login", "密码不正确"),
+                                status_code=401)
+        return _set_vcookie(RedirectResponse(f"/bu/{token}", status_code=303), f"bu:{token}")
+
+    @app.post("/api/passwd")
+    def api_passwd(request: Request, payload: dict = Body(default={})):
+        """查看端改自己的密码（登录后页面右上「密码」）：验旧设新。整体页会话改整体口令、
+        BU 会话改本 BU 口令；互不相干。新密码 ≥4 位。"""
+        subject = _vsubject(request)
+        if not subject:
+            raise HTTPException(status_code=401, detail="请先登录")
+        old, new = str(payload.get("old") or ""), str(payload.get("new") or "")
+        if len(new) < 4:
+            raise HTTPException(status_code=400, detail="新密码至少 4 位")
+        if subject == "main":
+            if not _verify_viewer_pw(sec, old):
+                raise HTTPException(status_code=400, detail="旧密码不正确")
+            _set_viewer_pw(cfg, root, sec, new)
+        else:
+            token = subject[3:]
+            entry = bu.token_map(bu.load_bu_config(cfg, root)).get(token)
+            if not entry or not bu.verify_pw(entry.get("密码hash"), old):
+                raise HTTPException(status_code=400, detail="旧密码不正确")
+            bu.set_password(cfg, root, token, new)
+        return {"note": "密码已修改，下次登录用新密码"}
+
+    @app.post("/api/admin/passwd")
+    def api_admin_passwd(request: Request, payload: dict = Body(default={})):
+        """管理员改自己的口令（设置页）：验旧设新，落盘 管理员密钥.json。"""
+        _require(request)
+        old, new = str(payload.get("old") or ""), str(payload.get("new") or "")
+        if len(new) < 4:
+            raise HTTPException(status_code=400, detail="新密码至少 4 位")
+        if not _verify_pw(sec, old):
+            raise HTTPException(status_code=400, detail="旧密码不正确")
+        _set_admin_pw(cfg, root, sec, new)
+        return {"note": "管理员密码已修改（当前已登录会话不受影响）"}
 
     @app.get("/admin", response_class=HTMLResponse)
     def admin_page(request: Request):
@@ -912,10 +1082,12 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
 
     @app.get("/api/daily")
-    def api_daily(start: str = Query(""), end: str = Query(""), top: int = Query(10)):
+    def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
-        公开（与用户页同级、不含比排名更敏感的数据）；**纯只读**、无任何写路径；
-        金额显示串全部后端算好（铁律2：前端不做金额运算）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
+        v7.8 起要求整体页/管理员会话（全公司口径出口，BU 会话不给——否则 BU 链接持有者可绕过页面隔离）；
+        **纯只读**、无任何写路径；金额显示串全部后端算好（铁律2）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
+        if not _can_view_main(request):
+            raise HTTPException(status_code=401, detail="请先登录看板")
         import datetime as _dt
         try:
             s = _dt.date.fromisoformat(start)
@@ -1019,8 +1191,11 @@ def create_app(cfg, root=None) -> FastAPI:
                 "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch"))}
 
     @app.get("/export.png")
-    def api_export_png(blk: str = ""):
-        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。用户端功能，与用户页同样无需登录。"""
+    def api_export_png(request: Request, blk: str = ""):
+        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。v7.8 起要求整体页/管理员会话
+        （导出的是全公司主页）。"""
+        if not _can_view_main(request):
+            raise HTTPException(status_code=401, detail="请先登录看板")
         html = _state.get("user_html")
         if not html:
             raise HTTPException(status_code=503, detail="页面尚未构建，稍后再试")
@@ -1074,7 +1249,8 @@ def create_app(cfg, root=None) -> FastAPI:
         """BU 配置（管理员会话）：BU 清单/负责人/销售名单/链接。token 只在管理员会话内可见。"""
         _require(request)
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
-        return {"bus": bucfg["bus"], "count": len(bucfg["bus"])}
+        bus_out = [{k: v for k, v in b.items() if k != "密码hash"} for b in bucfg["bus"]]
+        return {"bus": bus_out, "count": len(bus_out)}
 
     @app.post("/api/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
@@ -1088,7 +1264,8 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=400, detail="BU 数量过多（上限 20）")
         saved = bu.save_bu_config(cfg, root, bus)
         recompute(cfg, root)   # 改配置即重算：BU 页与主页一起重渲染（秒级，用缓存记录）
-        return {"bus": saved["bus"], "count": len(saved["bus"]), "note": "已保存并重算"}
+        bus_out = [{k: v for k, v in b.items() if k != "密码hash"} for b in saved["bus"]]
+        return {"bus": bus_out, "count": len(bus_out), "note": "已保存并重算"}
 
     @app.get("/api/settings")
     def api_settings_get(request: Request):

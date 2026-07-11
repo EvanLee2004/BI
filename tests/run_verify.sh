@@ -27,4 +27,5 @@ $PY tests/test_bugfix_0711.py
 $PY tests/test_exceptions.py
 $PY tests/test_daily.py
 $PY tests/test_bu.py
+$PY tests/test_auth.py
 echo "✓ 全部通过"

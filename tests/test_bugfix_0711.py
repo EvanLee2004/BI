@@ -111,6 +111,9 @@ class TestExportThrottle(unittest.TestCase):
         server._state["user_html"] = "<html><body>x</body></html>"
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         cls.client = TestClient(server.create_app(cfg, root=Path(cls.tmp)), follow_redirects=False)
+        # v7.8 起 /export.png 要看板会话——先按初始密码登录（cookie 留在 client 罐里）
+        r = cls.client.post("/login", data={"password": server.DEFAULT_VIEW_PW})
+        assert r.status_code == 303, r.status_code
 
     def test_busy_returns_429(self):
         self.assertTrue(server._EXPORT_LOCK.acquire(blocking=False))
