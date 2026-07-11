@@ -107,7 +107,7 @@ class TestDailyEndpoint(unittest.TestCase):
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.raw = TestClient(cls.app, follow_redirects=False)     # 真·未登录（v7.8 起接口要看板会话）
         cls.anon = TestClient(cls.app, follow_redirects=False)    # 整体页会话（原"公开"改为登录后可用）
-        r = cls.anon.post("/login", data={"account": "整体", "password": server.DEFAULT_VIEW_PW})
+        r = cls.anon.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         assert r.status_code == 303
 
     def test_requires_viewer_session(self):

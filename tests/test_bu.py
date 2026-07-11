@@ -123,7 +123,7 @@ class TestBuConfig(_Base):
         self.assertEqual(cfgd["bus"][0]["销售"], ["销售A", "销售B", "销售C"])
 
     def test_save_normalizes_and_reserves_ratio(self):
-        """保存：规范化落盘；分摊比例本批锁 null（预留位）；客户端传的 密码hash 被忽略。"""
+        """保存：规范化落盘；分摊比例本批锁 null；v8.0 起密码字段废弃丢弃。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         saved = bu.save_bu_config(self.cfg, self.root, [
             {"name": "BU甲", "销售": ["销售A"], "分摊比例": 0.5, "密码hash": "自造hash"},
@@ -131,8 +131,8 @@ class TestBuConfig(_Base):
         ])
         by = {b["name"]: b for b in saved["bus"]}
         self.assertIsNone(by["BU甲"]["分摊比例"])
-        self.assertIsNone(by["BU甲"]["密码hash"])   # 自造 hash 不被采纳（还没设过=初始密码）
-        self.assertIsNone(by["BU丙"]["密码hash"])
+        self.assertNotIn("密码hash", by["BU甲"])
+        self.assertNotIn("密码hash", by["BU丙"])
 
 
 class TestBuConservation(_Base):
@@ -240,7 +240,7 @@ class TestBuEndpoints(unittest.TestCase):
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)   # 未登录（不共享 cookie 罐）
-        r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
+        r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
 
     def test_bu_page_by_name_admin_session(self):

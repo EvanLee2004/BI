@@ -478,6 +478,62 @@ JS = """
 })();
 """
 
+# 看的人自改密码（v8.0）：弹窗文案必须含「密码管理员可见，请勿使用你在其他地方用的密码」
+PW_MODAL_HTML = """
+<div id="pwModal" style="display:none;position:fixed;inset:0;z-index:80;background:#0f172acc;
+ align-items:center;justify-content:center">
+ <div style="background:#1e293b;color:#e2e8f0;padding:22px 24px;border-radius:12px;width:min(360px,92vw);
+  box-shadow:0 12px 40px #0009;font-family:-apple-system,system-ui,sans-serif">
+  <div style="font-size:16px;font-weight:700;margin-bottom:10px">修改密码</div>
+  <div style="font-size:12px;color:#fde68a;line-height:1.5;margin-bottom:12px;padding:8px 10px;
+   background:#422006;border-radius:8px">密码管理员可见，请勿使用你在其他地方用的密码</div>
+  <label style="font-size:12px;color:#94a3b8">旧密码</label>
+  <input id="pwOld" type="password" autocomplete="current-password"
+   style="width:100%;box-sizing:border-box;margin:4px 0 10px;padding:8px;border-radius:7px;
+   border:1px solid #334155;background:#0f172a;color:#e2e8f0">
+  <label style="font-size:12px;color:#94a3b8">新密码（至少 4 位）</label>
+  <input id="pwNew" type="password" autocomplete="new-password"
+   style="width:100%;box-sizing:border-box;margin:4px 0 10px;padding:8px;border-radius:7px;
+   border:1px solid #334155;background:#0f172a;color:#e2e8f0">
+  <div id="pwMsg" style="font-size:12px;color:#f87171;min-height:16px;margin-bottom:8px"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+   <button type="button" id="pwCancel" style="padding:7px 12px;border-radius:7px;border:1px solid #334155;
+    background:transparent;color:#e2e8f0;cursor:pointer">取消</button>
+   <button type="button" id="pwOk" style="padding:7px 14px;border-radius:7px;border:0;
+    background:#8b5cf6;color:#fff;cursor:pointer">保存</button>
+  </div>
+ </div>
+</div>
+"""
+
+PW_JS = r"""
+(function(){
+ var btn=document.getElementById('pwBtn'),modal=document.getElementById('pwModal');
+ if(!btn||!modal)return;
+ function open(){modal.style.display='flex';document.getElementById('pwMsg').textContent='';
+  document.getElementById('pwOld').value='';document.getElementById('pwNew').value='';}
+ function close(){modal.style.display='none';}
+ btn.addEventListener('click',open);
+ document.getElementById('pwCancel').addEventListener('click',close);
+ modal.addEventListener('click',function(e){if(e.target===modal)close();});
+ document.getElementById('pwOk').addEventListener('click',function(){
+  var old=document.getElementById('pwOld').value,nw=document.getElementById('pwNew').value;
+  var msg=document.getElementById('pwMsg');
+  if(nw.length<4){msg.textContent='新密码至少 4 位';return;}
+  msg.textContent='保存中…';msg.style.color='#94a3b8';
+  fetch('/api/my_passwd',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({old:old,new:nw})})
+   .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d,status:r.status};});})
+   .then(function(x){
+     if(!x.ok){msg.style.color='#f87171';msg.textContent=(x.d&&x.d.detail)||('失败 '+x.status);return;}
+     msg.style.color='#86efac';msg.textContent=x.d.note||'已修改';
+     setTimeout(close,900);
+   }).catch(function(e){msg.style.color='#f87171';msg.textContent='网络错误：'+e.message;});
+ });
+})();
+"""
+
 # 导出=当前所选周期的整页图片（服务端 Playwright 截图返回 PNG，前端只发请求零运算）。
 # 双击打开的静态文件版没有服务，点了给提示。旧"Excel+HTML快照 zip"导出已按明昊要求移除（2026-07-11）。
 EXPORT_JS = r"""
@@ -630,8 +686,10 @@ def render_dashboard(summary, cfg, logo_b64):
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
+{PW_MODAL_HTML}
 <div class="wrap">
  {render_period_bar(summary)}
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
@@ -659,7 +717,7 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script>{JS}{EXPORT_JS}{DAILY_JS}</script>
+<script>{JS}{EXPORT_JS}{DAILY_JS}{PW_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -723,7 +781,9 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
+{PW_MODAL_HTML}
 <div class="wrap">
  <div class="faint-note" style="margin:10px 0 0">仅含 <b>{name}</b> BU 数据（按营销人员归属拆分，销售→BU 映射待陆总确认）；
  公共费用暂不分摊、人力等手填项待陆总填 → 本页税前利润=毛利−附加税费。</div>
@@ -740,7 +800,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {DRAWER_HTML}
 <div id="tip"></div>
 <style>.rk-open{{display:none}}</style>
-<script>{JS}</script>
+<script>{JS}{PW_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'

@@ -33,9 +33,9 @@ class TestServerAuth(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("看板登录", r.text)
         self.assertNotIn("USER-DASH", r.text)
-        r = anon.post("/login", data={"account": "整体", "password": "错的"})
+        r = anon.post("/login", data={"account": "overall", "password": "错的"})
         self.assertEqual(r.status_code, 401)
-        r = anon.post("/login", data={"account": "整体", "password": server.DEFAULT_VIEW_PW})
+        r = anon.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)
         vcookie = r.cookies.get(server.VCOOKIE)
         r = anon.get("/", headers={"Cookie": f"{server.VCOOKIE}={vcookie}"})
@@ -53,12 +53,12 @@ class TestServerAuth(unittest.TestCase):
         self.assertEqual(r.status_code, 401)            # ★验收：未登录 curl /api/detail 得 401
 
     def test_login_wrong_password(self):
-        r = self.client.post("/admin/login", data={"identity": "明昊", "password": "错的"})
+        r = self.client.post("/admin/login", data={"account": "lushasha", "password": "错的"})
         self.assertEqual(r.status_code, 401)
 
     def test_login_then_detail_ok(self):
         r = self.client.post("/admin/login",
-                             data={"identity": "明昊", "password": server.DEFAULT_PW})
+                             data={"account": "lushasha", "password": server.DEFAULT_PW})
         self.assertEqual(r.status_code, 303)            # 登录成功重定向
         cookie = r.cookies.get(server.COOKIE)
         self.assertTrue(cookie)

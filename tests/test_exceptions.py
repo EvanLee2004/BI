@@ -167,7 +167,7 @@ class TestExceptionEndpoints(unittest.TestCase):
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
-        r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
+        r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
 
     @classmethod

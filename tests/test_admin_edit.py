@@ -50,7 +50,7 @@ class TestAdminWrite(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)   # 从不登录（TestClient 会存 cookie，需独立客户端测未授权）
         # 登录拿会话
-        r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
+        r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         cls.cookie = r.cookies.get(server.COOKIE)
         cls.hdr = {"Cookie": f"{server.COOKIE}={cls.cookie}"}
 
@@ -375,7 +375,7 @@ class TestExpiredBatch(unittest.TestCase):
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
-        r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
+        r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
 
     @classmethod
