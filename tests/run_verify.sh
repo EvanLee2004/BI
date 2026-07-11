@@ -28,4 +28,5 @@ $PY tests/test_exceptions.py
 $PY tests/test_daily.py
 $PY tests/test_bu.py
 $PY tests/test_auth.py
+$PY tests/test_iter16.py
 echo "✓ 全部通过"

@@ -145,6 +145,7 @@ def _do_recompute(cfg, root) -> None:
         ingest.reapply(cfg, conn, _state["records"], today)
         summary = core.summary_from_conn(cfg, conn, today)
         bu_pages = core.build_bu_pages(cfg, conn, today, logo, root)
+        core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
     html = render.render_dashboard(summary, cfg, logo)
@@ -283,6 +284,76 @@ def recompute(cfg, root=None) -> None:
     """**秒级重算**（保存调整/手填后）：缓存记录重置标准表→重放→重算→重渲染，不读 xlsx。"""
     with _LOCK:
         _do_recompute(cfg, root)
+
+
+# ---------------- 配置变更留痕（C3）：写接口 diff → 人读摘要 → db.log_config_change ----------------
+def _audit(cfg, root, account, changes) -> None:
+    """写配置变更留痕。changes=(类别,摘要) 或其列表；空摘要跳过。摘要绝不含密码明文（调用方脱敏）。"""
+    if not changes:
+        return
+    if isinstance(changes, tuple):
+        changes = [changes]
+    conn = db.connect(cfg, root)
+    try:
+        for cat, summ in changes:
+            db.log_config_change(conn, account, cat, summ)
+    finally:
+        conn.close()
+
+
+def _join_summary(prefix: str, items: list[str], cap: int = 8) -> str:
+    """把多条变更并成一句人读摘要；超过 cap 条只列前 cap 条 + 总数（防超长）。"""
+    if len(items) <= cap:
+        return prefix + "；".join(items)
+    return prefix + "；".join(items[:cap]) + f"；等共 {len(items)} 项"
+
+
+def _diff_bu_config(old_bus: list, new_bus: list) -> list:
+    """销售归属/BU 结构变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
+    def sale_map(bus):
+        m = {}
+        for b in bus:
+            for s in b.get("销售") or []:
+                m[str(s).strip()] = b["name"]
+        return m
+
+    om, nm = sale_map(old_bus), sale_map(new_bus)
+    moves = [f"{s} {om.get(s) or '未归属'}→{nm.get(s) or '未归属'}"
+             for s in sorted(set(om) | set(nm)) if om.get(s) != nm.get(s)]
+    onames = {b["name"] for b in old_bus}
+    nnames = {b["name"] for b in new_bus}
+    oown = {b["name"]: "、".join(b.get("负责人") or []) for b in old_bus}
+    nown = {b["name"]: "、".join(b.get("负责人") or []) for b in new_bus}
+    struct = ([f"新增 BU {x}" for x in sorted(nnames - onames)]
+              + [f"删除 BU {x}" for x in sorted(onames - nnames)]
+              + [f"{x} 负责人改为「{nown.get(x) or '（空）'}」"
+                 for x in sorted(nnames & onames) if oown.get(x) != nown.get(x)])
+    out = []
+    if moves:
+        out.append(("销售归属", _join_summary("销售归属：", moves)))
+    if struct:
+        out.append(("BU配置", _join_summary("BU配置：", struct)))
+    return out
+
+
+def _diff_accounts(old_accs: list, new_accs: list) -> list:
+    """账号增删改（含改权限/改密码/改显示名）→ [(账号,摘要)]。密码只记「改密码」不记值。"""
+    om = {a["账号"]: a for a in old_accs}
+    nm = {a["账号"]: a for a in new_accs}
+    lines = [f"新增 {a}（{nm[a].get('权限')}）" for a in sorted(set(nm) - set(om))]
+    lines += [f"删除 {a}" for a in sorted(set(om) - set(nm))]
+    for a in sorted(set(om) & set(nm)):
+        o, n = om[a], nm[a]
+        chg = []
+        if o.get("权限") != n.get("权限"):
+            chg.append(f"权限 {o.get('权限')}→{n.get('权限')}")
+        if str(o.get("密码")) != str(n.get("密码")):
+            chg.append("改密码")
+        if (o.get("显示名") or "") != (n.get("显示名") or ""):
+            chg.append("改显示名")
+        if chg:
+            lines.append(f"{a} " + "、".join(chg))
+    return [("账号", _join_summary("账号：", lines))] if lines else []
 
 
 def _admin_page(dash_html: str, summary: dict) -> str:
@@ -466,6 +537,11 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 .bu-chip .x{border:0;background:transparent;color:#94a3b8;cursor:pointer;padding:0 2px;font-size:14px;line-height:1;box-shadow:none}
 .bu-chip .x:hover{color:#f87171}
 .bu-empty{font-size:11.5px;color:#64748b;padding:4px 2px;width:100%}
+.bu-chip .bu-cb{margin:0 2px 0 0;cursor:pointer;accent-color:var(--vio)}
+.bu-batch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;margin:0 0 12px;
+  border-radius:10px;background:linear-gradient(180deg,#2a1f52,#1e2438);border:1px solid var(--vio);font-size:13px}
+.bu-batch select{min-width:150px}
+#buUnassignedHint b{color:#fbbf24}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
@@ -499,6 +575,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     <button class="stab" data-t="orderdept" onclick="showReview('orderdept')">下单未填部门<span id="odBadge" class="badge zero">0</span></button>
     <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">费用未分类（台账）<span id="ucBadge" class="badge zero">0</span></button>
     <button class="stab" data-t="history" onclick="showReview('history')">历史快照</button>
+    <button class="stab" data-t="audit" onclick="showReview('audit')">操作记录</button>
   </span>
 </div>
 
@@ -622,12 +699,19 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     </div>
 
     <div class="scard full">
-      <div class="scard-h"><span class="ico">🏢</span><div><div class="ttl">BU 数据归属</div>
-        <div class="sub">把销售拖进 BU 栏=该人口径归此 BU（一人一 BU）。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
+      <div class="scard-h"><span class="ico">🏢</span><div><div class="ttl">BU 数据归属（销售归属）</div>
+        <div class="sub">销售归到哪个 BU=该人口径进那张 BU 利润表（一人一 BU）。<b>勾选多人→选 BU→批量指定</b>，或直接拖动；改完点「保存数据归属」即重算。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
       <div class="scard-b">
+        <div id="buUnassignedHint" class="note" style="display:none;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:0 8px 8px 0;background:var(--panel2);margin:0 0 12px"></div>
+        <div class="bu-batch" id="buBatch" style="display:none">
+          <span>已勾选 <b id="buPickN">0</b> 人 →</span>
+          <select id="buPickTo"></select>
+          <button class="mini" type="button" onclick="buApplyBatch()">批量指定</button>
+          <button class="ghost mini" type="button" onclick="buClearPick()">清除勾选</button>
+        </div>
         <div class="bu-board" id="buBoard">
           <div class="bu-pool">
-            <div class="bu-pool-h"><b>未归属销售</b><span class="hint" id="buPoolHint">从库四源汇总 · 拖到下方 BU</span></div>
+            <div class="bu-pool-h"><b>未归属销售</b><span class="hint" id="buPoolHint">从库四源汇总 · 勾选批量或拖到下方 BU</span></div>
             <div class="bu-chips" id="buPool" data-zone="pool"></div>
           </div>
           <div class="bu-cols" id="buCols"></div>
@@ -665,6 +749,16 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <div class="note info">分诊台：0=绿=不用管；有数=点卡片进对应清单。处理动作与「改数据」同一套调整机制。</div>
   <div id="ovCards" class="ov-grid"></div>
   <div class="note info" style="margin-top:14px">闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「调整台账」选听源头或坚持我的数。</div>
+</div>
+
+<div id="audit" class="sec">
+  <div class="toolbar">
+    <button onclick="auLoad()">刷新</button>
+    <span class="field-inline">类别 <select id="auCat" onchange="auLoad()"><option value="">全部</option></select></span>
+    <span id="auInfo" class="muted grow"></span>
+  </div>
+  <div class="note info">谁在什么时候改了哪项配置（销售归属 / BU / 账号 / 设置 / 密码）都在这里，倒序、最近 200 条。只记变更摘要，<b>不含密码明文</b>。</div>
+  <div class="tbl-box lg wrap"><table id="auTbl"></table></div>
 </div>
 
 <div id="orderdept" class="sec">
@@ -802,16 +896,41 @@ async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.ac
 async function acctSave(){const m=document.getElementById("acctMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];acctPwShow={};acctRender();
     m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";}catch(e){m.textContent="保存失败："+e.message;}}
-// BU 数据归属：拖拽销售进 BU（一人一 BU）
-let buList=[], salesPool=[];  // salesPool:[{name,rows}]
+// BU 数据归属（销售归属·A1）：勾选批量指定 或 拖拽进 BU（一人一 BU）
+let buList=[], salesPool=[], buPicked=new Set(), buUnassigned={};  // salesPool:[{name,rows,ref_disp,orders_count}]
 function _salesArr(v){if(Array.isArray(v))return v.map(s=>String(s).trim()).filter(Boolean);
   return String(v||"").split(/[、，,;；\n]/).map(s=>s.trim()).filter(Boolean);}
 function _claimedSales(){const s=new Set();buList.forEach(b=>_salesArr(b.销售).forEach(x=>s.add(x)));return s;}
-function _chipHtml(name,withX){const r=(salesPool.find(p=>p.name===name)||{}).rows;
-  const rc=(r!=null)?('<span class="c">'+esc(String(r))+'行</span>'):'';
+function _chipHtml(name,withX){const p=salesPool.find(p=>p.name===name)||{};
+  const ref=p.ref_disp?('<span class="c" title="当年下单参考">'+esc(p.ref_disp)+'</span>'):'';
   const x=withX?'<button type="button" class="x" title="移回未归属" data-unassign="1">×</button>':'';
+  const ck=buPicked.has(name)?' checked':'';
   return '<span class="bu-chip" draggable="true" data-name="'+esc(name)+'">'
-    +'<span class="n" title="'+esc(name)+'">'+esc(name)+'</span>'+rc+x+'</span>';}
+    +'<input type="checkbox" class="bu-cb"'+ck+' data-name="'+esc(name)+'" onchange="buPick(this)" title="勾选后可批量指定 BU">'
+    +'<span class="n" title="'+esc(name)+'">'+esc(name)+'</span>'+ref+x+'</span>';}
+// 批量多选归属（勾选若干人→选目标 BU→应用）
+function buPick(cb){const n=cb.getAttribute("data-name");if(cb.checked)buPicked.add(n);else buPicked.delete(n);buRenderBatch();}
+function buClearPick(){buPicked.clear();buRender();}
+function buRenderBatch(){const bar=document.getElementById("buBatch");if(!bar)return;
+  const n=buPicked.size;bar.style.display=n?"flex":"none";
+  const c=document.getElementById("buPickN");if(c)c.textContent=n;
+  const sel=document.getElementById("buPickTo");if(sel){const cur=sel.value;
+    sel.innerHTML='<option value="__pool__">保持未归属</option>'+
+      buList.map((b,i)=>'<option value="'+i+'">'+esc(b.name||("BU"+(i+1)))+'</option>').join("");
+    if(cur&&Array.from(sel.options).some(o=>o.value===cur))sel.value=cur;}}
+function buApplyBatch(){const sel=document.getElementById("buPickTo");if(!sel)return;
+  const to=sel.value,names=Array.from(buPicked);if(!names.length)return;
+  names.forEach(n=>{buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==n);});   // 先从各 BU 摘掉（一人一 BU）
+    if(to!=="__pool__"){const i=+to;if(i>=0&&i<buList.length){const cur=_salesArr(buList[i].销售);
+      if(cur.indexOf(n)<0)cur.push(n);buList[i].销售=cur;}}});
+  buPicked.clear();buRender();
+  const tgt=(to==="__pool__")?"未归属":(buList[+to]&&buList[+to].name)||("BU"+(+to+1));
+  document.getElementById("buMsg").textContent="已把 "+names.length+" 人批量指定到「"+tgt+"」——点「保存数据归属」生效并重算";}
+function buUpdateUnassignedHint(){const el=document.getElementById("buUnassignedHint");if(!el)return;
+  const n=(buUnassigned&&buUnassigned.unassigned_count)||0;
+  if(!n){el.style.display="none";return;}el.style.display="";
+  el.innerHTML="⚠ 未归属销售 <b>"+n+"</b> 人，当年下单合计 <b>"+esc(buUnassigned.unassigned_orders_disp||"")+
+    "</b> —— 这部分业务不进任何 BU 页（各 BU 合计小于全公司）。归属后点保存即计入。<span class='muted'>（金额=上次保存后快照，保存后刷新）</span>";}
 function _bindDrag(root){if(!root)return;
   root.querySelectorAll(".bu-chip").forEach(ch=>{
     ch.addEventListener("dragstart",e=>{
@@ -844,7 +963,7 @@ function buRender(){const claimed=_claimedSales();
   if(pool){pool.innerHTML=poolNames.length?poolNames.map(n=>_chipHtml(n,false)).join("")
     :'<div class="bu-empty">暂无未归属销售（库空或已全部分完）</div>';
     const h=document.getElementById("buPoolHint");
-    if(h)h.textContent="共 "+salesPool.length+" 人 · 未归属 "+poolNames.length+" · 拖到下方 BU（一人一 BU）";}
+    if(h)h.textContent="共 "+salesPool.length+" 人 · 未归属 "+poolNames.length+" · 勾选批量或拖到下方 BU（一人一 BU）";}
   const cols=document.getElementById("buCols");
   if(cols){if(!buList.length){cols.innerHTML='<div class="muted" style="padding:8px">未配置 BU（功能关闭）——点「＋ 加一个 BU」</div>';}
     else{cols.innerHTML=buList.map((b,i)=>{
@@ -860,6 +979,7 @@ function buRender(){const claimed=_claimedSales();
         +(sales.length?sales.map(n=>_chipHtml(n,true)).join(""):'<div class="bu-empty">拖销售到这里</div>')
         +'</div></div>';}).join("");}}
   _bindDrag(document.getElementById("buBoard"));
+  buRenderBatch();buUpdateUnassignedHint();
   if(acctList.length)acctRender();}
 function buAdd(){buList.push({name:"",负责人:[],销售:[]});buRender();}
 function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;
@@ -867,7 +987,9 @@ function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到�
 async function loadBuCfg(){try{
   const [d,pool]=await Promise.all([jget("/api/bu_config"),jget("/api/sales_pool").catch(()=>({sales:[]}))]);
   buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售)}));
-  salesPool=pool.sales||[];buRender();}
+  salesPool=pool.sales||[];buPicked.clear();
+  buUnassigned={unassigned_count:pool.unassigned_count||0,unassigned_orders_disp:pool.unassigned_orders_disp||""};
+  buRender();}
   catch(e){document.getElementById("buMsg").textContent="读取失败:"+e.message;}}
 async function buSave(){const m=document.getElementById("buMsg");m.textContent="保存并重算中…";
   try{// 规范化：负责人字符串→数组
@@ -965,7 +1087,23 @@ async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.tr
 // ---- 异常处理（总览 / 调整台账 / 下单未填部门 / 费用未分类 / 历史快照）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
   showSec(which);if(which==="overview")ovLoad();if(which==="ledger")lLoad();
-  if(which==="orderdept")odLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();}
+  if(which==="orderdept")odLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();
+  if(which==="audit")auLoad();}
+
+// 操作记录（C3 配置变更留痕）：倒序、可按类别筛、最近200
+let AU_CATS_FILLED=false;
+async function auLoad(){const info=document.getElementById("auInfo"),tbl=document.getElementById("auTbl");
+  const cat=document.getElementById("auCat").value;
+  try{const d=await jget("/api/config_changes"+(cat?("?category="+encodeURIComponent(cat)):""));
+    if(!AU_CATS_FILLED&&d.categories){const sel=document.getElementById("auCat");
+      sel.innerHTML='<option value="">全部</option>'+d.categories.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join("");
+      sel.value=cat;AU_CATS_FILLED=true;}
+    const rows=d.changes||[];info.textContent="共 "+rows.length+" 条"+(cat?("（"+cat+"）"):"");
+    if(!rows.length){tbl.innerHTML="<tr><td class='muted'>暂无记录（发生配置变更后自动出现）</td></tr>";return;}
+    tbl.innerHTML="<tr><th>时间</th><th>操作账号</th><th>类别</th><th>变更摘要</th></tr>"+
+      rows.map(r=>"<tr><td class='muted'>"+esc(r["时间"])+"</td><td>"+esc(r["操作账号"])+
+        "</td><td>"+esc(r["类别"])+"</td><td>"+esc(r["摘要"])+"</td></tr>").join("");
+  }catch(e){info.textContent="加载失败："+e.message;}}
 
 // 总览：异常计数卡（新增一类异常=EXC_CARDS 注册一条 + /api/exceptions 加一个键；R4 冲突待确认已留位）
 const EXC_CARDS=[
@@ -1186,7 +1324,7 @@ def create_app(cfg, root=None) -> FastAPI:
         return HTMLResponse(_view_login_page())
 
     def _main_with_nav() -> str:
-        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。"""
+        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）+ A3 未归属提示（随周期切）。"""
         html = _state["user_html"]
         names = list(_state.get("bu_pages", {}))
         if not html or not names:
@@ -1198,8 +1336,25 @@ def create_app(cfg, root=None) -> FastAPI:
         links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
         nav = ('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
                '<span class="bu-nav-label">业务 BU 分页</span>'
-               '<span class="bu-nav-links">' + links + '</span></div>')
+               '<span class="bu-nav-links">' + links + '</span>'
+               + _unassigned_hint_html(_state.get("summary"), _esc) + '</div>')
         return html.replace('<div class="wrap">', nav + '<div class="wrap">', 1)
+
+    def _unassigned_hint_html(summary, esc) -> str:
+        """A3 整体页未归属提示（只在整体/管理员会话出现，BU 页绝不渲染）：
+        每周期一个预渲染 .pv 块（前端按周期切显示，零金额运算=铁律2）；未归属人数 N=0 → 整行不渲染。"""
+        un = ((summary or {}).get("meta") or {}).get("unassigned") or {}
+        n = int(un.get("count") or 0)
+        by = un.get("by_period") or {}
+        if n <= 0 or not by:
+            return ""
+        yk = (summary["meta"]).get("year_key")
+        blocks = "".join(
+            f'<span class="pv" data-blk="{esc(k)}" style="{"" if k == yk else "display:none"}">'
+            f'另有未归属 BU 的业务 <b>{esc(disp)}</b>（{n} 名销售待配置归属，未计入任何 BU 页）</span>'
+            for k, disp in by.items())
+        return ('<span class="bu-unassigned" role="note" title="这部分业务的销售还没归到任何 BU，'
+                '故各 BU 合计小于全公司——去管理端设置页「BU 数据归属」勾选即计入">' + blocks + '</span>')
 
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):
@@ -1234,6 +1389,7 @@ def create_app(cfg, root=None) -> FastAPI:
         err = accounts.change_password(cfg, root, name, old, new)
         if err:
             raise HTTPException(status_code=400, detail=err)
+        _audit(cfg, root, name, ("密码", f"账号 {name} 自改密码"))  # C3：不记密码内容
         return {"note": "密码已修改"}
 
     @app.get("/api/accounts")
@@ -1245,8 +1401,8 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.post("/api/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
-        """保存账号表（管理员）。至少保留一个管理员账号（先校验再落盘）。"""
-        _require(request)
+        """保存账号表（管理员）。至少保留一个管理员账号（先校验再落盘）。C3：变更留痕（密码只记「改密码」）。"""
+        user = _require(request)
         raw = payload.get("accounts")
         if not isinstance(raw, list):
             raise HTTPException(status_code=400, detail="accounts 须为列表")
@@ -1266,7 +1422,9 @@ def create_app(cfg, root=None) -> FastAPI:
                 has_admin = True
         if not has_admin:
             raise HTTPException(status_code=400, detail="至少保留一个「管理员」权限账号")
+        old_accs = accounts.load_accounts(cfg, root, create=False)
         saved = accounts.save_accounts(cfg, root, raw)
+        _audit(cfg, root, user, _diff_accounts(old_accs, saved))
         rows = [accounts.public_row(a, with_password=True) for a in saved]
         return {"accounts": rows, "count": len(rows), "note": "已保存"}
 
@@ -1384,13 +1542,21 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         meta = (_state.get("summary") or {}).get("meta", {})
         health = meta.get("health", {})
+        result = (run_log or {}).get("结果")               # 黄/红/绿：管道运行日志
+        reasons = _run_reasons((run_log or {}).get("体检", {}))  # 「黄/红」：为啥（fetch/过期调整）
+        # A3：未归属销售>0 → 至少判黄 + 顶栏短原因（沿用 v8.0 机制；不覆盖已判红）
+        n_un = int((meta.get("unassigned") or {}).get("count") or 0)
+        if n_un > 0:
+            reasons = [f"{n_un} 名销售未归属 BU（业务不进任何 BU 页，各 BU 合计小于全公司）"] + reasons
+            if result in ("绿", None):   # 未判红时至少判黄（无运行日志时 result 为 None 也升黄）
+                result = "黄"
         return {
-            "result": (run_log or {}).get("结果"),          # 黄/红/绿：管道运行日志
+            "result": result,
             "run_time": (run_log or {}).get("时间"),
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
             "warnings": health.get("warnings", []),          # 「警」：数据体检（未填分类等）
-            "run_reasons": _run_reasons((run_log or {}).get("体检", {})),  # 「黄/红」：为啥（fetch/过期调整）
+            "run_reasons": reasons,
         }
 
     def _require(request: Request) -> str:
@@ -1481,34 +1647,61 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/sales_pool")
     def api_sales_pool(request: Request):
-        """四源销售池（管理员）：供 BU 拖拽归属。含配置里有、库里暂无的名字（rows=0）。"""
+        """四源销售池（管理员·A1 归属页）：供批量/拖拽归属。含配置里有、库里暂无的名字（rows=0）。
+        每人带当年下单笔数+金额参考串（服务端算好=铁律2）；顶层带 A3 未归属计数+当年未归属下单额。"""
         _require(request)
+        today = loaders.pinned_today(cfg)
         conn = db.connect(cfg, root)
         try:
             from_db = db.list_salespeople(conn)
+            ostats = db.order_stats_by_sales(conn, today.year)
+            snap = core.unassigned_snapshot(cfg, conn, today, root)
         finally:
             conn.close()
         by = {x["name"]: x["rows"] for x in from_db}
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         for b in bucfg.get("bus", []):
             for s in b.get("销售") or []:
+                s = str(s).strip()
                 if s and s not in by:
                     by[s] = 0
-        people = [{"name": n, "rows": by[n]} for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
-        return {"sales": people, "count": len(people)}
+
+        def _ref(name):
+            st = ostats.get(name)
+            if not st or not st["count"]:
+                return {"orders_count": 0, "ref_disp": "当年无下单"}
+            return {"orders_count": st["count"],
+                    "ref_disp": f'{st["count"]} 笔 · {core._unassigned_wan(st["amount"])[1:]}'}
+
+        people = [{"name": n, "rows": by[n], **_ref(n)}
+                  for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
+        return {"sales": people, "count": len(people), **snap}
 
     @app.post("/api/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
-        """保存 BU 数据归属并立即重算重渲染 BU 页（一人一 BU，后写的重复销售丢弃）。"""
-        _require(request)
+        """保存 BU 数据归属并立即重算重渲染 BU 页（一人一 BU，后写的重复销售丢弃）。C3：变更留痕。"""
+        user = _require(request)
         bus = payload.get("bus")
         if not isinstance(bus, list):
             raise HTTPException(status_code=400, detail="bus 须为列表")
         if len(bus) > 20:
             raise HTTPException(status_code=400, detail="BU 数量过多（上限 20）")
+        old_bus = (bu.load_bu_config(cfg, root) or {"bus": []})["bus"]
         saved = bu.save_bu_config(cfg, root, bus)
         recompute(cfg, root)
+        _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"]))
         return {"bus": saved["bus"], "count": len(saved["bus"]), "note": "已保存并重算"}
+
+    @app.get("/api/config_changes")
+    def api_config_changes(request: Request, category: str | None = None, limit: int = 200):
+        """C3 操作记录（管理员）：配置变更留痕倒序，可按类别筛。仅摘要，无密码明文。"""
+        _require(request)
+        conn = db.connect(cfg, root)
+        try:
+            return {"changes": db.list_config_changes(conn, category or None, limit),
+                    "categories": list(db.CONFIG_CHANGE_CATEGORIES)}
+        finally:
+            conn.close()
 
     @app.get("/api/settings")
     def api_settings_get(request: Request):
@@ -1524,11 +1717,23 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.post("/api/settings")
     def api_settings_post(request: Request, payload: dict = Body(default={})):
-        _require(request)
+        user = _require(request)
+        old_time = str(cfg.get("schedule_time", ""))
+        old_keep = cfg.get("backup_keep_days")
         try:
-            return save_settings(cfg, root, payload)
+            res = save_settings(cfg, root, payload)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        chg = []  # C3：设置变更留痕（智云账号只记「已更换」不记值）
+        if "schedule_time" in payload and res["schedule_time"] != old_time:
+            chg.append(f"每日更新时间 {old_time or '—'}→{res['schedule_time']}")
+        if "backup_keep_days" in payload and res["backup_keep_days"] != old_keep:
+            chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
+        if "智云账号已更新" in (res.get("note") or ""):
+            chg.append("智云账号已更换")
+        if chg:
+            _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
+        return res
 
     @app.post("/api/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):

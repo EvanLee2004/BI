@@ -399,6 +399,19 @@ def filter_rows_by_sales(rows, sales_set, col="销售"):
     return [r for r in rows if str(r.get(col) or "").strip() in s]
 
 
+def compute_unassigned_orders_by_period(order_rows, assigned_set, cols_cfg, today):
+    """A3 整体页「未归属」提示：每周期未归属销售（不在任何 BU 名单）的下单金额。
+    assigned_set=已归属销售名集合（去空白）；未归属=str(销售).strip() 不在其中（含销售空的行——
+    它们同样进不了任何 BU 页，是「各 BU 合计 < 全公司」差额的组成，故一并计入以精确解释差额）。
+    返回 {周期key: 金额}，周期集合与 build_summary 的 periods 完全一致（前端预渲染按周期切）。
+    口径与 BU 页过滤共用同一规范化（filter_rows_by_sales 亦 str().strip()）——界面/过滤一把尺。"""
+    s = {str(x).strip() for x in assigned_set if str(x).strip()}
+    unassigned = [r for r in order_rows if str(r.get("销售") or "").strip() not in s]
+    ranges = periods.all_period_ranges(today)
+    return {key: compute_orders(unassigned, cols_cfg, start, end)
+            for key, (label, start, end, group) in ranges.items()}
+
+
 # 空台账表头（与 db.LEDGER_STD_COLS 同序；BU 口径=公共费用暂不分摊 → 台账费用恒 0）
 _BU_EMPTY_LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU",
                            "对应报表大类", "预算明细费用类型", "预算归属部门"]

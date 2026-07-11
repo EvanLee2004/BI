@@ -139,6 +139,13 @@ HUMAN_TABLES: dict[str, str] = {
             结果 TEXT CHECK(结果 IN ('绿','黄','红')),
             体检JSON TEXT
         )""",
+    # C3 配置变更留痕（迭代16）：管理端一切配置写接口都往这里追加一条人读摘要（只追加、永不清空、
+    # 绝不存密码等敏感值——密码类只记「账号X改密码」不记内容）。供管理端「操作记录」页倒序回看。
+    "manual_配置变更": """
+        CREATE TABLE IF NOT EXISTS manual_配置变更 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 操作账号 TEXT, 类别 TEXT, 摘要 TEXT
+        )""",
 }
 
 STD_TABLE_NAMES = tuple(STD_TABLES.keys())

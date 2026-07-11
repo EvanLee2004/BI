@@ -206,6 +206,49 @@ def list_salespeople(conn: sqlite3.Connection) -> list[dict]:
     return [{"name": r[0], "rows": int(r[1])} for r in rows if r[0]]
 
 
+def order_stats_by_sales(conn: sqlite3.Connection, year: int | str) -> dict[str, dict]:
+    """当年（按归属月）各销售的下单笔数+下单金额（A1 归属页参考信息用；服务端算好、前端零运算）。
+    返回 {销售名(TRIM): {"count": 笔数, "amount": 金额}}。空/纯空白销售不计。"""
+    like = f"{year}-%"
+    try:
+        rows = conn.execute(
+            "SELECT TRIM(销售) n, COUNT(*), COALESCE(SUM(下单预估额),0) FROM std_下单 "
+            "WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>'' AND 归属月 LIKE ? "
+            "GROUP BY TRIM(销售)", (like,)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {r[0]: {"count": int(r[1]), "amount": float(r[2] or 0)} for r in rows if r[0]}
+
+
+# ---------------- 配置变更留痕（C3·只追加·永不清空；不存密码等敏感值）----------------
+CONFIG_CHANGE_CATEGORIES = ("销售归属", "BU配置", "账号", "设置", "密码")
+
+
+def log_config_change(conn: sqlite3.Connection, 操作账号: str, 类别: str, 摘要: str) -> None:
+    """追加一条配置变更摘要（人读文本）。摘要绝不含密码等敏感值（调用方负责脱敏）。"""
+    if not str(摘要 or "").strip():
+        return
+    conn.execute("INSERT INTO manual_配置变更(时间,操作账号,类别,摘要) VALUES(?,?,?,?)",
+                 (_now(), str(操作账号 or ""), str(类别 or ""), str(摘要)))
+    conn.commit()
+
+
+def list_config_changes(conn: sqlite3.Connection, category: str | None = None,
+                        limit: int = 200) -> list[dict]:
+    """配置变更记录（倒序，最近 limit 条；可按类别筛）。管理端「操作记录」页数据源。"""
+    cols = ["id", "时间", "操作账号", "类别", "摘要"]
+    limit = max(1, min(1000, int(limit)))
+    if category:
+        rows = conn.execute(
+            f"SELECT {','.join(cols)} FROM manual_配置变更 WHERE 类别=? ORDER BY id DESC LIMIT ?",
+            (category, limit)).fetchall()
+    else:
+        rows = conn.execute(
+            f"SELECT {','.join(cols)} FROM manual_配置变更 ORDER BY id DESC LIMIT ?",
+            (limit,)).fetchall()
+    return [dict(zip(cols, r)) for r in rows]
+
+
 def exceptions_summary(conn: sqlite3.Connection) -> dict:
     """异常处理中心「总览」计数（新增一类异常=这里加一个键+前端注册一张卡）。
     体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/health）。"""

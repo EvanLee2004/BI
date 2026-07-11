@@ -7,9 +7,61 @@ from __future__ import annotations
 import bu
 import profit
 import render
+import charts
 import assets
 import db
 import ingest
+
+
+def _assigned_sales(bucfg) -> set[str]:
+    """所有 BU 名单里的销售名（去空白去空）。未配置 → 空集。"""
+    out: set[str] = set()
+    for b in (bucfg or {}).get("bus", []):
+        for s in b.get("销售") or []:
+            s = str(s).strip()
+            if s:
+                out.add(s)
+    return out
+
+
+def _unassigned_wan(v: float) -> str:
+    """未归属金额展示串（万，负数全角−；服务端算好=铁律2）。"""
+    return "¥" + ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+
+def unassigned_snapshot(cfg, conn, today, root=None) -> dict:
+    """管理端 A3 快照（不依赖 summary）：未归属人数 + 当年未归属下单额展示串。
+    未归属人数=四源出现、非空、不在任何 BU；金额=当年（含销售空行）未归属下单额（精确差额）。"""
+    import datetime
+    assigned = _assigned_sales(bu.load_bu_config(cfg, root))
+    people = db.list_salespeople(conn)
+    n = sum(1 for p in people if p["name"] not in assigned)
+    unassigned = [r for r in db.load_orders(cfg, conn)
+                  if str(r.get("销售") or "").strip() not in assigned]
+    amt = profit.compute_orders(unassigned, cfg["columns"],
+                                datetime.date(today.year, 1, 1), datetime.date(today.year, 12, 31))
+    return {"unassigned_count": n, "unassigned_orders_disp": _unassigned_wan(amt)}
+
+
+def attach_unassigned(cfg, conn, today, summary, root=None) -> None:
+    """A3 未归属显式提示：把「未归属人数 + 每周期未归属下单金额展示串」挂进 summary.meta.unassigned。
+    人数=四源出现过、非空、不在任何 BU 名单的销售数（与管理端归属池同口径）；N=0 → 整体页/管理端都不渲染该行。
+    金额=每周期未归属销售（含销售空行）下单额，随周期预渲染供前端零运算切换。"""
+    bucfg = bu.load_bu_config(cfg, root)
+    if not bucfg:
+        # BU 分页未启用（没配任何 BU）→ 不提示、不判黄（整体页入口条本身也不出现）；
+        # 管理端归属页仍显示真实未归属（走 unassigned_snapshot，那页正是用来配的）。
+        summary.setdefault("meta", {})["unassigned"] = {"count": 0, "by_period": {}}
+        return
+    assigned = _assigned_sales(bucfg)
+    people = db.list_salespeople(conn)                       # [{name(TRIM), rows}]
+    n = sum(1 for p in people if p["name"] not in assigned)
+    by_amt = profit.compute_unassigned_orders_by_period(
+        db.load_orders(cfg, conn), assigned, cfg["columns"], today)
+    summary.setdefault("meta", {})["unassigned"] = {
+        "count": n,
+        "by_period": {k: _unassigned_wan(v) for k, v in by_amt.items()},
+    }
 
 
 def summary_from_conn(cfg, conn, today):
@@ -50,6 +102,7 @@ def generate(cfg, today, trigger="manual"):
     summary = summary_from_conn(cfg, conn, today)
     logo = assets.load_logo_base64(cfg)
     bu_pages = build_bu_pages(cfg, conn, today, logo)
+    attach_unassigned(cfg, conn, today, summary)
     conn.close()
     html = render.render_dashboard(summary, cfg, logo)
     try:  # 页面快照失败（磁盘满等）不影响出页面

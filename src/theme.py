@@ -72,6 +72,9 @@ body{
   font-weight:600;text-decoration:none;transition:.15s}
 .bu-nav-a:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,var(--panel));
   color:var(--ink)}
+/* A3 未归属提示：整行小字（另起一行，随周期切换金额） */
+.bu-unassigned{flex-basis:100%;font-size:12.5px;color:var(--mut2);line-height:1.5;margin-top:2px}
+.bu-unassigned b{color:var(--warn,#d97706);font-weight:700}
 
 /* 分区标题 */
 .sec{margin:26px 0 12px;display:flex;align-items:baseline;gap:10px}
