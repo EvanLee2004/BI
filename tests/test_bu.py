@@ -123,31 +123,44 @@ class TestBuConfig(_Base):
         self.assertEqual(cfgd["bus"][0]["销售"], ["销售A", "销售B", "销售C"])
 
     def test_save_normalizes_ratio_and_drops_password(self):
-        """保存：规范化落盘；分摊比例可写（关态不强制 100%）；密码字段废弃丢弃。"""
+        """保存：规范化落盘；比例全空=不分摊；有齐填且 100%=启用；密码字段废弃。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
+        # 全空 → 不分摊
+        empty = bu.save_bu_config(self.cfg, self.root, [
+            {"name": "BU甲", "销售": ["销售A"], "分摊比例": None, "密码hash": "自造hash"},
+            {"name": "BU丙", "销售": ["销售C"]},
+        ], 公共费用分摊启用=True)  # 开关被忽略，全空仍关
+        self.assertFalse(empty["公共费用分摊启用"])
+        self.assertIsNone(empty["bus"][0]["分摊比例"])
+        self.assertNotIn("密码hash", empty["bus"][0])
+        # 齐填 100% → 自动启用
         saved = bu.save_bu_config(self.cfg, self.root, [
-            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40, "密码hash": "自造hash"},
+            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40},
             {"name": "BU丙", "销售": ["销售C"], "分摊比例": 60},
         ], 公共费用分摊启用=False)
         by = {b["name"]: b for b in saved["bus"]}
         self.assertEqual(by["BU甲"]["分摊比例"], 40.0)
         self.assertEqual(by["BU丙"]["分摊比例"], 60.0)
-        self.assertFalse(saved["公共费用分摊启用"])
-        self.assertNotIn("密码hash", by["BU甲"])
-        self.assertNotIn("密码hash", by["BU丙"])
+        self.assertTrue(saved["公共费用分摊启用"])
 
     def test_alloc_enabled_requires_sum_100(self):
-        """启用分摊时合计必须≈100%，否则 ValueError。"""
+        """有填比例时合计须≈100%；只填部分 → 拒绝。"""
         with self.assertRaises(ValueError) as cm:
             bu.save_bu_config(self.cfg, self.root, [
                 {"name": "BU甲", "销售": ["销售A"], "分摊比例": 30},
                 {"name": "BU乙", "销售": ["销售B"], "分摊比例": 30},
-            ], 公共费用分摊启用=True)
+            ])
         self.assertIn("100", str(cm.exception))
+        with self.assertRaises(ValueError) as cm2:
+            bu.save_bu_config(self.cfg, self.root, [
+                {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40},
+                {"name": "BU乙", "销售": ["销售B"], "分摊比例": None},
+            ])
+        self.assertIn("全部留空", str(cm2.exception))
         saved = bu.save_bu_config(self.cfg, self.root, [
             {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40},
             {"name": "BU乙", "销售": ["销售B"], "分摊比例": 60},
-        ], 公共费用分摊启用=True)
+        ])
         self.assertTrue(saved["公共费用分摊启用"])
         self.assertEqual(sum(b["分摊比例"] for b in saved["bus"]), 100.0)
 

@@ -41,7 +41,8 @@ body{
   background-attachment:fixed; min-height:100vh;
 }
 .theme-light body,body.theme-light{background-image:none}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px 48px}
+/* 宽屏用满：原 1180 在管理端 iframe / 大屏右侧空一大截 */
+.wrap{max-width:min(1680px,100%);margin:0 auto;padding:0 24px 48px;box-sizing:border-box}
 
 /* 顶栏 */
 .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
@@ -63,7 +64,7 @@ body{
   font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;transition:.15s}
 .bu-back:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--panel));color:var(--ink)}
 /* 整体页顶部：业务 BU 分页入口条（字号加大、链接做成芯片更易点） */
-.bu-nav{max-width:1520px;margin:14px auto 0;padding:12px 28px;display:flex;align-items:center;
+.bu-nav{max-width:min(1680px,100%);margin:14px auto 0;padding:12px 28px;display:flex;align-items:center;
   flex-wrap:wrap;gap:10px 14px}
 .bu-nav-label{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.3px;flex-shrink:0}
 .bu-nav-links{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -112,13 +113,23 @@ body{
 .kpi-src{font-size:10px;color:var(--mut2);margin-top:7px}
 .chart-note{font-size:10.5px;color:var(--mut2);margin-top:8px;line-height:1.5}
 
-/* 两栏 */
-.grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start}
+/* 两栏：右列利润表与左列同高，行距拉开填满 */
+.grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
+.grid-2-main{display:flex;flex-direction:column;min-height:0}
+.pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
+.pl-card > .card-h{flex:0 0 auto}
+/* 可见 .pv 占满 card 剩余高度（隐藏块仍靠 inline display:none） */
+.pl-card > .pv{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.pl-card > .pv[style*="display: none"],.pl-card > .pv[style*="display:none"]{display:none !important}
+.pl-card .pl{flex:1 1 auto;width:100%;display:flex;flex-direction:column;justify-content:space-between}
+.pl-card .kinds{flex:0 0 auto;margin-top:8px}
+.pl-card .pl-details{flex:0 0 auto}
 
 /* 管理利润表 */
 .pl{width:100%}
 .pl-row{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:10px;
   padding:9px 4px;border-bottom:1px solid var(--line)}
+.pl-card .pl-row{padding:11px 4px;min-height:2.4em}
 .pl-row .dot{width:8px;height:8px;border-radius:50%}
 .dot.system{background:var(--kind-system)} .dot.ledger{background:var(--kind-ledger)}
 .dot.manual{background:var(--kind-manual)} .dot.none{background:transparent}
@@ -266,6 +277,16 @@ body{
 .card{animation-delay:.18s}
 .kpi{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
 .kpi:hover{transform:translateY(-3px);border-color:var(--line-2);box-shadow:0 10px 28px rgba(0,0,0,.22),var(--glow)}
+
+/* —— 顶部切周期：板块①②③ 统一淡出/淡入（periodSync；零金额）—— */
+#periodSync{transition:opacity .15s ease,transform .15s ease;will-change:opacity,transform}
+#periodSync.is-period-switching{opacity:0;transform:translateY(10px);pointer-events:none}
+#periodSync.is-period-enter{animation:riseIn .36s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){
+  #periodSync{transition:none!important}
+  #periodSync.is-period-switching{opacity:1;transform:none;pointer-events:auto}
+  #periodSync.is-period-enter{animation:none!important}
+}
 
 /* —— 持续流动（环境动效·科技感）—— */
 /* 背景光晕缓慢漂移 */

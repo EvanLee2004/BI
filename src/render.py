@@ -427,11 +427,33 @@ JS = """
  if(pbtn&&ppanel){
   var pYear=pbtn.getAttribute('data-year'),pCur=+pbtn.getAttribute('data-cur'),pStart=null;
   window._curBlk=pYear+'年';
-  function applyPeriod(key,label){window._curBlk=key;
-    document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
+  // 切周期：整区 periodSync 统一淡出→切 .pv→淡入（与基本情况同观感；零金额运算）
+  var _periodT=null;
+  function applyPeriod(key,label){
+    if(key===window._curBlk){ // 同周期只更新按钮态
+      pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
+      ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});
+      return;}
+    window._curBlk=key;
     pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
     ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});
-    if(window._syncDailyDates)window._syncDailyDates(key);}
+    var sync=document.getElementById('periodSync');
+    function swap(){
+      document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
+      if(window._syncDailyDates)window._syncDailyDates(key);}
+    if(!sync||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+      swap();return;}
+    if(_periodT){clearTimeout(_periodT);_periodT=null;}
+    sync.classList.remove('is-period-enter');
+    sync.classList.add('is-period-switching');
+    _periodT=setTimeout(function(){
+      swap();
+      sync.classList.remove('is-period-switching');
+      // 强制重播入场动画
+      void sync.offsetWidth;
+      sync.classList.add('is-period-enter');
+      _periodT=setTimeout(function(){sync.classList.remove('is-period-enter');_periodT=null;},380);
+    },150);}
   window.applyPeriod=applyPeriod;
   function markMonths(a,b){ppanel.querySelectorAll('.pp-m').forEach(function(x){
     var m=+x.getAttribute('data-m');
@@ -709,15 +731,16 @@ def render_dashboard(summary, cfg, logo_b64):
 {PW_MODAL_HTML}
 <div class="wrap">
  {render_period_bar(summary)}
+ <div id="periodSync">
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
  {kpi_views}
 
  <div class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></div>
  <div class="grid-2">
-   <div>{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
-   <div class="card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
+   <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
- <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
+ <div class="period-receipts" style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {render_dept_budget(meta.get('dept_budget'))}
 
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span></div>
@@ -725,6 +748,7 @@ def render_dashboard(summary, cfg, logo_b64):
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
  {faint_note}
+ </div>
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
   税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(增值税×12%)+其他损益 &nbsp;|&nbsp;

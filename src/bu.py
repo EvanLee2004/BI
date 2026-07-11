@@ -122,7 +122,8 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict],
                    公共费用分摊启用: bool = False) -> dict:
     """管理端保存：逐条校验规范化后落盘（纯数据归属，无密码字段）。
     **一人一 BU**：同一销售名若出现在多个 BU，只保留先出现的那个 BU。
-    启用分摊时校验比例合计 100%，失败抛 ValueError（接口转 400）。
+    **分摊**：各 BU 比例**全部为空 → 不分摊**（忽略开关）；任一有值 → 启用，
+    须每 BU 都有 0~100 比例且合计≈100%，否则 ValueError（接口转 400）。
     返回落盘后的 {"bus": [...], "公共费用分摊启用": bool}；空 bus=写空配置（=功能关闭）。"""
     out, seen_bu, claimed = [], set(), set()
     for b in bus if isinstance(bus, list) else []:
@@ -138,16 +139,26 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict],
                 continue  # 已归别的 BU
             claimed.add(s)
             sales.append(s)
-        ratio = _parse_ratio(b.get("分摊比例"))
-        # 启用时非法比例在 validate 拦；关闭时非法→None
-        if b.get("分摊比例") not in (None, "") and ratio is None:
+        raw_r = b.get("分摊比例")
+        ratio = _parse_ratio(raw_r)
+        if raw_r not in (None, "") and ratio is None:
             raise ValueError(f"「{name}」分摊比例须为 0~100 的数字")
         out.append({"name": name, "负责人": _clean_names(b.get("负责人")),
                     "销售": sales, "分摊比例": ratio})
-    enabled = bool(公共费用分摊启用)
-    err = validate_allocation(out, enabled)
-    if err:
-        raise ValueError(err)
+    # 全空 = 不分摊；有填 = 启用（须齐全且合计 100%）
+    any_ratio = any(b["分摊比例"] is not None for b in out)
+    all_ratio = all(b["分摊比例"] is not None for b in out) if out else False
+    if not any_ratio:
+        enabled = False
+        for b in out:
+            b["分摊比例"] = None
+    elif not all_ratio:
+        raise ValueError("分摊比例要么全部留空（不分摊），要么每个 BU 都填且合计 100%")
+    else:
+        enabled = True
+        err = validate_allocation(out, True)
+        if err:
+            raise ValueError(err)
     data = {"bus": out, "公共费用分摊启用": enabled}
     _write(cfg, root, data)
     return data
