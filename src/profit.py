@@ -82,6 +82,54 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
     return {"items": items, "others": others, "unfilled": unfilled, "total": total}
 
 
+def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rate,
+                           top=10, conc_k=5, empty_label="（未填）"):
+    """按 name_col（客户/销售）汇总期内**确认收入与项目毛利**并按收入降序排名（收入结构板块用）。
+    口径：收入(不含税)=Σ交付额÷(1+vat)；毛利=收入−Σ项目成本（**项目直接毛利**，未含内部译员/手填调整，
+    故各组毛利之和与利润表总毛利有差异——footer 已注明）；毛利率=毛利÷收入。
+    返回 {items:[{name,revenue,profit,margin_pct,count}…前top], others:{names,revenue,profit,margin_pct,count}|None,
+          unfilled:{…}|None, total_revenue, total_profit, conc_k, conc_pct(前 conc_k 大占收入%)}。
+    名字空→"（未填）"置底（不参与前 top 排位、计入 total=守恒）。纯函数、只吃行，前端零运算（铁律2 在 render 里成串）。"""
+    dcol, rcol, ccol = cols_cfg["project_delivery_date"], cols_cfg["project_revenue"], cols_cfg["project_cost"]
+    div = 1.0 + vat_rate
+    agg: dict[str, list] = {}   # name -> [Σ含税交付额, Σ项目成本, 笔数]
+    for r in project_rows:
+        if not periods.date_in_range(loaders.parse_date_parts(r.get(dcol)), start, end):
+            continue
+        name = str(r.get(name_col) or "").strip() or empty_label
+        a = agg.setdefault(name, [0.0, 0.0, 0])
+        a[0] += loaders.parse_amount(r.get(rcol))
+        a[1] += loaders.parse_amount(r.get(ccol))
+        a[2] += 1
+
+    def _row(name, g):
+        rev = g[0] / div
+        prof = rev - g[1]
+        return {"name": name, "revenue": round(rev, 2), "profit": round(prof, 2),
+                "margin_pct": round(prof / rev * 100, 1) if rev else None, "count": g[2]}
+
+    def _agg_row(name, gs):   # 合并多组（其余/合计）后再算率，避免率的加权错误
+        tot = [sum(x[0] for x in gs), sum(x[1] for x in gs), sum(x[2] for x in gs)]
+        return _row(name, tot)
+
+    total_rev = round(sum(g[0] for g in agg.values()) / div, 2)
+    total_prof = round(sum(g[0] / div - g[1] for g in agg.values()), 2)
+    uf = agg.pop(empty_label, None)
+    unfilled = _row(empty_label, uf) if uf else None
+    ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])   # 按含税交付额降序＝按收入降序（div 恒正）
+    items = [_row(n, g) for n, g in ranked[:top]]
+    rest = [g for _, g in ranked[top:]]
+    others = _agg_row(f"其余 {len(rest)} 个", rest) if rest else None
+    if others:
+        others["names"] = len(rest)
+    # 集中度=前 conc_k 大（按含税交付额=收入）占总收入；从完整排序列取，稳健于 top<conc_k
+    conc_rev = sum(g[0] for _, g in ranked[:conc_k]) / div
+    conc_pct = round(conc_rev / total_rev * 100, 1) if total_rev else None
+    return {"items": items, "others": others, "unfilled": unfilled,
+            "total_revenue": total_rev, "total_profit": total_prof,
+            "conc_k": conc_k, "conc_pct": conc_pct}
+
+
 def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10):
     """按天明细（/api/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
     days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
@@ -299,7 +347,7 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
         "orders": orders_amt,
         "receipts": receipts_amt,
         "receipt_order_ratio_pct": receipt_order_ratio,
-        # 板块③ 排名：下单按部门/按销售，回款按客户（期内汇总降序，前10+其余合计）
+        # 板块④ 下单与回款排名：下单按部门/按销售，回款按客户（期内汇总降序，前10+其余合计）
         "rankings": {
             "orders_by_dept": compute_ranking(order_rows, "部门", cols_cfg["order_amount"],
                                               cols_cfg["order_date"], start, end),
@@ -307,6 +355,11 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
                                                cols_cfg["order_date"], start, end),
             "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
                                                     cols_cfg["receipt_date"], start, end),
+        },
+        # 板块③ 收入与毛利结构：确认收入/项目毛利 按客户、按销售（+集中度），确认口径
+        "profit_rankings": {
+            "revenue_by_customer": compute_profit_ranking(project_rows, "客户", cols_cfg, start, end, vat),
+            "revenue_by_sales": compute_profit_ranking(project_rows, "销售", cols_cfg, start, end, vat),
         },
     }
 

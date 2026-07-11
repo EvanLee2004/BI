@@ -123,6 +123,7 @@ body{
 
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
+.grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
 .pl-card > .card-h{flex:0 0 auto}
@@ -450,6 +451,7 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 @media(max-width:900px){
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
+  .grid-2e{grid-template-columns:1fr}
   .grid-3{grid-template-columns:1fr}
   .ppanel{left:8px;right:8px;min-width:0}
   .wrap{padding:0 12px 40px}

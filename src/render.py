@@ -387,6 +387,62 @@ def render_rankings(p):
             f'</div>')
 
 
+# ---------- 板块③ 收入与毛利结构（确认口径，按客户/销售，随周期切）----------
+def _margin_meta(mp):
+    """毛利率 meta：None（收入 0）→ 灰显「毛利率 —」。"""
+    return f'毛利率 {mp:.0f}%' if mp is not None else "毛利率 —"
+
+
+def _profit_rank_card(title, tag, rk):
+    """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 毛利率。金额/率均后端算好，前端零运算（铁律2）。
+    与板块④排名卡同款行样式；不带「点开看明细」弹窗（确认口径无实时接口，看 Top+集中度已足）。"""
+    items = (rk or {}).get("items") or []
+    unfilled = (rk or {}).get("unfilled")
+    if not items and not unfilled:
+        body = '<div class="ev-empty">本期无数据</div>'
+    else:
+        mx = max((abs(it["revenue"]) for it in items), default=0) or 1
+        rows = []
+        for i, it in enumerate(items, 1):
+            w = max(it["revenue"] / mx * 100, 0)
+            rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
+                        f'<span class="ev-name" title="{_esc(it["name"])}">{_esc(it["name"])}</span>'
+                        f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
+                        f'<span class="ev-amt">{_rank_amt(it["revenue"])}</span>'
+                        f'<span class="rk-meta">{_margin_meta(it["margin_pct"])}</span></div>')
+        others = rk.get("others")
+        if others:
+            rows.append(f'<div class="ev-row rk-row rk-others"><span class="rk-no">…</span>'
+                        f'<span class="ev-name">其余 {others["names"]} 个</span>'
+                        f'<span class="ev-track"></span>'
+                        f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
+                        f'<span class="rk-meta">{_margin_meta(others["margin_pct"])}</span></div>')
+        if unfilled:
+            rows.append(f'<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span>'
+                        f'<span class="ev-name" title="源头未填客户/销售，去管理端归类">（未填）</span>'
+                        f'<span class="ev-track"></span>'
+                        f'<span class="ev-amt">{_rank_amt(unfilled["revenue"])}</span>'
+                        f'<span class="rk-meta">{_margin_meta(unfilled["margin_pct"])}</span></div>')
+        body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
+    return (f'<div class="card"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
+
+
+def _conc_tag(rk):
+    """卡头标签：确认口径 + 前 k 大占收入%（集中度）。无数据 → 只留口径。"""
+    c = (rk or {}).get("conc_pct")
+    k = (rk or {}).get("conc_k", 5)
+    return f'确认口径 · 前{k}大占收入 {c:.0f}%' if c is not None else "确认口径"
+
+
+def render_profit_rankings(p):
+    pr = p.get("profit_rankings") or {}
+    cust, sale = pr.get("revenue_by_customer"), pr.get("revenue_by_sales")
+    return (f'<div class="grid-2e">'
+            f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust)}'
+            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale)}'
+            f'</div>')
+
+
 # ---------- 全局周期选择器（下拉菜单）----------
 def render_period_bar(summary):
     """周期选择器：按钮 + 日历面板（快捷段：全年/季度；月份网格：点起始月再点结束月=自选区间）。
@@ -720,6 +776,7 @@ def render_dashboard(summary, cfg, logo_b64):
     BP = summary.get("expense_by_profit_center", {})
     donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
     pl_views = "".join(_pv(k, yk, render_pl_table(P[k], FT.get(k, {}))) for k in all_keys)
+    profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
@@ -746,7 +803,10 @@ def render_dashboard(summary, cfg, logo_b64):
  <div class="period-receipts" style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {render_dept_budget(meta.get('dept_budget'))}
 
- <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span></div>
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></div>
+ <div id="profitRankViews">{profit_rank_views}</div>
+
+ <div class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款排名</span></div>
  {DAILY_HTML}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
@@ -755,6 +815,7 @@ def render_dashboard(summary, cfg, logo_b64):
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
   税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(增值税×12%)+其他损益 &nbsp;|&nbsp;
+  收入与毛利结构（按客户/销售）：确认口径按整单交付日期归属；毛利=收入−项目成本（项目直接毛利，未含内部译员/手填调整，故各客户/销售毛利之和与利润表总毛利略有差异）；集中度=前5大客户/销售占期内收入比 &nbsp;|&nbsp;
   数据源：智云项目明细/任务/下单/回款 + 收单台账 + 手填与调整表。
  </div>
 </div>
