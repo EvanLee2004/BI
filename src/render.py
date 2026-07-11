@@ -672,6 +672,9 @@ DAILY_JS = """
  });
  // 「其余 N 个」点开全量明细：预渲染卡与自定义卡共用（区间取最近的 data-start/end）
  var modal=document.getElementById('rkModal');
+ // 弹窗须挂 body 直下：否则被 #periodSync 的 will-change:transform 祖先困住，
+ // position:fixed 变成相对该祖先（高达整页）定位 → 弹窗跑到页面中部而非视口居中。
+ if(modal&&modal.parentElement!==document.body)document.body.appendChild(modal);
  document.addEventListener('click',function(ev){
   var row=ev.target.closest?ev.target.closest('.rk-more'):null;
   if(!row)return;
@@ -852,13 +855,18 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     body = f"""
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
- <a class="bu-back" href="/" title="返回整体看板">← 返回整体</a>
- <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <span class="tb-right">
+ <a class="bu-back" href="/" title="返回整体看板（也可当刷新）">← 返回整体</a>
+ <span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 {PW_MODAL_HTML}
 <div class="wrap">
- <div class="faint-note" style="margin:10px 0 0">{faint}</div>
+ <div class="bu-subnav" role="navigation" aria-label="返回整体">
+  <a class="bu-back bu-back-inline" href="/" title="返回整体看板（点一下即回主页/刷新）">← 返回整体</a>
+  <span class="bu-subnav-cur">当前 BU · <b>{name}</b></span>
+ </div>
+ <div class="faint-note" style="margin:8px 0 0">{faint}</div>
  {render_period_bar(summary)}
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">{name} · 管理利润表</span></div>
  <div class="card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · {_esc(tag_note)}</span></div>{pl_views}</div>

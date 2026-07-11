@@ -25,6 +25,10 @@ CONFIG_NAME = "看板账号.json"
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
 
+# 总账号（主管理员登录名）：不可删除、不可改登录名；改权限也不影响「总账号」身份。
+# 部署机缺 看板账号.json 时 seed 会建这个号，否则无人能进 /admin。
+MASTER_ACCOUNT = "lushasha"
+
 # 初始密码（未改过的行黄标提醒）
 DEFAULT_ADMIN_PW = "kanban2026"
 DEFAULT_VIEW_PW = "8888"
@@ -33,7 +37,7 @@ INITIAL_PASSWORDS = frozenset({DEFAULT_ADMIN_PW, DEFAULT_VIEW_PW})
 # 部署零配置默认表（合成显示名；真实名单只写 数据/ 本地文件）
 # 账号 id 用产品约定的拼音/角色名（lushasha=管理员端登录号，明昊拍板）
 DEFAULT_ACCOUNTS = [
-    {"账号": "lushasha", "显示名": "管理员", "权限": PERM_ADMIN, "密码": DEFAULT_ADMIN_PW},
+    {"账号": MASTER_ACCOUNT, "显示名": "管理员", "权限": PERM_ADMIN, "密码": DEFAULT_ADMIN_PW},
     {"账号": "overall", "显示名": "整体账号", "权限": PERM_MAIN, "密码": DEFAULT_VIEW_PW},
     {"账号": "bu_alpha", "显示名": "甲BU账号", "权限": "数据", "密码": DEFAULT_VIEW_PW},
     {"账号": "bu_beta", "显示名": "乙BU账号", "权限": "游戏", "密码": DEFAULT_VIEW_PW},
@@ -49,6 +53,11 @@ def config_path(cfg: dict, root: Path | None = None) -> Path:
 def is_initial_password(pw: str | None) -> bool:
     """密码仍是初始值（8888 / kanban2026）→ 管理端黄标。"""
     return (pw or "") in INITIAL_PASSWORDS
+
+
+def is_master_account(acct: str | None) -> bool:
+    """是否总账号（登录名固定为 MASTER_ACCOUNT，与显示名/当前权限无关）。"""
+    return str(acct or "").strip() == MASTER_ACCOUNT
 
 
 def _norm_one(raw: dict) -> dict | None:
@@ -120,8 +129,9 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
     - 密码：条目带「密码」字段（含空串）则以之为准；不带则沿用已存（新账号无旧值→初始 8888）；
-    - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）。
-    返回落盘后的列表。"""
+    - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）；
+    - 总账号 MASTER_ACCOUNT：若库中已有则不可删、不可改登录名；至少保留一个「管理员」。
+    返回落盘后的列表；校验失败抛 ValueError。"""
     existing = {a["账号"]: a for a in load_accounts(cfg, root, create=False)}
     out, seen = [], set()
     for raw in accounts if isinstance(accounts, list) else []:
@@ -141,11 +151,19 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
             pw = existing.get(acct, {}).get("密码", DEFAULT_VIEW_PW)
         if not pw:
             pw = DEFAULT_VIEW_PW
+        # 总账号：登录名固定且权限强制管理员（界面不提供下拉）
+        if is_master_account(acct):
+            perm = PERM_ADMIN
         row = {"账号": acct, "显示名": display, "权限": perm, "密码": pw}
         last = existing.get(acct, {}).get("最后登录")
         if last:
             row["最后登录"] = last
         out.append(row)
+    if not any(a["权限"] == PERM_ADMIN for a in out):
+        raise ValueError("至少保留一个「管理员」权限账号")
+    # 总账号：曾存在则必须仍在表中（可改显示名/密码，不可删、不可改登录名）
+    if MASTER_ACCOUNT in existing and MASTER_ACCOUNT not in {a["账号"] for a in out}:
+        raise ValueError(f"总账号「{MASTER_ACCOUNT}」不可删除（否则部署后可能无人能进管理端）")
     _write(config_path(cfg, root), out)
     return out
 

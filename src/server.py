@@ -37,6 +37,8 @@ import assets
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
 SESSION_TTL = 24 * 3600
+# 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
+_HIDE_PW_STYLE = '<style>#pwBtn{display:none!important}</style>'
 # 兼容旧测试/文档引用（v8.0 起管理员口令在 看板账号.json，不再走密钥哈希）
 DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", accounts.DEFAULT_ADMIN_PW)
 DEFAULT_VIEW_PW = accounts.DEFAULT_VIEW_PW
@@ -707,7 +709,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
     <div class="scard">
       <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div>
-        <div class="sub">权限=管理员 / 整体 / 某 BU 名；一 BU 可多账号。密码明文仅此处可见（点👁显示）。黄底=仍是初始密码，发号前请改掉。</div></div></div>
+        <div class="sub"><b>显示名</b>=备注（谁用这个号，只给人看）。真正分流看「权限」。密码明文仅此处可见（点👁）。黄底=初始密码。<b>总账号</b>（lushasha）登录名与权限固定为管理员、无权限下拉、不可删；另可再加其他管理员。</div></div></div>
       <div class="scard-b">
         <div class="tbl-box sm wrap" style="max-height:min(42vh,360px)"><table id="acctTbl"></table></div>
       </div>
@@ -902,28 +904,52 @@ function _permOpts(cur){const bus=buList.map(b=>b.name).filter(Boolean);
   const opts=["管理员","整体"].concat(bus);
   if(cur&&opts.indexOf(cur)<0)opts.push(cur);
   return opts.map(p=>"<option"+(p===cur?" selected":"")+">"+esc(p)+"</option>").join("");}
+let ACCT_MASTER="lushasha";  // 服务端 /api/accounts 会回 master_account 覆盖
+function _adminCount(){return acctList.filter(a=>(a.权限||"")==="管理员").length;}
+/** 总账号：按登录名锁定（与当前权限无关），永久不可删、登录名不可改 */
+function _isMaster(a){return String(a.账号||"").trim()===ACCT_MASTER;}
 function acctRender(){const t=document.getElementById("acctTbl");
   if(!acctList.length){t.innerHTML="<tr><td class='muted'>暂无账号——点「＋ 加账号」</td></tr>";return;}
-  t.innerHTML="<tr><th>账号</th><th>显示名</th><th>权限</th><th>密码</th><th>最后登录</th><th></th></tr>"+
+  t.innerHTML="<tr><th>账号</th><th>显示名（备注）</th><th>权限</th><th>密码</th><th>最后登录</th><th></th></tr>"+
     acctList.map((a,i)=>{
-      const init=!!a.初始密码,show=!!acctPwShow[i];
+      const init=!!a.初始密码,show=!!acctPwShow[i],master=_isMaster(a);
       const pw=a.密码==null?"":String(a.密码);
+      if(master)a.权限="管理员";
+      const delCell=master
+        ?"<span class='muted' title='总账号永久不可删除' style='font-size:11px'>总账号</span>"
+        :"<button class='ghost mini' type='button' onclick='acctDel("+i+")'>删</button>";
+      const acctInput=master
+        ?'<input style="width:110px;opacity:.9" value="'+esc(a.账号)+'" readonly title="总账号登录名固定，不可改">'
+        :'<input style="width:110px" value="'+esc(a.账号)+'" onchange="acctList['+i+'].账号=this.value">';
+      const permCell=master
+        ?'<span class="muted" style="display:inline-block;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px" title="总账号固定为管理员">管理员</span>'
+        :'<select onchange="acctList['+i+'].权限=this.value;acctRender()">'+_permOpts(a.权限)+'</select>';
       return "<tr class='"+(init?"init-pw":"")+"'>"+
-        "<td><input style='width:110px' value=\""+esc(a.账号)+"\" onchange='acctList["+i+"].账号=this.value'></td>"+
-        "<td><input style='width:90px' value=\""+esc(a.显示名||"")+"\" onchange='acctList["+i+"].显示名=this.value'></td>"+
-        "<td><select onchange='acctList["+i+"].权限=this.value'>"+_permOpts(a.权限)+"</select></td>"+
+        "<td>"+acctInput+"</td>"+
+        "<td><input style='width:90px' title='备注：谁用这个号，不影响权限' value=\""+esc(a.显示名||"")+"\" onchange='acctList["+i+"].显示名=this.value'></td>"+
+        "<td>"+permCell+"</td>"+
         "<td><input type='"+(show?"text":"password")+"' autocomplete='off' style='width:110px' value=\""+esc(pw)+"\" onchange='acctList["+i+"].密码=this.value;acctList["+i+"].初始密码=false'>"+
         " <button class='ghost mini' type='button' onclick='acctTogglePw("+i+")'>"+(show?"🙈":"👁")+"</button>"+
         (init?" <span title='仍是初始密码' style='color:#fde68a'>⚠初始</span>":"")+"</td>"+
         "<td class='muted'>"+esc(a.最后登录||"—")+"</td>"+
-        "<td><button class='ghost mini' type='button' onclick='acctDel("+i+")'>删</button></td></tr>";}).join("");}
+        "<td>"+delCell+"</td></tr>";}).join("");}
 function acctTogglePw(i){acctPwShow[i]=!acctPwShow[i];acctRender();}
 function acctAdd(){acctList.push({账号:"",显示名:"",权限:"整体",密码:"8888",初始密码:true,最后登录:""});acctRender();}
-function acctDel(i){if(!confirm("删除该账号？立即失效"))return;acctList.splice(i,1);acctRender();}
-async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.accounts||[];acctPwShow={};acctRender();}
+function acctDel(i){
+  const a=acctList[i];
+  if(_isMaster(a)){alert("总账号「"+ACCT_MASTER+"」永久不可删除（即使改成别的权限也不行）。部署机也靠它进管理端。");return;}
+  if((a.权限||"")==="管理员"&&_adminCount()<=1){alert("至少保留一个「管理员」权限账号，否则没人能登录管理端");return;}
+  if(!confirm("删除该账号？立即失效"))return;
+  acctList.splice(i,1);acctRender();}
+async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.accounts||[];
+  if(d.master_account)ACCT_MASTER=d.master_account;acctPwShow={};acctRender();}
   catch(e){document.getElementById("acctMsg").textContent="读取失败:"+e.message;}}
 async function acctSave(){const m=document.getElementById("acctMsg");m.textContent="保存中…";
-  try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];acctPwShow={};acctRender();
+  if(!_adminCount()){m.textContent="保存失败：至少保留一个「管理员」权限账号";return;}
+  if(!acctList.some(a=>String(a.账号||"").trim()===ACCT_MASTER)){
+    m.textContent="保存失败：总账号「"+ACCT_MASTER+"」不可删除";return;}
+  try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];
+    if(d.master_account)ACCT_MASTER=d.master_account;acctPwShow={};acctRender();
     m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";}catch(e){m.textContent="保存失败："+e.message;}}
 // BU 数据归属（销售归属·A1）+ 公共费用分摊（迭代17·A2：全空=不分摊，无总开关）
 let buList=[], salesPool=[], buPicked=new Set(), buUnassigned={};
@@ -1368,7 +1394,7 @@ def create_app(cfg, root=None) -> FastAPI:
         管理员会话 → 整体页；整体权限 → 整体页（带 BU 入口条）；BU 权限 → 本 BU 页；
         未登录 → 登录页。"""
         if _user(request):
-            return HTMLResponse(_main_with_nav() or "<h1>数据尚未生成，请稍候刷新</h1>")
+            return HTMLResponse(_main_with_nav(hide_pw=True) or "<h1>数据尚未生成，请稍候刷新</h1>")
         acc = _vacc_row(request)
         if acc:
             if accounts.is_main(acc):
@@ -1384,22 +1410,30 @@ def create_app(cfg, root=None) -> FastAPI:
                 return RedirectResponse("/admin", status_code=303)
         return HTMLResponse(_view_login_page())
 
-    def _main_with_nav() -> str:
-        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）+ A3 未归属提示（随周期切）。"""
+    def _main_with_nav(hide_pw: bool = False) -> str:
+        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）+ A3 未归属提示（随周期切）。
+        hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
+        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
         html = _state["user_html"]
-        names = list(_state.get("bu_pages", {}))
-        if not html or not names:
+        if not html:
             return html
         from urllib.parse import quote
 
         def _esc(s):
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
-        nav = ('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
-               '<span class="bu-nav-label">业务 BU 分页</span>'
-               '<span class="bu-nav-links">' + links + '</span>'
-               + _unassigned_hint_html(_state.get("summary"), _esc) + '</div>')
-        return html.replace('<div class="wrap">', nav + '<div class="wrap">', 1)
+        parts = []
+        if hide_pw:
+            parts.append(_HIDE_PW_STYLE)
+        names = list(_state.get("bu_pages", {}))
+        if names:
+            links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
+            parts.append('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
+                         '<span class="bu-nav-label">业务 BU 分页</span>'
+                         '<span class="bu-nav-links">' + links + '</span>'
+                         + _unassigned_hint_html(_state.get("summary"), _esc) + '</div>')
+        if parts:
+            return html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
+        return html
 
     def _unassigned_hint_html(summary, esc) -> str:
         """A3 整体页未归属提示（只在整体/管理员会话出现，BU 页绝不渲染）：
@@ -1437,7 +1471,10 @@ def create_app(cfg, root=None) -> FastAPI:
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
         if _can_view_bu(request, name):
-            return HTMLResponse(page["html"])
+            html = page["html"]
+            if _user(request):  # 管理员看 BU 页也隐藏「🔑密码」自改入口（与整体页一致）
+                html = html.replace('<div class="wrap">', _HIDE_PW_STYLE + '<div class="wrap">', 1)
+            return HTMLResponse(html)
         return HTMLResponse(_view_login_page())
 
     @app.post("/api/my_passwd")
@@ -1458,36 +1495,27 @@ def create_app(cfg, root=None) -> FastAPI:
         """账号表（管理员会话）：含明文密码。绝不出现在其他出口。"""
         _require(request)
         rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
-        return {"accounts": rows, "count": len(rows)}
+        return {"accounts": rows, "count": len(rows),
+                "master_account": accounts.MASTER_ACCOUNT}
 
     @app.post("/api/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
-        """保存账号表（管理员）。至少保留一个管理员账号（先校验再落盘）。C3：变更留痕（密码只记「改密码」）。"""
+        """保存账号表（管理员）。至少保留一个管理员；总账号不可删。C3：变更留痕（密码只记「改密码」）。"""
         user = _require(request)
         raw = payload.get("accounts")
         if not isinstance(raw, list):
             raise HTTPException(status_code=400, detail="accounts 须为列表")
         if len(raw) > 50:
             raise HTTPException(status_code=400, detail="账号数量过多（上限 50）")
-        # 预校验：至少一条有效管理员（与 save 规范化规则一致）
-        has_admin, seen = False, set()
-        for it in raw:
-            if not isinstance(it, dict):
-                continue
-            acct = str(it.get("账号") or "").strip()
-            perm = str(it.get("权限") or "").strip()
-            if not acct or not perm or acct in seen:
-                continue
-            seen.add(acct)
-            if perm == accounts.PERM_ADMIN:
-                has_admin = True
-        if not has_admin:
-            raise HTTPException(status_code=400, detail="至少保留一个「管理员」权限账号")
         old_accs = accounts.load_accounts(cfg, root, create=False)
-        saved = accounts.save_accounts(cfg, root, raw)
+        try:
+            saved = accounts.save_accounts(cfg, root, raw)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         _audit(cfg, root, user, _diff_accounts(old_accs, saved))
         rows = [accounts.public_row(a, with_password=True) for a in saved]
-        return {"accounts": rows, "count": len(rows), "note": "已保存"}
+        return {"accounts": rows, "count": len(rows), "note": "已保存",
+                "master_account": accounts.MASTER_ACCOUNT}
 
     @app.get("/admin", response_class=HTMLResponse)
     def admin_page(request: Request):

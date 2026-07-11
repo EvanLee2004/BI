@@ -58,11 +58,19 @@ body{
   border-radius:999px;padding:6px 13px;font-size:12px;display:flex;align-items:center;gap:6px;
   font-family:inherit;transition:.2s}
 .toggle:hover{color:var(--ink);border-color:var(--accent)}
-/* BU 页：返回整体（整体/管理员从入口条点进后用；BU 账号点回首页仍是本 BU） */
-.bu-back{display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:6px 14px;
+/* BU 页：返回整体 —— 顶栏固定（sticky topbar 内）+ 内容区紧贴「看哪段」 */
+.bu-back{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;
   border-radius:999px;border:1px solid var(--line-2);background:var(--panel);color:var(--blue);
   font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;transition:.15s}
+.tb-right .bu-back{margin-right:4px}
 .bu-back:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--panel));color:var(--ink)}
+/* 内容区导航条：与周期选择器挨在一起，不跑到标题旁老远 */
+.bu-subnav{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;
+  margin:6px 0 2px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel)}
+.bu-subnav .bu-back-inline{font-size:13.5px;padding:7px 16px}
+.bu-subnav-cur{font-size:13px;color:var(--mut);margin-left:2px}
+.bu-subnav-cur b{color:var(--ink);font-weight:700}
 /* 整体页顶部：业务 BU 分页入口条（字号加大、链接做成芯片更易点） */
 .bu-nav{max-width:min(1680px,100%);margin:14px auto 0;padding:12px 28px;display:flex;align-items:center;
   flex-wrap:wrap;gap:10px 14px}
@@ -251,7 +259,9 @@ body{
 #rkModal{position:fixed;inset:0;z-index:60;background:rgba(2,8,20,.72);display:flex;align-items:center;justify-content:center;padding:20px}
 .rkm-box{background:var(--panel,#0b1526);border:1px solid var(--line-2);border-radius:12px;max-width:560px;width:100%;
  max-height:80vh;display:flex;flex-direction:column;padding:14px 16px;box-shadow:0 18px 60px #000a}
-.rkm-list{overflow-y:auto;margin-top:8px}
+.rkm-box>.card-h{flex:0 0 auto}
+/* flex 纵向：列表须 min-height:0 才会内部滚动，否则内容撑破盒子、首行（第1名）溢到表头下被裁掉 */
+.rkm-list{overflow-y:auto;margin-top:8px;flex:1 1 auto;min-height:0}
 .rkm-list .ev-list{max-height:none;overflow:visible}
 .rk-unfilled{opacity:.62}
 .rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}

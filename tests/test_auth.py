@@ -57,12 +57,13 @@ class TestAccountsModule(unittest.TestCase):
 
     def test_unique_account_and_multi_bu(self):
         saved = accounts.save_accounts(self.cfg, self.tmp, [
+            {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
             {"账号": "a1", "显示名": "一", "权限": "BU甲", "密码": "8888"},
             {"账号": "a1", "显示名": "重复", "权限": "BU乙", "密码": "9999"},  # 同名丢弃
             {"账号": "a2", "显示名": "二", "权限": "BU甲", "密码": "8888"},
         ])
-        self.assertEqual([a["账号"] for a in saved], ["a1", "a2"])
-        self.assertEqual(saved[0]["权限"], "BU甲")
+        self.assertEqual([a["账号"] for a in saved], ["lushasha", "a1", "a2"])
+        self.assertEqual(saved[1]["权限"], "BU甲")  # a1 保留第一条
         # 同 BU 多账号
         self.assertEqual(sum(1 for a in saved if a["权限"] == "BU甲"), 2)
 
@@ -73,6 +74,7 @@ class TestAccountsModule(unittest.TestCase):
 
     def test_chinese_password_bytes_compare(self):
         accounts.save_accounts(self.cfg, self.tmp, [
+            {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
             {"账号": "u1", "显示名": "测", "权限": "整体", "密码": "中文密码甲"}])
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "u1", "中文密码甲"))
         self.assertIsNone(accounts.authenticate(self.cfg, self.tmp, "u1", "中文密码乙"))
@@ -306,6 +308,62 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual([b["name"] for b in saved["bus"]], ["BU甲"])
         self.assertNotIn("密码hash", saved["bus"][0])
         self.assertNotIn("新密码", saved["bus"][0])
+
+
+class TestHidePwForAdmin(unittest.TestCase):
+    """管理员会话看内嵌看板时隐藏「🔑密码」自改入口；看的人（整体/BU）仍保留。
+    （明昊 2026-07-12：管理员改密码走 /admin 设置页，防在内嵌看板里误改。）"""
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.cfg = loaders.load_config()
+        _write_bucfg(self.cfg, self.tmp, [{"name": "BU甲", "销售": ["销售A"]}])
+        _write_accts(self.cfg, self.tmp, _std_accts())
+        server._state["user_html"] = (
+            '<html><head></head><body><button id="pwBtn">🔑 密码</button>'
+            '<div class="wrap">USER-MAIN</div></body></html>')
+        server._state["bu_pages"] = {"BU甲": {"name": "BU甲", "html": (
+            '<html><body><button id="pwBtn">🔑 密码</button>'
+            '<div class="wrap">PAGE-A</div></body></html>')}}
+        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        self.app = server.create_app(self.cfg, root=self.tmp)
+
+    def _client(self):
+        from fastapi.testclient import TestClient
+        return TestClient(self.app, follow_redirects=False)
+
+    def _as(self, account, pw, admin=False):
+        c = self._client()
+        r = c.post("/admin/login" if admin else "/login", data={"account": account, "password": pw})
+        assert r.status_code == 303, r.text
+        return c
+
+    _MARK = "#pwBtn{display:none"
+
+    def test_admin_root_hides_pw(self):
+        c = self._as("lushasha", server.DEFAULT_PW, admin=True)
+        html = c.get("/").text
+        self.assertIn("USER-MAIN", html)          # 仍是整体页
+        self.assertIn(self._MARK, html)           # 且注入了隐藏样式
+
+    def test_viewer_root_keeps_pw(self):
+        c = self._as("overall", server.DEFAULT_VIEW_PW)
+        html = c.get("/").text
+        self.assertIn("USER-MAIN", html)
+        self.assertNotIn(self._MARK, html)        # 看的人不隐藏
+        self.assertIn('id="pwBtn"', html)         # 按钮仍在
+
+    def test_admin_bu_page_hides_pw(self):
+        c = self._as("lushasha", server.DEFAULT_PW, admin=True)
+        html = c.get(f"/bu/{quote('BU甲')}").text
+        self.assertIn("PAGE-A", html)
+        self.assertIn(self._MARK, html)
+
+    def test_bu_viewer_keeps_pw(self):
+        c = self._as("user_a", server.DEFAULT_VIEW_PW)
+        html = c.get(f"/bu/{quote('BU甲')}").text
+        self.assertIn("PAGE-A", html)
+        self.assertNotIn(self._MARK, html)
+        self.assertIn('id="pwBtn"', html)
 
 
 if __name__ == "__main__":
