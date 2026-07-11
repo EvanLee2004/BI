@@ -1601,6 +1601,52 @@ def create_app(cfg, root=None) -> FastAPI:
             rk.pop("total", None)   # 用不到就不下发，防前端拿去做运算
         return {"start": start, "end": end, **d}
 
+    @app.get("/api/profit_ranking")
+    def api_profit_ranking(request: Request, dim: str = Query(""), start: str = Query(""),
+                           end: str = Query(""), top: int = Query(5000)):
+        """板块③「收入与毛利结构」全量明细（「其余 N 个」点开）：确认口径 收入/毛利 按客户/销售。
+        与 /api/daily 同为全公司口径出口——要整体页/管理员会话（BU 会话 401，防绕过页面隔离）；
+        **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。入参严格校验：dim∈{customer,sales}、ISO 日期、区间≤366天。"""
+        if not _can_view_main(request):
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        name_col = {"customer": "客户", "sales": "销售"}.get(dim)
+        if not name_col:
+            raise HTTPException(status_code=400, detail="dim 须为 customer 或 sales")
+        import datetime as _dt
+        try:
+            s = _dt.date.fromisoformat(start)
+            e = _dt.date.fromisoformat(end)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+        if e < s:
+            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
+        if (e - s).days > 366:
+            raise HTTPException(status_code=400, detail="区间最长 366 天")
+        top = max(1, min(5000, int(top)))
+        conn = db.connect(cfg, root)
+        try:
+            project = db.load_project_detail(cfg, conn)
+        finally:
+            conn.close()
+        import charts
+        import profit as _profit
+        vat = cfg["tax"]["vat_rate"]
+        rk = _profit.compute_profit_ranking(project, name_col, cfg["columns"], s, e, vat, top=top)
+
+        def _wan(v):
+            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+        def _mg(mp):
+            return f"毛利率 {mp:.0f}%" if mp is not None else "毛利率 —"
+
+        items = [{"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it["margin_pct"])}
+                 for it in rk["items"]]
+        if rk.get("unfilled"):
+            uf = rk["unfilled"]
+            items.append({"name": "（未填）", "revenue_disp": _wan(uf["revenue"]),
+                          "margin_disp": _mg(uf["margin_pct"]), "unfilled": True})
+        return {"dim": dim, "start": start, "end": end, "items": items}
+
     @app.get("/api/exceptions")
     def api_exceptions(request: Request):
         """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/health，不在这。"""

@@ -393,9 +393,16 @@ def _margin_meta(mp):
     return f'毛利率 {mp:.0f}%' if mp is not None else "毛利率 —"
 
 
-def _profit_rank_card(title, tag, rk):
+def _pname(name):
+    """名称 span：悬浮 #tip 显示全名（长名截断也能看全）。data-tip 走 getAttribute+innerHTML
+    两层解码→双层转义（铁律10）；title 保留为无 JS 时的原生兜底。"""
+    n = _esc(name)
+    return f'<span class="ev-name" title="{n}" data-tip="{_esc(n)}">{n}</span>'
+
+
+def _profit_rank_card(title, tag, rk, dim=""):
     """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 毛利率。金额/率均后端算好，前端零运算（铁律2）。
-    与板块④排名卡同款行样式；不带「点开看明细」弹窗（确认口径无实时接口，看 Top+集中度已足）。"""
+    与板块④排名卡同款行样式；「其余 N 个」点开→ /api/profit_ranking 全量弹窗（dim=customer/sales）。"""
     items = (rk or {}).get("items") or []
     unfilled = (rk or {}).get("unfilled")
     if not items and not unfilled:
@@ -406,14 +413,15 @@ def _profit_rank_card(title, tag, rk):
         for i, it in enumerate(items, 1):
             w = max(it["revenue"] / mx * 100, 0)
             rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
-                        f'<span class="ev-name" title="{_esc(it["name"])}">{_esc(it["name"])}</span>'
+                        f'{_pname(it["name"])}'
                         f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
                         f'<span class="ev-amt">{_rank_amt(it["revenue"])}</span>'
                         f'<span class="rk-meta">{_margin_meta(it["margin_pct"])}</span></div>')
         others = rk.get("others")
         if others:
-            rows.append(f'<div class="ev-row rk-row rk-others"><span class="rk-no">…</span>'
-                        f'<span class="ev-name">其余 {others["names"]} 个</span>'
+            rows.append(f'<div class="ev-row rk-row rk-others pr-more" title="点开看全部{others["names"]}个明细">'
+                        f'<span class="rk-no">…</span>'
+                        f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
                         f'<span class="rk-meta">{_margin_meta(others["margin_pct"])}</span></div>')
@@ -424,7 +432,7 @@ def _profit_rank_card(title, tag, rk):
                         f'<span class="ev-amt">{_rank_amt(unfilled["revenue"])}</span>'
                         f'<span class="rk-meta">{_margin_meta(unfilled["margin_pct"])}</span></div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
-    return (f'<div class="card"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
+    return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
 
 
 def _conc_tag(rk):
@@ -436,11 +444,50 @@ def _conc_tag(rk):
 
 def render_profit_rankings(p):
     pr = p.get("profit_rankings") or {}
+    s, e = p.get("range", ("", ""))
     cust, sale = pr.get("revenue_by_customer"), pr.get("revenue_by_sales")
-    return (f'<div class="grid-2e">'
-            f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust)}'
-            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale)}'
+    return (f'<div class="grid-2e pr-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
+            f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust, "customer")}'
+            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales")}'
             f'</div>')
+
+
+# 「其余 N 个」点开全量明细：/api/profit_ranking（确认口径全量），复用 #rkModal（已在 body、已有关闭处理）。
+# 行 shape=名称+收入+毛利率（与卡片一致、无横条=与板块④弹窗一致）；金额/率均后端下发串（铁律2）。
+PROFIT_JS = r"""
+(function(){
+ var modal=document.getElementById('rkModal'); if(!modal) return;
+ var TITLE={customer:'收入 · 按客户',sales:'收入 · 按销售'};
+ var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+   return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});};
+ document.addEventListener('click',function(ev){
+  var row=ev.target.closest?ev.target.closest('.pr-more'):null;
+  if(!row)return;
+  var card=row.closest('[data-dim]'),grid=row.closest('.pr-grid[data-start]');
+  if(!card||!grid)return;
+  var dim=card.getAttribute('data-dim'),s=grid.getAttribute('data-start'),e=grid.getAttribute('data-end');
+  if(!dim||!s||!e)return;
+  if(modal.parentElement!==document.body)document.body.appendChild(modal);
+  document.getElementById('rkmTitle').textContent=(TITLE[dim]||'')+' · 完整排名';
+  document.getElementById('rkmTag').textContent=(s===e)?s:(s+' ~ '+e);
+  var list=document.getElementById('rkmList');
+  list.innerHTML='<div class="ev-empty">加载中…</div>';modal.style.display='';
+  fetch('/api/profit_ranking?dim='+encodeURIComponent(dim)+'&start='+s+'&end='+e+'&top=5000')
+   .then(function(r){if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});return r.json();})
+   .then(function(d){
+     var h='';(d.items||[]).forEach(function(it,i){
+       var nm=esc(it.name);
+       h+='<div class="ev-row rk-row"><span class="rk-no">'+(it.unfilled?'⚠':(i+1))+'</span>'+
+          '<span class="ev-name" title="'+nm+'" data-tip="'+esc(nm)+'">'+nm+'</span>'+
+          '<span class="ev-track"></span>'+
+          '<span class="ev-amt">'+esc(it.revenue_disp)+'</span>'+
+          '<span class="rk-meta">'+esc(it.margin_disp)+'</span></div>';});
+     list.innerHTML='<div class="ev-list">'+(h||'<div class="ev-empty">本期无数据</div>')+'</div>';
+   }).catch(function(err){list.innerHTML='<div class="ev-empty">加载失败：'+esc(err.message)+
+     '（要在服务器版页面用；file:// 快照不支持）</div>';});
+ });
+})();
+"""
 
 
 # ---------- 全局周期选择器（下拉菜单）----------
@@ -821,7 +868,7 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script>{JS}{EXPORT_JS}{DAILY_JS}{PW_JS}</script>
+<script>{JS}{EXPORT_JS}{DAILY_JS}{PROFIT_JS}{PW_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
