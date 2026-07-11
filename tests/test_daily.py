@@ -134,6 +134,18 @@ class TestDailyEndpoint(unittest.TestCase):
     def test_read_only_no_write_route(self):
         self.assertEqual(self.anon.post("/api/daily", json={}).status_code, 405)
 
+    def test_top_param_full_ranking(self):
+        """top=2000 拿全量（「其余点开看明细」用）：items 含全部名字、others 消失；top 越界被钳制不报错。"""
+        r = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "2000"})
+        d = r.json()
+        rk = d["rankings"]["orders_by_dept"]
+        self.assertIsNone(rk["others"])
+        self.assertEqual({i["name"] for i in rk["items"]}, {"部门A", "部门B"})
+        r2 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "999999"})
+        self.assertEqual(r2.status_code, 200)
+        r3 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "1"})
+        self.assertIsNotNone(r3.json()["rankings"]["orders_by_dept"]["others"])
+
 
 class TestDailyFrontend(unittest.TestCase):
     def test_user_page_has_entry_and_no_math(self):
@@ -145,7 +157,8 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
-        for token in ("dailyBtn", "dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose", "daily-row"):
+        for token in ("dailyBtn", "dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
+                      "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start="):
             self.assertIn(token, html, token)
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, html)

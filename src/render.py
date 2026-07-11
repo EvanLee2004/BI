@@ -339,8 +339,9 @@ def _rank_amt(v):
     return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
 
 
-def _rank_card(title, tag, rk):
-    """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。"""
+def _rank_card(title, tag, rk, kind=""):
+    """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。
+    kind=接口里 rankings 的键（orders_by_dept…），「其余」行点开全量明细时前端用它取数。"""
     items = (rk or {}).get("items") or []
     unfilled = (rk or {}).get("unfilled")
     if not items and not unfilled:
@@ -359,8 +360,9 @@ def _rank_card(title, tag, rk):
                         f'<span class="rk-meta">{it["count"]}笔·{share}</span></div>')
         others = rk.get("others")
         if others:
-            rows.append(f'<div class="ev-row rk-row rk-others"><span class="rk-no">…</span>'
-                        f'<span class="ev-name">其余 {others["names"]} 个</span>'
+            rows.append(f'<div class="ev-row rk-row rk-others rk-more" title="点开看 10 名以后的完整明细">'
+                        f'<span class="rk-no">…</span>'
+                        f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
                         f'<span class="rk-meta">{others["count"]}笔</span></div>')
@@ -372,15 +374,16 @@ def _rank_card(title, tag, rk):
                         f'<span class="ev-amt">{_rank_amt(unfilled["amount"])}</span>'
                         f'<span class="rk-meta">{unfilled["count"]}笔·待归类</span></div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
-    return (f'<div class="card"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
+    return (f'<div class="card" data-kind="{_esc(kind)}"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
 
 
 def render_rankings(p):
     rk = p.get("rankings") or {}
-    return (f'<div class="grid-3 rk-grid">'
-            f'{_rank_card("下单 · 按部门", "期内下单额降序 · 智云", rk.get("orders_by_dept"))}'
-            f'{_rank_card("下单 · 按销售", "期内下单额降序 · 智云", rk.get("orders_by_sales"))}'
-            f'{_rank_card("回款 · 按客户", "期内到账额降序 · 智云", rk.get("receipts_by_customer"))}'
+    s, e = p.get("range", ("", ""))
+    return (f'<div class="grid-3 rk-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
+            f'{_rank_card("下单 · 按部门", "期内下单额降序 · 智云", rk.get("orders_by_dept"), "orders_by_dept")}'
+            f'{_rank_card("下单 · 按销售", "期内下单额降序 · 智云", rk.get("orders_by_sales"), "orders_by_sales")}'
+            f'{_rank_card("回款 · 按客户", "期内到账额降序 · 智云", rk.get("receipts_by_customer"), "receipts_by_customer")}'
             f'</div>')
 
 
@@ -500,84 +503,102 @@ EXPORT_JS = r"""
 # 铁律10：接口返回的部门/销售/客户名是自由文本，插 HTML 前必过 esc。file:// 打开时 fetch 失败给提示。
 DAILY_HTML = """
 <div class="card" id="dailyPanel" style="display:none;margin-bottom:16px">
-  <div class="card-h">按时间段看 <span class="tag">选起止日期 · 只有下单/回款能按天算准（费用/利润按月，仍看上面板块）</span>
+  <div class="card-h">按时间段看 <span class="tag">选起止日期（看一天就两个都选同一天）· 下方三张排名卡直接按这段统计 · 费用/利润按月仍看上面板块</span>
     <button class="toggle daily-close" id="dailyClose"><span>✕</span> 收起并还原</button></div>
   <div class="daily-bar">
     <input type="date" id="dailyS"> ~ <input type="date" id="dailyE">
     <button class="toggle" id="dailyGo">查询</button>
-    <span class="daily-note">查询后，下方排名卡就切成这个时间段的数；<b>点逐日表某一行=只看那一天</b>，再点一次恢复整段；「✕ 收起并还原」回到跟随顶部周期。</span>
+    <span id="dailySum" class="daily-note"></span>
   </div>
-  <div id="dailyOut"></div>
+</div>
+<div id="rkModal" style="display:none">
+  <div class="rkm-box">
+    <div class="card-h"><span id="rkmTitle"></span> <span class="tag" id="rkmTag"></span>
+      <button class="toggle daily-close" id="rkmClose"><span>✕</span> 关闭</button></div>
+    <div class="rkm-list" id="rkmList"></div>
+  </div>
 </div>"""
 
 DAILY_JS = """
 (function(){
  var btn=document.getElementById('dailyBtn'),panel=document.getElementById('dailyPanel');
  if(!btn||!panel)return;
- var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE');
+ var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE'),sum=document.getElementById('dailySum');
  var rkGlobal=document.getElementById('rankViews'),rkCustom=document.getElementById('rkCustom');
- var range=null,dayPick=null;   // range={s,e}=当前查询段；dayPick=单选的那天（null=看整段）
+ var range=null;   // {s,e}=当前生效的自定义段；null=跟随顶部全局周期
+ var KIND_TITLE={orders_by_dept:'下单 · 按部门',orders_by_sales:'下单 · 按销售',receipts_by_customer:'回款 · 按客户'};
  function pad(n){return (n<10?'0':'')+n;}
  function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
  var today=new Date();
  iE.value=iso(today);iS.value=iso(new Date(today.getFullYear(),today.getMonth(),1));
+ iS.addEventListener('change',function(){if(iE.value<iS.value)iE.value=iS.value;}); // 看一天：选起始日自动带上同一天
  var esc=function(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){
    return({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c];});};
  // 唯一一套排名卡：自定义模式=隐藏预渲染卡、显示同位置的动态卡（标签写明区间），还原=反向
  function restore(){rkCustom.style.display='none';rkCustom.innerHTML='';
-   rkGlobal.style.display='';panel.style.display='none';range=null;dayPick=null;
-   document.getElementById('dailyOut').innerHTML='';}
+   rkGlobal.style.display='';panel.style.display='none';range=null;sum.textContent='';}
  btn.addEventListener('click',function(){
    if(panel.style.display==='none'){panel.style.display='';}else{restore();}});
  document.getElementById('dailyClose').addEventListener('click',restore);
- function rkHtml(title,rk,tag){
-  var h='<div class="card"><div class="card-h">'+title+' <span class="tag">'+esc(tag)+'</span></div><div class="ev-list rk-list">';
-  var items=(rk&&rk.items)||[];
-  if(!items.length&&!(rk&&rk.unfilled))h+='<div class="ev-empty">本期无数据</div>';
+ function rowsHtml(rk){
+  var h='',items=(rk&&rk.items)||[];
+  if(!items.length&&!(rk&&rk.unfilled))return '<div class="ev-empty">本期无数据</div>';
   items.forEach(function(it,i){h+='<div class="ev-row rk-row"><span class="rk-no">'+(i+1)+'</span>'+
     '<span class="ev-name" title="'+esc(it.name)+'">'+esc(it.name)+'</span><span class="ev-track"></span>'+
     '<span class="ev-amt">'+esc(it.disp)+'</span><span class="rk-meta">'+it.count+'笔</span></div>';});
-  if(rk&&rk.others)h+='<div class="ev-row rk-row rk-others"><span class="rk-no">…</span><span class="ev-name">其余 '+rk.others.names+' 个</span>'+
+  if(rk&&rk.others)h+='<div class="ev-row rk-row rk-others rk-more" title="点开看 10 名以后的完整明细"><span class="rk-no">…</span>'+
+    '<span class="ev-name">其余 '+rk.others.names+' 个 <span class="rk-open">点开看明细 ›</span></span>'+
     '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.others.disp)+'</span><span class="rk-meta">'+rk.others.count+'笔</span></div>';
   if(rk&&rk.unfilled)h+='<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span><span class="ev-name">（未填）</span>'+
     '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.unfilled.disp)+'</span><span class="rk-meta">'+rk.unfilled.count+'笔·待归类</span></div>';
-  return h+'</div></div>';}
- function query(s,e,keepTable){
-  var out=document.getElementById('dailyOut');
-  if(!keepTable)out.innerHTML='<div class="ev-empty">查询中…</div>';
+  return h;}
+ function rkHtml(kind,rk,tag){
+  return '<div class="card" data-kind="'+kind+'"><div class="card-h">'+KIND_TITLE[kind]+' <span class="tag">'+esc(tag)+'</span></div>'+
+    '<div class="ev-list rk-list">'+rowsHtml(rk)+'</div></div>';}
+ document.getElementById('dailyGo').addEventListener('click',function(){
+  var s=iS.value,e=iE.value;
+  if(!s||!e){sum.textContent='请选起止日期';return;}
+  sum.textContent='查询中…';
   fetch('/api/daily?start='+s+'&end='+e).then(function(r){
     if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
     return r.json();
   }).then(function(d){
-    if(!keepTable){ // 整段查询：重画逐日表（行可点=只看那天）
-      var h='<div class="daily-wrap"><table class="daily-tbl"><tr><th>日期（点行=只看那天）</th><th>下单额</th><th>笔数</th><th>回款额</th><th>笔数</th></tr>';
-      if(!d.days.length)h+='<tr><td colspan="5" class="ev-empty">区间内无下单/回款</td></tr>';
-      d.days.forEach(function(r){h+='<tr class="daily-row" data-day="'+esc(r.day)+'"><td>'+esc(r.day)+'</td><td>'+esc(r.orders_disp)+'</td><td>'+r.orders_count+
-        '</td><td>'+esc(r.receipts_disp)+'</td><td>'+r.receipts_count+'</td></tr>';});
-      h+='<tr class="daily-total"><td>合计</td><td>'+esc(d.totals.orders_disp)+'</td><td>'+d.totals.orders_count+
-        '</td><td>'+esc(d.totals.receipts_disp)+'</td><td>'+d.totals.receipts_count+'</td></tr></table></div>';
-      out.innerHTML=h;
-      out.querySelectorAll('.daily-row').forEach(function(tr){tr.addEventListener('click',function(){
-        var day=tr.dataset.day;
-        if(dayPick===day){dayPick=null;markRows();query(range.s,range.e,true);}   // 再点一次=恢复整段
-        else{dayPick=day;markRows();query(day,day,true);}});});
-    }
-    markRows();
-    var tag=(s===e)?('只看 '+s+' · 点行还原'):(s+' ~ '+e);
-    rkCustom.innerHTML='<div class="grid-3 rk-grid">'+
-      rkHtml('下单 · 按部门',d.rankings.orders_by_dept,tag)+
-      rkHtml('下单 · 按销售',d.rankings.orders_by_sales,tag)+
-      rkHtml('回款 · 按客户',d.rankings.receipts_by_customer,tag)+'</div>';
+    range={s:s,e:e};
+    sum.innerHTML='这段合计：下单 <b>'+esc(d.totals.orders_disp)+'</b>·'+d.totals.orders_count+
+      '笔 ｜ 回款 <b>'+esc(d.totals.receipts_disp)+'</b>·'+d.totals.receipts_count+'笔';
+    var tag=(s===e)?('只看 '+s):(s+' ~ '+e);
+    rkCustom.innerHTML='<div class="grid-3 rk-grid" data-start="'+esc(s)+'" data-end="'+esc(e)+'">'+
+      rkHtml('orders_by_dept',d.rankings.orders_by_dept,tag)+
+      rkHtml('orders_by_sales',d.rankings.orders_by_sales,tag)+
+      rkHtml('receipts_by_customer',d.rankings.receipts_by_customer,tag)+'</div>';
     rkGlobal.style.display='none';rkCustom.style.display='';
-  }).catch(function(err){out.innerHTML='<div class="ev-empty">查询失败：'+esc(err.message)+
-    '（此功能要在服务器版页面用；file:// 双击打开的快照不支持）</div>';});}
- function markRows(){document.querySelectorAll('.daily-row').forEach(function(tr){
-   tr.classList.toggle('sel',tr.dataset.day===dayPick);});}
- document.getElementById('dailyGo').addEventListener('click',function(){
-  var s=iS.value,e=iE.value;
-  if(!s||!e){document.getElementById('dailyOut').innerHTML='<div class="ev-empty">请选起止日期</div>';return;}
-  range={s:s,e:e};dayPick=null;query(s,e,false);
+  }).catch(function(err){sum.textContent='查询失败：'+err.message+
+    '（要在服务器版页面用；file:// 快照不支持）';});
  });
+ // 「其余 N 个」点开全量明细：预渲染卡与自定义卡共用（区间取最近的 data-start/end）
+ var modal=document.getElementById('rkModal');
+ document.addEventListener('click',function(ev){
+  var row=ev.target.closest?ev.target.closest('.rk-more'):null;
+  if(!row)return;
+  var card=row.closest('.card'),grid=row.closest('[data-start]');
+  if(!card||!grid)return;
+  var kind=card.dataset.kind,s=grid.dataset.start,e=grid.dataset.end;
+  if(!kind||!s||!e)return;
+  document.getElementById('rkmTitle').textContent=(KIND_TITLE[kind]||'')+' · 完整排名';
+  document.getElementById('rkmTag').textContent=(s===e)?s:(s+' ~ '+e);
+  var list=document.getElementById('rkmList');
+  list.innerHTML='<div class="ev-empty">加载中…</div>';modal.style.display='';
+  fetch('/api/daily?start='+s+'&end='+e+'&top=2000').then(function(r){
+    if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
+    return r.json();
+  }).then(function(d){
+    var rk=d.rankings[kind]||{};
+    list.innerHTML='<div class="ev-list">'+rowsHtml(rk)+'</div>';
+  }).catch(function(err){list.innerHTML='<div class="ev-empty">加载失败：'+esc(err.message)+
+    '（要在服务器版页面用；file:// 快照不支持）</div>';});
+ });
+ document.getElementById('rkmClose').addEventListener('click',function(){modal.style.display='none';});
+ modal.addEventListener('click',function(ev){if(ev.target===modal)modal.style.display='none';});
 })();
 """
 

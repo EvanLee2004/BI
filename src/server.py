@@ -863,7 +863,7 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
 
     @app.get("/api/daily")
-    def api_daily(start: str = Query(""), end: str = Query("")):
+    def api_daily(start: str = Query(""), end: str = Query(""), top: int = Query(10)):
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
         公开（与用户页同级、不含比排名更敏感的数据）；**纯只读**、无任何写路径；
         金额显示串全部后端算好（铁律2：前端不做金额运算）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
@@ -877,6 +877,7 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
         if (e - s).days > 366:
             raise HTTPException(status_code=400, detail="区间最长 366 天")
+        top = max(1, min(2000, int(top)))   # 排名条数：默认前10，「其余点开看明细」传 2000 拿全量
         conn = db.connect(cfg, root)
         try:
             orders = db.load_orders(cfg, conn)
@@ -885,7 +886,7 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         import charts
         import profit as _profit
-        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e)
+        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top)
 
         def _wan(v):   # 显示串：与排名卡一致（负数全角−）
             return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"

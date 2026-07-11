@@ -349,6 +349,7 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     for key, (label, start, end, group) in ranges.items():
         P[key] = build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                               ledger_rows, ledger_year, lcols, filled_manual, label, start, end, today)
+        P[key]["range"] = (start.isoformat(), end.isoformat())   # 排名卡「其余」点开全量明细要带的区间
         fine[key] = compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lcols)
         by_dept[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "预算归属部门")
         by_pc[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "业务BU")

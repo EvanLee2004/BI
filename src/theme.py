@@ -214,10 +214,16 @@ body{
 .daily-tbl th:first-child,.daily-tbl td:first-child{text-align:left}
 .daily-tbl th{color:var(--mut);font-weight:600}
 .daily-total td{font-weight:700;color:var(--accent);border-top:1px solid var(--line-2)}
-.daily-row{cursor:pointer}
-.daily-row:hover{background:rgba(34,211,238,.06)}
-.daily-row.sel td{background:rgba(34,211,238,.14);color:var(--accent);font-weight:700}
 .daily-close{margin-left:auto}
+/* 「其余 N 个」点开全量明细 */
+.rk-more{cursor:pointer}
+.rk-more:hover{background:rgba(34,211,238,.1)}
+.rk-open{color:var(--accent);font-size:11px;margin-left:4px}
+#rkModal{position:fixed;inset:0;z-index:60;background:rgba(2,8,20,.72);display:flex;align-items:center;justify-content:center;padding:20px}
+.rkm-box{background:var(--panel,#0b1526);border:1px solid var(--line-2);border-radius:12px;max-width:560px;width:100%;
+ max-height:80vh;display:flex;flex-direction:column;padding:14px 16px;box-shadow:0 18px 60px #000a}
+.rkm-list{overflow-y:auto;margin-top:8px}
+.rkm-list .ev-list{max-height:none;overflow:visible}
 .rk-unfilled{opacity:.62}
 .rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}
 .rk-unfilled .rk-no{color:#f59e0b;font-size:12px}
