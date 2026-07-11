@@ -206,7 +206,7 @@ class TestRenderGuards(unittest.TestCase):
 class TestReceiptsBudgetLayout(unittest.TestCase):
     """回款情况 + 部门费用预算执行：填了年预算 → 同一 grid-2e 两列并排（各半宽变小）；
     没填 → 回款独占整宽、不塞进半吊空列（预算卡本就不渲染）。"""
-    GRID = '<div class="grid-2e" style="margin-top:16px"><div class="period-receipts">'
+    GRID = '<div class="grid-2e rb-grid" style="margin-top:16px"><div class="period-receipts">'
     FULL = '<div class="period-receipts" style="margin-top:16px">'
     # 预算卡真正渲染才有的唯一标记（"部门费用预算执行"整词在 CSS 注释里恒在，不能拿来判断）
     BUDGET_CARD = "已用/年预算 · 口径：台账白名单内含税"

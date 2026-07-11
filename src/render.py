@@ -324,8 +324,8 @@ def render_receipts(receipt_order_monthly, budget=None):
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
     return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 柱=到账额，线=每月回款下单率</span>'
             f'{_budget_tag(budget)}</div>'
-            f'{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}'
-            f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div>')
+            f'<div class="rc-body">{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}'
+            f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div></div>')
 
 
 # ---------- 板块③ 下单与回款排名（随周期切）----------
@@ -836,7 +836,7 @@ def render_dashboard(summary, cfg, logo_b64):
     receipts_html = render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))
     budget_html = render_dept_budget(meta.get('dept_budget'))
     if budget_html:
-        receipts_budget = (f'<div class="grid-2e" style="margin-top:16px">'
+        receipts_budget = (f'<div class="grid-2e rb-grid" style="margin-top:16px">'
                            f'<div class="period-receipts">{receipts_html}</div>{budget_html}</div>')
     else:
         receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'

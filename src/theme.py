@@ -48,7 +48,7 @@ body{
 .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;
   padding:13px 24px;margin:0 0 8px;background:var(--tb);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line)}
-.tb-logo{height:26px;width:auto;border-radius:5px}
+.tb-logo{height:40px;width:auto;border-radius:6px}
 .tb-title{font-size:16px;font-weight:600;letter-spacing:.5px}
 .tb-title b{color:var(--accent)}
 .tb-sub{font-size:11.5px;color:var(--mut2);margin-left:2px}
@@ -144,6 +144,15 @@ body{
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
+/* 回款情况 + 部门费用预算执行：完全平行的等高对称两卡——两张卡拉到同高（stretch），
+   矮的那张内容纵向居中、不留底部空白（回款图/预算列表在卡内垂直居中） */
+.rb-grid{align-items:stretch}
+.rb-grid > .period-receipts{display:flex}
+.rb-grid > .period-receipts > .card{flex:1 1 auto;width:100%}
+.rb-grid > .period-receipts > .card,.rb-grid > .card{display:flex;flex-direction:column}
+.rb-grid .card > .card-h{flex:0 0 auto}
+.rb-grid .rc-body{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.rb-grid .bud-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
 .pl-card > .card-h{flex:0 0 auto}
