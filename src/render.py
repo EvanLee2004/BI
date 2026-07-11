@@ -430,7 +430,9 @@ JS = """
   function applyPeriod(key,label){window._curBlk=key;
     document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
     pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
-    ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});}
+    ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});
+    if(window._syncDailyDates)window._syncDailyDates(key);}
+  window.applyPeriod=applyPeriod;
   function markMonths(a,b){ppanel.querySelectorAll('.pp-m').forEach(function(x){
     var m=+x.getAttribute('data-m');
     x.classList.toggle('sel',a!==null&&b!==null&&m>=a&&m<=b);
@@ -554,48 +556,63 @@ EXPORT_JS = r"""
 """
 
 
-# ---------- 按天明细（迭代计划13批次B）：非预渲染，前端请求 /api/daily 动态展示 ----------
+# ---------- 按天明细（迭代17 批次A：常显 + 跟顶 + 返回默认全年）----------
 # 铁律2：金额显示串全部由 /api/daily 后端算好（*_disp），这里的 JS 只拼字符串、零金额运算；
 # 铁律10：接口返回的部门/销售/客户名是自由文本，插 HTML 前必过 esc。file:// 打开时 fetch 失败给提示。
+# 顶部「看哪段」不动；本面板只改板块③排名（查询才打 /api/daily；跟顶只改日期框）。
 DAILY_HTML = """
-<div class="card" id="dailyPanel" style="display:none;margin-bottom:16px">
-  <div class="card-h">按时间段看 <span class="tag">选起止日期（看一天就两个都选同一天）· 下方三张排名卡直接按这段统计 · 费用/利润按月仍看上面板块</span>
-    <button class="toggle daily-close" id="dailyClose"><span>✕</span> 收起并还原</button></div>
+<div class="card" id="dailyPanel" style="margin-bottom:16px">
+  <div class="card-h">按时间段看 <span class="tag">默认跟顶部周期 · 可改任意起止日查询 · 费用/利润按月仍看上面板块</span>
+    <button class="toggle daily-close" id="dailyClose" type="button">返回默认（年）</button></div>
   <div class="daily-bar">
     <input type="date" id="dailyS"> ~ <input type="date" id="dailyE">
-    <button class="toggle" id="dailyGo">查询</button>
+    <button class="toggle" id="dailyGo" type="button">查询</button>
     <span id="dailySum" class="daily-note"></span>
   </div>
 </div>
 <div id="rkModal" style="display:none">
   <div class="rkm-box">
     <div class="card-h"><span id="rkmTitle"></span> <span class="tag" id="rkmTag"></span>
-      <button class="toggle daily-close" id="rkmClose"><span>✕</span> 关闭</button></div>
+      <button class="toggle daily-close" id="rkmClose" type="button"><span>✕</span> 关闭</button></div>
     <div class="rkm-list" id="rkmList"></div>
   </div>
 </div>"""
 
 DAILY_JS = """
 (function(){
- var btn=document.getElementById('dailyBtn'),panel=document.getElementById('dailyPanel');
- if(!btn||!panel)return;
+ var panel=document.getElementById('dailyPanel');
+ if(!panel)return;
  var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE'),sum=document.getElementById('dailySum');
  var rkGlobal=document.getElementById('rankViews'),rkCustom=document.getElementById('rkCustom');
- var range=null;   // {s,e}=当前生效的自定义段；null=跟随顶部全局周期
+ var range=null;   // {s,e}=当前生效的自定义日段；null=跟顶部预渲染排名
  var KIND_TITLE={orders_by_dept:'下单 · 按部门',orders_by_sales:'下单 · 按销售',receipts_by_customer:'回款 · 按客户'};
- function pad(n){return (n<10?'0':'')+n;}
- function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
- var today=new Date();
- iE.value=iso(today);iS.value=iso(new Date(today.getFullYear(),today.getMonth(),1));
- iS.addEventListener('change',function(){if(iE.value<iS.value)iE.value=iS.value;}); // 看一天：选起始日自动带上同一天
+ function yearStr(){var b=document.getElementById('periodBtn');return b?b.getAttribute('data-year'):'';}
+ function yearKey(){return yearStr()+'年';}
+ function yearRange(){var y=yearStr();return {s:y+'-01-01',e:y+'-12-31'};}
+ /** 从预渲染排名块读该周期起止日（后端已写 data-start/end）；无则回退全年。纯字符串，零金额运算。 */
+ function datesForKey(key){
+  var el=document.querySelector('#rankViews .pv[data-blk="'+key+'"] .rk-grid[data-start]');
+  if(el){var s=el.getAttribute('data-start')||'',e=el.getAttribute('data-end')||'';
+    if(s&&e)return {s:s,e:e};}
+  return yearRange();}
+ function fillDates(se){if(!se)return;iS.value=se.s;iE.value=se.e;}
+ /** 非自定义态：日期框跟顶部；不请求 /api/daily。 */
+ window._syncDailyDates=function(key){if(range!==null)return;fillDates(datesForKey(key||window._curBlk||yearKey()));};
+ // 首屏默认全年起止（顶部默认全年）
+ fillDates(yearRange());
+ iS.addEventListener('change',function(){if(iE.value&&iE.value<iS.value)iE.value=iS.value;});
  var esc=function(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){
    return({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c];});};
- // 唯一一套排名卡：自定义模式=隐藏预渲染卡、显示同位置的动态卡（标签写明区间），还原=反向
- function restore(){rkCustom.style.display='none';rkCustom.innerHTML='';
-   rkGlobal.style.display='';panel.style.display='none';range=null;sum.textContent='';}
- btn.addEventListener('click',function(){
-   if(panel.style.display==='none'){panel.style.display='';}else{restore();}});
- document.getElementById('dailyClose').addEventListener('click',restore);
+ /** 返回默认（年）：清自定义、排名回预渲染全年、顶部切全年、日期回全年。 */
+ function restoreYear(){
+  range=null;sum.textContent='';
+  if(rkCustom){rkCustom.style.display='none';rkCustom.innerHTML='';}
+  if(rkGlobal)rkGlobal.style.display='';
+  var yk=yearKey(),yl=yearStr()+'年';
+  if(window.applyPeriod)window.applyPeriod(yk,yl);
+  else{window._curBlk=yk;fillDates(yearRange());}
+ }
+ document.getElementById('dailyClose').addEventListener('click',restoreYear);
  function rowsHtml(rk){
   var h='',items=(rk&&rk.items)||[];
   if(!items.length&&!(rk&&rk.unfilled))return '<div class="ev-empty">本期无数据</div>';
@@ -703,8 +720,7 @@ def render_dashboard(summary, cfg, logo_b64):
  <div style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
  {render_dept_budget(meta.get('dept_budget'))}
 
- <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span>
-  <button class="toggle daily-btn" id="dailyBtn"><span>▦</span> 按时间段看</button></div>
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span></div>
  {DAILY_HTML}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
@@ -736,16 +752,35 @@ def _bu_pending_row(name, note):
             f'<span class="pl-amt" style="color:var(--mut2);font-size:12px">{_esc(note)}</span></div>')
 
 
-def render_bu_pl_table(p):
-    """BU 版利润表：结构与全公司版一致（全口径），但公共费用/手填项标注待补、不出 ¥0 假数。"""
+def render_bu_pl_table(p, alloc_meta=None):
+    """BU 版利润表：结构与全公司版一致（全口径）。
+    分摊关：公共费用/手填项标注待补、不出 ¥0 假数。
+    分摊开：5 类公共费用显示按比例分摊额（服务端已算好），手填仍待补。"""
+    alloc = alloc_meta or {}
+    on = bool(alloc.get("enabled"))
+    rdisp = _esc(alloc.get("ratio_disp") or "")
     rows = [_row("收入（不含税）", p["revenue_net"], "system", "智云交付额÷1.06")]
     rows.append(_open_row("cost", "成本（生产成本·未含手填项）", -p["production_cost"]))
     rows.append(_row("毛利", p["gross_profit"], "", total=True))
-    for nm in ("营销费用", "管理费用", "固定运营费用", "研发费用", "财务费用"):
-        rows.append(_bu_pending_row(nm, "公共费用·暂不分摊"))
+    if on:
+        exp = p.get("expense") or {}
+        for nm in ("营销费用", "管理费用", "固定运营费用", "研发费用", "财务费用"):
+            rows.append(_row(nm, -float(exp.get(nm) or 0), "ledger",
+                             f"公共费用按 {rdisp} 分摊" if rdisp else "公共费用分摊"))
+        pretax_label = "税前利润（=毛利−分摊公共−附加税费）"
+        kind_tip = f"台账 5 类公共费用按本 BU {rdisp} 从全公司分摊（守恒）"
+        kind_label = f"公共费用·按{rdisp}分摊" if rdisp else "公共费用·已分摊"
+        tag_note = f"公共费用按 {rdisp} 分摊" if rdisp else "公共费用已分摊"
+    else:
+        for nm in ("营销费用", "管理费用", "固定运营费用", "研发费用", "财务费用"):
+            rows.append(_bu_pending_row(nm, "公共费用·暂不分摊"))
+        pretax_label = "税前利润（=毛利−附加税费）"
+        kind_tip = "公共费用（台账）暂不分摊到 BU；可在管理端开启分摊比例"
+        kind_label = "公共费用·暂不分摊"
+        tag_note = "公共费用与手填项待补"
     rows.append(_row("附加税费", -p["surtax"], "system", "增值税×12%"))
     rows.append(_bu_pending_row("其他损益", "待陆总手填"))
-    rows.append(_row("税前利润（=毛利−附加税费）", p["pretax_profit"], "", grand=True))
+    rows.append(_row(pretax_label, p["pretax_profit"], "", grand=True))
 
     cost_inner = (_drow("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
                   + _drow("减：系统内部译员成本", p["inhouse_cost"], "system", "in-house结算")
@@ -754,15 +789,15 @@ def render_bu_pl_table(p):
                     '<span class="src">待陆总按 BU 手填·未计入</span></div>'
                     '<span class="pl-amt" style="color:var(--mut2);font-size:12px">待手填</span></div>')
     details = _detail_block("cost", "成本（生产成本）构成", cost_inner)
-    kinds = ('<div class="kinds"><span class="ktip" data-tip="智云系统自动取数，已按本 BU 销售名单过滤">'
-             '<i style="background:var(--kind-system)"></i>智云系统</span>'
-             '<span class="ktip" data-tip="公共费用（台账）暂不分摊到 BU；分摊比例细则待陆总定">'
-             '<i style="background:var(--kind-ledger)"></i>公共费用·暂不分摊</span>'
-             '<span class="ktip" data-tip="人力等手填项待陆总按 BU 填；填法确认后开放">'
-             '<i style="background:var(--kind-manual)"></i>手填·待陆总填</span>'
-             '<span style="margin-left:auto;color:var(--mut2)">点成本行 → 右侧看构成</span></div>')
+    kinds = (f'<div class="kinds"><span class="ktip" data-tip="智云系统自动取数，已按本 BU 销售名单过滤">'
+             f'<i style="background:var(--kind-system)"></i>智云系统</span>'
+             f'<span class="ktip" data-tip="{_esc(kind_tip)}">'
+             f'<i style="background:var(--kind-ledger)"></i>{_esc(kind_label)}</span>'
+             f'<span class="ktip" data-tip="人力等手填项待陆总按 BU 填；填法确认后开放">'
+             f'<i style="background:var(--kind-manual)"></i>手填·待陆总填</span>'
+             f'<span style="margin-left:auto;color:var(--mut2)">点成本行 → 右侧看构成</span></div>')
     return (f'<div class="pl">{"".join(rows)}</div>{kinds}'
-            f'<div class="pl-details" hidden>{details}</div>')
+            f'<div class="pl-details" hidden>{details}</div>', tag_note)
 
 
 def render_bu_page(bu_name, summary, cfg, logo_b64):
@@ -773,9 +808,22 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
                 + meta["tab_groups"].get("区间", []))
     logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
-    pl_views = "".join(_pv(k, yk, render_bu_pl_table(P[k])) for k in all_keys)
+    alloc = meta.get("public_allocation") or {"enabled": False}
+    pl_parts, tag_note = [], "公共费用与手填项待补"
+    for k in all_keys:
+        pl_html, tag_note = render_bu_pl_table(P[k], alloc)
+        pl_parts.append(_pv(k, yk, pl_html))
+    pl_views = "".join(pl_parts)
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     name = _esc(bu_name)
+    if alloc.get("enabled"):
+        rdisp = _esc(alloc.get("ratio_disp") or "")
+        faint = (f'仅含 <b>{name}</b> BU 数据（按营销人员归属拆分）；'
+                 f'公共费用按 <b>{rdisp}</b> 从全公司台账分摊、人力等手填项待陆总填 → '
+                 f'本页税前利润=毛利−分摊公共−附加税费。')
+    else:
+        faint = (f'仅含 <b>{name}</b> BU 数据（按营销人员归属拆分，销售→BU 映射待陆总确认）；'
+                 f'公共费用暂不分摊、人力等手填项待陆总填 → 本页税前利润=毛利−附加税费。')
 
     body = f"""
 {PARTICLES_HTML}
@@ -786,11 +834,10 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 {PW_MODAL_HTML}
 <div class="wrap">
- <div class="faint-note" style="margin:10px 0 0">仅含 <b>{name}</b> BU 数据（按营销人员归属拆分，销售→BU 映射待陆总确认）；
- 公共费用暂不分摊、人力等手填项待陆总填 → 本页税前利润=毛利−附加税费。</div>
+ <div class="faint-note" style="margin:10px 0 0">{faint}</div>
  {render_period_bar(summary)}
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">{name} · 管理利润表</span></div>
- <div class="card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · 公共费用与手填项待补</span></div>{pl_views}</div>
+ <div class="card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · {_esc(tag_note)}</span></div>{pl_views}</div>
  <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 下单与回款排名</span></div>
  <div id="rankViews">{rank_views}</div>
  <div class="foot">

@@ -75,7 +75,8 @@ def summary_from_conn(cfg, conn, today):
 
 
 def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
-    """BU 分页（迭代 14·v7.9 账号制）：读 BU 配置 → 每 BU 按销售名单过滤四源行 → 独立 summary → 独立 HTML。
+    """BU 分页（迭代 14·v7.9 账号制 · 迭代17 分摊）：读 BU 配置 → 每 BU 按销售名单过滤四源行
+    → 独立 summary（分摊开时注入全公司台账公共×比例）→ 独立 HTML。
     返回 {BU名: {"name": BU名, "html": 页面}}；没配置/配置无效 → {}（功能不启用，主看板照旧）。
     严格保密由此保证：每页只吃本 BU 过滤后的行，渲染层拿不到其他 BU 的任何数据。"""
     bucfg = bu.load_bu_config(cfg, root)
@@ -85,9 +86,22 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     orders = db.load_orders(cfg, conn)
     receipts = db.load_receipts(cfg, conn)
     inhouse = db.load_inhouse(cfg, conn)
+    alloc_on = bool(bucfg.get("公共费用分摊启用"))
+    company_led = None
+    if alloc_on:
+        # 全公司台账公共费用（按周期）：只取 ledger_expenses，供各 BU × 比例
+        lh, lr = db.load_ledger(cfg, conn)
+        full = profit.build_summary(
+            cfg, project, orders, receipts, inhouse, lh, lr, today.year, today,
+            manual_raw={}, budget_raw=None, dept_budget_raw=None)
+        company_led = {k: p.get("ledger_expenses") or {} for k, p in full["periods"].items()}
     pages: dict[str, dict] = {}
     for b in bucfg["bus"]:
-        s = profit.build_bu_summary(cfg, project, orders, receipts, inhouse, today, set(b["销售"]))
+        s = profit.build_bu_summary(
+            cfg, project, orders, receipts, inhouse, today, set(b["销售"]),
+            company_ledger_by_period=company_led,
+            alloc_ratio_pct=b.get("分摊比例"),
+            alloc_enabled=alloc_on)
         pages[b["name"]] = {"name": b["name"],
                             "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
     return pages

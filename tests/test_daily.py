@@ -157,6 +157,7 @@ class TestDailyEndpoint(unittest.TestCase):
 
 class TestDailyFrontend(unittest.TestCase):
     def test_user_page_has_entry_and_no_math(self):
+        """迭代17 批次A：板块③日期区常显、默认全年、返回默认（年）、跟顶钩子；无折叠入口。"""
         import assets, render
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
@@ -165,11 +166,31 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
-        for token in ("dailyBtn", "dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
-                      "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start="):
+        for token in ("dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
+                      "返回默认（年）", "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start=",
+                      "_syncDailyDates", "restoreYear", "yearRange", "window.applyPeriod"):
             self.assertIn(token, html, token)
+        # 常显：面板不得默认 display:none；无折叠入口 dailyBtn
+        self.assertNotIn('id="dailyPanel" style="display:none', html)
+        self.assertNotIn("dailyBtn", html)
+        self.assertNotIn("收起并还原", html)
+        # 默认全年起止痕迹（数据年）
+        y = str(summary["meta"]["year"])
+        self.assertIn(f"{y}-01-01", html)  # yearRange / data-start 全年
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, html)
+
+    def test_bu_page_has_no_daily_outlet(self):
+        """铁律12：BU 页不得出现 /api/daily 与按时间段控件。"""
+        import assets, render
+        cfg = loaders.load_config()
+        today = loaders.pinned_today(cfg)
+        s = profit.build_bu_summary(
+            cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
+            loaders.load_receipts(cfg), loaders.load_inhouse(cfg), today, {"合成销售"})
+        h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
+        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "返回默认（年）", "dailyGo"):
+            self.assertNotIn(leak, h, leak)
 
 
 if __name__ == "__main__":

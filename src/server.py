@@ -308,8 +308,9 @@ def _join_summary(prefix: str, items: list[str], cap: int = 8) -> str:
     return prefix + "；".join(items[:cap]) + f"；等共 {len(items)} 项"
 
 
-def _diff_bu_config(old_bus: list, new_bus: list) -> list:
-    """销售归属/BU 结构变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
+def _diff_bu_config(old_bus: list, new_bus: list,
+                    old_alloc: bool = False, new_alloc: bool = False) -> list:
+    """销售归属/BU 结构/分摊比例变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
     def sale_map(bus):
         m = {}
         for b in bus:
@@ -333,6 +334,20 @@ def _diff_bu_config(old_bus: list, new_bus: list) -> list:
         out.append(("销售归属", _join_summary("销售归属：", moves)))
     if struct:
         out.append(("BU配置", _join_summary("BU配置：", struct)))
+    # 分摊开关 + 各 BU 比例（不存敏感值，只记百分比数字）
+    alloc_lines = []
+    if bool(old_alloc) != bool(new_alloc):
+        alloc_lines.append(f"公共费用分摊 {'开' if new_alloc else '关'}←{'开' if old_alloc else '关'}")
+    orat = {b["name"]: b.get("分摊比例") for b in old_bus}
+    nrat = {b["name"]: b.get("分摊比例") for b in new_bus}
+    for nm in sorted(set(orat) | set(nrat)):
+        o, n = orat.get(nm), nrat.get(nm)
+        if o != n:
+            def _fmt(v):
+                return "空" if v is None else f"{v:g}%"
+            alloc_lines.append(f"{nm} {_fmt(o)}→{_fmt(n)}")
+    if alloc_lines:
+        out.append(("分摊", _join_summary("分摊：", alloc_lines)))
     return out
 
 
@@ -717,6 +732,15 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
           <div class="bu-cols" id="buCols"></div>
         </div>
         <table id="buTbl" style="display:none"></table>
+        <div id="buAllocBox" style="margin-top:16px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">
+          <div style="font-weight:600;margin-bottom:6px">公共费用分摊</div>
+          <div class="muted" style="font-size:12px;margin-bottom:10px">默认「暂不分摊」：BU 页公共费用行不显示金额。开启后按比例把台账 5 类公共费用摊进各 BU（合计须 100%）；公式在系统里，这里只填比例数字。手填人力不摊。</div>
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
+            <input type="checkbox" id="buAllocPending" checked onchange="buAllocToggle()"> 暂不分摊（推荐默认）
+          </label>
+          <div id="buAllocRows" style="display:none"></div>
+          <div id="buAllocSum" class="muted" style="font-size:12px;margin-top:6px"></div>
+        </div>
       </div>
       <div class="scard-f">
         <button class="ghost mini" type="button" onclick="buAdd()">＋ 加一个 BU</button>
@@ -757,7 +781,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     <span class="field-inline">类别 <select id="auCat" onchange="auLoad()"><option value="">全部</option></select></span>
     <span id="auInfo" class="muted grow"></span>
   </div>
-  <div class="note info">谁在什么时候改了哪项配置（销售归属 / BU / 账号 / 设置 / 密码）都在这里，倒序、最近 200 条。只记变更摘要，<b>不含密码明文</b>。</div>
+  <div class="note info">谁在什么时候改了哪项配置（销售归属 / BU / 分摊 / 账号 / 设置 / 密码）都在这里，倒序、最近 200 条。只记变更摘要，<b>不含密码明文</b>。</div>
   <div class="tbl-box lg wrap"><table id="auTbl"></table></div>
 </div>
 
@@ -896,8 +920,8 @@ async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.ac
 async function acctSave(){const m=document.getElementById("acctMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];acctPwShow={};acctRender();
     m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";}catch(e){m.textContent="保存失败："+e.message;}}
-// BU 数据归属（销售归属·A1）：勾选批量指定 或 拖拽进 BU（一人一 BU）
-let buList=[], salesPool=[], buPicked=new Set(), buUnassigned={};  // salesPool:[{name,rows,ref_disp,orders_count}]
+// BU 数据归属（销售归属·A1）+ 公共费用分摊（迭代17·A2）
+let buList=[], salesPool=[], buPicked=new Set(), buUnassigned={}, buAllocEnabled=false;
 function _salesArr(v){if(Array.isArray(v))return v.map(s=>String(s).trim()).filter(Boolean);
   return String(v||"").split(/[、，,;；\n]/).map(s=>s.trim()).filter(Boolean);}
 function _claimedSales(){const s=new Set();buList.forEach(b=>_salesArr(b.销售).forEach(x=>s.add(x)));return s;}
@@ -908,6 +932,27 @@ function _chipHtml(name,withX){const p=salesPool.find(p=>p.name===name)||{};
   return '<span class="bu-chip" draggable="true" data-name="'+esc(name)+'">'
     +'<input type="checkbox" class="bu-cb"'+ck+' data-name="'+esc(name)+'" onchange="buPick(this)" title="勾选后可批量指定 BU">'
     +'<span class="n" title="'+esc(name)+'">'+esc(name)+'</span>'+ref+x+'</span>';}
+function buAllocToggle(){const cb=document.getElementById("buAllocPending");
+  buAllocEnabled=!(cb&&cb.checked);buRenderAlloc();}
+function buRenderAlloc(){const rows=document.getElementById("buAllocRows"),sum=document.getElementById("buAllocSum");
+  const cb=document.getElementById("buAllocPending");if(cb)cb.checked=!buAllocEnabled;
+  if(!rows)return;
+  if(!buAllocEnabled){rows.style.display="none";if(sum)sum.textContent="当前：暂不分摊（BU 页公共费用不摊）";return;}
+  rows.style.display="";
+  rows.innerHTML=buList.map((b,i)=>{
+    const v=b.分摊比例==null?"":b.分摊比例;
+    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
+      +'<span style="min-width:100px">'+esc(b.name||("BU"+(i+1)))+'</span>'
+      +'<input type="number" min="0" max="100" step="0.01" style="width:90px" value="'+esc(v)+'" '
+      +'onchange="buList['+i+'].分摊比例=this.value===\'\'?null:Number(this.value);buRenderAllocSum()" '
+      +'oninput="buList['+i+'].分摊比例=this.value===\'\'?null:Number(this.value);buRenderAllocSum()">'
+      +'<span class="muted">%</span></div>';}).join("")
+    ||'<div class="muted">请先添加 BU</div>';
+  buRenderAllocSum();}
+function buRenderAllocSum(){const sum=document.getElementById("buAllocSum");if(!sum||!buAllocEnabled)return;
+  let t=0,ok=true;buList.forEach(b=>{const r=b.分摊比例;if(r==null||isNaN(r)){ok=false;return;}t+=Number(r);});
+  const diff=Math.abs(t-100);sum.textContent=ok?("合计 "+t.toFixed(2)+"% "+(diff<=0.05?"✓":"← 须为 100% 才能保存")):"合计 —（每 BU 须填 0~100）";
+  sum.style.color=ok&&diff<=0.05?"#86efac":"#fbbf24";}
 // 批量多选归属（勾选若干人→选目标 BU→应用）
 function buPick(cb){const n=cb.getAttribute("data-name");if(cb.checked)buPicked.add(n);else buPicked.delete(n);buRenderBatch();}
 function buClearPick(){buPicked.clear();buRender();}
@@ -979,23 +1024,27 @@ function buRender(){const claimed=_claimedSales();
         +(sales.length?sales.map(n=>_chipHtml(n,true)).join(""):'<div class="bu-empty">拖销售到这里</div>')
         +'</div></div>';}).join("");}}
   _bindDrag(document.getElementById("buBoard"));
-  buRenderBatch();buUpdateUnassignedHint();
+  buRenderBatch();buUpdateUnassignedHint();buRenderAlloc();
   if(acctList.length)acctRender();}
-function buAdd(){buList.push({name:"",负责人:[],销售:[]});buRender();}
+function buAdd(){buList.push({name:"",负责人:[],销售:[],分摊比例:null});buRender();}
 function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;
   buList.splice(i,1);buRender();}
 async function loadBuCfg(){try{
   const [d,pool]=await Promise.all([jget("/api/bu_config"),jget("/api/sales_pool").catch(()=>({sales:[]}))]);
-  buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售)}));
+  buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售),
+    分摊比例:b.分摊比例==null?null:Number(b.分摊比例)}));
+  buAllocEnabled=!!d.公共费用分摊启用;
   salesPool=pool.sales||[];buPicked.clear();
   buUnassigned={unassigned_count:pool.unassigned_count||0,unassigned_orders_disp:pool.unassigned_orders_disp||""};
   buRender();}
   catch(e){document.getElementById("buMsg").textContent="读取失败:"+e.message;}}
 async function buSave(){const m=document.getElementById("buMsg");m.textContent="保存并重算中…";
-  try{// 规范化：负责人字符串→数组
-    const payload=buList.map(b=>({name:b.name,负责人:b.负责人,销售:_salesArr(b.销售)}));
-    const d=await jpost("/api/bu_config",{bus:payload});
-    buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售)}));
+  try{// 规范化：负责人字符串→数组；带分摊比例 + 总开关
+    const payload=buList.map(b=>({name:b.name,负责人:b.负责人,销售:_salesArr(b.销售),分摊比例:b.分摊比例}));
+    const d=await jpost("/api/bu_config",{bus:payload,公共费用分摊启用:buAllocEnabled});
+    buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售),
+      分摊比例:b.分摊比例==null?null:Number(b.分摊比例)}));
+    buAllocEnabled=!!d.公共费用分摊启用;
     buRender();m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();}
   catch(e){m.textContent="保存失败："+e.message;}}
 
@@ -1640,10 +1689,11 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/bu_config")
     def api_bu_config_get(request: Request):
-        """BU 配置（管理员会话）：BU 清单/负责人/销售名单。"""
+        """BU 配置（管理员会话）：BU 清单/负责人/销售名单/分摊比例 + 分摊总开关。"""
         _require(request)
-        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
-        return {"bus": bucfg["bus"], "count": len(bucfg["bus"])}
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": [], "公共费用分摊启用": False}
+        return {"bus": bucfg["bus"], "count": len(bucfg["bus"]),
+                "公共费用分摊启用": bool(bucfg.get("公共费用分摊启用"))}
 
     @app.get("/api/sales_pool")
     def api_sales_pool(request: Request):
@@ -1679,18 +1729,26 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.post("/api/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
-        """保存 BU 数据归属并立即重算重渲染 BU 页（一人一 BU，后写的重复销售丢弃）。C3：变更留痕。"""
+        """保存 BU 数据归属 + 公共费用分摊，并立即重算重渲染 BU 页（一人一 BU）。C3：变更留痕。"""
         user = _require(request)
         bus = payload.get("bus")
         if not isinstance(bus, list):
             raise HTTPException(status_code=400, detail="bus 须为列表")
         if len(bus) > 20:
             raise HTTPException(status_code=400, detail="BU 数量过多（上限 20）")
-        old_bus = (bu.load_bu_config(cfg, root) or {"bus": []})["bus"]
-        saved = bu.save_bu_config(cfg, root, bus)
+        old = bu.load_bu_config(cfg, root) or {"bus": [], "公共费用分摊启用": False}
+        old_bus, old_alloc = old["bus"], bool(old.get("公共费用分摊启用"))
+        new_alloc = bool(payload.get("公共费用分摊启用", False))
+        try:
+            saved = bu.save_bu_config(cfg, root, bus, 公共费用分摊启用=new_alloc)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         recompute(cfg, root)
-        _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"]))
-        return {"bus": saved["bus"], "count": len(saved["bus"]), "note": "已保存并重算"}
+        _audit(cfg, root, user, _diff_bu_config(
+            old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))
+        return {"bus": saved["bus"], "count": len(saved["bus"]),
+                "公共费用分摊启用": bool(saved.get("公共费用分摊启用")),
+                "note": "已保存并重算"}
 
     @app.get("/api/config_changes")
     def api_config_changes(request: Request, category: str | None = None, limit: int = 200):

@@ -122,17 +122,34 @@ class TestBuConfig(_Base):
         cfgd = bu.load_bu_config(self.cfg, self.root)
         self.assertEqual(cfgd["bus"][0]["销售"], ["销售A", "销售B", "销售C"])
 
-    def test_save_normalizes_and_reserves_ratio(self):
-        """保存：规范化落盘；分摊比例本批锁 null；v8.0 起密码字段废弃丢弃。"""
+    def test_save_normalizes_ratio_and_drops_password(self):
+        """保存：规范化落盘；分摊比例可写（关态不强制 100%）；密码字段废弃丢弃。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         saved = bu.save_bu_config(self.cfg, self.root, [
-            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 0.5, "密码hash": "自造hash"},
-            {"name": "BU丙", "销售": ["销售C"]},
-        ])
+            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40, "密码hash": "自造hash"},
+            {"name": "BU丙", "销售": ["销售C"], "分摊比例": 60},
+        ], 公共费用分摊启用=False)
         by = {b["name"]: b for b in saved["bus"]}
-        self.assertIsNone(by["BU甲"]["分摊比例"])
+        self.assertEqual(by["BU甲"]["分摊比例"], 40.0)
+        self.assertEqual(by["BU丙"]["分摊比例"], 60.0)
+        self.assertFalse(saved["公共费用分摊启用"])
         self.assertNotIn("密码hash", by["BU甲"])
         self.assertNotIn("密码hash", by["BU丙"])
+
+    def test_alloc_enabled_requires_sum_100(self):
+        """启用分摊时合计必须≈100%，否则 ValueError。"""
+        with self.assertRaises(ValueError) as cm:
+            bu.save_bu_config(self.cfg, self.root, [
+                {"name": "BU甲", "销售": ["销售A"], "分摊比例": 30},
+                {"name": "BU乙", "销售": ["销售B"], "分摊比例": 30},
+            ], 公共费用分摊启用=True)
+        self.assertIn("100", str(cm.exception))
+        saved = bu.save_bu_config(self.cfg, self.root, [
+            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 40},
+            {"name": "BU乙", "销售": ["销售B"], "分摊比例": 60},
+        ], 公共费用分摊启用=True)
+        self.assertTrue(saved["公共费用分摊启用"])
+        self.assertEqual(sum(b["分摊比例"] for b in saved["bus"]), 100.0)
 
 
 class TestBuConservation(_Base):
@@ -160,7 +177,7 @@ class TestBuConservation(_Base):
         self.assertAlmostEqual(pa["receipts"], 800.0, places=2)
 
     def test_common_expense_zero_and_pretax_formula(self):
-        """公共费用恒 0；BU 税前利润 = 毛利 − 附加税费（手填/台账项都不混入）。"""
+        """分摊关：公共费用恒 0；BU 税前利润 = 毛利 − 附加税费（手填/台账项都不混入）。"""
         proj, orders, receipts, inhouse = self._rows()
         p = profit.build_bu_summary(self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A"})["periods"]["2026年"]
         self.assertEqual(p["expense"]["total"], 0.0)
@@ -170,6 +187,38 @@ class TestBuConservation(_Base):
         self.assertAlmostEqual(p["pretax_profit"], round(p["gross_profit"] - p["surtax"], 2), places=2)
         # 生产成本只含系统项：直接成本 300 − 内部译员 50（手填 6 项恒 0）
         self.assertAlmostEqual(p["production_cost"], 250.0, places=2)
+
+    def test_alloc_conservation_and_pretax(self):
+        """分摊开：ΣBU 公共费用 == 全公司台账公共；税前=毛利−分摊公共−附加税（真实 build_bu_summary）。"""
+        proj, orders, receipts, inhouse = self._rows()
+        yk = "2026年"
+        # 全公司台账 5 类（合成）——与 expense_categories_included 一致
+        led_year = {"市场费用": 1000.0, "管理费用": 2000.0, "固定运营费用": 500.0,
+                    "技术服务费": 300.0, "财务费用": 200.0}
+        company_total = sum(led_year.values())
+        # 给所有周期同一套台账（守恒只验全年；各周期同样×比例）
+        base = profit.build_bu_summary(self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A"})
+        company_led = {k: dict(led_year) for k in base["periods"]}
+        sa = profit.build_bu_summary(
+            self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A"},
+            company_ledger_by_period=company_led, alloc_ratio_pct=40, alloc_enabled=True)
+        sb = profit.build_bu_summary(
+            self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售B"},
+            company_ledger_by_period=company_led, alloc_ratio_pct=60, alloc_enabled=True)
+        pa, pb = sa["periods"][yk], sb["periods"][yk]
+        self.assertAlmostEqual(pa["expense"]["total"] + pb["expense"]["total"], company_total, places=2)
+        for cat, v in led_year.items():
+            self.assertAlmostEqual(
+                pa["ledger_expenses"].get(cat, 0) + pb["ledger_expenses"].get(cat, 0), v, places=2)
+        self.assertAlmostEqual(
+            pa["pretax_profit"],
+            round(pa["gross_profit"] - pa["expense"]["total"] - pa["surtax"], 2), places=2)
+        self.assertTrue(sa["meta"]["public_allocation"]["enabled"])
+        self.assertEqual(sa["meta"]["public_allocation"]["ratio_disp"], "40%")
+        # 关态与现状一致
+        off = profit.build_bu_summary(self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A"})
+        self.assertFalse(off["meta"]["public_allocation"]["enabled"])
+        self.assertEqual(off["periods"][yk]["expense"]["total"], 0.0)
 
     def test_config_change_takes_effect(self):
         """配置增改生效：把销售B 划入 BU甲 → 数字随之变。"""
@@ -194,7 +243,7 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """页面标注：暂不分摊 / 待陆总手填 / 映射待确认；有返回整体；不含全公司出口（导出/按时间段看）。"""
+        """分摊关：暂不分摊 / 待陆总手填 / 映射待确认；有返回整体；不含全公司出口（导出/按时间段看）。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._pages()["BU甲"]["html"]
         self.assertIn("暂不分摊", h)
@@ -204,6 +253,26 @@ class TestBuPages(_Base):
         self.assertIn('href="/"', h)
         self.assertNotIn("exportBtn", h)
         self.assertNotIn("dailyBtn", h)
+        self.assertNotIn("dailyPanel", h)
+        self.assertNotIn("/api/daily", h)
+        self.assertNotIn("按40%分摊", h)  # 未开分摊不显示比例标注
+        self.assertNotIn("按 40%", h)
+
+    def test_page_alloc_on_shows_ratio_not_other_bu(self):
+        """分摊开：本 BU 显示比例分摊标注；不泄漏他 BU 名与他 BU 比例。"""
+        data = {"bus": [
+            {"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"], "分摊比例": 40},
+            {"name": "BU乙", "负责人": ["负责人乙"], "销售": ["销售B"], "分摊比例": 60},
+        ], "公共费用分摊启用": True}
+        p = bu.config_path(self.cfg, self.root)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        h = self._pages()["BU甲"]["html"]
+        self.assertIn("按40%分摊", h)
+        self.assertIn("按 <b>40%</b>", h)  # faint 注记
+        self.assertNotIn("BU乙", h)
+        self.assertNotIn("按60%分摊", h)
+        self.assertNotIn("按 <b>60%</b>", h)
         self.assertNotIn("/api/daily", h)
 
     def test_xss_escaped(self):

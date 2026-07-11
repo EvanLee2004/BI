@@ -416,12 +416,24 @@ def compute_unassigned_orders_by_period(order_rows, assigned_set, cols_cfg, toda
 _BU_EMPTY_LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU",
                            "对应报表大类", "预算明细费用类型", "预算归属部门"]
 
+# 台账 5 类公共费用 → 利润表费用行（分摊只摊台账、不摊手填人力）
+_LEDGER_TO_EXPENSE = {
+    "市场费用": "营销费用",
+    "管理费用": "管理费用",
+    "固定运营费用": "固定运营费用",
+    "技术服务费": "研发费用",
+    "财务费用": "财务费用",
+}
 
-def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set):
+
+def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set,
+                     *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False):
     """单 BU summary：四源行按销售名单过滤后，**复用 build_summary 全套口径**（公式一字不改）。
-    公共费用暂不分摊 → 传空台账（台账费用项恒 0）；手填按 BU 陆总还没填 → 传空手填（恒 0，
-    页面标注"待陆总手填"）；预算不进 BU 页（None）。=> BU 税前利润=毛利−附加税费（其余行待补）。"""
-    return build_summary(
+    公共费用：默认暂不分摊 → 传空台账（台账费用项恒 0）；
+    分摊开且给了比例 → 在空台账结果上按全公司台账 5 类×比例注入（见 apply_public_expense_allocation）。
+    手填按 BU 陆总还没填 → 传空手填（恒 0，页面标注"待陆总手填"）；预算不进 BU 页（None）。
+    默认（关）：税前利润=毛利−附加税费；开：税前=毛利−分摊公共−附加税费。"""
+    s = build_summary(
         cfg,
         filter_rows_by_sales(project_rows, sales_set),
         filter_rows_by_sales(order_rows, sales_set),
@@ -429,6 +441,46 @@ def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, 
         filter_rows_by_sales(inhouse_rows, sales_set),
         list(_BU_EMPTY_LEDGER_HEADER), [], today.year, today,
         manual_raw={}, budget_raw=None, dept_budget_raw=None)
+    if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
+        apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct))
+    else:
+        s.setdefault("meta", {})["public_allocation"] = {
+            "enabled": False, "ratio_pct": None, "ratio_disp": ""}
+    return s
+
+
+def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dict,
+                                    ratio_pct: float) -> None:
+    """就地：把全公司各周期台账 5 类公共费用 × 比例 写入 BU summary 的费用/税前利润。
+    company_ledger_by_period = {周期key: ledger_expenses dict}（来自全公司 build_summary 的 periods[k]['ledger_expenses']）。
+    ratio_pct = 0~100。只摊台账、不摊手填；附加税不动（仍按 BU 自身收入）。守恒：各 BU 比例合计 100% 时
+    ΣBU 各类 == 全公司对应类（测试守卫）。"""
+    factor = float(ratio_pct) / 100.0
+    P = summary.get("periods") or {}
+    for key, p in P.items():
+        led_src = company_ledger_by_period.get(key) or {}
+        led = {}
+        exp = {}
+        total = 0.0
+        for cat, exp_name in _LEDGER_TO_EXPENSE.items():
+            v = round(float(led_src.get(cat) or 0.0) * factor, 2)
+            led[cat] = v
+            exp[exp_name] = v
+            total += v
+        total = round(total, 2)
+        exp["total"] = total
+        p["ledger_expenses"] = led
+        p["expense"] = exp
+        # 手填仍为 0；税前 = 毛利 − 分摊公共 − 附加税 + 其他损益(0)
+        p["pretax_profit"] = round(
+            float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
+        net = float(p.get("revenue_net") or 0)
+        p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
+    summary.setdefault("meta", {})["public_allocation"] = {
+        "enabled": True,
+        "ratio_pct": float(ratio_pct),
+        "ratio_disp": f"{ratio_pct:g}%",
+    }
 
 
 def load_manual_safe(cfg):
