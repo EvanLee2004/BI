@@ -780,6 +780,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     body = f"""
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
+ <a class="bu-back" href="/" title="返回整体看板">← 返回整体</a>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>

@@ -57,6 +57,21 @@ body{
   border-radius:999px;padding:6px 13px;font-size:12px;display:flex;align-items:center;gap:6px;
   font-family:inherit;transition:.2s}
 .toggle:hover{color:var(--ink);border-color:var(--accent)}
+/* BU 页：返回整体（整体/管理员从入口条点进后用；BU 账号点回首页仍是本 BU） */
+.bu-back{display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:6px 14px;
+  border-radius:999px;border:1px solid var(--line-2);background:var(--panel);color:var(--blue);
+  font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;transition:.15s}
+.bu-back:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--panel));color:var(--ink)}
+/* 整体页顶部：业务 BU 分页入口条（字号加大、链接做成芯片更易点） */
+.bu-nav{max-width:1520px;margin:14px auto 0;padding:12px 28px;display:flex;align-items:center;
+  flex-wrap:wrap;gap:10px 14px}
+.bu-nav-label{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.3px;flex-shrink:0}
+.bu-nav-links{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bu-nav-a{display:inline-flex;align-items:center;padding:7px 16px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--panel);color:var(--blue);font-size:14px;
+  font-weight:600;text-decoration:none;transition:.15s}
+.bu-nav-a:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,var(--panel));
+  color:var(--ink)}
 
 /* 分区标题 */
 .sec{margin:26px 0 12px;display:flex;align-items:baseline;gap:10px}
