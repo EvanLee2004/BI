@@ -60,6 +60,7 @@ def norm_project_detail(rows: list[dict[str, str]], c: dict) -> list[dict]:
         out.append({
             "订单号": so, "客户": str(r.get("客户", "")).strip(),
             "业务线": str(r.get("业务线", "")).strip(),
+            "销售": str(r.get("销售") or "").strip(),
             "整单交付日期": iso, "交付额": rev, "项目成本": cost,
             "归属月": ym, "原值_交付日期": iso, "原值_归属月": ym,
             "定位键": _locator(sod, so, iso, rev, cost),
@@ -87,6 +88,7 @@ def norm_receipts(rows: list[dict[str, str]], c: dict) -> list[dict]:
         rid = str(r.get("回款记录ID") or "").strip()
         out.append({"回款ID": rid, "到账日期": iso, "到账金额": amt,
                     "客户": str(r.get("客户") or "").strip(),
+                    "销售": str(r.get("销售") or "").strip(),
                     "归属月": ym, "原值_归属月": ym, "定位键": _locator(rid, rid, iso, amt)})
     return out
 
@@ -104,7 +106,8 @@ def norm_inhouse(rows: list[dict[str, str]], c: dict, cfg: dict) -> list[dict]:
         amt = _amt(r.get(c["inhouse_amount"]))
         tid = str(r.get("任务明细ID") or "").strip()
         out.append({"任务ID": tid, "任务提交日期": iso, "结算金额": amt,
-                    "译员类型": typ, "归属月": ym, "原值_归属月": ym,
+                    "译员类型": typ, "销售": str(r.get("销售") or "").strip(),
+                    "归属月": ym, "原值_归属月": ym,
                     "定位键": _locator(tid, tid, iso, amt)})
     return out
 

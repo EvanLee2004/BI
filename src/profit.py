@@ -391,6 +391,33 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     }
 
 
+# ---------- BU 分页（迭代 14 · 陆总 2026-07-12 拍板：按销售人员归属 BU 拆） ----------
+def filter_rows_by_sales(rows, sales_set, col="销售"):
+    """按「销售」列过滤行（纯函数）。sales_set=该 BU 销售名单集合；名字比对去首尾空白。
+    四源行结构通用（收入明细/下单/回款/内部译员的读回 dict 都带「销售」键）。"""
+    s = {str(x).strip() for x in sales_set if str(x).strip()}
+    return [r for r in rows if str(r.get(col) or "").strip() in s]
+
+
+# 空台账表头（与 db.LEDGER_STD_COLS 同序；BU 口径=公共费用暂不分摊 → 台账费用恒 0）
+_BU_EMPTY_LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU",
+                           "对应报表大类", "预算明细费用类型", "预算归属部门"]
+
+
+def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set):
+    """单 BU summary：四源行按销售名单过滤后，**复用 build_summary 全套口径**（公式一字不改）。
+    公共费用暂不分摊 → 传空台账（台账费用项恒 0）；手填按 BU 陆总还没填 → 传空手填（恒 0，
+    页面标注"待陆总手填"）；预算不进 BU 页（None）。=> BU 税前利润=毛利−附加税费（其余行待补）。"""
+    return build_summary(
+        cfg,
+        filter_rows_by_sales(project_rows, sales_set),
+        filter_rows_by_sales(order_rows, sales_set),
+        filter_rows_by_sales(receipt_rows, sales_set),
+        filter_rows_by_sales(inhouse_rows, sales_set),
+        list(_BU_EMPTY_LEDGER_HEADER), [], today.year, today,
+        manual_raw={}, budget_raw=None, dept_budget_raw=None)
+
+
 def load_manual_safe(cfg):
     try:
         return loaders.load_manual(cfg)

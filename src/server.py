@@ -28,6 +28,7 @@ from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 import loaders
+import bu
 import db
 import core
 import ingest
@@ -43,7 +44,7 @@ IDENTITIES = ("明昊", "陆总")
 # 服务内存态：当前汇总 + 渲染好的两端页面 + 上次规范化的原始记录（供秒级重算）
 # refreshing/last_refresh：后台「立即更新」的进行中标记与最近一次结果（/api/refresh_status 用）
 _state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None,
-                "refreshing": None, "last_refresh": None}
+                "refreshing": None, "last_refresh": None, "bu_pages": {}}
 _LOCK = threading.Lock()  # 写库/重算全局互斥（03：写库一把锁，运行中排队）
 _EXPORT_LOCK = threading.Lock()  # 导出截图互斥：Playwright 整页截图是重活，同一时刻只跑一张，连发返回 429
 
@@ -103,18 +104,20 @@ def _check_token(sec: dict, token: str, now: float | None = None) -> str | None:
 
 
 # ---------------- 渲染缓存 ----------------
-def _publish(cfg, summary, html):
+def _publish(cfg, summary, html, bu_pages=None):
     _state["summary"] = summary
     _state["user_html"] = html
     _state["admin_html"] = _admin_page(html, summary)
+    if bu_pages is not None:
+        _state["bu_pages"] = bu_pages
     _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
-    summary, html, ing = core.generate(cfg, today, trigger=trigger)
+    summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
     _state["records"] = ing.get("records")  # 缓存原始记录供秒级重算
-    _publish(cfg, summary, html)
+    _publish(cfg, summary, html, bu_pages)
     return ing
 
 
@@ -123,14 +126,16 @@ def _do_recompute(cfg, root) -> None:
         _do_full(cfg, root, "manual")
         return
     today = loaders.pinned_today(cfg)
+    logo = assets.load_logo_base64(cfg)
     conn = db.connect(cfg, root)
     try:
         ingest.reapply(cfg, conn, _state["records"], today)
         summary = core.summary_from_conn(cfg, conn, today)
+        bu_pages = core.build_bu_pages(cfg, conn, today, logo, root)
     finally:
         conn.close()
-    html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
-    _publish(cfg, summary, html)
+    html = render.render_dashboard(summary, cfg, logo)
+    _publish(cfg, summary, html, bu_pages)
 
 
 def refresh(cfg, root=None, trigger="manual") -> dict:
@@ -460,6 +465,17 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
     </div>
 
     <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏢 BU 配置（按 BU 分页·独立链接）</div>
+      <div class="muted" style="margin-bottom:10px">每个 BU 一条独立只读链接（/bu/…），只含本 BU 数据（按销售名单过滤）、部门间严格保密——链接只发给对应负责人。销售名单=智云「销售」字段的名字，用顿号/逗号分隔；改完点下方「保存 BU 配置」立即生效。没配置任何 BU=功能关闭，主看板不受影响。公共费用分摊比例细则待陆总（暂不分摊）。</div>
+      <div class="wrap"><table id="buTbl"></table></div>
+      <div style="margin-top:10px">
+        <button class="ghost mini" type="button" onclick="buAdd()">＋ 加一个 BU</button>
+        <button class="mini" type="button" onclick="buSave()">保存 BU 配置</button>
+        <span id="buMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
       <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔌 数据从哪来（固定流程·无需配置）</div>
       <div class="muted" style="margin-bottom:10px">每次更新固定做两路抓数：① 自动登录智云在线抓四张表；② 从共享盘拉最新收单台账。哪个源抓不到（不在内网/账号权限不足/服务器没开）就自动沿用 数据/ 里现有文件继续算，并在顶栏体检里标黄——不中断、不用管。</div>
       <div class="wrap"><table id="sSrcTbl"></table></div>
@@ -510,7 +526,7 @@ function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
   else if(g==="review")showReview("overview");
-  else if(g==="cfg"){showSec("settings");loadSettings();}}
+  else if(g==="cfg"){showSec("settings");loadSettings();loadBuCfg();}}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
@@ -569,6 +585,30 @@ async function loadSettings(){try{const s=await jget("/api/settings");
     SRC_MAP.map(([n,src])=>"<tr><td>"+esc(n)+"</td><td>"+esc(src)+"</td><td>"+
       (rows[n]!=null?rows[n]:"—")+"</td></tr>").join("");
   }catch(e){msg("读取设置失败:"+e.message);}}
+// BU 配置卡（迭代14）：内存数组 ↔ 表格；token 服务端管——留空/换链接=保存时服务端重新生成
+let buList=[];
+function buRender(){const t=document.getElementById("buTbl");
+  if(!buList.length){t.innerHTML="<tr><td class='muted'>未配置 BU（功能关闭）——点「＋ 加一个 BU」开始</td></tr>";return;}
+  const names=v=>Array.isArray(v)?v.join("、"):String(v||"");
+  t.innerHTML="<tr><th>BU 名</th><th>负责人（备注）</th><th>销售名单（顿号/逗号分隔）</th><th>独立链接</th><th></th></tr>"+
+    buList.map((b,i)=>{
+      const link=b.token?esc(location.origin+"/bu/"+b.token):"<i class='muted'>保存后生成</i>";
+      return "<tr><td><input style='width:90px' value=\""+esc(b.name)+"\" onchange='buList["+i+"].name=this.value'></td>"+
+      "<td><input style='width:120px' value=\""+esc(names(b.负责人))+"\" onchange='buList["+i+"].负责人=this.value'></td>"+
+      "<td><input style='width:320px' value=\""+esc(names(b.销售))+"\" onchange='buList["+i+"].销售=this.value'></td>"+
+      "<td style='white-space:normal;word-break:break-all'>"+link+
+        (b.token?" <button class='ghost mini' type='button' onclick='buRotate("+i+")'>换链接</button>":"")+"</td>"+
+      "<td><button class='ghost mini' type='button' onclick='buDel("+i+")'>删</button></td></tr>";}).join("");}
+function buAdd(){buList.push({name:"",负责人:[],销售:[],token:""});buRender();}
+function buDel(i){if(!confirm("删除该 BU？其链接将立即失效"))return;buList.splice(i,1);buRender();}
+function buRotate(i){if(!confirm("换链接后旧链接立即失效，需把新链接重新发给负责人。继续？"))return;
+  buList[i].token="";buRender();}
+async function loadBuCfg(){try{const d=await jget("/api/bu_config");buList=d.bus||[];buRender();}
+  catch(e){document.getElementById("buMsg").textContent="读取失败:"+e.message;}}
+async function buSave(){const m=document.getElementById("buMsg");m.textContent="保存并重算中…";
+  try{const d=await jpost("/api/bu_config",{bus:buList});buList=d.bus||[];buRender();
+    m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();}
+  catch(e){m.textContent="保存失败："+e.message;}}
 async function saveSettings(){const m=document.getElementById("sMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/settings",{schedule_time:document.getElementById("sTime").value,
     backup_keep_days:parseInt(document.getElementById("sKeep").value,10),
@@ -824,6 +864,15 @@ def create_app(cfg, root=None) -> FastAPI:
     def user_page():
         return HTMLResponse(_state["user_html"] or "<h1>数据尚未生成，请稍候刷新</h1>")
 
+    @app.get("/bu/{token}", response_class=HTMLResponse)
+    def bu_page(token: str):
+        """BU 独立只读页（迭代 14）：token=配置里 ≥32 位随机链接，凭链接即视为该 BU 负责人。
+        错 token 一律 404、不提示存在性；没配置 BU = 一律 404（功能不启用）。"""
+        page = _state.get("bu_pages", {}).get(token)
+        if not page:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return HTMLResponse(page["html"])
+
     @app.get("/admin", response_class=HTMLResponse)
     def admin_page(request: Request):
         if _user(request):
@@ -1019,6 +1068,27 @@ def create_app(cfg, root=None) -> FastAPI:
         if not p.exists():
             raise HTTPException(status_code=404, detail="该日无页面快照")
         return HTMLResponse(p.read_text(encoding="utf-8"))
+
+    @app.get("/api/bu_config")
+    def api_bu_config_get(request: Request):
+        """BU 配置（管理员会话）：BU 清单/负责人/销售名单/链接。token 只在管理员会话内可见。"""
+        _require(request)
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+        return {"bus": bucfg["bus"], "count": len(bucfg["bus"])}
+
+    @app.post("/api/bu_config")
+    def api_bu_config_post(request: Request, payload: dict = Body(default={})):
+        """保存 BU 配置并立即重算重渲染 BU 页。token 服务端管：客户端传的 token 只有
+        与现有配置吻合才保留（=不换链接），否则重新生成（=换链接/新 BU）；分摊比例本批锁 null。"""
+        _require(request)
+        bus = payload.get("bus")
+        if not isinstance(bus, list):
+            raise HTTPException(status_code=400, detail="bus 须为列表")
+        if len(bus) > 20:
+            raise HTTPException(status_code=400, detail="BU 数量过多（上限 20）")
+        saved = bu.save_bu_config(cfg, root, bus)
+        recompute(cfg, root)   # 改配置即重算：BU 页与主页一起重渲染（秒级，用缓存记录）
+        return {"bus": saved["bus"], "count": len(saved["bus"]), "note": "已保存并重算"}
 
     @app.get("/api/settings")
     def api_settings_get(request: Request):

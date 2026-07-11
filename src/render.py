@@ -664,3 +664,84 @@ def render_dashboard(summary, cfg, logo_b64):
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>经营驾驶舱</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
+
+
+# ---------- BU 分页（迭代 14）：每 BU 一张独立只读页 /bu/{token} ----------
+# 口径（陆总 2026-07-12）：完整利润表结构；公共费用暂不分摊（台账费用行标注、不显示成真 0）、
+# 手填项待陆总按 BU 填（标注、不显示成真 0）→ 本页税前利润 = 毛利 − 附加税费。
+# 严格保密：本函数只吃"已按该 BU 销售名单过滤"的 summary，页面不含其他 BU 任何名字与数字（测试守卫）。
+
+def _bu_pending_row(name, note):
+    """待补数据行：金额位显示说明文字而非 ¥0（不把"没有数"显示成"数是 0"）。"""
+    return (f'<div class="pl-row"><span class="dot none"></span>'
+            f'<div class="pl-name">{_esc(name)}<span class="src">{_esc(note)}</span></div>'
+            f'<span class="pl-amt" style="color:var(--mut2);font-size:12px">{_esc(note)}</span></div>')
+
+
+def render_bu_pl_table(p):
+    """BU 版利润表：结构与全公司版一致（全口径），但公共费用/手填项标注待补、不出 ¥0 假数。"""
+    rows = [_row("收入（不含税）", p["revenue_net"], "system", "智云交付额÷1.06")]
+    rows.append(_open_row("cost", "成本（生产成本·未含手填项）", -p["production_cost"]))
+    rows.append(_row("毛利", p["gross_profit"], "", total=True))
+    for nm in ("营销费用", "管理费用", "固定运营费用", "研发费用", "财务费用"):
+        rows.append(_bu_pending_row(nm, "公共费用·暂不分摊"))
+    rows.append(_row("附加税费", -p["surtax"], "system", "增值税×12%"))
+    rows.append(_bu_pending_row("其他损益", "待陆总手填"))
+    rows.append(_row("税前利润（=毛利−附加税费）", p["pretax_profit"], "", grand=True))
+
+    cost_inner = (_drow("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
+                  + _drow("减：系统内部译员成本", p["inhouse_cost"], "system", "in-house结算")
+                  + '<div class="pl-drow sub"><span class="dot none"></span>'
+                    '<div class="pl-name">加：PM/VM/实际内部译员/税费损失/技术流量等手填项'
+                    '<span class="src">待陆总按 BU 手填·未计入</span></div>'
+                    '<span class="pl-amt" style="color:var(--mut2);font-size:12px">待手填</span></div>')
+    details = _detail_block("cost", "成本（生产成本）构成", cost_inner)
+    kinds = ('<div class="kinds"><span class="ktip" data-tip="智云系统自动取数，已按本 BU 销售名单过滤">'
+             '<i style="background:var(--kind-system)"></i>智云系统</span>'
+             '<span class="ktip" data-tip="公共费用（台账）暂不分摊到 BU；分摊比例细则待陆总定">'
+             '<i style="background:var(--kind-ledger)"></i>公共费用·暂不分摊</span>'
+             '<span class="ktip" data-tip="人力等手填项待陆总按 BU 填；填法确认后开放">'
+             '<i style="background:var(--kind-manual)"></i>手填·待陆总填</span>'
+             '<span style="margin-left:auto;color:var(--mut2)">点成本行 → 右侧看构成</span></div>')
+    return (f'<div class="pl">{"".join(rows)}</div>{kinds}'
+            f'<div class="pl-details" hidden>{details}</div>')
+
+
+def render_bu_page(bu_name, summary, cfg, logo_b64):
+    """单 BU 独立只读页：周期选择（与主页同一套日历面板/预渲染切换）+ BU 利润表 + BU 下单/回款排名。
+    不带导出（/export.png 截全公司主页）与按时间段看（/api/daily 是全公司口径出口）——防越权取数。"""
+    meta = summary["meta"]; P = summary["periods"]
+    yk = meta["year_key"]
+    all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
+                + meta["tab_groups"].get("区间", []))
+    logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
+    pl_views = "".join(_pv(k, yk, render_bu_pl_table(P[k])) for k in all_keys)
+    rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
+    name = _esc(bu_name)
+
+    body = f"""
+{PARTICLES_HTML}
+<div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
+ <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
+<div class="wrap">
+ <div class="faint-note" style="margin:10px 0 0">仅含 <b>{name}</b> BU 数据（按营销人员归属拆分，销售→BU 映射待陆总确认）；
+ 公共费用暂不分摊、人力等手填项待陆总填 → 本页税前利润=毛利−附加税费。</div>
+ {render_period_bar(summary)}
+ <div class="sec"><span class="sec-n">一</span><span class="sec-t">{name} · 管理利润表</span></div>
+ <div class="card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · 公共费用与手填项待补</span></div>{pl_views}</div>
+ <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 下单与回款排名</span></div>
+ <div id="rankViews">{rank_views}</div>
+ <div class="foot">
+  经营驾驶舱 · {name} BU 分页 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本（手填项待补）；
+  附加税费=增值税×12% &nbsp;|&nbsp; 数据源：智云项目明细/任务/下单/回款（按本 BU 销售名单过滤）。
+ </div>
+</div>
+{DRAWER_HTML}
+<div id="tip"></div>
+<style>.rk-open{{display:none}}</style>
+<script>{JS}</script>
+"""
+    return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<title>经营驾驶舱 · {name}</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')

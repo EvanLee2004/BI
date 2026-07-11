@@ -43,11 +43,11 @@ def connect(cfg: dict, root: Path | None = None) -> sqlite3.Connection:
 def load_project_detail(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, str]]:
     c = cfg["columns"]
     rows = conn.execute(
-        "SELECT 订单号,客户,业务线,整单交付日期,交付额,项目成本 FROM std_收入明细 WHERE 已删除=0 ORDER BY id").fetchall()
+        "SELECT 订单号,客户,业务线,销售,整单交付日期,交付额,项目成本 FROM std_收入明细 WHERE 已删除=0 ORDER BY id").fetchall()
     out = []
-    for 订单号, 客户, 业务线, 交付日期, 交付额, 项目成本 in rows:
+    for 订单号, 客户, 业务线, 销售, 交付日期, 交付额, 项目成本 in rows:
         out.append({
-            "订单号": _s(订单号), "客户": _s(客户), "业务线": _s(业务线),
+            "订单号": _s(订单号), "客户": _s(客户), "业务线": _s(业务线), "销售": _s(销售),
             c["project_delivery_date"]: _s(交付日期),
             c["project_revenue"]: 交付额,
             c["project_cost"]: 项目成本,
@@ -64,17 +64,17 @@ def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 def load_receipts(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
-    rows = conn.execute("SELECT 到账日期,到账金额,回款ID,客户 FROM std_回款 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["receipt_date"]: _s(d), c["receipt_amount"]: a, "回款记录ID": _s(rid), "客户": _s(cu)}
-            for d, a, rid, cu in rows]
+    rows = conn.execute("SELECT 到账日期,到账金额,回款ID,客户,销售 FROM std_回款 WHERE 已删除=0 ORDER BY id").fetchall()
+    return [{c["receipt_date"]: _s(d), c["receipt_amount"]: a, "回款记录ID": _s(rid), "客户": _s(cu), "销售": _s(sal)}
+            for d, a, rid, cu, sal in rows]
 
 
 def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
     rows = conn.execute(
-        "SELECT 任务提交日期,结算金额,译员类型,任务ID FROM std_内部译员 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["inhouse_date"]: _s(d), c["inhouse_amount"]: a, c["inhouse_type"]: _s(t), "任务明细ID": _s(tid)}
-            for d, a, t, tid in rows]
+        "SELECT 任务提交日期,结算金额,译员类型,任务ID,销售 FROM std_内部译员 WHERE 已删除=0 ORDER BY id").fetchall()
+    return [{c["inhouse_date"]: _s(d), c["inhouse_amount"]: a, c["inhouse_type"]: _s(t), "任务明细ID": _s(tid), "销售": _s(sal)}
+            for d, a, t, tid, sal in rows]
 
 
 # 台账列在标准表里的固定顺序（读回时据此拼回 (表头, 数据行)）
@@ -111,11 +111,11 @@ def _s(v: Any) -> str:
 # ---------------- 明细查询（管理员端 /api/detail）----------------
 # 表键 → (物理表, 展示列, 可搜索文本列)
 DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
-    "收入明细": ("std_收入明细", ["定位键", "订单号", "客户", "业务线", "整单交付日期", "交付额", "项目成本", "归属月"],
-                ["订单号", "客户", "业务线"]),
+    "收入明细": ("std_收入明细", ["定位键", "订单号", "客户", "业务线", "销售", "整单交付日期", "交付额", "项目成本", "归属月"],
+                ["订单号", "客户", "业务线", "销售"]),
     "下单": ("std_下单", ["定位键", "订单号", "下单日期", "下单预估额", "部门", "销售", "归属月"], ["订单号", "部门", "销售"]),
-    "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "客户", "归属月"], ["回款ID", "客户"]),
-    "内部译员": ("std_内部译员", ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "归属月"], ["任务ID", "译员类型"]),
+    "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "客户", "销售", "归属月"], ["回款ID", "客户", "销售"]),
+    "内部译员": ("std_内部译员", ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "销售", "归属月"], ["任务ID", "译员类型", "销售"]),
     "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月"],
                 ["业务BU", "对应报表大类", "预算明细费用类型"]),
 }

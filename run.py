@@ -34,7 +34,8 @@ def run_batch(trigger="manual") -> int:
         print(f"\n✗ 数据格式有 {len(rep.errors)} 处问题，先修源文件再跑（定位见上）。本次不生成报表。")
         return 1
 
-    summary, html, ing = core.generate(cfg, today, trigger=trigger)
+    # BU 分页只经 --serve 的 /bu/{token} 出，不落盘 output/（避免 token 命名文件散落）
+    summary, html, ing, _bu_pages = core.generate(cfg, today, trigger=trigger)
     print(f"数据库：{db.db_path(cfg)}  台账fetch：{ing['fetch']['status']}（{ing['fetch']['detail']}）")
     print("  标准表：" + " ".join(f"{k}={v}" for k, v in ing["counts"].items())
           + f"  手填迁移：{ing['migrate_manual']['status']}({ing['migrate_manual']['imported']})")

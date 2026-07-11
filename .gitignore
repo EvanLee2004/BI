@@ -33,3 +33,5 @@ docs/参考/
 output/
 data/驾驶舱数据.json
 data/*.json
+# 浏览器调试工具落盘产物（页面快照含真实人名/数字）——绝不进库
+.playwright-cli/
