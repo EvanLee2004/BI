@@ -121,6 +121,26 @@ body{
 .kpi-src{font-size:10px;color:var(--mut2);margin-top:7px}
 .chart-note{font-size:10.5px;color:var(--mut2);margin-top:8px;line-height:1.5}
 
+/* —— 板块③ 收入与毛利结构：小字整体放大+统一、集中度突出、计算逻辑条（scoped 到 .pr-grid，不动板块④）—— */
+.pr-grid .card-h .tag{font-size:12px}
+.pr-grid .card-h .conc{margin-left:2px;font-size:12px;color:var(--mut);font-weight:500;
+  display:inline-flex;align-items:baseline;gap:5px;white-space:nowrap}
+.pr-grid .card-h .conc b{font-size:17px;font-weight:800;color:var(--accent);
+  font-family:var(--mono,inherit);letter-spacing:.3px}
+.pr-grid .rk-no{font-size:12.5px}
+.pr-grid .ev-name{flex-basis:120px;font-size:13px}
+.pr-grid .ev-amt{flex-basis:86px;font-size:13px}
+.pr-grid .rk-meta{flex-basis:84px;font-size:12.5px}
+.pr-grid .rk-open{font-size:12px}
+.pr-grid .ev-row{padding:6px}
+/* 计算逻辑条：静态口径公式，放两卡下方（统一小字放大到 12.5px，注释 11.5px） */
+.pr-formula{margin-top:14px;padding:11px 16px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);font-size:12.5px;color:var(--mut);line-height:1.6;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:7px 22px}
+.pr-formula .pr-f-h{color:var(--accent);font-weight:700;font-size:12.5px}
+.pr-formula .pr-f-item b{color:var(--ink);font-weight:600}
+.pr-formula .pr-f-item i{color:var(--mut2);font-style:normal;font-size:11.5px;margin-left:5px}
+
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
@@ -365,7 +385,10 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 @media (max-width:520px){
  .ev-name{flex-basis:78px;font-size:11.5px}.ev-amt{flex-basis:64px;font-size:11.5px}
  .bud-name{flex-basis:74px;font-size:11.5px}.bud-num{flex-basis:130px;font-size:11px}
- .ev-tabs{margin-left:0;width:100%;order:9}.card-h{flex-wrap:wrap;row-gap:6px}}
+ .ev-tabs{margin-left:0;width:100%;order:9}.card-h{flex-wrap:wrap;row-gap:6px}
+ .pr-grid .ev-name{flex-basis:96px;font-size:12.5px}.pr-grid .ev-amt{flex-basis:74px;font-size:12.5px}
+ .pr-grid .rk-meta{flex-basis:66px;font-size:12px}.pr-grid .card-h .conc b{font-size:15px}
+ .pr-formula{gap:5px 0;flex-direction:column}}
 /* —— 右侧抽屉（点利润表大类看构成）—— */
 .drawer{position:fixed;inset:0;z-index:60;visibility:hidden}
 .drawer.open{visibility:visible}

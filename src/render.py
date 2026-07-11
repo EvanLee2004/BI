@@ -432,14 +432,18 @@ def _profit_rank_card(title, tag, rk, dim=""):
                         f'<span class="ev-amt">{_rank_amt(unfilled["revenue"])}</span>'
                         f'<span class="rk-meta">{_margin_meta(unfilled["margin_pct"])}</span></div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
-    return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} <span class="tag">{tag}</span></div>{body}</div>')
+    return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} {tag}</div>{body}</div>')
 
 
 def _conc_tag(rk):
-    """卡头标签：确认口径 + 前 k 大占收入%（集中度）。无数据 → 只留口径。"""
+    """卡头标签：确认口径（小灰）+ 前 k 大占收入%（集中度，`.conc` 独立高亮、数字放大）。
+    无数据 → 只留口径。返回整段 HTML（含自己的 span，卡头不再外包 .tag）。"""
     c = (rk or {}).get("conc_pct")
     k = (rk or {}).get("conc_k", 5)
-    return f'确认口径 · 前{k}大占收入 {c:.0f}%' if c is not None else "确认口径"
+    if c is None:
+        return '<span class="tag">确认口径</span>'
+    return (f'<span class="tag">确认口径</span>'
+            f'<span class="conc">前{k}大占收入 <b>{c:.0f}%</b></span>')
 
 
 def render_profit_rankings(p):
@@ -860,6 +864,12 @@ def render_dashboard(summary, cfg, logo_b64):
 
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></div>
  <div id="profitRankViews">{profit_rank_views}</div>
+ <div class="pr-formula">
+  <span class="pr-f-h">计算逻辑</span>
+  <span class="pr-f-item"><b>收入</b> = 交付额 ÷ 1.06<i>确认口径 · 按整单交付日期归属</i></span>
+  <span class="pr-f-item"><b>毛利率</b> = 毛利 ÷ 收入<i>毛利 = 收入 − 项目成本（项目直接毛利，未含内部译员/手填）</i></span>
+  <span class="pr-f-item"><b>集中度</b> = 前5大收入 ÷ 期内总收入<i>即卡头「前5大占收入 %」</i></span>
+ </div>
 
  <div class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款排名</span></div>
  {DAILY_HTML}

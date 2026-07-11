@@ -194,6 +194,14 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn(":root{", self.html)
         self.assertIn(".theme-light{", self.html)
 
+    def test_profit_formula_strip(self):
+        # 板块③下方「计算逻辑」公式条：三条公式在位（收入/毛利率/集中度），静态口径
+        self.assertIn('class="pr-formula"', self.html)
+        self.assertIn("计算逻辑", self.html)
+        self.assertIn("交付额 ÷ 1.06", self.html)
+        self.assertIn("毛利 ÷ 收入", self.html)
+        self.assertIn("前5大收入 ÷ 期内总收入", self.html)
+
 
 class TestReceiptsBudgetLayout(unittest.TestCase):
     """回款情况 + 部门费用预算执行：填了年预算 → 同一 grid-2e 两列并排（各半宽变小）；
