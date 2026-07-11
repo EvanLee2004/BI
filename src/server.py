@@ -372,10 +372,11 @@ def _login_page(err: str = "") -> str:
     return _LOGIN_HTML.format(err=err_html, opts=opts)
 
 
-# 查看端登录页（整体页 / BU 页共用）：只一个密码框。样式与管理员登录页一致。
+# 查看端登录页（v7.9 账号制·整体页与 BU 页同一入口 `/`）：账号+密码。
+# 账号「整体」=姜征/陆总看全部；账号=BU 名=对应负责人只看本 BU。密码由管理员集中管理。
 _VIEW_LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} · 经营驾驶舱</title>
+<title>看板登录 · 经营驾驶舱</title>
 <style>body{{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
 display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}}
 .card{{background:#1e293b;padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px #0006}}
@@ -385,16 +386,18 @@ border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px}}
 button{{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
 font-size:15px;cursor:pointer}}.err{{color:#f87171;font-size:13px;margin-bottom:10px}}
 .hint{{color:#64748b;font-size:12px;margin-top:12px}}</style></head>
-<body><form class="card" method="post" action="{action}">
-<h1>{title}</h1>{err}
-<label>密码</label><input type="password" name="password" autofocus autocomplete="current-password">
+<body><form class="card" method="post" action="/login">
+<h1>看板登录</h1>{err}
+<label>账号</label><input name="account" value="{account}" autocomplete="username" autofocus>
+<label>密码</label><input type="password" name="password" autocomplete="current-password">
 <button type="submit">进入</button>
-<div class="hint">登录后可在页面右上「密码」处修改自己的密码。</div></form></body></html>"""
+<div class="hint">账号密码问财务部管理员要；忘记密码找管理员重置。</div></form></body></html>"""
 
 
-def _view_login_page(title: str, action: str, err: str = "") -> str:
+def _view_login_page(err: str = "", account: str = "") -> str:
     err_html = f'<div class="err">{err}</div>' if err else ""
-    return _VIEW_LOGIN_HTML.format(title=title, action=action, err=err_html)
+    acct = str(account).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
+    return _VIEW_LOGIN_HTML.format(err=err_html, account=acct)
 
 
 _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
@@ -547,10 +550,15 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
     </div>
 
     <div class="row-form" style="margin:0;padding:16px 18px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔒 登录密码</div>
-      <div class="muted" style="margin-bottom:10px">所有看板都要密码：整体页和各 BU 页初始密码都是 <b>8888</b>，看的人登录后点页面右上「🔑密码」自己改。这里只改<b>管理员端</b>的登录密码（改完下次登录用新密码，当前会话不受影响）。</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔒 登录密码（集中管理）</div>
+      <div class="muted" style="margin-bottom:10px">看板一个入口，按账号分流：账号「<b>整体</b>」=姜总/陆总看全部；账号=BU 名=对应负责人只看本 BU。初始密码都是 <b>8888</b>；<b>看的人不能自己改密码</b>——「整体」密码在这里设，各 BU 密码在下方 BU 配置表逐行设。</div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+        <span>「整体」账号新密码 <input id="vpNew" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
+        <button class="mini" type="button" onclick="viewerPasswd()">设整体密码</button>
+        <span id="vpMsg" class="muted"></span>
+      </div>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <span>旧密码 <input id="apOld" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
+        <span>管理员旧密码 <input id="apOld" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
         <span>新密码 <input id="apNew" type="password" autocomplete="off" style="width:140px;padding:8px 10px"></span>
         <button class="mini" type="button" onclick="adminPasswd()">改管理员密码</button>
         <span id="apMsg" class="muted"></span>
@@ -558,8 +566,8 @@ border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;
     </div>
 
     <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏢 BU 配置（按 BU 分页·独立链接）</div>
-      <div class="muted" style="margin-bottom:10px">每个 BU 一条独立只读链接（/bu/…），只含本 BU 数据（按销售名单过滤）、部门间严格保密——链接只发给对应负责人。销售名单=智云「销售」字段的名字，用顿号/逗号分隔；改完点下方「保存 BU 配置」立即生效。没配置任何 BU=功能关闭，主看板不受影响。公共费用分摊比例细则待陆总（暂不分摊）。</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏢 BU 配置（账号 + 数据归属）</div>
+      <div class="muted" style="margin-bottom:10px">看板地址就一个（首页），<b>BU 名即登录账号</b>：负责人用它登录后只看到本 BU 的页面、部门间严格保密；「整体」账号（姜总/陆总）能看全部并可点进各 BU 页。<b>销售名单=数据归属</b>：陆总口径"智云数据按营销人员归属 BU 拆"——这里写谁，谁的下单/回款/收入/成本就算进这个 BU（名字=智云「销售」字段，顿号/逗号分隔）。密码列填了=重置该 BU 密码，留空=不变。改完点「保存 BU 配置」立即生效；没配置任何 BU=功能关闭。公共费用分摊比例细则待陆总（暂不分摊）。</div>
       <div class="wrap"><table id="buTbl"></table></div>
       <div style="margin-top:10px">
         <button class="ghost mini" type="button" onclick="buAdd()">＋ 加一个 BU</button>
@@ -691,19 +699,21 @@ let buList=[];
 function buRender(){const t=document.getElementById("buTbl");
   if(!buList.length){t.innerHTML="<tr><td class='muted'>未配置 BU（功能关闭）——点「＋ 加一个 BU」开始</td></tr>";return;}
   const names=v=>Array.isArray(v)?v.join("、"):String(v||"");
-  t.innerHTML="<tr><th>BU 名</th><th>负责人（备注）</th><th>销售名单（顿号/逗号分隔）</th><th>独立链接</th><th></th></tr>"+
+  t.innerHTML="<tr><th>BU 名（=登录账号）</th><th>负责人（备注）</th><th>销售名单（数据归属·顿号/逗号分隔）</th><th>密码（填=重置，空=不变）</th><th></th></tr>"+
     buList.map((b,i)=>{
-      const link=b.token?esc(location.origin+"/bu/"+b.token):"<i class='muted'>保存后生成</i>";
       return "<tr><td><input style='width:90px' value=\""+esc(b.name)+"\" onchange='buList["+i+"].name=this.value'></td>"+
       "<td><input style='width:120px' value=\""+esc(names(b.负责人))+"\" onchange='buList["+i+"].负责人=this.value'></td>"+
       "<td><input style='width:320px' value=\""+esc(names(b.销售))+"\" onchange='buList["+i+"].销售=this.value'></td>"+
-      "<td style='white-space:normal;word-break:break-all'>"+link+
-        (b.token?" <button class='ghost mini' type='button' onclick='buRotate("+i+")'>换链接</button>":"")+"</td>"+
+      "<td><input type='password' autocomplete='new-password' placeholder='初始8888' style='width:110px' onchange='buList["+i+"].新密码=this.value'></td>"+
       "<td><button class='ghost mini' type='button' onclick='buDel("+i+")'>删</button></td></tr>";}).join("");}
-function buAdd(){buList.push({name:"",负责人:[],销售:[],token:""});buRender();}
-function buDel(i){if(!confirm("删除该 BU？其链接将立即失效"))return;buList.splice(i,1);buRender();}
-function buRotate(i){if(!confirm("换链接后旧链接立即失效，需把新链接重新发给负责人。继续？"))return;
-  buList[i].token="";buRender();}
+function buAdd(){buList.push({name:"",负责人:[],销售:[]});buRender();}
+function buDel(i){if(!confirm("删除该 BU？该账号将立即失效"))return;buList.splice(i,1);buRender();}
+async function viewerPasswd(){const m=document.getElementById("vpMsg");
+  const nw=document.getElementById("vpNew").value;
+  if(nw.length<4){m.textContent="新密码至少 4 位";return;}
+  m.textContent="设置中…";
+  try{const d=await jpost("/api/viewer_passwd",{new:nw});m.textContent=d.note||"已设置";
+    document.getElementById("vpNew").value="";}catch(e){m.textContent="失败："+e.message;}}
 async function loadBuCfg(){try{const d=await jget("/api/bu_config");buList=d.bus||[];buRender();}
   catch(e){document.getElementById("buMsg").textContent="读取失败:"+e.message;}}
 async function buSave(){const m=document.getElementById("buMsg");m.textContent="保存并重算中…";
@@ -975,61 +985,70 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
-        """整体页（v7.8 起需密码）：整体口令会话 或 管理员会话可看；否则出登录页。"""
+        """看板统一入口（v7.9 账号制）：
+        「整体」账号/管理员会话 → 整体页（顶部带各 BU 入口）；BU 账号会话 → 直接出本 BU 页；
+        未登录 → 账号+密码登录页。"""
+        subject = _vsubject(request)
+        if subject and subject.startswith("bu:"):
+            page = _state.get("bu_pages", {}).get(subject[3:])
+            if page:
+                return HTMLResponse(page["html"])
+            return HTMLResponse(_view_login_page("该 BU 已被管理员移除，请重新登录"))
         if not _can_view_main(request):
-            return HTMLResponse(_view_login_page("看板登录", "/login"))
-        return HTMLResponse(_state["user_html"] or "<h1>数据尚未生成，请稍候刷新</h1>")
+            return HTMLResponse(_view_login_page())
+        return HTMLResponse(_main_with_nav() or "<h1>数据尚未生成，请稍候刷新</h1>")
+
+    def _main_with_nav() -> str:
+        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。"""
+        html = _state["user_html"]
+        names = list(_state.get("bu_pages", {}))
+        if not html or not names:
+            return html
+        from urllib.parse import quote
+
+        def _esc(s):
+            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        links = " ".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
+        nav = ('<div class="bu-nav" style="max-width:1520px;margin:10px auto 0;padding:0 28px;'
+               'font-size:13px;color:var(--mut2)">BU 分页：' + links +
+               '<style>.bu-nav-a{margin:0 6px;color:var(--blue);text-decoration:none}</style></div>')
+        return html.replace('<div class="wrap">', nav + '<div class="wrap">', 1)
 
     @app.post("/login")
-    def viewer_login(password: str = Form("")):
-        if not _verify_viewer_pw(sec, password):
-            return HTMLResponse(_view_login_page("看板登录", "/login", "密码不正确"), status_code=401)
-        return _set_vcookie(RedirectResponse("/", status_code=303), "main")
+    def viewer_login(account: str = Form(""), password: str = Form("")):
+        """账号+密码登录：账号「整体」→ 整体口令；账号=BU 名 → 该 BU 口令。
+        账号不存在与密码错同一文案（不提示账号是否存在）。"""
+        account = account.strip()
+        if account == bu.MAIN_ACCOUNT:
+            if _verify_viewer_pw(sec, password):
+                return _set_vcookie(RedirectResponse("/", status_code=303), "main")
+        else:
+            entry = bu.by_name(bu.load_bu_config(cfg, root)).get(account)
+            if entry and bu.verify_pw(entry.get("密码hash"), password):
+                return _set_vcookie(RedirectResponse("/", status_code=303), f"bu:{account}")
+        return HTMLResponse(_view_login_page("账号或密码不正确", account), status_code=401)
 
-    @app.get("/bu/{token}", response_class=HTMLResponse)
-    def bu_page(token: str, request: Request):
-        """BU 独立只读页（迭代 14；v7.8 起链接+密码双要素）：错 token 一律 404、不提示存在性；
-        本 BU 会话 / 整体页会话（姜征陆总本就看全部）/ 管理员会话可看，否则出该页登录框。"""
-        page = _state.get("bu_pages", {}).get(token)
+    @app.get("/bu/{name}", response_class=HTMLResponse)
+    def bu_page(name: str, request: Request):
+        """BU 页（v7.9 账号制）：本 BU 账号会话 / 整体账号会话 / 管理员会话可看；
+        未登录出登录页（账号预填）；BU 不存在 404。BU 账号平时不用这个地址——登录后 `/` 直接就是本 BU 页。"""
+        page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
         subject = _vsubject(request)
-        if subject == f"bu:{token}" or subject == "main" or _user(request):
+        if subject == f"bu:{name}" or subject == "main" or _user(request):
             return HTMLResponse(page["html"])
-        return HTMLResponse(_view_login_page("BU 看板登录", f"/bu/{token}/login"))
+        return HTMLResponse(_view_login_page(account=name))
 
-    @app.post("/bu/{token}/login")
-    def bu_login(token: str, password: str = Form("")):
-        page = _state.get("bu_pages", {}).get(token)
-        if not page:
-            raise HTTPException(status_code=404, detail="Not Found")
-        entry = bu.token_map(bu.load_bu_config(cfg, root)).get(token)
-        if not entry or not bu.verify_pw(entry.get("密码hash"), password):
-            return HTMLResponse(_view_login_page("BU 看板登录", f"/bu/{token}/login", "密码不正确"),
-                                status_code=401)
-        return _set_vcookie(RedirectResponse(f"/bu/{token}", status_code=303), f"bu:{token}")
-
-    @app.post("/api/passwd")
-    def api_passwd(request: Request, payload: dict = Body(default={})):
-        """查看端改自己的密码（登录后页面右上「密码」）：验旧设新。整体页会话改整体口令、
-        BU 会话改本 BU 口令；互不相干。新密码 ≥4 位。"""
-        subject = _vsubject(request)
-        if not subject:
-            raise HTTPException(status_code=401, detail="请先登录")
-        old, new = str(payload.get("old") or ""), str(payload.get("new") or "")
+    @app.post("/api/viewer_passwd")
+    def api_viewer_passwd(request: Request, payload: dict = Body(default={})):
+        """管理员直接设「整体」账号密码（看的人不能自己改，密码集中管理）。BU 账号密码在 BU 配置卡里设。"""
+        _require(request)
+        new = str(payload.get("new") or "")
         if len(new) < 4:
             raise HTTPException(status_code=400, detail="新密码至少 4 位")
-        if subject == "main":
-            if not _verify_viewer_pw(sec, old):
-                raise HTTPException(status_code=400, detail="旧密码不正确")
-            _set_viewer_pw(cfg, root, sec, new)
-        else:
-            token = subject[3:]
-            entry = bu.token_map(bu.load_bu_config(cfg, root)).get(token)
-            if not entry or not bu.verify_pw(entry.get("密码hash"), old):
-                raise HTTPException(status_code=400, detail="旧密码不正确")
-            bu.set_password(cfg, root, token, new)
-        return {"note": "密码已修改，下次登录用新密码"}
+        _set_viewer_pw(cfg, root, sec, new)
+        return {"note": "「整体」账号密码已更新"}
 
     @app.post("/api/admin/passwd")
     def api_admin_passwd(request: Request, payload: dict = Body(default={})):

@@ -478,25 +478,6 @@ JS = """
 })();
 """
 
-# 改密码（v7.8 全看板密码制）：登录后右上「密码」→ 弹窗输旧/新密码 → POST /api/passwd。
-# 零金额运算、无自由文本插 HTML（提示语全是固定字符串+alert）。file:// 快照打开时给提示。
-PASSWD_JS = r"""
-(function(){
- var btn=document.getElementById('pwBtn');if(!btn)return;
- btn.addEventListener('click',function(){
-   if(location.protocol==='file:'){alert('改密码需在看板服务页面使用（浏览器打开 http://服务器:端口/）');return;}
-   var old=prompt('请输入当前密码：');if(old===null)return;
-   var nw=prompt('请输入新密码（至少4位）：');if(nw===null)return;
-   var nw2=prompt('请再输一遍新密码：');if(nw2===null)return;
-   if(nw!==nw2){alert('两次输入的新密码不一致');return;}
-   fetch('/api/passwd',{method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({old:old,new:nw})}).then(function(r){return r.json().then(function(d){
-       if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));alert(d.note||'密码已修改');});})
-   .catch(function(e){alert('修改失败：'+e.message);});
- });
-})();
-"""
-
 # 导出=当前所选周期的整页图片（服务端 Playwright 截图返回 PNG，前端只发请求零运算）。
 # 双击打开的静态文件版没有服务，点了给提示。旧"Excel+HTML快照 zip"导出已按明昊要求移除（2026-07-11）。
 EXPORT_JS = r"""
@@ -650,7 +631,6 @@ def render_dashboard(summary, cfg, logo_b64):
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
- <button class="toggle" id="pwBtn" title="修改本看板的登录密码"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 <div class="wrap">
  {render_period_bar(summary)}
@@ -679,7 +659,7 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script>{JS}{EXPORT_JS}{DAILY_JS}{PASSWD_JS}</script>
+<script>{JS}{EXPORT_JS}{DAILY_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -743,7 +723,6 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
- <button class="toggle" id="pwBtn" title="修改本 BU 页的登录密码"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 <div class="wrap">
  <div class="faint-note" style="margin:10px 0 0">仅含 <b>{name}</b> BU 数据（按营销人员归属拆分，销售→BU 映射待陆总确认）；
@@ -761,7 +740,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {DRAWER_HTML}
 <div id="tip"></div>
 <style>.rk-open{{display:none}}</style>
-<script>{JS}{PASSWD_JS}</script>
+<script>{JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'

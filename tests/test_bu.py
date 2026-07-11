@@ -5,7 +5,7 @@
 守卫点（收口清单要求，全用合成名——铁律5，真实人名绝不进 git）：
 - 零配置兼容：无 BU配置.json → load 返回 None、build_bu_pages 返回 {}、/bu/* 一律 404、主页照旧
 - 守恒红线：∑各 BU（收入/下单/回款）+ 未归属 == 全公司（同口径同期间）
-- token 鉴权：错 token 404 不提示存在性；保存时客户端自造 token 被服务端重新生成（≥32位）
+- 账号制（v7.9）：/bu/{BU名} 未知名 404；页面严格隔离（登录鉴权详测见 test_auth.py）
 - 严格保密：BU 页 HTML 不含其他 BU 的名字（BU名/负责人/销售）
 - 公共费用恒 0 + 标注"暂不分摊"；手填项标注"待陆总手填"；BU 税前利润 = 毛利 − 附加税费
 - 配置增改生效：改销售名单 → 数字随之变
@@ -69,14 +69,10 @@ def _write_bucfg(cfg, root, bus):
     p.write_text(json.dumps({"bus": bus}, ensure_ascii=False), encoding="utf-8")
 
 
-TOK_A = "a" * 32
-TOK_B = "b" * 32
-
-
 def _two_bus():
     return [
-        {"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"], "token": TOK_A, "分摊比例": None},
-        {"name": "BU乙", "负责人": ["负责人乙"], "销售": ["销售B"], "token": TOK_B, "分摊比例": None},
+        {"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"], "分摊比例": None},
+        {"name": "BU乙", "负责人": ["负责人乙"], "销售": ["销售B"], "分摊比例": None},
     ]
 
 
@@ -111,32 +107,32 @@ class TestBuConfig(_Base):
 
     def test_invalid_entries_skipped(self):
         _write_bucfg(self.cfg, self.root, [
-            {"name": "", "销售": ["销售A"], "token": TOK_A},           # 无名 → 跳过
-            {"name": "短token", "销售": ["销售A"], "token": "short"},  # token<32 → 跳过
-            {"name": "BU甲", "销售": ["销售A"], "token": TOK_A},
-            {"name": "BU甲2", "销售": ["销售B"], "token": TOK_A},      # token 撞车 → 跳过
+            {"name": "", "销售": ["销售A"]},            # 无名 → 跳过
+            {"name": "整体", "销售": ["销售A"]},        # 与整体账号撞名 → 跳过
+            {"name": "BU甲", "销售": ["销售A"]},
+            {"name": "BU甲", "销售": ["销售B"]},        # 同名（账号必须唯一）→ 跳过后者
         ])
         cfgd = bu.load_bu_config(self.cfg, self.root)
         self.assertEqual([b["name"] for b in cfgd["bus"]], ["BU甲"])
+        self.assertEqual(cfgd["bus"][0]["销售"], ["销售A"])
 
     def test_clean_names_accepts_string(self):
         _write_bucfg(self.cfg, self.root, [
-            {"name": "BU甲", "销售": "销售A、销售B，销售C", "token": TOK_A}])
+            {"name": "BU甲", "销售": "销售A、销售B，销售C"}])
         cfgd = bu.load_bu_config(self.cfg, self.root)
         self.assertEqual(cfgd["bus"][0]["销售"], ["销售A", "销售B", "销售C"])
 
-    def test_save_regenerates_foreign_tokens(self):
-        """客户端自造/空 token → 服务端重新生成 ≥32 位；已有 token 原样保留（不换链接）。"""
+    def test_save_normalizes_and_reserves_ratio(self):
+        """保存：规范化落盘；分摊比例本批锁 null（预留位）；客户端传的 密码hash 被忽略。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         saved = bu.save_bu_config(self.cfg, self.root, [
-            {"name": "BU甲", "销售": ["销售A"], "token": TOK_A},        # 已有 → 保留
-            {"name": "BU丙", "销售": ["销售C"], "token": "hack"},       # 自造 → 重新生成
+            {"name": "BU甲", "销售": ["销售A"], "分摊比例": 0.5, "密码hash": "自造hash"},
+            {"name": "BU丙", "销售": ["销售C"]},
         ])
         by = {b["name"]: b for b in saved["bus"]}
-        self.assertEqual(by["BU甲"]["token"], TOK_A)
-        self.assertNotEqual(by["BU丙"]["token"], "hack")
-        self.assertGreaterEqual(len(by["BU丙"]["token"]), bu.TOKEN_MIN_LEN)
-        self.assertIsNone(by["BU丙"]["分摊比例"])   # 分摊比例本批锁 null（预留位）
+        self.assertIsNone(by["BU甲"]["分摊比例"])
+        self.assertIsNone(by["BU甲"]["密码hash"])   # 自造 hash 不被采纳（还没设过=初始密码）
+        self.assertIsNone(by["BU丙"]["密码hash"])
 
 
 class TestBuConservation(_Base):
@@ -189,7 +185,7 @@ class TestBuPages(_Base):
         """严格保密：BU 页不含其他 BU 的 BU名/负责人/销售名。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         pages = self._pages()
-        ha, hb = pages[TOK_A]["html"], pages[TOK_B]["html"]
+        ha, hb = pages["BU甲"]["html"], pages["BU乙"]["html"]
         self.assertIn("BU甲", ha)
         for leak in ("BU乙", "负责人乙", "销售B", "客户乙"):
             self.assertNotIn(leak, ha, f"BU甲页泄漏了 {leak}")
@@ -200,7 +196,7 @@ class TestBuPages(_Base):
     def test_page_labels(self):
         """页面标注：暂不分摊 / 待陆总手填 / 映射待确认；不含全公司出口（导出/按时间段看）。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
-        h = self._pages()[TOK_A]["html"]
+        h = self._pages()["BU甲"]["html"]
         self.assertIn("暂不分摊", h)
         self.assertIn("待陆总", h)
         self.assertIn("映射待陆总确认", h)
@@ -212,8 +208,8 @@ class TestBuPages(_Base):
         """XSS：BU 名含 HTML 特殊字符必转义（铁律10）。"""
         evil = '<script>alert("x")</script>'
         _write_bucfg(self.cfg, self.root, [
-            {"name": evil, "负责人": [], "销售": ['销售"A<b>'], "token": TOK_A}])
-        h = self._pages()[TOK_A]["html"]
+            {"name": evil, "负责人": [], "销售": ['销售"A<b>']}])
+        h = self._pages()[evil]["html"]
         self.assertNotIn("<script>alert", h)
         self.assertIn("&lt;script&gt;", h)
 
@@ -247,18 +243,20 @@ class TestBuEndpoints(unittest.TestCase):
         r = cls.client.post("/admin/login", data={"identity": "明昊", "password": server.DEFAULT_PW})
         cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
 
-    def test_bu_page_by_token(self):
-        r = self.client.get(f"/bu/{TOK_A}")
+    def test_bu_page_by_name_admin_session(self):
+        from urllib.parse import quote
+        r = self.client.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r.status_code, 200)
         self.assertIn("BU甲", r.text)
         self.assertNotIn("BU乙", r.text)
 
-    def test_wrong_token_404_no_hint(self):
-        for t in ("c" * 32, "x", "", TOK_A[:-1]):
-            r = self.client.get(f"/bu/{t}")
+    def test_unknown_bu_404_no_hint(self):
+        from urllib.parse import quote
+        for t in ("不存在BU", "x", ""):
+            r = self.client.get(f"/bu/{quote(t)}")
             self.assertIn(r.status_code, (404, 307))   # ""→ /bu/ 路由不存在
             if r.status_code == 404:
-                self.assertNotIn("BU", r.text)
+                self.assertNotIn("BU甲", r.text)
 
     def test_main_page_unchanged(self):
         r = self.client.get("/")
@@ -280,12 +278,12 @@ class TestBuEndpoints(unittest.TestCase):
     def test_api_post_saves_and_recomputes(self):
         """管理员修改销售归属后，服务端落盘并触发重算；匿名用户无写入口。"""
         from unittest.mock import patch
-        payload = {"bus": [{"name": "BU丙", "负责人": "负责人丙", "销售": "销售C", "token": ""}]}
+        payload = {"bus": [{"name": "BU丙", "负责人": "负责人丙", "销售": "销售C"}]}
         with patch.object(server, "recompute") as rec:
             r = self.client.post("/api/bu_config", json=payload, headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["count"], 1)
-        self.assertGreaterEqual(len(r.json()["bus"][0]["token"]), bu.TOKEN_MIN_LEN)
+        self.assertNotIn("密码hash", r.json()["bus"][0])
         self.assertEqual(bu.load_bu_config(self.cfg, self.root)["bus"][0]["销售"], ["销售C"])
         rec.assert_called_once_with(self.cfg, self.root)
 
@@ -300,7 +298,8 @@ class TestZeroConfigServer(unittest.TestCase):
         server._state["user_html"] = "<html>USER-MAIN</html>"
         app = server.create_app(cfg, root=tmp)
         client = TestClient(app, follow_redirects=False)
-        self.assertEqual(client.get(f"/bu/{TOK_A}").status_code, 404)
+        from urllib.parse import quote
+        self.assertEqual(client.get(f"/bu/{quote('BU甲')}").status_code, 404)
         self.assertEqual(client.get("/").status_code, 200)
 
 

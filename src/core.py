@@ -23,8 +23,8 @@ def summary_from_conn(cfg, conn, today):
 
 
 def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
-    """BU 分页（迭代 14）：读 BU 配置 → 每 BU 按销售名单过滤四源行 → 独立 summary → 独立 HTML。
-    返回 {token: {"name": BU名, "html": 页面}}；没配置/配置无效 → {}（功能不启用，主看板照旧）。
+    """BU 分页（迭代 14·v7.9 账号制）：读 BU 配置 → 每 BU 按销售名单过滤四源行 → 独立 summary → 独立 HTML。
+    返回 {BU名: {"name": BU名, "html": 页面}}；没配置/配置无效 → {}（功能不启用，主看板照旧）。
     严格保密由此保证：每页只吃本 BU 过滤后的行，渲染层拿不到其他 BU 的任何数据。"""
     bucfg = bu.load_bu_config(cfg, root)
     if not bucfg:
@@ -36,8 +36,8 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     pages: dict[str, dict] = {}
     for b in bucfg["bus"]:
         s = profit.build_bu_summary(cfg, project, orders, receipts, inhouse, today, set(b["销售"]))
-        pages[b["token"]] = {"name": b["name"],
-                             "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
+        pages[b["name"]] = {"name": b["name"],
+                            "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
     return pages
 
 
