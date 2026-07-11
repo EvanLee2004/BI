@@ -366,45 +366,106 @@ def _view_login_page(err: str = "", account: str = "") -> str:
 _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>管理员控制台 · 经营驾驶舱</title>
 <style>
-:root{--bg:#0f172a;--panel:#1e293b;--line:#334155;--fg:#e2e8f0;--mut:#94a3b8;--vio:#8b5cf6}
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,"PingFang SC",sans-serif;background:var(--bg);color:var(--fg)}
+:root{--bg:#0b1220;--panel:#151e30;--panel2:#1a2438;--line:#2a364d;--fg:#e8eef9;--mut:#8b9bb4;--vio:#8b5cf6;--vio2:#a78bfa}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,"PingFang SC","Segoe UI",sans-serif;
+background:radial-gradient(1200px 600px at 10% -10%,#1a1040 0%,transparent 55%),
+radial-gradient(900px 500px at 100% 0%,#0c2a3a 0%,transparent 50%),var(--bg);color:var(--fg);min-height:100vh}
 #bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
-#bar b{font-size:15px}.pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;user-select:none}
+padding:10px 16px;background:rgba(21,30,48,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+#bar b{font-size:15px;letter-spacing:.2px}.pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;user-select:none}
 .g{background:#14532d;color:#86efac}.y{background:#713f12;color:#fde68a}.r{background:#7f1d1d;color:#fca5a5}
-button{background:var(--vio);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer}
-button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
-button.mini{padding:3px 8px;font-size:12px}button:disabled{opacity:.5;cursor:wait}
-a{color:var(--vio)}
-/* 顶层三区 */
-#groups{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;background:#172033}
-.gtab{padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--mut);border:1px solid transparent;border-bottom:none}
-.gtab.on{background:var(--bg);color:var(--fg);border-color:var(--line)}
-/* 二级分段（改数据6项 / 异常处理5项） */
-#subnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:#172033;border-bottom:1px solid var(--line);min-height:0}
+button{background:linear-gradient(180deg,#9b6dff,#7c3aed);color:#fff;border:0;border-radius:9px;padding:7px 14px;font-size:13px;cursor:pointer;
+box-shadow:0 2px 10px #7c3aed44;font-weight:600}
+button:hover{filter:brightness(1.06)}button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);box-shadow:none}
+button.mini{padding:5px 10px;font-size:12px;border-radius:8px}button:disabled{opacity:.5;cursor:wait;filter:none}
+a{color:var(--vio2)}a.logout{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:8px}
+a.logout:hover{background:var(--panel2);color:var(--fg)}
+#groups{display:flex;gap:4px;flex-wrap:wrap;padding:10px 16px 0;background:transparent}
+.gtab{padding:9px 18px;border-radius:10px 10px 0 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--mut);
+border:1px solid transparent;border-bottom:none;transition:.15s}
+.gtab:hover{color:var(--fg)}.gtab.on{background:var(--bg);color:var(--fg);border-color:var(--line);box-shadow:0 -2px 12px #0003}
+#subnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 16px;background:rgba(15,22,36,.65);border-bottom:1px solid var(--line);min-height:0}
 .subgrp{display:none;gap:6px;align-items:center;flex-wrap:wrap}
-.stab{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 13px;border-radius:20px;font-size:13px;cursor:pointer}
-.stab.on{background:var(--vio);color:#fff;border-color:var(--vio)}
+.stab{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;transition:.12s}
+.stab:hover{color:var(--fg);border-color:#475569}.stab.on{background:var(--vio);color:#fff;border-color:var(--vio);box-shadow:0 2px 8px #8b5cf644}
 .subsep{width:1px;height:18px;background:var(--line);margin:0 4px}
 .subgrp .badge{background:#7f1d1d;color:#fca5a5;border-radius:20px;padding:0 6px;font-size:11px;margin-left:5px}
 .subgrp .badge.zero{background:#14532d;color:#86efac}
-.sec{display:none;padding:14px}.sec.on{display:block}
-input,select{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px;font-size:13px}
-table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
-th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;white-space:nowrap}
-th{background:#172033;position:sticky;top:0}tr.exp{background:#3b1d1d}tr.init-pw{background:#3b2f0e}
-.wrap{overflow:auto;max-height:70vh}.row-form{margin:6px 0;padding:8px;background:#172033;border-radius:7px}
-.muted{color:var(--mut);font-size:12px}iframe{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:#fff}
-.note{color:var(--mut);font-size:12px;margin:6px 0}
-#hDetail{display:none;position:absolute;top:46px;left:14px;z-index:30;max-width:560px;background:var(--panel);
-border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12px;line-height:1.6;box-shadow:0 10px 30px #0009}
+.sec{display:none;padding:18px 16px 28px;max-width:1280px}.sec.on{display:block}
+input,select{background:#0c1424;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px 10px;font-size:13px}
+input:focus,select:focus{outline:none;border-color:var(--vio);box-shadow:0 0 0 3px #8b5cf633}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin:0}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap}
+th{background:#0f172a;position:sticky;top:0;z-index:1;color:var(--mut);font-size:11.5px;font-weight:700;letter-spacing:.02em}
+tr.exp{background:#3b1d1d}tr.init-pw td{background:#3b2f0e88 !important}
+.wrap{overflow:auto;max-height:70vh}
+.row-form{margin:6px 0;padding:10px 12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
+.muted{color:var(--mut);font-size:12px}
+iframe{width:100%;height:78vh;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 8px 28px #0005}
+.note{color:var(--mut);font-size:12.5px;margin:8px 0;line-height:1.55}
+.note.info{border-left:3px solid var(--vio);padding:10px 14px;border-radius:0 10px 10px 0;background:var(--panel2);margin:0 0 12px}
+#hDetail{display:none;position:absolute;top:52px;left:14px;z-index:30;max-width:560px;background:var(--panel);
+border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12px;line-height:1.6;box-shadow:0 12px 36px #0009}
 #hDetail h4{margin:0 0 4px;font-size:13px}#hDetail .grp{margin-top:10px}
 #hDetail .k{color:var(--mut);font-weight:600;margin-bottom:2px}
 #hDetail ul{margin:3px 0 0;padding-left:18px}#hDetail .ok{color:#86efac}
-/* toast */
 #toast{display:none;position:fixed;top:56px;right:18px;z-index:50;background:#14532d;color:#bbf7d0;
 padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px #0008;max-width:360px}
 #toast.err{background:#7f1d1d;color:#fecaca}
+.scard{background:linear-gradient(165deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);
+border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 28px #0004}
+.scard-h{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);
+background:linear-gradient(180deg,#1e2a42,#172033)}
+.scard-h .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;
+background:linear-gradient(145deg,#8b5cf633,#6366f122);border:1px solid #8b5cf644;font-size:17px}
+.scard-h .ttl{font-size:15px;font-weight:700;letter-spacing:.2px}
+.scard-h .sub{font-size:12px;color:var(--mut);margin-top:3px;line-height:1.45}
+.scard-b{padding:16px}.scard-f{padding:12px 16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+background:rgba(0,0,0,.12)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field.row{flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
+.field label{font-size:12px;color:var(--mut);font-weight:600}
+.field-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#settings .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1100px}
+#settings .sgrid .full{grid-column:1/-1}
+@media(max-width:900px){#settings .sgrid{grid-template-columns:1fr}}
+.tbl-box{border:1px solid var(--line);border-radius:12px;overflow:auto;background:#0c1424}
+.tbl-box.sm{max-height:42vh}.tbl-box.lg{max-height:70vh}
+.tbl-box table{margin:0}.tbl-box th{border-bottom:1px solid var(--line)}
+.tbl-box tr:hover td{background:#1a243866}
+.tbl-box input,.tbl-box select{border-radius:7px;padding:6px 8px;font-size:12.5px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;margin-bottom:12px;
+border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px #0003}
+.toolbar .grow{flex:1;min-width:8px}
+.sec-block{margin-top:18px}
+.sec-block .blk-h{font-size:14px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;max-width:1100px}
+.ovcard{border-radius:14px !important;transition:transform .15s,box-shadow .15s;box-shadow:0 6px 18px #0003}
+.ovcard:hover{transform:translateY(-2px);box-shadow:0 12px 28px #0006}
+#dash .note{margin-top:10px}
+/* BU 销售拖拽归属 */
+.bu-board{display:flex;flex-direction:column;gap:12px}
+.bu-pool{border:1px dashed #475569;border-radius:12px;padding:10px 12px;background:#0c142488}
+.bu-pool-h,.bu-col-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.bu-pool-h b,.bu-col-title{font-size:13px;font-weight:700}
+.bu-pool-h .hint{font-size:11.5px;color:var(--mut)}
+.bu-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.bu-col{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0c1424;min-height:140px;
+display:flex;flex-direction:column;gap:8px}
+.bu-col.drag-over{border-color:var(--vio);box-shadow:0 0 0 2px #8b5cf644}
+.bu-col-meta{display:flex;flex-direction:column;gap:6px}
+.bu-col-meta input{width:100%}
+.bu-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:44px;padding:8px;border-radius:10px;
+background:#111827;border:1px solid #1f2937;flex:1;align-content:flex-start}
+.bu-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+background:linear-gradient(180deg,#2a3650,#1e293b);border:1px solid #3d4f6f;color:var(--fg);
+font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
+.bu-chip:active{cursor:grabbing}.bu-chip.dragging{opacity:.45}
+.bu-chip .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+.bu-chip .c{font-size:10.5px;color:var(--mut);font-weight:500}
+.bu-chip .x{border:0;background:transparent;color:#94a3b8;cursor:pointer;padding:0 2px;font-size:14px;line-height:1;box-shadow:none}
+.bu-chip .x:hover{color:#f87171}
+.bu-empty{font-size:11.5px;color:#64748b;padding:4px 2px;width:100%}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
@@ -412,7 +473,7 @@ padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0
   <button id="btnRefresh" onclick="doRefresh()">立即更新</button>
   <span id="msg" class="muted"></span>
   <span style="margin-left:auto"></span>
-  <a href="/admin/logout">退出</a>
+  <a class="logout" href="/admin/logout">退出</a>
 </div>
 <div id="toast"></div>
 <div id="hDetail"></div>
@@ -442,139 +503,177 @@ padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0
 </div>
 
 <div id="dash" class="sec on"><iframe id="dashFrame" src="/"></iframe>
-  <div class="note">改数后此驾驶舱会自动刷新（秒级重算）。</div></div>
+  <div class="note info">改数后此驾驶舱会自动刷新（秒级重算）。</div></div>
 
 <div id="detail" class="sec">
-  <div>当前表：<b id="dTableName">收入明细</b> &nbsp;
-    月份<select id="dY"></select><select id="dM"></select>
-    搜索<input id="dQ" placeholder="订单号/客户…" size="12">
+  <div class="toolbar">
+    <span>当前表：<b id="dTableName">收入明细</b></span>
+    <span class="field-inline">月份 <select id="dY"></select><select id="dM"></select></span>
+    <span class="field-inline">搜索 <input id="dQ" placeholder="订单号/客户…" size="14"></span>
     <button onclick="dQuery()">查询</button>
-    <span id="dInfo" class="muted"></span>
+    <span id="dInfo" class="muted grow"></span>
   </div>
-  <div class="note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在调整台账撤销）。滚动到底自动加载更多。</div>
-  <div class="wrap" id="dWrap"><table id="dTbl"></table></div>
+  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在调整台账撤销）。滚动到底自动加载更多。</div>
+  <div class="tbl-box lg wrap" id="dWrap"><table id="dTbl"></table></div>
 </div>
 
 <div id="manual" class="sec">
-  月份<select id="mY"></select><select id="mM"></select><button onclick="mLoad()">查询</button>
-  <span class="muted">改手填即留痕（manual_历史），当月覆盖。</span>
-  <div class="wrap"><table id="mTbl"></table></div>
-  <div class="note" style="margin-top:18px">年度预算（经营目标·全公司口径）：下单/回款两个年度数，年初定、年中改留痕；填了老板端回款图即出预算线与完成率。</div>
-  年份<select id="bY"></select>
-  <div class="wrap"><table id="bTbl"></table></div>
-  <div class="note" style="margin-top:14px">部门费用年预算：按收单台账「预算归属部门」逐部门填；填了老板端即出「部门费用预算执行」卡（已用=白名单内含税年累计）。改已有值需确认、全程留痕。</div>
-  <div class="wrap"><table id="bdTbl"></table></div>
+  <div class="toolbar">
+    <span class="field-inline">月份 <select id="mY"></select><select id="mM"></select></span>
+    <button onclick="mLoad()">查询</button>
+    <span class="muted grow">改手填即留痕（manual_历史），当月覆盖。</span>
+  </div>
+  <div class="tbl-box sm wrap"><table id="mTbl"></table></div>
+  <div class="sec-block">
+    <div class="blk-h">📈 年度预算（全公司）</div>
+    <div class="note info">下单/回款两个年度数，年初定、年中改留痕；填了老板端回款图即出预算线与完成率。</div>
+    <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span></div>
+    <div class="tbl-box sm wrap"><table id="bTbl"></table></div>
+  </div>
+  <div class="sec-block">
+    <div class="blk-h">🏷 部门费用年预算</div>
+    <div class="note info">按收单台账「预算归属部门」逐部门填；填了老板端即出「部门费用预算执行」卡。改已有值需确认、全程留痕。</div>
+    <div class="tbl-box sm wrap"><table id="bdTbl"></table></div>
+  </div>
 </div>
 
 <div id="ledger" class="sec">
-  <button onclick="lLoad()">刷新台账</button>
-  <label style="margin-left:10px"><input type="checkbox" id="lExpOnly" onchange="lRender()"> 只看过期疑似</label>
-  <button class="mini" id="lBatchBtn" onclick="lBatchAsk()" style="margin-left:10px">一键听源头新值（批量撤销过期疑似）</button>
-  <span id="lInfo" class="muted"></span>
-  <div class="note">过期疑似（红）= 源头已改、我的调整未套用，<b>页面现用源头新值</b>。处理：「坚持我的数」=重新生效继续用我的值（逐条，需确认）；「撤销」=认可源头新值。批量只提供"听源头"方向——批量坚持会把报警的意义废掉，故意不做。</div>
-  <div id="lConfirm" class="note" style="display:none;border:1px solid #f59e0b;border-radius:6px;padding:10px"></div>
-  <div class="wrap"><table id="lTbl"></table></div>
+  <div class="toolbar">
+    <button onclick="lLoad()">刷新台账</button>
+    <label class="field-inline muted"><input type="checkbox" id="lExpOnly" onchange="lRender()"> 只看过期疑似</label>
+    <button class="mini" id="lBatchBtn" onclick="lBatchAsk()">一键听源头新值（批量撤销过期疑似）</button>
+    <span id="lInfo" class="muted grow"></span>
+  </div>
+  <div class="note info">过期疑似（红）= 源头已改、我的调整未套用，<b>页面现用源头新值</b>。处理：「坚持我的数」=重新生效；「撤销」=认可源头。批量只提供"听源头"方向。</div>
+  <div id="lConfirm" class="note info" style="display:none;border-left-color:#f59e0b"></div>
+  <div class="tbl-box lg wrap"><table id="lTbl"></table></div>
 </div>
 
 <div id="history" class="sec">
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    看哪天 <select id="hisY"></select><select id="hisM"></select><select id="hisD" style="min-width:220px"></select>
-    <span id="hisInfo" class="muted"></span>
+  <div class="toolbar">
+    <span class="field-inline">看哪天 <select id="hisY"></select><select id="hisM"></select><select id="hisD" style="min-width:220px"></select></span>
+    <span id="hisInfo" class="muted grow"></span>
   </div>
-  <div class="note">每天更新完自动存一份当天页面（同天多次更新=留最后一次），保留天数在「设置」里改；月末那天的随月末快照永久保留（12月末=年末档）。</div>
-  <iframe id="hisFrame" style="margin-top:8px"></iframe>
+  <div class="note info">每天更新完自动存一份当天页面（同天多次=留最后一次）；月末那天随月末快照永久保留。</div>
+  <iframe id="hisFrame" style="margin-top:4px"></iframe>
 </div>
 
 <div id="settings" class="sec">
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;max-width:1200px">
+  <div class="sgrid">
 
-    <!-- 上排：自动更新 | 备份清理 -->
-    <div class="row-form" style="margin:0;padding:16px 18px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">⏰ 自动更新</div>
-      <div class="muted" style="margin-bottom:14px">每天自动跑一次完整更新（抓数→重算→出页面）</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span>每日更新时间</span><input id="sTime" type="time" style="font-size:15px;padding:8px 10px">
+    <div class="scard">
+      <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div>
+        <div class="sub">每天自动跑一次完整更新（抓数→重算→出页面）</div></div></div>
+      <div class="scard-b">
+        <div class="field row"><label>每日更新时间</label>
+          <input id="sTime" type="time" style="font-size:15px;padding:8px 12px;width:auto"></div>
+        <div class="muted">Windows 部署机计划任务时间；首次注册跑一次 注册每日更新.bat。平时可点顶栏「立即更新」。</div>
       </div>
-      <div class="muted" style="margin-bottom:10px">Windows 部署机计划任务时间；首次注册跑一次 注册每日更新.bat。平时可点顶栏「立即更新」。</div>
-      <button class="mini" type="button" onclick="saveSchedule()">保存自动更新</button>
-      <span id="sTimeMsg" class="muted"></span>
+      <div class="scard-f">
+        <button class="mini" type="button" onclick="saveSchedule()">保存自动更新</button>
+        <span id="sTimeMsg" class="muted"></span>
+      </div>
     </div>
 
-    <div class="row-form" style="margin:0;padding:16px 18px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗄 备份清理</div>
-      <div class="muted" style="margin-bottom:14px">每次更新自动把算好的 看板.db 备份到 数据/备份/（每天一份）</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span>备份保留</span><input id="sKeep" type="number" min="1" max="365" style="width:80px;font-size:15px;padding:8px 10px"><span>天</span>
+    <div class="scard">
+      <div class="scard-h"><span class="ico">🗄</span><div><div class="ttl">备份清理</div>
+        <div class="sub">每次更新备份 看板.db 到 数据/备份/（每天一份）</div></div></div>
+      <div class="scard-b">
+        <div class="field row"><label>备份保留</label>
+          <input id="sKeep" type="number" min="1" max="365" style="width:88px;font-size:15px"><span class="muted">天</span></div>
+        <div class="muted">超过天数自动删最旧；月末快照存档永久保留。</div>
+        <div id="sBakInfo" class="muted" style="margin-top:8px"></div>
       </div>
-      <div class="muted">超过天数自动删最旧的；月末快照存档永久保留。</div>
-      <div id="sBakInfo" class="muted" style="margin-top:8px"></div>
-      <div style="margin-top:10px">
+      <div class="scard-f">
         <button class="mini" type="button" onclick="saveBackup()">保存备份设置</button>
         <span id="sBakMsg" class="muted"></span>
       </div>
     </div>
 
-    <!-- 中排：智云账号 | 账号与权限 -->
-    <div class="row-form" style="margin:0;padding:16px 18px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔑 智云账号（在线抓数用）</div>
-      <div class="muted" style="margin-bottom:12px">换账号只改这两项并保存；下次「立即更新」用新号。账号内部 ID 登录时自动取。</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <span>账号 <input id="sZyUser" type="password" autocomplete="off" style="width:150px;font-size:14px;padding:8px 10px"></span>
-        <span>密码 <input id="sZyPwd" type="password" autocomplete="off" style="width:150px;font-size:14px;padding:8px 10px"></span>
-        <button class="ghost mini" type="button" onclick="toggleZyReveal()" id="sZyEye">👁 显示</button>
+    <div class="scard">
+      <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号</div>
+        <div class="sub">在线抓数用；换号只改这两项，下次「立即更新」生效</div></div></div>
+      <div class="scard-b">
+        <div class="field"><label>账号</label>
+          <input id="sZyUser" type="password" autocomplete="off" style="width:100%;max-width:280px"></div>
+        <div class="field"><label>密码</label>
+          <div class="field-inline">
+            <input id="sZyPwd" type="password" autocomplete="off" style="width:100%;max-width:280px">
+            <button class="ghost mini" type="button" onclick="toggleZyReveal()" id="sZyEye">👁 显示</button>
+          </div></div>
       </div>
-      <button class="mini" type="button" onclick="saveZhiyun()">保存智云账号</button>
-      <span id="sZyMsg" class="muted"></span>
+      <div class="scard-f">
+        <button class="mini" type="button" onclick="saveZhiyun()">保存智云账号</button>
+        <span id="sZyMsg" class="muted"></span>
+      </div>
     </div>
 
-    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:span 1 / span 2">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">👥 账号与权限</div>
-      <div class="muted" style="margin-bottom:10px">看板登录账号表。权限=管理员（进管理端）/整体（看全部）/某 BU 名（只看本 BU）。一个 BU 可挂多个账号。密码明文仅此处可见（默认打码·点👁显示）；看的人也可在看板页自改。黄底行=仍是初始密码（8888/kanban2026），发账号前请改掉。</div>
-      <div class="wrap" style="max-height:40vh"><table id="acctTbl"></table></div>
-      <div style="margin-top:10px">
+    <div class="scard full">
+      <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div>
+        <div class="sub">权限=管理员 / 整体 / 某 BU 名；一 BU 可多账号。密码明文仅此处可见（点👁显示）。黄底=仍是初始密码，发号前请改掉。</div></div></div>
+      <div class="scard-b">
+        <div class="tbl-box sm wrap"><table id="acctTbl"></table></div>
+      </div>
+      <div class="scard-f">
         <button class="ghost mini" type="button" onclick="acctAdd()">＋ 加账号</button>
         <button class="mini" type="button" onclick="acctSave()">保存账号</button>
         <span id="acctMsg" class="muted"></span>
       </div>
     </div>
 
-    <!-- 下排：BU 数据归属 + 数据从哪来 -->
-    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🏢 BU 数据归属</div>
-      <div class="muted" style="margin-bottom:10px">纯数据归属配置（与登录账号无关）。<b>销售名单</b>=智云「销售」字段值，谁的下单/回款/收入/成本算进这个 BU。负责人仅备注。没配置任何 BU=BU 分页功能关闭。公共费用分摊比例细则待陆总（暂不分摊）。</div>
-      <div class="wrap"><table id="buTbl"></table></div>
-      <div style="margin-top:10px">
+    <div class="scard full">
+      <div class="scard-h"><span class="ico">🏢</span><div><div class="ttl">BU 数据归属</div>
+        <div class="sub">把销售拖进 BU 栏=该人口径归此 BU（一人一 BU）。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
+      <div class="scard-b">
+        <div class="bu-board" id="buBoard">
+          <div class="bu-pool">
+            <div class="bu-pool-h"><b>未归属销售</b><span class="hint" id="buPoolHint">从库四源汇总 · 拖到下方 BU</span></div>
+            <div class="bu-chips" id="buPool" data-zone="pool"></div>
+          </div>
+          <div class="bu-cols" id="buCols"></div>
+        </div>
+        <table id="buTbl" style="display:none"></table>
+      </div>
+      <div class="scard-f">
         <button class="ghost mini" type="button" onclick="buAdd()">＋ 加一个 BU</button>
         <button class="mini" type="button" onclick="buSave()">保存数据归属</button>
         <span id="buMsg" class="muted"></span>
       </div>
     </div>
 
-    <div class="row-form" style="margin:0;padding:16px 18px;grid-column:1/-1">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">🔌 数据从哪来（固定流程·无需配置）</div>
-      <div class="muted" style="margin-bottom:10px">每次更新固定两路抓数：① 智云在线抓四表；② 共享盘收单台账。抓不到自动沿用本地文件+体检黄。</div>
-      <div class="wrap"><table id="sSrcTbl"></table></div>
+    <div class="scard full">
+      <div class="scard-h"><span class="ico">🔌</span><div><div class="ttl">数据从哪来</div>
+        <div class="sub">固定两路抓数：智云四表 + 共享盘台账；抓不到沿用本地文件 + 体检黄</div></div></div>
+      <div class="scard-b">
+        <div class="tbl-box sm wrap"><table id="sSrcTbl"></table></div>
+      </div>
     </div>
 
   </div>
 </div>
 
 <div id="unclassified" class="sec">
-  <button onclick="ucLoad()">刷新清单</button><span id="ucInfo" class="muted"></span>
-  <div class="note">这些收单（费用）台账明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头收单台账补填，下次更新自动计入。</div>
-  <div class="wrap" id="ucWrap"><table id="ucTbl"></table></div>
+  <div class="toolbar">
+    <button onclick="ucLoad()">刷新清单</button>
+    <span id="ucInfo" class="muted grow"></span>
+  </div>
+  <div class="note info">收单（费用）台账明细还没填「对应报表大类」→ 暂未计入费用（利润会略偏高）。请在源头补填，下次更新自动计入。</div>
+  <div class="tbl-box lg wrap" id="ucWrap"><table id="ucTbl"></table></div>
 </div>
 
 <div id="overview" class="sec">
-  <div class="note">这里集中呈现每次更新后系统查出的数据问题（分诊台）：0=绿=不用管；有数=点卡片进对应清单处理。处理动作与「改数据」是同一套调整机制，只是入口不同。</div>
-  <div id="ovCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;max-width:1100px"></div>
-  <div class="note" style="margin-top:12px">闭环说明：在「下单未填部门」归类后，若之后销售在智云源头补填了部门，那条会变成「过期疑似」（预期行为，不是故障）——去「调整台账」选"听源头"或"坚持我的数"即可。</div>
+  <div class="note info">分诊台：0=绿=不用管；有数=点卡片进对应清单。处理动作与「改数据」同一套调整机制。</div>
+  <div id="ovCards" class="ov-grid"></div>
+  <div class="note info" style="margin-top:14px">闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「调整台账」选听源头或坚持我的数。</div>
 </div>
 
 <div id="orderdept" class="sec">
-  <button onclick="odLoad()">刷新清单</button><span id="odInfo" class="muted"></span>
-  <div class="note">这些智云下单源头没填「部门」→ 排名里灰显归入「（未填）」。在此选部门保存=写一条调整（留痕、重抓不丢）；也可以让销售在智云补填，下次更新自动归位。</div>
-  <div class="wrap" id="odWrap"><table id="odTbl"></table></div>
+  <div class="toolbar">
+    <button onclick="odLoad()">刷新清单</button>
+    <span id="odInfo" class="muted grow"></span>
+  </div>
+  <div class="note info">智云下单源头没填「部门」→ 排名灰显「（未填）」。此处选部门保存=写调整；也可让销售在智云补填。</div>
+  <div class="tbl-box lg wrap" id="odWrap"><table id="odTbl"></table></div>
 </div>
 
 <script>
@@ -703,26 +802,79 @@ async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.ac
 async function acctSave(){const m=document.getElementById("acctMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];acctPwShow={};acctRender();
     m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";}catch(e){m.textContent="保存失败："+e.message;}}
-// BU 数据归属卡（无密码列）
-let buList=[];
-function buRender(){const t=document.getElementById("buTbl");
-  if(!buList.length){t.innerHTML="<tr><td class='muted'>未配置 BU（功能关闭）——点「＋ 加一个 BU」开始</td></tr>";return;}
-  const names=v=>Array.isArray(v)?v.join("、"):String(v||"");
-  t.innerHTML="<tr><th>BU 名</th><th>负责人（备注）</th><th>销售名单（数据归属·顿号/逗号分隔）</th><th></th></tr>"+
-    buList.map((b,i)=>{
-      return "<tr><td><input style='width:90px' value=\""+esc(b.name)+"\" onchange='buList["+i+"].name=this.value'></td>"+
-      "<td><input style='width:140px' value=\""+esc(names(b.负责人))+"\" onchange='buList["+i+"].负责人=this.value'></td>"+
-      "<td><input style='width:360px' value=\""+esc(names(b.销售))+"\" onchange='buList["+i+"].销售=this.value'></td>"+
-      "<td><button class='ghost mini' type='button' onclick='buDel("+i+")'>删</button></td></tr>";}).join("");
-  // 权限下拉依赖 bu 名单——重渲账号表
+// BU 数据归属：拖拽销售进 BU（一人一 BU）
+let buList=[], salesPool=[];  // salesPool:[{name,rows}]
+function _salesArr(v){if(Array.isArray(v))return v.map(s=>String(s).trim()).filter(Boolean);
+  return String(v||"").split(/[、，,;；\n]/).map(s=>s.trim()).filter(Boolean);}
+function _claimedSales(){const s=new Set();buList.forEach(b=>_salesArr(b.销售).forEach(x=>s.add(x)));return s;}
+function _chipHtml(name,withX){const r=(salesPool.find(p=>p.name===name)||{}).rows;
+  const rc=(r!=null)?('<span class="c">'+esc(String(r))+'行</span>'):'';
+  const x=withX?'<button type="button" class="x" title="移回未归属" data-unassign="1">×</button>':'';
+  return '<span class="bu-chip" draggable="true" data-name="'+esc(name)+'">'
+    +'<span class="n" title="'+esc(name)+'">'+esc(name)+'</span>'+rc+x+'</span>';}
+function _bindDrag(root){if(!root)return;
+  root.querySelectorAll(".bu-chip").forEach(ch=>{
+    ch.addEventListener("dragstart",e=>{
+      if(e.target&&e.target.getAttribute&&e.target.getAttribute("data-unassign")){e.preventDefault();return;}
+      e.dataTransfer.setData("text/plain",ch.getAttribute("data-name")||"");
+      e.dataTransfer.effectAllowed="move";ch.classList.add("dragging");});
+    ch.addEventListener("dragend",()=>ch.classList.remove("dragging"));
+    const xb=ch.querySelector("[data-unassign]");
+    if(xb)xb.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();
+      buMoveToPool(ch.getAttribute("data-name")||"");});});
+  root.querySelectorAll("[data-zone]").forEach(z=>{
+    z.addEventListener("dragover",e=>{e.preventDefault();e.dataTransfer.dropEffect="move";
+      z.classList.add("drag-over");const col=z.closest(".bu-col");if(col)col.classList.add("drag-over");});
+    z.addEventListener("dragleave",()=>{z.classList.remove("drag-over");
+      const col=z.closest(".bu-col");if(col)col.classList.remove("drag-over");});
+    z.addEventListener("drop",e=>{e.preventDefault();z.classList.remove("drag-over");
+      const col=z.closest(".bu-col");if(col)col.classList.remove("drag-over");
+      const name=(e.dataTransfer.getData("text/plain")||"").trim();if(!name)return;
+      const zone=z.getAttribute("data-zone");
+      if(zone==="pool")buMoveToPool(name);else if(zone&&zone.indexOf("bu:")===0)buMoveToBu(+zone.slice(3),name);});});}
+function buMoveToPool(name){if(!name)return;buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==name);});buRender();}
+function buMoveToBu(i,name){if(!name||i<0||i>=buList.length)return;
+  buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==name);});
+  const cur=_salesArr(buList[i].销售);if(cur.indexOf(name)<0)cur.push(name);buList[i].销售=cur;buRender();}
+function buRender(){const claimed=_claimedSales();
+  // 池：库里有且未归属 + 配置 orphan 已在 claimed 外
+  const poolNames=salesPool.map(p=>p.name).filter(n=>!claimed.has(n));
+  claimed.forEach(n=>{if(!salesPool.some(p=>p.name===n)){/* assigned-only names stay in cols */}});
+  const pool=document.getElementById("buPool");
+  if(pool){pool.innerHTML=poolNames.length?poolNames.map(n=>_chipHtml(n,false)).join("")
+    :'<div class="bu-empty">暂无未归属销售（库空或已全部分完）</div>';
+    const h=document.getElementById("buPoolHint");
+    if(h)h.textContent="共 "+salesPool.length+" 人 · 未归属 "+poolNames.length+" · 拖到下方 BU（一人一 BU）";}
+  const cols=document.getElementById("buCols");
+  if(cols){if(!buList.length){cols.innerHTML='<div class="muted" style="padding:8px">未配置 BU（功能关闭）——点「＋ 加一个 BU」</div>';}
+    else{cols.innerHTML=buList.map((b,i)=>{
+      const sales=_salesArr(b.销售);
+      const owner=Array.isArray(b.负责人)?b.负责人.join("、"):String(b.负责人||"");
+      return '<div class="bu-col"><div class="bu-col-meta">'
+        +'<input placeholder="BU 名" value="'+esc(b.name||"")+'" onchange="buList['+i+'].name=this.value;if(acctList.length)acctRender()">'
+        +'<input placeholder="负责人备注（顿号分隔）" value="'+esc(owner)+'" onchange="buList['+i+'].负责人=this.value">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center">'
+        +'<span class="bu-col-title muted">销售 '+(sales.length)+' 人</span>'
+        +'<button class="ghost mini" type="button" onclick="buDel('+i+')">删 BU</button></div></div>'
+        +'<div class="bu-chips" data-zone="bu:'+i+'">'
+        +(sales.length?sales.map(n=>_chipHtml(n,true)).join(""):'<div class="bu-empty">拖销售到这里</div>')
+        +'</div></div>';}).join("");}}
+  _bindDrag(document.getElementById("buBoard"));
   if(acctList.length)acctRender();}
 function buAdd(){buList.push({name:"",负责人:[],销售:[]});buRender();}
-function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面"))return;buList.splice(i,1);buRender();}
-async function loadBuCfg(){try{const d=await jget("/api/bu_config");buList=d.bus||[];buRender();}
+function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;
+  buList.splice(i,1);buRender();}
+async function loadBuCfg(){try{
+  const [d,pool]=await Promise.all([jget("/api/bu_config"),jget("/api/sales_pool").catch(()=>({sales:[]}))]);
+  buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售)}));
+  salesPool=pool.sales||[];buRender();}
   catch(e){document.getElementById("buMsg").textContent="读取失败:"+e.message;}}
 async function buSave(){const m=document.getElementById("buMsg");m.textContent="保存并重算中…";
-  try{const d=await jpost("/api/bu_config",{bus:buList});buList=d.bus||[];buRender();
-    m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();}
+  try{// 规范化：负责人字符串→数组
+    const payload=buList.map(b=>({name:b.name,负责人:b.负责人,销售:_salesArr(b.销售)}));
+    const d=await jpost("/api/bu_config",{bus:payload});
+    buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售)}));
+    buRender();m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();}
   catch(e){m.textContent="保存失败："+e.message;}}
 
 // ---- 明细编辑（无限滚动加载）----
@@ -1043,10 +1195,10 @@ def create_app(cfg, root=None) -> FastAPI:
 
         def _esc(s):
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        links = " ".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
-        nav = ('<div class="bu-nav" style="max-width:1520px;margin:10px auto 0;padding:0 28px;'
-               'font-size:13px;color:var(--mut2)">BU 分页：' + links +
-               '<style>.bu-nav-a{margin:0 6px;color:var(--blue);text-decoration:none}</style></div>')
+        links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
+        nav = ('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
+               '<span class="bu-nav-label">业务 BU 分页</span>'
+               '<span class="bu-nav-links">' + links + '</span></div>')
         return html.replace('<div class="wrap">', nav + '<div class="wrap">', 1)
 
     @app.post("/login")
@@ -1322,14 +1474,32 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/bu_config")
     def api_bu_config_get(request: Request):
-        """BU 配置（管理员会话）：BU 清单/负责人/销售名单/链接。token 只在管理员会话内可见。"""
+        """BU 配置（管理员会话）：BU 清单/负责人/销售名单。"""
         _require(request)
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         return {"bus": bucfg["bus"], "count": len(bucfg["bus"])}
 
+    @app.get("/api/sales_pool")
+    def api_sales_pool(request: Request):
+        """四源销售池（管理员）：供 BU 拖拽归属。含配置里有、库里暂无的名字（rows=0）。"""
+        _require(request)
+        conn = db.connect(cfg, root)
+        try:
+            from_db = db.list_salespeople(conn)
+        finally:
+            conn.close()
+        by = {x["name"]: x["rows"] for x in from_db}
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+        for b in bucfg.get("bus", []):
+            for s in b.get("销售") or []:
+                if s and s not in by:
+                    by[s] = 0
+        people = [{"name": n, "rows": by[n]} for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
+        return {"sales": people, "count": len(people)}
+
     @app.post("/api/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
-        """保存 BU 数据归属并立即重算重渲染 BU 页（v8.0 无密码字段）。"""
+        """保存 BU 数据归属并立即重算重渲染 BU 页（一人一 BU，后写的重复销售丢弃）。"""
         _require(request)
         bus = payload.get("bus")
         if not isinstance(bus, list):

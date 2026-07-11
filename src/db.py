@@ -183,6 +183,29 @@ def list_order_depts(conn: sqlite3.Connection) -> list[str]:
         "SELECT DISTINCT 部门 FROM std_下单 WHERE 已删除=0 AND 部门 IS NOT NULL AND TRIM(部门)<>''"))
 
 
+def list_salespeople(conn: sqlite3.Connection) -> list[dict]:
+    """四源「销售」去重汇总（管理端 BU 拖拽归属池）。
+    返回 [{"name": 销售名, "rows": 四源合计行数}, …] 按行数降序、同名序。
+    空/纯空白不算；名字 trim 后聚合。"""
+    sql = """
+    SELECT TRIM(销售) AS n, COUNT(*) AS c FROM (
+      SELECT 销售 FROM std_收入明细 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
+      UNION ALL
+      SELECT 销售 FROM std_下单 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
+      UNION ALL
+      SELECT 销售 FROM std_回款 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
+      UNION ALL
+      SELECT 销售 FROM std_内部译员 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
+    ) GROUP BY TRIM(销售) ORDER BY c DESC, n COLLATE NOCASE
+    """
+    try:
+        rows = conn.execute(sql).fetchall()
+    except sqlite3.OperationalError:
+        # 极老库缺某表/列：降级空池，不炸管理端
+        return []
+    return [{"name": r[0], "rows": int(r[1])} for r in rows if r[0]]
+
+
 def exceptions_summary(conn: sqlite3.Connection) -> dict:
     """异常处理中心「总览」计数（新增一类异常=这里加一个键+前端注册一张卡）。
     体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/health）。"""

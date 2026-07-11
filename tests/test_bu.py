@@ -194,12 +194,14 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """页面标注：暂不分摊 / 待陆总手填 / 映射待确认；不含全公司出口（导出/按时间段看）。"""
+        """页面标注：暂不分摊 / 待陆总手填 / 映射待确认；有返回整体；不含全公司出口（导出/按时间段看）。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._pages()["BU甲"]["html"]
         self.assertIn("暂不分摊", h)
         self.assertIn("待陆总", h)
         self.assertIn("映射待陆总确认", h)
+        self.assertIn("返回整体", h)
+        self.assertIn('href="/"', h)
         self.assertNotIn("exportBtn", h)
         self.assertNotIn("dailyBtn", h)
         self.assertNotIn("/api/daily", h)
@@ -286,6 +288,25 @@ class TestBuEndpoints(unittest.TestCase):
         self.assertNotIn("密码hash", r.json()["bus"][0])
         self.assertEqual(bu.load_bu_config(self.cfg, self.root)["bus"][0]["销售"], ["销售C"])
         rec.assert_called_once_with(self.cfg, self.root)
+
+    def test_sales_pool_requires_login_and_lists_seed(self):
+        self.assertEqual(self.anon.get("/api/sales_pool").status_code, 401)
+        r = self.client.get("/api/sales_pool", headers=self.hdr)
+        self.assertEqual(r.status_code, 200)
+        names = {x["name"] for x in r.json()["sales"]}
+        self.assertTrue({"销售A", "销售B", "销售C"} <= names)
+        self.assertTrue(all("rows" in x and x["rows"] >= 1 for x in r.json()["sales"]
+                            if x["name"] in ("销售A", "销售B", "销售C")))
+
+    def test_one_sales_one_bu_on_save(self):
+        """同一销售写进多个 BU → 只保留先出现的 BU。"""
+        saved = bu.save_bu_config(self.cfg, self.root, [
+            {"name": "BU甲", "销售": ["销售A", "销售X"]},
+            {"name": "BU乙", "销售": ["销售A", "销售B"]},  # 销售A 重复
+        ])
+        by = {b["name"]: b["销售"] for b in saved["bus"]}
+        self.assertEqual(by["BU甲"], ["销售A", "销售X"])
+        self.assertEqual(by["BU乙"], ["销售B"])  # A 被先到的 BU甲 占走
 
 
 class TestZeroConfigServer(unittest.TestCase):

@@ -87,17 +87,24 @@ def _write(cfg, root, data: dict) -> None:
 
 def save_bu_config(cfg: dict, root: Path | None, bus: list[dict]) -> dict:
     """管理端保存：逐条校验规范化后落盘（纯数据归属，无密码字段）。
+    **一人一 BU**：同一销售名若出现在多个 BU，只保留先出现的那个 BU（拖拽 UI 同规则）。
     返回落盘后的 {"bus": [...]}；空列表=写空配置（=功能关闭）。"""
-    out, seen = [], set()
+    out, seen_bu, claimed = [], set(), set()
     for b in bus if isinstance(bus, list) else []:
         if not isinstance(b, dict):
             continue
         name = str(b.get("name") or "").strip()
-        if not name or name == MAIN_ACCOUNT or name in seen:
+        if not name or name == MAIN_ACCOUNT or name in seen_bu:
             continue
-        seen.add(name)
+        seen_bu.add(name)
+        sales = []
+        for s in _clean_names(b.get("销售")):
+            if s in claimed:
+                continue  # 已归别的 BU
+            claimed.add(s)
+            sales.append(s)
         out.append({"name": name, "负责人": _clean_names(b.get("负责人")),
-                    "销售": _clean_names(b.get("销售")),
+                    "销售": sales,
                     "分摊比例": None})  # 本批固定 null=暂不分摊
     data = {"bus": out}
     _write(cfg, root, data)
