@@ -214,6 +214,10 @@ body{
 .daily-tbl th:first-child,.daily-tbl td:first-child{text-align:left}
 .daily-tbl th{color:var(--mut);font-weight:600}
 .daily-total td{font-weight:700;color:var(--accent);border-top:1px solid var(--line-2)}
+.daily-row{cursor:pointer}
+.daily-row:hover{background:rgba(34,211,238,.06)}
+.daily-row.sel td{background:rgba(34,211,238,.14);color:var(--accent);font-weight:700}
+.daily-close{margin-left:auto}
 .rk-unfilled{opacity:.62}
 .rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}
 .rk-unfilled .rk-no{color:#f59e0b;font-size:12px}

@@ -500,11 +500,12 @@ EXPORT_JS = r"""
 # 铁律10：接口返回的部门/销售/客户名是自由文本，插 HTML 前必过 esc。file:// 打开时 fetch 失败给提示。
 DAILY_HTML = """
 <div class="card" id="dailyPanel" style="display:none;margin-bottom:16px">
-  <div class="card-h">按天明细 <span class="tag">任意日期区间 · 只看算得准的下单/回款（费用/利润按月）</span></div>
+  <div class="card-h">按时间段看 <span class="tag">选起止日期 · 只有下单/回款能按天算准（费用/利润按月，仍看上面板块）</span>
+    <button class="toggle daily-close" id="dailyClose"><span>✕</span> 收起并还原</button></div>
   <div class="daily-bar">
     <input type="date" id="dailyS"> ~ <input type="date" id="dailyE">
     <button class="toggle" id="dailyGo">查询</button>
-    <span class="daily-note">实时从库里算（需服务器版；每天早上「立即更新」后即最新——九点下单日报可直接看这里）</span>
+    <span class="daily-note">查询后，下方排名卡就切成这个时间段的数；<b>点逐日表某一行=只看那一天</b>，再点一次恢复整段；「✕ 收起并还原」回到跟随顶部周期。</span>
   </div>
   <div id="dailyOut"></div>
 </div>"""
@@ -514,15 +515,23 @@ DAILY_JS = """
  var btn=document.getElementById('dailyBtn'),panel=document.getElementById('dailyPanel');
  if(!btn||!panel)return;
  var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE');
+ var rkGlobal=document.getElementById('rankViews'),rkCustom=document.getElementById('rkCustom');
+ var range=null,dayPick=null;   // range={s,e}=当前查询段；dayPick=单选的那天（null=看整段）
  function pad(n){return (n<10?'0':'')+n;}
  function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
  var today=new Date();
  iE.value=iso(today);iS.value=iso(new Date(today.getFullYear(),today.getMonth(),1));
- btn.addEventListener('click',function(){panel.style.display=panel.style.display==='none'?'':'none';});
  var esc=function(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){
    return({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c];});};
- function rkHtml(title,rk){
-  var h='<div class="card"><div class="card-h">'+title+'</div><div class="ev-list rk-list">';
+ // 唯一一套排名卡：自定义模式=隐藏预渲染卡、显示同位置的动态卡（标签写明区间），还原=反向
+ function restore(){rkCustom.style.display='none';rkCustom.innerHTML='';
+   rkGlobal.style.display='';panel.style.display='none';range=null;dayPick=null;
+   document.getElementById('dailyOut').innerHTML='';}
+ btn.addEventListener('click',function(){
+   if(panel.style.display==='none'){panel.style.display='';}else{restore();}});
+ document.getElementById('dailyClose').addEventListener('click',restore);
+ function rkHtml(title,rk,tag){
+  var h='<div class="card"><div class="card-h">'+title+' <span class="tag">'+esc(tag)+'</span></div><div class="ev-list rk-list">';
   var items=(rk&&rk.items)||[];
   if(!items.length&&!(rk&&rk.unfilled))h+='<div class="ev-empty">本期无数据</div>';
   items.forEach(function(it,i){h+='<div class="ev-row rk-row"><span class="rk-no">'+(i+1)+'</span>'+
@@ -533,27 +542,41 @@ DAILY_JS = """
   if(rk&&rk.unfilled)h+='<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span><span class="ev-name">（未填）</span>'+
     '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.unfilled.disp)+'</span><span class="rk-meta">'+rk.unfilled.count+'笔·待归类</span></div>';
   return h+'</div></div>';}
- document.getElementById('dailyGo').addEventListener('click',function(){
-  var s=iS.value,e=iE.value,out=document.getElementById('dailyOut');
-  if(!s||!e){out.innerHTML='<div class="ev-empty">请选起止日期</div>';return;}
-  out.innerHTML='<div class="ev-empty">查询中…</div>';
+ function query(s,e,keepTable){
+  var out=document.getElementById('dailyOut');
+  if(!keepTable)out.innerHTML='<div class="ev-empty">查询中…</div>';
   fetch('/api/daily?start='+s+'&end='+e).then(function(r){
     if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
     return r.json();
   }).then(function(d){
-    var h='<div class="daily-wrap"><table class="daily-tbl"><tr><th>日期</th><th>下单额</th><th>笔数</th><th>回款额</th><th>笔数</th></tr>';
-    if(!d.days.length)h+='<tr><td colspan="5" class="ev-empty">区间内无下单/回款</td></tr>';
-    d.days.forEach(function(r){h+='<tr><td>'+esc(r.day)+'</td><td>'+esc(r.orders_disp)+'</td><td>'+r.orders_count+
-      '</td><td>'+esc(r.receipts_disp)+'</td><td>'+r.receipts_count+'</td></tr>';});
-    h+='<tr class="daily-total"><td>合计</td><td>'+esc(d.totals.orders_disp)+'</td><td>'+d.totals.orders_count+
-      '</td><td>'+esc(d.totals.receipts_disp)+'</td><td>'+d.totals.receipts_count+'</td></tr></table></div>';
-    h+='<div class="grid-3 rk-grid" style="margin-top:12px">'+
-      rkHtml('下单 · 按部门',d.rankings.orders_by_dept)+
-      rkHtml('下单 · 按销售',d.rankings.orders_by_sales)+
-      rkHtml('回款 · 按客户',d.rankings.receipts_by_customer)+'</div>';
-    out.innerHTML=h;
+    if(!keepTable){ // 整段查询：重画逐日表（行可点=只看那天）
+      var h='<div class="daily-wrap"><table class="daily-tbl"><tr><th>日期（点行=只看那天）</th><th>下单额</th><th>笔数</th><th>回款额</th><th>笔数</th></tr>';
+      if(!d.days.length)h+='<tr><td colspan="5" class="ev-empty">区间内无下单/回款</td></tr>';
+      d.days.forEach(function(r){h+='<tr class="daily-row" data-day="'+esc(r.day)+'"><td>'+esc(r.day)+'</td><td>'+esc(r.orders_disp)+'</td><td>'+r.orders_count+
+        '</td><td>'+esc(r.receipts_disp)+'</td><td>'+r.receipts_count+'</td></tr>';});
+      h+='<tr class="daily-total"><td>合计</td><td>'+esc(d.totals.orders_disp)+'</td><td>'+d.totals.orders_count+
+        '</td><td>'+esc(d.totals.receipts_disp)+'</td><td>'+d.totals.receipts_count+'</td></tr></table></div>';
+      out.innerHTML=h;
+      out.querySelectorAll('.daily-row').forEach(function(tr){tr.addEventListener('click',function(){
+        var day=tr.dataset.day;
+        if(dayPick===day){dayPick=null;markRows();query(range.s,range.e,true);}   // 再点一次=恢复整段
+        else{dayPick=day;markRows();query(day,day,true);}});});
+    }
+    markRows();
+    var tag=(s===e)?('只看 '+s+' · 点行还原'):(s+' ~ '+e);
+    rkCustom.innerHTML='<div class="grid-3 rk-grid">'+
+      rkHtml('下单 · 按部门',d.rankings.orders_by_dept,tag)+
+      rkHtml('下单 · 按销售',d.rankings.orders_by_sales,tag)+
+      rkHtml('回款 · 按客户',d.rankings.receipts_by_customer,tag)+'</div>';
+    rkGlobal.style.display='none';rkCustom.style.display='';
   }).catch(function(err){out.innerHTML='<div class="ev-empty">查询失败：'+esc(err.message)+
-    '（此功能要在服务器版页面用；file:// 双击打开的快照不支持）</div>';});
+    '（此功能要在服务器版页面用；file:// 双击打开的快照不支持）</div>';});}
+ function markRows(){document.querySelectorAll('.daily-row').forEach(function(tr){
+   tr.classList.toggle('sel',tr.dataset.day===dayPick);});}
+ document.getElementById('dailyGo').addEventListener('click',function(){
+  var s=iS.value,e=iE.value;
+  if(!s||!e){document.getElementById('dailyOut').innerHTML='<div class="ev-empty">请选起止日期</div>';return;}
+  range={s:s,e:e};dayPick=null;query(s,e,false);
  });
 })();
 """
@@ -602,9 +625,10 @@ def render_dashboard(summary, cfg, logo_b64):
  {render_dept_budget(meta.get('dept_budget'))}
 
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">下单与回款排名</span>
-  <button class="toggle daily-btn" id="dailyBtn"><span>▦</span> 按天明细</button></div>
+  <button class="toggle daily-btn" id="dailyBtn"><span>▦</span> 按时间段看</button></div>
  {DAILY_HTML}
- {rank_views}
+ <div id="rankViews">{rank_views}</div>
+ <div id="rkCustom" style="display:none"></div>
  {faint_note}
  <div class="foot">
   经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；

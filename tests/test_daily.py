@@ -145,7 +145,7 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
-        for token in ("dailyBtn", "dailyPanel", "/api/daily", "按天明细"):
+        for token in ("dailyBtn", "dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose", "daily-row"):
             self.assertIn(token, html, token)
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, html)
