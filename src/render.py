@@ -211,7 +211,7 @@ def render_dept_budget(dept_budget):
                       f'<span class="bud-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
                       f'<span class="bud-num">{charts.fmt_wan(r["used"])} / {charts.fmt_wan(r["target"])}万'
                       f' · <b class="{cls}">{ptxt}</b></span></div>')
-    return (f'<div class="card" style="margin-top:16px"><div class="card-h">部门费用预算执行 '
+    return (f'<div class="card"><div class="card-h">部门费用预算执行 '
             f'<span class="tag">{dept_budget["year"]}年 · 已用/年预算 · 口径：台账白名单内含税·年累计·含特批</span></div>'
             f'<div class="bud-list">{rows_html}</div>'
             f'<div class="chart-note">已用=收单台账按「预算归属部门」年累计；预算在管理员端·手填·年度预算维护（改动留痕）。</div></div>')
@@ -827,6 +827,15 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
+    # 回款情况 + 部门费用预算执行：左右两列并排（各缩到半宽，比整宽堆叠小很多；手机端 grid-2e 自动单列）。
+    # 预算卡仅管理员填了年预算才有；没填 → budget_html 为空 → 回款卡独占整宽，不留半吊空列。
+    receipts_html = render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))
+    budget_html = render_dept_budget(meta.get('dept_budget'))
+    if budget_html:
+        receipts_budget = (f'<div class="grid-2e" style="margin-top:16px">'
+                           f'<div class="period-receipts">{receipts_html}</div>{budget_html}</div>')
+    else:
+        receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
 
     body = f"""
 {PARTICLES_HTML}
@@ -847,8 +856,7 @@ def render_dashboard(summary, cfg, logo_b64):
    <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
- <div class="period-receipts" style="margin-top:16px">{render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))}</div>
- {render_dept_budget(meta.get('dept_budget'))}
+ {receipts_budget}
 
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></div>
  <div id="profitRankViews">{profit_rank_views}</div>

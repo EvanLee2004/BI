@@ -195,6 +195,35 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn(".theme-light{", self.html)
 
 
+class TestReceiptsBudgetLayout(unittest.TestCase):
+    """回款情况 + 部门费用预算执行：填了年预算 → 同一 grid-2e 两列并排（各半宽变小）；
+    没填 → 回款独占整宽、不塞进半吊空列（预算卡本就不渲染）。"""
+    GRID = '<div class="grid-2e" style="margin-top:16px"><div class="period-receipts">'
+    FULL = '<div class="period-receipts" style="margin-top:16px">'
+    # 预算卡真正渲染才有的唯一标记（"部门费用预算执行"整词在 CSS 注释里恒在，不能拿来判断）
+    BUDGET_CARD = "已用/年预算 · 口径：台账白名单内含税"
+
+    @staticmethod
+    def _render(dept_budget):
+        cfg, S = _summary()
+        S["meta"]["dept_budget"] = dept_budget   # 注入/清空，确定性覆盖两个分支
+        return render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
+
+    def test_side_by_side_when_budget_present(self):
+        db = {"year": 2026, "rows": [{"dept": "示例部", "used": 10.0, "target": 8.0, "pct": 125.0}]}
+        html = self._render(db)
+        self.assertIn(self.GRID, html)              # 回款作为左列、被 grid-2e 包住
+        self.assertIn(self.BUDGET_CARD, html)       # 预算卡作为右列同框渲染
+        self.assertNotIn(self.FULL, html)           # 有预算就不走整宽兜底
+
+    def test_receipts_full_width_when_no_budget(self):
+        html = self._render(None)
+        self.assertIn("回款情况", html)
+        self.assertNotIn(self.BUDGET_CARD, html)    # 没填=预算卡不渲染
+        self.assertIn(self.FULL, html)              # 回款走整宽包裹
+        self.assertNotIn(self.GRID, html)           # 不把回款单独塞进两列 grid
+
+
 class TestRankingsAndRanges(unittest.TestCase):
     """板块③排名（下单按部门/销售、回款按客户）+ 自定义月区间周期。"""
 
