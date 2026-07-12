@@ -137,6 +137,60 @@ class TestUpdaterGit(unittest.TestCase):
         res = updater.apply_update(self.local, remote="gitee")
         self.assertTrue(res["ok"], res)
 
+    # ---------- 依赖自动同步（拉取引入新 pip 包时避免重启缺包崩溃） ----------
+    def _stub_pip(self, rc, out="", err=""):
+        """替换 updater._run_pip，记录是否被调用；返回 (calls_list, restore_fn)。"""
+        calls = []
+        orig = updater._run_pip
+        def fake(root):
+            calls.append(str(root))
+            return rc, out, err
+        updater._run_pip = fake
+        self.addCleanup(lambda: setattr(updater, "_run_pip", orig))
+        return calls
+
+    def test_deps_changed_installs_and_marks_rollback(self):
+        # helper 新增 requirements.txt（依赖变化）并推
+        _commit(self.helper, "requirements.txt", "openpyxl==3.1.5\nnewpkg==1.0\n", "deps: 加 newpkg")
+        _run("push", "origin", "main", cwd=self.helper)
+        before = _run("rev-parse", "--short", "HEAD", cwd=self.local)
+        calls = self._stub_pip(0)                       # 装成功
+        res = updater.apply_update(self.local)
+        self.assertTrue(res["ok"], res)
+        self.assertTrue(res["deps"]["changed"])
+        self.assertEqual(len(calls), 1)                 # requirements 变了→装了一次
+        # 成功→写了回滚点标记，内容=更新前 commit
+        self.assertEqual(updater.read_rollback_marker(self.local), before)
+
+    def test_deps_install_fail_rolls_back_and_no_restart(self):
+        _commit(self.helper, "requirements.txt", "openpyxl==3.1.5\nbadpkg==9.9\n", "deps: 加装不上的包")
+        _run("push", "origin", "main", cwd=self.helper)
+        before = _run("rev-parse", "HEAD", cwd=self.local)
+        self._stub_pip(1, err="ERROR: No matching distribution for badpkg==9.9")
+        res = updater.apply_update(self.local)
+        self.assertFalse(res["ok"])                     # 装失败=更新失败
+        self.assertTrue(res["rolled_back"])             # 已回滚这次拉取
+        self.assertIn("回滚", res["reason"])
+        self.assertEqual(_run("rev-parse", "HEAD", cwd=self.local), before)  # HEAD 退回更新前
+        self.assertEqual(updater.read_rollback_marker(self.local), "")       # 失败不留回滚点
+
+    def test_deps_unchanged_skips_pip(self):
+        self._origin_advance("feat: 只改代码不动依赖")   # 只改 f.txt，无 requirements.txt
+        calls = self._stub_pip(0)
+        res = updater.apply_update(self.local)
+        self.assertTrue(res["ok"], res)
+        self.assertFalse(res["deps"]["changed"])
+        self.assertEqual(len(calls), 0)                 # 依赖没变→不装
+
+    def test_rollback_marker_roundtrip(self):
+        self.assertEqual(updater.read_rollback_marker(self.local), "")
+        updater.write_rollback_marker(self.local, "abc1234")
+        self.assertEqual(updater.read_rollback_marker(self.local), "abc1234")
+        self.assertTrue(updater.rollback_marker_path(self.local).exists())
+        updater.clear_rollback_marker(self.local)
+        self.assertEqual(updater.read_rollback_marker(self.local), "")
+        self.assertFalse(updater.rollback_marker_path(self.local).exists())
+
 
 class TestUpdateConstants(unittest.TestCase):
     def test_restart_code(self):

@@ -2348,6 +2348,18 @@ def serve(cfg=None, root=None):
     # 环境变量 KANBAN_PORT 可覆盖端口（本机多会话调试时避开 config 固定端口，不影响部署默认值）
     port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
     print(f"[server] 内网服务：用户端 http://<本机IP>:{port}/   管理员端 http://<本机IP>:{port}/admin")
+
+    # 看门狗回滚配套：正常起服务 N 秒后清掉「更新回滚点」标记 = 确认这版没崩、无需回滚。
+    # （若这版更新后启动即崩，进程活不到清标记，看门狗见标记仍在→自动回滚上一版本。）
+    def _confirm_update_good():
+        time.sleep(20)
+        try:
+            import updater
+            updater.clear_rollback_marker(loaders.ROOT)
+        except Exception:
+            pass
+    threading.Thread(target=_confirm_update_good, daemon=True).start()
+
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 

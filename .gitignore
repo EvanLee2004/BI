@@ -38,3 +38,6 @@ data/*.json
 
 # Claude Code 本地工具配置（不进公开仓库）
 .claude/
+
+# 一键更新回滚点标记（本机运行态：apply_update 写更新前 commit，看门狗据此失败回滚）
+.update_rollback

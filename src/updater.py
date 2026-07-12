@@ -63,6 +63,75 @@ def _short(root, ref):
     return out if rc == 0 else ""
 
 
+# ---------------- 依赖自动同步（拉取引入新 pip 包时避免重启缺包崩溃） ----------------
+def _run_pip(root) -> tuple[int, str, str]:
+    """用**当前正在跑服务的解释器**的 pip 装 requirements.txt（装进同一个 venv）。
+    返回 (rc, stdout, stderr)。独立成函数便于测试替换（stub）。"""
+    import sys
+    req = _root(root) / "requirements.txt"
+    try:
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(req)],
+                           capture_output=True, text=True, timeout=600)
+        return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
+    except Exception as e:  # pip 不存在 / 超时 / 其它
+        return 1, "", f"{type(e).__name__}: {e}"
+
+
+def _requirements_changed(root, before_ref) -> bool:
+    """更新前后 requirements.txt 是否有变化（决定要不要 pip install）。
+    无此文件→False（无需装）；更新前没有此文件（新加的）→True（装一次）。"""
+    root = _root(root)
+    req = root / "requirements.txt"
+    if not req.exists():
+        return False
+    try:
+        new = req.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    rc, old, _ = _git(root, "show", f"{before_ref}:requirements.txt")
+    if rc != 0:
+        return True
+    return old != new
+
+
+def _sync_deps_if_changed(root, before_ref) -> dict:
+    """requirements.txt 变了就 pip install，没变则跳过。返回 {ok, changed, detail}。"""
+    if not _requirements_changed(root, before_ref):
+        return {"ok": True, "changed": False, "detail": "依赖无变化，跳过安装"}
+    rc, out, err = _run_pip(root)
+    if rc == 0:
+        return {"ok": True, "changed": True, "detail": "依赖已按 requirements.txt 安装"}
+    return {"ok": False, "changed": True, "detail": (err or out or "pip install 失败")[-800:]}
+
+
+# ---------------- 更新回滚点（看门狗据此在"更新后启动即崩"时自动回滚一次） ----------------
+def rollback_marker_path(root=None) -> Path:
+    return _root(root) / ".update_rollback"
+
+
+def write_rollback_marker(root, commit) -> None:
+    """记录"更新前 commit"给看门狗。写失败不抛（不能因此挡住更新）。"""
+    try:
+        rollback_marker_path(root).write_text(str(commit or "").strip() + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def read_rollback_marker(root=None) -> str:
+    try:
+        return rollback_marker_path(root).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def clear_rollback_marker(root=None) -> None:
+    """服务正常启动一段时间后清标记 = 确认这版没崩、无需回滚（server.serve 起 N 秒后调）。"""
+    try:
+        rollback_marker_path(root).unlink()
+    except OSError:
+        pass
+
+
 def check_update(root=None, remote="origin", do_fetch=True) -> dict:
     """检测远端有没有新版本。do_fetch=True 时先 `git fetch`（只读）拿最新远端引用。
     remote=对标哪个远端（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee，或配 update_remote 指定）。
@@ -113,8 +182,9 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:
 
 
 def apply_update(root=None, remote="origin") -> dict:
-    """安全拉取：先复检护栏（只读 fetch+比对），满足才 `git pull --ff-only <remote>`。
-    返回 {ok, reason, pulled, from, to, detail}。**本函数不重启**；重启由调用方 request_restart。"""
+    """安全拉取：先复检护栏（只读 fetch+比对），满足才 `git pull --ff-only <remote>`，
+    拉取后**依赖变了自动 `pip install`**（装失败→回滚这次拉取、不重启），成功则写回滚点给看门狗。
+    返回 {ok, reason, pulled, from, to, detail, deps, rolled_back}。**本函数不重启**；重启由调用方 request_restart。"""
     root = _root(root)
     remote = str(remote or "origin").strip() or "origin"
     chk = check_update(root, remote=remote, do_fetch=True)
@@ -128,8 +198,18 @@ def apply_update(root=None, remote="origin") -> dict:
     rc, out, err = _git(root, "pull", "--ff-only", remote, branch, timeout=180)
     if rc != 0:
         return {"ok": False, "reason": f"git pull --ff-only 失败：{err or out or '未知错误'}"}
+    # 依赖同步：requirements.txt 变了就装（拉取引入新包时不装，重启会缺包崩溃）
+    deps = _sync_deps_if_changed(root, before)
+    if not deps["ok"]:
+        # 装依赖失败 → 回滚这次拉取，不带着装不上的新代码重启（更新期自愈）
+        rb_rc, _, rb_err = _git(root, "reset", "--hard", before, timeout=60)
+        return {"ok": False, "rolled_back": rb_rc == 0, "deps": deps,
+                "reason": f"拉取成功但安装依赖失败，已回滚到更新前版本（{before}）：{deps['detail']}"
+                          + ("" if rb_rc == 0 else f"；⚠回滚也失败（{rb_err}），请人工 `git reset --hard {before}`")}
+    # 写"回滚点"给看门狗：这版若启动即崩，看门狗据此自动回滚一次（正常起 N 秒后 server 会清掉此标记）
+    write_rollback_marker(root, before)
     return {"ok": True, "pulled": chk.get("behind", 0), "from": before,
-            "to": _short(root, "HEAD"), "branch": branch, "detail": out}
+            "to": _short(root, "HEAD"), "branch": branch, "detail": out, "deps": deps}
 
 
 def request_restart(delay: float = 1.0) -> None:
