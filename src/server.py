@@ -400,7 +400,7 @@ def _run_reasons(report: dict) -> list[str]:
 
 _LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>管理员登录 · 经营驾驶舱</title>
+<title>管理员登录 · 甲骨易智能经营罗盘</title>
 <style>body{{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
 display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}}
 .card{{background:#1e293b;padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px #0006}}
@@ -427,7 +427,7 @@ def _login_page(err: str = "", account: str = "") -> str:
 # 查看端登录页（v8.0）：账号+密码，按权限分流（管理员→/admin、整体→整体页、BU→本 BU 页）。
 _VIEW_LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>看板登录 · 经营驾驶舱</title>
+<title>看板登录 · 甲骨易智能经营罗盘</title>
 <style>body{{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
 display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}}
 .card{{background:#1e293b;padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px #0006}}
@@ -452,7 +452,7 @@ def _view_login_page(err: str = "", account: str = "") -> str:
 
 
 _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>管理员控制台 · 经营驾驶舱</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>管理员控制台 · 甲骨易智能经营罗盘</title>
 <style>
 :root{--bg:#0b1220;--panel:#151e30;--panel2:#1a2438;--line:#2a364d;--fg:#e8eef9;--mut:#8b9bb4;--vio:#8b5cf6;--vio2:#a78bfa}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,"PingFang SC","Segoe UI",sans-serif;
@@ -602,7 +602,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 </div>
 
 <div id="dash" class="sec on"><iframe id="dashFrame" src="/"></iframe>
-  <div class="note info">改数后此驾驶舱会自动刷新（秒级重算）。</div></div>
+  <div class="note info">改数后此看板会自动刷新（秒级重算）。</div></div>
 
 <div id="detail" class="sec">
   <div class="toolbar">
@@ -1156,7 +1156,7 @@ async function bSave(yEnc,itEnc,id,scope,oldVal){const v=document.getElementById
   const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v)};
   if(scope)body["范围"]=decodeURIComponent(scope);
   try{await jpost("/api/budget",body);
-    msg("已保存年度预算（留痕·驾驶舱已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
+    msg("已保存年度预算（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
 async function bdLoad(y){
   const [depts,cur]=await Promise.all([jget("/api/budget_depts"),jget("/api/budget?year="+encodeURIComponent(y))]);
   const map={};cur.filter(x=>x["指标"]==="费用年预算").forEach(x=>map[x["范围"]]=x["金额"]);
@@ -1340,7 +1340,7 @@ jget("/api/refresh_status").then(s=>{if(s.running){document.getElementById("btnR
 
 # ---------------- FastAPI 应用 ----------------
 def create_app(cfg, root=None) -> FastAPI:
-    app = FastAPI(title="经营驾驶舱", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="甲骨易智能经营罗盘", docs_url=None, redoc_url=None, openapi_url=None)
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
@@ -1744,7 +1744,7 @@ def create_app(cfg, root=None) -> FastAPI:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         from urllib.parse import quote
-        fn = quote(f"经营驾驶舱_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        fn = quote(f"甲骨易智能经营罗盘_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(content=png, media_type="image/png",
                         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
                                  "X-Filename": fn})

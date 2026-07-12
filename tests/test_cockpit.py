@@ -186,7 +186,7 @@ class TestRenderGuards(unittest.TestCase):
 
     def test_structure(self):
         for token in ("基本情况", "经营利润", "管理利润表", "税前利润", "附加税费",
-                      "回款情况", "themeBtn", "kpi-grid"):
+                      "回款情况", "themeBtn", "kpi-grid", "甲骨易智能经营", "罗盘"):
             self.assertIn(token, self.html, token)
 
     def test_dark_default(self):

@@ -675,7 +675,7 @@ EXPORT_JS = r"""
    var k=window._curBlk||'';var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span>⬇</span> 生成中…';
    fetch('/export.png?blk='+encodeURIComponent(k)).then(function(r){
      if(!r.ok){return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});}
-     var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'经营驾驶舱.png';
+     var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'甲骨易智能经营罗盘.png';
      return r.blob().then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);
        a.download=fn;document.body.appendChild(a);a.click();a.remove();});
    }).catch(function(e){alert('导出失败：'+e.message);})
@@ -843,7 +843,7 @@ def render_dashboard(summary, cfg, logo_b64):
 
     body = f"""
 {PARTICLES_HTML}
-<div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b></span>
+<div class="topbar">{logo}<span class="tb-title">甲骨易智能经营<b>罗盘</b></span>
  <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
@@ -878,7 +878,7 @@ def render_dashboard(summary, cfg, logo_b64):
  {faint_note}
  </div>
  <div class="foot">
-  经营驾驶舱 · 甲骨易财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
+  甲骨易智能经营罗盘 · 财务部 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本+手填；
   税前利润=毛利−营销−管理−固定运营−研发−财务−附加税费(增值税×12%)+其他损益 &nbsp;|&nbsp;
   收入与毛利结构（按客户/销售）：确认口径按整单交付日期归属；毛利=收入−项目成本（项目直接毛利，未含内部译员/手填调整，故各客户/销售毛利之和与利润表总毛利略有差异）；集中度=前5大客户/销售占期内收入比 &nbsp;|&nbsp;
   数据源：智云项目明细/任务/下单/回款 + 收单台账 + 手填与调整表。
@@ -890,7 +890,7 @@ def render_dashboard(summary, cfg, logo_b64):
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>经营驾驶舱</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<title>甲骨易智能经营罗盘</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
 
 
 # ---------- BU 分页（迭代 14）：每 BU 一张独立只读页 /bu/{token} ----------
@@ -980,7 +980,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 
     body = f"""
 {PARTICLES_HTML}
-<div class="topbar">{logo}<span class="tb-title">经营<b>驾驶舱</b> · {name}</span>
+<div class="topbar">{logo}<span class="tb-title">甲骨易智能经营<b>罗盘</b> · {name}</span>
  <span class="tb-right">
  <a class="bu-back" href="/" title="返回整体看板（也可当刷新）">← 返回整体</a>
  <span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
@@ -999,7 +999,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 下单与回款排名</span></div>
  <div id="rankViews">{rank_views}</div>
  <div class="foot">
-  经营驾驶舱 · {name} BU 分页 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本（手填项待补）；
+  甲骨易智能经营罗盘 · {name} BU 分页 &nbsp;|&nbsp; 口径：收入=交付额÷1.06；生产成本=系统直接成本−内部译员成本（手填项待补）；
   附加税费=增值税×12% &nbsp;|&nbsp; 数据源：智云项目明细/任务/下单/回款（按本 BU 销售名单过滤）。
  </div>
 </div>
@@ -1010,4 +1010,4 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>经营驾驶舱 · {name}</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<title>甲骨易智能经营罗盘 · {name}</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
