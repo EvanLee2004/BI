@@ -654,6 +654,9 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   border-radius:10px;background:linear-gradient(180deg,#2a1f52,#1e2438);border:1px solid var(--vio);font-size:13px}
 .bu-batch select{min-width:150px}
 #buUnassignedHint b{color:#fbbf24}
+.acct-bus{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;max-width:280px}
+.acct-bu{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--fg);cursor:pointer;white-space:nowrap}
+.acct-bu input{margin:0;accent-color:var(--vio);cursor:pointer}
 .sched-times{display:flex;flex-wrap:wrap;gap:8px}
 .sched-row{display:inline-flex;align-items:center;gap:4px}
 .sched-row input[type=time]{font-size:15px;padding:7px 10px}
@@ -833,7 +836,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
     <div class="scard">
       <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div>
-        <div class="sub"><b>显示名</b>=备注（谁用这个号，只给人看）。真正分流看「权限」。密码明文仅此处可见（点👁）。黄底=初始密码。<b>总账号</b>（lushasha）登录名与权限固定为管理员、无权限下拉、不可删；另可再加其他管理员。</div></div></div>
+        <div class="sub"><b>显示名</b>=备注（谁用这个号，只给人看）。<b>权限</b>：管理员 / 整体（看全公司+全部 BU）/ 按 BU（勾选一组 BU，只看这几块，可多选）。密码明文仅此处可见（点👁）。黄底=初始密码。<b>总账号</b>（lushasha）固定管理员、不可删；另可再加其他管理员。</div></div></div>
       <div class="scard-b">
         <div class="tbl-box sm wrap" style="max-height:min(42vh,360px)"><table id="acctTbl"></table></div>
       </div>
@@ -1054,10 +1057,30 @@ async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textCont
     m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
 // 账号与权限卡
 let acctList=[],acctPwShow={};
-function _permOpts(cur){const bus=buList.map(b=>b.name).filter(Boolean);
-  const opts=["管理员","整体"].concat(bus);
-  if(cur&&opts.indexOf(cur)<0)opts.push(cur);
-  return opts.map(p=>"<option"+(p===cur?" selected":"")+">"+esc(p)+"</option>").join("");}
+// 权限类型：管理员 / 整体 / BU（可绑多个）。旧账号权限=单个 BU 名 → 视作 BU 类型、可见BU=[该名]
+function _permType(a){const p=a.权限||"";if(p==="管理员")return"管理员";if(p==="整体")return"整体";return"BU";}
+function _permCellHtml(i,a){
+  const ty=_permType(a);
+  const sel='<select onchange="acctSetType('+i+',this.value)">'
+    +[["管理员","管理员"],["整体","整体（看全部）"],["BU","按 BU（可多选）"]].map(o=>
+      "<option value='"+o[0]+"'"+(o[0]===ty?" selected":"")+">"+esc(o[1])+"</option>").join("")
+    +'</select>';
+  if(ty!=="BU")return sel;
+  const names=buList.map(b=>b.name).filter(Boolean);
+  const chosen=new Set(a.可见BU||[]);
+  const boxes=names.length?names.map(bn=>
+    "<label class='acct-bu'><input type='checkbox'"+(chosen.has(bn)?" checked":"")
+    +" data-bn=\""+esc(bn)+"\" onchange=\"acctToggleBu("+i+",this.getAttribute('data-bn'),this.checked)\">"
+    +esc(bn)+"</label>").join("")
+    :"<span class='muted' style='font-size:11px'>先在下方「BU 数据归属」建 BU</span>";
+  const warn=(names.length&&chosen.size===0)?"<span class='muted' style='color:#fbbf24;font-size:11px'>未选=看不到任何页</span>":"";
+  return sel+"<div class='acct-bus'>"+boxes+warn+"</div>";}
+function acctSetType(i,t){const a=acctList[i];
+  if(t==="BU"){a.权限="BU";if(!Array.isArray(a.可见BU))a.可见BU=[];}
+  else{a.权限=t;a.可见BU=[];}
+  acctRender();}
+function acctToggleBu(i,bn,on){const a=acctList[i];a.权限="BU";  // 编辑 BU 集即固化为 BU 类型（旧名迁移）
+  const s=new Set(a.可见BU||[]);if(on)s.add(bn);else s.delete(bn);a.可见BU=Array.from(s);}
 let ACCT_MASTER="lushasha";  // 服务端 /api/accounts 会回 master_account 覆盖
 function _adminCount(){return acctList.filter(a=>(a.权限||"")==="管理员").length;}
 /** 总账号：按登录名锁定（与当前权限无关），永久不可删、登录名不可改 */
@@ -1077,7 +1100,7 @@ function acctRender(){const t=document.getElementById("acctTbl");
         :'<input style="width:110px" value="'+esc(a.账号)+'" onchange="acctList['+i+'].账号=this.value">';
       const permCell=master
         ?'<span class="muted" style="display:inline-block;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px" title="总账号固定为管理员">管理员</span>'
-        :'<select onchange="acctList['+i+'].权限=this.value;acctRender()">'+_permOpts(a.权限)+'</select>';
+        :_permCellHtml(i,a);
       return "<tr class='"+(init?"init-pw":"")+"'>"+
         "<td>"+acctInput+"</td>"+
         "<td><input style='width:90px' title='备注：谁用这个号，不影响权限' value=\""+esc(a.显示名||"")+"\" onchange='acctList["+i+"].显示名=this.value'></td>"+
@@ -1530,7 +1553,40 @@ def create_app(cfg, root=None) -> FastAPI:
             return False
         if accounts.is_main(acc):
             return True
-        return accounts.bu_name_of(acc) == bu_name
+        return accounts.can_see_bu(acc, bu_name)  # 多 BU：在其绑定名单内即可
+
+    def _bu_switcher_html(my_names, current: str) -> str:
+        """多 BU 账号看 BU 页时顶部的「我的 BU」切换条：**只列该账号绑定且仍存在的 BU**
+        （绝不列他 BU，铁律12）。单个绑定不出条。"""
+        from urllib.parse import quote
+
+        def esc(s):
+            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        existing = [n for n in my_names if n in _state.get("bu_pages", {})]
+        if len(existing) <= 1:
+            return ""
+        links = "".join(
+            f'<a class="bu-nav-a" href="/bu/{quote(n)}"'
+            + (' aria-current="page" style="border-color:var(--blue)"' if n == current else "")
+            + f'>{esc(n)}</a>' for n in existing)
+        return ('<div class="bu-nav" role="navigation" aria-label="我的 BU 分页">'
+                '<span class="bu-nav-label">我的 BU</span>'
+                '<span class="bu-nav-links">' + links + '</span></div>')
+
+    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False) -> str:
+        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。"""
+        page = _state.get("bu_pages", {}).get(name)
+        if not page:
+            return ""
+        parts = []
+        if hide_pw:
+            parts.append(_HIDE_PW_STYLE)
+        if my_names:
+            parts.append(_bu_switcher_html(my_names, name))
+        html = page["html"]
+        if any(parts):
+            html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
+        return html
 
     def _set_vcookie(resp, account: str):
         resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL,
@@ -1553,12 +1609,14 @@ def create_app(cfg, root=None) -> FastAPI:
         if acc:
             if accounts.is_main(acc):
                 return HTMLResponse(_main_with_nav() or "<h1>数据尚未生成，请稍候刷新</h1>")
-            bun = accounts.bu_name_of(acc)
-            if bun:
-                page = _state.get("bu_pages", {}).get(bun)
-                if page:
-                    return HTMLResponse(page["html"])
-                return HTMLResponse(_view_login_page("该 BU 已被管理员移除，请重新登录或联系管理员"))
+            names = accounts.bu_names_of(acc)  # 多 BU：绑定名单（旧单 BU 账号=[该名]）
+            if names:
+                existing = [n for n in names if n in _state.get("bu_pages", {})]
+                if not existing:
+                    return HTMLResponse(_view_login_page(
+                        "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"))
+                # 落在第一个绑定的 BU；绑定多个时顶部带「我的 BU」切换条
+                return HTMLResponse(_bu_view_html(existing[0], names))
             # 管理员账号误走查看 cookie：引导去 /admin
             if accounts.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
@@ -1620,16 +1678,18 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：本 BU 权限账号 / 整体账号 / 管理员可看；未登录出登录页；不存在 404。"""
+        """BU 页：本 BU 权限账号（含多 BU 绑定）/ 整体账号 / 管理员可看；未登录出登录页；不存在 404。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
-        if _can_view_bu(request, name):
-            html = page["html"]
-            if _user(request):  # 管理员看 BU 页也隐藏「🔑密码」自改入口（与整体页一致）
-                html = html.replace('<div class="wrap">', _HIDE_PW_STYLE + '<div class="wrap">', 1)
-            return HTMLResponse(html)
-        return HTMLResponse(_view_login_page())
+        if not _can_view_bu(request, name):
+            return HTMLResponse(_view_login_page())
+        if _user(request):  # 管理员看 BU 页也隐藏「🔑密码」自改入口（与整体页一致）
+            return HTMLResponse(page["html"].replace(
+                '<div class="wrap">', _HIDE_PW_STYLE + '<div class="wrap">', 1))
+        # 多 BU 账号：注入「我的 BU」切换条（只列其绑定的 BU）；整体账号 bu_names_of=[] 不注入
+        my = accounts.bu_names_of(_vacc_row(request))
+        return HTMLResponse(_bu_view_html(name, my))
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):

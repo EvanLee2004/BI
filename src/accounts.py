@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 """看板账号表（迭代 15 / v8.0）：读/写/校验 数据/看板账号.json。
 
-设计（明昊 2026-07-11 拍板）：
-- 账号与 BU 解耦：账号绑定「能看什么」= 权限 ∈ {管理员, 整体, 某 BU 名}；
+设计（明昊 2026-07-11 拍板 · 2026-07-12 v8.6 扩多 BU）：
+- 账号与 BU 解耦：账号绑定「能看什么」= 权限 ∈ {管理员, 整体, BU, 某 BU 名(旧)}；
+  **v8.6 多 BU**：权限=BU 时可绑一组 BU（见 `可见BU` 列表）；整体=全部 BU + 全公司页；
+  旧账号权限=单个 BU 名仍兼容（等价于绑定该一个 BU）。取用一律走 `bu_names_of`/`can_see_bu`。
 - 一个 BU 可挂多个账号；账号名唯一；密码明文（管理员端可见可改，看的人可自改）；
 - 存 JSON 不开库（凭据不是业务数据，且 看板.db 每日备份会副本扩散）；
 - 缺文件 → 自动 seed 默认表（部署零配置）；git 里只有 docs/看板账号样例.json（合成名）。
@@ -24,6 +26,23 @@ CONFIG_NAME = "看板账号.json"
 
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
+PERM_BU = "BU"      # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
+
+
+def _clean_bu_list(v) -> list[str]:
+    """可见BU 名单清洗：列表/顿号·逗号分隔串 → 去空白、去「整体」保留字、去重（保序）。"""
+    if isinstance(v, str):
+        import re
+        v = re.split(r"[、，,;；\n]", v)
+    if not isinstance(v, (list, tuple)):
+        return []
+    out, seen = [], set()
+    for x in v:
+        s = str(x).strip()
+        if s and s != PERM_MAIN and s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
 
 # 总账号（主管理员登录名）：不可删除、不可改登录名；改权限也不影响「总账号」身份。
 # 部署机缺 看板账号.json 时 seed 会建这个号，否则无人能进 /admin。
@@ -75,6 +94,8 @@ def _norm_one(raw: dict) -> dict | None:
     pw = str(raw.get("密码") if raw.get("密码") is not None else DEFAULT_VIEW_PW)
     last = str(raw.get("最后登录") or "").strip() or None
     out = {"账号": acct, "显示名": display, "权限": perm, "密码": pw}
+    if perm == PERM_BU:  # 多 BU：权限=BU 时随附可见 BU 列表（旧账号权限=单个 BU 名不带此字段）
+        out["可见BU"] = _clean_bu_list(raw.get("可见BU"))
     if last:
         out["最后登录"] = last
     return out
@@ -86,6 +107,8 @@ def _write(path: Path, accounts: list[dict]) -> None:
     rows = []
     for a in accounts:
         row = {"账号": a["账号"], "显示名": a["显示名"], "权限": a["权限"], "密码": a["密码"]}
+        if a.get("权限") == PERM_BU:
+            row["可见BU"] = _clean_bu_list(a.get("可见BU"))
         if a.get("最后登录"):
             row["最后登录"] = a["最后登录"]
         rows.append(row)
@@ -155,6 +178,8 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
         if is_master_account(acct):
             perm = PERM_ADMIN
         row = {"账号": acct, "显示名": display, "权限": perm, "密码": pw}
+        if perm == PERM_BU:  # 多 BU：随权限=BU 存可见 BU 列表
+            row["可见BU"] = _clean_bu_list(raw.get("可见BU"))
         last = existing.get(acct, {}).get("最后登录")
         if last:
             row["最后登录"] = last
@@ -258,12 +283,27 @@ def is_main(acc: dict | None) -> bool:
     return role_of(acc) == PERM_MAIN
 
 
+def bu_names_of(acc: dict | None) -> list[str]:
+    """账号能看的 BU 名单（v8.6 多 BU）：
+    管理员/整体 → []（见全部，另行处理）；权限=BU → `可见BU` 列表；
+    权限=单个 BU 名（旧账号）→ [该名]。"""
+    perm = role_of(acc)
+    if not perm or perm in (PERM_ADMIN, PERM_MAIN):
+        return []
+    if perm == PERM_BU:
+        return _clean_bu_list((acc or {}).get("可见BU"))
+    return [perm]  # 旧账号：权限字段本身=单个 BU 名
+
+
+def can_see_bu(acc: dict | None, name: str) -> bool:
+    """账号是否可看指定 BU（多 BU：在其绑定名单内即可）。管理员/整体另行判 True。"""
+    return name in bu_names_of(acc)
+
+
 def bu_name_of(acc: dict | None) -> str | None:
-    """权限是某 BU 名时返回该名；管理员/整体/无 → None。"""
-    r = role_of(acc)
-    if not r or r in (PERM_ADMIN, PERM_MAIN):
-        return None
-    return r
+    """兼容旧调用：返回账号绑定的第一个 BU 名（多 BU 取第一个）；管理员/整体/无 → None。"""
+    names = bu_names_of(acc)
+    return names[0] if names else None
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
@@ -272,6 +312,7 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
         "账号": acc["账号"],
         "显示名": acc.get("显示名") or acc["账号"],
         "权限": acc["权限"],
+        "可见BU": bu_names_of(acc),  # 多 BU：绑定名单（管理员/整体为空）；旧单 BU 账号=[该名]
         "最后登录": acc.get("最后登录") or "",
         "初始密码": is_initial_password(acc.get("密码")),
     }
