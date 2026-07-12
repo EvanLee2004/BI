@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """① 产品版本号 + 更新日志测试。跑：.venv/bin/python tests/test_version.py
 
-守卫点（明昊 2026-07-12 拍板）：
-- 产品版本号唯一源=根目录 VERSION（现 0.9=试运行；主版本≥1=正式版），与 git 开发号(v8.x)分开；
+守卫点（明昊 2026-07-12 拍板·2026-07-13 升 Beta）：
+- 产品版本号唯一源=根目录 VERSION（现 1.0-beta=公测 Beta；0.9=试运行；主版本≥1 无 -beta=正式版），与 git 开发号(v8.x)分开；
 - version 模块：read_version / product_stage / product_label / version_info 结构；changelog 是副本（改不动常量）；
 - `/api/version`：仅管理员会话（无会话/查看端 401），下发 version/stage/label/changelog。
 """
@@ -28,14 +28,17 @@ class TestVersionModule(unittest.TestCase):
     def test_stage_derivation(self):
         self.assertEqual(V.product_stage("0.9"), "试运行")
         self.assertEqual(V.product_stage("0.1"), "试运行")
+        self.assertEqual(V.product_stage("1.0-beta"), "公测 Beta")  # 预发布标记优先
+        self.assertEqual(V.product_stage("1.0-BETA"), "公测 Beta")  # 大小写不敏感
         self.assertEqual(V.product_stage("1.0"), "正式版")
         self.assertEqual(V.product_stage("2.3"), "正式版")
         self.assertEqual(V.product_stage("坏值"), "试运行")  # 解析不了按试运行兜底
 
-    def test_current_is_trial(self):
-        # 现阶段应为 0.9 试运行（上线才改 VERSION 为 1.0）
-        self.assertEqual(V.PRODUCT_VERSION, "0.9")
-        self.assertEqual(V.PRODUCT_STAGE, "试运行")
+    def test_current_is_beta(self):
+        # 周一上线版=1.0-beta 公测 Beta（去掉 -beta 即升 1.0 正式版）
+        self.assertEqual(V.PRODUCT_VERSION, "1.0-beta")
+        self.assertEqual(V.PRODUCT_STAGE, "公测 Beta")
+        self.assertEqual(V.product_label("1.0-beta"), "v1.0（公测 Beta）")  # 标签只显主号
         self.assertEqual(V.product_label("0.9"), "v0.9（试运行）")
 
     def test_changelog_is_copy(self):
@@ -57,7 +60,8 @@ class TestVersionModule(unittest.TestCase):
         info = V.version_info()
         self.assertEqual(set(info), {"version", "stage", "label", "changelog"})
         self.assertEqual(info["version"], V.PRODUCT_VERSION)
-        self.assertEqual(info["label"], f"v{info['version']}（{info['stage']}）")
+        # label 用主号（去 -beta 预发布后缀）：v1.0（公测 Beta）
+        self.assertEqual(info["label"], f"v{info['version'].split('-')[0]}（{info['stage']}）")
 
 
 class TestVersionApi(unittest.TestCase):
@@ -91,8 +95,8 @@ class TestVersionApi(unittest.TestCase):
         self.assertEqual(r.status_code, 303, r.text)
         d = c.get("/api/version").json()
         self.assertEqual(d["version"], V.PRODUCT_VERSION)
-        self.assertEqual(d["stage"], "试运行")
-        self.assertIn("v0.9", d["label"])
+        self.assertEqual(d["stage"], "公测 Beta")
+        self.assertIn("v1.0", d["label"])
         self.assertTrue(d["changelog"] and d["changelog"][0]["items"])
 
     def test_console_has_version_ui(self):

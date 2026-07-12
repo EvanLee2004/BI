@@ -784,7 +784,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
     <div class="scard full" id="verCard">
       <div class="scard-h"><span class="ico">🧭</span><div><div class="ttl">版本与更新日志</div>
-        <div class="sub">当前产品版本 + 每版大白话改了啥。产品号（试运行 0.9，上线升 1.0）跟内部开发号是两套，给管理层看这个。</div></div></div>
+        <div class="sub">当前产品版本 + 每版大白话改了啥。产品号（试运行 0.9 → 公测 Beta 1.0-beta → 正式版 1.0）跟内部开发号是两套，给管理层看这个。</div></div></div>
       <div class="scard-b">
         <div class="ver-now"><span class="num" id="verNum">v…</span>
           <span class="stage" id="verStage">…</span>
@@ -1031,11 +1031,11 @@ async function loadSettings(){try{const s=await jget("/api/settings");
   }catch(e){msg("读取设置失败:"+e.message);}}
 // 版本与更新日志（产品号，与内部开发号分开）
 async function loadVersion(){try{const v=await jget("/api/version");
-  const num="v"+(v.version||"?"),stage=v.stage||"";
+  const num="v"+String(v.version||"?").split("-")[0],stage=v.stage||"";  // 去 -beta 预发布后缀只显主号
   const pill=document.getElementById("verPill");if(pill)pill.textContent=num+(stage?" · "+stage:"");
   const nEl=document.getElementById("verNum");if(nEl)nEl.textContent=num;
   const sEl=document.getElementById("verStage");if(sEl){sEl.textContent=stage;sEl.className="stage"+(stage==="正式版"?" live":"");}
-  const nx=document.getElementById("verNext");if(nx)nx.textContent=stage==="试运行"?"· 正式上线后升 v1.0":"";
+  const nx=document.getElementById("verNext");if(nx)nx.textContent=stage==="试运行"?"· 正式上线后升 v1.0":(stage==="公测 Beta"?"· 公测通过后去掉 Beta 升 v1.0 正式版":"");
   const sub=document.getElementById("verSub");if(sub)sub.textContent="下面按时间倒序（最新在最上面），只讲这版能多干啥；内部开发号另计、不在此显示。";
   const log=document.getElementById("verLog");if(log){const cl=v.changelog||[];
     log.innerHTML=cl.length?cl.map(e=>"<div class='vl'><div class='vl-h'><span class='t'>"+esc(e.title||"")+
@@ -2106,7 +2106,7 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.get("/api/version")
     def api_version(request: Request):
         """产品版本号 + 面向用户的更新日志（管理员会话）。
-        版本号=根目录 VERSION（现 0.9 试运行），与 git 开发号(v8.x)分开、不给普通用户看。"""
+        版本号=根目录 VERSION（现 1.0-beta 公测 Beta），与 git 开发号(v8.x)分开、不给普通用户看。"""
         _require(request)
         return product_version.version_info()
 

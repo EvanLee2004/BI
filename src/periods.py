@@ -63,7 +63,10 @@ def ledger_row_date(row: tuple, ledger_year: int, cols: dict) -> tuple[int, int,
     m = row[c] if len(row) > c else None
     if m not in (None, ""):
         try:
-            return (ledger_year, int(str(m).strip()), 1)
+            mm = int(str(m).strip())
         except ValueError:
             return None
+        # 月份范围校验：越界（如"13"/"0"/误填）返 None → 体检按"日期解析不出"计数判黄，
+        # 而非造出 (year,13,1) 这种无效日期被 date_in_range 静默剔除却不报警（与 loaders._valid_ymd 一致）。
+        return (ledger_year, mm, 1) if 1 <= mm <= 12 else None
     return None

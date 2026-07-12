@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import columns  # noqa: E402
 import loaders  # noqa: E402
+import periods  # noqa: E402
 import render  # noqa: E402
 from profit import (build_dept_budget_block, compute_expenses_by_group,  # noqa: E402
                     compute_ledger_expenses)
@@ -106,6 +107,35 @@ class TestRenderSwitches(unittest.TestCase):
         html = render._hbar_rows(rows, "dept")
         self.assertLess(html.find("运保"), html.find("未分类"))
         self.assertIn("unfilled", html)
+
+
+class TestLedgerRowDateMonthGuard(unittest.TestCase):
+    """收单月份越界（收单日期空、退回月份）→ ledger_row_date 返 None + 体检计 date_bad，
+    不再造出 (year,13,1) 这种无效日期被 date_in_range 静默剔除却不报警（code review #1）。"""
+
+    def _l(self):
+        return columns.resolve_ledger_columns(HDR)
+
+    def _row(self, 月份):  # 收单日期留空→退回收单月份分支
+        return (月份, "", 100.0, "语言", "管理费用", "办公用品", "运保")
+
+    def test_valid_month_ok(self):
+        for m in ("3", "12", "1"):
+            self.assertEqual(periods.ledger_row_date(self._row(m), 2026, self._l())[:2], (2026, int(m)))
+
+    def test_out_of_range_month_is_none(self):
+        for bad in ("13", "0", "99", "-1"):
+            self.assertIsNone(periods.ledger_row_date(self._row(bad), 2026, self._l()),
+                              msg=f"收单月份={bad} 应判无效")
+
+    def test_nonnumeric_month_is_none(self):
+        self.assertIsNone(periods.ledger_row_date(self._row("三月"), 2026, self._l()))
+
+    def test_health_counts_bad_month_as_date_bad(self):
+        from profit import _scan_ledger_issues
+        rows = [self._row("13"), self._row("3")]   # 一坏一好
+        date_bad, _ = _scan_ledger_issues(rows, 2026, self._l())
+        self.assertEqual(date_bad, 1)   # 越界月被计为"日期解析不出"→体检判黄，不再静默丢
 
 
 if __name__ == "__main__":
