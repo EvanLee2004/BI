@@ -221,7 +221,7 @@ def order_stats_by_sales(conn: sqlite3.Connection, year: int | str) -> dict[str,
 
 
 # ---------------- 配置变更留痕（C3·只追加·永不清空；不存密码等敏感值）----------------
-CONFIG_CHANGE_CATEGORIES = ("销售归属", "BU配置", "分摊", "账号", "设置", "密码")
+CONFIG_CHANGE_CATEGORIES = ("销售归属", "BU配置", "分摊", "账号", "设置", "密码", "更新")
 
 
 def log_config_change(conn: sqlite3.Connection, 操作账号: str, 类别: str, 摘要: str) -> None:

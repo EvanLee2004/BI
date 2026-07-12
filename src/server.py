@@ -34,6 +34,7 @@ import ingest
 import render
 import assets
 import version as product_version
+import updater
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
@@ -677,6 +678,13 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 #verLog .vl-h .t{font-size:13.5px;font-weight:700}
 #verLog .vl-h .d{font-size:11.5px;color:var(--mut)}
 #verLog ul{margin:0;padding-left:18px}#verLog li{font-size:12.5px;line-height:1.6;margin:3px 0;color:#cdd7ea}
+.ver-update{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.vu-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#vuAvail{margin-top:10px}
+.vu-avail{border:1px solid #5b4bc4;border-radius:10px;padding:11px 13px;background:#1a1440}
+.vu-h{font-size:13px;font-weight:700;margin-bottom:6px}
+.vu-sub{font-size:12px;color:var(--mut)}
+.vu-log{margin:4px 0 10px;padding-left:18px}.vu-log li{font-size:12px;color:#cdd7ea;margin:2px 0}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
@@ -783,6 +791,12 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
           <span class="muted" style="font-size:12px" id="verNext"></span></div>
         <div class="ver-sub" id="verSub"></div>
         <div id="verLog"></div>
+        <div class="ver-update">
+          <div class="vu-row"><button class="mini" type="button" onclick="checkUpdate()">检查更新</button>
+            <span id="vuMsg" class="muted"></span></div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">从代码仓库检测有没有新版本；有则可「一键更新」（安全快进拉取 + 看门狗自动重启）。需部署机用 <b>看门狗启动.bat</b> 起服务才会自动重启。</div>
+          <div id="vuAvail" style="display:none"></div>
+        </div>
       </div>
     </div>
 
@@ -1029,6 +1043,33 @@ async function loadVersion(){try{const v=await jget("/api/version");
       (e.items||[]).map(it=>"<li>"+esc(it)+"</li>").join("")+"</ul></div>").join("")
       :"<div class='muted'>暂无更新日志</div>";}
   }catch(e){const pill=document.getElementById("verPill");if(pill)pill.textContent="版本?";}}
+// ④一键更新：检查远端有没有新版本 → 一键快进拉取 + 看门狗重启
+async function checkUpdate(){const m=document.getElementById("vuMsg"),box=document.getElementById("vuAvail");
+  m.textContent="检查中…（联网比对远端）";box.style.display="none";box.innerHTML="";
+  try{const d=await jget("/api/update/check");
+    if(!d.supported){m.textContent=d.reason||"一键更新不可用";return;}
+    if(!d.available){m.textContent="✓ "+(d.reason||"已是最新版本")+(d.local?("（当前 "+esc(d.local)+"）"):"");return;}
+    m.textContent="";
+    const logs=(d.log||[]).map(s=>"<li>"+esc(s)+"</li>").join("");
+    let html="<div class='vu-avail'><div class='vu-h'>🔔 发现新版本 · 落后 "+(d.behind||0)+" 个提交（"+esc(d.local||"")+" → "+esc(d.remote||"")+"）</div>";
+    if(logs)html+="<div class='vu-sub'>更新内容（远端提交）：</div><ul class='vu-log'>"+logs+"</ul>";
+    if(d.can_update)html+="<button class='mini' type='button' onclick='applyUpdate()'>一键更新并重启</button>"
+      +"<span class='muted' style='margin-left:8px'>拉取新代码后服务自动重启（约 10 秒，页面自动刷新）</span>";
+    else html+="<div class='muted' style='color:#fbbf24'>⚠ "+esc(d.reason||"当前不满足自动更新条件，请人工处理")+"</div>";
+    html+="</div>";box.innerHTML=html;box.style.display="block";
+  }catch(e){m.textContent="检查失败："+e.message;}}
+async function applyUpdate(){if(!confirm("确认一键更新？将拉取新代码并重启服务（约 10 秒内不可用）。"))return;
+  const box=document.getElementById("vuAvail");
+  box.innerHTML="<div class='vu-avail'><div class='vu-h'>更新中…拉取新代码…</div></div>";
+  try{const d=await jpost("/api/update/apply",{});
+    if(d.ok){box.innerHTML="<div class='vu-avail'><div class='vu-h'>✓ 已拉取 "+esc(d.from||"")+" → "+esc(d.to||"")
+      +"，服务重启中…</div><div class='muted'>约 10 秒后自动刷新页面；若没刷新请手动刷新。</div></div>";
+      setTimeout(()=>location.reload(),12000);}
+    else box.innerHTML="<div class='vu-avail'><div class='muted' style='color:#fbbf24'>未更新："+esc(d.reason||"")+"</div></div>";
+  }catch(e){ // 更新成功后服务重启会切断连接→请求可能抛错，按"正在重启"处理
+    box.innerHTML="<div class='vu-avail'><div class='vu-h'>更新请求已发出，服务可能正在重启…</div>"
+      +"<div class='muted'>约 10 秒后自动刷新页面。</div></div>";
+    setTimeout(()=>location.reload(),12000);}}
 // ②多次更新时间：可增删多个时间点，各到点各跑一次
 let schedTimes=["09:30"];
 function renderSchedTimes(){const box=document.getElementById("schedTimes");if(!box)return;
@@ -2067,6 +2108,27 @@ def create_app(cfg, root=None) -> FastAPI:
         版本号=根目录 VERSION（现 0.9 试运行），与 git 开发号(v8.x)分开、不给普通用户看。"""
         _require(request)
         return product_version.version_info()
+
+    @app.get("/api/update/check")
+    def api_update_check(request: Request):
+        """④ 检测远端有没有新版本（管理员会话）：git fetch + 比对 HEAD 与 origin/分支。
+        只读、带护栏（非仓库/分叉/脏工作区不给更新），返回是否有新版本与"要更新啥"。"""
+        _require(request)
+        return updater.check_update(loaders.ROOT)
+
+    @app.post("/api/update/apply")
+    def api_update_apply(request: Request):
+        """④ 一键更新（管理员会话）：复检护栏 → git pull --ff-only → 触发看门狗重启。
+        拉取成功才重启（进程以退出码 42 退出，看门狗用新代码拉起）；失败原样返回不重启。"""
+        user = _require(request)
+        res = updater.apply_update(loaders.ROOT)
+        if res.get("ok"):
+            _audit(cfg, root, user,
+                   ("更新", f"一键更新 {res.get('from') or '?'}→{res.get('to') or '?'}"
+                            f"（{res.get('pulled') or 0} 个提交）"))
+            updater.request_restart()   # 后台延时退出→看门狗重启；HTTP 响应先发回
+            res["restarting"] = True
+        return res
 
     @app.get("/api/settings")
     def api_settings_get(request: Request):
