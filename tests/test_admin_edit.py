@@ -248,6 +248,53 @@ class TestAdminWrite(unittest.TestCase):
             "zhiyun_username": "new.user", "zhiyun_password": ""})
         self.assertEqual(r.status_code, 400)
 
+    def test_settings_zhiyun_conn(self):
+        """智云连接配置（服务器/四表ID）：GET 返回生效默认值；改了写覆盖层+清会话；
+        存回默认值=删除覆盖；config.json 始终不动（F-01）。"""
+        import json as _json, shutil as _sh
+        from ingest import fetch_zhiyun as fz
+        _sh.copy2(ROOT / "config.json", self.root / "config.json")
+        before_cfg = (self.root / "config.json").read_text(encoding="utf-8")
+        # GET：无本地文件也返回内置默认（部署机开箱即用）
+        r = self.client.get("/api/settings", headers=self.hdr)
+        conn = r.json()["zhiyun_conn"]
+        self.assertEqual(conn["base_url"], fz.ZHIYUN_DEFAULTS["base_url"])
+        self.assertEqual(conn["tables"]["orders"],
+                         fz.ZHIYUN_DEFAULTS["tables"]["orders"]["worksheetId"])
+        # 改服务器地址+一张表 → 写 智云配置.json 覆盖层 + 清旧会话
+        zp = loaders.data_dir(self.cfg, self.root) / "智云配置.json"
+        zp.parent.mkdir(parents=True, exist_ok=True)
+        zp.write_text(_json.dumps({"md_pss_id": "OLDTOK"}), encoding="utf-8")
+        tables = dict(conn["tables"]); tables["orders"] = "my-custom-ws"
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("智云连接配置已更新", r.json()["note"])
+        d = _json.loads(zp.read_text(encoding="utf-8"))
+        self.assertEqual(d["base_url"], "http://new-host:9")
+        self.assertEqual(d["tables"]["orders"]["worksheetId"], "my-custom-ws")
+        self.assertNotIn("receipts", d.get("tables", {}))   # 未改动的表不写覆盖
+        self.assertEqual(d["md_pss_id"], "")                # 换服务器清旧会话
+        # 同值再存 → 无变更
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables})
+        self.assertNotIn("智云连接配置已更新", r.json()["note"])
+        # 存回内置默认 → 覆盖项被删除（文件精简、以后跟着代码默认走）
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_base_url": fz.ZHIYUN_DEFAULTS["base_url"],
+            "zhiyun_tables": {s: fz.ZHIYUN_DEFAULTS["tables"][s]["worksheetId"]
+                              for s in fz.SOURCES}})
+        self.assertEqual(r.status_code, 200, r.text)
+        d = _json.loads(zp.read_text(encoding="utf-8"))
+        self.assertNotIn("base_url", d)
+        self.assertNotIn("tables", d)
+        # 空值 → 400
+        r = self.client.post("/api/settings", headers=self.hdr, json={
+            "zhiyun_base_url": "", "zhiyun_tables": tables})
+        self.assertEqual(r.status_code, 400)
+        # F-01：全程 config.json 一个字节没动
+        self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before_cfg)
+
     def test_settings_requires_login(self):
         self.assertEqual(self.anon.get("/api/settings").status_code, 401)
         self.assertEqual(self.anon.post("/api/settings", json={}).status_code, 401)

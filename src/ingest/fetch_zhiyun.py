@@ -5,21 +5,17 @@
 架构契约（07 迭代计划）：
 - 产物 = 与人工导出同列名的 xlsx，落 数据/<下单|回款记录|项目明细|内部译员>.xlsx；下游 readers 以下零改。
 - 三态返回（同 fetch.fetch_ledger）：fetched / local_fallback（保留上次文件+体检黄）/ no_source；永不抛异常中断管道。
-- 服务器地址/appId/worksheetId/AccountId/cookie 全部读 数据/智云配置.json（不进 git，公开仓库零内网信息）。
+- **连接配置分两层（2026-07-13 明昊拍板）**：服务器地址/appId/四表 worksheetId = 内置默认 `ZHIYUN_DEFAULTS`
+  随代码进公开库（部署机开箱免拷模板）；**账号/密码/md_pss_id cookie/account_id 绝不进库**，只在
+  数据/智云配置.json（gitignore，管理端「设置→智云账号」填）。文件里同名非空字段覆盖内置默认。
 - 必需列（config.columns 声明）抓完必须在场，缺了该表按失败处理——铁律"必需列缺失即报错，不静默算 0"。
 
-智云配置.json 结构（部署机/本机本地手填）：
+数据/智云配置.json（本地覆盖层·可只有账号密码）：
 {
-  "base_url": "http://<内网IP>:<端口>",
-  "app_id": "<应用GUID>",
-  "account_id": "<账号GUID>",
-  "md_pss_id": "<登录cookie值>",          // 先手动贴；Playwright 自动登录后由程序刷新
-  "tables": {
-    "orders":   {"worksheetId": "<表ID>"},
-    "receipts": {"worksheetId": "<表ID>"},
-    "project_detail": {"worksheetId": "<表ID>"},
-    "inhouse":  {"worksheetId": "<表ID>"}
-  }
+  "username": "...", "password": "...",   // 管理端设置页填
+  "md_pss_id": "<登录cookie>",            // 程序自动维护
+  "account_id": "<账号GUID>",             // 登录时自动获取
+  "base_url" / "app_id" / "tables": ...   // 可选：非空则覆盖内置默认（换服务器/换表用）
 }
 """
 from __future__ import annotations
@@ -160,30 +156,72 @@ def write_records_xlsx(records: list[dict[str, str]], dest: Path) -> None:
 
 # ---------- 接线层（要内网 + 智云配置.json） ----------
 
+# 内置默认连接配置（2026-07-13 明昊拍板进公开库：内网地址+表ID随代码走，部署机开箱免拷模板；
+# 账号/密码/cookie 仍绝不进库——只在 数据/智云配置.json（gitignore）里，管理端设置页填）。
+# 数据/智云配置.json 里同名字段非空则覆盖这里（老部署/换表零冲突）。
+ZHIYUN_DEFAULTS: dict = {
+    "base_url": "http://192.168.10.167:18880",
+    "app_id": "6ff4fb2e-e68c-4ee9-83a0-836de8f72c11",
+    "tables": {
+        "orders": {"worksheetId": "6501688ebf25d7b91abdb465"},
+        "receipts": {"worksheetId": "6555d2b1f9460e517040ba6c"},
+        "project_detail": {"worksheetId": "65a4f4afdd2dc6df7283bf1a"},
+        # 「任务」表=内部译员真源；min_rows 护栏：行级权限不足账号只抓到自己的任务（如 85 行）
+        # → 行数低于门槛当失败降级、不覆盖现有文件；换全量权限账号自然全绿。
+        "inhouse": {"worksheetId": "654da962f9460e517040a9f0", "min_rows": 1000},
+    },
+}
+
+
 def _zhiyun_cfg_path(cfg: dict, root: Path | None) -> Path:
     return loaders.data_dir(cfg, root) / "智云配置.json"
 
 
-def _load_zhiyun_cfg(cfg: dict, root: Path | None) -> dict | None:
+def _merged_zhiyun_cfg(file_cfg: dict | None) -> dict:
+    """内置默认 ← 本地文件（非空值胜出；tables 按源逐个合并）。永远返回可用 dict。"""
+    out = {"base_url": ZHIYUN_DEFAULTS["base_url"], "app_id": ZHIYUN_DEFAULTS["app_id"],
+           "tables": {s: dict(t) for s, t in ZHIYUN_DEFAULTS["tables"].items()}}
+    for k, v in (file_cfg or {}).items():
+        if k == "tables":
+            for s, t in (v or {}).items():
+                if not isinstance(t, dict):
+                    continue
+                cur = out["tables"].setdefault(s, {})
+                for tk, tv in t.items():
+                    if tv not in (None, ""):
+                        cur[tk] = tv
+        elif v not in (None, ""):
+            out[k] = v
+    return out
+
+
+def _load_zhiyun_cfg(cfg: dict, root: Path | None) -> dict:
+    """读 数据/智云配置.json 并叠加内置默认（文件缺失/坏 → 纯默认：连接信息可用、无账号密码）。"""
     p = _zhiyun_cfg_path(cfg, root)
-    if not p.exists():
-        return None
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
-        return None
+    file_cfg = None
+    if p.exists():
+        try:
+            file_cfg = json.loads(p.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            file_cfg = None
+    return _merged_zhiyun_cfg(file_cfg)
 
 
 def _save_session(cfg: dict, root: Path | None, token: str, account_id: str | None) -> None:
-    """把新 md_pss_id（和登录时取到的 account_id）回写进 智云配置.json，保留其余内容。失败静默。"""
+    """把新 md_pss_id（和登录时取到的 account_id）回写进 智云配置.json，保留其余内容。
+    文件不存在（连接走内置默认）也要写——否则 token 不持久、每轮更新都重登。失败静默。"""
     p = _zhiyun_cfg_path(cfg, root)
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            data = {}
         data["md_pss_id"] = token
         if account_id:
             data["account_id"] = account_id
+        p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    except (ValueError, OSError):
+    except OSError:
         pass
 
 
@@ -265,8 +303,8 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None,
         return {"status": "no_source", "detail": f"{reason}，且无本地文件"}
 
     zy = zy or _load_zhiyun_cfg(cfg, root)
-    if not zy:
-        return fallback("未配置 数据/智云配置.json（自动抓未启用）")
+    if not zy.get("base_url"):
+        return fallback("智云服务器地址为空（管理端「设置→智云账号」可填）")
     tbl = (zy.get("tables") or {}).get(source) or {}
     if not tbl.get("worksheetId"):
         return fallback(f"智云配置缺 tables.{source}.worksheetId")

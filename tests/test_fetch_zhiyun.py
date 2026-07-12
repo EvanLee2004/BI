@@ -142,6 +142,49 @@ class TestPagination(unittest.TestCase):
                 fz.write_records_xlsx([], Path(td) / "x.xlsx")
 
 
+class TestZhiyunDefaults(unittest.TestCase):
+    """内置连接默认（2026-07-13 明昊拍板进公开库）：文件缺失也有完整连接信息；文件非空值覆盖默认。"""
+
+    def _cfg(self, tmp):
+        return {"data_dir": str(tmp)}
+
+    def test_missing_file_yields_defaults(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            zy = fz._load_zhiyun_cfg(self._cfg(Path(td)), Path(td))
+            self.assertEqual(zy["base_url"], fz.ZHIYUN_DEFAULTS["base_url"])
+            self.assertEqual(zy["app_id"], fz.ZHIYUN_DEFAULTS["app_id"])
+            for s in ("orders", "receipts", "project_detail", "inhouse"):
+                self.assertTrue(zy["tables"][s]["worksheetId"], f"{s} 表ID应有默认值")
+            self.assertEqual(zy["tables"]["inhouse"]["min_rows"], 1000)  # 权限护栏门槛随默认走
+            self.assertFalse(zy.get("username"))  # 账号密码绝不内置
+
+    def test_file_overrides_defaults_and_blank_ignored(self):
+        import json as _json, tempfile
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "智云配置.json").write_text(_json.dumps({
+                "username": "u1", "password": "p1", "base_url": "http://other:1",
+                "app_id": "",  # 空值不覆盖默认
+                "tables": {"orders": {"worksheetId": "custom-ws"},
+                           "receipts": {"worksheetId": ""}}}), encoding="utf-8")
+            zy = fz._load_zhiyun_cfg(self._cfg(Path(td)), Path(td))
+            self.assertEqual(zy["base_url"], "http://other:1")            # 文件非空值胜出
+            self.assertEqual(zy["app_id"], fz.ZHIYUN_DEFAULTS["app_id"])  # 空串不覆盖
+            self.assertEqual(zy["tables"]["orders"]["worksheetId"], "custom-ws")
+            self.assertEqual(zy["tables"]["receipts"]["worksheetId"],
+                             fz.ZHIYUN_DEFAULTS["tables"]["receipts"]["worksheetId"])
+            self.assertEqual(zy["username"], "u1")
+
+    def test_save_session_creates_missing_file(self):
+        """连接走内置默认（无文件）时登录成功也要能持久化 token，否则每轮更新重登。"""
+        import json as _json, tempfile
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self._cfg(Path(td))
+            fz._save_session(cfg, Path(td), "TOK1", "ACC1")
+            d = _json.loads((Path(td) / "智云配置.json").read_text(encoding="utf-8"))
+            self.assertEqual((d["md_pss_id"], d["account_id"]), ("TOK1", "ACC1"))
+
+
 class TestFetchSourceStates(unittest.TestCase):
     """三态与产物端到端（临时目录、post 桩）。"""
 
@@ -161,17 +204,21 @@ class TestFetchSourceStates(unittest.TestCase):
                 ctrl("ca", "下单日期"), ctrl("cb", "下单预估额/本币"), ctrl("cc", "客户名称")]}}}
         return {"data": {"data": [{"ca": "2026-06-01", "cb": "12.5", "cc": "客户A"}]}}
 
-    def test_no_config_no_local(self):
+    def test_blank_base_url_no_local(self):
+        """服务器地址为空（正常合并流程出不来，守卫直接传入）→ 不抓、no_source。"""
         import tempfile
         with tempfile.TemporaryDirectory() as td:
-            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td))
+            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td),
+                                zy={"base_url": "", "tables": {}})
             self.assertEqual(r["status"], "no_source")
+            self.assertIn("服务器地址为空", r["detail"])
 
-    def test_no_config_with_local_fallback(self):
+    def test_blank_base_url_with_local_fallback(self):
         import tempfile
         with tempfile.TemporaryDirectory() as td:
             (Path(td) / "下单.xlsx").write_bytes(b"PK\x03\x04")
-            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td))
+            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td),
+                                zy={"base_url": "", "tables": {}})
             self.assertEqual(r["status"], "local_fallback")
 
     def test_fetched_and_readable(self):

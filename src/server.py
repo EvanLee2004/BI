@@ -316,6 +316,58 @@ def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
     return True
 
 
+def read_zhiyun_conn(cfg, root=None) -> dict:
+    """读智云连接配置的**生效值**（内置默认 ZHIYUN_DEFAULTS + 本地覆盖合并后）：服务器地址 + 四表ID。"""
+    from ingest import fetch_zhiyun
+    zy = fetch_zhiyun._load_zhiyun_cfg(cfg, root)
+    tables = {s: str(((zy.get("tables") or {}).get(s) or {}).get("worksheetId", ""))
+              for s in fetch_zhiyun.SOURCES}
+    return {"base_url": zy.get("base_url", ""), "tables": tables}
+
+
+def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
+    """保存界面填的服务器地址/四表ID到 数据/智云配置.json 覆盖层。
+    与内置默认相同的项**删除覆盖**（文件保持精简、跟着代码默认走）；不同才写覆盖。
+    改了服务器地址顺带清旧会话（token 绑服务器）。返回生效值是否发生变更。"""
+    from ingest import fetch_zhiyun
+    defaults = fetch_zhiyun.ZHIYUN_DEFAULTS
+    before = read_zhiyun_conn(cfg, root)
+    base_url = str(base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("智云服务器地址不能为空")
+    p = _zhiyun_cfg_file(cfg, root)
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = {}
+    if base_url == defaults["base_url"]:
+        d.pop("base_url", None)
+    else:
+        d["base_url"] = base_url
+    over = d.get("tables") or {}
+    for s in fetch_zhiyun.SOURCES:
+        wid = str((tables or {}).get(s) or "").strip()
+        if not wid:
+            raise ValueError("四张表的表ID都不能为空")
+        if wid == defaults["tables"][s]["worksheetId"]:
+            if s in over:
+                over[s].pop("worksheetId", None)
+                if not over[s]:
+                    over.pop(s)
+        else:
+            over.setdefault(s, {})["worksheetId"] = wid
+    if over:
+        d["tables"] = over
+    else:
+        d.pop("tables", None)
+    if base_url != before["base_url"]:
+        d["md_pss_id"] = ""  # 换服务器旧 token 必失效，强制重登
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    after = read_zhiyun_conn(cfg, root)
+    return after != before
+
+
 def save_settings(cfg, root, payload: dict) -> dict:
     """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
     改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
@@ -361,7 +413,19 @@ def save_settings(cfg, root, payload: dict) -> dict:
         if save_zhiyun_creds(cfg, root, zu, zp):
             cred_note = "；智云账号已更新（下次更新自动用新账号登录）"
 
-    note = "已保存" + cred_note
+    # 智云连接配置（服务器地址/四表ID·内置默认可界面覆盖）：两键都传才处理（界面总是整组提交）
+    conn_note = ""
+    if "zhiyun_base_url" in payload or "zhiyun_tables" in payload:
+        cur = read_zhiyun_conn(cfg, root)
+        bu = payload.get("zhiyun_base_url", cur["base_url"])
+        tb = dict(cur["tables"])
+        for k, v in (payload.get("zhiyun_tables") or {}).items():
+            if k in tb:
+                tb[k] = v
+        if save_zhiyun_conn(cfg, root, bu, tb):
+            conn_note = "；智云连接配置已更新（下次更新生效）"
+
+    note = "已保存" + cred_note + conn_note
     # 仅当本次真的提交了更新时间时才动计划任务（各卡就近保存）
     if changed_times:
         import sys
@@ -847,6 +911,20 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
                  placeholder="\\\\服务器\\财务部\\...\\收单台账.xlsx" style="width:100%;max-width:420px">
           <div class="muted" style="font-size:11px;margin-top:3px">部署机填真实共享盘路径；只存本机 `数据\\本地配置.json`，config.json 不动（这样一键更新才不会被"工作区脏"卡住）。留空=沿用默认/本地副本。</div>
         </div>
+        <details id="sZyConnBox" style="margin-top:6px">
+          <summary class="muted" style="cursor:pointer;font-size:12px">智云服务器与抓取表（默认已内置，一般不用改）</summary>
+          <div class="field" style="margin-top:8px"><label>智云服务器地址</label>
+            <input id="sZyUrl" type="text" autocomplete="off" spellcheck="false" style="width:100%;max-width:420px"></div>
+          <div class="field"><label>下单 表ID</label>
+            <input id="sTblOrders" type="text" autocomplete="off" spellcheck="false" style="width:100%;max-width:420px"></div>
+          <div class="field"><label>回款记录 表ID</label>
+            <input id="sTblReceipts" type="text" autocomplete="off" spellcheck="false" style="width:100%;max-width:420px"></div>
+          <div class="field"><label>项目明细 表ID</label>
+            <input id="sTblProject" type="text" autocomplete="off" spellcheck="false" style="width:100%;max-width:420px"></div>
+          <div class="field"><label>内部译员（任务表）表ID</label>
+            <input id="sTblInhouse" type="text" autocomplete="off" spellcheck="false" style="width:100%;max-width:420px"></div>
+          <div class="muted" style="font-size:11px;margin-top:3px">四张表地址随程序内置、开箱即用；智云换服务器/换表才需要改。改动只存本机 `数据\\智云配置.json`。</div>
+        </details>
       </div>
       <div class="scard-f">
         <button class="mini" type="button" onclick="saveZhiyun()">保存</button>
@@ -1029,6 +1107,10 @@ async function loadSettings(){try{const s=await jget("/api/settings");
   document.getElementById("sZyUser").value=s.zhiyun_username||"";
   document.getElementById("sZyPwd").value=s.zhiyun_password||"";
   const lp=document.getElementById("sLedgerPath");if(lp)lp.value=s.ledger_share_path||"";
+  const zc=s.zhiyun_conn||{},zt=zc.tables||{};  // 服务器地址+四表ID（生效值=内置默认+本地覆盖）
+  const zset=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||"";};
+  zset("sZyUrl",zc.base_url);zset("sTblOrders",zt.orders);zset("sTblReceipts",zt.receipts);
+  zset("sTblProject",zt.project_detail);zset("sTblInhouse",zt.inhouse);
   const b=s.backup_stats||{};
   document.getElementById("sBakInfo").textContent="当前备份："+(b.count||0)+" 份，共 "+(b.mb||0)+" MB";
   const rows={};(window._health&&window._health.sources||[]).forEach(x=>rows[x.name]=x.rows);
@@ -1104,6 +1186,11 @@ async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textCont
   const p={ledger_share_path:document.getElementById("sLedgerPath").value};  // 台账路径总是提交（含清空）
   const u=document.getElementById("sZyUser").value,pw=document.getElementById("sZyPwd").value;
   if(u||pw){p.zhiyun_username=u;p.zhiyun_password=pw;}  // 智云账号两项都填才提交（后端校验不能为空）
+  const gv=id=>{const el=document.getElementById(id);return el?el.value.trim():"";};
+  if(gv("sZyUrl")){  // 连接配置整组提交（界面预填生效值，没改=后端判无变更不写）
+    p.zhiyun_base_url=gv("sZyUrl");
+    p.zhiyun_tables={orders:gv("sTblOrders"),receipts:gv("sTblReceipts"),
+      project_detail:gv("sTblProject"),inhouse:gv("sTblInhouse")};}
   try{const d=await jpost("/api/settings",p);
     m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
 // 账号与权限卡
@@ -2148,6 +2235,7 @@ def create_app(cfg, root=None) -> FastAPI:
         out["schedule_times"] = get_schedule_times(cfg)  # ②多次更新：列表（缺失从旧单值推导）
         creds = read_zhiyun_creds(cfg, root)
         out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
+        out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         bdir = loaders.data_dir(cfg, root) / "备份"
         baks = (sorted(bdir.glob("看板_*.db")) + sorted(bdir.glob("页面_*.html"))) if bdir.exists() else []
@@ -2173,6 +2261,8 @@ def create_app(cfg, root=None) -> FastAPI:
             chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
         if "智云账号已更新" in (res.get("note") or ""):
             chg.append("智云账号已更换")
+        if "智云连接配置已更新" in (res.get("note") or ""):
+            chg.append("智云连接配置已更改（服务器/表ID）")
         # 台账路径含内网服务器名（敏感）→ 只记「已更改」不落值（铁律16）
         if "ledger_share_path" in payload and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip():
             chg.append("收单台账共享盘路径已更改")
