@@ -130,7 +130,7 @@ body{
 .pr-grid .rk-no{font-size:12.5px}
 .pr-grid .ev-name{flex-basis:120px;font-size:13px}
 .pr-grid .ev-amt{flex-basis:86px;font-size:13px}
-.pr-grid .rk-meta{flex-basis:84px;font-size:12.5px}
+.pr-grid .rk-meta{flex-basis:104px;font-size:12.5px}  /* 容「项目毛利率 100%」 */
 .pr-grid .rk-open{font-size:12px}
 .pr-grid .ev-row{padding:6px}
 /* 计算逻辑条：静态口径公式，放两卡下方（统一小字放大到 12.5px，注释 11.5px） */
@@ -396,7 +396,7 @@ body{animation:auroraDrift 30s ease-in-out infinite}
  .bud-name{flex-basis:74px;font-size:11.5px}.bud-num{flex-basis:130px;font-size:11px}
  .ev-tabs{margin-left:0;width:100%;order:9}.card-h{flex-wrap:wrap;row-gap:6px}
  .pr-grid .ev-name{flex-basis:96px;font-size:12.5px}.pr-grid .ev-amt{flex-basis:74px;font-size:12.5px}
- .pr-grid .rk-meta{flex-basis:66px;font-size:12px}.pr-grid .card-h .conc b{font-size:15px}
+ .pr-grid .rk-meta{flex-basis:84px;font-size:11.5px}.pr-grid .card-h .conc b{font-size:15px}
  .pr-formula{gap:5px 0;flex-direction:column}}
 /* —— 右侧抽屉（点利润表大类看构成）—— */
 .drawer{position:fixed;inset:0;z-index:60;visibility:hidden}

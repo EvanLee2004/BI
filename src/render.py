@@ -389,8 +389,10 @@ def render_rankings(p):
 
 # ---------- 板块③ 收入与毛利结构（确认口径，按客户/销售，随周期切）----------
 def _margin_meta(mp):
-    """毛利率 meta：None（收入 0）→ 灰显「毛利率 —」。"""
-    return f'毛利率 {mp:.0f}%' if mp is not None else "毛利率 —"
+    """项目毛利率 meta：None（收入 0）→ 灰显「项目毛利率 —」。
+    叫「项目毛利率」而非「毛利率」——板块③是项目直接毛利（未含内部译员/PM/VM/手填），
+    区别于利润表的完整毛利率，防误读（明昊 0712）。"""
+    return f'项目毛利率 {mp:.0f}%' if mp is not None else "项目毛利率 —"
 
 
 def _pname(name):
@@ -867,7 +869,7 @@ def render_dashboard(summary, cfg, logo_b64):
  <div class="pr-formula">
   <span class="pr-f-h">计算逻辑</span>
   <span class="pr-f-item"><b>收入</b> = 交付额 ÷ 1.06<i>确认口径 · 按整单交付日期归属</i></span>
-  <span class="pr-f-item"><b>毛利率</b> = 毛利 ÷ 收入<i>毛利 = 收入 − 项目成本（项目直接毛利，未含内部译员/手填）</i></span>
+  <span class="pr-f-item"><b>项目毛利率</b> = 项目毛利 ÷ 收入<i>项目毛利 = 收入 − 项目成本（直接毛利，未含内部译员/PM/VM/手填，故 ≠ 利润表完整毛利率）</i></span>
   <span class="pr-f-item"><b>集中度</b> = 前5大收入 ÷ 期内总收入<i>即卡头「前5大占收入 %」</i></span>
  </div>
 

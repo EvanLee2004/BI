@@ -1637,7 +1637,7 @@ def create_app(cfg, root=None) -> FastAPI:
             return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
 
         def _mg(mp):
-            return f"毛利率 {mp:.0f}%" if mp is not None else "毛利率 —"
+            return f"项目毛利率 {mp:.0f}%" if mp is not None else "项目毛利率 —"
 
         items = [{"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it["margin_pct"])}
                  for it in rk["items"]]

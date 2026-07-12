@@ -107,8 +107,8 @@ class TestRenderProfitRankings(unittest.TestCase):
         self.assertIn("收入 · 按客户", html)
         self.assertIn("收入 · 按销售", html)
         self.assertIn("grid-2e", html)
-        self.assertIn("毛利率 75%", html)          # 客户甲 率75
-        self.assertIn("毛利率 33%", html)          # 客户乙 率33.3→33
+        self.assertIn("项目毛利率 75%", html)          # 客户甲 率75（板块③=项目毛利率）
+        self.assertIn("项目毛利率 33%", html)          # 客户乙 率33.3→33
         self.assertIn("前5大占收入 <b>91%</b>", html)   # 集中度 90.9→91（.0f）·数字放大突出
         self.assertIn('class="conc"', html)              # 集中度独立高亮块（放大）
         self.assertIn("客户乙", html)
