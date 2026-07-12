@@ -1,7 +1,8 @@
 @echo off
 chcp 65001 >nul
-rem 注册 Windows 计划任务：每天定时跑 run.py --scheduled（更新库+出页面）。
-rem 时间取 config.json 的 schedule_time（缺省 09:30）；改时间后重跑本脚本即可覆盖注册。
+rem 注册 Windows 计划任务：每天在 config.json 的 schedule_times 每个时间点各跑一次 run.py --scheduled。
+rem 多个时间点=多个任务：主任务名『经营驾驶舱每日更新』(最早时间点) + _2.._n(其余时间点)。
+rem 改/增删时间点后重跑本脚本即可覆盖注册（管理端「设置」保存也会尝试自动同步，失败再跑本脚本）。
 rem 需管理员权限运行（右键"以管理员身份运行"）。
 cd /d "%~dp0"
 if exist ".venv\Scripts\python.exe" (
@@ -10,20 +11,30 @@ if exist ".venv\Scripts\python.exe" (
   set "PY=python"
 )
 
-rem 读 config 里的 schedule_time
-set "RUNTIME=09:30"
-for /f "delims=" %%t in ('"%PY%" -c "import json;print(json.load(open('config.json')).get('schedule_time') or '09:30')"') do set "RUNTIME=%%t"
-
 set "TN=经营驾驶舱每日更新"
-echo 将注册计划任务：%TN%  每天 %RUNTIME% 运行 run.py --scheduled
-schtasks /Create /TN "%TN%" /SC DAILY /ST %RUNTIME% /F ^
-  /TR "\"%PY%\" \"%~dp0run.py\" --scheduled"
 
-if %ERRORLEVEL%==0 (
-  echo.
-  echo [OK] 已注册。可用 schtasks /Query /TN "%TN%" 查看，或在"任务计划程序"里查。
-) else (
-  echo.
-  echo [失败] 注册未成功——请确认以"管理员身份"运行本脚本。
+rem 先清理旧的编号任务（_2.._6），避免删掉时间点后残留
+for %%i in (2 3 4 5 6) do schtasks /Delete /TN "%TN%_%%i" /F >nul 2>&1
+
+rem 读 config 里的 schedule_times（空格分隔）；缺失回退旧 schedule_time / 09:30
+set "TIMES="
+for /f "delims=" %%t in ('"%PY%" -c "import json;c=json.load(open('config.json'));ts=c.get('schedule_times') or [c.get('schedule_time') or '09:30'];print(' '.join(ts))"') do set "TIMES=%%t"
+if "%TIMES%"=="" set "TIMES=09:30"
+
+set /a IDX=0
+for %%t in (%TIMES%) do (
+  set /a IDX+=1
+  call :reg %%t
 )
+echo.
+echo [完成] 已按 %TIMES% 注册计划任务。可用 schtasks /Query ^| findstr "%TN%" 查看，或在"任务计划程序"里查。
 pause
+goto :eof
+
+:reg
+if "%IDX%"=="1" (set "NAME=%TN%") else (set "NAME=%TN%_%IDX%")
+echo 注册 %NAME%  每天 %1 运行 run.py --scheduled
+schtasks /Create /TN "%NAME%" /SC DAILY /ST %1 /F ^
+  /TR "\"%PY%\" \"%~dp0run.py\" --scheduled"
+if not %ERRORLEVEL%==0 echo   [失败] %NAME% 注册未成功——请确认以"管理员身份"运行本脚本。
+goto :eof

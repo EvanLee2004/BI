@@ -192,6 +192,94 @@ _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 SCHTASK_NAME = "经营驾驶舱每日更新"  # 与 注册每日更新.bat 里的 TN 一致
 
 EDITABLE_SETTINGS = ("schedule_time", "backup_keep_days", "zhiyun_auto_fetch")
+MAX_SCHEDULE_TIMES = 6  # 每天最多几个自动更新时间点（09:30/12:00/17:30… 3 个已够，留余量）
+
+
+def normalize_schedule_times(value, fallback=None) -> list[str]:
+    """把「多次更新时间」规范成有序去重的 HH:MM 列表（②多次更新时间）。
+    接受：list（元素 HH:MM）/ 单个 "HH:MM" / 顿号·逗号·分号·空白分隔的串。
+    每个 HH:MM 走 _TIME_RE 校验（24 小时制）→ 去重、升序；空/非法/超上限 → ValueError。"""
+    if value is None:
+        value = fallback
+    if isinstance(value, str):
+        value = re.split(r"[、，,;；\s]+", value.strip())
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("更新时间格式不对（应为 HH:MM 列表）")
+    seen, out = set(), []
+    for v in value:
+        s = str(v).strip()
+        if not s:
+            continue
+        if not _TIME_RE.match(s):
+            raise ValueError(f"更新时间「{s}」格式须为 HH:MM（24小时制），如 09:30")
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    if not out:
+        raise ValueError("至少保留一个自动更新时间点")
+    if len(out) > MAX_SCHEDULE_TIMES:
+        raise ValueError(f"自动更新时间点最多 {MAX_SCHEDULE_TIMES} 个")
+    return sorted(out)
+
+
+def get_schedule_times(cfg) -> list[str]:
+    """读当前配置的更新时间列表：优先 schedule_times（新），缺失则从旧 schedule_time 单值推导。"""
+    raw = cfg.get("schedule_times")
+    if raw:
+        try:
+            return normalize_schedule_times(raw)
+        except ValueError:
+            pass
+    try:
+        return normalize_schedule_times(cfg.get("schedule_time") or "09:30")
+    except ValueError:
+        return ["09:30"]
+
+
+def _schtask_command(root=None) -> str:
+    """计划任务要跑的命令：<当前解释器> <run.py> --scheduled（部署机上解释器=venv python）。"""
+    import sys
+    py = sys.executable or "python"
+    runpy = str((root or loaders.ROOT) / "run.py")
+    return f'"{py}" "{runpy}" --scheduled'
+
+
+def _win_task_names(n: int) -> list[str]:
+    """n 个时间点对应的计划任务名：第 1 个=主名（铁律，须与 .bat 一致），其余 _2.._n。"""
+    return [SCHTASK_NAME] + [f"{SCHTASK_NAME}_{i}" for i in range(2, n + 1)]
+
+
+def _win_sync_schedule(times: list[str], root=None) -> str:
+    """Windows：把计划任务同步成 times 里每个时间点各一个任务（主名 + _2.._n）。
+    先试 /Change（改已存在任务的时间，通常不需提权）→ 不存在则 /Create（可能需提权）；
+    再删掉多出来的编号任务（时间点变少时）。全程 best-effort + try/except，
+    **永不抛异常打断保存**；返回人读备注。非 Windows 不会走到这里。"""
+    import subprocess
+    tr = _schtask_command(root)
+    names = _win_task_names(len(times))
+    created = changed = failed = 0
+    try:
+        for name, t in zip(names, times):
+            r = subprocess.run(["schtasks", "/Change", "/TN", name, "/ST", t],
+                               capture_output=True, timeout=15)
+            if r.returncode == 0:
+                changed += 1
+                continue
+            rc = subprocess.run(["schtasks", "/Create", "/TN", name, "/SC", "DAILY",
+                                 "/ST", t, "/TR", tr, "/F"], capture_output=True, timeout=15)
+            if rc.returncode == 0:
+                created += 1
+            else:
+                failed += 1
+        for i in range(len(times) + 1, MAX_SCHEDULE_TIMES + 2):  # 删多余编号任务
+            subprocess.run(["schtasks", "/Delete", "/TN", f"{SCHTASK_NAME}_{i}", "/F"],
+                           capture_output=True, timeout=15)
+    except Exception:
+        return "；⚠计划任务同步出错——请以管理员身份重跑 注册每日更新.bat"
+    if failed:
+        return (f"；⚠有 {failed} 个时间点没同步成（多半需管理员权限）"
+                "——请以管理员身份重跑 注册每日更新.bat")
+    return f"；计划任务已同步（{len(times)} 个时间点：{'、'.join(times)}）"
 
 
 def _config_file(root=None) -> Path:
@@ -233,11 +321,16 @@ def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
 
 def save_settings(cfg, root, payload: dict) -> dict:
     """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
-    改运行中 cfg + 重写 config.json。Windows 上改 schedule_time 会顺手 schtasks /Change。"""
-    st = str(payload["schedule_time"]).strip() if "schedule_time" in payload else \
-        str(cfg.get("schedule_time", "09:30")).strip()
-    if not _TIME_RE.match(st):
-        raise ValueError("自动更新时间格式须为 HH:MM（24小时制），如 09:30")
+    改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
+    # 更新时间：新字段 schedule_times（列表·②多次更新）优先；兼容旧 schedule_time（单值）
+    changed_times = ("schedule_times" in payload) or ("schedule_time" in payload)
+    if "schedule_times" in payload:
+        times = normalize_schedule_times(payload["schedule_times"])
+    elif "schedule_time" in payload:
+        times = normalize_schedule_times(payload["schedule_time"])
+    else:
+        times = get_schedule_times(cfg)
+    st = times[0]  # 旧字段镜像=最早的时间点（向后兼容 .bat / 读单值的地方）
     if "backup_keep_days" in payload:
         try:
             keep = int(payload.get("backup_keep_days"))
@@ -251,9 +344,11 @@ def save_settings(cfg, root, payload: dict) -> dict:
         if "zhiyun_auto_fetch" in payload else bool(cfg.get("zhiyun_auto_fetch", False))
 
     cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
+    cfg["schedule_times"] = times
     p = _config_file(root)
     raw = json.loads(p.read_text(encoding="utf-8"))
     raw["schedule_time"], raw["backup_keep_days"], raw["zhiyun_auto_fetch"] = st, keep, auto
+    raw["schedule_times"] = times
     p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
@@ -266,21 +361,15 @@ def save_settings(cfg, root, payload: dict) -> dict:
             cred_note = "；智云账号已更新（下次更新自动用新账号登录）"
 
     note = "已保存" + cred_note
-    # 仅当本次真的提交了 schedule_time 时才动计划任务（各卡就近保存）
-    if "schedule_time" in payload:
+    # 仅当本次真的提交了更新时间时才动计划任务（各卡就近保存）
+    if changed_times:
         import sys
         if sys.platform == "win32":
-            import subprocess
-            try:
-                r = subprocess.run(["schtasks", "/Change", "/TN", SCHTASK_NAME, "/ST", st],
-                                   capture_output=True, timeout=15)
-                note += "；计划任务时间已改" if r.returncode == 0 else \
-                    "；⚠计划任务未改成（可能还没注册）——请以管理员身份跑一次 注册每日更新.bat"
-            except Exception:
-                note += "；⚠改计划任务出错——请以管理员身份跑一次 注册每日更新.bat"
+            note += _win_sync_schedule(times, root)
         else:
-            note += "（本机非 Windows：计划任务时间在部署机上生效）"
-    return {"schedule_time": st, "backup_keep_days": keep, "zhiyun_auto_fetch": auto, "note": note}
+            note += f"（本机非 Windows：{len(times)} 个时间点在部署机上生效）"
+    return {"schedule_time": st, "schedule_times": times,
+            "backup_keep_days": keep, "zhiyun_auto_fetch": auto, "note": note}
 
 
 def recompute(cfg, root=None) -> None:
@@ -565,6 +654,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   border-radius:10px;background:linear-gradient(180deg,#2a1f52,#1e2438);border:1px solid var(--vio);font-size:13px}
 .bu-batch select{min-width:150px}
 #buUnassignedHint b{color:#fbbf24}
+.sched-times{display:flex;flex-wrap:wrap;gap:8px}
+.sched-row{display:inline-flex;align-items:center;gap:4px}
+.sched-row input[type=time]{font-size:15px;padding:7px 10px}
+.sched-row .mini{padding:4px 8px;font-size:12px}
 .ver-pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;user-select:none;
   background:linear-gradient(180deg,#312e6e,#211d44);color:#c7b8ff;border:1px solid #5b4bc4}
 .ver-pill:hover{filter:brightness(1.12)}
@@ -692,11 +785,12 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
     <div class="scard">
       <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div>
-        <div class="sub">每天自动跑一次完整更新（抓数→重算→出页面）</div></div></div>
+        <div class="sub">每天自动跑完整更新（抓数→重算→出页面）；可设多个时间点，各到点各更新一次</div></div></div>
       <div class="scard-b">
-        <div class="field row"><label>每日更新时间</label>
-          <input id="sTime" type="time" style="font-size:15px;padding:8px 12px;width:auto"></div>
-        <div class="muted">Windows 部署机计划任务时间；首次注册跑一次 注册每日更新.bat。平时可点顶栏「立即更新」。</div>
+        <div class="field"><label>每日更新时间点（可多个）</label>
+          <div id="schedTimes" class="sched-times"></div>
+          <button class="ghost mini" type="button" onclick="schedAdd()" style="margin-top:8px">＋ 添加时间点</button></div>
+        <div class="muted">如 09:30 / 12:00 / 17:30，各到点各跑一次。Windows 每个时间点建一个计划任务；<b>首次或增删时间点若没生效，以管理员身份跑一次 注册每日更新.bat</b>。平时可点顶栏「立即更新」。</div>
       </div>
       <div class="scard-f">
         <button class="mini" type="button" onclick="saveSchedule()">保存自动更新</button>
@@ -906,7 +1000,8 @@ function toggleZyReveal(){const u=document.getElementById("sZyUser"),p=document.
   e=document.getElementById("sZyEye"),show=u.type==="password";
   u.type=p.type=show?"text":"password";e.textContent=show?"🙈 隐藏":"👁 显示";}
 async function loadSettings(){try{const s=await jget("/api/settings");
-  document.getElementById("sTime").value=s.schedule_time||"09:30";
+  schedTimes=(s.schedule_times&&s.schedule_times.length)?s.schedule_times.slice():[s.schedule_time||"09:30"];
+  renderSchedTimes();
   document.getElementById("sKeep").value=s.backup_keep_days||30;
   document.getElementById("sZyUser").value=s.zhiyun_username||"";
   document.getElementById("sZyPwd").value=s.zhiyun_password||"";
@@ -931,9 +1026,24 @@ async function loadVersion(){try{const v=await jget("/api/version");
       (e.items||[]).map(it=>"<li>"+esc(it)+"</li>").join("")+"</ul></div>").join("")
       :"<div class='muted'>暂无更新日志</div>";}
   }catch(e){const pill=document.getElementById("verPill");if(pill)pill.textContent="版本?";}}
+// ②多次更新时间：可增删多个时间点，各到点各跑一次
+let schedTimes=["09:30"];
+function renderSchedTimes(){const box=document.getElementById("schedTimes");if(!box)return;
+  if(!schedTimes.length)schedTimes=["09:30"];
+  box.innerHTML=schedTimes.map((t,i)=>
+    "<span class='sched-row'><input type='time' value='"+esc(t)+"' onchange='schedTimes["+i+"]=this.value'>"
+    +(schedTimes.length>1?"<button class='ghost mini' type='button' title='删除此时间点' onclick='schedDel("+i+")'>✕</button>":"")
+    +"</span>").join("");}
+function schedAdd(){const m=document.getElementById("sTimeMsg");
+  if(schedTimes.length>=6){m.textContent="最多 6 个时间点";return;}
+  m.textContent="";schedTimes.push("12:00");renderSchedTimes();}
+function schedDel(i){if(schedTimes.length<=1)return;schedTimes.splice(i,1);renderSchedTimes();}
 // 各卡就近保存（无底部全局保存）
 async function saveSchedule(){const m=document.getElementById("sTimeMsg");m.textContent="保存中…";
-  try{const d=await jpost("/api/settings",{schedule_time:document.getElementById("sTime").value});
+  const times=schedTimes.map(t=>String(t||"").trim()).filter(Boolean);
+  if(!times.length){m.textContent="至少保留一个时间点";return;}
+  try{const d=await jpost("/api/settings",{schedule_times:times});
+    if(d.schedule_times&&d.schedule_times.length){schedTimes=d.schedule_times.slice();renderSchedTimes();}
     m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
 async function saveBackup(){const m=document.getElementById("sBakMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/settings",{backup_keep_days:document.getElementById("sKeep").value});
@@ -1902,6 +2012,7 @@ def create_app(cfg, root=None) -> FastAPI:
     def api_settings_get(request: Request):
         _require(request)
         out = {k: cfg.get(k) for k in EDITABLE_SETTINGS}
+        out["schedule_times"] = get_schedule_times(cfg)  # ②多次更新：列表（缺失从旧单值推导）
         creds = read_zhiyun_creds(cfg, root)
         out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
         bdir = loaders.data_dir(cfg, root) / "备份"
@@ -1913,15 +2024,16 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.post("/api/settings")
     def api_settings_post(request: Request, payload: dict = Body(default={})):
         user = _require(request)
-        old_time = str(cfg.get("schedule_time", ""))
+        old_times = get_schedule_times(cfg)
         old_keep = cfg.get("backup_keep_days")
         try:
             res = save_settings(cfg, root, payload)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         chg = []  # C3：设置变更留痕（智云账号只记「已更换」不记值）
-        if "schedule_time" in payload and res["schedule_time"] != old_time:
-            chg.append(f"每日更新时间 {old_time or '—'}→{res['schedule_time']}")
+        if ("schedule_times" in payload or "schedule_time" in payload) \
+                and res["schedule_times"] != old_times:
+            chg.append(f"更新时间 {'、'.join(old_times) or '—'}→{'、'.join(res['schedule_times'])}")
         if "backup_keep_days" in payload and res["backup_keep_days"] != old_keep:
             chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
         if "智云账号已更新" in (res.get("note") or ""):

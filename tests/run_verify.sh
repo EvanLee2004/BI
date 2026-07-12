@@ -31,4 +31,5 @@ $PY tests/test_bu.py
 $PY tests/test_auth.py
 $PY tests/test_iter16.py
 $PY tests/test_version.py
+$PY tests/test_schedule.py
 echo "✓ 全部通过"
