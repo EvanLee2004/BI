@@ -283,10 +283,6 @@ def _win_sync_schedule(times: list[str], root=None) -> str:
     return f"；计划任务已同步（{len(times)} 个时间点：{'、'.join(times)}）"
 
 
-def _config_file(root=None) -> Path:
-    return (root or loaders.ROOT) / "config.json"
-
-
 def _zhiyun_cfg_file(cfg, root=None) -> Path:
     return loaders.data_dir(cfg, root) / "智云配置.json"
 
@@ -346,11 +342,15 @@ def save_settings(cfg, root, payload: dict) -> dict:
 
     cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
     cfg["schedule_times"] = times
-    p = _config_file(root)
-    raw = json.loads(p.read_text(encoding="utf-8"))
-    raw["schedule_time"], raw["backup_keep_days"], raw["zhiyun_auto_fetch"] = st, keep, auto
-    raw["schedule_times"] = times
-    p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
+    updates = {"schedule_time": st, "schedule_times": times,
+               "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
+    # 收单台账共享盘路径（部署机专属·界面填）：传了才改，一并落覆盖文件
+    if "ledger_share_path" in payload:
+        lsp = str(payload.get("ledger_share_path") or "").strip()
+        cfg["ledger_share_path"] = lsp
+        updates["ledger_share_path"] = lsp
+    loaders.write_local_config(cfg, root, updates)
 
     zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
     cred_note = ""
@@ -370,7 +370,8 @@ def save_settings(cfg, root, payload: dict) -> dict:
         else:
             note += f"（本机非 Windows：{len(times)} 个时间点在部署机上生效）"
     return {"schedule_time": st, "schedule_times": times,
-            "backup_keep_days": keep, "zhiyun_auto_fetch": auto, "note": note}
+            "backup_keep_days": keep, "zhiyun_auto_fetch": auto,
+            "ledger_share_path": cfg.get("ledger_share_path", ""), "note": note}
 
 
 def recompute(cfg, root=None) -> None:
@@ -831,19 +832,24 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     </div>
 
     <div class="scard">
-      <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号</div>
-        <div class="sub">在线抓数用；换号只改这两项，下次「立即更新」生效</div></div></div>
+      <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号 · 台账路径</div>
+        <div class="sub">本机专属连接设置；只存本机（不进代码库），换号/换路径下次「立即更新」生效</div></div></div>
       <div class="scard-b">
-        <div class="field"><label>账号</label>
+        <div class="field"><label>智云账号</label>
           <input id="sZyUser" type="password" autocomplete="off" style="width:100%;max-width:280px"></div>
-        <div class="field"><label>密码</label>
+        <div class="field"><label>智云密码</label>
           <div class="field-inline">
             <input id="sZyPwd" type="password" autocomplete="off" style="width:100%;max-width:280px">
             <button class="ghost mini" type="button" onclick="toggleZyReveal()" id="sZyEye">👁 显示</button>
           </div></div>
+        <div class="field"><label>收单台账共享盘路径</label>
+          <input id="sLedgerPath" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="\\\\服务器\\财务部\\...\\收单台账.xlsx" style="width:100%;max-width:420px">
+          <div class="muted" style="font-size:11px;margin-top:3px">部署机填真实共享盘路径；只存本机 `数据\\本地配置.json`，config.json 不动（这样一键更新才不会被"工作区脏"卡住）。留空=沿用默认/本地副本。</div>
+        </div>
       </div>
       <div class="scard-f">
-        <button class="mini" type="button" onclick="saveZhiyun()">保存智云账号</button>
+        <button class="mini" type="button" onclick="saveZhiyun()">保存</button>
         <span id="sZyMsg" class="muted"></span>
       </div>
     </div>
@@ -1022,6 +1028,7 @@ async function loadSettings(){try{const s=await jget("/api/settings");
   document.getElementById("sKeep").value=s.backup_keep_days||30;
   document.getElementById("sZyUser").value=s.zhiyun_username||"";
   document.getElementById("sZyPwd").value=s.zhiyun_password||"";
+  const lp=document.getElementById("sLedgerPath");if(lp)lp.value=s.ledger_share_path||"";
   const b=s.backup_stats||{};
   document.getElementById("sBakInfo").textContent="当前备份："+(b.count||0)+" 份，共 "+(b.mb||0)+" MB";
   const rows={};(window._health&&window._health.sources||[]).forEach(x=>rows[x.name]=x.rows);
@@ -1094,8 +1101,10 @@ async function saveBackup(){const m=document.getElementById("sBakMsg");m.textCon
   try{const d=await jpost("/api/settings",{backup_keep_days:document.getElementById("sKeep").value});
     m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
 async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textContent="保存中…";
-  try{const d=await jpost("/api/settings",{zhiyun_username:document.getElementById("sZyUser").value,
-    zhiyun_password:document.getElementById("sZyPwd").value});
+  const p={ledger_share_path:document.getElementById("sLedgerPath").value};  // 台账路径总是提交（含清空）
+  const u=document.getElementById("sZyUser").value,pw=document.getElementById("sZyPwd").value;
+  if(u||pw){p.zhiyun_username=u;p.zhiyun_password=pw;}  // 智云账号两项都填才提交（后端校验不能为空）
+  try{const d=await jpost("/api/settings",p);
     m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
 // 账号与权限卡
 let acctList=[],acctPwShow={};
@@ -2139,6 +2148,7 @@ def create_app(cfg, root=None) -> FastAPI:
         out["schedule_times"] = get_schedule_times(cfg)  # ②多次更新：列表（缺失从旧单值推导）
         creds = read_zhiyun_creds(cfg, root)
         out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
+        out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         bdir = loaders.data_dir(cfg, root) / "备份"
         baks = (sorted(bdir.glob("看板_*.db")) + sorted(bdir.glob("页面_*.html"))) if bdir.exists() else []
         out["backup_stats"] = {"count": len(baks),
@@ -2150,6 +2160,7 @@ def create_app(cfg, root=None) -> FastAPI:
         user = _require(request)
         old_times = get_schedule_times(cfg)
         old_keep = cfg.get("backup_keep_days")
+        old_lsp = cfg.get("ledger_share_path")
         try:
             res = save_settings(cfg, root, payload)
         except ValueError as e:
@@ -2162,6 +2173,9 @@ def create_app(cfg, root=None) -> FastAPI:
             chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
         if "智云账号已更新" in (res.get("note") or ""):
             chg.append("智云账号已更换")
+        # 台账路径含内网服务器名（敏感）→ 只记「已更改」不落值（铁律16）
+        if "ledger_share_path" in payload and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip():
+            chg.append("收单台账共享盘路径已更改")
         if chg:
             _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
         return res

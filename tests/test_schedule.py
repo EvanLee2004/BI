@@ -90,6 +90,10 @@ class TestSettingsApi(unittest.TestCase):
     def _raw(self):
         return json.loads((self.root / "config.json").read_text(encoding="utf-8"))
 
+    def _override(self):
+        p = self.root / "数据" / loaders.LOCAL_CONFIG_NAME
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
     def test_get_returns_times_list(self):
         d = self.client.get("/api/settings", headers=self.hdr).json()
         self.assertIn("schedule_times", d)
@@ -97,24 +101,49 @@ class TestSettingsApi(unittest.TestCase):
         self.assertTrue(d["schedule_times"])
 
     def test_post_multi_times(self):
+        before_cfg = self._raw()  # 存下 config.json 原样
         r = self.client.post("/api/settings", headers=self.hdr,
                              json={"schedule_times": ["17:30", "09:30", "12:00"]})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["schedule_times"], ["09:30", "12:00", "17:30"])
-        # config + cfg：schedule_times 写入，旧 schedule_time=最早时间点
-        raw = self._raw()
-        self.assertEqual(raw["schedule_times"], ["09:30", "12:00", "17:30"])
-        self.assertEqual(raw["schedule_time"], "09:30")
+        # F-01 修复：写覆盖文件、旧 schedule_time=最早时间点；**config.json 一字不动**
+        ov = self._override()
+        self.assertEqual(ov["schedule_times"], ["09:30", "12:00", "17:30"])
+        self.assertEqual(ov["schedule_time"], "09:30")
+        self.assertEqual(self._raw(), before_cfg)   # config.json 未被程序改动（git 工作区保持干净）
+        # 内存 cfg 已更新
         self.assertEqual(self.cfg["schedule_times"], ["09:30", "12:00", "17:30"])
         self.assertEqual(self.cfg["schedule_time"], "09:30")
 
     def test_legacy_single_still_works(self):
+        before_cfg = self._raw()
         r = self.client.post("/api/settings", headers=self.hdr, json={"schedule_time": "08:45"})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["schedule_times"], ["08:45"])
-        raw = self._raw()
-        self.assertEqual(raw["schedule_time"], "08:45")
-        self.assertEqual(raw["schedule_times"], ["08:45"])
+        ov = self._override()
+        self.assertEqual(ov["schedule_time"], "08:45")
+        self.assertEqual(ov["schedule_times"], ["08:45"])
+        self.assertEqual(self._raw(), before_cfg)   # config.json 未变
+
+    def test_config_json_never_dirtied_by_settings(self):
+        """F-01 守卫：多次改各类设置后，config.json 逐字节不变（部署机 git 工作区不脏→一键更新可用）。"""
+        before = (self.root / "config.json").read_text(encoding="utf-8")
+        for body in ({"schedule_times": ["10:00"]}, {"backup_keep_days": 200},
+                     {"ledger_share_path": r"\\srv\share\台账.xlsx"}, {"zhiyun_auto_fetch": True}):
+            self.assertEqual(self.client.post("/api/settings", headers=self.hdr, json=body).status_code,
+                             200, body)
+        self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before)
+        # 但效果都落进了覆盖文件
+        ov = self._override()
+        self.assertEqual(ov["backup_keep_days"], 200)
+        self.assertEqual(ov["ledger_share_path"], r"\\srv\share\台账.xlsx")
+
+    def test_ledger_path_via_settings(self):
+        """台账路径经设置页填→GET 回显、落覆盖文件、load_config 合并生效。"""
+        p = r"\\财务服务器\共享\收单台账.xlsx"
+        self.client.post("/api/settings", headers=self.hdr, json={"ledger_share_path": p})
+        self.assertEqual(self.client.get("/api/settings", headers=self.hdr).json()["ledger_share_path"], p)
+        self.assertEqual(loaders.load_config(self.root)["ledger_share_path"], p)  # 合并后生效
 
     def test_invalid_in_list_400(self):
         for bad in ({"schedule_times": ["09:30", "25:00"]}, {"schedule_times": []},

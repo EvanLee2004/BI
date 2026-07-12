@@ -212,9 +212,12 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(self.cfg["schedule_time"], "08:45")
         self.assertEqual(self.cfg["backup_keep_days"], 7)
-        raw = _json.loads((self.root / "config.json").read_text(encoding="utf-8"))
-        self.assertEqual(raw["schedule_time"], "08:45")
-        self.assertEqual(raw["backup_keep_days"], 7)
+        # F-01 修复：落机器本地覆盖文件、**config.json 不被改动**（部署机 git 工作区不脏→一键更新可用）
+        before_cfg = _json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+        ov = _json.loads((self.root / "数据" / loaders.LOCAL_CONFIG_NAME).read_text(encoding="utf-8"))
+        self.assertEqual(ov["schedule_time"], "08:45")
+        self.assertEqual(ov["backup_keep_days"], 7)
+        self.assertEqual(_json.loads((self.root / "config.json").read_text(encoding="utf-8")), before_cfg)
 
     def test_settings_zhiyun_creds(self):
         """智云账号：GET 可见 / 改了才写+清旧会话 / 空值 400 / 同值不动。"""

@@ -21,12 +21,59 @@ import openpyxl
 
 ROOT = Path(__file__).resolve().parents[1]  # 程序根目录（config.json 所在层）
 
+# 机器本地配置覆盖文件（放 data_dir 内，gitignore）：每台机不同 / 会在管理端改的设置
+# （收单台账共享盘路径、更新时间、备份天数等）只落这里，**config.json 保持出厂默认永不被程序写脏**
+# → git 工作区干净 → 一键更新的"工作区脏就拒绝"护栏不会被误触发（部署机才能用一键更新）。
+LOCAL_CONFIG_NAME = "本地配置.json"
+
 
 # ---------------- 配置 / 时间 ----------------
+def _local_config_path(base: Path, cfg: dict) -> Path:
+    return base / cfg.get("data_dir", "数据") / LOCAL_CONFIG_NAME
+
+
 def load_config(root: Path | None = None) -> dict:
+    """读 config.json（出厂默认），再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
+    覆盖只认非 None 值；坏文件/缺文件静默跳过。config.json 本身只读不写。"""
     base = root or ROOT
     with open(base / "config.json", encoding="utf-8") as f:
-        return json.load(f)
+        cfg = json.load(f)
+    ov = _local_config_path(base, cfg)
+    if ov.exists():
+        try:
+            data = json.loads(ov.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if v is not None:
+                        cfg[k] = v
+        except (OSError, ValueError):
+            pass  # 覆盖文件坏了不致命：退回 config.json 默认，管理端重存即可
+    return cfg
+
+
+def local_config_path(cfg: dict, root: Path | None = None) -> Path:
+    return _local_config_path(root or ROOT, cfg)
+
+
+def read_local_config(cfg: dict, root: Path | None = None) -> dict:
+    """读机器本地覆盖文件为 dict（缺/坏 → {}）。"""
+    try:
+        d = json.loads(local_config_path(cfg, root).read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_local_config(cfg: dict, root: Path | None = None, updates: dict | None = None) -> dict:
+    """把 updates 合并进机器本地覆盖文件并落盘；返回合并后的全量覆盖 dict。
+    **只写这个 gitignore 文件，绝不动 config.json**（保持 git 工作区干净→一键更新可用）。"""
+    cur = read_local_config(cfg, root)
+    for k, v in (updates or {}).items():
+        cur[k] = v
+    p = local_config_path(cfg, root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return cur
 
 
 def pinned_today(cfg: dict) -> datetime.date:

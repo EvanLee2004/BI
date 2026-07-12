@@ -276,7 +276,8 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("保存账号", html)
         self.assertIn("保存自动更新", html)
         self.assertIn("保存备份设置", html)
-        self.assertIn("保存智云账号", html)
+        self.assertIn("智云账号 · 台账路径", html)   # 智云账号卡并入收单台账共享盘路径（F-01 配置分离）
+        self.assertIn("sLedgerPath", html)          # 台账路径输入框
         self.assertIn("showToast", html)
         self.assertNotIn("保存设置()", html)  # 去掉底部全局保存
         self.assertNotIn("登录密码（集中管理）", html)

@@ -15,7 +15,7 @@
    ```
    这样 `origin` 就是 Gitee，管理端一键更新默认对标 Gitee（国内快）。第一次 clone 私有库会让你输 Gitee 账号+私人令牌（Windows 凭据管理器记住，之后自动）；库设为公开则免密。
    - **不用 git（拷文件夹）也行**，但那样没有 `.git`，一键更新用不了（只能手工换文件夹升级）；若之后想启用一键更新，在此目录 `git init` + `git remote add origin <Gitee地址>` + `git fetch` + `git reset --hard origin/main` 即可。
-   - 若你是从 GitHub clone 的、又想更新走 Gitee：`git remote add gitee https://gitee.com/Lee157/oracleeasy--bi.git`，再把 `config.json` 的 `update_remote` 改成 `"gitee"`。
+   - 若你是从 GitHub clone 的、又想更新走 Gitee：`git remote add gitee https://gitee.com/Lee157/oracleeasy--bi.git`，然后把 `update_remote` 设为 `"gitee"`——**写进 `数据\本地配置.json`**（`{"update_remote": "gitee"}`）**而不是改 config.json**（改 config.json 会让工作区永久脏、一键更新失效；从 Gitee clone 则默认就对标 Gitee，本条可跳过）。
    - **不要拷 macOS 上的 `.venv` 文件夹**——虚拟环境不能跨系统用，带过来了就删掉重建。
 3. **建虚拟环境 + 装依赖**：在 `D:\看板\看板正式程序\` 打开 cmd：
    ```
@@ -29,7 +29,8 @@
 ## 二、填配置（只做一次）
 
 1. **`数据\智云配置.json`**（不进 git，手工放到部署机）：从开发机拿模板，核对 `base_url`（内网地址）与四张表 `worksheetId`（模板已填好）；`username`/`password` 可以先留测试账号——**推荐部署完在管理员端 → 设置 → 智云账号里填正式账号**，保存后点「立即更新」即生效，账号内部 ID 程序自动获取。
-2. **`config.json` 的 `ledger_share_path`**：把占位符改成收单台账真实共享盘路径（形如 `\\\\<服务器IP>\\财务部\\...\\收单台账.xlsx`，JSON 里反斜杠写双份）。⚠ 此改动**只留在部署机本地，绝不提交 git**。
+2. **收单台账共享盘路径**：**不要改 `config.json`！** 起服务后在**管理端「设置 → 智云账号·台账路径」**里填收单台账真实共享盘路径（形如 `\\<服务器>\财务部\...\收单台账.xlsx`）。它只落到 `数据\本地配置.json`（本机专属·不进 git），`config.json` 保持不动。
+   > ⚠ 这条是**一键更新能不能用的关键**：`config.json` 是 git 追踪文件，一旦手改它，`git status` 永久显示"有改动"，一键更新的"工作区脏就拒绝"护栏会永久生效、按钮变摆设。所以台账路径（以及更新时间、备份天数等）一律走设置页写本地覆盖文件，别碰 config.json。（`update_remote` 若要从 GitHub 改走 Gitee，也建议写进 `数据\本地配置.json` 而非改 config.json。）
 3. **会话密钥**：首次启动自动生成 `数据\管理员密钥.json`（只含 cookie 签名密钥，不存业务口令）。
 4. **看板账号（v8.0·v8.6 多 BU）**：`数据\看板账号.json`（不进 git）。缺文件时服务自动 seed 默认表（管理员账号 `lushasha` 初始密码 `kanban2026`；查看账号初始 `8888`）。也可参考 `docs\看板账号样例.json` 手写后放到 `数据\`。**权限**=管理员（进 `/admin`）/整体（看全部）/按 BU（v8.6：一个账号可绑**一组** BU，只看所绑 BU；一 BU 也可挂多账号）。旧「权限=单个 BU 名」账号完全兼容、编辑时自动迁移为多 BU 类型。
 5. **账号初始化与改密**：
