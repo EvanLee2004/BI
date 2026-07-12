@@ -33,6 +33,7 @@ import core
 import ingest
 import render
 import assets
+import version as product_version
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
@@ -564,9 +565,26 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   border-radius:10px;background:linear-gradient(180deg,#2a1f52,#1e2438);border:1px solid var(--vio);font-size:13px}
 .bu-batch select{min-width:150px}
 #buUnassignedHint b{color:#fbbf24}
+.ver-pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;user-select:none;
+  background:linear-gradient(180deg,#312e6e,#211d44);color:#c7b8ff;border:1px solid #5b4bc4}
+.ver-pill:hover{filter:brightness(1.12)}
+/* 版本与更新日志卡 */
+#verCard .ver-now{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+#verCard .ver-now .num{font-size:26px;font-weight:800;letter-spacing:.5px;color:var(--vio2)}
+#verCard .ver-now .stage{font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;
+  background:#3b2f0e;color:#fde68a}
+#verCard .ver-now .stage.live{background:#14532d;color:#86efac}
+#verCard .ver-sub{font-size:12px;color:var(--mut);margin-bottom:12px;line-height:1.5}
+#verLog{display:flex;flex-direction:column;gap:12px;max-height:min(46vh,420px);overflow:auto;padding-right:4px}
+#verLog .vl{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#0c1424}
+#verLog .vl-h{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+#verLog .vl-h .t{font-size:13.5px;font-weight:700}
+#verLog .vl-h .d{font-size:11.5px;color:var(--mut)}
+#verLog ul{margin:0;padding-left:18px}#verLog li{font-size:12.5px;line-height:1.6;margin:3px 0;color:#cdd7ea}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
+  <span id="verPill" class="ver-pill" title="产品版本号（点开看更新日志）" onclick="showGroup('cfg');setTimeout(()=>{var e=document.getElementById('verCard');if(e)e.scrollIntoView({behavior:'smooth',block:'center'});},60)">v…</span>
   <span id="health" class="pill y" onclick="toggleHealth()" title="点开看体检明细">体检…</span>
   <button id="btnRefresh" onclick="doRefresh()">立即更新</button>
   <span id="msg" class="muted"></span>
@@ -659,6 +677,18 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
 <div id="settings" class="sec">
   <div class="sgrid">
+
+    <div class="scard full" id="verCard">
+      <div class="scard-h"><span class="ico">🧭</span><div><div class="ttl">版本与更新日志</div>
+        <div class="sub">当前产品版本 + 每版大白话改了啥。产品号（试运行 0.9，上线升 1.0）跟内部开发号是两套，给管理层看这个。</div></div></div>
+      <div class="scard-b">
+        <div class="ver-now"><span class="num" id="verNum">v…</span>
+          <span class="stage" id="verStage">…</span>
+          <span class="muted" style="font-size:12px" id="verNext"></span></div>
+        <div class="ver-sub" id="verSub"></div>
+        <div id="verLog"></div>
+      </div>
+    </div>
 
     <div class="scard">
       <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div>
@@ -821,7 +851,7 @@ function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
   else if(g==="review")showReview("overview");
-  else if(g==="cfg"){showSec("settings");loadSettings();loadBuCfg();loadAccts();}}
+  else if(g==="cfg"){showSec("settings");loadVersion();loadSettings();loadBuCfg();loadAccts();}}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
 function showToast(t,isErr){const el=document.getElementById("toast");el.textContent=t||"";
   el.className=isErr?"err":"";el.style.display="block";
@@ -887,6 +917,20 @@ async function loadSettings(){try{const s=await jget("/api/settings");
     SRC_MAP.map(([n,src])=>"<tr><td>"+esc(n)+"</td><td>"+esc(src)+"</td><td>"+
       (rows[n]!=null?rows[n]:"—")+"</td></tr>").join("");
   }catch(e){msg("读取设置失败:"+e.message);}}
+// 版本与更新日志（产品号，与内部开发号分开）
+async function loadVersion(){try{const v=await jget("/api/version");
+  const num="v"+(v.version||"?"),stage=v.stage||"";
+  const pill=document.getElementById("verPill");if(pill)pill.textContent=num+(stage?" · "+stage:"");
+  const nEl=document.getElementById("verNum");if(nEl)nEl.textContent=num;
+  const sEl=document.getElementById("verStage");if(sEl){sEl.textContent=stage;sEl.className="stage"+(stage==="正式版"?" live":"");}
+  const nx=document.getElementById("verNext");if(nx)nx.textContent=stage==="试运行"?"· 正式上线后升 v1.0":"";
+  const sub=document.getElementById("verSub");if(sub)sub.textContent="下面按时间倒序（最新在最上面），只讲这版能多干啥；内部开发号另计、不在此显示。";
+  const log=document.getElementById("verLog");if(log){const cl=v.changelog||[];
+    log.innerHTML=cl.length?cl.map(e=>"<div class='vl'><div class='vl-h'><span class='t'>"+esc(e.title||"")+
+      "</span><span class='d'>"+esc(e.date||"")+"</span></div><ul>"+
+      (e.items||[]).map(it=>"<li>"+esc(it)+"</li>").join("")+"</ul></div>").join("")
+      :"<div class='muted'>暂无更新日志</div>";}
+  }catch(e){const pill=document.getElementById("verPill");if(pill)pill.textContent="版本?";}}
 // 各卡就近保存（无底部全局保存）
 async function saveSchedule(){const m=document.getElementById("sTimeMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/settings",{schedule_time:document.getElementById("sTime").value});
@@ -1332,7 +1376,7 @@ function initYM(){const d=new Date();
 initYM();
 document.getElementById("dWrap").addEventListener("scroll",function(){
   if(this.scrollTop+this.clientHeight>=this.scrollHeight-80)detail.next();});
-loadHealth();refreshUcBadge();loadAdjFields();setInterval(loadHealth,30000);
+loadHealth();refreshUcBadge();loadAdjFields();loadVersion();setInterval(loadHealth,30000);
 // 打开页面时若更新已在跑（别处/定时触发），按钮跟着进入进度态
 jget("/api/refresh_status").then(s=>{if(s.running){document.getElementById("btnRefresh").disabled=true;refT0=Date.now();pollRefresh();}}).catch(()=>{});
 </script></body></html>"""
@@ -1846,6 +1890,13 @@ def create_app(cfg, root=None) -> FastAPI:
                     "categories": list(db.CONFIG_CHANGE_CATEGORIES)}
         finally:
             conn.close()
+
+    @app.get("/api/version")
+    def api_version(request: Request):
+        """产品版本号 + 面向用户的更新日志（管理员会话）。
+        版本号=根目录 VERSION（现 0.9 试运行），与 git 开发号(v8.x)分开、不给普通用户看。"""
+        _require(request)
+        return product_version.version_info()
 
     @app.get("/api/settings")
     def api_settings_get(request: Request):
