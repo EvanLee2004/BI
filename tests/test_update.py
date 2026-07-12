@@ -116,6 +116,27 @@ class TestUpdaterGit(unittest.TestCase):
         self.assertFalse(d["available"])
         self.assertFalse(updater.apply_update(plain)["ok"])
 
+    def test_custom_remote_gitee(self):
+        """对标非默认远端（模拟部署机 update_remote=gitee）：另一个远端领先时能检测/拉取。"""
+        gitee = self.tmp / "gitee.git"
+        _run("init", "--bare", str(gitee))
+        _run("remote", "add", "gitee", str(gitee), cwd=self.local)
+        _run("push", "gitee", "main", cwd=self.local)                 # 先推上去，此时齐平
+        _run("symbolic-ref", "HEAD", "refs/heads/main", cwd=gitee)
+        g2 = self.tmp / "g2"
+        _run("clone", str(gitee), str(g2))
+        _run("checkout", "main", cwd=g2)
+        _commit(g2, "f.txt", "v2", "feat: gitee 专属更新")
+        _run("push", "origin", "main", cwd=g2)                        # g2 的 origin=gitee，推进 gitee
+        # 对标 origin(=GitHub 那个 bare)=齐平；对标 gitee=落后可更新
+        self.assertFalse(updater.check_update(self.local, remote="origin")["available"])
+        d = updater.check_update(self.local, remote="gitee")
+        self.assertTrue(d["available"])
+        self.assertEqual(d["remote"], "gitee")
+        self.assertTrue(any("gitee 专属" in s for s in d["log"]))
+        res = updater.apply_update(self.local, remote="gitee")
+        self.assertTrue(res["ok"], res)
+
 
 class TestUpdateConstants(unittest.TestCase):
     def test_restart_code(self):
@@ -160,14 +181,18 @@ class TestUpdateApi(unittest.TestCase):
         return TestClient(self.app, follow_redirects=False)
 
     def test_check_passthrough(self):
-        updater.check_update = lambda root=None, do_fetch=True: {"supported": True, "available": True,
-                                                                 "behind": 2, "can_update": True}
+        seen = {}
+        def _stub(root=None, remote="origin", do_fetch=True):
+            seen["remote"] = remote
+            return {"supported": True, "available": True, "behind": 2, "can_update": True}
+        updater.check_update = _stub
         d = self.client.get("/api/update/check", headers=self.hdr).json()
         self.assertTrue(d["available"])
         self.assertEqual(d["behind"], 2)
+        self.assertEqual(seen["remote"], "origin")  # 默认对标 origin（config update_remote）
 
     def test_apply_ok_restarts_and_audits(self):
-        updater.apply_update = lambda root=None: {"ok": True, "pulled": 3, "from": "aaa", "to": "bbb"}
+        updater.apply_update = lambda root=None, remote="origin": {"ok": True, "pulled": 3, "from": "aaa", "to": "bbb"}
         d = self.client.post("/api/update/apply", headers=self.hdr).json()
         self.assertTrue(d["ok"])
         self.assertTrue(d.get("restarting"))
@@ -178,7 +203,7 @@ class TestUpdateApi(unittest.TestCase):
         self.assertIn("bbb", joined)
 
     def test_apply_refused_no_restart(self):
-        updater.apply_update = lambda root=None: {"ok": False, "reason": "已是最新版本"}
+        updater.apply_update = lambda root=None, remote="origin": {"ok": False, "reason": "已是最新版本"}
         d = self.client.post("/api/update/apply", headers=self.hdr).json()
         self.assertFalse(d["ok"])
         self.assertNotIn("restarting", d)

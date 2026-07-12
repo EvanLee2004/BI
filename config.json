@@ -18,6 +18,8 @@
   "_schedule_time_note": "旧字段=schedule_times 的第一个时间点镜像，向后兼容（.bat / 读单值处仍可用）；实际以 schedule_times 为准。",
   "backup_keep_days": 365,
   "_backup_keep_days_note": "数据/备份/ 里每日存档（看板_*.db 库备份 + 页面_*.html 页面快照，各每天一份、同天覆盖=留当天最后一次）的滚动保留天数，超过删最旧（约6~7MB/天，365天≈2.5G）；管理员端「设置」页可改。月末快照存档（快照存档/，含当月末页面）为财务时点档案永久保留，12-31那份即年末档。",
+  "update_remote": "origin",
+  "_update_remote_note": "一键更新（管理端「检查更新」）对标哪个 git 远端。默认 origin：**部署机从 Gitee clone 时 origin 就是 Gitee，默认即对标 Gitee，无需改**。若部署机 origin 不是 Gitee（如从 GitHub clone/拷贝的），先 `git remote add gitee <Gitee地址>` 再把这里改成 \"gitee\"，更新就从 Gitee 拉。开发机推送=push 到 GitHub+Gitee 两边，与本项无关。",
   "server_host": "0.0.0.0",
   "server_port": 8018,
   "_server_note": "内网双端服务：0.0.0.0=同WiFi手机/电脑可访问 http://本机IP:8018/（用户端）与 /admin（管理员端）。管理员密码哈希+会话密钥存 数据/管理员密钥.json（不进git）；首次起服务自动生成，默认密码见 README/部署文档，可用环境变量 KANBAN_ADMIN_PW 覆盖。",

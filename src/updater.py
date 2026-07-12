@@ -63,23 +63,25 @@ def _short(root, ref):
     return out if rc == 0 else ""
 
 
-def check_update(root=None, do_fetch=True) -> dict:
+def check_update(root=None, remote="origin", do_fetch=True) -> dict:
     """检测远端有没有新版本。do_fetch=True 时先 `git fetch`（只读）拿最新远端引用。
+    remote=对标哪个远端（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee，或配 update_remote 指定）。
     返回 available/supported/behind/ahead/dirty/can_update/reason/log(近10条远端提交摘要)。"""
     root = _root(root)
+    remote = str(remote or "origin").strip() or "origin"
     if not is_repo(root):
-        return {"supported": False, "available": False,
+        return {"supported": False, "available": False, "remote": remote,
                 "reason": "非 git 仓库，一键更新不可用（需 git clone 部署）"}
     branch = _current_branch(root)
     if not branch:
-        return {"supported": False, "available": False,
+        return {"supported": False, "available": False, "remote": remote,
                 "reason": "当前处于游离 HEAD，无法判断分支，暂不支持一键更新"}
-    up = f"origin/{branch}"
+    up = f"{remote}/{branch}"
     if do_fetch:
-        rc, _, err = _git(root, "fetch", "--quiet", "origin", branch, timeout=90)
+        rc, _, err = _git(root, "fetch", "--quiet", remote, branch, timeout=90)
         if rc != 0:
-            return {"supported": True, "available": False, "branch": branch,
-                    "reason": f"拉取远端信息失败（网络/权限？）：{err or '未知错误'}"}
+            return {"supported": True, "available": False, "branch": branch, "remote": remote,
+                    "reason": f"从远端「{remote}」拉取信息失败（网络/权限/远端不存在？）：{err or '未知错误'}"}
     rc, out, _ = _git(root, "rev-list", "--left-right", "--count", f"HEAD...{up}")
     ahead = behind = 0
     if rc == 0 and out:
@@ -104,17 +106,18 @@ def check_update(root=None, do_fetch=True) -> dict:
         reason = "本地有未提交改动，先提交或还原再更新（避免被覆盖）"
     else:
         reason = f"有新版本：落后远端 {behind} 个提交，可一键更新"
-    return {"supported": True, "available": behind > 0, "branch": branch,
+    return {"supported": True, "available": behind > 0, "branch": branch, "remote": remote,
             "ahead": ahead, "behind": behind, "dirty": dirty, "can_update": can_update,
             "reason": reason, "log": log,
-            "local": _short(root, "HEAD"), "remote": _short(root, up)}
+            "local": _short(root, "HEAD"), "remote_rev": _short(root, up)}
 
 
-def apply_update(root=None) -> dict:
-    """安全拉取：先复检护栏（只读 fetch+比对），满足才 `git pull --ff-only`。
+def apply_update(root=None, remote="origin") -> dict:
+    """安全拉取：先复检护栏（只读 fetch+比对），满足才 `git pull --ff-only <remote>`。
     返回 {ok, reason, pulled, from, to, detail}。**本函数不重启**；重启由调用方 request_restart。"""
     root = _root(root)
-    chk = check_update(root, do_fetch=True)
+    remote = str(remote or "origin").strip() or "origin"
+    chk = check_update(root, remote=remote, do_fetch=True)
     if not chk.get("supported"):
         return {"ok": False, "reason": chk.get("reason", "不支持一键更新")}
     if not chk.get("can_update"):
@@ -122,7 +125,7 @@ def apply_update(root=None) -> dict:
                 "behind": chk.get("behind", 0)}
     branch = chk["branch"]
     before = chk.get("local", "")
-    rc, out, err = _git(root, "pull", "--ff-only", "origin", branch, timeout=180)
+    rc, out, err = _git(root, "pull", "--ff-only", remote, branch, timeout=180)
     if rc != 0:
         return {"ok": False, "reason": f"git pull --ff-only 失败：{err or out or '未知错误'}"}
     return {"ok": True, "pulled": chk.get("behind", 0), "from": before,

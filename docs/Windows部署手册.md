@@ -9,7 +9,14 @@
 ## 一、装环境（只做一次，约 20 分钟，需要联网）
 
 1. **装 Python 3.10+**：https://www.python.org/downloads/ ，安装时**务必勾选 "Add python.exe to PATH"**。
-2. **拿代码**：把整个 `看板正式程序` 文件夹拷到 `D:\看板\`（U盘/内网传输均可）。**不要拷 macOS 上的 `.venv` 文件夹**——虚拟环境不能跨系统用，带过来了就删掉重建。
+2. **拿代码（推荐 `git clone` from Gitee，一键更新才能用）**：装 Git（https://git-scm.com/），在 `D:\看板\` 打开 cmd：
+   ```
+   git clone https://gitee.com/Lee157/oracleeasy--bi.git 看板正式程序
+   ```
+   这样 `origin` 就是 Gitee，管理端一键更新默认对标 Gitee（国内快）。第一次 clone 私有库会让你输 Gitee 账号+私人令牌（Windows 凭据管理器记住，之后自动）；库设为公开则免密。
+   - **不用 git（拷文件夹）也行**，但那样没有 `.git`，一键更新用不了（只能手工换文件夹升级）；若之后想启用一键更新，在此目录 `git init` + `git remote add origin <Gitee地址>` + `git fetch` + `git reset --hard origin/main` 即可。
+   - 若你是从 GitHub clone 的、又想更新走 Gitee：`git remote add gitee https://gitee.com/Lee157/oracleeasy--bi.git`，再把 `config.json` 的 `update_remote` 改成 `"gitee"`。
+   - **不要拷 macOS 上的 `.venv` 文件夹**——虚拟环境不能跨系统用，带过来了就删掉重建。
 3. **建虚拟环境 + 装依赖**：在 `D:\看板\看板正式程序\` 打开 cmd：
    ```
    python -m venv .venv
@@ -44,7 +51,7 @@
    - 用户端（老板看）：`http://<本机IP>:8018/`；管理员端：`http://<本机IP>:8018/admin`
    - 同 WiFi 手机可直接访问；端口可用环境变量 `KANBAN_PORT` 改。
    - 防火墙首次询问选"专用网络允许"；域环境可能需 IT 开 8018 入站规则。
-   - **一键更新前提**：本项目须是 `git clone` 部署（有 `.git` + origin 远端）、且用 `看门狗启动.bat` 起服务，管理端「设置→版本与更新日志→检查更新」才能一键更新（安全快进拉取 `git pull --ff-only` + 看门狗按退出码 42 重启）。护栏：非仓库/工作区有改动/本地与远端分叉时不给自动更新（提示人工处理）。
+   - **一键更新前提**：本项目须是 `git clone` 部署（有 `.git` + 远端）、且用 `看门狗启动.bat` 起服务，管理端「设置→版本与更新日志→检查更新」才能一键更新（安全快进拉取 `git pull --ff-only` + 看门狗按退出码 42 重启）。**对标哪个远端由 `config.json` 的 `update_remote` 决定**（默认 `origin`；从 Gitee clone 时 origin 即 Gitee，默认就对标 Gitee）。护栏：非仓库/工作区有改动/本地与远端分叉时不给自动更新（提示人工处理）。
 2. **每日自动更新**：右键**以管理员身份**运行 `注册每日更新.bat`（按 config 的 `schedule_times` 每个时间点各注册一个计划任务，默认只有 09:30 跑 `run.py --scheduled`；多时间点=主任务 `经营驾驶舱每日更新` + `_2.._n`）。之后改/增删时间点在**管理员端 → 设置 → 自动更新**里加减时间点即可（保存会自动同步计划任务）；**若增删时间点后 `schtasks /Query` 没看到对应任务变化（多半是服务进程没管理员权限建/删任务），以管理员身份重跑一次 `注册每日更新.bat` 即可**。
 3. **开机自启（建议）**：把 **`看门狗启动.bat`** 快捷方式放进 `shell:startup`（Win+R 输入），重启后服务自动拉起，且支持一键更新后自动重启。
 

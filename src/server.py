@@ -1051,7 +1051,8 @@ async function checkUpdate(){const m=document.getElementById("vuMsg"),box=docume
     if(!d.available){m.textContent="✓ "+(d.reason||"已是最新版本")+(d.local?("（当前 "+esc(d.local)+"）"):"");return;}
     m.textContent="";
     const logs=(d.log||[]).map(s=>"<li>"+esc(s)+"</li>").join("");
-    let html="<div class='vu-avail'><div class='vu-h'>🔔 发现新版本 · 落后 "+(d.behind||0)+" 个提交（"+esc(d.local||"")+" → "+esc(d.remote||"")+"）</div>";
+    let html="<div class='vu-avail'><div class='vu-h'>🔔 发现新版本 · 落后 "+(d.behind||0)+" 个提交（"+esc(d.local||"")+" → "+esc(d.remote_rev||"")+"）"
+      +(d.remote&&d.remote!=="origin"?" <span class='muted'>· 源:"+esc(d.remote)+"</span>":"")+"</div>";
     if(logs)html+="<div class='vu-sub'>更新内容（远端提交）：</div><ul class='vu-log'>"+logs+"</ul>";
     if(d.can_update)html+="<button class='mini' type='button' onclick='applyUpdate()'>一键更新并重启</button>"
       +"<span class='muted' style='margin-left:8px'>拉取新代码后服务自动重启（约 10 秒，页面自动刷新）</span>";
@@ -2111,17 +2112,18 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/update/check")
     def api_update_check(request: Request):
-        """④ 检测远端有没有新版本（管理员会话）：git fetch + 比对 HEAD 与 origin/分支。
+        """④ 检测远端有没有新版本（管理员会话）：git fetch + 比对 HEAD 与 <update_remote>/分支。
+        对标的远端由 config `update_remote` 决定（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee）。
         只读、带护栏（非仓库/分叉/脏工作区不给更新），返回是否有新版本与"要更新啥"。"""
         _require(request)
-        return updater.check_update(loaders.ROOT)
+        return updater.check_update(loaders.ROOT, remote=cfg.get("update_remote") or "origin")
 
     @app.post("/api/update/apply")
     def api_update_apply(request: Request):
-        """④ 一键更新（管理员会话）：复检护栏 → git pull --ff-only → 触发看门狗重启。
+        """④ 一键更新（管理员会话）：复检护栏 → git pull --ff-only <update_remote> → 触发看门狗重启。
         拉取成功才重启（进程以退出码 42 退出，看门狗用新代码拉起）；失败原样返回不重启。"""
         user = _require(request)
-        res = updater.apply_update(loaders.ROOT)
+        res = updater.apply_update(loaders.ROOT, remote=cfg.get("update_remote") or "origin")
         if res.get("ok"):
             _audit(cfg, root, user,
                    ("更新", f"一键更新 {res.get('from') or '?'}→{res.get('to') or '?'}"
