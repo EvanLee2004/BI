@@ -199,7 +199,7 @@ class TestExceptionEndpoints(unittest.TestCase):
 
     def test_admin_console_renamed_tabs(self):
         html = self.client.get("/admin", headers=self.hdr).text
-        for t in ("异常处理", "总览", "下单未填部门", "费用未分类（台账）", "调整台账", "历史快照"):
+        for t in ("异常处理", "总览", "下单未填部门", "费用未分类（台账）", "数据修正", "历史快照", "配置变更记录"):
             self.assertIn(t, html)
         self.assertNotIn(">复核<", html)
 

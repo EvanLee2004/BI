@@ -392,9 +392,9 @@ def _run_reasons(report: dict) -> list[str]:
         reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
-        reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·调整台账』看")
+        reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·数据修正』看")
     if adj.get("missing", 0):
-        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·调整台账』人工复核")
+        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·数据修正』人工复核")
     return reasons
 
 
@@ -593,11 +593,11 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   </span>
   <span class="subgrp" id="sub-review" data-g="review">
     <button class="stab on" data-t="overview" onclick="showReview('overview')">总览</button>
-    <button class="stab" data-t="ledger" onclick="showReview('ledger')">调整台账</button>
+    <button class="stab" data-t="ledger" onclick="showReview('ledger')">数据修正</button>
     <button class="stab" data-t="orderdept" onclick="showReview('orderdept')">下单未填部门<span id="odBadge" class="badge zero">0</span></button>
     <button class="stab" data-t="unclassified" onclick="showReview('unclassified')">费用未分类（台账）<span id="ucBadge" class="badge zero">0</span></button>
     <button class="stab" data-t="history" onclick="showReview('history')">历史快照</button>
-    <button class="stab" data-t="audit" onclick="showReview('audit')">操作记录</button>
+    <button class="stab" data-t="audit" onclick="showReview('audit')">配置变更记录</button>
   </span>
 </div>
 
@@ -612,7 +612,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     <button onclick="dQuery()">查询</button>
     <span id="dInfo" class="muted grow"></span>
   </div>
-  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在调整台账撤销）。滚动到底自动加载更多。</div>
+  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。</div>
   <div class="tbl-box lg wrap" id="dWrap"><table id="dTbl"></table></div>
 </div>
 
@@ -779,7 +779,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 <div id="overview" class="sec">
   <div class="note info">分诊台：0=绿=不用管；有数=点卡片进对应清单。处理动作与「改数据」同一套调整机制。</div>
   <div id="ovCards" class="ov-grid"></div>
-  <div class="note info" style="margin-top:14px">闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「调整台账」选听源头或坚持我的数。</div>
+  <div class="note info" style="margin-top:14px">闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「数据修正」选听源头或坚持我的数。</div>
 </div>
 
 <div id="audit" class="sec">
@@ -1236,7 +1236,7 @@ async function odSave(btn){const tr=btn.closest("tr"),sel=tr.querySelector("sele
   const dept=sel.value;if(!dept){alert("先选部门");return;}
   const key=decodeURIComponent(sel.dataset.key);btn.disabled=true;
   try{await jpost("/api/adjust",{目标表:"std_下单",定位键:key,字段:"部门",新值:dept,原因:"异常处理·归类部门",类型:"改值"});
-    tr.remove();msg("已归类（写入调整台账·秒级重算）");reloadDash();loadHealth();refreshUcBadge();
+    tr.remove();msg("已归类（写入数据修正·秒级重算）");reloadDash();loadHealth();refreshUcBadge();
     const b=document.getElementById("odBadge"),n=Math.max(0,(parseInt(b.textContent,10)||1)-1);
     b.textContent=n;b.className="badge"+(n?"":" zero");
     document.getElementById("odInfo").textContent="待归类 "+n+" 笔";
@@ -1272,7 +1272,7 @@ function lRender(){const expOnly=document.getElementById("lExpOnly").checked;
   const nExp=LADJ.filter(a=>a["状态"]==="过期疑似").length;
   document.getElementById("lInfo").textContent="共 "+LADJ.length+" 条（过期疑似 "+nExp+"）";
   document.getElementById("lBatchBtn").style.display=nExp?"":"none";
-  let h="<tr><th>id</th><th>时间</th><th>经手人</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
+  let h="<tr><th>id</th><th>时间</th><th>操作账号</th><th>目标表</th><th>字段</th><th>原值→新值</th><th>类型</th><th>状态</th><th></th></tr>";
   d.forEach(a=>{const exp=a["状态"]==="过期疑似";
     let ops="";
     if(exp&&a["类型"]==="改值")ops+="<button class='mini' onclick='lRearm("+a.id+")'>坚持我的数</button> ";
