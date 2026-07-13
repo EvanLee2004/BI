@@ -92,18 +92,11 @@ class TestDeptBudgetBlock(unittest.TestCase):
 
 
 class TestRenderSwitches(unittest.TestCase):
-    def test_dept_budget_card_empty_state(self):
-        """迭代18：空/None 也渲染卡（空态文案），不再整页消失。"""
-        for arg in (None, {"year": 2026, "rows": []}):
-            html = render.render_dept_budget(arg)
-            self.assertIn("部门费用预算执行", html)
-            self.assertIn("暂无部门年预算", html)
-
-    def test_dept_budget_card_over_class(self):
-        b = {"year": 2026, "rows": [{"dept": "运保", "target": 100.0, "used": 130.0, "pct": 130.0}]}
-        html = render.render_dept_budget(b)
-        self.assertIn("over", html)
-        self.assertIn("130.0%", html)
+    def test_dept_budget_card_retired(self):
+        """迭代19：部门费用预算卡界面下线，render 恒空。"""
+        for arg in (None, {"year": 2026, "rows": []},
+                    {"year": 2026, "rows": [{"dept": "运保", "target": 100.0, "used": 130.0, "pct": 130.0}]}):
+            self.assertEqual(render.render_dept_budget(arg), "")
 
     def test_hbar_degrade_paths(self):
         self.assertIn("无「预算归属部门」列", render._hbar_rows(None, "dept"))

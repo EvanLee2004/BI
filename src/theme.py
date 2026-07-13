@@ -165,15 +165,9 @@ body{
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
-/* 回款情况 + 部门费用预算执行：完全平行的等高对称两卡——两张卡拉到同高（stretch），
-   矮的那张内容纵向居中、不留底部空白（回款图/预算列表在卡内垂直居中） */
-.rb-grid{align-items:stretch}
-.rb-grid > .period-receipts{display:flex}
-.rb-grid > .period-receipts > .card{flex:1 1 auto;width:100%}
-.rb-grid > .period-receipts > .card,.rb-grid > .card{display:flex;flex-direction:column}
-.rb-grid .card > .card-h{flex:0 0 auto}
-.rb-grid .rc-body{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
-.rb-grid .bud-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
+/* 回款情况：迭代19 起单独整宽（部门费用预算卡已下线）；.rc-body 限高防图过大 */
+.period-receipts .rc-body{max-height:280px}
+.period-receipts .rc-body svg{max-height:240px}
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
 .pl-card > .card-h{flex:0 0 auto}
@@ -401,7 +395,7 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .ev-row.unfilled .ev-name{color:var(--mut)}
 .ev-amt{flex:0 0 76px;text-align:right;font-size:12.5px;font-family:var(--mono,inherit);color:var(--ink)}
 .ev-empty{padding:22px 8px;font-size:12.5px;color:var(--mut);text-align:center}
-/* —— 部门费用预算执行 —— */
+/* —— 预算进度条样式（界面卡已下线，样式保留无害）—— */
 .bud-list{padding:4px 2px}
 .bud-row{display:flex;align-items:center;gap:12px;padding:6px}
 .bud-name{flex:0 0 110px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

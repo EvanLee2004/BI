@@ -163,8 +163,9 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
 def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
                         budget_month: float | None = None) -> str:
     """回款按月柱图 + 叠加"每月回款下单率"折线。series=[(label, 回款, 下单, 率%或None), ...]。
-    率线按本串最大率归一（无第二坐标轴，精确值看悬浮，沿用组合图做法）；率为 None 的月不画点。"""
-    w, h = 580, 210
+    率线按本串最大率归一（无第二坐标轴，精确值看悬浮，沿用组合图做法）；率为 None 的月不画点。
+    整宽时限制 max-height，避免再次显得「特别大」。"""
+    w, h = 580, 200
     pl, pr, pt, pb = 64, 40, 16, 30
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)
@@ -223,5 +224,6 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额</span>'
               f'<span><i style="background:{ORANGE}"></i>回款下单率</span>'
               f'<span style="margin-left:auto;color:{MUT2}">悬浮看当月回款/下单/率</span></div>')
-    return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
+    return (f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:240px;display:block">'
+            f'{"".join(parts)}{"".join(hits)}</svg>{legend}')
 

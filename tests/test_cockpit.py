@@ -205,12 +205,9 @@ class TestRenderGuards(unittest.TestCase):
 
 
 class TestReceiptsBudgetLayout(unittest.TestCase):
-    """迭代18：回款 | 部门费用预算 始终 grid-2e 两列对称；
-    没填预算 → 仍渲染空态卡（禁止回款独占整宽）。"""
+    """迭代19：陆总拍板去掉部门费用年预算卡；回款整宽，页面不再出现该卡。"""
     GRID = '<div class="grid-2e rb-grid" style="margin-top:16px"><div class="period-receipts">'
     FULL = '<div class="period-receipts" style="margin-top:16px">'
-    BUDGET_FILLED = "已用/年预算 · 口径：台账白名单内含税"
-    BUDGET_EMPTY = "暂无部门年预算"
 
     @staticmethod
     def _render(dept_budget):
@@ -218,19 +215,23 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         S["meta"]["dept_budget"] = dept_budget
         return render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
 
-    def test_side_by_side_when_budget_present(self):
+    def test_no_dept_budget_card_even_when_filled(self):
         db = {"year": 2026, "rows": [{"dept": "示例部", "used": 10.0, "target": 8.0, "pct": 125.0}]}
         html = self._render(db)
-        self.assertIn(self.GRID, html)
-        self.assertIn(self.BUDGET_FILLED, html)
-        self.assertNotIn(self.FULL, html)
+        self.assertIn("回款情况", html)
+        self.assertIn(self.FULL, html)
+        self.assertNotIn(self.GRID, html)
+        # 用户可见卡头已下线（CSS 注释等可残留，不算卡）
+        self.assertNotIn("部门费用预算执行 ", html)  # 卡头带空格 tag
+        self.assertNotIn("暂无部门年预算", html)
+        self.assertEqual(render.render_dept_budget(db), "")
 
-    def test_side_by_side_empty_budget(self):
+    def test_receipts_full_width_no_budget_card(self):
         html = self._render(None)
         self.assertIn("回款情况", html)
-        self.assertIn(self.BUDGET_EMPTY, html)   # 空态卡
-        self.assertIn(self.GRID, html)           # 仍两列
-        self.assertNotIn(self.FULL, html)        # 禁止整宽
+        self.assertIn(self.FULL, html)
+        self.assertNotIn("暂无部门年预算", html)
+        self.assertNotIn(self.GRID, html)
 
 
 class TestRankingsAndRanges(unittest.TestCase):

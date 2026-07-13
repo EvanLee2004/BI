@@ -850,7 +850,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     <button class="stab" data-t="内部译员" onclick="pickTable('内部译员')">内部译员</button>
     <button class="stab" data-t="费用明细" onclick="pickTable('费用明细')">费用明细</button>
     <span class="subsep"></span>
-    <button class="stab" data-t="手填" onclick="showManual()">手填</button>
+    <button class="stab" data-t="数据调整" onclick="showManual()">数据调整</button>
   </span>
   <span class="subgrp" id="sub-review" data-g="review">
     <button class="stab on" data-t="overview" onclick="showReview('overview')">总览</button>
@@ -883,20 +883,16 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <div class="toolbar">
     <span class="field-inline">月份 <select id="mY"></select><select id="mM"></select></span>
     <button onclick="mLoad()">查询</button>
-    <span class="muted grow">改手填即留痕（manual_历史），当月覆盖。</span>
+    <span class="muted grow">人力/补充等系统导不出的数 · 改即留痕，当月覆盖。金额支持千分位（如 1,000,000）。</span>
   </div>
+  <div class="note info">本页原名「手填」，陆总要求改称「数据调整」。下面「业绩目标」优先维护；部门费用年预算已下线（半吊子汇总意义不大，完整版后置）。</div>
   <div class="tbl-box sm wrap"><table id="mTbl"></table></div>
   <div class="sec-block">
-    <div class="blk-h">🎯 业务目标（全公司）</div>
-    <div class="note info">下单/回款/毛利率 · 年目标 + 上半年(H1)目标。填了基本情况 KPI 下即出进度条；与「部门费用预算」是两套概念。</div>
+    <div class="blk-h">🎯 业绩目标（优先）</div>
+    <div class="note info">下单 / 回款 / 毛利率 · 年目标 + 上半年(H1)。可选全公司或某个 BU。填了基本情况 KPI 下即出进度条。金额填元，支持千分位。</div>
     <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span>
       <span class="field-inline">范围 <select id="bScope"><option value="全公司">全公司</option></select></span></div>
     <div class="tbl-box sm wrap"><table id="bTbl"></table></div>
-  </div>
-  <div class="sec-block">
-    <div class="blk-h">🏷 部门费用年预算（费用管控）</div>
-    <div class="note info">按收单台账「预算归属部门」逐部门填；有无都显示「部门费用预算执行」卡（空态占位与回款对称）。改已有值需确认、全程留痕。</div>
-    <div class="tbl-box sm wrap"><table id="bdTbl"></table></div>
   </div>
 </div>
 
@@ -1506,8 +1502,17 @@ const detail={page:0,pages:1,loading:false,loaded:0,
 function pickTable(t){curTable=t;
   document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
-function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t==="手填"));
+function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t==="数据调整"||b.dataset.t==="手填"));
   showSec("manual");mLoad();}
+// 千分位：显示 1,234,567；提交时去逗号
+function fmtThousands(v){if(v==null||v==="")return"";const n=String(v).replace(/,/g,"");
+  if(n===""||isNaN(Number(n)))return String(v);const parts=n.split(".");
+  parts[0]=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,",");return parts.join(".");}
+function parseAmount(v){const s=String(v==null?"":v).replace(/,/g,"").trim();
+  if(s===""||isNaN(Number(s)))return NaN;return Number(s);}
+function bindThousands(el){if(!el||el._thou)return;el._thou=true;
+  el.addEventListener("focus",()=>{el.value=String(el.value).replace(/,/g,"");});
+  el.addEventListener("blur",()=>{const n=parseAmount(el.value);if(!isNaN(n))el.value=fmtThousands(n);});}
 function dQuery(){detail.reset();hideEditDock();}
 function hideEditDock(){const d=document.getElementById("editDock");if(d){d.style.display="none";d.innerHTML="";}}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
@@ -1561,18 +1566,21 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
   const cur=await jget("/api/manual?month="+encodeURIComponent(m));const map={};cur.forEach(x=>map[x["项目"]]=x["金额"]);
   let h="<tr><th>项目</th><th>当前金额</th><th>新值</th><th></th></tr>";
   MANUAL_ITEMS.forEach(it=>{const id="mi_"+MANUAL_ITEMS.indexOf(it);
-    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?map[it]:"（空）")+"</td>"+
-    "<td><input id='"+id+"' size='12' value='"+(map[it]!=null?map[it]:"")+"'></td>"+
+    const disp=map[it]!=null?fmtThousands(map[it]):"";
+    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?fmtThousands(map[it]):"（空）")+"</td>"+
+    "<td><input id='"+id+"' class='amt' size='14' value='"+esc(disp)+"' placeholder='如 1,000,000'></td>"+
     "<td><button class='mini' onclick=\"mSave('"+encodeURIComponent(m)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
-  document.getElementById("mTbl").innerHTML=h;bLoad();}
-// 业务目标指标（金额元 / 毛利率填百分数如 35）
+  document.getElementById("mTbl").innerHTML=h;
+  document.querySelectorAll("#mTbl input.amt").forEach(bindThousands);
+  bLoad();}
+// 业绩目标（金额元 / 毛利率填百分数如 35）
 const BUDGET_METRICS=[
-  {k:"下单年预算",tip:"元 · 全年下单目标"},
-  {k:"回款年预算",tip:"元 · 全年回款目标"},
-  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%"},
-  {k:"下单H1目标",tip:"元 · 上半年下单"},
-  {k:"回款H1目标",tip:"元 · 上半年回款"},
-  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率"},
+  {k:"下单年预算",tip:"元 · 全年下单目标",thou:true},
+  {k:"回款年预算",tip:"元 · 全年回款目标",thou:true},
+  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%",thou:false},
+  {k:"下单H1目标",tip:"元 · 上半年下单",thou:true},
+  {k:"回款H1目标",tip:"元 · 上半年回款",thou:true},
+  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false},
 ];
 async function bFillScopes(){
   const sel=document.getElementById("bScope");if(!sel)return;
@@ -1593,31 +1601,26 @@ async function bLoad(){const sel=document.getElementById("bY");
   BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
     const old=map[it.k]!=null?map[it.k]:null;
     const scEnc=encodeURIComponent(scope);
+    const curDisp=old!=null?(it.thou?fmtThousands(old):old):"（未填）";
+    const inpDisp=old!=null?(it.thou?fmtThousands(old):old):"";
     h+="<tr><td>"+esc(it.k)+"</td><td class='muted' style='font-size:11px'>"+esc(it.tip)+"</td>"+
-    "<td>"+esc(old!=null?old:"（未填）")+"</td>"+
-    "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
+    "<td>"+esc(curDisp)+"</td>"+
+    "<td><input id='"+id+"' class='"+(it.thou?"amt":"")+"' size='14' value='"+esc(inpDisp)+"' placeholder='"+(it.thou?"如 10,000,000":"如 35")+"'></td>"+
     "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it.k)+"','"+id+"','"+scEnc+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
-  document.getElementById("bTbl").innerHTML=h;bdLoad(y);}
-async function bSave(yEnc,itEnc,id,scope,oldVal){const v=document.getElementById(id).value.trim();
-  if(v===""||isNaN(parseFloat(v))){alert("请输入数字（金额填元；毛利率填如 35）");return;}
+  document.getElementById("bTbl").innerHTML=h;
+  document.querySelectorAll("#bTbl input.amt").forEach(bindThousands);}
+async function bSave(yEnc,itEnc,id,scope,oldVal){const raw=document.getElementById(id).value.trim();
+  const n=parseAmount(raw);
+  if(raw===""||isNaN(n)){alert("请输入数字（金额填元，可写千分位；毛利率填如 35）");return;}
   const sc=scope?decodeURIComponent(scope):"全公司";
-  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+"·"+sc+"」已有 "+oldVal+"，确认改为 "+v+"？（改动会留痕）"))return;
-  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v),范围:sc};
+  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+"·"+sc+"」已有 "+oldVal+"，确认改为 "+n+"？（改动会留痕）"))return;
+  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:n,范围:sc};
   try{await jpost("/api/budget",body);
-    showToast("✓ 目标已保存");msg("已保存业务目标（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
-async function bdLoad(y){
-  const [depts,cur]=await Promise.all([jget("/api/budget_depts"),jget("/api/budget?year="+encodeURIComponent(y))]);
-  const map={};cur.filter(x=>x["指标"]==="费用年预算").forEach(x=>map[x["范围"]]=x["金额"]);
-  if(!depts.length){document.getElementById("bdTbl").innerHTML="<tr><td class='muted'>台账暂无「预算归属部门」数据（老台账没这列或全空）</td></tr>";return;}
-  let h="<tr><th>预算归属部门</th><th>当前年预算(元)</th><th>新值</th><th></th></tr>";
-  depts.forEach((d,ix)=>{const id="bd_"+ix;const old=map[d]!=null?map[d]:null;
-    h+="<tr><td>"+esc(d)+"</td><td>"+esc(old!=null?old:"（未填·显示空态卡）")+"</td>"+
-    "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
-    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent("费用年预算")+"','"+id+"','"+encodeURIComponent(d)+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
-  document.getElementById("bdTbl").innerHTML=h;}
-async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.trim();if(v===""){alert("填金额");return;}
-  try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
-    showToast("✓ 手填已保存");msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
+    showToast("✓ 业绩目标已保存");msg("已保存业绩目标（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
+async function mSave(mEnc,itEnc,id){const raw=document.getElementById(id).value.trim();
+  const n=parseAmount(raw);if(raw===""||isNaN(n)){alert("填金额（支持千分位，如 1,000,000）");return;}
+  try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:n});
+    showToast("✓ 已保存");msg("数据调整已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
 
 // ---- 异常处理（总览 / 调整台账 / 下单未填部门 / 费用未分类 / 历史快照）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));

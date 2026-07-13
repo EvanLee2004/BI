@@ -28,11 +28,11 @@ class TestEscaping(unittest.TestCase):
         # data-cat 属性里引号必须转义，否则属性被截断
         self.assertNotIn('data-cat="dept:<', html)
 
-    def test_dept_budget_escapes_name(self):
+    def test_dept_budget_retired_no_html(self):
+        # 迭代19：部门预算卡下线，render 恒空（无 XSS 面）
         html = render.render_dept_budget(
             {"year": 2026, "rows": [{"dept": EVIL, "pct": 50.0, "used": 1.0, "target": 2.0}]})
-        self.assertNotIn("<img", html)
-        self.assertIn("&lt;img", html)
+        self.assertEqual(html, "")
 
     def test_detail_block_escapes_attrs(self):
         html = render._detail_block(f"dept:{EVIL}", EVIL, "inner")

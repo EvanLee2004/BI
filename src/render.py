@@ -244,35 +244,8 @@ def render_expense_views(p, dept_rows, pc_rows):
 
 
 def render_dept_budget(dept_budget):
-    """部门费用预算执行卡。迭代18：没填也渲染空态，与回款卡始终左右对称。"""
-    year = (dept_budget or {}).get("year") or ""
-    rows = (dept_budget or {}).get("rows") or []
-    if not rows:
-        body = ('<div class="bud-empty">'
-                '<div class="bud-empty-ico">◎</div>'
-                '<div class="bud-empty-t">暂无部门年预算</div>'
-                '<div class="bud-empty-s">请在管理端「改数据 → 手填 → 部门费用年预算」维护；'
-                '填后此处显示各部门已用/年预算进度。</div></div>')
-    else:
-        rows_html = ""
-        for r in rows:
-            pct = r["pct"]
-            if pct is None:
-                cls, w, ptxt = "warn", 100.0, "—（预算为0）"
-            else:
-                cls = "ok" if pct < 80 else ("warn" if pct <= 100 else "over")
-                w, ptxt = min(pct, 100.0), f"{pct:.1f}%"
-            rows_html += (f'<div class="bud-row"><span class="bud-name">{_esc(r["dept"])}</span>'
-                          f'<span class="bud-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
-                          f'<span class="bud-num">{charts.fmt_wan(r["used"])} / {charts.fmt_wan(r["target"])}万'
-                          f' · <b class="{cls}">{ptxt}</b></span></div>')
-        body = f'<div class="bud-list">{rows_html}</div>'
-    tag = f'{year}年 · 已用/年预算 · 口径：台账白名单内含税·年累计·含特批' if year else '费用管控 · 与业务目标分列'
-    return (f'<div class="card"><div class="card-h">部门费用预算执行 '
-            f'<span class="tag">{tag}</span></div>'
-            f'{body}'
-            f'<div class="chart-note">已用=收单台账按「预算归属部门」年累计；预算在管理员端·手填维护（改动留痕）。'
-            f'本卡=费用管控，与首行「业务目标」不同。</div></div>')
+    """部门费用预算执行卡。迭代19 陆总拍板：界面下线（半吊子汇总无意义）；函数保留给旧测试/兼容，恒返回空。"""
+    return ""
 
 
 # ---------- 板块②-2 管理利润表（点大类→侧边抽屉看构成，主表定高不再顶下方图表）----------
@@ -903,11 +876,10 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
-    # 回款 | 部门费用预算：始终左右对称（迭代18：没填预算也渲染空态，禁止回款整宽）
+    # 回款情况：迭代19 陆总拍板去掉部门费用年预算卡（半吊子汇总无意义，完整版后置）
+    # 回款恢复整宽；图表 SVG 本身响应式，不另撑巨高
     receipts_html = render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))
-    budget_html = render_dept_budget(meta.get('dept_budget') or {"year": meta["year"], "rows": []})
-    receipts_budget = (f'<div class="grid-2e rb-grid" style="margin-top:16px">'
-                       f'<div class="period-receipts">{receipts_html}</div>{budget_html}</div>')
+    receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
 
     body = f"""
 {PARTICLES_HTML}
