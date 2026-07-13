@@ -67,9 +67,13 @@ class TestGroupAggregation(unittest.TestCase):
 class TestDeptBudgetBlock(unittest.TestCase):
     DEPT_ROWS = [("运保", 80.0, []), ("项目中心", 120.0, [])]
 
-    def test_none_when_not_filled(self):
-        self.assertIsNone(build_dept_budget_block(None, self.DEPT_ROWS, 2026))
-        self.assertIsNone(build_dept_budget_block({"2025": {"运保": 1}}, self.DEPT_ROWS, 2026))
+    def test_empty_shell_when_not_filled(self):
+        """迭代18：没填也返回空壳（year + rows=[]），供空态卡渲染对称布局。"""
+        b = build_dept_budget_block(None, self.DEPT_ROWS, 2026)
+        self.assertEqual(b["year"], 2026)
+        self.assertEqual(b["rows"], [])
+        b2 = build_dept_budget_block({"2025": {"运保": 1}}, self.DEPT_ROWS, 2026)
+        self.assertEqual(b2["rows"], [])
 
     def test_rows_sorted_by_pct_desc(self):
         b = build_dept_budget_block({"2026": {"运保": 100.0, "项目中心": 600.0, "人力中心": 50.0}},
@@ -88,9 +92,12 @@ class TestDeptBudgetBlock(unittest.TestCase):
 
 
 class TestRenderSwitches(unittest.TestCase):
-    def test_dept_budget_card_absent_when_none(self):
-        self.assertEqual(render.render_dept_budget(None), "")
-        self.assertEqual(render.render_dept_budget({"year": 2026, "rows": []}), "")
+    def test_dept_budget_card_empty_state(self):
+        """迭代18：空/None 也渲染卡（空态文案），不再整页消失。"""
+        for arg in (None, {"year": 2026, "rows": []}):
+            html = render.render_dept_budget(arg)
+            self.assertIn("部门费用预算执行", html)
+            self.assertIn("暂无部门年预算", html)
 
     def test_dept_budget_card_over_class(self):
         b = {"year": 2026, "rows": [{"dept": "运保", "target": 100.0, "used": 130.0, "pct": 130.0}]}

@@ -37,8 +37,9 @@ class TestBudgetDb(unittest.TestCase):
     def test_load_budget_shape_and_scope(self):
         conn = mem_conn()
         db.set_budget(conn, "2026", "回款年预算", 100.0, "明昊")
-        db.set_budget(conn, "2026", "回款年预算", 999.0, "明昊", 范围="语言")  # BU 预留行不进全公司口径
+        db.set_budget(conn, "2026", "回款年预算", 999.0, "明昊", 范围="语言")  # BU 目标
         self.assertEqual(db.load_budget(conn), {"2026": {"回款年预算": 100.0}})
+        self.assertEqual(db.load_budget(conn, scope="语言"), {"2026": {"回款年预算": 999.0}})
 
     def test_empty(self):
         conn = mem_conn()
@@ -47,7 +48,7 @@ class TestBudgetDb(unittest.TestCase):
 
 
 class TestBudgetBlock(unittest.TestCase):
-    YEAR_P = {"orders": 500.0, "receipts": 300.0}
+    YEAR_P = {"orders": 500.0, "receipts": 300.0, "gross_margin_pct": 40.0}
 
     def test_none_when_not_filled(self):
         self.assertIsNone(build_budget_block(None, 2026, self.YEAR_P))

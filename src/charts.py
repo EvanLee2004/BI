@@ -134,7 +134,12 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
                      f'font-weight="{"700" if is_hl else "400"}" fill="{INK if is_hl else MUT}">{label}</text>')
         ly = pt + plot_h * (1 - max(0.0, min(margin, 100.0)) / 100)
         line_pts.append((cx, ly))
-        tip = f"{label}<br>收入&nbsp;{fmt_wan(rev)}万&nbsp;·&nbsp;成本&nbsp;{fmt_wan(cost)}万<br>毛利率&nbsp;{margin:.1f}%"
+        # 金额 + 占比（相对本图最大值）都显示
+        rev_share = (rev / mx * 100) if mx else 0
+        cost_share = (cost / mx * 100) if mx else 0
+        tip = (f"{label}<br>交付收入&nbsp;{fmt_wan(rev)}万&nbsp;({rev_share:.0f}%)"
+               f"&nbsp;·&nbsp;交付成本&nbsp;{fmt_wan(cost)}万&nbsp;({cost_share:.0f}%)"
+               f"<br>毛利率&nbsp;{margin:.1f}%")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
                     f'height="{plot_h:.1f}" fill="transparent"/>')
     if len(line_pts) >= 2:
@@ -148,10 +153,10 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
                      f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
     for x, y in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{ORANGE}"/>')
-    legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>收入</span>'
-              f'<span><i style="background:{COST}"></i>成本</span>'
+    legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>交付收入</span>'
+              f'<span><i style="background:{COST}"></i>交付成本</span>'
               f'<span><i style="background:{ORANGE}"></i>毛利率</span>'
-              f'<span style="margin-left:auto;color:{MUT2}">悬浮/点击柱子看当月明细</span></div>')
+              f'<span style="margin-left:auto;color:{MUT2}">悬浮看金额+占比+毛利率</span></div>')
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
 
@@ -192,9 +197,12 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
             line_pts.append((cx, ly))
         rtip = f"<br>回款下单率&nbsp;{ratio:.1f}%" if ratio is not None else "<br>回款下单率&nbsp;—（当月无下单）"
+        rec_share = (rec / mx * 100) if mx else 0
         _o = f"{fmt_wan(_order)}万"
-        hits.append(f'<rect class="hit" data-tip="{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{_o}{rtip}" '
-                    f'x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>')
+        tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;({rec_share:.0f}%)"
+               f"&nbsp;·&nbsp;下单&nbsp;{_o}{rtip}")
+        hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
+                    f'height="{plot_h:.1f}" fill="transparent"/>')
     if budget_month:
         by = pt + plot_h * (1 - budget_month / mx)
         parts.append(f'<line x1="{pl}" y1="{by:.1f}" x2="{w-pr}" y2="{by:.1f}" stroke="{TEAL}" '

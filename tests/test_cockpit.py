@@ -198,38 +198,39 @@ class TestRenderGuards(unittest.TestCase):
         # 板块③下方「计算逻辑」公式条：三条公式在位（收入/毛利率/集中度），静态口径
         self.assertIn('class="pr-formula"', self.html)
         self.assertIn("计算逻辑", self.html)
-        self.assertIn("交付额 ÷ 1.06", self.html)
-        self.assertIn("毛利 ÷ 收入", self.html)
-        self.assertIn("前5大收入 ÷ 期内总收入", self.html)
+        self.assertIn("交付金额", self.html)
+        self.assertIn("交付收入", self.html)
+        self.assertIn("÷ 1.06", self.html)
+        self.assertIn("项目毛利率", self.html)
 
 
 class TestReceiptsBudgetLayout(unittest.TestCase):
-    """回款情况 + 部门费用预算执行：填了年预算 → 同一 grid-2e 两列并排（各半宽变小）；
-    没填 → 回款独占整宽、不塞进半吊空列（预算卡本就不渲染）。"""
+    """迭代18：回款 | 部门费用预算 始终 grid-2e 两列对称；
+    没填预算 → 仍渲染空态卡（禁止回款独占整宽）。"""
     GRID = '<div class="grid-2e rb-grid" style="margin-top:16px"><div class="period-receipts">'
     FULL = '<div class="period-receipts" style="margin-top:16px">'
-    # 预算卡真正渲染才有的唯一标记（"部门费用预算执行"整词在 CSS 注释里恒在，不能拿来判断）
-    BUDGET_CARD = "已用/年预算 · 口径：台账白名单内含税"
+    BUDGET_FILLED = "已用/年预算 · 口径：台账白名单内含税"
+    BUDGET_EMPTY = "暂无部门年预算"
 
     @staticmethod
     def _render(dept_budget):
         cfg, S = _summary()
-        S["meta"]["dept_budget"] = dept_budget   # 注入/清空，确定性覆盖两个分支
+        S["meta"]["dept_budget"] = dept_budget
         return render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
 
     def test_side_by_side_when_budget_present(self):
         db = {"year": 2026, "rows": [{"dept": "示例部", "used": 10.0, "target": 8.0, "pct": 125.0}]}
         html = self._render(db)
-        self.assertIn(self.GRID, html)              # 回款作为左列、被 grid-2e 包住
-        self.assertIn(self.BUDGET_CARD, html)       # 预算卡作为右列同框渲染
-        self.assertNotIn(self.FULL, html)           # 有预算就不走整宽兜底
+        self.assertIn(self.GRID, html)
+        self.assertIn(self.BUDGET_FILLED, html)
+        self.assertNotIn(self.FULL, html)
 
-    def test_receipts_full_width_when_no_budget(self):
+    def test_side_by_side_empty_budget(self):
         html = self._render(None)
         self.assertIn("回款情况", html)
-        self.assertNotIn(self.BUDGET_CARD, html)    # 没填=预算卡不渲染
-        self.assertIn(self.FULL, html)              # 回款走整宽包裹
-        self.assertNotIn(self.GRID, html)           # 不把回款单独塞进两列 grid
+        self.assertIn(self.BUDGET_EMPTY, html)   # 空态卡
+        self.assertIn(self.GRID, html)           # 仍两列
+        self.assertNotIn(self.FULL, html)        # 禁止整宽
 
 
 class TestRankingsAndRanges(unittest.TestCase):

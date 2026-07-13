@@ -100,10 +100,11 @@ class TestVersionApi(unittest.TestCase):
         self.assertTrue(d["changelog"] and d["changelog"][0]["items"])
 
     def test_console_has_version_ui(self):
-        # 管理端控制台含版本 UI 锚点（pill + 卡 + JS）
+        # 管理端：摘要卡 + 右侧日志抽屉（默认折叠）
         html = server._ADMIN_CONSOLE
-        for anchor in ("verPill", "verCard", "loadVersion", "版本与更新日志"):
-            self.assertIn(anchor, html)
+        for anchor in ("verPill", "verCard", "loadVersion", "版本与更新",
+                       "verDrawer", "openVerDrawer", "更新日志"):
+            self.assertIn(anchor, html, anchor)
 
 
 if __name__ == "__main__":

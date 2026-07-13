@@ -32,15 +32,20 @@ body{
   background:var(--bg); color:var(--ink); font-size:14px; line-height:1.5;
   -webkit-font-smoothing:antialiased;
   background-image:
-    radial-gradient(680px 460px at 8% -6%, rgba(34,211,238,.10), transparent 60%),
-    radial-gradient(720px 520px at 100% 4%, rgba(192,132,252,.10), transparent 62%),
-    radial-gradient(620px 620px at 46% 108%, rgba(45,212,191,.08), transparent 60%),
-    linear-gradient(rgba(125,211,252,.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125,211,252,.05) 1px, transparent 1px);
-  background-size:auto,auto,auto,46px 46px,46px 46px;
+    radial-gradient(780px 520px at 6% -8%, rgba(34,211,238,.14), transparent 58%),
+    radial-gradient(820px 560px at 102% 2%, rgba(192,132,252,.13), transparent 60%),
+    radial-gradient(680px 680px at 48% 110%, rgba(45,212,191,.10), transparent 58%),
+    radial-gradient(400px 280px at 70% 40%, rgba(34,211,238,.04), transparent 70%),
+    linear-gradient(rgba(125,211,252,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,211,252,.055) 1px, transparent 1px);
+  background-size:auto,auto,auto,auto,44px 44px,44px 44px;
   background-attachment:fixed; min-height:100vh;
 }
-.theme-light body,body.theme-light{background-image:none}
+/* 浅色：干净白底，无网格/光晕，简洁可切换 */
+.theme-light body,body.theme-light{
+  background-image:none;
+  background:var(--bg);
+}
 /* 宽屏用满：原 1180 在管理端 iframe / 大屏右侧空一大截 */
 .wrap{max-width:min(1680px,100%);margin:0 auto;padding:0 24px 48px;box-sizing:border-box}
 
@@ -98,27 +103,43 @@ body{
 .card-h{font-size:13.5px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .card-h .tag{font-size:11px;color:var(--mut2);font-weight:400}
 
-/* 基本情况 KPI */
+/* 基本情况 KPI（5 卡） */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi-grid.kpi-5{grid-template-columns:repeat(5,1fr)}
 .kpi{background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);
-  border-radius:var(--radius);padding:15px 16px;box-shadow:var(--glow);position:relative;overflow:hidden;
-  display:flex;flex-direction:column}
+  border-radius:var(--radius);padding:14px 14px 12px;box-shadow:var(--glow);position:relative;overflow:hidden;
+  display:flex;flex-direction:column;transition:transform .2s ease,border-color .2s,box-shadow .2s}
+.kpi:hover{transform:translateY(-2px);border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(34,211,238,.18),0 8px 28px rgba(0,0,0,.35),var(--glow)}
+.theme-light .kpi:hover{box-shadow:0 4px 14px rgba(31,58,95,.1);transform:none}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
-.kpi-l{font-size:12.5px;color:var(--mut);margin-bottom:8px}
-.kpi-cum{font-size:26px;font-weight:700;line-height:1.05;letter-spacing:.5px}
-.kpi-cum .u{font-size:13px;font-weight:500;color:var(--mut);margin-left:2px}
+.kpi-l{font-size:12px;color:var(--mut);margin-bottom:6px;letter-spacing:.4px;font-weight:600}
+.kpi-cum{font-size:24px;font-weight:700;line-height:1.05;letter-spacing:.5px}
+.kpi-cum .u{font-size:12px;font-weight:500;color:var(--mut);margin-left:2px}
 .kpi-cum-l{font-size:10.5px;color:var(--mut2);margin-bottom:6px}
-.kpi-sub{font-size:11.5px;color:var(--mut);margin-top:6px}
+.kpi-sub{font-size:11px;color:var(--mut);margin-top:5px}
 .kpi-sub b{color:var(--ink);font-weight:700}
-.kpi-note{font-size:10px;color:var(--mut2);margin-top:4px;line-height:1.4}
-.kpi-delta{font-size:11.5px;margin-top:7px;font-variant-numeric:tabular-nums;font-weight:600}
-.kpi-delta span{color:var(--mut2);font-weight:400;font-size:10.5px;margin-left:2px}
+.kpi-note{font-size:9.5px;color:var(--mut2);margin-top:3px;line-height:1.35}
+.kpi-delta{font-size:11px;margin-top:5px;font-variant-numeric:tabular-nums;font-weight:600}
+.kpi-delta span{color:var(--mut2);font-weight:400;font-size:10px;margin-left:2px}
 .kpi-delta.up{color:var(--pos)} .kpi-delta.down{color:var(--neg)} .kpi-delta.muted{color:var(--mut2);font-weight:400}
-.kpi-spark{margin-top:auto;padding-top:9px}
-.kpi-spark .spark{width:100%;height:30px;display:block;opacity:.9}
+/* 业务目标进度（嵌 KPI 内） */
+.kpi-tgt{margin-top:8px;padding-top:7px;border-top:1px dashed var(--line)}
+.kpi-tgt.muted{font-size:10.5px;color:var(--mut2);border:0;padding-top:4px}
+.kpi-tgt-h{font-size:10.5px;color:var(--mut);line-height:1.35;margin-bottom:4px}
+.kpi-tgt-h b{color:var(--ink);font-weight:700}
+.kpi-tgt-track{display:block;height:6px;border-radius:4px;background:var(--track);overflow:hidden}
+.kpi-tgt-track i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--teal),var(--blue));
+  box-shadow:0 0 8px rgba(34,211,238,.45)}
+.kpi-tgt-track i.warn{background:linear-gradient(90deg,var(--orange),#f59e0b);box-shadow:0 0 6px rgba(251,191,36,.4)}
+.kpi-tgt-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost));box-shadow:none}
+.kpi-tgt-track i.ok{background:linear-gradient(90deg,var(--pos),var(--teal))}
+.kpi-tgt-n{font-size:10px;color:var(--mut2);margin-top:3px;text-align:right}
+.kpi-spark{margin-top:auto;padding-top:7px}
+.kpi-spark .spark{width:100%;height:28px;display:block;opacity:.9}
 .kpi-mo{font-size:12px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .kpi-mo b{color:var(--ink);font-weight:600}
-.kpi-src{font-size:10px;color:var(--mut2);margin-top:7px}
+.kpi-src{font-size:9.5px;color:var(--mut2);margin-top:6px}
 .chart-note{font-size:10.5px;color:var(--mut2);margin-top:8px;line-height:1.5}
 
 /* —— 板块③ 收入与毛利结构：小字整体放大+统一、集中度突出、计算逻辑条（scoped 到 .pr-grid，不动板块④）—— */
@@ -391,6 +412,14 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .bud-track i.over{background:#f8717166;outline:1px solid #f87171}
 .bud-num{flex:0 0 190px;text-align:right;font-size:12px;color:var(--mut)}
 .bud-num b.ok{color:var(--teal)}.bud-num b.warn{color:var(--orange)}.bud-num b.over{color:#f87171;font-size:13px}
+/* 空态：没填部门预算也占位，保持与回款对称 */
+.bud-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:160px;padding:20px 16px;text-align:center}
+.bud-empty-ico{font-size:28px;color:var(--accent);opacity:.55;margin-bottom:8px;
+  text-shadow:0 0 16px rgba(34,211,238,.45)}
+.theme-light .bud-empty-ico{text-shadow:none;opacity:.4}
+.bud-empty-t{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.bud-empty-s{font-size:12px;color:var(--mut2);line-height:1.55;max-width:280px}
 @media (max-width:520px){
  .ev-name{flex-basis:78px;font-size:11.5px}.ev-amt{flex-basis:64px;font-size:11.5px}
  .bud-name{flex-basis:74px;font-size:11.5px}.bud-num{flex-basis:130px;font-size:11px}
@@ -438,25 +467,31 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 }
 
 /* ==================== FUI 科技大屏层（框线/角标/网格/扫描·纯装饰不碰数据）==================== */
-/* 数字用等宽数码字体 + 辉光 */
+/* 数字用等宽数码字体 + 辉光（暗色更强科技感；浅色关闭辉光保持简洁） */
 .kpi-cum,.pl-amt,.pl-drow .pl-amt,.hbar-v{font-family:var(--num-font)}
-.kpi-cum{font-size:29px;text-shadow:0 0 18px rgba(34,211,238,.30)}
-.theme-light .kpi-cum{text-shadow:none}
+.kpi-cum{font-size:26px;text-shadow:0 0 20px rgba(34,211,238,.38),0 0 2px rgba(34,211,238,.2)}
+.theme-light .kpi-cum{text-shadow:none;font-size:24px}
+.pl-row.grand .pl-amt{text-shadow:0 0 14px rgba(52,211,153,.35)}
+.theme-light .pl-row.grand .pl-amt{text-shadow:none}
 
-/* 面板四角发光角标（FUI 特征）——所有 .card 与 KPI */
+/* 面板四角发光角标（FUI 特征）——所有 .card 与 KPI；浅色弱化 */
 .card{position:relative;border-color:var(--line-2)}
 .card::before,.card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;
-  opacity:.55;transition:opacity .25s;filter:drop-shadow(0 0 4px var(--accent))}
+  opacity:.65;transition:opacity .25s;filter:drop-shadow(0 0 5px var(--accent))}
 .card::before{top:7px;left:7px;border-top:2px solid var(--accent);border-left:2px solid var(--accent)}
 .card::after{bottom:7px;right:7px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
-.card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(34,211,238,.12),var(--glow)}
+.card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(34,211,238,.16),0 0 32px rgba(34,211,238,.08),var(--glow)}
 .card:hover::before,.card:hover::after{opacity:1}
+.theme-light .card::before,.theme-light .card::after{opacity:.25;filter:none}
+.theme-light .card:hover{box-shadow:0 2px 10px rgba(31,58,95,.08)}
 .kpi::after{content:"";position:absolute;top:7px;right:7px;width:12px;height:12px;pointer-events:none;
-  border-top:2px solid var(--accent);border-right:2px solid var(--accent);opacity:.5;
-  filter:drop-shadow(0 0 3px var(--accent))}
+  border-top:2px solid var(--accent);border-right:2px solid var(--accent);opacity:.55;
+  filter:drop-shadow(0 0 4px var(--accent))}
+.theme-light .kpi::after{opacity:.2;filter:none}
 /* 卡片标题前发光竖条 */
 .card-h::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--accent);
-  box-shadow:0 0 8px var(--accent);flex:0 0 auto}
+  box-shadow:0 0 10px var(--accent);flex:0 0 auto}
+.theme-light .card-h::before{box-shadow:none}
 
 /* HUD 分区标题：斜切角标序号 + 发光标题 + 向右延伸装饰线 */
 .sec{align-items:center}
@@ -480,8 +515,11 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 
 @media(prefers-reduced-motion:reduce){.live i{animation:none}}
 
+@media(max-width:1100px){
+  .kpi-grid.kpi-5{grid-template-columns:repeat(3,1fr)}
+}
 @media(max-width:900px){
-  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .kpi-grid,.kpi-grid.kpi-5{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
   .grid-2e{grid-template-columns:1fr}
   .grid-3{grid-template-columns:1fr}
@@ -491,5 +529,8 @@ body{animation:auroraDrift 30s ease-in-out infinite}
   .topbar{padding:10px 12px;flex-wrap:wrap;gap:8px 10px}
   .tb-right{gap:8px}
   .tb-time{display:none}
+}
+@media(max-width:520px){
+  .kpi-grid,.kpi-grid.kpi-5{grid-template-columns:1fr}
 }
 """

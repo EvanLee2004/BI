@@ -787,30 +787,47 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 .ver-pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;user-select:none;
   background:linear-gradient(180deg,#312e6e,#211d44);color:#c7b8ff;border:1px solid #5b4bc4}
 .ver-pill:hover{filter:brightness(1.12)}
-/* 版本与更新日志卡 */
-#verCard .ver-now{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+/* 版本卡：默认只显示摘要；更新日志走右侧抽屉 */
+#verCard .ver-now{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 #verCard .ver-now .num{font-size:26px;font-weight:800;letter-spacing:.5px;color:var(--vio2)}
 #verCard .ver-now .stage{font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:999px;
   background:#3b2f0e;color:#fde68a}
 #verCard .ver-now .stage.live{background:#14532d;color:#86efac}
-#verCard .ver-sub{font-size:12px;color:var(--mut);margin-bottom:12px;line-height:1.5}
-#verLog{display:flex;flex-direction:column;gap:12px;max-height:min(46vh,420px);overflow:auto;padding-right:4px}
+#verCard .ver-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+#verLog{display:flex;flex-direction:column;gap:12px;padding-right:2px}
 #verLog .vl{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#0c1424}
 #verLog .vl-h{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:7px}
 #verLog .vl-h .t{font-size:13.5px;font-weight:700}
 #verLog .vl-h .d{font-size:11.5px;color:var(--mut)}
 #verLog ul{margin:0;padding-left:18px}#verLog li{font-size:12.5px;line-height:1.6;margin:3px 0;color:#cdd7ea}
-.ver-update{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 .vu-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #vuAvail{margin-top:10px}
 .vu-avail{border:1px solid #5b4bc4;border-radius:10px;padding:11px 13px;background:#1a1440}
 .vu-h{font-size:13px;font-weight:700;margin-bottom:6px}
 .vu-sub{font-size:12px;color:var(--mut)}
 .vu-log{margin:4px 0 10px;padding-left:18px}.vu-log li{font-size:12px;color:#cdd7ea;margin:2px 0}
+/* 版本日志右侧抽屉（默认折叠；点开从右滑入） */
+.ver-drawer{position:fixed;inset:0;z-index:90;visibility:hidden;pointer-events:none}
+.ver-drawer.open{visibility:visible;pointer-events:auto}
+.ver-drawer-mask{position:absolute;inset:0;background:rgba(4,8,20,.55);opacity:0;transition:opacity .25s;
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.ver-drawer.open .ver-drawer-mask{opacity:1}
+.ver-drawer-panel{position:absolute;top:0;right:0;height:100%;width:min(420px,92vw);
+  background:#0c1424;border-left:1px solid var(--line);box-shadow:-14px 0 44px rgba(0,0,0,.5);
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column}
+.ver-drawer.open .ver-drawer-panel{transform:none}
+.ver-drawer-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;
+  border-bottom:1px solid var(--line);flex:0 0 auto}
+.ver-drawer-h span{font-size:15px;font-weight:700;color:var(--fg)}
+.ver-drawer-x{cursor:pointer;background:none;border:0;color:var(--mut);font-size:24px;line-height:1;padding:0 6px;font-family:inherit}
+.ver-drawer-x:hover{color:var(--fg)}
+.ver-drawer-body{padding:12px 16px 28px;overflow-y:auto;flex:1 1 auto}
+.ver-drawer-body .ver-sub{font-size:12px;color:var(--mut);margin-bottom:12px;line-height:1.5}
 </style></head><body>
 <div id="bar">
   <b>管理员控制台</b>
-  <span id="verPill" class="ver-pill" title="产品版本号（点开看更新日志）" onclick="showGroup('cfg');setTimeout(()=>{var e=document.getElementById('verCard');if(e)e.scrollIntoView({behavior:'smooth',block:'center'});},60)">v…</span>
+  <span id="verPill" class="ver-pill" title="产品版本号（点开看更新日志）" onclick="showGroup('cfg');setTimeout(openVerDrawer,80)">v…</span>
   <span id="health" class="pill y" onclick="toggleHealth()" title="点开看体检明细">体检…</span>
   <button id="btnRefresh" onclick="doRefresh()">立即更新</button>
   <span id="msg" class="muted"></span>
@@ -852,11 +869,13 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <div class="toolbar">
     <span>当前表：<b id="dTableName">收入明细</b></span>
     <span class="field-inline">月份 <select id="dY"></select><select id="dM"></select></span>
-    <span class="field-inline">搜索 <input id="dQ" placeholder="订单号/客户…" size="14"></span>
+    <span class="field-inline">搜索 <input id="dQ" placeholder="订单号/定位键/客户…" size="18"></span>
     <button onclick="dQuery()">查询</button>
+    <button class="mini ghost" type="button" onclick="exportDetail()">导出Excel</button>
     <span id="dInfo" class="muted grow"></span>
   </div>
-  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。</div>
+  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。搜索支持订单号、定位键、客户等。</div>
+  <div id="editDock" class="row-form" style="display:none"></div>
   <div class="tbl-box lg wrap" id="dWrap"><table id="dTbl"></table></div>
 </div>
 
@@ -868,14 +887,15 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   </div>
   <div class="tbl-box sm wrap"><table id="mTbl"></table></div>
   <div class="sec-block">
-    <div class="blk-h">📈 年度预算（全公司）</div>
-    <div class="note info">下单/回款两个年度数，年初定、年中改留痕；填了老板端回款图即出预算线与完成率。</div>
-    <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span></div>
+    <div class="blk-h">🎯 业务目标（全公司）</div>
+    <div class="note info">下单/回款/毛利率 · 年目标 + 上半年(H1)目标。填了基本情况 KPI 下即出进度条；与「部门费用预算」是两套概念。</div>
+    <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span>
+      <span class="field-inline">范围 <select id="bScope"><option value="全公司">全公司</option></select></span></div>
     <div class="tbl-box sm wrap"><table id="bTbl"></table></div>
   </div>
   <div class="sec-block">
-    <div class="blk-h">🏷 部门费用年预算</div>
-    <div class="note info">按收单台账「预算归属部门」逐部门填；填了老板端即出「部门费用预算执行」卡。改已有值需确认、全程留痕。</div>
+    <div class="blk-h">🏷 部门费用年预算（费用管控）</div>
+    <div class="note info">按收单台账「预算归属部门」逐部门填；有无都显示「部门费用预算执行」卡（空态占位与回款对称）。改已有值需确认、全程留痕。</div>
     <div class="tbl-box sm wrap"><table id="bdTbl"></table></div>
   </div>
 </div>
@@ -905,20 +925,19 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <div class="sgrid">
 
     <div class="scard full" id="verCard">
-      <div class="scard-h"><span class="ico">🧭</span><div><div class="ttl">版本与更新日志</div>
-        <div class="sub">当前产品版本 + 每版大白话改了啥。产品号（试运行 0.9 → 公测 Beta 1.0-beta → 正式版 1.0）跟内部开发号是两套，给管理层看这个。</div></div></div>
+      <div class="scard-h"><span class="ico">🧭</span><div><div class="ttl">版本与更新</div>
+        <div class="sub">默认只显示当前版本；点「更新日志」在右侧看明细。检查更新 / 一键更新在此完成。</div></div></div>
       <div class="scard-b">
         <div class="ver-now"><span class="num" id="verNum">v…</span>
           <span class="stage" id="verStage">…</span>
           <span class="muted" style="font-size:12px" id="verNext"></span></div>
-        <div class="ver-sub" id="verSub"></div>
-        <div id="verLog"></div>
-        <div class="ver-update">
-          <div class="vu-row"><button class="mini" type="button" onclick="checkUpdate()">检查更新</button>
-            <span id="vuMsg" class="muted"></span></div>
-          <div class="muted" style="font-size:11.5px;margin-top:6px">从代码仓库检测有没有新版本；有则可「一键更新」（安全快进拉取 + 看门狗自动重启）。需部署机用 <b>看门狗启动.bat</b> 起服务才会自动重启。</div>
-          <div id="vuAvail" style="display:none"></div>
+        <div class="ver-actions">
+          <button class="mini" type="button" onclick="checkUpdate()">检查更新</button>
+          <button class="mini ghost" type="button" onclick="openVerDrawer()">更新日志 ›</button>
+          <span id="vuMsg" class="muted"></span>
         </div>
+        <div class="muted" style="font-size:11.5px;margin-top:8px">从代码仓库检测新版本；有则可「一键更新」（快进拉取 + 看门狗重启）。部署机用 <b>看门狗启动.bat</b> 起服务才会自动重启。</div>
+        <div id="vuAvail" style="display:none"></div>
       </div>
     </div>
 
@@ -1077,9 +1096,12 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 <div id="orderdept" class="sec">
   <div class="toolbar">
     <button onclick="odLoad()">刷新清单</button>
+    <span class="field-inline">销售筛选 <select id="odSales"><option value="">全部销售</option></select></span>
+    <span class="field-inline">批量部门 <select id="odBatchDept"><option value="">选部门…</option></select></span>
+    <button class="mini" type="button" onclick="odBatchSave()">对筛选结果批量归类</button>
     <span id="odInfo" class="muted grow"></span>
   </div>
-  <div class="note info">智云下单源头没填「部门」→ 排名灰显「（未填）」。此处选部门保存=写调整；也可让销售在智云补填。</div>
+  <div class="note info">智云下单源头没填「部门」→ 排名灰显「（未填）」。可按销售筛选后批量归类；也可逐条选部门保存，或让销售在智云补填。</div>
   <div class="tbl-box lg wrap" id="odWrap"><table id="odTbl"></table></div>
 </div>
 
@@ -1175,14 +1197,19 @@ async function loadSettings(){try{const s=await jget("/api/settings");
     SRC_MAP.map(([n,src])=>"<tr><td>"+esc(n)+"</td><td>"+esc(src)+"</td><td>"+
       (rows[n]!=null?rows[n]:"—")+"</td></tr>").join("");
   }catch(e){msg("读取设置失败:"+e.message);}}
-// 版本与更新日志（产品号，与内部开发号分开）
+// 版本摘要 + 更新日志（日志在右侧抽屉，默认折叠）
+function openVerDrawer(){const d=document.getElementById("verDrawer");if(!d)return;
+  d.classList.add("open");d.setAttribute("aria-hidden","false");}
+function closeVerDrawer(){const d=document.getElementById("verDrawer");if(!d)return;
+  d.classList.remove("open");d.setAttribute("aria-hidden","true");}
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeVerDrawer();});
 async function loadVersion(){try{const v=await jget("/api/version");
   const num="v"+String(v.version||"?").split("-")[0],stage=v.stage||"";  // 去 -beta 预发布后缀只显主号
   const pill=document.getElementById("verPill");if(pill)pill.textContent=num+(stage?" · "+stage:"");
   const nEl=document.getElementById("verNum");if(nEl)nEl.textContent=num;
   const sEl=document.getElementById("verStage");if(sEl){sEl.textContent=stage;sEl.className="stage"+(stage==="正式版"?" live":"");}
   const nx=document.getElementById("verNext");if(nx)nx.textContent=stage==="试运行"?"· 正式上线后升 v1.0":(stage==="公测 Beta"?"· 公测通过后去掉 Beta 升 v1.0 正式版":"");
-  const sub=document.getElementById("verSub");if(sub)sub.textContent="下面按时间倒序（最新在最上面），只讲这版能多干啥；内部开发号另计、不在此显示。";
+  const sub=document.getElementById("verSub");if(sub)sub.textContent="按时间倒序（最新在最上面），只讲这版能多干啥；内部开发号另计、不在此显示。";
   const log=document.getElementById("verLog");if(log){const cl=v.changelog||[];
     log.innerHTML=cl.length?cl.map(e=>"<div class='vl'><div class='vl-h'><span class='t'>"+esc(e.title||"")+
       "</span><span class='d'>"+esc(e.date||"")+"</span></div><ul>"+
@@ -1481,24 +1508,53 @@ function pickTable(t){curTable=t;
   document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
 function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t==="手填"));
   showSec("manual");mLoad();}
-function dQuery(){detail.reset();}
+function dQuery(){detail.reset();hideEditDock();}
+function hideEditDock(){const d=document.getElementById("editDock");if(d){d.style.display="none";d.innerHTML="";}}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
-  document.querySelectorAll("#detail .row-form").forEach(b=>b.remove());  // 同屏只留一个编辑器：重复点“改”=替换不追加
-  const opts=(ADJ_FIELDS[tkey]||[]).map(f=>"<option>"+f+"</option>").join("");
+  const fields=ADJ_FIELDS[tkey]||[];
+  if(!fields.length){showToast("可调字段未加载，请刷新页面后重试",true);return;}
+  // 金额类字段优先排前，方便改交付额/下单额
+  const prefer=["交付额","下单预估额","到账金额","结算金额","含税金额","项目成本"];
+  const sorted=[...fields].sort((a,b)=>(prefer.indexOf(a)<0?99:prefer.indexOf(a))-(prefer.indexOf(b)<0?99:prefer.indexOf(b)));
+  const opts=sorted.map(f=>"<option value='"+esc(f)+"'>"+esc(f)+"</option>").join("");
   const id="ef_"+Math.random().toString(36).slice(2);
-  const box=document.createElement("div");box.className="row-form";box.innerHTML=
-    "定位键 "+esc(key)+" ｜ 字段<select id='"+id+"_f'>"+opts+"</select> 新值<input id='"+id+"_v' size='12'> "+
-    "原因<input id='"+id+"_r' size='14'> <button class='mini' id='"+id+"_s'>保存</button> "+
-    "<button class='mini ghost' id='"+id+"_c'>取消</button>";
-  document.getElementById("detail").appendChild(box);
-  document.getElementById(id+"_c").onclick=()=>box.remove();
-  document.getElementById(id+"_s").onclick=async()=>{try{
-    await jpost("/api/adjust",{目标表:std,定位键:key,字段:document.getElementById(id+"_f").value,
-      新值:document.getElementById(id+"_v").value,原因:document.getElementById(id+"_r").value,类型:"改值"});
-    box.remove();msg("已保存调整（秒级重算）");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("保存失败："+e.message);}};}
+  const dock=document.getElementById("editDock");
+  dock.style.display="block";
+  dock.innerHTML="<b style='color:var(--accent,#a78bfa)'>改数</b> 定位键 <code>"+esc(key)+"</code> ｜ "
+    +"字段 <select id='"+id+"_f'>"+opts+"</select> "
+    +"新值 <input id='"+id+"_v' size='14' placeholder='数字或文本' autofocus> "
+    +"原因 <input id='"+id+"_r' size='14' placeholder='可选'> "
+    +"<button class='mini' id='"+id+"_s'>保存</button> "
+    +"<button class='mini ghost' id='"+id+"_c'>取消</button>";
+  dock.scrollIntoView({behavior:"smooth",block:"nearest"});
+  document.getElementById(id+"_c").onclick=()=>hideEditDock();
+  document.getElementById(id+"_s").onclick=async()=>{
+    const f=document.getElementById(id+"_f").value,v=document.getElementById(id+"_v").value;
+    if(v===""){showToast("请填写新值",true);return;}
+    const btn=document.getElementById(id+"_s");btn.disabled=true;btn.textContent="保存中…";
+    try{
+      await jpost("/api/adjust",{目标表:std,定位键:key,字段:f,新值:v,
+        原因:document.getElementById(id+"_r").value||"管理端改数",类型:"改值"});
+      hideEditDock();showToast("✓ 已保存并重算");msg("已保存调整（秒级重算）");
+      reloadDash();loadHealth();refreshUcBadge();dQuery();
+    }catch(e){btn.disabled=false;btn.textContent="保存";showToast("保存失败："+e.message,true);alert("保存失败："+e.message);}
+  };
+  document.getElementById(id+"_v").onkeydown=e=>{if(e.key==="Enter")document.getElementById(id+"_s").click();};
+}
 async function removeRow(std,keyEnc){const key=decodeURIComponent(keyEnc);if(!confirm("剔除该行？（软删，可撤销）"))return;
   try{await jpost("/api/adjust",{目标表:std,定位键:key,字段:"",新值:"",原因:"剔除",类型:"剔除"});
-    msg("已剔除");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("失败："+e.message);}}
+    showToast("✓ 已剔除");msg("已剔除");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("失败："+e.message);}}
+async function exportDetail(){
+  try{
+    let u="/api/detail_export?table="+encodeURIComponent(curTable);
+    const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
+    if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);
+    const r=await fetch(u);if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||("HTTP "+r.status));
+    const blob=await r.blob();const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download=curTable+"_"+new Date().toISOString().slice(0,10)+".csv";
+    a.click();URL.revokeObjectURL(a.href);showToast("✓ 已导出 CSV");
+  }catch(e){showToast("导出失败："+e.message,true);}
+}
 
 // ---- 手填 ----
 async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
@@ -1509,39 +1565,59 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
     "<td><input id='"+id+"' size='12' value='"+(map[it]!=null?map[it]:"")+"'></td>"+
     "<td><button class='mini' onclick=\"mSave('"+encodeURIComponent(m)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
   document.getElementById("mTbl").innerHTML=h;bLoad();}
-const BUDGET_METRICS=["下单年预算","回款年预算"];
+// 业务目标指标（金额元 / 毛利率填百分数如 35）
+const BUDGET_METRICS=[
+  {k:"下单年预算",tip:"元 · 全年下单目标"},
+  {k:"回款年预算",tip:"元 · 全年回款目标"},
+  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%"},
+  {k:"下单H1目标",tip:"元 · 上半年下单"},
+  {k:"回款H1目标",tip:"元 · 上半年回款"},
+  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率"},
+];
+async function bFillScopes(){
+  const sel=document.getElementById("bScope");if(!sel)return;
+  let bus=[];try{const d=await jget("/api/bu_config");bus=(d.bus||[]).map(b=>b.name);}catch(e){}
+  const cur=sel.value||"全公司";
+  sel.innerHTML='<option value="全公司">全公司</option>'+bus.map(n=>'<option value="'+esc(n)+'">BU · '+esc(n)+'</option>').join("");
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"全公司";
+  sel.onchange=bLoad;
+}
 async function bLoad(){const sel=document.getElementById("bY");
   if(!sel.options.length){const my=document.getElementById("mY");
     sel.innerHTML=my.innerHTML;sel.value=my.value;sel.onchange=bLoad;}
-  const y=sel.value;const cur=await jget("/api/budget?year="+encodeURIComponent(y));
-  const map={};cur.forEach(x=>map[x["指标"]]=x["金额"]);
-  let h="<tr><th>指标</th><th>当前金额(元)</th><th>新值</th><th></th></tr>";
+  await bFillScopes();
+  const y=sel.value,scope=(document.getElementById("bScope")||{}).value||"全公司";
+  const cur=await jget("/api/budget?year="+encodeURIComponent(y));
+  const map={};cur.filter(x=>(x["范围"]||"全公司")===scope&&x["指标"]!=="费用年预算").forEach(x=>map[x["指标"]]=x["金额"]);
+  let h="<tr><th>指标</th><th>说明</th><th>当前</th><th>新值</th><th></th></tr>";
   BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
-    const old=map[it]!=null?map[it]:null;
-    h+="<tr><td>"+esc(it)+"</td><td>"+esc(old!=null?old:"（未填·图上无预算线）")+"</td>"+
+    const old=map[it.k]!=null?map[it.k]:null;
+    const scEnc=encodeURIComponent(scope);
+    h+="<tr><td>"+esc(it.k)+"</td><td class='muted' style='font-size:11px'>"+esc(it.tip)+"</td>"+
+    "<td>"+esc(old!=null?old:"（未填）")+"</td>"+
     "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
-    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it)+"','"+id+"',null,"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
+    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it.k)+"','"+id+"','"+scEnc+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
   document.getElementById("bTbl").innerHTML=h;bdLoad(y);}
 async function bSave(yEnc,itEnc,id,scope,oldVal){const v=document.getElementById(id).value.trim();
-  if(v===""||isNaN(parseFloat(v))){alert("请输入数字金额（元）");return;}
-  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+(scope?"·"+decodeURIComponent(scope):"")+"」已有预算 "+oldVal+"，确认改为 "+v+"？（改动会留痕）"))return;
-  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v)};
-  if(scope)body["范围"]=decodeURIComponent(scope);
+  if(v===""||isNaN(parseFloat(v))){alert("请输入数字（金额填元；毛利率填如 35）");return;}
+  const sc=scope?decodeURIComponent(scope):"全公司";
+  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+"·"+sc+"」已有 "+oldVal+"，确认改为 "+v+"？（改动会留痕）"))return;
+  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:parseFloat(v),范围:sc};
   try{await jpost("/api/budget",body);
-    msg("已保存年度预算（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
+    showToast("✓ 目标已保存");msg("已保存业务目标（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
 async function bdLoad(y){
   const [depts,cur]=await Promise.all([jget("/api/budget_depts"),jget("/api/budget?year="+encodeURIComponent(y))]);
   const map={};cur.filter(x=>x["指标"]==="费用年预算").forEach(x=>map[x["范围"]]=x["金额"]);
   if(!depts.length){document.getElementById("bdTbl").innerHTML="<tr><td class='muted'>台账暂无「预算归属部门」数据（老台账没这列或全空）</td></tr>";return;}
   let h="<tr><th>预算归属部门</th><th>当前年预算(元)</th><th>新值</th><th></th></tr>";
   depts.forEach((d,ix)=>{const id="bd_"+ix;const old=map[d]!=null?map[d]:null;
-    h+="<tr><td>"+esc(d)+"</td><td>"+esc(old!=null?old:"（未填·不进执行卡）")+"</td>"+
+    h+="<tr><td>"+esc(d)+"</td><td>"+esc(old!=null?old:"（未填·显示空态卡）")+"</td>"+
     "<td><input id='"+id+"' size='14' value='"+(old!=null?old:"")+"'></td>"+
     "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent("费用年预算")+"','"+id+"','"+encodeURIComponent(d)+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
   document.getElementById("bdTbl").innerHTML=h;}
 async function mSave(mEnc,itEnc,id){const v=document.getElementById(id).value.trim();if(v===""){alert("填金额");return;}
   try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:parseFloat(v)});
-    msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
+    showToast("✓ 手填已保存");msg("手填已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
 
 // ---- 异常处理（总览 / 调整台账 / 下单未填部门 / 费用未分类 / 历史快照）----
 function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
@@ -1587,32 +1663,62 @@ async function ovLoad(){const el=document.getElementById("ovCards");
       "<div class='muted' style='margin-top:4px'>"+(ok?"✓ 无待处理":esc(c.desc))+"</div></div>";}).join("")+hHtml;
   el.querySelectorAll(".ovcard").forEach(d=>{d.onclick=()=>{const c=EXC_CARDS.find(x=>x.key===d.dataset.k);if(c&&c.go)c.go();};});}
 
-// 下单未填部门：清单 + 行内选部门→写调整（复用 /api/adjust，处理后行消失、角标减一）
-let OD_DEPTS=[];
+// 下单未填部门：清单 + 按销售筛选 + 批量归类 + 行内选部门
+let OD_DEPTS=[],OD_ROWS=[];
 function odUrl(p){return "/api/detail?table="+encodeURIComponent("下单")+"&unfilled_dept=1&page="+p+"&page_size=200";}
-async function odLoad(){const tbl=document.getElementById("odTbl");tbl.innerHTML="";
+async function odLoad(){const tbl=document.getElementById("odTbl");tbl.innerHTML="";OD_ROWS=[];
   try{OD_DEPTS=await jget("/api/order_depts");}catch(e){}
+  const dsel=document.getElementById("odBatchDept");
+  if(dsel)dsel.innerHTML="<option value=''>选部门…</option>"+OD_DEPTS.map(x=>"<option>"+esc(x)+"</option>").join("");
   let page=1,pages=1,total=0;
   try{do{const d=await jget(odUrl(page));pages=d.pages;total=d.total;
-    if(page===1)tbl.innerHTML="<tr><th>下单日期</th><th>订单号</th><th>销售</th><th>金额</th><th>归到哪个部门</th><th></th></tr>";
-    let h="";d.rows.forEach(r=>{const key=r["定位键"];
-      const opts="<option value=''>选部门…</option>"+OD_DEPTS.map(x=>"<option>"+esc(x)+"</option>").join("");
-      h+="<tr><td>"+esc(r["下单日期"])+"</td><td>"+esc(r["订单号"])+"</td><td>"+esc(r["销售"])+"</td><td>"+esc(r["下单预估额"])+
-        "</td><td><select data-key='"+esc(encodeURIComponent(key))+"'>"+opts+"</select></td>"+
-        "<td><button class='mini' onclick='odSave(this)'>保存</button></td></tr>";});
-    tbl.insertAdjacentHTML("beforeend",h);page++;
+    OD_ROWS=OD_ROWS.concat(d.rows||[]);page++;
   }while(page<=pages&&page<=50);}catch(e){msg("查询失败:"+e.message);}
+  const sales=[...new Set(OD_ROWS.map(r=>(r["销售"]||"").trim()).filter(Boolean))].sort();
+  const ssel=document.getElementById("odSales");
+  const prev=ssel?ssel.value:"";
+  if(ssel){ssel.innerHTML='<option value="">全部销售</option>'+sales.map(s=>'<option>'+esc(s)+'</option>').join("");
+    ssel.value=sales.includes(prev)?prev:"";ssel.onchange=odRender;}
   document.getElementById("odInfo").textContent="待归类 "+total+" 笔";
-  const b=document.getElementById("odBadge");b.textContent=total;b.className="badge"+(total?"":" zero");}
+  const b=document.getElementById("odBadge");b.textContent=total;b.className="badge"+(total?"":" zero");
+  odRender();}
+function odRender(){const tbl=document.getElementById("odTbl");
+  const sf=(document.getElementById("odSales")||{}).value||"";
+  const rows=sf?OD_ROWS.filter(r=>(r["销售"]||"").trim()===sf):OD_ROWS;
+  const opts="<option value=''>选部门…</option>"+OD_DEPTS.map(x=>"<option>"+esc(x)+"</option>").join("");
+  let h="<tr><th>下单日期</th><th>订单号</th><th>销售</th><th>金额</th><th>归到哪个部门</th><th></th></tr>";
+  rows.forEach(r=>{const key=r["定位键"];
+    h+="<tr data-key='"+esc(encodeURIComponent(key))+"'><td>"+esc(r["下单日期"])+"</td><td>"+esc(r["订单号"])+
+      "</td><td>"+esc(r["销售"])+"</td><td>"+esc(r["下单预估额"])+
+      "</td><td><select data-key='"+esc(encodeURIComponent(key))+"'>"+opts+"</select></td>"+
+      "<td><button class='mini' onclick='odSave(this)'>保存</button></td></tr>";});
+  tbl.innerHTML=h||"<tr><td class='muted'>无待归类</td></tr>";
+  document.getElementById("odInfo").textContent="显示 "+rows.length+" / 共 "+OD_ROWS.length+" 笔"+(sf?"（销售="+sf+"）":"");
+}
 async function odSave(btn){const tr=btn.closest("tr"),sel=tr.querySelector("select");
   const dept=sel.value;if(!dept){alert("先选部门");return;}
   const key=decodeURIComponent(sel.dataset.key);btn.disabled=true;
   try{await jpost("/api/adjust",{目标表:"std_下单",定位键:key,字段:"部门",新值:dept,原因:"异常处理·归类部门",类型:"改值"});
-    tr.remove();msg("已归类（写入数据修正·秒级重算）");reloadDash();loadHealth();refreshUcBadge();
-    const b=document.getElementById("odBadge"),n=Math.max(0,(parseInt(b.textContent,10)||1)-1);
-    b.textContent=n;b.className="badge"+(n?"":" zero");
-    document.getElementById("odInfo").textContent="待归类 "+n+" 笔";
+    showToast("✓ 已归类");OD_ROWS=OD_ROWS.filter(r=>r["定位键"]!==key);
+    msg("已归类（写入数据修正·秒级重算）");reloadDash();loadHealth();refreshUcBadge();odRender();
+    const b=document.getElementById("odBadge");b.textContent=OD_ROWS.length;b.className="badge"+(OD_ROWS.length?"":" zero");
   }catch(e){btn.disabled=false;alert("保存失败："+e.message);}}
+async function odBatchSave(){
+  const dept=(document.getElementById("odBatchDept")||{}).value||"";
+  if(!dept){alert("先选批量部门");return;}
+  const sf=(document.getElementById("odSales")||{}).value||"";
+  const rows=sf?OD_ROWS.filter(r=>(r["销售"]||"").trim()===sf):OD_ROWS;
+  if(!rows.length){alert("没有可归类的行");return;}
+  if(!confirm("将把 "+rows.length+" 笔"+(sf?"（销售="+sf+"）":"")+" 全部归到「"+dept+"」？"))return;
+  let ok=0,fail=0;
+  for(const r of rows){
+    try{await jpost("/api/adjust",{目标表:"std_下单",定位键:r["定位键"],字段:"部门",新值:dept,
+      原因:"异常处理·批量归类"+(sf?"·"+sf:""),类型:"改值"});ok++;}
+    catch(e){fail++;}
+  }
+  showToast("✓ 批量完成：成功 "+ok+(fail?"，失败 "+fail:""));
+  reloadDash();loadHealth();refreshUcBadge();odLoad();
+}
 // 历史快照：年→月→日 级联回看（每天最后一次更新的页面原样；快照多了也不乱）
 let HIS=[];
 function _hisSel(id){return document.getElementById(id);}
@@ -1707,7 +1813,19 @@ document.getElementById("dWrap").addEventListener("scroll",function(){
 loadHealth();refreshUcBadge();loadAdjFields();loadVersion();setInterval(loadHealth,30000);
 // 打开页面时若更新已在跑（别处/定时触发），按钮跟着进入进度态
 jget("/api/refresh_status").then(s=>{if(s.running){document.getElementById("btnRefresh").disabled=true;refT0=Date.now();pollRefresh();}}).catch(()=>{});
-</script></body></html>"""
+</script>
+<div id="verDrawer" class="ver-drawer" aria-hidden="true">
+  <div class="ver-drawer-mask" onclick="closeVerDrawer()"></div>
+  <aside class="ver-drawer-panel" role="dialog" aria-label="更新日志">
+    <div class="ver-drawer-h"><span>更新日志</span>
+      <button type="button" class="ver-drawer-x" onclick="closeVerDrawer()" aria-label="关闭">×</button></div>
+    <div class="ver-drawer-body">
+      <div class="ver-sub" id="verSub"></div>
+      <div id="verLog"></div>
+    </div>
+  </aside>
+</div>
+</body></html>"""
 
 
 # ---------------- FastAPI 应用 ----------------
@@ -1948,6 +2066,30 @@ def create_app(cfg, root=None) -> FastAPI:
         resp = RedirectResponse("/admin", status_code=303)
         resp.delete_cookie(COOKIE)
         return resp
+
+    @app.get("/api/detail_export")
+    def api_detail_export(request: Request, table: str = Query("收入明细"),
+                          month: str | None = None, q: str | None = None):
+        """当前筛选结果导出 CSV（管理员；上限 5000 行，避免拖垮）。"""
+        _require(request)
+        import csv, io
+        from fastapi.responses import StreamingResponse
+        conn = _conn()
+        try:
+            d = db.query_detail(conn, table, month, q, page=1, page_size=5000)
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        cols = d["columns"]
+        w.writerow(cols)
+        for r in d["rows"]:
+            w.writerow([r.get(c, "") for c in cols])
+        raw = buf.getvalue().encode("utf-8-sig")  # Excel 友好 BOM
+        return StreamingResponse(io.BytesIO(raw), media_type="text/csv; charset=utf-8",
+                                 headers={"Content-Disposition": f'attachment; filename="{table}.csv"'})
 
     @app.get("/api/detail")
     def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
@@ -2443,8 +2585,7 @@ def create_app(cfg, root=None) -> FastAPI:
         scope = str(payload.get("范围", "全公司")).strip() or "全公司"
         if metric == "费用年预算" and scope == "全公司":
             raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
-        if metric != "费用年预算" and scope != "全公司":
-            raise HTTPException(status_code=400, detail=f"{metric} 只支持全公司口径")
+        # 业务目标允许 全公司 或 BU 名；费用年预算允许部门名
         conn = _conn()
         try:
             db.set_budget(conn, year, metric, 金额, user, 范围=scope)

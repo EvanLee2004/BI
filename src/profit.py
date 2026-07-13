@@ -252,10 +252,9 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
 def build_dept_budget_block(dept_budget_raw, dept_rows_year, year):
     """部门费用预算执行：{年预算(手填) vs 已用(台账白名单内年累计·含特批)}。
     dept_budget_raw={年份:{部门:金额}}；dept_rows_year=compute_expenses_by_group 全年结果（可为 None）。
-    没填任何部门预算 → None（页面不出卡）。只列有预算的部门（执行卡本意=管控）。"""
+    没填任何部门预算 → 仍返回空壳 {year, rows:[]}（页面渲染空态卡，与回款左右对称；迭代18 拍板）。
+    只列有预算的部门（执行卡本意=管控）。"""
     budgets = (dept_budget_raw or {}).get(str(year)) or {}
-    if not budgets:
-        return None
     used = {g: v for g, v, _ in (dept_rows_year or [])}
     rows = []
     for dept, target in budgets.items():
@@ -365,22 +364,50 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
 
 
 # ---------- 顶层 ----------
-def build_budget_block(budget_raw, year, year_period) -> dict | None:
-    """年度预算完成块：{目标/累计/完成率}×下单+回款。没填预算数 → None（页面维持现状）。
-    完成率分母=0 或指标没填 → 对应项为 None，前端显示需防 None。"""
+def _month_num(period_key: str) -> int:
+    """从「2026年3月」取月号；取不到 → 99（排到后面）。"""
+    try:
+        part = period_key.split("年", 1)[1].replace("月", "")
+        if "-" in part:
+            return 99
+        return int(part)
+    except (IndexError, ValueError):
+        return 99
+
+
+def build_budget_block(budget_raw, year, year_period, h1_period=None) -> dict | None:
+    """业务目标完成块：{目标/累计/完成率}×下单+回款+毛利率（年 + 可选 H1）。
+    没填任何目标 → None（KPI 下不显示进度条；部门费用预算卡与此无关）。
+    完成率分母=0 或指标没填 → 对应项为 None。"""
     y = (budget_raw or {}).get(str(year)) or {}
     order_t, receipt_t = y.get("下单年预算"), y.get("回款年预算")
-    if order_t is None and receipt_t is None:
+    margin_t = y.get("毛利率年目标")  # 百分数，如 35 表示 35%
+    h1_order, h1_receipt = y.get("下单H1目标"), y.get("回款H1目标")
+    h1_margin = y.get("毛利率H1目标")
+    if all(v is None for v in (order_t, receipt_t, margin_t, h1_order, h1_receipt, h1_margin)):
         return None
 
     def _item(target, done):
         if target is None:
             return None
-        return {"target": target, "done": done,
-                "pct": (done / target * 100.0) if target else None}
+        return {"target": float(target), "done": done,
+                "pct": (done / target * 100.0) if target and done is not None else None}
+
+    def _margin_item(target, actual_pct):
+        if target is None:
+            return None
+        ap = actual_pct if actual_pct is not None else 0.0
+        return {"target": float(target), "done": ap,
+                "pct": (ap / target * 100.0) if target else None}
+
+    h1 = h1_period or {}
     return {"year": year,
             "order": _item(order_t, year_period["orders"]),
-            "receipt": _item(receipt_t, year_period["receipts"])}
+            "receipt": _item(receipt_t, year_period["receipts"]),
+            "margin": _margin_item(margin_t, year_period.get("gross_margin_pct") or 0.0),
+            "order_h1": _item(h1_order, h1.get("orders")),
+            "receipt_h1": _item(h1_receipt, h1.get("receipts")),
+            "margin_h1": _margin_item(h1_margin, h1.get("gross_margin_pct"))}
 
 
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
@@ -426,13 +453,29 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     )
     health = _data_health(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                           ledger_rows, ledger_year, lcols, P, today, unclassified, month_keys, manual_raw)
+    # H1 合成周期键（1–6 月）；不存在时 h1_period=None（目标块仅年）
+    h1_key = f"{today.year}年1-6月"
+    h1_period = P.get(h1_key) or P.get(f"{today.year}年Q1")  # 兜底：无 1-6 区间时至少不崩
+    # 若无 1-6 月区间，用 1~min(6,cur) 月累加近似 H1 完成
+    if h1_key not in P and month_keys:
+        h1_ms = [k for k in month_keys if k in P and _month_num(k) <= 6]
+        if h1_ms:
+            h1_period = {
+                "orders": sum(P[k]["orders"] for k in h1_ms),
+                "receipts": sum(P[k]["receipts"] for k in h1_ms),
+                "gross_margin_pct": P[h1_ms[-1]].get("gross_margin_pct") if h1_ms else 0.0,
+            }
+            # 毛利率用 H1 累计：Σ毛利/Σ收入
+            g = sum(P[k]["gross_profit"] for k in h1_ms)
+            n = sum(P[k]["revenue_net"] for k in h1_ms)
+            h1_period["gross_margin_pct"] = round(g / n * 100, 2) if n else 0.0
     return {
         "meta": {
             "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "year": today.year, "year_key": year_key, "current_month_key": cur_month_key,
             "current_month_label": P[cur_month_key]["label"],
             "ledger_sheet_used": str(ledger_year), "tab_groups": tab_groups,
-            "budget": build_budget_block(budget_raw, today.year, P[year_key]),
+            "budget": build_budget_block(budget_raw, today.year, P[year_key], h1_period),
             "dept_budget": build_dept_budget_block(dept_budget_raw, by_dept.get(year_key), today.year),
             "unclassified": unclassified,
             "health": health,
@@ -480,11 +523,13 @@ _LEDGER_TO_EXPENSE = {
 
 
 def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set,
-                     *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False):
+                     *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False,
+                     budget_raw=None):
     """单 BU summary：四源行按销售名单过滤后，**复用 build_summary 全套口径**（公式一字不改）。
     公共费用：默认暂不分摊 → 传空台账（台账费用项恒 0）；
     分摊开且给了比例 → 在空台账结果上按全公司台账 5 类×比例注入（见 apply_public_expense_allocation）。
-    手填按 BU 陆总还没填 → 传空手填（恒 0，页面标注"待陆总手填"）；预算不进 BU 页（None）。
+    手填按 BU 陆总还没填 → 传空手填（恒 0，页面标注"待陆总手填"）。
+    budget_raw=该 BU 的业务目标（范围=BU 名）；部门费用预算不进 BU 页。
     默认（关）：税前利润=毛利−附加税费；开：税前=毛利−分摊公共−附加税费。"""
     s = build_summary(
         cfg,
@@ -493,7 +538,7 @@ def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, 
         filter_rows_by_sales(receipt_rows, sales_set),
         filter_rows_by_sales(inhouse_rows, sales_set),
         list(_BU_EMPTY_LEDGER_HEADER), [], today.year, today,
-        manual_raw={}, budget_raw=None, dept_budget_raw=None)
+        manual_raw={}, budget_raw=budget_raw, dept_budget_raw=None)
     if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
         apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct))
     else:

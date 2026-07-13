@@ -97,11 +97,13 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         company_led = {k: p.get("ledger_expenses") or {} for k, p in full["periods"].items()}
     pages: dict[str, dict] = {}
     for b in bucfg["bus"]:
+        bu_budget = db.load_budget(conn, scope=b["name"])  # 该 BU 业务目标（无则空）
         s = profit.build_bu_summary(
             cfg, project, orders, receipts, inhouse, today, set(b["销售"]),
             company_ledger_by_period=company_led,
             alloc_ratio_pct=b.get("分摊比例"),
-            alloc_enabled=alloc_on)
+            alloc_enabled=alloc_on,
+            budget_raw=bu_budget or None)
         pages[b["name"]] = {"name": b["name"],
                             "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
     return pages
