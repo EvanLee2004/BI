@@ -164,7 +164,7 @@ class TestAdminWrite(unittest.TestCase):
                 "新值": "x", "类型": "改值"})
             self.assertEqual(r.status_code, 400, f"{banned} 应 400")
 
-    # ---- 立即更新：运行中互斥 → 409 ----
+    # ---- 更新数据：运行中互斥 → 409 ----
     def test_refresh_mutex_returns_409(self):
         self.assertTrue(server._LOCK.acquire(blocking=False))
         try:
@@ -174,7 +174,34 @@ class TestAdminWrite(unittest.TestCase):
         finally:
             server._LOCK.release()
 
-    # ---- 立即更新：后台跑+状态轮询（_do_full 打桩，不跑真管道） ----
+    def test_console_says_update_data_not_immediate(self):
+        """顶栏按钮文案=「更新数据」，不再写「立即更新」。"""
+        html = server._ADMIN_CONSOLE
+        self.assertIn(">更新数据</button>", html)
+        self.assertNotIn(">立即更新</button>", html)
+        self.assertIn("exportDetail", html)
+        self.assertIn("导出 Excel", html)
+
+    def test_detail_export_xlsx(self):
+        """明细导出：真 xlsx、表头+行、管理员鉴权。"""
+        import io
+        import openpyxl
+        # 无会话 → 401
+        self.assertEqual(self.anon.get("/api/detail_export?table=收入明细").status_code, 401)
+        # 有/无数据都返回合法 xlsx（至少表头）
+        r = self.client.get("/api/detail_export?table=收入明细", headers=self.hdr)
+        self.assertEqual(r.status_code, 200, r.text[:200])
+        ctype = (r.headers.get("content-type") or r.headers.get("Content-Type") or "").lower()
+        self.assertIn("spreadsheetml", ctype)
+        cd = (r.headers.get("content-disposition") or r.headers.get("Content-Disposition") or "").lower()
+        self.assertIn(".xlsx", cd)
+        wb = openpyxl.load_workbook(io.BytesIO(r.content))
+        ws = wb.active
+        headers = [c.value for c in ws[1]]
+        self.assertIn("定位键", headers)
+        self.assertIn("交付额", headers)
+
+    # ---- 更新数据：后台跑+状态轮询（_do_full 打桩，不跑真管道） ----
     def test_refresh_async_and_status(self):
         import time as _t
         orig = server._do_full

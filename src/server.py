@@ -829,7 +829,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <b>管理员控制台</b>
   <span id="verPill" class="ver-pill" title="产品版本号（点开看更新日志）" onclick="showGroup('cfg');setTimeout(openVerDrawer,80)">v…</span>
   <span id="health" class="pill y" onclick="toggleHealth()" title="点开看体检明细">体检…</span>
-  <button id="btnRefresh" onclick="doRefresh()">立即更新</button>
+  <button id="btnRefresh" onclick="doRefresh()" title="从智云/台账重新抓数并重算看板">更新数据</button>
   <span id="msg" class="muted"></span>
   <span style="margin-left:auto"></span>
   <a class="logout" href="/admin/logout">退出</a>
@@ -871,7 +871,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
     <span class="field-inline">月份 <select id="dY"></select><select id="dM"></select></span>
     <span class="field-inline">搜索 <input id="dQ" placeholder="订单号/定位键/客户…" size="18"></span>
     <button onclick="dQuery()">查询</button>
-    <button class="mini ghost" type="button" onclick="exportDetail()">导出Excel</button>
+    <button class="mini ghost" type="button" onclick="exportDetail()" title="导出当前表+筛选结果为 Excel">导出 Excel</button>
     <span id="dInfo" class="muted grow"></span>
   </div>
   <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。搜索支持订单号、定位键、客户等。</div>
@@ -944,7 +944,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
         <div class="field"><label>每日更新时间点（可多个）</label>
           <div id="schedTimes" class="sched-times"></div>
           <button class="ghost mini" type="button" onclick="schedAdd()" style="margin-top:8px">＋ 添加时间点</button></div>
-        <div class="muted">如 09:30 / 12:00 / 17:30，各到点各跑一次。Windows 每个时间点建一个计划任务；<b>首次或增删时间点若没生效，以管理员身份跑一次 注册每日更新.bat</b>。平时可点顶栏「立即更新」。</div>
+        <div class="muted">如 09:30 / 12:00 / 17:30，各到点各跑一次。Windows 每个时间点建一个计划任务；<b>首次或增删时间点若没生效，以管理员身份跑一次 注册每日更新.bat</b>。平时可点顶栏「更新数据」。</div>
       </div>
       <div class="scard-f">
         <button class="mini" type="button" onclick="saveSchedule()">保存自动更新</button>
@@ -969,7 +969,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 
     <div class="scard">
       <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号 · 台账路径</div>
-        <div class="sub">本机专属连接设置；只存本机（不进代码库），换号/换路径下次「立即更新」生效</div></div></div>
+        <div class="sub">本机专属连接设置；只存本机（不进代码库），换号/换路径下次「更新数据」生效</div></div></div>
       <div class="scard-b">
         <div class="field"><label>智云账号</label>
           <input id="sZyUser" type="password" autocomplete="off" style="width:100%;max-width:280px"></div>
@@ -1150,28 +1150,29 @@ function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warning
   html+="</div><div class='grp'><div class='k'>数据源覆盖</div><div>"+
     (h.sources||[]).map(s=>esc(s.name)+"："+s.rows+"行").join("　")+"</div></div>";
   document.getElementById("hDetail").innerHTML=html;}
-// 立即更新：后台跑+轮询进度；完成后 toast
+// 更新数据：后台跑+轮询进度；完成后 toast
 let refT0=0;
-async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;refT0=Date.now();
+async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;
+  b.textContent="更新中…";refT0=Date.now();
   try{await jpost("/api/refresh",{});}catch(e){/* 409=已在更新 → 直接跟着轮询 */}
-  msg("更新中…");pollRefresh();}
+  msg("更新数据中…");pollRefresh();}
 async function pollRefresh(){const b=document.getElementById("btnRefresh");
   try{const s=await jget("/api/refresh_status");
     if(s.running){const el=Math.round((Date.now()-refT0)/1000);
-      msg("更新中… "+el+"s"+(s.zhiyun_auto_fetch?"（含智云在线抓数，约1~2分钟）":""));
-      setTimeout(pollRefresh,2000);return;}
-    b.disabled=false;const L=s.last;
+      msg("更新数据中… "+el+"s"+(s.zhiyun_auto_fetch?"（含智云在线抓数，约1~2分钟）":""));
+      b.textContent="更新中…";setTimeout(pollRefresh,2000);return;}
+    b.disabled=false;b.textContent="更新数据";const L=s.last;
     if(L&&L.status==="error"){msg("更新失败："+L.detail);showToast("更新失败："+(L.detail||""),true);}
-    else{const t="已更新"+(L&&L.seconds?("（"+L.seconds+"s）"):"");msg(t);showToast("✓ "+t);}
+    else{const t="数据已更新"+(L&&L.seconds?("（"+L.seconds+"s）"):"");msg(t);showToast("✓ "+t);}
     reloadDash();loadHealth();refreshUcBadge();
-  }catch(e){b.disabled=false;msg("查询更新状态失败:"+e.message);}}
+  }catch(e){b.disabled=false;b.textContent="更新数据";msg("查询更新状态失败:"+e.message);}}
 // 设置页
 const SRC_MAP=[["下单(智云)","智云在线抓（自动登录，每次更新）"],
   ["回款(智云)","智云在线抓（自动登录，每次更新）"],
   ["项目明细(智云)","智云在线抓（自动登录，每次更新）"],
   ["内部译员·IN-HOUSE(智云)","智云在线抓（当前账号权限不足时自动沿用现有文件·体检黄，待专用账号）"],
   ["收单台账","共享盘自动拉取（部署机内网；不可达沿用本地副本·体检黄）"],
-  ["手填与调整","管理员端「改数据→手填」填写，全程留痕"]];
+  ["手填与调整","管理员端「改数据→数据调整」填写，全程留痕"]];
 function toggleZyReveal(){const u=document.getElementById("sZyUser"),p=document.getElementById("sZyPwd"),
   e=document.getElementById("sZyEye"),show=u.type==="password";
   u.type=p.type=show?"text":"password";e.textContent=show?"🙈 隐藏":"👁 显示";}
@@ -1556,8 +1557,11 @@ async function exportDetail(){
     if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);
     const r=await fetch(u);if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||("HTTP "+r.status));
     const blob=await r.blob();const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);a.download=curTable+"_"+new Date().toISOString().slice(0,10)+".csv";
-    a.click();URL.revokeObjectURL(a.href);showToast("✓ 已导出 CSV");
+    const cd=r.headers.get("Content-Disposition")||"";
+    const mfn=cd.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+    const fn=mfn?decodeURIComponent(mfn[1].replace(/"/g,"")):(curTable+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+    a.href=URL.createObjectURL(blob);a.download=fn;
+    a.click();URL.revokeObjectURL(a.href);showToast("✓ 已导出 Excel（当前筛选，最多 5000 行）");
   }catch(e){showToast("导出失败："+e.message,true);}
 }
 
@@ -2073,10 +2077,13 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.get("/api/detail_export")
     def api_detail_export(request: Request, table: str = Query("收入明细"),
                           month: str | None = None, q: str | None = None):
-        """当前筛选结果导出 CSV（管理员；上限 5000 行，避免拖垮）。"""
+        """当前筛选结果导出 Excel（.xlsx · 管理员；上限 5000 行，避免拖垮）。
+        表头+行与明细页一致；月份/搜索条件与页面筛选相同。"""
         _require(request)
-        import csv, io
-        from fastapi.responses import StreamingResponse
+        import io
+        from urllib.parse import quote
+        from fastapi.responses import Response
+        import openpyxl
         conn = _conn()
         try:
             d = db.query_detail(conn, table, month, q, page=1, page_size=5000)
@@ -2084,15 +2091,32 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(e))
         finally:
             conn.close()
-        buf = io.StringIO()
-        w = csv.writer(buf)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # sheet 名最多 31 字，去掉 Excel 非法字符
+        safe = "".join(c for c in str(table) if c not in r'[]:*?/\\')[:31] or "明细"
+        ws.title = safe
         cols = d["columns"]
-        w.writerow(cols)
+        ws.append(list(cols))
         for r in d["rows"]:
-            w.writerow([r.get(c, "") for c in cols])
-        raw = buf.getvalue().encode("utf-8-sig")  # Excel 友好 BOM
-        return StreamingResponse(io.BytesIO(raw), media_type="text/csv; charset=utf-8",
-                                 headers={"Content-Disposition": f'attachment; filename="{table}.csv"'})
+            ws.append([r.get(c, "") if r.get(c, "") is not None else "" for c in cols])
+        # 首行粗体 + 简单列宽
+        for cell in ws[1]:
+            cell.font = openpyxl.styles.Font(bold=True)
+        for i, col in enumerate(cols, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = min(max(len(str(col)) + 4, 10), 28)
+        bio = io.BytesIO()
+        wb.save(bio)
+        raw = bio.getvalue()
+        day = time.strftime("%Y%m%d")
+        fname = f"{safe}_{day}.xlsx"
+        # RFC 5987：中文文件名用 filename*
+        cd = f"attachment; filename=\"export.xlsx\"; filename*=UTF-8''{quote(fname)}"
+        return Response(
+            content=raw,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": cd},
+        )
 
     @app.get("/api/detail")
     def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
