@@ -174,7 +174,7 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
                         budget_month: float | None = None) -> str:
     """回款柱 + 回款/下单比折线。
     柱顶=回款万（蓝色，与交付收入柱顶统一）；率%在月下；flowline+comet；柱高留顶空。"""
-    w, h = 640, 288
+    w, h = 640, 352   # v1.0.5.1 拉高：左图放大后与右侧「累计与缺口」等高对称，不再下方留白
     pl, pr, pt, pb = 52, 40, 34, 50
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)

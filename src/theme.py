@@ -168,8 +168,8 @@ body{
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
 /* 回款情况：左图为主（≥70%）、右栏紧凑指标卡 */
 .rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px;align-items:stretch;margin-top:6px}
-.rc-card .rc-body{min-width:0;flex:1}
-.rc-card .rc-body svg{max-height:360px;width:100%;min-height:280px}
+.rc-card .rc-body{min-width:0;flex:1;display:flex;align-items:center}
+.rc-card .rc-body svg{max-height:460px;width:100%;min-height:320px}
 .rc-side{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
