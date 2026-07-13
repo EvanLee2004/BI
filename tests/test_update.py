@@ -269,5 +269,56 @@ class TestUpdateApi(unittest.TestCase):
             self.assertIn(anchor, html)
 
 
+class TestRunPipMirror(unittest.TestCase):
+    """_run_pip 走国内 pip 镜像（config.pip_mirror）：非空加 -i，空/缺失不加。mock subprocess.run 记录参数。"""
+
+    def _call_with_cfg(self, cfg_json: str | None):
+        """临时 root：requirements.txt + 可选 config.json；mock subprocess.run 抓命令行。"""
+        tmp = tempfile.mkdtemp(prefix="piptest_")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        (Path(tmp) / "requirements.txt").write_text("fastapi==0.1\n", encoding="utf-8")
+        if cfg_json is not None:
+            (Path(tmp) / "config.json").write_text(cfg_json, encoding="utf-8")
+        captured = {}
+
+        class _R:
+            returncode, stdout, stderr = 0, "ok", ""
+
+        orig = updater.subprocess.run
+
+        def fake(cmd, **kw):
+            captured["cmd"] = list(cmd)
+            return _R()
+
+        updater.subprocess.run = fake
+        self.addCleanup(lambda: setattr(updater.subprocess, "run", orig))
+        rc, out, err = updater._run_pip(tmp)
+        self.assertEqual(rc, 0)
+        return captured["cmd"]
+
+    def test_mirror_added_when_configured(self):
+        cmd = self._call_with_cfg('{"data_dir": "数据", "pip_mirror": "https://pypi.tuna.tsinghua.edu.cn/simple"}')
+        self.assertIn("-i", cmd)
+        self.assertEqual(cmd[cmd.index("-i") + 1], "https://pypi.tuna.tsinghua.edu.cn/simple")
+        self.assertEqual(cmd[:4], [sys.executable, "-m", "pip", "install"])
+
+    def test_no_mirror_when_blank(self):
+        cmd = self._call_with_cfg('{"data_dir": "数据", "pip_mirror": ""}')
+        self.assertNotIn("-i", cmd)
+
+    def test_no_mirror_when_field_missing(self):
+        cmd = self._call_with_cfg('{"data_dir": "数据"}')
+        self.assertNotIn("-i", cmd)
+
+    def test_no_mirror_when_config_missing(self):
+        # root 没有 config.json（如测试临时 git 仓库）→ 读配置失败不挡装依赖，退回 pip 默认源
+        cmd = self._call_with_cfg(None)
+        self.assertNotIn("-i", cmd)
+
+    def test_factory_default_is_tsinghua(self):
+        cfg = loaders.load_config(ROOT)
+        self.assertEqual(cfg.get("pip_mirror"), "https://pypi.tuna.tsinghua.edu.cn/simple")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

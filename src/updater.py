@@ -23,6 +23,8 @@ import threading
 import time
 from pathlib import Path
 
+import loaders
+
 RESTART_EXIT_CODE = 42   # 看门狗据此判「更新后重启」；须与 看门狗启动.bat 里的 42 一致
 _TIMEOUT = 30            # 单条 git 命令默认超时（秒）
 _ROOT = Path(__file__).resolve().parent.parent  # 程序根=git 仓库工作区（.git/run.py 所在层）
@@ -66,12 +68,21 @@ def _short(root, ref):
 # ---------------- 依赖自动同步（拉取引入新 pip 包时避免重启缺包崩溃） ----------------
 def _run_pip(root) -> tuple[int, str, str]:
     """用**当前正在跑服务的解释器**的 pip 装 requirements.txt（装进同一个 venv）。
+    config.pip_mirror 非空时加 `-i <镜像>`（默认清华源，部署机在国内免翻墙）；
+    空串=不强制镜像、走 pip 自身配置（应急后门）。可经 数据/本地配置.json 覆盖（铁律19）。
     返回 (rc, stdout, stderr)。独立成函数便于测试替换（stub）。"""
     import sys
-    req = _root(root) / "requirements.txt"
+    base = _root(root)
+    req = base / "requirements.txt"
+    cmd = [sys.executable, "-m", "pip", "install", "-r", str(req)]
     try:
-        r = subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(req)],
-                           capture_output=True, text=True, timeout=600)
+        mirror = str(loaders.load_config(base).get("pip_mirror") or "").strip()
+    except Exception:  # config 读不到不挡装依赖：退回 pip 默认源
+        mirror = ""
+    if mirror:
+        cmd += ["-i", mirror]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
     except Exception as e:  # pip 不存在 / 超时 / 其它
         return 1, "", f"{type(e).__name__}: {e}"

@@ -57,6 +57,13 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "date": "2026-07-14",
+        "title": "公测 Beta v1.0.5：一键更新装依赖走国内镜像",
+        "items": [
+            "一键更新需要装新依赖时，默认从国内镜像下载（更快更稳，不依赖外网环境）；如需临时关闭可由管理员在本机配置中留空。",
+        ],
+    },
+    {
         "date": "2026-07-13",
         "title": "公测 Beta v1.0.4：更新结果诚实提示 + 设置统一保存 + 回款卡对称",
         "items": [

@@ -18,6 +18,8 @@
   "_schedule_time_note": "旧字段=schedule_times 的第一个时间点镜像，向后兼容（.bat / 读单值处仍可用）；实际以 schedule_times 为准。",
   "backup_keep_days": 365,
   "_backup_keep_days_note": "数据/备份/ 里每日存档（看板_*.db 库备份 + 页面_*.html 页面快照，各每天一份、同天覆盖=留当天最后一次）的滚动保留天数，超过删最旧（约6~7MB/天，365天≈2.5G）；管理员端「设置」页可改。月末快照存档（快照存档/，含当月末页面）为财务时点档案永久保留，12-31那份即年末档。",
+  "pip_mirror": "https://pypi.tuna.tsinghua.edu.cn/simple",
+  "_pip_mirror_note": "装依赖（一键更新自动 pip install / 手动 pip install -r requirements.txt）优先用的国内 PyPI 镜像（完整同步镜像，同版本号=同一个包，只是国内 CDN 更快更稳，不用翻墙）。留空字符串 \"\"=不强制镜像、走系统/venv 自身 pip 配置（应急后门，镜像挂了临时关）。要换镜像**别改本文件**——走机器本地 data_dir/本地配置.json 覆盖层（同 ledger_share_path 机制，铁律19），config.json 保持出厂默认、git 工作区干净。",
   "update_remote": "origin",
   "_update_remote_note": "一键更新（管理端「检查更新」）对标哪个 git 远端。默认 origin：**部署机从 Gitee clone 时 origin 就是 Gitee，默认即对标 Gitee，无需改**。若部署机 origin 不是 Gitee（如从 GitHub clone/拷贝的），先 `git remote add gitee <Gitee地址>` 再把这里改成 \"gitee\"，更新就从 Gitee 拉。开发机推送=push 到 GitHub+Gitee 两边，与本项无关。",
   "server_host": "0.0.0.0",
