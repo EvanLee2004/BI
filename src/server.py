@@ -716,6 +716,8 @@ border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12px
 #toast{display:none;position:fixed;top:56px;right:18px;z-index:50;background:#14532d;color:#bbf7d0;
 padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px #0008;max-width:360px}
 #toast.err{background:#7f1d1d;color:#fecaca}
+#toast.warn{background:#78350f;color:#fde68a}
+#toast.clickable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 .scard{background:linear-gradient(165deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);
 border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 28px #0004}
 .scard-h{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);
@@ -957,7 +959,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
       </div>
     </div>
 
-    <div class="scard">
+    <div class="scard" id="setCardSched">
       <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div>
         <div class="sub">每天自动跑完整更新（抓数→重算→出页面）；可设多个时间点，各到点各更新一次</div></div></div>
       <div class="scard-b">
@@ -966,13 +968,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
           <button class="ghost mini" type="button" onclick="schedAdd()" style="margin-top:8px">＋ 添加时间点</button></div>
         <div class="muted">如 09:30 / 12:00 / 17:30，各到点各跑一次。Windows 每个时间点建一个计划任务；<b>首次或增删时间点若没生效，以管理员身份跑一次 注册每日更新.bat</b>。平时可点顶栏「更新数据」。</div>
       </div>
-      <div class="scard-f">
-        <button class="mini" type="button" onclick="saveSchedule()">保存自动更新</button>
-        <span id="sTimeMsg" class="muted"></span>
-      </div>
+      <div class="scard-f"><span id="sTimeMsg" class="muted"></span></div>
     </div>
 
-    <div class="scard">
+    <div class="scard" id="setCardBackup">
       <div class="scard-h"><span class="ico">🗄</span><div><div class="ttl">备份清理</div>
         <div class="sub">每次更新备份 看板.db 到 数据/备份/（每天一份）</div></div></div>
       <div class="scard-b">
@@ -981,13 +980,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
         <div class="muted">超过天数自动删最旧；月末快照存档永久保留。</div>
         <div id="sBakInfo" class="muted" style="margin-top:8px"></div>
       </div>
-      <div class="scard-f">
-        <button class="mini" type="button" onclick="saveBackup()">保存备份设置</button>
-        <span id="sBakMsg" class="muted"></span>
-      </div>
+      <div class="scard-f"><span id="sBakMsg" class="muted"></span></div>
     </div>
 
-    <div class="scard">
+    <div class="scard" id="setCardZy">
       <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号 · 台账路径</div>
         <div class="sub">本机专属连接设置；只存本机（不进代码库），换号/换路径下次「更新数据」生效</div></div></div>
       <div class="scard-b">
@@ -1018,13 +1014,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
           <div class="muted" style="font-size:11px;margin-top:3px">四张表地址随程序内置、开箱即用；智云换服务器/换表才需要改。改动只存本机 `数据\\智云配置.json`。</div>
         </details>
       </div>
-      <div class="scard-f">
-        <button class="mini" type="button" onclick="saveZhiyun()">保存</button>
-        <span id="sZyMsg" class="muted"></span>
-      </div>
+      <div class="scard-f"><span id="sZyMsg" class="muted"></span></div>
     </div>
 
-    <div class="scard">
+    <div class="scard" id="setCardAcct">
       <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div>
         <div class="sub"><b>显示名</b>=备注（谁用这个号，只给人看）。<b>权限</b>：管理员 / 整体（看全公司+全部 BU）/ 按 BU（勾选一组 BU，只看这几块，可多选）。密码明文仅此处可见（点👁）。黄底=初始密码。<b>总账号</b>（lushasha）固定管理员、不可删；另可再加其他管理员。</div></div></div>
       <div class="scard-b">
@@ -1032,14 +1025,13 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
       </div>
       <div class="scard-f">
         <button class="ghost mini" type="button" onclick="acctAdd()">＋ 加账号</button>
-        <button class="mini" type="button" onclick="acctSave()">保存账号</button>
         <span id="acctMsg" class="muted"></span>
       </div>
     </div>
 
-    <div class="scard full">
+    <div class="scard full" id="setCardBu">
       <div class="scard-h"><span class="ico">🏢</span><div><div class="ttl">BU 数据归属（销售归属）</div>
-        <div class="sub">销售归到哪个 BU=该人口径进那张 BU 利润表（一人一 BU）。<b>勾选多人→选 BU→批量指定</b>，或直接拖动；改完点「保存数据归属」即重算。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
+        <div class="sub">销售归到哪个 BU=该人口径进那张 BU 利润表（一人一 BU）。<b>勾选多人→选 BU→批量指定</b>，或直接拖动；改完点底部「保存全部设置」即重算。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
       <div class="scard-b">
         <div id="buUnassignedHint" class="note" style="display:none;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:0 8px 8px 0;background:var(--panel2);margin:0 0 12px"></div>
         <div class="bu-batch" id="buBatch" style="display:none">
@@ -1067,10 +1059,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
           <div id="buAllocSum" class="muted" style="font-size:12px;margin-top:6px"></div>
         </div>
       </div>
-      <div class="scard-f">
-        <button class="mini" type="button" onclick="buSave()">保存数据归属</button>
-        <span id="buMsg" class="muted"></span>
-      </div>
+      <div class="scard-f"><span id="buMsg" class="muted"></span></div>
     </div>
 
     <div class="scard full">
@@ -1081,6 +1070,11 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
       </div>
     </div>
 
+  </div>
+  <div id="setSaveBar" class="save-bar">
+    <span class="sb-n">有 <b id="setDirtyN">0</b> 处设置未保存</span>
+    <button type="button" class="ghost" onclick="setDiscard()">放弃更改</button>
+    <button type="button" class="primary" id="btnSetSave" onclick="setSaveAll()">保存全部设置</button>
   </div>
 </div>
 
@@ -1155,11 +1149,13 @@ function showGroup(g){
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
   else if(g==="review")showReview("overview");
-  else if(g==="cfg"){showSec("settings");loadVersion();loadSettings();loadBuCfg();loadAccts();}}
+  else if(g==="cfg"){showSec("settings");loadVersion();loadSettings();loadBuCfg();loadAccts();setBindDirty();}}
 function reloadDash(){try{document.getElementById("dashFrame").contentWindow.location.reload();}catch(e){}}
-function showToast(t,isErr){const el=document.getElementById("toast");el.textContent=t||"";
-  el.className=isErr?"err":"";el.style.display="block";
-  clearTimeout(window._toastT);window._toastT=setTimeout(()=>{el.style.display="none";},4000);}
+function showToast(t,isErr,onclick){const el=document.getElementById("toast");el.textContent=t||"";
+  el.className=(isErr===true?"err":(isErr||""))+(onclick?" clickable":"");
+  el.onclick=onclick?()=>{el.style.display="none";onclick();}:null;
+  el.style.display="block";
+  clearTimeout(window._toastT);window._toastT=setTimeout(()=>{el.style.display="none";},onclick?9000:4000);}
 function _shortReason(h){const rr=(h.run_reasons||[])[0]||"";
   if(rr)return rr.length>36?rr.slice(0,36)+"…":rr;
   const w=(h.warnings||[])[0]||"";return w?(w.length>36?w.slice(0,36)+"…":w):"";}
@@ -1184,6 +1180,19 @@ function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warning
   html+="</div><div class='grp'><div class='k'>数据源覆盖</div><div>"+
     (h.sources||[]).map(s=>esc(s.name)+"："+s.rows+"行").join("　")+"</div></div>";
   document.getElementById("hDetail").innerHTML=html;}
+// 更新完成后的诚实提示：管道 ok ≠ 全绿——抓数降级/数据体检问题都要报出来，点击跳体检明细
+async function refreshResultToast(L){
+  const secs=(L&&L.seconds)?("（"+L.seconds+"s）"):"";
+  try{await loadHealth();}catch(e){}
+  const h=window._health||{};
+  const probs=[...(h.run_reasons||[]),...(h.warnings||[])];
+  if(h.result==="绿"&&!probs.length){const t="更新成功"+secs;msg(t);showToast("✓ "+t);return;}
+  const n=probs.length||1;
+  const t="更新完成，但有 "+n+" 个问题"+secs+" · 点击查看";
+  msg("更新有误："+(probs[0]||("体检 "+(h.result||"?"))));
+  showToast("⚠ "+t,(h.result==="红")?"err":"warn",()=>{
+    window.scrollTo({top:0,behavior:"smooth"});
+    renderHealth(window._health||{});document.getElementById("hDetail").style.display="block";});}
 // 更新数据：后台跑+轮询进度；完成后 toast
 let refT0=0;
 async function doRefresh(){const b=document.getElementById("btnRefresh");b.disabled=true;
@@ -1197,8 +1206,8 @@ async function pollRefresh(){const b=document.getElementById("btnRefresh");
       b.textContent="更新中…";setTimeout(pollRefresh,2000);return;}
     b.disabled=false;b.textContent="更新数据";const L=s.last;
     if(L&&L.status==="error"){msg("更新失败："+L.detail);showToast("更新失败："+(L.detail||""),true);}
-    else{const t="数据已更新"+(L&&L.seconds?("（"+L.seconds+"s）"):"");msg(t);showToast("✓ "+t);}
-    reloadDash();loadHealth();refreshUcBadge();
+    else{await refreshResultToast(L);}
+    reloadDash();refreshUcBadge();
   }catch(e){b.disabled=false;b.textContent="更新数据";msg("查询更新状态失败:"+e.message);}}
 // 设置页
 const SRC_MAP=[["下单(智云)","智云在线抓（自动登录，每次更新）"],
@@ -1285,18 +1294,43 @@ function renderSchedTimes(){const box=document.getElementById("schedTimes");if(!
     +"</span>").join("");}
 function schedAdd(){const m=document.getElementById("sTimeMsg");
   if(schedTimes.length>=6){m.textContent="最多 6 个时间点";return;}
-  m.textContent="";schedTimes.push("12:00");renderSchedTimes();}
-function schedDel(i){if(schedTimes.length<=1)return;schedTimes.splice(i,1);renderSchedTimes();}
-// 各卡就近保存（无底部全局保存）
+  m.textContent="";schedTimes.push("12:00");renderSchedTimes();setMark("sched");}
+function schedDel(i){if(schedTimes.length<=1)return;schedTimes.splice(i,1);renderSchedTimes();setMark("sched");}
+// 设置页统一底部保存：卡片只标脏，保存/放弃都在底部一条（各 save 函数返回 true/false 供汇总）
+const setDirty=new Set();
+function setMark(k){setDirty.add(k);setBarRender();}
+function setBarRender(){const bar=document.getElementById("setSaveBar");if(!bar)return;
+  bar.classList.toggle("on",setDirty.size>0);
+  const n=document.getElementById("setDirtyN");if(n)n.textContent=setDirty.size;}
+function setBindDirty(){if(window._setBound)return;window._setBound=1;
+  [["setCardSched","sched"],["setCardBackup","backup"],["setCardZy","zy"],
+   ["setCardAcct","acct"],["setCardBu","bu"]].forEach(([id,k])=>{
+    const el=document.getElementById(id);if(!el)return;
+    ["input","change"].forEach(ev=>el.addEventListener(ev,e=>{
+      const t=e.target;// 勾选批量指定/选目标 BU 不是数据改动，不标脏
+      if(t&&(t.classList&&t.classList.contains("bu-cb")||t.id==="buPickTo"))return;
+      setMark(k);}));});}
+async function setSaveAll(){const btn=document.getElementById("btnSetSave");if(!btn)return;
+  btn.disabled=true;btn.textContent="保存中…";
+  const jobs=[["sched",saveSchedule],["backup",saveBackup],["zy",saveZhiyun],["acct",acctSave],["bu",buSave]];
+  let fail=0;
+  for(const [k,fn] of jobs){if(!setDirty.has(k))continue;
+    let ok=false;try{ok=await fn();}catch(e){ok=false;}
+    if(ok!==false)setDirty.delete(k);else fail++;}
+  setBarRender();btn.disabled=false;btn.textContent="保存全部设置";
+  if(fail)showToast("有 "+fail+" 处设置保存失败，见对应卡片红字",true);
+  else showToast("✓ 设置已保存");}
+function setDiscard(){setDirty.clear();setBarRender();
+  loadSettings();loadAccts();loadBuCfg();showToast("已放弃未保存的设置更改");}
 async function saveSchedule(){const m=document.getElementById("sTimeMsg");m.textContent="保存中…";
   const times=schedTimes.map(t=>String(t||"").trim()).filter(Boolean);
-  if(!times.length){m.textContent="至少保留一个时间点";return;}
+  if(!times.length){m.textContent="至少保留一个时间点";return false;}
   try{const d=await jpost("/api/settings",{schedule_times:times});
     if(d.schedule_times&&d.schedule_times.length){schedTimes=d.schedule_times.slice();renderSchedTimes();}
-    m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
+    m.textContent=d.note||"已保存";return true;}catch(e){m.textContent="失败："+e.message;return false;}}
 async function saveBackup(){const m=document.getElementById("sBakMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/settings",{backup_keep_days:document.getElementById("sKeep").value});
-    m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
+    m.textContent=d.note||"已保存";return true;}catch(e){m.textContent="失败："+e.message;return false;}}
 async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textContent="保存中…";
   const p={ledger_share_path:document.getElementById("sLedgerPath").value};  // 台账路径总是提交（含清空）
   const u=document.getElementById("sZyUser").value,pw=document.getElementById("sZyPwd").value;
@@ -1307,7 +1341,7 @@ async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textCont
     p.zhiyun_tables={orders:gv("sTblOrders"),receipts:gv("sTblReceipts"),
       project_detail:gv("sTblProject"),inhouse:gv("sTblInhouse")};}
   try{const d=await jpost("/api/settings",p);
-    m.textContent=d.note||"已保存";}catch(e){m.textContent="失败："+e.message;}}
+    m.textContent=d.note||"已保存";return true;}catch(e){m.textContent="失败："+e.message;return false;}}
 // 账号与权限卡
 let acctList=[],acctPwShow={};
 // 权限类型：管理员 / 整体 / BU（可绑多个）。旧账号权限=单个 BU 名 → 视作 BU 类型、可见BU=[该名]
@@ -1364,7 +1398,7 @@ function acctRender(){const t=document.getElementById("acctTbl");
         "<td class='muted'>"+esc(a.最后登录||"—")+"</td>"+
         "<td>"+delCell+"</td></tr>";}).join("");}
 function acctTogglePw(i){acctPwShow[i]=!acctPwShow[i];acctRender();}
-function acctAdd(){acctList.push({账号:"",显示名:"",权限:"整体",密码:"8888",初始密码:true,最后登录:""});acctRender();}
+function acctAdd(){acctList.push({账号:"",显示名:"",权限:"整体",密码:"8888",初始密码:true,最后登录:""});acctRender();setMark("acct");}
 function acctDel(i){
   const a=acctList[i];
   if(_isMaster(a)){alert("总账号「"+ACCT_MASTER+"」永久不可删除（即使改成别的权限也不行）。部署机也靠它进管理端。");return;}
@@ -1375,12 +1409,13 @@ async function loadAccts(){try{const d=await jget("/api/accounts");acctList=d.ac
   if(d.master_account)ACCT_MASTER=d.master_account;acctPwShow={};acctRender();}
   catch(e){document.getElementById("acctMsg").textContent="读取失败:"+e.message;}}
 async function acctSave(){const m=document.getElementById("acctMsg");m.textContent="保存中…";
-  if(!_adminCount()){m.textContent="保存失败：至少保留一个「管理员」权限账号";return;}
+  if(!_adminCount()){m.textContent="保存失败：至少保留一个「管理员」权限账号";return false;}
   if(!acctList.some(a=>String(a.账号||"").trim()===ACCT_MASTER)){
-    m.textContent="保存失败：总账号「"+ACCT_MASTER+"」不可删除";return;}
+    m.textContent="保存失败：总账号「"+ACCT_MASTER+"」不可删除";return false;}
   try{const d=await jpost("/api/accounts",{accounts:acctList});acctList=d.accounts||[];
     if(d.master_account)ACCT_MASTER=d.master_account;acctPwShow={};acctRender();
-    m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";}catch(e){m.textContent="保存失败："+e.message;}}
+    m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个）";return true;}
+  catch(e){m.textContent="保存失败："+e.message;return false;}}
 // BU 数据归属（销售归属·A1）+ 公共费用分摊（迭代17·A2：全空=不分摊，无总开关）
 let buList=[], salesPool=[], buPicked=new Set(), buUnassigned={};
 function _salesArr(v){if(Array.isArray(v))return v.map(s=>String(s).trim()).filter(Boolean);
@@ -1439,7 +1474,7 @@ function buApplyBatch(){const sel=document.getElementById("buPickTo");if(!sel)re
       if(cur.indexOf(n)<0)cur.push(n);buList[i].销售=cur;}}});
   buPicked.clear();buRender();
   const tgt=(to==="__pool__")?"未归属":(buList[+to]&&buList[+to].name)||("BU"+(+to+1));
-  document.getElementById("buMsg").textContent="已把 "+names.length+" 人批量指定到「"+tgt+"」——点「保存数据归属」生效并重算";}
+  document.getElementById("buMsg").textContent="已把 "+names.length+" 人批量指定到「"+tgt+"」——点底部「保存全部设置」生效并重算";}
 function buUpdateUnassignedHint(){const el=document.getElementById("buUnassignedHint");if(!el)return;
   const n=(buUnassigned&&buUnassigned.unassigned_count)||0;
   if(!n){el.style.display="none";return;}el.style.display="";
@@ -1465,10 +1500,10 @@ function _bindDrag(root){if(!root)return;
       const name=(e.dataTransfer.getData("text/plain")||"").trim();if(!name)return;
       const zone=z.getAttribute("data-zone");
       if(zone==="pool")buMoveToPool(name);else if(zone&&zone.indexOf("bu:")===0)buMoveToBu(+zone.slice(3),name);});});}
-function buMoveToPool(name){if(!name)return;buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==name);});buRender();}
+function buMoveToPool(name){if(!name)return;buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==name);});buRender();setMark("bu");}
 function buMoveToBu(i,name){if(!name||i<0||i>=buList.length)return;
   buList.forEach(b=>{b.销售=_salesArr(b.销售).filter(s=>s!==name);});
-  const cur=_salesArr(buList[i].销售);if(cur.indexOf(name)<0)cur.push(name);buList[i].销售=cur;buRender();}
+  const cur=_salesArr(buList[i].销售);if(cur.indexOf(name)<0)cur.push(name);buList[i].销售=cur;buRender();setMark("bu");}
 function buRender(){const claimed=_claimedSales();
   // 池：库里有且未归属 + 配置 orphan 已在 claimed 外
   const poolNames=salesPool.map(p=>p.name).filter(n=>!claimed.has(n));
@@ -1495,7 +1530,7 @@ function buRender(){const claimed=_claimedSales();
   _bindDrag(document.getElementById("buBoard"));
   buRenderBatch();buUpdateUnassignedHint();buRenderAlloc();
   if(acctList.length)acctRender();}
-function buAdd(){buList.push({name:"",负责人:[],销售:[],分摊比例:null});buRender();}
+function buAdd(){buList.push({name:"",负责人:[],销售:[],分摊比例:null});buRender();setMark("bu");}
 function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;
   buList.splice(i,1);buRender();}
 async function loadBuCfg(){try{
@@ -1513,8 +1548,8 @@ async function buSave(){const m=document.getElementById("buMsg");m.textContent="
     const d=await jpost("/api/bu_config",{bus:payload,公共费用分摊启用:buAllocEnabledFromList()});
     buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售),
       分摊比例:(b.分摊比例==null||!d.公共费用分摊启用)?null:Number(b.分摊比例)}));
-    buRender();m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();}
-  catch(e){m.textContent="保存失败："+e.message;}}
+    buRender();m.textContent=(d.note||"已保存")+"（共 "+d.count+" 个 BU）";reloadDash();return true;}
+  catch(e){m.textContent="保存失败："+e.message;return false;}}
 
 // ---- 明细编辑（无限滚动加载）----
 let curTable="收入明细";

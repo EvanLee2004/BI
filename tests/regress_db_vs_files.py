@@ -20,10 +20,17 @@ import loaders, profit, db, ingest  # noqa: E402
 
 
 def summary_from_files(cfg, today, ledger_year):
+    # 手填自 v7 起以库为唯一可信源（管理端写库，手填与调整表.xlsx 不再回写）——
+    # 两条路径共用库里的 manual，红线只守护"5 个文件源入库==直读文件"这件事；
+    # 否则管理端一改手填，旧 xlsx 立即过时、红线永久假红（2026-07-13 实际踩到）。
+    conn = db.connect(cfg)
+    manual = db.load_manual(cfg, conn)
+    conn.close()
     lh, lr = loaders.load_ledger(cfg, str(ledger_year))
     return profit.build_summary(
         cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
-        loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, ledger_year, today)
+        loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, ledger_year, today,
+        manual_raw=manual)
 
 
 def summary_from_db(cfg, today, ledger_year):

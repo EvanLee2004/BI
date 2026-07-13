@@ -269,19 +269,33 @@ class TestViewerAuth(unittest.TestCase):
         again = [r for r in a.get("/api/accounts").json()["accounts"] if r["账号"] == "overall"][0]
         self.assertFalse(again["初始密码"])
 
-    def test_admin_console_has_accounts_card_no_global_save(self):
+    def test_admin_console_has_accounts_card_unified_save(self):
         html = server._ADMIN_CONSOLE
         self.assertIn("账号与权限", html)
         self.assertIn("BU 数据归属", html)
-        self.assertIn("保存账号", html)
-        self.assertIn("保存自动更新", html)
-        self.assertIn("保存备份设置", html)
+        # 设置页统一底部保存条（各卡就近保存按钮已删，改为标脏+底部一键保存）
+        self.assertIn("setSaveBar", html)
+        self.assertIn("保存全部设置", html)
+        self.assertIn("setSaveAll", html)
+        self.assertNotIn(">保存账号<", html)
+        self.assertNotIn("保存自动更新<", html)
+        self.assertNotIn("保存备份设置<", html)
         self.assertIn("智云账号 · 台账路径", html)   # 智云账号卡并入收单台账共享盘路径（F-01 配置分离）
         self.assertIn("sLedgerPath", html)          # 台账路径输入框
         self.assertIn("showToast", html)
-        self.assertNotIn("保存设置()", html)  # 去掉底部全局保存
         self.assertNotIn("登录密码（集中管理）", html)
         self.assertNotIn("密码（填=重置", html)
+
+    def test_admin_console_refresh_honesty(self):
+        """v1.0.4：更新按钮诚实化——全绿才「更新成功」；有降级/体检问题报「更新完成，但有 N 个问题」可点击跳体检明细。"""
+        html = server._ADMIN_CONSOLE
+        self.assertIn("refreshResultToast", html)
+        self.assertIn("更新完成，但有", html)
+        self.assertIn("更新成功", html)
+        self.assertIn("#toast.warn", html)
+        self.assertIn("#toast.clickable", html)
+        # 完成分支不再无条件报「数据已更新」
+        self.assertNotIn("数据已更新", html)
 
     def test_last_login_written(self):
         self._login("overall", server.DEFAULT_VIEW_PW)

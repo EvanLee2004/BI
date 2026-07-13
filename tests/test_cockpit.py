@@ -239,6 +239,23 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         self.assertNotIn("暂无部门年预算", html)
         self.assertNotIn(self.GRID, html)
 
+    def test_receipt_split_symmetric_half_half(self):
+        """v1.0.4：回款卡左图/右驾驶舱各占一半（明昊拍板），右栏不再压 280px。"""
+        import theme
+        css = theme.get_css()
+        self.assertIn(".rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
+        self.assertNotIn("minmax(200px,280px)", css)
+        self.assertNotIn(".rc-side{max-width:280px}", css)
+
+    def test_note_texts_enlarged(self):
+        """v1.0.4：口径/公式小字统一放大提亮（--note 色，chart-note/pr-formula >=13px）。"""
+        import theme
+        css = theme.get_css()
+        self.assertIn("--note:", css)
+        self.assertIn(".chart-note{font-size:13.5px;color:var(--note)", css)
+        self.assertIn(".pr-formula{margin-top:14px;padding:12px 16px", css)
+        self.assertNotIn(".chart-note{font-size:12.5px", css)
+
 
 class TestRankingsAndRanges(unittest.TestCase):
     """板块③排名（下单按部门/销售、回款按客户）+ 自定义月区间周期。"""

@@ -8,7 +8,7 @@ def get_css() -> str:
 :root{
   --bg:#04060d; --panel:rgba(16,24,46,.55); --panel-2:rgba(26,36,64,.72); --panel-solid:#0d1526;
   --line:rgba(125,211,252,.16); --line-2:rgba(125,211,252,.30);
-  --ink:#eaf1ff; --mut:#93a1c0; --mut2:#5f6d92;
+  --ink:#eaf1ff; --mut:#93a1c0; --mut2:#5f6d92; --note:#b6c3e0;
   --blue:#22d3ee; --cost:#64769e; --pos:#34d399; --neg:#fb7185; --orange:#fbbf24;
   --purple:#c084fc; --teal:#2dd4bf; --track:rgba(148,163,184,.14);
   --kind-system:#38bdf8; --kind-ledger:#c084fc; --kind-manual:#fbbf24;
@@ -19,7 +19,7 @@ def get_css() -> str:
 .theme-light{
   --bg:#eef1f5; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
   --line:#e3e8ef; --line-2:#d5dde8;
-  --ink:#233043; --mut:#6b7480; --mut2:#98a1ad;
+  --ink:#233043; --mut:#6b7480; --mut2:#98a1ad; --note:#4a5568;
   --blue:#2E6FAD; --cost:#9aa6b8; --pos:#12805c; --neg:#d1503f; --orange:#d98a2b;
   --purple:#7a5ba8; --teal:#1a9e8f; --track:#eef1f4;
   --kind-system:#2E6FAD; --kind-ledger:#7a5ba8; --kind-manual:#c47d1f;
@@ -101,7 +101,7 @@ body{
 .card{background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);
   border-radius:var(--radius);padding:18px 20px;box-shadow:var(--glow)}
 .card-h{font-size:13.5px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
-.card-h .tag{font-size:12.5px;color:var(--mut);font-weight:500}
+.card-h .tag{font-size:13px;color:var(--note);font-weight:500}
 
 /* 基本情况 KPI（5 卡） */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -117,7 +117,7 @@ body{
 .kpi-cum{font-size:24px;font-weight:700;line-height:1.05;letter-spacing:.5px}
 .kpi-cum .u{font-size:12px;font-weight:500;color:var(--mut);margin-left:2px}
 .kpi-cum-l{font-size:10.5px;color:var(--mut2);margin-bottom:6px}
-.kpi-sub{font-size:11px;color:var(--mut);margin-top:5px}
+.kpi-sub{font-size:12px;color:var(--note);margin-top:5px}
 .kpi-sub b{color:var(--ink);font-weight:700}
 .kpi-note{font-size:9.5px;color:var(--mut2);margin-top:3px;line-height:1.35}
 .kpi-delta{font-size:11px;margin-top:5px;font-variant-numeric:tabular-nums;font-weight:600}
@@ -140,11 +140,11 @@ body{
 .kpi-mo{font-size:12px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .kpi-mo b{color:var(--ink);font-weight:600}
 .kpi-src{font-size:9.5px;color:var(--mut2);margin-top:6px}
-.chart-note{font-size:12.5px;color:var(--mut);margin-top:8px;line-height:1.55;opacity:.95}
-.faint-note,.kpi-note{font-size:12px!important;color:var(--mut)!important;line-height:1.5}
+.chart-note{font-size:13.5px;color:var(--note);margin-top:8px;line-height:1.55}
+.faint-note,.kpi-note{font-size:13px!important;color:var(--note)!important;line-height:1.5}
 
 /* —— 板块③ 收入与毛利结构：小字整体放大+统一、集中度突出、计算逻辑条（scoped 到 .pr-grid，不动板块④）—— */
-.pr-grid .card-h .tag{font-size:12px}
+.pr-grid .card-h .tag{font-size:13px}
 .pr-grid .card-h .conc{margin-left:2px;font-size:12px;color:var(--mut);font-weight:500;
   display:inline-flex;align-items:baseline;gap:5px;white-space:nowrap}
 .pr-grid .card-h .conc b{font-size:17px;font-weight:800;color:var(--accent);
@@ -156,21 +156,20 @@ body{
 .pr-grid .rk-open{font-size:12px}
 .pr-grid .ev-row{padding:6px}
 /* 计算逻辑条：静态口径公式，放两卡下方（统一小字放大到 12.5px，注释 11.5px） */
-.pr-formula{margin-top:14px;padding:11px 16px;border:1px solid var(--line);border-radius:10px;
-  background:var(--panel);font-size:12.5px;color:var(--mut);line-height:1.6;
+.pr-formula{margin-top:14px;padding:12px 16px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);font-size:13.5px;color:var(--note);line-height:1.6;
   display:flex;flex-wrap:wrap;align-items:baseline;gap:7px 22px}
-.pr-formula .pr-f-h{color:var(--accent);font-weight:700;font-size:12.5px}
+.pr-formula .pr-f-h{color:var(--accent);font-weight:700;font-size:13.5px}
 .pr-formula .pr-f-item b{color:var(--ink);font-weight:600}
-.pr-formula .pr-f-item i{color:var(--mut2);font-style:normal;font-size:11.5px;margin-left:5px}
+.pr-formula .pr-f-item i{color:var(--mut);font-style:normal;font-size:12.5px;margin-left:5px}
 
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
 /* 回款情况：左图为主（≥70%）、右栏紧凑指标卡 */
-.rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,280px);gap:12px 16px;align-items:stretch;margin-top:6px}
+.rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px;align-items:stretch;margin-top:6px}
 .rc-card .rc-body{min-width:0;flex:1}
 .rc-card .rc-body svg{max-height:360px;width:100%;min-height:280px}
-.rc-side{max-width:280px}
 .rc-side{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
@@ -254,7 +253,7 @@ body{
 .dot.system{background:var(--kind-system)} .dot.ledger{background:var(--kind-ledger)}
 .dot.manual{background:var(--kind-manual)} .dot.none{background:transparent}
 .pl-name{font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:7px}
-.pl-name .src{font-size:10.5px;color:var(--mut2)}
+.pl-name .src{font-size:11.5px;color:var(--mut)}
 .pl-amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .pl-row.total{border-top:1px solid var(--line-2);border-bottom:none}
 .pl-row.total .pl-name{font-weight:700;font-size:14.5px}
@@ -308,7 +307,7 @@ body{
 /* C1' 极淡小字：老板端不放预警 banner，仅留一行很淡的兜底提示（未分类费用未计入→利润略偏高）*/
 .faint-note{margin-top:14px;text-align:center;font-size:11px;color:var(--mut2);opacity:.65}
 
-.foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--mut2);line-height:1.7}
+.foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut);line-height:1.7}
 
 /* 全局周期选择器 */
 .pbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:4px 0 2px;padding:9px 13px;
@@ -539,7 +538,7 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .pl-drow{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .pl-drow:last-child{border-bottom:0}
 .pl-drow .pl-name{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.pl-drow .pl-name .src{font-size:10.5px;color:var(--mut2)}
+.pl-drow .pl-name .src{font-size:11.5px;color:var(--mut)}
 .pl-drow.sub .pl-name{padding-left:22px;font-size:12px;color:var(--mut)}
 .pl-drow.sub .pl-name .src{display:none}
 .pl-drow .pl-amt{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
