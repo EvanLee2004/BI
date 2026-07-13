@@ -295,6 +295,25 @@ class TestAdminWrite(unittest.TestCase):
         # F-01：全程 config.json 一个字节没动
         self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before_cfg)
 
+    def test_bootstrap_page_when_no_data(self):
+        """F-02 鸡生蛋修复：admin_html 未生成（空机器首次部署）→ 管理员登录后出引导页
+        （可填智云账号+触发立即更新），而不是死板一句"数据尚未生成"；有 admin_html 则正常页。"""
+        old = server._state["admin_html"]
+        try:
+            server._state["admin_html"] = ""          # 模拟首次部署：从未取数成功
+            r = self.client.get("/admin", headers=self.hdr)
+            self.assertEqual(r.status_code, 200)
+            for anchor in ("首次取数", 'id="go"', "/api/settings", "/api/refresh"):
+                self.assertIn(anchor, r.text, f"引导页缺锚点 {anchor}")
+            self.assertNotIn("数据尚未生成", r.text)
+            # 未登录仍是登录页，不给引导页（引导页会回显智云账号）
+            r = self.anon.get("/admin")
+            self.assertNotIn("首次取数", r.text)
+        finally:
+            server._state["admin_html"] = old
+        r = self.client.get("/admin", headers=self.hdr)  # 有数据 → 正常管理端，不出引导页
+        self.assertNotIn("首次取数", r.text)
+
     def test_settings_requires_login(self):
         self.assertEqual(self.anon.get("/api/settings").status_code, 401)
         self.assertEqual(self.anon.post("/api/settings", json={}).status_code, 401)

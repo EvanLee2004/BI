@@ -4,6 +4,7 @@ openpyxl==3.1.5
 fastapi==0.139.0
 uvicorn==0.50.2
 requests==2.32.5   # 智云自动抓数(fetch_zhiyun)用
+python-multipart==0.0.32  # FastAPI 登录表单(Form)解析用；2026-07-14 部署机实测缺它启动崩，勿删
 playwright==1.61.0 # 智云账号密码自动登录(login_zhiyun)用；装完还须 playwright install chromium
 # fastapi 传递依赖（pip 自动装，列出便于离线打 wheel）：starlette==1.3.1 pydantic==2.13.4
 
