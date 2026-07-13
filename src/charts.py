@@ -162,46 +162,46 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
 
 def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
                         budget_month: float | None = None) -> str:
-    """回款按月柱图 + 叠加"每月回款下单率"折线。series=[(label, 回款, 下单, 率%或None), ...]。
-    率线按本串最大率归一（无第二坐标轴，精确值看悬浮，沿用组合图做法）；率为 None 的月不画点。
-    整宽时限制 max-height，避免再次显得「特别大」。"""
-    w, h = 580, 200
-    pl, pr, pt, pb = 64, 40, 16, 30
+    """回款按月柱图 + 回款下单率折线。柱顶常显回款额（万），点旁常显率%；悬浮仍有完整明细。"""
+    w, h = 640, 248
+    pl, pr, pt, pb = 56, 44, 28, 36
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)
     if n == 0:
         return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
     mx = max((v for _, v, _, _ in series), default=0) or 1
     if budget_month:
-        mx = max(mx, budget_month * 1.15)  # 预算线要在图内，柱轴上限随之抬
+        mx = max(mx, budget_month * 1.15)
     ratios = [r for _, _, _, r in series if r is not None]
     rmx = max(ratios) if ratios else 0
     rmx_axis = rmx or 1
     gw = plot_w / n
-    bw = min(gw * 0.5, 34)
+    bw = min(gw * 0.48, 36)
     parts, hits, line_pts = [], [], []
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
         parts.append(f'<text x="{pl-8}" y="{y+3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
                      f'{"0" if frac==0 else fmt_wan(mx*frac)+"万"}</text>')
-        if ratios:  # 右轴：回款下单率刻度
+        if ratios:
             parts.append(f'<text x="{w-pr+7}" y="{y+3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
                          f'{rmx_axis*frac:.0f}%</text>')
     for i, (label, rec, _order, ratio) in enumerate(series):
         cx = pl + gw * i + gw / 2
-        bh = max(1.0, rec / mx * plot_h)
+        bh = max(1.0, rec / mx * plot_h) if rec else 0.0
+        by = pt + plot_h - bh
         parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
-                     f'x="{cx-bw/2:.1f}" y="{pt+plot_h-bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="3" fill="{color}"/>')
-        parts.append(f'<text x="{cx:.1f}" y="{h-pb+17:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
+                     f'x="{cx-bw/2:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{max(bh, 1.0):.1f}" rx="3" fill="{color}"/>')
+        # 柱顶常显回款额（万）
+        amt_y = max(pt + 10, by - 4)
+        parts.append(f'<text x="{cx:.1f}" y="{amt_y:.1f}" text-anchor="middle" font-size="10" font-weight="700" '
+                     f'fill="{INK}">{fmt_wan(rec)}</text>')
+        parts.append(f'<text x="{cx:.1f}" y="{h-pb+16:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
         if ratio is not None:
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
-            line_pts.append((cx, ly))
+            line_pts.append((cx, ly, ratio))
         rtip = f"<br>回款下单率&nbsp;{ratio:.1f}%" if ratio is not None else "<br>回款下单率&nbsp;—（当月无下单）"
-        rec_share = (rec / mx * 100) if mx else 0
-        _o = f"{fmt_wan(_order)}万"
-        tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;({rec_share:.0f}%)"
-               f"&nbsp;·&nbsp;下单&nbsp;{_o}{rtip}")
+        tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{fmt_wan(_order)}万{rtip}")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
                     f'height="{plot_h:.1f}" fill="transparent"/>')
     if budget_month:
@@ -211,19 +211,23 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         parts.append(f'<text x="{w-pr-4}" y="{by-5:.1f}" text-anchor="end" font-size="10" fill="{TEAL}">'
                      f'月均预算 {fmt_wan(budget_month)}万</text>')
     if len(line_pts) >= 2:
-        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
-        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y, _ in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _ in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.5" '
                      f'stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 4px {ORANGE})"/>')
         parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2.5" '
                      f'stroke-linejoin="round" stroke-linecap="round"/>')
         parts.append(f'<circle class="comet" r="3.6" fill="#fff">'
                      f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
-    for x, y in line_pts:
+    for x, y, ratio in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{ORANGE}"/>')
-    legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额</span>'
-              f'<span><i style="background:{ORANGE}"></i>回款下单率</span>'
-              f'<span style="margin-left:auto;color:{MUT2}">悬浮看当月回款/下单/率</span></div>')
-    return (f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:240px;display:block">'
+        # 点旁常显回款下单率
+        ry = y - 8 if y > pt + 16 else y + 14
+        parts.append(f'<text x="{x:.1f}" y="{ry:.1f}" text-anchor="middle" font-size="9.5" font-weight="700" '
+                     f'fill="{ORANGE}">{ratio:.0f}%</text>')
+    legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额（柱顶=万）</span>'
+              f'<span><i style="background:{ORANGE}"></i>回款下单率（点旁=%）</span>'
+              f'<span style="margin-left:auto;color:{MUT2}">悬浮看下单额明细</span></div>')
+    return (f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:280px;display:block">'
             f'{"".join(parts)}{"".join(hits)}</svg>{legend}')
 

@@ -85,10 +85,11 @@ def _amt(v, colored=False, muted=False):
 
 def _target_bar(budget, tkey, pkey, year, p):
     """KPI 下业务目标进度条。tkey=order/receipt/margin；无目标→空态小字。
-    年视图用年目标；H1/1-6 月区间优先用半年目标。"""
+    仅「1-6 月」区间用 H1 目标；Q1≠H1（勿把 Q1 当上半年）。年目标 done=全年累计。"""
     if not budget or not tkey:
         return ""
-    use_h1 = ("Q1" in pkey) or ("1-6" in pkey) or (pkey.endswith("1-6月"))
+    # 仅明确的 1–6 月区间用 H1；Q1 仍用年目标
+    use_h1 = ("1-6" in pkey) or pkey.endswith("1-6月") or ("1~6" in pkey)
     item = None
     label = "年目标"
     if use_h1 and budget.get(f"{tkey}_h1"):
@@ -101,8 +102,11 @@ def _target_bar(budget, tkey, pkey, year, p):
         return '<div class="kpi-tgt muted">未设目标</div>'
     tgt, done, pct = item.get("target"), item.get("done"), item.get("pct")
     if tkey == "margin":
-        # 毛利率：当前 X% · 目标 Y%
-        cur = p.get("gross_margin_pct")
+        # 「当前」必须与达成率同一口径：H1 用 item.done，否则用本周期毛利率
+        if use_h1 and item.get("done") is not None:
+            cur = item["done"]
+        else:
+            cur = p.get("gross_margin_pct")
         cur_s = f"{cur:.1f}%" if cur is not None else "—"
         pct_s = f"{pct:.0f}%" if pct is not None else "—"
         w = min(max(pct or 0, 0), 100)
@@ -110,9 +114,8 @@ def _target_bar(budget, tkey, pkey, year, p):
         return (f'<div class="kpi-tgt"><div class="kpi-tgt-h">{label} {tgt:.1f}% · 当前 <b>{cur_s}</b></div>'
                 f'<span class="kpi-tgt-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
                 f'<div class="kpi-tgt-n">达成 {pct_s}</div></div>')
-    # 金额类：完成 / 目标 · 进度
+    # 金额类：完成 / 目标 · 进度（年目标 done 为全年累计，标签已写「年目标」）
     if done is None:
-        # 周期切换时用当前 KPI 值作完成（年目标对任意周期累计完成）
         done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
         pct = (done / tgt * 100.0) if tgt else None
     pct_s = f"{pct:.1f}%" if pct is not None else "—"
@@ -352,13 +355,39 @@ def _budget_tag(budget):
     return f'<span class="tag">{"　".join(parts)}</span>' if parts else ""
 
 
+def _receipt_month_table(receipt_order_monthly):
+    """回款右侧：逐月数字表（不悬停也能看到金额/率），填满空半边。"""
+    if not receipt_order_monthly:
+        return '<div class="rc-side-empty">暂无按月数据</div>'
+    rows = ""
+    tot_r = tot_o = 0.0
+    for label, rec, order, ratio in receipt_order_monthly:
+        tot_r += rec or 0
+        tot_o += order or 0
+        rtxt = f"{ratio:.0f}%" if ratio is not None else "—"
+        rows += (f'<div class="rc-mrow"><span class="rc-m">{_esc(label)}</span>'
+                 f'<span class="rc-v">{charts.fmt_wan(rec)}</span>'
+                 f'<span class="rc-v mut">{charts.fmt_wan(order)}</span>'
+                 f'<span class="rc-r">{rtxt}</span></div>')
+    ytd_r = (tot_r / tot_o * 100) if tot_o else None
+    ytd_txt = f"{ytd_r:.0f}%" if ytd_r is not None else "—"
+    return (f'<div class="rc-side-h"><span>月</span><span>回款(万)</span><span>下单(万)</span><span>率</span></div>'
+            f'<div class="rc-side-list">{rows}</div>'
+            f'<div class="rc-side-tot">全年合计 · 回款 <b>{charts.fmt_wan(tot_r)}</b>万 · 下单 <b>{charts.fmt_wan(tot_o)}</b>万 · 率 <b>{ytd_txt}</b></div>')
+
+
 def render_receipts(receipt_order_monthly, budget=None):
+    """回款图 + 右侧月度数字表（左右并排，避免图右侧大块空白）。"""
     rb = (budget or {}).get("receipt") if budget else None
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
-    return (f'<div class="card"><div class="card-h">回款情况 <span class="tag">按月 · 柱=到账额，线=每月回款下单率</span>'
+    side = _receipt_month_table(receipt_order_monthly)
+    return (f'<div class="card rc-card"><div class="card-h">回款情况 '
+            f'<span class="tag">按月 · 柱顶=回款万 · 点旁=回款下单率%</span>'
             f'{_budget_tag(budget)}</div>'
-            f'<div class="rc-body">{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}'
-            f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。</div></div></div>')
+            f'<div class="rc-split">'
+            f'<div class="rc-body">{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}</div>'
+            f'<div class="rc-side">{side}</div></div>'
+            f'<div class="chart-note">回款下单率 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。右侧表与左图同一数据，无需悬停。</div></div>')
 
 
 # ---------- 板块③ 下单与回款排名（随周期切）----------
@@ -876,8 +905,7 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
-    # 回款情况：迭代19 陆总拍板去掉部门费用年预算卡（半吊子汇总无意义，完整版后置）
-    # 回款恢复整宽；图表 SVG 本身响应式，不另撑巨高
+    # 回款情况：图+右侧月度数字表（填满宽屏空白；部门费用预算卡已下线）
     receipts_html = render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))
     receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
 

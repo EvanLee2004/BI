@@ -453,22 +453,19 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     )
     health = _data_health(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                           ledger_rows, ledger_year, lcols, P, today, unclassified, month_keys, manual_raw)
-    # H1 合成周期键（1–6 月）；不存在时 h1_period=None（目标块仅年）
+    # H1=1–6 月：优先用合成区间；没有则按月累加（绝不用 Q1 冒充 H1）
     h1_key = f"{today.year}年1-6月"
-    h1_period = P.get(h1_key) or P.get(f"{today.year}年Q1")  # 兜底：无 1-6 区间时至少不崩
-    # 若无 1-6 月区间，用 1~min(6,cur) 月累加近似 H1 完成
-    if h1_key not in P and month_keys:
+    h1_period = P.get(h1_key)
+    if h1_period is None and month_keys:
         h1_ms = [k for k in month_keys if k in P and _month_num(k) <= 6]
         if h1_ms:
+            g = sum(P[k]["gross_profit"] for k in h1_ms)
+            n = sum(P[k]["revenue_net"] for k in h1_ms)
             h1_period = {
                 "orders": sum(P[k]["orders"] for k in h1_ms),
                 "receipts": sum(P[k]["receipts"] for k in h1_ms),
-                "gross_margin_pct": P[h1_ms[-1]].get("gross_margin_pct") if h1_ms else 0.0,
+                "gross_margin_pct": round(g / n * 100, 2) if n else 0.0,
             }
-            # 毛利率用 H1 累计：Σ毛利/Σ收入
-            g = sum(P[k]["gross_profit"] for k in h1_ms)
-            n = sum(P[k]["revenue_net"] for k in h1_ms)
-            h1_period["gross_margin_pct"] = round(g / n * 100, 2) if n else 0.0
     return {
         "meta": {
             "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),

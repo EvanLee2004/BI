@@ -165,9 +165,30 @@ body{
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
-/* 回款情况：迭代19 起单独整宽（部门费用预算卡已下线）；.rc-body 限高防图过大 */
-.period-receipts .rc-body{max-height:280px}
-.period-receipts .rc-body svg{max-height:240px}
+/* 回款情况：左图右表（填满宽屏；柱顶/点旁常显数字） */
+.rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(220px,0.9fr);gap:14px 18px;align-items:stretch;margin-top:6px}
+.rc-card .rc-body{min-width:0}
+.rc-card .rc-body svg{max-height:280px;width:100%}
+.rc-side{border:1px solid var(--line);border-radius:10px;padding:8px 10px 10px;background:var(--panel-2);
+  display:flex;flex-direction:column;min-height:0;max-height:300px}
+.rc-side-h{display:grid;grid-template-columns:36px 1fr 1fr 40px;gap:4px;font-size:10.5px;color:var(--mut2);
+  padding:2px 4px 6px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.rc-side-list{overflow:auto;flex:1 1 auto;padding:2px 0}
+.rc-mrow{display:grid;grid-template-columns:36px 1fr 1fr 40px;gap:4px;align-items:baseline;
+  padding:5px 4px;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.rc-mrow:last-child{border-bottom:0}
+.rc-m{font-size:12px;color:var(--mut);font-weight:600}
+.rc-v{font-size:12.5px;color:var(--ink);font-weight:700;text-align:right;font-family:var(--num-font)}
+.rc-v.mut{color:var(--mut);font-weight:600;font-size:12px}
+.rc-r{font-size:12px;color:var(--orange);font-weight:700;text-align:right}
+.rc-side-tot{flex:0 0 auto;margin-top:6px;padding-top:8px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--mut);line-height:1.45}
+.rc-side-tot b{color:var(--ink);font-weight:700}
+.rc-side-empty{padding:24px 8px;text-align:center;color:var(--mut2);font-size:12.5px}
+@media(max-width:900px){
+  .rc-card .rc-split{grid-template-columns:1fr}
+  .rc-side{max-height:none}
+}
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
 .pl-card > .card-h{flex:0 0 auto}
