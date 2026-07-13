@@ -256,21 +256,41 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """分摊关：暂不分摊 / 待陆总手填；有返回整体 + 基本情况 KPI；不含全公司出口。"""
+        """分摊关：无台账直记时说明无费用；有返回整体 + 基本情况；不含全公司出口。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._pages()["BU甲"]["html"]
-        self.assertIn("暂不分摊", h)
-        self.assertIn("待陆总", h)
-        self.assertIn("基本情况", h)  # 迭代18：BU 页也有基本情况
+        # 合成数据无台账 → 应提示本BU无台账费用（不再假写「暂不分摊」藏金额）
+        self.assertTrue(
+            ("本BU无台账" in h) or ("台账·本BU" in h) or ("利润归属中心" in h),
+            "BU 页应说明费用口径（直记/无费用）")
+        self.assertIn("基本情况", h)
         self.assertIn("返回整体", h)
         self.assertIn('href="/"', h)
         self.assertNotIn("exportBtn", h)
         self.assertNotIn("dailyBtn", h)
         self.assertNotIn("dailyPanel", h)
         self.assertNotIn("/api/daily", h)
-        self.assertNotIn("按40%分摊", h)  # 未开分摊不显示比例标注
+        self.assertNotIn("按40%分摊", h)
         self.assertNotIn("按 40%", h)
 
+    def test_page_shows_direct_ledger_fees_when_present(self):
+        """有「利润归属中心=本BU」台账行时，BU 页必须显示费用金额，不得写暂不分摊藏数。"""
+        conn = db.connect(self.cfg, self.root)
+        # 给销售A 所在 BU 甲挂一笔台账费用（业务BU=BU甲 归一后需等于配置名；此处直接用 BU甲）
+        conn.execute(
+            "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,"
+            "预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,0)",
+            ("E1", 3, "2026-03-05", 50000.0, "BU甲", "市场费用", "推广", "测试部", "2026-03", "2026-03"))
+        conn.commit()
+        conn.close()
+        _write_bucfg(self.cfg, self.root, _two_bus())
+        h = self._pages()["BU甲"]["html"]
+        self.assertNotIn("公共费用·暂不分摊", h)
+        self.assertIn("营销费用", h)
+        # 5万 → 5.0万 展示
+        self.assertIn("5.0万", h)
+        self.assertIn("利润归属中心", h)
     def test_page_alloc_on_shows_ratio_not_other_bu(self):
         """分摊开：本 BU 显示比例分摊标注；不泄漏他 BU 名与他 BU 比例。"""
         data = {"bus": [
@@ -281,11 +301,13 @@ class TestBuPages(_Base):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         h = self._pages()["BU甲"]["html"]
-        self.assertIn("按40%分摊", h)
-        self.assertIn("按 <b>40%</b>", h)  # faint 注记
+        # 分摊开：脚注/图例带 40%；不泄漏他 BU 名与「按60%」分摊文案
+        self.assertTrue("40%" in h, "应显示本 BU 40% 分摊")
+        self.assertTrue(("<b>40%</b>" in h) or ("公共×40%" in h) or ("公共40%" in h),
+                        "脚注/图例应标注 40% 分摊")
         self.assertNotIn("BU乙", h)
-        self.assertNotIn("按60%分摊", h)
-        self.assertNotIn("按 <b>60%</b>", h)
+        self.assertNotIn("按60%", h)
+        self.assertNotIn("公共×60%", h)
         self.assertNotIn("/api/daily", h)
 
     def test_xss_escaped(self):

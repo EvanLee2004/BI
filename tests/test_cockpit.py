@@ -51,14 +51,20 @@ class TestReconcile(unittest.TestCase):
 
 
 class TestManualDefault(unittest.TestCase):
-    """手填：某月没填 → default=prev 取上月、default=zero 取0。"""
-    def test_carry_forward(self):
+    """手填：现行 default=zero，当月未填=0（不再沿用上月）。"""
+    def test_no_carry_forward(self):
         cfg = loaders.load_config()
         raw = {"2024-06": {"研发人力成本": 150000, "其他损益": 5000}}  # 7月都没填
         filled = profit.build_manual_monthly(cfg, raw, 2024, 7)
-        self.assertEqual(filled[(2024, 7)]["研发人力成本"], 150000)  # prev → 取6月
-        self.assertEqual(filled[(2024, 7)]["其他损益"], 0.0)         # zero → 不继承，回0
+        self.assertEqual(filled[(2024, 7)]["研发人力成本"], 0.0)     # zero → 不继承
+        self.assertEqual(filled[(2024, 7)]["其他损益"], 0.0)
+        self.assertEqual(filled[(2024, 6)]["研发人力成本"], 150000)  # 有填的月保留
         self.assertEqual(filled[(2024, 6)]["营销人力成本"], 0.0)     # 从没填过 → 0
+        # 兼容：显式 default=prev 仍可沿用
+        cfg2 = {"manual_items": [{"name": "X", "default": "prev"}, {"name": "Y", "default": "zero"}]}
+        f2 = profit.build_manual_monthly(cfg2, {"2024-06": {"X": 10}}, 2024, 7)
+        self.assertEqual(f2[(2024, 7)]["X"], 10)
+        self.assertEqual(f2[(2024, 7)]["Y"], 0.0)
 
 
 class TestValueGuards(unittest.TestCase):
@@ -147,7 +153,7 @@ class TestValidate(unittest.TestCase):
 
 
 class TestReceiptOrderRatio(unittest.TestCase):
-    """A2 回款下单率：每期 = 回款÷下单×100（无下单置 None）；逐月序列与月周期对齐。"""
+    """A2 回款/下单比：每期 = 回款÷下单×100（无下单置 None）；逐月序列与月周期对齐。"""
     def test_period_ratio_matches_formula(self):
         _, S = _summary()
         for key, p in S["periods"].items():

@@ -2,18 +2,19 @@
 # -*- coding: utf-8 -*-
 """经营利润计算：年/季/月全周期矩阵，算到「税前利润」。全部在 Python 算完，前端不做任何金额运算。
 
-口径（陆总 2026-07-03 定稿）：
+口径（陆总 2026-07-03 定稿 + 2026-07 完善）：
 - 收入(不含税) = Σ交付额/本币 ÷ (1+税率)，按整单交付日期。
 - 生产成本 = 系统直接成本(项目成本) − 系统内部译员成本(in-house本币结算) + 手填6项(PM/VM/实际内部译员/税费损失/技术流量/其他)。
-- 毛利 = 收入 − 生产成本。
+- 毛利(管理/完整) = 收入 − 生产成本。 结构板块「项目直接毛利」= 收入 − 项目成本（未含内译/手填）。
 - 营销费用 = 营销人力成本(手填) + 市场费用(台账)；管理费用 = 管理人力成本(手填) + 管理费用(台账)；
   固定运营费用(台账)；研发费用 = 研发人力成本(手填) + 技术服务费(台账)；
   财务费用 = 财务费用(台账) + 财务费用补充(手填)。
-- 附加税费 = 增值税额 × 附加税率（增值税=不含税收入×6%，附加=×12%），系统自动算。
-  注意基数是**不含税收入 net**（net×6% 恰等于增值税额 gross−net），不是含税交付额 gross——别写成"收入×6%×12%"引歧义。
+- 附加税费 = 增值税额 × 附加税率（管理估算·非税务实缴；增值税=不含税收入×6%，附加=×12%）。
 - 其他损益(手填，默认0)。
 - 税前利润 = 毛利 − 营销 − 管理 − 固定运营 − 研发 − 财务 − 附加税费 + 其他损益。
-- 手填项：某月没填 → default=prev 取上月、default=zero 取0；年/季周期 = 期间内各月手填之和。
+- 手填项：某月没填 → 0（不再沿用上月）；年/季 = 期间内各月之和。
+- 回款/下单比 = 本期回款 ÷ 本期下单（资金节奏，非当月回收率）。
+- BU 页费用：台账「利润归属中心」直记本 BU + 公共池×分摊比例（可选）；手填可按 BU 范围。
 """
 from __future__ import annotations
 
@@ -267,7 +268,9 @@ def build_dept_budget_block(dept_budget_raw, dept_rows_year, year):
 
 # ---------- 手填（月度填充 + 按周期汇总） ----------
 def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> dict[tuple[int, int], dict[str, float]]:
-    """把手填表补成每月一份（1..cur_month）：default=prev 缺则取上月、default=zero 缺则取0。"""
+    """把手填表补成每月一份（1..cur_month）。
+    default=zero（现行）：缺月/缺项 = 0，不再沿用上月（陆总当月必填）。
+    default=prev：兼容旧配置，缺则取上月。"""
     items = cfg["manual_items"]
     filled: dict[tuple[int, int], dict[str, float]] = {}
     for m in range(1, cur_month + 1):
@@ -276,7 +279,7 @@ def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> di
         cur: dict[str, float] = {}
         prev = filled.get((year, m - 1), {})
         for it in items:
-            name, dflt = it["name"], it["default"]
+            name, dflt = it["name"], it.get("default", "zero")
             if name in row:
                 cur[name] = row[name]
             elif dflt == "prev":
@@ -285,6 +288,20 @@ def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> di
                 cur[name] = 0.0
         filled[(year, m)] = cur
     return filled
+
+
+def manual_missing_months(cfg, manual_raw: dict, year: int, cur_month: int) -> list[str]:
+    """当月及之前：有任一「应填」手填项完全未录入的月份列表（用于体检/提示）。"""
+    items = [it["name"] for it in cfg.get("manual_items") or []]
+    if not items:
+        return []
+    miss = []
+    for m in range(1, cur_month + 1):
+        key = f"{year}-{m:02d}"
+        row = manual_raw.get(key) or {}
+        if not any(name in row for name in items):
+            miss.append(key)
+    return miss
 
 
 def manual_for_period(cfg, filled, start, end, cur_date) -> dict[str, float]:
@@ -323,7 +340,7 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
 
     orders_amt = compute_orders(order_rows, cols_cfg, start, end)
     receipts_amt = compute_receipts(receipt_rows, cols_cfg, start, end)
-    # 回款下单率 = 本期回款 ÷ 本期下单（资金回笼节奏参考，非当期回收率）；无下单则无意义置 None
+    # 回款/下单比 = 本期回款 ÷ 本期下单（资金回笼节奏，非当月回收率）；无下单 → None
     receipt_order_ratio = round(receipts_amt / orders_amt * 100, 2) if orders_amt else None
 
     return {
@@ -441,7 +458,7 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     trend = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["revenue_net"], P[k]["production_cost"],
               P[k]["gross_margin_pct"]) for k in month_keys]
     receipt_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"]) for k in month_keys]
-    # 回款柱图叠加"每月回款下单率"用：逐月 (标签, 回款, 下单, 回款下单率%)；率为 None 表示当月无下单
+    # 回款柱图叠加"每月回款/下单比"用：逐月 (标签, 回款, 下单, 回款/下单比%)；率为 None 表示当月无下单
     receipt_order_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"],
                              P[k]["orders"], P[k]["receipt_order_ratio_pct"]) for k in month_keys]
 
@@ -505,11 +522,11 @@ def compute_unassigned_orders_by_period(order_rows, assigned_set, cols_cfg, toda
             for key, (label, start, end, group) in ranges.items()}
 
 
-# 空台账表头（与 db.LEDGER_STD_COLS 同序；BU 口径=公共费用暂不分摊 → 台账费用恒 0）
+# 空台账表头（与 db.LEDGER_STD_COLS 同序）
 _BU_EMPTY_LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU",
                            "对应报表大类", "预算明细费用类型", "预算归属部门"]
 
-# 台账 5 类公共费用 → 利润表费用行（分摊只摊台账、不摊手填人力）
+# 台账 5 类 → 利润表费用行
 _LEDGER_TO_EXPENSE = {
     "市场费用": "营销费用",
     "管理费用": "管理费用",
@@ -518,24 +535,64 @@ _LEDGER_TO_EXPENSE = {
     "财务费用": "财务费用",
 }
 
+# 利润归属中心 → 业务 BU 名归一（台账写法多样）
+_PC_TO_BU = {
+    "数据": "数据", "数据部门": "数据", "数据BU": "数据",
+    "游戏": "游戏", "游戏部门": "游戏", "游戏BU": "游戏",
+    "营销": "营销", "传统营销": "营销", "营销中心": "营销", "语言": "营销",
+}
+_PUBLIC_PC = {"公共", "集团", "财务", "财务部", "公司", "全公司", "总部"}
+
+
+def normalize_profit_center(raw) -> str:
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    if s in _PUBLIC_PC:
+        return "公共"
+    return _PC_TO_BU.get(s, s)
+
+
+def filter_ledger_rows_by_pc(header, rows, want: set[str]) -> list:
+    """按利润归属中心(业务BU列)过滤台账行。want 为归一后中心名集合，如 {\"数据\"} 或 {\"公共\"}。"""
+    if not rows or not header:
+        return []
+    try:
+        idx = list(header).index("业务BU")
+    except ValueError:
+        return []
+    want_n = {normalize_profit_center(x) for x in want if str(x).strip()}
+    out = []
+    for row in rows:
+        if not row or len(row) <= idx:
+            continue
+        pc = normalize_profit_center(row[idx])
+        if pc in want_n:
+            out.append(row)
+    return out
+
 
 def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set,
                      *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False,
-                     budget_raw=None):
-    """单 BU summary：四源行按销售名单过滤后，**复用 build_summary 全套口径**（公式一字不改）。
-    公共费用：默认暂不分摊 → 传空台账（台账费用项恒 0）；
-    分摊开且给了比例 → 在空台账结果上按全公司台账 5 类×比例注入（见 apply_public_expense_allocation）。
-    手填按 BU 陆总还没填 → 传空手填（恒 0，页面标注"待陆总手填"）。
-    budget_raw=该 BU 的业务目标（范围=BU 名）；部门费用预算不进 BU 页。
-    默认（关）：税前利润=毛利−附加税费；开：税前=毛利−分摊公共−附加税费。"""
+                     budget_raw=None, ledger_header=None, ledger_rows=None, ledger_year=None,
+                     manual_raw=None, bu_name: str | None = None):
+    """单 BU summary：智云四源按销售过滤；台账按利润归属中心直记本 BU；
+    公共池（利润归属中心=公共）× 分摊比例叠加（可选）；手填可按 BU 范围注入。
+    兼容旧测：不传 ledger → 空台账；company_ledger_by_period 视为「公共池」费用字典。"""
+    lh = list(ledger_header) if ledger_header is not None else list(_BU_EMPTY_LEDGER_HEADER)
+    lr = list(ledger_rows) if ledger_rows is not None else []
+    ly = ledger_year if ledger_year is not None else today.year
+    man = manual_raw if manual_raw is not None else {}
     s = build_summary(
         cfg,
         filter_rows_by_sales(project_rows, sales_set),
         filter_rows_by_sales(order_rows, sales_set),
         filter_rows_by_sales(receipt_rows, sales_set),
         filter_rows_by_sales(inhouse_rows, sales_set),
-        list(_BU_EMPTY_LEDGER_HEADER), [], today.year, today,
-        manual_raw={}, budget_raw=budget_raw, dept_budget_raw=None)
+        lh, lr, ly, today,
+        manual_raw=man, budget_raw=budget_raw, dept_budget_raw=None)
+    if bu_name:
+        s.setdefault("meta", {})["bu_name"] = bu_name
     if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
         apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct))
     else:
@@ -546,27 +603,29 @@ def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, 
 
 def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dict,
                                     ratio_pct: float) -> None:
-    """就地：把全公司各周期台账 5 类公共费用 × 比例 写入 BU summary 的费用/税前利润。
-    company_ledger_by_period = {周期key: ledger_expenses dict}（来自全公司 build_summary 的 periods[k]['ledger_expenses']）。
-    ratio_pct = 0~100。只摊台账、不摊手填；附加税不动（仍按 BU 自身收入）。守恒：各 BU 比例合计 100% 时
-    ΣBU 各类 == 全公司对应类（测试守卫）。"""
+    """就地：把「公共池」台账 5 类 × 比例 **叠加** 进 BU 已有直记费用（不覆盖直记）。
+    company_ledger_by_period 应为公共归属中心的费用；若传入全公司（旧测），则按比例拆全额——
+    与「仅公共池」在无直记时数值等价。手填不摊；附加税按 BU 自身收入。"""
     factor = float(ratio_pct) / 100.0
     P = summary.get("periods") or {}
     for key, p in P.items():
         led_src = company_ledger_by_period.get(key) or {}
-        led = {}
-        exp = {}
-        total = 0.0
-        for cat, exp_name in _LEDGER_TO_EXPENSE.items():
-            v = round(float(led_src.get(cat) or 0.0) * factor, 2)
-            led[cat] = v
-            exp[exp_name] = v
-            total += v
-        total = round(total, 2)
-        exp["total"] = total
+        man = p.get("manual") or {}
+        led = dict(p.get("ledger_expenses") or {})
+        for cat in _LEDGER_TO_EXPENSE:
+            add = round(float(led_src.get(cat) or 0.0) * factor, 2)
+            led[cat] = round(float(led.get(cat) or 0.0) + add, 2)
+        sales_exp = round(float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0), 2)
+        admin_exp = round(float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0), 2)
+        fixed_exp = round(float(led.get("固定运营费用") or 0), 2)
+        rd_exp = round(float(man.get("研发人力成本") or 0) + float(led.get("技术服务费") or 0), 2)
+        fin_exp = round(float(led.get("财务费用") or 0) + float(man.get("财务费用补充") or 0), 2)
+        total = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
         p["ledger_expenses"] = led
-        p["expense"] = exp
-        # 手填仍为 0；税前 = 毛利 − 分摊公共 − 附加税 + 其他损益(0)
+        p["expense"] = {
+            "营销费用": sales_exp, "管理费用": admin_exp, "固定运营费用": fixed_exp,
+            "研发费用": rd_exp, "财务费用": fin_exp, "total": total,
+        }
         p["pretax_profit"] = round(
             float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
         net = float(p.get("revenue_net") or 0)
@@ -655,11 +714,14 @@ def _data_health(cfg, cc, project, orders, receipts, inhouse, ledger_rows, ledge
             warnings.append(f"{name} 有 {date_bad} 行日期解析不出，已被剔除不计入任何周期（请核对源表日期格式）")
         if amt_bad:
             warnings.append(f"{name} 有 {amt_bad} 行金额非数字，按 0 计（请核对源表金额格式）")
-    # 手填表跨年防线：default=上月 的链条从1月起算，缺1月=前几个月静默按0
+    # 手填：未填=0（不再沿用上月）；缺整月提示陆总补录
     if not manual_raw:
-        warnings.append("手填与调整表为空或未读到：全部手填项按 0 计（利润会虚高）")
-    elif f"{today.year}-01" not in manual_raw:
-        warnings.append(f"手填表没有 {today.year}-01 列：default=上月 的手填项在有填数之前按 0 起算（跨年后请先补 1 月）")
+        warnings.append("手填为空或未读到：全部手填项按 0 计（利润可能虚高，请到管理端「人工填写」补录）")
+    else:
+        miss = manual_missing_months(cfg, manual_raw, today.year, today.month)
+        if miss:
+            show = "、".join(miss[:4]) + ("…" if len(miss) > 4 else "")
+            warnings.append(f"手填缺 {len(miss)} 个月未录（{show}）：缺月按 0 计，请当月补填")
     # 有收入的月却期间费用为 0 = 收单台账疑似缺该月（活跃月费用不该为0）——比"某月无收入"更可信，不误报淡季
     for k in month_keys:
         if P[k]["revenue_net"] > 0 and P[k]["expense"]["total"] == 0:

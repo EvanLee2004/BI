@@ -703,10 +703,11 @@ th{background:#0f172a;position:sticky;top:0;z-index:1;color:var(--mut);font-size
 tr.exp{background:#3b1d1d}tr.init-pw td{background:#3b2f0e88 !important}
 .wrap{overflow:auto;max-height:calc(100vh - 200px)}
 .row-form{margin:6px 0;padding:10px 12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
-.muted{color:var(--mut);font-size:12px}
+.muted{color:#94a3b8;font-size:13px}
 iframe{width:100%;height:calc(100vh - 128px);min-height:520px;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 8px 28px #0005;display:block}
-.note{color:var(--mut);font-size:12.5px;margin:8px 0;line-height:1.55}
-.note.info{border-left:3px solid var(--vio);padding:10px 14px;border-radius:0 10px 10px 0;background:var(--panel2);margin:0 0 12px}
+.note{color:#cbd5e1;font-size:13.5px;margin:8px 0;line-height:1.6}
+.note.info{border-left:3px solid var(--vio);padding:12px 16px;border-radius:0 10px 10px 0;background:var(--panel2);margin:0 0 12px;color:#e2e8f0;font-size:13.5px}
+.scard-h .sub{font-size:13px!important;color:#94a3b8!important}
 #hDetail{display:none;position:absolute;top:52px;left:14px;z-index:30;max-width:560px;background:var(--panel);
 border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12px;line-height:1.6;box-shadow:0 12px 36px #0009}
 #hDetail h4{margin:0 0 4px;font-size:13px}#hDetail .grp{margin-top:10px}
@@ -737,9 +738,22 @@ background:rgba(0,0,0,.12)}
 @media(max-width:960px){#settings .sgrid{grid-template-columns:1fr}}
 .tbl-box{border:1px solid var(--line);border-radius:12px;overflow:auto;background:#0c1424}
 .tbl-box.sm{max-height:42vh}.tbl-box.lg{max-height:calc(100vh - 240px)}
+/* 人工填写/业绩目标：整页展示，不在表内再套一层滚动 */
+.tbl-box.no-scroll{max-height:none!important;overflow:visible}
 .tbl-box table{margin:0}.tbl-box th{border-bottom:1px solid var(--line)}
 .tbl-box tr:hover td{background:#1a243866}
 .tbl-box input,.tbl-box select{border-radius:7px;padding:6px 8px;font-size:12.5px}
+.tbl-box tr.dirty td{background:rgba(139,92,246,.08)}
+.pct-suffix{color:#94a3b8;font-size:12.5px;margin-left:4px;font-weight:600}
+/* 底部批量保存条 */
+.save-bar{position:sticky;bottom:0;z-index:20;display:none;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-top:16px;padding:12px 16px;border-radius:12px;border:1px solid #8b5cf666;
+  background:linear-gradient(180deg,#1e1b4b,#0f172a);box-shadow:0 -8px 28px #0008}
+.save-bar.on{display:flex}
+.save-bar .sb-n{font-size:13.5px;color:#e2e8f0;font-weight:600;flex:1;min-width:160px}
+.save-bar .sb-n b{color:#c4b5fd}
+.save-bar button.primary{background:var(--vio);color:#fff;font-weight:700;padding:9px 18px;font-size:14px}
+.save-bar button.ghost{opacity:.9}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;margin-bottom:12px;
 border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px #0003}
 .toolbar .grow{flex:1;min-width:8px}
@@ -882,17 +896,23 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 <div id="manual" class="sec">
   <div class="toolbar">
     <span class="field-inline">月份 <select id="mY"></select><select id="mM"></select></span>
-    <button onclick="mLoad()">查询</button>
-    <span class="muted grow">人工填写：人力/补充等系统导不出的数 · 改即留痕，当月覆盖。金额支持千分位（如 1,000,000）。</span>
+    <span class="field-inline">范围 <select id="mScope"><option value="全公司">全公司</option></select></span>
+    <button onclick="mLoadSafe()">查询</button>
+    <span class="muted grow">可改多格后底部一键保存。金额填<strong>元</strong>（千分位）；当月未填=0（不再沿用上月）。全公司与各 BU 手填分开存。</span>
   </div>
-  <div class="note info">人工填写：系统导不出的人力/补充项 + 业绩目标。明细改数在左侧各表；部门费用年预算已下线。</div>
-  <div class="tbl-box sm wrap"><table id="mTbl"></table></div>
+  <div class="note info">人工填写：人力/补充等。选「范围」可按全公司或某个业务 BU 填。可批量改数，离开会提醒。业绩目标金额请填<strong>万元</strong>。</div>
+  <div class="tbl-box no-scroll"><table id="mTbl"></table></div>
   <div class="sec-block">
     <div class="blk-h">🎯 业绩目标（优先）</div>
-    <div class="note info">下单 / 回款 / 毛利率 · 年目标 + 上半年(H1)。可选全公司或某个 BU。填了基本情况 KPI 下即出进度条。金额填元，支持千分位。</div>
+    <div class="note info">下单 / 回款目标填<strong>万元</strong>（如 8000 = 8000 万）；毛利率填百分数（35 = 35%）。可选全公司或 BU。与上方共用底部「保存全部」。</div>
     <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span>
       <span class="field-inline">范围 <select id="bScope"><option value="全公司">全公司</option></select></span></div>
-    <div class="tbl-box sm wrap"><table id="bTbl"></table></div>
+    <div class="tbl-box no-scroll"><table id="bTbl"></table></div>
+  </div>
+  <div id="saveBar" class="save-bar">
+    <span class="sb-n">有 <b id="dirtyCount">0</b> 项未保存</span>
+    <button type="button" class="ghost" onclick="discardDirty()">放弃更改</button>
+    <button type="button" class="primary" id="btnBatchSave" onclick="batchSaveAll()">保存全部更改</button>
   </div>
 </div>
 
@@ -1115,8 +1135,22 @@ async function jget(p){const r=await api(p);return r.json();}
 async function jpost(p,body){const r=await api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("HTTP "+r.status));return d;}
 function showSec(id){document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===id));}
+// 未保存离开保护（人工填写 / 业绩目标批量编辑）
+let _formDirty=0;
+function confirmLeave(){if(!_formDirty)return true;return confirm("有 "+_formDirty+" 项未保存的修改，确定离开？未保存将丢失。");}
+function setDirtyCount(n){_formDirty=n||0;const bar=document.getElementById("saveBar"),c=document.getElementById("dirtyCount");
+  if(bar)bar.classList.toggle("on",_formDirty>0);if(c)c.textContent=String(_formDirty);}
+function refreshDirtyUI(){let n=0;
+  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig]").forEach(el=>{
+    const cur=String(el.value).replace(/,/g,"").trim();
+    const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
+    const dirty=cur!==orig;el.closest("tr")&&el.closest("tr").classList.toggle("dirty",dirty);if(dirty)n++;});
+  setDirtyCount(n);}
+window.addEventListener("beforeunload",e=>{if(_formDirty>0){e.preventDefault();e.returnValue="";}});
 // 顶层四区：看 / 数据调整 / 异常处理 / 设置
-function showGroup(g){document.querySelectorAll(".gtab").forEach(e=>e.classList.toggle("on",e.dataset.g===g));
+function showGroup(g){
+  if(!confirmLeave())return;
+  document.querySelectorAll(".gtab").forEach(e=>e.classList.toggle("on",e.dataset.g===g));
   document.querySelectorAll(".subgrp").forEach(e=>e.style.display=e.dataset.g===g?"flex":"none");
   if(g==="see")showSec("dash");
   else if(g==="edit")pickTable(curTable);
@@ -1500,22 +1534,43 @@ const detail={page:0,pages:1,loading:false,loaded:0,
       tbl.insertAdjacentHTML("beforeend",h);this.loaded+=d.rows.length;
       document.getElementById("dInfo").textContent="共"+d.total+"行（已载入"+this.loaded+"）";
     }catch(e){msg("查询失败:"+e.message);}this.loading=false;}};
-function pickTable(t){curTable=t;
+function pickTable(t){if(!confirmLeave())return;curTable=t;
   document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
-function showManual(){document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",
+function showManual(){
+  if(document.getElementById("manual")&&!document.getElementById("manual").classList.contains("on")&&!confirmLeave())return;
+  document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",
   b.dataset.t==="人工填写"||b.dataset.t==="数据调整"||b.dataset.t==="手填"));
   showSec("manual");mLoad();}
-// 千分位：显示 1,234,567；提交时去逗号
+function mLoadSafe(){if(!confirmLeave())return;mLoad();}
+// 千分位：输入过程中即显示 1,234,567；提交时 parseAmount 去逗号
 function fmtThousands(v){if(v==null||v==="")return"";const n=String(v).replace(/,/g,"");
   if(n===""||isNaN(Number(n)))return String(v);const parts=n.split(".");
   parts[0]=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,",");return parts.join(".");}
 function parseAmount(v){const s=String(v==null?"":v).replace(/,/g,"").trim();
   if(s===""||isNaN(Number(s)))return NaN;return Number(s);}
 function bindThousands(el){if(!el||el._thou)return;el._thou=true;
-  el.addEventListener("focus",()=>{el.value=String(el.value).replace(/,/g,"");});
-  el.addEventListener("blur",()=>{const n=parseAmount(el.value);if(!isNaN(n))el.value=fmtThousands(n);});}
-function dQuery(){detail.reset();hideEditDock();}
+  // 输入即格式化：保留光标相对「数字位数」的位置，避免跳到末尾
+  const reformat=()=>{
+    const raw=el.value, caret=el.selectionStart||0;
+    const digitsBefore=(raw.slice(0,caret).match(/\d/g)||[]).length;
+    const n=parseAmount(raw);
+    if(raw.trim()===""||isNaN(n))return;
+    // 末尾正在输小数点时暂不格式化，避免 1000. 被吃掉
+    if(/[.,]$/.test(raw.replace(/,/g,""))&&!/\.\d+$/.test(raw.replace(/,/g,"")))return;
+    const next=fmtThousands(n);
+    if(next===raw)return;
+    el.value=next;
+    let pos=0,seen=0;
+    for(let i=0;i<next.length;i++){
+      if(/\d/.test(next[i])){seen++;if(seen>=digitsBefore){pos=i+1;break;}}
+      pos=i+1;
+    }
+    try{el.setSelectionRange(pos,pos);}catch(e){}
+  };
+  el.addEventListener("input",reformat);
+  el.addEventListener("blur",()=>{const n=parseAmount(el.value);if(!isNaN(n))el.value=fmtThousands(n);});
+}function dQuery(){detail.reset();hideEditDock();}
 function hideEditDock(){const d=document.getElementById("editDock");if(d){d.style.display="none";d.innerHTML="";}}
 function editRow(std,keyEnc,tkey){const key=decodeURIComponent(keyEnc);
   const fields=ADJ_FIELDS[tkey]||[];
@@ -1566,26 +1621,40 @@ async function exportDetail(){
   }catch(e){showToast("导出失败："+e.message,true);}
 }
 
-// ---- 手填 ----
+// ---- 手填 + 业绩目标（批量编辑，底部一次保存）----
+// 业绩目标金额：库内存「元」，界面按「万元」编辑（×10000）
+function yuanToWan(y){if(y==null||y==="")return"";return Number(y)/10000;}
+function wanToYuan(w){return Number(w)*10000;}
+async function mFillScopes(){
+  const sel=document.getElementById("mScope");if(!sel)return;
+  let bus=[];try{const d=await jget("/api/bu_config");bus=(d.bus||[]).map(b=>b.name);}catch(e){}
+  const cur=sel.value||"全公司";
+  sel.innerHTML='<option value="全公司">全公司</option>'+bus.map(n=>'<option value="'+esc(n)+'">BU · '+esc(n)+'</option>').join("");
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"全公司";
+  sel.onchange=async()=>{if(!confirmLeave()){await mFillScopes();return;}await mLoad();};
+}
 async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
-  const cur=await jget("/api/manual?month="+encodeURIComponent(m));const map={};cur.forEach(x=>map[x["项目"]]=x["金额"]);
-  let h="<tr><th>项目</th><th>当前金额</th><th>新值</th><th></th></tr>";
+  await mFillScopes();
+  const scope=(document.getElementById("mScope")||{}).value||"全公司";
+  const cur=await jget("/api/manual?month="+encodeURIComponent(m)+"&scope="+encodeURIComponent(scope));
+  const map={};cur.forEach(x=>map[x["项目"]]=x["金额"]);
+  let h="<tr><th>项目</th><th>当前金额(元)</th><th>新值(元)</th></tr>";
   MANUAL_ITEMS.forEach(it=>{const id="mi_"+MANUAL_ITEMS.indexOf(it);
     const disp=map[it]!=null?fmtThousands(map[it]):"";
-    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?fmtThousands(map[it]):"（空）")+"</td>"+
-    "<td><input id='"+id+"' class='amt' size='14' value='"+esc(disp)+"' placeholder='如 1,000,000'></td>"+
-    "<td><button class='mini' onclick=\"mSave('"+encodeURIComponent(m)+"','"+encodeURIComponent(it)+"','"+id+"')\">保存</button></td></tr>";});
+    const orig=map[it]!=null?String(map[it]):"";
+    h+="<tr><td>"+esc(it)+"</td><td>"+esc(map[it]!=null?fmtThousands(map[it]):"（空=0）")+"</td>"+
+    "<td><input id='"+id+"' class='amt' data-kind='manual' data-item='"+esc(it)+"' data-orig='"+esc(orig)+"' size='16' value='"+esc(disp)+"' placeholder='如 1,000,000'></td></tr>";});
   document.getElementById("mTbl").innerHTML=h;
-  document.querySelectorAll("#mTbl input.amt").forEach(bindThousands);
-  bLoad();}
-// 业绩目标（金额元 / 毛利率填百分数如 35）
+  document.querySelectorAll("#mTbl input.amt").forEach(el=>{bindThousands(el);el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});
+  await bLoad();refreshDirtyUI();}
+// 业绩目标（金额界面=万元 / 毛利率=百分数）
 const BUDGET_METRICS=[
-  {k:"下单年预算",tip:"元 · 全年下单目标",thou:true},
-  {k:"回款年预算",tip:"元 · 全年回款目标",thou:true},
-  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%",thou:false},
-  {k:"下单H1目标",tip:"元 · 上半年下单",thou:true},
-  {k:"回款H1目标",tip:"元 · 上半年回款",thou:true},
-  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false},
+  {k:"下单年预算",tip:"万元 · 全年下单目标",thou:true,pct:false,wan:true},
+  {k:"回款年预算",tip:"万元 · 全年回款目标",thou:true,pct:false,wan:true},
+  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%",thou:false,pct:true,wan:false},
+  {k:"下单H1目标",tip:"万元 · 上半年下单",thou:true,pct:false,wan:true},
+  {k:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true},
+  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false},
 ];
 async function bFillScopes(){
   const sel=document.getElementById("bScope");if(!sel)return;
@@ -1593,42 +1662,80 @@ async function bFillScopes(){
   const cur=sel.value||"全公司";
   sel.innerHTML='<option value="全公司">全公司</option>'+bus.map(n=>'<option value="'+esc(n)+'">BU · '+esc(n)+'</option>').join("");
   sel.value=[...sel.options].some(o=>o.value===cur)?cur:"全公司";
-  sel.onchange=bLoad;
+  sel.onchange=async()=>{if(!confirmLeave()){await bFillScopes();return;}await bLoad();};
 }
 async function bLoad(){const sel=document.getElementById("bY");
   if(!sel.options.length){const my=document.getElementById("mY");
-    sel.innerHTML=my.innerHTML;sel.value=my.value;sel.onchange=bLoad;}
+    sel.innerHTML=my.innerHTML;sel.value=my.value;}
+  sel.onchange=async()=>{if(!confirmLeave())return;await bLoad();};
   await bFillScopes();
   const y=sel.value,scope=(document.getElementById("bScope")||{}).value||"全公司";
   const cur=await jget("/api/budget?year="+encodeURIComponent(y));
   const map={};cur.filter(x=>(x["范围"]||"全公司")===scope&&x["指标"]!=="费用年预算").forEach(x=>map[x["指标"]]=x["金额"]);
-  let h="<tr><th>指标</th><th>说明</th><th>当前</th><th>新值</th><th></th></tr>";
+  let h="<tr><th>指标</th><th>说明</th><th>当前</th><th>新值</th></tr>";
   BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
     const old=map[it.k]!=null?map[it.k]:null;
-    const scEnc=encodeURIComponent(scope);
-    const curDisp=old!=null?(it.thou?fmtThousands(old):old):"（未填）";
-    const inpDisp=old!=null?(it.thou?fmtThousands(old):old):"";
-    h+="<tr><td>"+esc(it.k)+"</td><td class='muted' style='font-size:11px'>"+esc(it.tip)+"</td>"+
+    // 金额类：库内元 → 界面万
+    let curDisp="（未填）",inpDisp="",orig="";
+    if(old!=null){
+      if(it.pct){curDisp=String(old)+"%";inpDisp=String(old);orig=String(old);}
+      else if(it.wan){const w=yuanToWan(old);curDisp=fmtThousands(w)+" 万";inpDisp=fmtThousands(w);orig=String(w);}
+      else{curDisp=fmtThousands(old);inpDisp=fmtThousands(old);orig=String(old);}
+    }
+    const suffix=it.pct?'<span class="pct-suffix">%</span>':(it.wan?'<span class="pct-suffix">万</span>':"");
+    h+="<tr><td>"+esc(it.k)+"</td><td class='muted'>"+esc(it.tip)+"</td>"+
     "<td>"+esc(curDisp)+"</td>"+
-    "<td><input id='"+id+"' class='"+(it.thou?"amt":"")+"' size='14' value='"+esc(inpDisp)+"' placeholder='"+(it.thou?"如 10,000,000":"如 35")+"'></td>"+
-    "<td><button class='mini' onclick=\"bSave('"+encodeURIComponent(y)+"','"+encodeURIComponent(it.k)+"','"+id+"','"+scEnc+"',"+(old!=null?"'"+old+"'":"null")+")\">保存</button></td></tr>";});
+    "<td><input id='"+id+"' class='"+(it.thou?"amt":"")+"' data-kind='budget' data-item='"+esc(it.k)+"' data-orig='"+esc(orig)+"' data-pct='"+(it.pct?1:0)+"' data-wan='"+(it.wan?1:0)+"' size='14' value='"+esc(inpDisp)+"' placeholder='"+(it.wan?"如 8,000":"如 35")+"'>"+suffix+"</td></tr>";});
   document.getElementById("bTbl").innerHTML=h;
-  document.querySelectorAll("#bTbl input.amt").forEach(bindThousands);}
-async function bSave(yEnc,itEnc,id,scope,oldVal){const raw=document.getElementById(id).value.trim();
-  const n=parseAmount(raw);
-  if(raw===""||isNaN(n)){alert("请输入数字（金额填元，可写千分位；毛利率填如 35）");return;}
-  const sc=scope?decodeURIComponent(scope):"全公司";
-  if(oldVal!=null&&!confirm("「"+decodeURIComponent(itEnc)+"·"+sc+"」已有 "+oldVal+"，确认改为 "+n+"？（改动会留痕）"))return;
-  const body={年份:decodeURIComponent(yEnc),指标:decodeURIComponent(itEnc),金额:n,范围:sc};
-  try{await jpost("/api/budget",body);
-    showToast("✓ 业绩目标已保存");msg("已保存业绩目标（留痕·看板已重算）");reloadDash();bLoad();}catch(e){alert("保存失败："+e.message);}}
-async function mSave(mEnc,itEnc,id){const raw=document.getElementById(id).value.trim();
-  const n=parseAmount(raw);if(raw===""||isNaN(n)){alert("填金额（支持千分位，如 1,000,000）");return;}
-  try{await jpost("/api/manual",{归属月:decodeURIComponent(mEnc),项目:decodeURIComponent(itEnc),金额:n});
-    showToast("✓ 已保存");msg("人工填写已保存（留痕+重算）");reloadDash();loadHealth();mLoad();}catch(e){alert("失败："+e.message);}}
+  document.querySelectorAll("#bTbl input").forEach(el=>{
+    if(el.classList.contains("amt"))bindThousands(el);
+    el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);
+  });
+  refreshDirtyUI();}
+function discardDirty(){if(!_formDirty)return;if(!confirm("放弃全部未保存修改？"))return;mLoad();}
+async function batchSaveAll(){
+  const m=ymVal("mY","mM");const y=(document.getElementById("bY")||{}).value;
+  const mScope=(document.getElementById("mScope")||{}).value||"全公司";
+  const scope=(document.getElementById("bScope")||{}).value||"全公司";
+  const manuals=[],budgets=[];
+  document.querySelectorAll("#mTbl input[data-kind=manual]").forEach(el=>{
+    const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
+    if(cur===orig)return;
+    if(cur==="")return;
+    const n=parseAmount(el.value);if(isNaN(n)){alert("「"+el.dataset.item+"」金额无效");throw new Error("bad");}
+    if(n<0){alert("「"+el.dataset.item+"」不能为负");throw new Error("bad");}
+    manuals.push({项目:el.dataset.item,金额:n,范围:mScope});
+  });
+  document.querySelectorAll("#bTbl input[data-kind=budget]").forEach(el=>{
+    const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
+    if(cur===orig)return;
+    if(cur==="")return;
+    let n=parseAmount(el.value);if(isNaN(n)){alert("「"+el.dataset.item+"」数值无效");throw new Error("bad");}
+    if(el.dataset.pct==="1"){if(n<0||n>100){alert("「"+el.dataset.item+"」请填 0~100 的百分数");throw new Error("bad");}}
+    else if(n<0){alert("「"+el.dataset.item+"」不能为负");throw new Error("bad");}
+    // 万元 → 元入库
+    if(el.dataset.wan==="1"){
+      if(n>0&&n<10){if(!confirm("「"+el.dataset.item+"」="+n+" 万，目标似乎过小（是否单位填错）？仍保存？"))throw new Error("bad");}
+      n=wanToYuan(n);
+    }
+    budgets.push({指标:el.dataset.item,金额:n,范围:scope,年份:y});
+  });
+  if(!manuals.length&&!budgets.length){showToast("没有需要保存的更改");return;}
+  const btn=document.getElementById("btnBatchSave");btn.disabled=true;btn.textContent="保存中…";
+  try{
+    if(manuals.length)await jpost("/api/manual_batch",{归属月:m,范围:mScope,items:manuals});
+    if(budgets.length)await jpost("/api/budget_batch",{items:budgets});
+    setDirtyCount(0);
+    showToast("✓ 已保存 "+(manuals.length+budgets.length)+" 项并重算");
+    msg("批量保存完成（留痕·看板已重算）");
+    reloadDash();loadHealth();await mLoad();
+  }catch(e){if(e.message!=="bad")alert("保存失败："+e.message);}
+  finally{btn.disabled=false;btn.textContent="保存全部更改";}
+}
 
 // ---- 异常处理（总览 / 调整台账 / 下单未填部门 / 费用未分类 / 历史快照）----
-function showReview(which){document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
+function showReview(which){if(!confirmLeave())return;
+  document.querySelectorAll("#sub-review .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===which));
   showSec(which);if(which==="overview")ovLoad();if(which==="ledger")lLoad();
   if(which==="orderdept")odLoad();if(which==="unclassified")ucLoad();if(which==="history")hisLoad();
   if(which==="audit")auLoad();}
@@ -2562,11 +2669,11 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
 
     @app.get("/api/manual")
-    def api_manual_get(request: Request, month: str | None = None):
+    def api_manual_get(request: Request, month: str | None = None, scope: str = "全公司"):
         _require(request)
         conn = _conn()
         try:
-            return db.get_manual(conn, month)
+            return db.get_manual(conn, month, 范围=scope or "全公司")
         finally:
             conn.close()
 
@@ -2580,13 +2687,43 @@ def create_app(cfg, root=None) -> FastAPI:
             金额 = float(payload.get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="金额须为数字")
+        scope = str(payload.get("范围") or "全公司").strip() or "全公司"
         conn = _conn()
         try:
-            db.set_manual(conn, payload.get("归属月", ""), item, 金额, user)
+            db.set_manual(conn, payload.get("归属月", ""), item, 金额, user, 范围=scope)
         finally:
             conn.close()
         recompute(cfg, root)
         return {"status": "ok", "built_at": _state["built_at"]}
+
+    @app.post("/api/manual_batch")
+    def api_manual_batch(request: Request, payload: dict = Body(default={})):
+        """批量手填：payload={归属月, 范围?, items:[{项目,金额,范围?}]}，只重算一遍。"""
+        user = _require(request)
+        month = payload.get("归属月", "")
+        default_scope = str(payload.get("范围") or "全公司").strip() or "全公司"
+        items = payload.get("items") or []
+        if not isinstance(items, list) or not items:
+            raise HTTPException(status_code=400, detail="items 不能为空")
+        names = {it["name"] for it in cfg["manual_items"]}
+        conn = _conn()
+        try:
+            n = 0
+            for it in items:
+                item = (it or {}).get("项目", "")
+                if item not in names:
+                    raise HTTPException(status_code=400, detail=f"未知手填项目：{item}")
+                try:
+                    金额 = float((it or {}).get("金额"))
+                except (TypeError, ValueError):
+                    raise HTTPException(status_code=400, detail=f"金额须为数字：{item}")
+                sc = str((it or {}).get("范围") or default_scope).strip() or "全公司"
+                db.set_manual(conn, month, item, 金额, user, 范围=sc)
+                n += 1
+        finally:
+            conn.close()
+        recompute(cfg, root)
+        return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
     @app.get("/api/budget")
     def api_budget_get(request: Request, year: str | None = None):
@@ -2621,6 +2758,40 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         recompute(cfg, root)
         return {"status": "ok", "built_at": _state["built_at"]}
+
+    @app.post("/api/budget_batch")
+    def api_budget_batch(request: Request, payload: dict = Body(default={})):
+        """批量业绩目标：payload={items:[{年份,指标,金额,范围?}]}，一次重算。"""
+        user = _require(request)
+        items = payload.get("items") or []
+        if not isinstance(items, list) or not items:
+            raise HTTPException(status_code=400, detail="items 不能为空")
+        conn = _conn()
+        try:
+            n = 0
+            for it in items:
+                it = it or {}
+                metric = it.get("指标", "")
+                if metric not in db.BUDGET_METRICS:
+                    raise HTTPException(status_code=400, detail=f"未知预算指标：{metric}")
+                year = str(it.get("年份", "")).strip()
+                if not (year.isdigit() and len(year) == 4):
+                    raise HTTPException(status_code=400, detail="年份须为4位数字")
+                try:
+                    金额 = float(it.get("金额"))
+                except (TypeError, ValueError):
+                    raise HTTPException(status_code=400, detail=f"金额须为数字：{metric}")
+                scope = str(it.get("范围", "全公司")).strip() or "全公司"
+                if metric == "费用年预算" and scope == "全公司":
+                    raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
+                if "毛利率" in metric and (金额 < 0 or 金额 > 100):
+                    raise HTTPException(status_code=400, detail=f"毛利率须为 0~100：{metric}")
+                db.set_budget(conn, year, metric, 金额, user, 范围=scope)
+                n += 1
+        finally:
+            conn.close()
+        recompute(cfg, root)
+        return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
     @app.get("/api/budget_depts")
     def api_budget_depts(request: Request):

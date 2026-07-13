@@ -114,6 +114,12 @@ HUMAN_TABLES: dict[str, str] = {
             归属月 TEXT, 项目 TEXT, 金额 REAL, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, 项目)
         )""",
+    # 按 BU 范围手填（与全公司 manual_手填 并存；公司页仍用全公司表）
+    "manual_手填BU": """
+        CREATE TABLE IF NOT EXISTS manual_手填BU (
+            归属月 TEXT, 范围 TEXT, 项目 TEXT, 金额 REAL, 填写时间 TEXT, 经手人 TEXT,
+            PRIMARY KEY (归属月, 范围, 项目)
+        )""",
     "manual_历史": """
         CREATE TABLE IF NOT EXISTS manual_历史 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

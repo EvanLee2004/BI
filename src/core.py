@@ -87,23 +87,37 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     receipts = db.load_receipts(cfg, conn)
     inhouse = db.load_inhouse(cfg, conn)
     alloc_on = bool(bucfg.get("公共费用分摊启用"))
-    company_led = None
-    if alloc_on:
-        # 全公司台账公共费用（按周期）：只取 ledger_expenses，供各 BU × 比例
-        lh, lr = db.load_ledger(cfg, conn)
-        full = profit.build_summary(
-            cfg, project, orders, receipts, inhouse, lh, lr, today.year, today,
-            manual_raw={}, budget_raw=None, dept_budget_raw=None)
-        company_led = {k: p.get("ledger_expenses") or {} for k, p in full["periods"].items()}
+    # 台账：按利润归属中心直记各 BU；公共池单独抽出来按比例分摊
+    lh, lr = db.load_ledger(cfg, conn)
+    import columns as _columns
+    lcols = _columns.resolve_ledger_columns(lh) if lh else None
+    public_led = None
+    if alloc_on and lcols:
+        public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
+        import periods as _periods
+        ranges = _periods.all_period_ranges(today)
+        public_led = {}
+        for key, (_lab, start, end, _g) in ranges.items():
+            led, _ = profit.compute_ledger_expenses(public_rows, today.year, start, end, cfg, lcols)
+            public_led[key] = led
     pages: dict[str, dict] = {}
     for b in bucfg["bus"]:
         bu_budget = db.load_budget(conn, scope=b["name"])  # 该 BU 业务目标（无则空）
+        bu_name = b["name"]
+        # 直记：利润归属中心归一后等于本 BU 名的台账行
+        direct_rows = profit.filter_ledger_rows_by_pc(lh, lr, {bu_name}) if lh else []
+        bu_manual = db.load_manual_scope(cfg, conn, bu_name)
         s = profit.build_bu_summary(
             cfg, project, orders, receipts, inhouse, today, set(b["销售"]),
-            company_ledger_by_period=company_led,
+            company_ledger_by_period=public_led,
             alloc_ratio_pct=b.get("分摊比例"),
             alloc_enabled=alloc_on,
-            budget_raw=bu_budget or None)
+            budget_raw=bu_budget or None,
+            ledger_header=lh if lh else None,
+            ledger_rows=direct_rows,
+            ledger_year=today.year,
+            manual_raw=bu_manual,
+            bu_name=bu_name)
         pages[b["name"]] = {"name": b["name"],
                             "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
     return pages

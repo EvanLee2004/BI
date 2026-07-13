@@ -350,26 +350,73 @@ def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
 
 
 # ---------------- 手填（写：留痕 manual_历史；管理员端 /api/manual）----------------
-def get_manual(conn: sqlite3.Connection, month: str | None = None) -> list[dict]:
-    cols = ["归属月", "项目", "金额", "填写时间", "经手人"]
-    if month:
-        rows = conn.execute(
-            f"SELECT {','.join(cols)} FROM manual_手填 WHERE 归属月=? ORDER BY 项目", (month,)).fetchall()
-    else:
-        rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_手填 ORDER BY 归属月,项目").fetchall()
-    return [dict(zip(cols, r)) for r in rows]
-
-
-def set_manual(conn: sqlite3.Connection, 归属月: str, 项目: str, 金额: float, 经手人: str) -> None:
-    """写手填：先记 manual_历史（旧值→新值），再 REPLACE 覆盖 manual_手填。"""
-    old = conn.execute("SELECT 金额 FROM manual_手填 WHERE 归属月=? AND 项目=?", (归属月, 项目)).fetchone()
-    旧值 = old[0] if old else None
+def set_manual(conn: sqlite3.Connection, 归属月: str, 项目: str, 金额: float, 经手人: str,
+               范围: str = "全公司") -> None:
+    """写手填。范围=全公司 → manual_手填；范围=某 BU → manual_手填BU。均留痕。"""
+    scope = (范围 or "全公司").strip() or "全公司"
     now = _now()
-    conn.execute("INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
-                 (now, 经手人, 归属月, 项目, 旧值, float(金额)))
-    conn.execute("INSERT OR REPLACE INTO manual_手填(归属月,项目,金额,填写时间,经手人) VALUES(?,?,?,?,?)",
-                 (归属月, 项目, float(金额), now, 经手人))
+    if scope == "全公司":
+        old = conn.execute("SELECT 金额 FROM manual_手填 WHERE 归属月=? AND 项目=?", (归属月, 项目)).fetchone()
+        旧值 = old[0] if old else None
+        conn.execute("INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
+                     (now, 经手人, 归属月, 项目, 旧值, float(金额)))
+        conn.execute("INSERT OR REPLACE INTO manual_手填(归属月,项目,金额,填写时间,经手人) VALUES(?,?,?,?,?)",
+                     (归属月, 项目, float(金额), now, 经手人))
+    else:
+        old = conn.execute(
+            "SELECT 金额 FROM manual_手填BU WHERE 归属月=? AND 范围=? AND 项目=?",
+            (归属月, scope, 项目)).fetchone()
+        旧值 = old[0] if old else None
+        conn.execute("INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
+                     (now, 经手人, f"{归属月}|{scope}", 项目, 旧值, float(金额)))
+        conn.execute(
+            "INSERT OR REPLACE INTO manual_手填BU(归属月,范围,项目,金额,填写时间,经手人) VALUES(?,?,?,?,?,?)",
+            (归属月, scope, 项目, float(金额), now, 经手人))
     conn.commit()
+
+
+def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[str, dict[str, float]]:
+    """某 BU 范围手填 → {'YYYY-MM': {项目: 金额}}。无表/无数据 → {}。"""
+    scope = (scope or "").strip()
+    if not scope or scope == "全公司":
+        return load_manual(cfg, conn)
+    try:
+        rows = conn.execute(
+            "SELECT 归属月,项目,金额 FROM manual_手填BU WHERE 范围=?", (scope,)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, float]] = {}
+    for 归属月, 项目, 金额 in rows:
+        if 归属月 is None or 项目 is None or 金额 is None:
+            continue
+        out.setdefault(str(归属月), {})[str(项目)] = float(金额)
+    return out
+
+
+def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str = "全公司") -> list[dict]:
+    """管理端列表。范围=全公司读 manual_手填；否则读 manual_手填BU。"""
+    scope = (范围 or "全公司").strip() or "全公司"
+    if scope == "全公司":
+        cols = ["归属月", "项目", "金额", "填写时间", "经手人"]
+        if month:
+            rows = conn.execute(
+                f"SELECT {','.join(cols)} FROM manual_手填 WHERE 归属月=? ORDER BY 项目", (month,)).fetchall()
+        else:
+            rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_手填 ORDER BY 归属月,项目").fetchall()
+        return [dict(zip(cols, r)) for r in rows]
+    cols = ["归属月", "项目", "金额", "填写时间", "经手人", "范围"]
+    try:
+        if month:
+            rows = conn.execute(
+                "SELECT 归属月,项目,金额,填写时间,经手人,范围 FROM manual_手填BU "
+                "WHERE 归属月=? AND 范围=? ORDER BY 项目", (month, scope)).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT 归属月,项目,金额,填写时间,经手人,范围 FROM manual_手填BU "
+                "WHERE 范围=? ORDER BY 归属月,项目", (scope,)).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    return [dict(zip(cols, r)) for r in rows]
 
 
 # ---------------- 年度预算 / 业务目标（写：留痕 manual_预算历史；管理员端 /api/budget）----------------

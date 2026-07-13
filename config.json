@@ -70,52 +70,52 @@
     {
       "name": "营销人力成本",
       "role": "营销费用",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "管理人力成本",
       "role": "管理费用",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "研发人力成本",
       "role": "研发费用",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "财务费用补充",
       "role": "财务费用",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "PM人力成本",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "VM人力成本",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "实际内部译员成本",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "税费损失",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "技术流量成本",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "其他（生产成本）",
       "role": "生产成本",
-      "default": "prev"
+      "default": "zero"
     },
     {
       "name": "其他损益",
