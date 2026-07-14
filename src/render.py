@@ -646,10 +646,10 @@ def _rank_amt(v):
 
 def _rank_card(title, tag, rk, kind=""):
     """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。
-    kind=接口里 rankings 的键（orders_by_dept…），「其余」行点开全量明细时前端用它取数。"""
+    kind=接口里 rankings 的键（orders_by_dept…），「其余」行点开全量明细时前端用它取数。
+    用户端不展示「（未填）」行——未填归类只在管理端异常处理；后端 unfilled 仍算（守恒）。"""
     items = (rk or {}).get("items") or []
-    unfilled = (rk or {}).get("unfilled")
-    if not items and not unfilled:
+    if not items:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
         mx = max((it["amount"] for it in items), default=0) or 1
@@ -671,13 +671,6 @@ def _rank_card(title, tag, rk, kind=""):
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
                         f'<span class="rk-meta">{others["count"]}笔</span></div>')
-        if unfilled:
-            # 源头没填名字的那组：固定置底+灰显+⚠角标，不藏行（守恒：各组合计==总额）；去管理端「异常处理」归类
-            rows.append(f'<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span>'
-                        f'<span class="ev-name" title="源头未填，去管理端「异常处理→下单未填部门」归类">（未填）</span>'
-                        f'<span class="ev-track"></span>'
-                        f'<span class="ev-amt">{_rank_amt(unfilled["amount"])}</span>'
-                        f'<span class="rk-meta">{unfilled["count"]}笔·待归类</span></div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
     # tag 空则不渲染副标题（看端去掉「期内降序·智云」类备注）
     tag_html = f' <span class="tag">{_esc(tag)}</span>' if tag else ""
@@ -718,14 +711,14 @@ def _pname(name):
 def _profit_rank_card(title, tag, rk, dim="", show_meta=True):
     """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 系统成本率。金额/率均后端算好，前端零运算（铁律2）。
     与板块④排名卡同款行样式；「其余 N 个」点开→ /api/profit_ranking 全量弹窗（dim=customer/sales）。
-    show_meta=False → 隐藏成本率列（陆总 0714：按销售的率先不显示，防"人力算不算"连锁追问）。"""
+    show_meta=False → 隐藏成本率列（陆总 0714：按销售的率先不显示，防"人力算不算"连锁追问）。
+    用户端不展示「（未填）」行。"""
     items = (rk or {}).get("items") or []
-    unfilled = (rk or {}).get("unfilled")
 
     def _meta(it):
         return f'<span class="rk-meta">{_margin_meta(it.get("cost_pct"))}</span>' if show_meta else ""
 
-    if not items and not unfilled:
+    if not items:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
         mx = max((abs(it["revenue"]) for it in items), default=0) or 1
@@ -745,12 +738,6 @@ def _profit_rank_card(title, tag, rk, dim="", show_meta=True):
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
                         f'{_meta(others)}</div>')
-        if unfilled:
-            rows.append(f'<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span>'
-                        f'<span class="ev-name" title="源头未填客户/销售，去管理端归类">（未填）</span>'
-                        f'<span class="ev-track"></span>'
-                        f'<span class="ev-amt">{_rank_amt(unfilled["revenue"])}</span>'
-                        f'{_meta(unfilled)}</div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
     return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} {tag}</div>{body}</div>')
 
@@ -1098,16 +1085,15 @@ DAILY_JS = """
  if(btnToday)btnToday.addEventListener('click',function(){var t=isoToday();iS.value=t;iE.value=t;document.getElementById('dailyGo').click();});
  if(btnMonth)btnMonth.addEventListener('click',function(){var r=monthRange();iS.value=r.s;iE.value=r.e;document.getElementById('dailyGo').click();});
  function rowsHtml(rk){
+  // 用户端不展示「（未填）」——未填归类只在管理端异常处理
   var h='',items=(rk&&rk.items)||[];
-  if(!items.length&&!(rk&&rk.unfilled))return '<div class="ev-empty">本期无数据</div>';
+  if(!items.length)return '<div class="ev-empty">本期无数据</div>';
   items.forEach(function(it,i){h+='<div class="ev-row rk-row"><span class="rk-no">'+(i+1)+'</span>'+
     '<span class="ev-name" title="'+esc(it.name)+'">'+esc(it.name)+'</span><span class="ev-track"></span>'+
     '<span class="ev-amt">'+esc(it.disp)+'</span><span class="rk-meta">'+it.count+'笔</span></div>';});
   if(rk&&rk.others)h+='<div class="ev-row rk-row rk-others rk-more" title="点开看 10 名以后的完整明细"><span class="rk-no">…</span>'+
     '<span class="ev-name">其余 '+rk.others.names+' 个 <span class="rk-open">点开看明细 ›</span></span>'+
     '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.others.disp)+'</span><span class="rk-meta">'+rk.others.count+'笔</span></div>';
-  if(rk&&rk.unfilled)h+='<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span><span class="ev-name">（未填）</span>'+
-    '<span class="ev-track"></span><span class="ev-amt">'+esc(rk.unfilled.disp)+'</span><span class="rk-meta">'+rk.unfilled.count+'笔·待归类</span></div>';
   return h;}
  function rkHtml(kind,rk,tag){
   return '<div class="card" data-kind="'+kind+'"><div class="card-h">'+KIND_TITLE[kind]+' <span class="tag">'+esc(tag)+'</span></div>'+

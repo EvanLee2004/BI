@@ -76,18 +76,20 @@ class TestRankingUnfilled(unittest.TestCase):
                                     datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
         self.assertIsNone(rk["unfilled"])
 
-    def test_render_unfilled_row_bottom_grey(self):
+    def test_render_hides_unfilled_on_user_page(self):
+        """用户端排名卡不展示「（未填）」——归类只在管理端异常处理。"""
         html = render._rank_card("下单 · 按部门", "测", self._rk())
-        self.assertIn("rk-unfilled", html)
-        self.assertIn("待归类", html)
-        # 置底：未填行出现在所有排名行之后
-        self.assertGreater(html.find("rk-unfilled"), html.rfind("rk-no\">2"))
+        self.assertNotIn("rk-unfilled", html)
+        self.assertNotIn("待归类", html)
+        self.assertNotIn("（未填）", html)
+        self.assertIn("部门A", html)  # 正常排名仍在
 
-    def test_render_only_unfilled_no_empty_state(self):
+    def test_render_only_unfilled_shows_empty(self):
+        """仅有未填、无正式 items → 用户端显示本期无数据（不露未填行）。"""
         rk = {"items": [], "others": None, "unfilled": {"amount": 9.0, "count": 1}, "total": 9.0}
         html = render._rank_card("下单 · 按部门", "测", rk)
-        self.assertIn("rk-unfilled", html)
-        self.assertNotIn("本期无数据", html)
+        self.assertNotIn("rk-unfilled", html)
+        self.assertIn("本期无数据", html)
 
 
 class TestUnfilledDeptQueries(unittest.TestCase):
