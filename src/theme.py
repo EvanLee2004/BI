@@ -207,10 +207,11 @@ body{
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
   display:flex;flex-direction:column;min-height:0}
+.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(31,58,95,.08)}
 .rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
   padding:0 2px 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
 .rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:column;gap:14px}
-/* 缺口：顶行标签，中行大数字（强制可见） */
+/* 下单未回款大数（暗色默认用亮灰字；浅色见下方 .theme-light 覆盖） */
 .rc-hero{border-radius:12px;padding:14px 14px 12px;position:relative;
   border:1px solid rgba(251,146,60,.35);
   background:linear-gradient(145deg,rgba(251,146,60,.12),rgba(15,23,42,.4));
@@ -237,8 +238,6 @@ body{
 .rc-rate-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:#cbd5e1;margin-bottom:6px}
 .rc-rate-h b{font-size:17px;font-family:var(--num-font);color:var(--orange);font-weight:800}
 .rc-recv-note{font-size:11px;color:#94a3b8;line-height:1.4;margin-top:2px}
-.theme-light .rc-recv-note{color:var(--mut2)}
-
 .rc-rate-bar{height:8px;border-radius:6px;background:var(--track);overflow:hidden}
 .rc-rate-bar i{display:block;height:100%;border-radius:6px;
   background:linear-gradient(90deg,var(--orange),#fbbf24);transform-origin:left;
@@ -264,6 +263,30 @@ body{
   transform-origin:left;animation:rcBarGrow .85s .15s cubic-bezier(.2,.75,.25,1) both}
 .rc-bud-t{font-size:12px;color:#94a3b8;margin-top:4px}
 .rc-side-empty{padding:24px 8px;text-align:center;color:#94a3b8;font-size:13px}
+/* 浅色：暗色专用的亮灰字会发白，全部改用 ink/mut/note，保证「累计下单」等可读 */
+.theme-light .rc-hero{background:linear-gradient(145deg,rgba(217,138,43,.12),#fff);
+  border-color:rgba(217,138,43,.35);box-shadow:none}
+.theme-light .rc-hero-good{background:linear-gradient(145deg,rgba(18,128,92,.1),#fff);
+  border-color:rgba(18,128,92,.3)}
+.theme-light .rc-hero-flat{background:#f8fafc;border-color:var(--line)}
+.theme-light .rc-hero-l{color:var(--note)}
+.theme-light .rc-hero-tag{background:rgba(217,138,43,.15);color:#b45309}
+.theme-light .rc-hero-good .rc-hero-tag{background:rgba(18,128,92,.12);color:#0f766e}
+.theme-light .rc-hero-flat .rc-hero-tag{background:var(--track);color:var(--mut)}
+.theme-light .rc-hero-num{color:#c2410c;text-shadow:none}
+.theme-light .rc-hero-good .rc-hero-num{color:#0f766e;text-shadow:none}
+.theme-light .rc-hero-flat .rc-hero-num{color:var(--ink);text-shadow:none}
+.theme-light .rc-hero-u{color:#c2410c;opacity:1}
+.theme-light .rc-hero-good .rc-hero-u{color:#0f766e}
+.theme-light .rc-rate-h{color:var(--note)}
+.theme-light .rc-rate-h b{color:var(--orange)}
+.theme-light .rc-rate-pair em{color:var(--mut)}
+.theme-light .rc-recv-note{color:var(--mut2)}
+.theme-light .rc-bud-h{color:var(--note)}
+.theme-light .rc-bud-t{color:var(--mut)}
+.theme-light .rc-side-empty{color:var(--mut)}
+.theme-light .rc-pill{background:#f8fafc}
+.theme-light .rc-rate-bar i{box-shadow:none}
 /* 迭代21：回款卡周期联动高亮——非选中月降透明，选中月柱轻微发光；全亮状态无额外样式 */
 .rc-card.rc-rm-filter [data-rm].rm-dim{opacity:.28!important;filter:none!important;transition:opacity .2s ease}
 .rc-card.rc-rm-filter [data-rm].rm-on{opacity:1!important;transition:opacity .2s ease}
