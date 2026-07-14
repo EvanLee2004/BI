@@ -137,9 +137,8 @@ def _publish(cfg, summary, html, bu_pages=None):
 
 
 def _apply_profile(html: str, profile: str) -> str:
-    """把渲染缓存里默认的 <html … data-profile="full"> 换成本次服务对象的视图档案（Phase 1）。
-    executive=姜总精简版（CSS 隐藏公式/解释标注，页面数字不变）；full/空/非法 → 不改（安全默认=完整）。
-    纯替换根节点属性一次；'data-profile="full"' 只在 <html> 标签出现，replace(...,1) 命中它。"""
+    """视图档案注入（兼容保留）。线上 view_profile 恒 full，本函数对 full/空/非法不改；
+    若传入 executive 仍可换根节点属性一次（旧测试/回放兼容，非产品路径）。"""
     if not html or profile == accounts.VIEW_FULL or profile not in accounts.VIEW_PROFILES:
         return html
     return html.replace('data-profile="full"', f'data-profile="{profile}"', 1)
@@ -729,7 +728,10 @@ _ADMIN_CONSOLE = r"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,"PingFang SC","Segoe UI",sans-serif;
 background:radial-gradient(1200px 600px at 10% -10%,#1a1040 0%,transparent 55%),
 radial-gradient(900px 500px at 100% 0%,#0c2a3a 0%,transparent 50%),var(--bg);color:var(--fg);min-height:100vh}
-#bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+/* 顶栏+主页签+子导航整块固定（类似 Excel 冻结窗格；下滑设置页时上头不跟着走） */
+#chrome{position:sticky;top:0;z-index:40;background:var(--bg);
+box-shadow:0 8px 20px rgba(0,0,0,.25)}
+#bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
 padding:10px 16px;background:var(--bar-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 #bar b{font-size:15px;letter-spacing:.2px}.pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;user-select:none}
 .g{background:#14532d;color:#86efac}.y{background:#713f12;color:#fde68a}.r{background:#7f1d1d;color:#fca5a5}
@@ -741,10 +743,10 @@ button#themeBtn{background:transparent;border:1px solid var(--line);color:var(--
 button#themeBtn:hover{border-color:var(--vio);color:var(--vio2)}
 a{color:var(--vio2)}a.logout{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:8px}
 a.logout:hover{background:var(--panel2);color:var(--fg)}
-#groups{display:flex;gap:4px;flex-wrap:wrap;padding:10px 16px 0;background:transparent}
+#groups{display:flex;gap:4px;flex-wrap:wrap;padding:10px 16px 0;background:var(--bg)}
 .gtab{padding:9px 18px;border-radius:10px 10px 0 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--mut);
 border:1px solid transparent;border-bottom:none;transition:.15s}
-.gtab:hover{color:var(--fg)}.gtab.on{background:var(--bg);color:var(--fg);border-color:var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.2)}
+.gtab:hover{color:var(--fg)}.gtab.on{background:var(--panel);color:var(--fg);border-color:var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.2)}
 #subnav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 16px;background:var(--subnav-bg);border-bottom:1px solid var(--line);min-height:0}
 .subgrp{display:none;gap:6px;align-items:center;flex-wrap:wrap}
 .stab{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 14px;border-radius:999px;font-size:13px;cursor:pointer;transition:.12s}
@@ -925,6 +927,7 @@ html.theme-light .subgrp .badge.zero{background:#dcfce7;color:#166534}
 html.theme-light #buUnassignedHint b{color:#b45309}
 html.theme-light .stab:hover{border-color:#94a3b8}
 </style></head><body>
+<div id="chrome">
 <div id="bar">
   <b>管理员控制台</b>
   <span id="verPill" class="ver-pill" title="产品版本号（点开看更新日志）" onclick="showGroup('cfg');setTimeout(openVerDrawer,80)">v…</span>
@@ -932,7 +935,6 @@ html.theme-light .stab:hover{border-color:#94a3b8}
   <button id="btnRefresh" onclick="doRefresh()" title="从智云/台账重新抓数并重算看板">更新数据</button>
   <span id="msg" class="muted"></span>
   <span style="margin-left:auto"></span>
-  <button type="button" class="ghost" id="profBtn" title="预览下方看板：完整（你/陆总看的）↔ 精简（姜总看的，隐藏公式与解释标注）">👁 完整视图</button>
   <button type="button" class="ghost" id="themeBtn" title="深色/浅色（与看板共用，全局同步）"><span>◑</span> 浅色</button>
   <a class="logout" href="/admin/logout">退出</a>
 </div>
@@ -962,6 +964,7 @@ html.theme-light .stab:hover{border-color:#94a3b8}
     <button class="stab" data-t="history" onclick="showReview('history')">历史快照</button>
     <button class="stab" data-t="audit" onclick="showReview('audit')">配置变更记录</button>
   </span>
+</div>
 </div>
 
 <div id="dash" class="sec on"><iframe id="dashFrame" src="/"></iframe>
@@ -1253,24 +1256,6 @@ html.theme-light .stab:hover{border-color:#94a3b8}
   window.addEventListener("storage", function(e){
     if(e.key==="cockpit-theme") apply(e.newValue==="light");
   });
-})();
-
-/* 视图档案预览：陆总在控制台切「完整↔精简（姜总视角）」，只影响下方内嵌看板（postMessage，纯 CSS 显隐）。
-   不改姜总实际所见（姜总账号登录恒 executive）；管理端本页缓存的 iframe 默认 full。 */
-(function(){
-  var btn=document.getElementById("profBtn"), exec=false;
-  function apply(){
-    if(btn) btn.innerHTML=exec?'👁 精简视图（姜总）':'👁 完整视图';
-    try{
-      var f=document.getElementById("dashFrame");
-      if(f&&f.contentWindow) f.contentWindow.postMessage({type:"cockpit-profile", profile:exec?"executive":"full"}, location.origin);
-      var d=f&&f.contentDocument; if(d) d.documentElement.setAttribute("data-profile", exec?"executive":"full");
-    }catch(e){}
-  }
-  if(btn) btn.addEventListener("click", function(){ exec=!exec; apply(); });
-  // iframe 载入完成后补发一次（重载/首帧时机）
-  var fr=document.getElementById("dashFrame");
-  if(fr) fr.addEventListener("load", apply);
 })();
 
 let ADJ_FIELDS={};  // R1：可调字段由服务端下发（schema 黑名单制推导），不再前端写死
