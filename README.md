@@ -38,11 +38,9 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 五层单向数据流。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
 
-<p align="center">
-  <img src="docs/images/architecture.png" alt="系统架构图 v1.5" width="900" />
-</p>
+![系统架构图 v1.5](docs/images/architecture.png)
 
-<p align="center"><sub>架构图 v1.5 · 对齐产品 v1.4.0-beta · 源文件 <a href="docs/设计图/02_概要设计_系统架构图.svg">SVG</a></sub></p>
+> 架构图 v1.5 · 对齐产品 v1.4.0-beta · 矢量源见 [docs/设计图/](docs/设计图/)
 
 ### 数据怎么流
 
@@ -63,9 +61,7 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ### 每天怎么跑（大白话）
 
-<p align="center">
-  <img src="docs/images/howto-run.png" alt="运行逻辑" width="720" />
-</p>
+![运行逻辑](docs/images/howto-run.png)
 
 ---
 
@@ -106,15 +102,11 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 **每日更新 / 改数时序**
 
-<p align="center">
-  <img src="docs/images/sequence.png" alt="关键流程时序图" width="820" />
-</p>
+![关键流程时序图](docs/images/sequence.png)
 
 **数据库结构**
 
-<p align="center">
-  <img src="docs/images/er.png" alt="数据库 ER 图" width="820" />
-</p>
+![数据库 ER 图](docs/images/er.png)
 
 ---
 
