@@ -2137,7 +2137,8 @@ def create_app(cfg, root=None) -> FastAPI:
         return HTMLResponse(_view_login_page())
 
     def _main_with_nav(hide_pw: bool = False) -> str:
-        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）+ A3 未归属提示（随周期切）。
+        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
+        看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
         hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
         避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
         html = _state["user_html"]
@@ -2155,27 +2156,10 @@ def create_app(cfg, root=None) -> FastAPI:
             links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
             parts.append('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
                          '<span class="bu-nav-label">业务 BU 分页</span>'
-                         '<span class="bu-nav-links">' + links + '</span>'
-                         + _unassigned_hint_html(_state.get("summary"), _esc) + '</div>')
+                         '<span class="bu-nav-links">' + links + '</span></div>')
         if parts:
             return html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
         return html
-
-    def _unassigned_hint_html(summary, esc) -> str:
-        """A3 整体页未归属提示（只在整体/管理员会话出现，BU 页绝不渲染）：
-        每周期一个预渲染 .pv 块（前端按周期切显示，零金额运算=铁律2）；未归属人数 N=0 → 整行不渲染。"""
-        un = ((summary or {}).get("meta") or {}).get("unassigned") or {}
-        n = int(un.get("count") or 0)
-        by = un.get("by_period") or {}
-        if n <= 0 or not by:
-            return ""
-        yk = (summary["meta"]).get("year_key")
-        blocks = "".join(
-            f'<span class="pv" data-blk="{esc(k)}" style="{"" if k == yk else "display:none"}">'
-            f'另有未归属 BU 的业务 <b>{esc(disp)}</b>（{n} 名销售待配置归属，未计入任何 BU 页）</span>'
-            for k, disp in by.items())
-        return ('<span class="bu-unassigned" role="note" title="这部分业务的销售还没归到任何 BU，'
-                '故各 BU 合计小于全公司——去管理端设置页「BU 数据归属」勾选即计入">' + blocks + '</span>')
 
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):

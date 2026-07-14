@@ -226,40 +226,23 @@ class TestRenderGuards(unittest.TestCase):
 
 
 class TestUnclassifiedPeriodTip(unittest.TestCase):
-    """迭代21-B：月/季周期也出待分类口径提示（无金额）；无未分类行则任何周期都不渲染。"""
+    """看端整体页不再展示底部「口径提示」淡字（未分类仍进全年利润表 + 管理端体检）。"""
 
-    def test_month_period_tip_without_amount(self):
+    def test_dashboard_hides_faint_unclassified_tip(self):
         cfg, S = _summary()
-        # 强制有未分类，验证年/月两套文案
         S["meta"]["unclassified"]["expense"] = {"count": 3, "amount": 123456.0}
         html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
-        yk = S["meta"]["year_key"]
-        month_keys = S["meta"]["tab_groups"]["月"]
-        self.assertTrue(month_keys, "需要至少一个月周期")
-        mk = month_keys[0]
-        # 全年带金额
-        self.assertIn("待分类费用尚未计入", html)
-        self.assertIn("税前利润略偏高", html)
-        # 月周期无金额版
-        self.assertIn("全年另有待分类台账费用未计入", html)
-        self.assertIn("金额见全年视图", html)
-        # 月周期块存在
-        self.assertIn(f'data-blk="{mk}"', html)
-        # 无金额版提示不得夹带「另含 X 万」那种金额措辞（用 123456→万 串兜底）
-        from render import _wan  # noqa
-        wan = _wan(123456.0)
-        # 年块应含金额；把月块抽出来断言不含该金额串
-        # 简化：全文仍会有年块金额，但「全年另有待分类」那句旁不应再出现 wan
-        tip_no_amt = "全年另有待分类台账费用未计入，各期税前利润均可能略偏高（金额见全年视图）"
-        self.assertIn(tip_no_amt, html)
-        self.assertNotIn(f"另含 {wan}", tip_no_amt)  # 无金额版文案本身不含
+        self.assertNotIn("口径提示", html)
+        self.assertNotIn("待分类费用尚未计入", html)
+        self.assertNotIn("全年另有待分类台账费用未计入", html)
+        self.assertNotIn("税前利润略偏高", html)
 
-    def test_no_unclassified_no_tip(self):
+    def test_no_unclassified_still_no_tip(self):
         cfg, S = _summary()
         S["meta"]["unclassified"]["expense"] = {"count": 0, "amount": 0.0}
         html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
+        self.assertNotIn("口径提示", html)
         self.assertNotIn("待分类费用尚未计入", html)
-        self.assertNotIn("全年另有待分类台账费用未计入", html)
 
 
 class TestReceiptsBudgetLayout(unittest.TestCase):

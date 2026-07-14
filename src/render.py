@@ -1109,18 +1109,7 @@ def render_dashboard(summary, cfg, logo_b64):
                 + meta["tab_groups"].get("区间", []))
     logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
     unc = meta["unclassified"]["expense"]
-    # C1'：老板端不放体检徽章/预警 banner（财务自检工具，只留管理员端），但保留一行极淡小字兜底
-    # 防"利润悄悄虚高"——未分类费用未计入会让税前利润偏高。
-    # 迭代21：年周期带金额；月/季/区间只出无金额口径提示（未分类未按月拆，标金额会假精确）。
-    if unc["count"]:
-        faint_year = (f'<div class="faint-note">口径提示：另含 {_wan(unc["amount"])} 待分类费用尚未计入'
-                      f'（税前利润略偏高）</div>')
-        faint_other = ('<div class="faint-note">口径提示：全年另有待分类台账费用未计入，'
-                       '各期税前利润均可能略偏高（金额见全年视图）</div>')
-        faint_note = "".join(
-            _pv(k, yk, faint_year if k == yk else faint_other) for k in all_keys)
-    else:
-        faint_note = ""
+    # 看端不再展示底部「口径提示」淡字（未分类仍进利润表全年行 + 管理端体检/异常处理）
 
     month_keys = meta["tab_groups"]["月"]
     spark_cache = _spark_cache(P, month_keys)
@@ -1136,7 +1125,7 @@ def render_dashboard(summary, cfg, logo_b64):
         for k in all_keys)
 
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
-    # 未分类金额行只挂全年利润表（分周期拆分未做，避免假精确）；月/季靠 faint-note 无金额提示
+    # 未分类金额行只挂全年利润表（分周期拆分未做，避免假精确）
     pl_views = "".join(
         _pv(k, yk, render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None))
         for k in all_keys)
@@ -1185,7 +1174,6 @@ def render_dashboard(summary, cfg, logo_b64):
  {DAILY_HTML}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
- {faint_note}
  </div>
  <div class="foot">
   甲骨易智能经营罗盘 · 财务部 &nbsp;|&nbsp; 口径：交付金额=智云含税原数；交付收入=交付金额÷1.06；交付成本=系统直接成本−内部译员+手填；
@@ -1366,7 +1354,6 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {PARTICLES_HTML}
 <div class="topbar">{logo}<span class="tb-title">甲骨易智能经营<b>罗盘</b> · {name}</span>
  <span class="tb-right">
- <a class="bu-back" href="/" title="返回整体看板（也可当刷新）">← 返回整体</a>
  <span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
  <button class="toggle" id="exportBtn" data-export="{export_url}"><span>⬇</span> 导出</button>
  <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
