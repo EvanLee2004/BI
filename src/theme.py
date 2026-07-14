@@ -162,8 +162,13 @@ body{
 .kpi-bu-track i.soft{background:linear-gradient(90deg,rgba(167,139,250,.55),rgba(56,189,248,.5));box-shadow:none}
 .kpi-bu-p{flex:0 0 auto;min-width:48px;text-align:right;font-weight:700;color:var(--note);font-size:11.5px}
 .kpi-bu-p.muted{color:var(--mut2);font-weight:400;font-size:11px}
-.kpi-spark{margin-top:auto;padding-top:9px}
-.kpi-spark .spark{width:100%;height:32px;display:block;opacity:.9}
+/* 卡底有用信息（替代迷你折线）：峰值 / 已交付未回款 等 */
+.kpi-foot{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:5px}
+.kpi-foot-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  font-size:12px;line-height:1.35}
+.kpi-foot-l{color:var(--mut2);font-weight:500;flex:0 0 auto}
+.kpi-foot-v{color:var(--ink);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.kpi-foot-v b{color:var(--accent);font-weight:700;margin-right:2px}
 .kpi-mo{font-size:12.5px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .kpi-mo b{color:var(--ink);font-weight:600}
 .kpi-src{font-size:10.5px;color:var(--mut2);margin-top:7px}

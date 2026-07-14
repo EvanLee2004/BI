@@ -137,14 +137,22 @@ def _target_bar(budget, tkey, pkey, year, p):
             f'<div class="kpi-tgt-n">进度 {pct_s}</div></div>')
 
 
-# ---------- 板块① 基本情况（单周期，5 KPI：值+环比+迷你趋势+目标进度）----------
-def _spark_cache(P, month_keys):
-    """每张卡的迷你趋势线（全年逐月，与所选周期无关）——一次算好、各周期视图共用。"""
-    cache = {}
-    for row in KPI_CARDS:
-        key, color = row[1], row[5]
-        cache[key] = charts.sparkline([_kpi_val(P[mk], key) for mk in month_keys], color)
-    return cache
+# ---------- 板块① 基本情况（单周期，5 KPI：值+环比+目标进度+峰值/对照）----------
+def _kpi_peak_row(month_keys, P, key, year):
+    """全年逐月峰值一行（替代迷你折线）：领导扫哪个月最高。金额后端算好。"""
+    if not month_keys:
+        return ""
+    best_v, best_mk = None, None
+    for mk in month_keys:
+        v = float(_kpi_val(P[mk], key) or 0.0)
+        if best_v is None or v > best_v:
+            best_v, best_mk = v, mk
+    if best_v is None or (best_v == 0.0 and all(
+            float(_kpi_val(P[mk], key) or 0.0) == 0.0 for mk in month_keys)):
+        return ""
+    lab = best_mk.replace(f"{year}年", "") if isinstance(best_mk, str) and best_mk.startswith(f"{year}年") else str(best_mk)
+    return (f'<div class="kpi-foot-row"><span class="kpi-foot-l">全年峰值</span>'
+            f'<span class="kpi-foot-v"><b>{_esc(lab)}</b> {charts.fmt_wan(best_v)}万</span></div>')
 
 
 def _bu_orders_block(bu_list):
@@ -190,27 +198,33 @@ def _kpi_period_label(pkey, year):
     return str(pkey or yk)
 
 
-def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
+def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
+    """基本情况 KPI。month_keys=全年月周期列表（算峰值用）；不再画迷你折线。"""
     p = P[pkey]
     prev = _prev_period_key(pkey, year)
     period_tag = _esc(_kpi_period_label(pkey, year))
     cards = ""
     for label, key, src, up_good, pctkey, _color, tkey in KPI_CARDS:
-        val = _kpi_val(p, key)
+        val = float(_kpi_val(p, key) or 0.0)
         vhtml = f'{charts.fmt_wan(val)}<span class="u">万</span>'
         # 环比上期（同粒度）
-        if prev is not None and _kpi_val(P[prev], key):
-            pv = _kpi_val(P[prev], key)
-            d = (val - pv) / abs(pv) * 100
-            good = (d >= 0) == up_good
-            arrow = "▲" if d >= 0 else "▼"
-            delta = f'<div class="kpi-delta {"up" if good else "down"}">{arrow} {abs(d):.1f}% <span>环比上期</span></div>'
+        if prev is not None and _kpi_val(P.get(prev) or {}, key):
+            pv = float(_kpi_val(P[prev], key) or 0.0)
+            if pv:
+                d = (val - pv) / abs(pv) * 100
+                good = (d >= 0) == up_good
+                arrow = "▲" if d >= 0 else "▼"
+                delta = f'<div class="kpi-delta {"up" if good else "down"}">{arrow} {abs(d):.1f}% <span>环比上期</span></div>'
+            else:
+                delta = '<div class="kpi-delta muted">— 无上期对比</div>'
         else:
             delta = '<div class="kpi-delta muted">— 无上期对比</div>'
         sub = ""
         if key == "revenue_gross":
-            # 脚注确认口径交付收入（÷1.06），主数仍是交付金额
             sub = f'<div class="kpi-sub">交付收入(÷1.06) <b>{charts.fmt_wan(p["revenue_net"])}万</b></div>'
+            o = float(p.get("orders") or 0.0)
+            if o > 0:
+                sub += f'<div class="kpi-sub">交付占下单 <b>{val / o * 100:.0f}%</b></div>'
         elif pctkey == "gross_margin_pct":
             sub = f'<div class="kpi-sub">毛利率 <b>{p[pctkey]:.1f}%</b></div>'
         elif pctkey == "pretax_margin_pct":
@@ -220,13 +234,19 @@ def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
             rtxt = f'{r:.1f}%' if r is not None else '—'
             sub = f'<div class="kpi-sub">总回款/下单比 <b>{rtxt}</b></div>'
         tgt = _target_bar(budget, tkey, pkey, year, p)
-        # 陆总0714·C1：下单卡尾部挂三大 BU 进度（仅整体页传入）
         bus_html = _bu_orders_block(bu_orders) if key == "orders" else ""
+        # 卡底有用信息：全年峰值；回款卡再加本期「已交付未回款」
+        foot_rows = _kpi_peak_row(month_keys, P, key, year)
+        if key == "receipts":
+            ar = float(p.get("revenue_gross") or 0.0) - val  # 交付金额(含税)−回款，近似应收
+            ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
+            foot_rows += (f'<div class="kpi-foot-row"><span class="kpi-foot-l">已交付未回款</span>'
+                          f'<span class="kpi-foot-v"><b>{ar_s}</b>万</span></div>')
+        foot = f'<div class="kpi-foot">{foot_rows}</div>' if foot_rows else ""
         cards += (f'<div class="kpi"><div class="kpi-l">{label}'
                   f'<span class="kpi-period" title="当前查看时段">{period_tag}</span></div>'
                   f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}{tgt}{bus_html}'
-                  f'<div class="kpi-spark">{spark_cache[key]}</div>'
-                  f'<div class="kpi-src">{src}</div></div>')
+                  f'{foot}<div class="kpi-src">{src}</div></div>')
     return f'<div class="kpi-grid kpi-5">{cards}</div>'
 
 
@@ -1156,11 +1176,10 @@ def render_dashboard(summary, cfg, logo_b64):
     # 看端不再展示底部「口径提示」淡字（未分类仍进利润表全年行 + 管理端体检/异常处理）
 
     month_keys = meta["tab_groups"]["月"]
-    spark_cache = _spark_cache(P, month_keys)
     budget = meta.get("budget")
     BUO = meta.get("bu_orders") or {}
     kpi_views = "".join(
-        _pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget, bu_orders=BUO.get(k)))
+        _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget, bu_orders=BUO.get(k)))
         for k in all_keys)
     # 费用构成：按大类 | 按类别（预算明细费用类型，与 FT 同源守恒）| 按业务BU
     BP = summary.get("expense_by_profit_center", {})
@@ -1350,9 +1369,8 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 
     # BU 基本情况 KPI（与整体页同构；目标取该 BU 的 budget meta，无则空态）
     month_keys = meta["tab_groups"]["月"]
-    spark_cache = _spark_cache(P, month_keys)
     budget = meta.get("budget")
-    kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget)) for k in all_keys)
+    kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget)) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
     # 回款情况：与整体页同款；交付金额取本 BU 已过滤的全年 revenue_gross（铁律12）
     receipts_html = render_receipts(

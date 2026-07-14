@@ -178,18 +178,24 @@ class TestOrdersByBU(unittest.TestCase):
         self.assertEqual(render._bu_orders_block(None), "")   # BU 页不传 → 空（铁律12）
 
     def test_render_basic_only_orders_card_gets_block(self):
-        # bu_orders 只挂下单卡；其他卡不出现
+        # bu_orders 只挂下单卡；其他卡不出现；无迷你折线、有峰值/已交付未回款脚
         import copy
         p = {k: 0.0 for k in ("orders", "revenue_gross", "revenue_net", "gross_profit",
                               "pretax_profit", "receipts")}
         p.update({"gross_margin_pct": 0.0, "pretax_margin_pct": 0.0,
                   "receipt_order_ratio_pct": None})
-        P = {"2026年": copy.deepcopy(p), "2026年1月": copy.deepcopy(p)}
-        spark = {k: "" for k in ("orders", "revenue_gross", "gross_profit", "pretax_profit", "receipts")}
+        p1 = copy.deepcopy(p); p1["orders"] = 100.0; p1["receipts"] = 40.0; p1["revenue_gross"] = 80.0
+        P = {"2026年": copy.deepcopy(p1), "2026年1月": copy.deepcopy(p1), "2026年2月": copy.deepcopy(p)}
+        months = ["2026年1月", "2026年2月"]
         lst = [{"name": "游戏", "amount": 1.0, "year_amount": 1.0, "target": None, "pct": None}]
-        html = render.render_basic("2026年", P, 2026, spark, None, bu_orders=lst)
+        html = render.render_basic("2026年", P, 2026, months, None, bu_orders=lst)
         self.assertEqual(html.count("kpi-bus"), 1)
-        html2 = render.render_basic("2026年", P, 2026, spark, None)   # 不传=不渲染
+        self.assertNotIn("kpi-spark", html)
+        self.assertNotIn("class=\"spark\"", html)
+        self.assertIn("全年峰值", html)
+        self.assertIn("已交付未回款", html)
+        self.assertIn("交付占下单", html)
+        html2 = render.render_basic("2026年", P, 2026, months, None)   # 不传=不渲染
         self.assertNotIn("kpi-bus", html2)
 
 
