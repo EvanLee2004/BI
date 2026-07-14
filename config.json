@@ -120,6 +120,11 @@
       "default": "zero"
     },
     {
+      "name": "直接成本增值税",
+      "role": "生产成本抵减",
+      "default": "zero"
+    },
+    {
       "name": "其他损益",
       "role": "利润表",
       "default": "zero"

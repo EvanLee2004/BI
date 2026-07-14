@@ -19,7 +19,8 @@ def get_css() -> str:
 .theme-light{
   --bg:#eef1f5; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
   --line:#e3e8ef; --line-2:#d5dde8;
-  --ink:#233043; --mut:#6b7480; --mut2:#98a1ad; --note:#4a5568;
+  /* 陆总0714：浅色字太浅难读 → 灰阶整体加深一档，层级关系不变（mut2<mut<note<ink） */
+  --ink:#1d2836; --mut:#525c68; --mut2:#76808d; --note:#3d4756;
   --blue:#2E6FAD; --cost:#9aa6b8; --pos:#12805c; --neg:#d1503f; --orange:#d98a2b;
   --purple:#7a5ba8; --teal:#1a9e8f; --track:#eef1f4;
   --kind-system:#2E6FAD; --kind-ledger:#7a5ba8; --kind-manual:#c47d1f;
@@ -135,6 +136,18 @@ body{
 .kpi-tgt-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost));box-shadow:none}
 .kpi-tgt-track i.ok{background:linear-gradient(90deg,var(--pos),var(--teal))}
 .kpi-tgt-n{font-size:10px;color:var(--mut2);margin-top:3px;text-align:right}
+/* 下单卡·三大BU进度（迭代22·C1）：虚线轨道=目标、实心填充=达成 */
+.kpi-bus{margin-top:7px;padding-top:6px;border-top:1px dashed var(--line-2);display:flex;flex-direction:column;gap:4px}
+.kpi-bu{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--mut)}
+.kpi-bu-n{flex:0 0 auto;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--note);font-weight:600}
+.kpi-bu-a{flex:0 0 auto;color:var(--ink);font-weight:700}
+.kpi-bu-track{flex:1 1 auto;height:5px;border-radius:3px;border:1px dashed var(--line-2);background:transparent;overflow:hidden}
+.kpi-bu-track i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal),var(--blue))}
+.kpi-bu-track i.warn{background:linear-gradient(90deg,var(--orange),#f59e0b)}
+.kpi-bu-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost))}
+.kpi-bu-track i.ok{background:linear-gradient(90deg,var(--pos),var(--teal))}
+.kpi-bu-p{flex:0 0 auto;min-width:30px;text-align:right;font-weight:700;color:var(--note)}
+.kpi-bu-p.muted{color:var(--mut2);font-weight:400}
 .kpi-spark{margin-top:auto;padding-top:7px}
 .kpi-spark .spark{width:100%;height:28px;display:block;opacity:.9}
 .kpi-mo{font-size:12px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}

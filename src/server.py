@@ -908,8 +908,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   <div class="sec-block" id="allocBlock" style="display:none">
     <div class="blk-h">🏦 公共费用分摊比例（按月）</div>
     <div class="note info">本月公共费用总额 <strong id="allocTotal">—</strong> 元（台账「利润归属中心=公共」5 类合计）。
-      各 BU 填比例 %；<b>合计可以小于 100%</b>（剩余留公司层不分摊）、超过 100% 不能保存；留空=该 BU 本月不分摊。
+      各 BU 填比例 %；<b>合计可以小于 100%</b>（剩余留公司层不分摊）、超过 100% 不能保存；
+      <b>没填的月份自动沿用最近一次填写的比例</b>（改了从当月起生效）；要让某 BU 当月不分摊请填 <b>0</b>。
       BU 名单与「设置→BU 数据归属」同源。与上方共用底部「保存全部」。</div>
+    <div class="muted" id="allocInherit" style="margin:4px 0 0"></div>
     <div class="tbl-box no-scroll"><table id="aTbl"></table></div>
     <div class="muted" id="allocSum" style="margin-top:6px"></div>
   </div>
@@ -1690,10 +1692,12 @@ async function aLoad(){const blk=document.getElementById("allocBlock");if(!blk)r
   if(!d.bus||!d.bus.length){blk.style.display="none";return;}
   blk.style.display="";
   document.getElementById("allocTotal").textContent=d.month_total_disp||"0.00";
+  var inh=document.getElementById("allocInherit");
+  if(inh)inh.textContent=d.inherited_from?("本月未单独填写，当前沿用 "+d.inherited_from+" 的比例（改动保存后从本月起生效）"):"";
   let h="<tr><th>BU</th><th>本月分摊比例(%)</th></tr>";
   d.bus.forEach((bn,i)=>{const v=(d.ratios&&d.ratios[bn]!=null)?String(d.ratios[bn]):"";
     h+="<tr><td>"+esc(bn)+"</td><td><input id='al_"+i+"' class='amt' data-kind='alloc' data-bu='"+esc(bn)+
-      "' data-orig='"+esc(v)+"' size='8' value='"+esc(v)+"' placeholder='空=不分摊'></td></tr>";});
+      "' data-orig='"+esc(v)+"' size='8' value='"+esc(v)+"' placeholder='未填=沿用上次'></td></tr>";});
   document.getElementById("aTbl").innerHTML=h;
   document.querySelectorAll("#aTbl input.amt").forEach(el=>{
     el.addEventListener("input",()=>{refreshDirtyUI();aSum();});
@@ -2400,15 +2404,19 @@ def create_app(cfg, root=None) -> FastAPI:
         def _wan(v):
             return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
 
-        def _mg(mp):
-            return f"项目毛利率 {mp:.0f}%" if mp is not None else "项目毛利率 —"
+        def _mg(it):
+            # 陆总0714：改叫「系统成本率」；按销售的率先不显示（防"人力算不算"连锁追问）
+            if dim == "sales":
+                return ""
+            cp = it.get("cost_pct")
+            return f"系统成本率 {cp:.0f}%" if cp is not None else "系统成本率 —"
 
-        items = [{"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it["margin_pct"])}
+        items = [{"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it)}
                  for it in rk["items"]]
         if rk.get("unfilled"):
             uf = rk["unfilled"]
             items.append({"name": "（未填）", "revenue_disp": _wan(uf["revenue"]),
-                          "margin_disp": _mg(uf["margin_pct"]), "unfilled": True})
+                          "margin_disp": _mg(uf), "unfilled": True})
         return {"dim": dim, "start": start, "end": end, "items": items}
 
     @app.get("/api/exceptions")
@@ -2509,6 +2517,36 @@ def create_app(cfg, root=None) -> FastAPI:
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         from urllib.parse import quote
         fn = quote(f"甲骨易智能经营罗盘_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        return Response(content=png, media_type="image/png",
+                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
+                                 "X-Filename": fn})
+
+    @app.get("/bu/{name}/export.png")
+    def api_bu_export_png(name: str, request: Request, blk: str = ""):
+        """BU 页导出（迭代22·D5）：截该 BU 页整页 PNG。会话闸=能看该 BU 才能导（铁律12：
+        截图源就是该 BU 已过滤页面，天然不含他 BU 数据）。"""
+        page = _state.get("bu_pages", {}).get(name)
+        if not page:
+            raise HTTPException(status_code=404, detail="Not Found")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        keys = set(((_state.get("summary") or {}).get("periods") or {}).keys())
+        if blk and keys and blk not in keys:
+            raise HTTPException(status_code=400, detail="未知周期")
+        if not _EXPORT_LOCK.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail="正在生成另一张导出图，请稍候几秒再点")
+        try:
+            png = _screenshot_png(page["html"], blk)
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=503,
+                                detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium")
+        finally:
+            _EXPORT_LOCK.release()
+        label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
+        from urllib.parse import quote
+        fn = quote(f"甲骨易智能经营罗盘_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(content=png, media_type="image/png",
                         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
                                  "X-Filename": fn})
@@ -2813,7 +2851,9 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=400, detail="归属月格式须为 YYYY-MM")
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         bu_names = [b["name"] for b in bucfg["bus"]]
-        ratios = db.get_alloc_ratios(conn, month)
+        # 陆总0714：该月没填 → 回显沿用的最近填写月比例（inherited_from 标来源；保存即固化到本月）
+        ratios, src_month = db.effective_alloc_month(conn, month)
+        inherited_from = src_month if (src_month and src_month != month) else None
         lh, lr = db.load_ledger(cfg, conn)
         month_total = 0.0
         if lh:
@@ -2829,6 +2869,7 @@ def create_app(cfg, root=None) -> FastAPI:
         remain_amt = round(month_total * remain_pct / 100.0, 2)
         orphans = sorted(set(ratios) - set(bu_names))
         return {"month": month, "bus": bu_names, "ratios": known,
+                "inherited_from": inherited_from,
                 "orphans": orphans,
                 "month_total": month_total,
                 "month_total_disp": f"{month_total:,.2f}",
@@ -2872,7 +2913,10 @@ def create_app(cfg, root=None) -> FastAPI:
             vals[b] = round(fv, 1)
         conn = _conn()
         try:
-            merged = dict(db.get_alloc_ratios(conn, month))
+            # 合并基准=该月生效比例（含沿用值·陆总0714）；保存时把生效全集固化进本月，
+            # 否则只改一个 BU 会让其余 BU 的沿用比例丢失（本月一旦有行，沿用即不再兜底）
+            merged, _src = db.effective_alloc_month(conn, month)
+            merged = {b: p for b, p in merged.items() if b in known}
             for b, v in vals.items():
                 if v is None:
                     merged.pop(b, None)
@@ -2882,8 +2926,8 @@ def create_app(cfg, root=None) -> FastAPI:
             if total > 100.05:
                 raise HTTPException(status_code=400,
                                     detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）")
-            for b, v in vals.items():
-                db.set_alloc_ratio(conn, month, b, v, user)
+            for b in known:
+                db.set_alloc_ratio(conn, month, b, merged.get(b), user)
             out = _alloc_month_payload(conn, month)
         finally:
             conn.close()

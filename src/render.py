@@ -23,7 +23,7 @@ KPI_CARDS = [
     ("税前利润", "pretax_profit", "毛利−各项费用−附加税±其他", True, "pretax_margin_pct", "var(--pos)", None),
     ("回款", "receipts", "智云·回款(到账)", True, None, "var(--teal)", "receipt"),
 ]
-# 回款/下单比防误读小字（回款柱图 + 回款额卡下方两处都放，防姜总误读）
+# 回款/下单比解释小字：陆总 0714 拍板不再展示（"这行不用写，大家都理解"）；常量保留给旧测试/兼容
 RECEIPT_NOTE = "当月回款多对应往月下单，反映资金回笼节奏，非当月回收率"
 
 # 右侧抽屉（点利润表大类看构成）——单例，放 body 末尾
@@ -136,7 +136,31 @@ def _spark_cache(P, month_keys):
     return cache
 
 
-def render_basic(pkey, P, year, spark_cache, budget=None):
+def _bu_orders_block(bu_list):
+    """下单卡内三大 BU 进度（陆总0714·C1）：期内下单额 + 全年累计/BU 年目标（虚线轨道=目标）。
+    只在全公司整体页出现（BU 页不传此参数·铁律12）。金额/率全部后端算好。"""
+    if not bu_list:
+        return ""
+    rows = ""
+    for d in bu_list:
+        amt = charts.fmt_wan(d.get("amount") or 0.0)
+        pct = d.get("pct")
+        if pct is not None:
+            w = min(max(pct, 0.0), 100.0)
+            cls = "ok" if pct >= 100 else ("warn" if pct >= 80 else "low")
+            tail = (f'<span class="kpi-bu-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
+                    f'<span class="kpi-bu-p">{pct:.0f}%</span>')
+            tip = f'年目标 {charts.fmt_wan(d["target"])}万 · 全年累计 {charts.fmt_wan(d.get("year_amount") or 0)}万'
+        else:
+            tail = '<span class="kpi-bu-p muted">未设目标</span>'
+            tip = "该 BU 未填下单年目标（管理端·人工填写·业绩目标·选 BU 范围）"
+        rows += (f'<div class="kpi-bu" data-tip="{_esc(_esc(tip))}">'
+                 f'<span class="kpi-bu-n">{_esc(d["name"])}</span>'
+                 f'<span class="kpi-bu-a">{amt}万</span>{tail}</div>')
+    return f'<div class="kpi-bus">{rows}</div>'
+
+
+def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
     p = P[pkey]
     prev = _prev_period_key(pkey, year)
     cards = ""
@@ -163,11 +187,12 @@ def render_basic(pkey, P, year, spark_cache, budget=None):
         if key == "receipts":
             r = p["receipt_order_ratio_pct"]
             rtxt = f'{r:.1f}%' if r is not None else '—'
-            sub = (f'<div class="kpi-sub">总回款/下单比 <b>{rtxt}</b></div>'
-                   f'<div class="kpi-note">{RECEIPT_NOTE}</div>')
+            sub = f'<div class="kpi-sub">总回款/下单比 <b>{rtxt}</b></div>'
         tgt = _target_bar(budget, tkey, pkey, year, p)
+        # 陆总0714·C1：下单卡尾部挂三大 BU 进度（仅整体页传入）
+        bus_html = _bu_orders_block(bu_orders) if key == "orders" else ""
         cards += (f'<div class="kpi"><div class="kpi-l">{label}</div>'
-                  f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}{tgt}'
+                  f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}{tgt}{bus_html}'
                   f'<div class="kpi-spark">{spark_cache[key]}</div>'
                   f'<div class="kpi-src">{src}</div></div>')
     return f'<div class="kpi-grid kpi-5">{cards}</div>'
@@ -175,8 +200,8 @@ def render_basic(pkey, P, year, spark_cache, budget=None):
 
 # ---------- 板块②-1 交付金额 · 毛利趋势（整年，静态）----------
 def render_trend(trend, hl):
-    return (f'<div class="card"><div class="card-h">交付收入 · 毛利趋势 '
-            f'<span class="tag">按月 · 柱顶=收入/成本万 · 月下=毛利率%</span></div>'
+    return (f'<div class="card"><div class="card-h">交付收入 · 生产毛利趋势 '
+            f'<span class="tag">按月 · 柱顶=收入/成本万 · 月下=生产毛利率%</span></div>'
             f'{charts.combo_bar_line_chart(trend, hl)}</div>')
 
 
@@ -246,6 +271,38 @@ def render_expense_views(p, dept_rows, pc_rows):
             f'</div></div>')
 
 
+def _fine_to_rows(fine_k):
+    """把 {大类:[(细类,金额)…]} 摊平成「按费用类别」横条行 [(细类,合计,[(大类,金额)…])…]（迭代22·D2）。
+    同名细类跨大类合并；抽屉里按大类拆开看。"""
+    if not fine_k:
+        return []
+    agg: dict[str, float] = {}
+    src: dict[str, list] = {}
+    for cat, pairs in fine_k.items():
+        for name, amt in pairs or []:
+            agg[name] = agg.get(name, 0.0) + float(amt)
+            src.setdefault(name, []).append((cat, float(amt)))
+    rows = [(n, round(v, 2), sorted(src[n], key=lambda x: -x[1])) for n, v in agg.items()]
+    rows.sort(key=lambda r: -r[1])
+    return rows
+
+
+def render_bu_expense_views(p, fine_k):
+    """BU 页期间费用构成卡（迭代22·D2·陆总0714）：按大类（环形）｜按费用类别（横条）两态。
+    不出「按部门」——BU 层面看类别，部门口径只留整体页（给陆总）。"""
+    e = p.get("expense") or {}
+    rows = _fine_to_rows(fine_k)
+    tabs = ('<span class="ev-tabs">'
+            '<button class="ev-tab on" data-ev="cat">按大类</button>'
+            '<button class="ev-tab" data-ev="fine">按费用类别</button></span>')
+    return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e.get("total") or 0)}万</span>{tabs}</div>'
+            f'<div class="ev-body">'
+            f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
+            f'<div class="ev-pane" data-ev="fine" style="display:none">{_hbar_rows(rows, "fine")}'
+            f'<div class="chart-note">按收单台账「预算明细费用类型」（本 BU 直记部分；不含手填人力与公共分摊）；点类别看所属大类。</div></div>'
+            f'</div></div>')
+
+
 def render_dept_budget(dept_budget):
     """部门费用预算执行卡。迭代19 陆总拍板：界面下线（半吊子汇总无意义）；函数保留给旧测试/兼容，恒返回空。"""
     return ""
@@ -257,6 +314,15 @@ def _row(name, impact, kind, src="", total=False, grand=False):
     dot = f'<span class="dot {kind}"></span>' if kind else '<span class="dot none"></span>'
     src_html = f'<span class="src">{src}</span>' if src else ""
     return f'<div class="{cls}">{dot}<div class="pl-name">{name}{src_html}</div>{_amt(impact, colored=(total or grand))}</div>'
+
+
+def _pct_row(name, pct, src=""):
+    """比率行（如销售利润率）：金额列显示百分数，不参与任何求和。pct=None → 灰显 —。"""
+    src_html = f'<span class="src">{src}</span>' if src else ""
+    txt = f"{pct:.1f}%" if pct is not None else "—"
+    return (f'<div class="pl-row"><span class="dot none"></span>'
+            f'<div class="pl-name">{name}{src_html}</div>'
+            f'<span class="pl-amt">{txt}</span></div>')
 
 
 def _open_row(cat, name, impact):
@@ -307,9 +373,12 @@ def render_pl_table(p, fine, unclassified_amt=None):
         rows.append(_row("未计入费用（台账未填大类）", -unclassified_amt, "ledger", "不进税前·见异常处理"))
     rows.append(_row("税前利润", p["pretax_profit"], "",
                      "管理毛利−期间费用−附加税±其他", grand=True))
+    # 陆总0714：加一行销售利润率（BU 负责人绩效考核指标；=税前利润÷交付收入）
+    rows.append(_pct_row("销售利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
 
     cost_inner = (_drow("系统直接成本", -p["system_direct_cost"], "system", "智云项目成本")
                   + _drow("减：系统内部译员", p["inhouse_cost"], "system", "in-house·减虚")
+                  + _drow("减：直接成本增值税", man.get("直接成本增值税", 0.0), "manual", "手填·默认0·除税缺口")
                   + "".join(_drow(f"加：{n}", -man[n], "manual", "手填·加实") for n in prod_manual))
     details = "".join([
         _detail_block("cost", "交付成本（生产成本）构成", cost_inner),
@@ -336,7 +405,7 @@ def render_pl_table(p, fine, unclassified_amt=None):
              '<i style="background:var(--kind-manual)"></i>人工填写</span>'
              '<span style="margin-left:auto;color:var(--mut2)">点费用大类看构成</span></div>')
     note = ('<div class="chart-note pl-note">管理毛利=完整口径（内译调整+手填）；'
-            '结构板块「项目毛利率」=交付收入−项目成本（直接毛利，口径不同）；'
+            '结构板块「系统成本率」=项目成本÷交付收入（系统抓数口径，未含内译/手填）；'
             '附加税费为管理估算、非税务实缴。</div>')
     return (f'<div class="pl">{"".join(rows)}</div>{kinds}{note}'
             f'<div class="pl-details" hidden>{details}</div>')
@@ -403,14 +472,8 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None):
         f'<span><em>累计回款</em>{charts.fmt_wan(tot_r)}万</span>'
         f'</div></div>'
     )
+    # 峰值/谷值徽章：陆总 0714 拍板去掉（图上已一目了然）；best/worst 计算保留（成本极低，避免连带改动）
     pills = ""
-    if best and worst:
-        pills = (
-            f'<div class="rc-pills">'
-            f'<span class="rc-pill hi"><i>峰值</i><b>{_esc(best[0])}</b> {charts.fmt_wan(best[1])}万</span>'
-            f'<span class="rc-pill lo"><i>谷值</i><b>{_esc(worst[0])}</b> {charts.fmt_wan(worst[1])}万</span>'
-            f'</div>'
-        )
     bud = ""
     rb = (budget or {}).get("receipt") if budget else None
     ob = (budget or {}).get("order") if budget else None
@@ -487,13 +550,13 @@ def render_receipts(receipt_order_monthly, budget=None, *, period_months_map=Non
     map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
     return (f'<div class="card rc-card" id="rcCard" data-rm-year="{_esc(yk)}" '
             f'data-rm-map="{_esc(map_json)}"><div class="card-h">回款情况 '
-            f'<span class="tag">按月 · 柱顶=回款万 · 月下=回款/下单比% · 全年视角 · 选中周期高亮</span>'
+            f'<span class="tag">按月 · 柱顶=回款万 · 线上=回款/下单比% · 全年视角 · 选中周期高亮</span>'
             f'{_budget_tag(budget)}</div>'
             f'<div class="rc-split">'
             f'<div class="rc-body">{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}</div>'
             f'<div class="rc-side">{side}</div></div>'
-            f'<div class="chart-note">回款/下单比 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。'
-            f'右侧驾驶舱：缺口大数 + 回款占下单 + 峰谷月。图固定全年 12 月，切周期只高亮对应月。</div></div>')
+            f'<div class="chart-note">回款/下单比 = 当月回款 ÷ 当月下单。'
+            f'右侧驾驶舱：缺口大数 + 回款占下单。图固定全年 12 月，切周期只高亮对应月。</div></div>')
 
 
 # ---------- 板块③ 下单与回款排名（随周期切）----------
@@ -548,8 +611,14 @@ def _rank_card(title, tag, rk, kind=""):
 def render_rankings(p):
     rk = p.get("rankings") or {}
     s, e = p.get("range", ("", ""))
+    # 陆总0714·C2：配了 BU 归属 → 首卡"按部门"换"按BU"（按销售→BU 映射聚合；未配 BU 时回退按部门）
+    by_bu = rk.get("orders_by_bu")
+    if by_bu is not None:
+        first = _rank_card("下单 · 按BU", "期内下单额降序 · 销售→BU归属", by_bu, "orders_by_bu")
+    else:
+        first = _rank_card("下单 · 按部门", "期内下单额降序 · 智云", rk.get("orders_by_dept"), "orders_by_dept")
     return (f'<div class="grid-3 rk-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
-            f'{_rank_card("下单 · 按部门", "期内下单额降序 · 智云", rk.get("orders_by_dept"), "orders_by_dept")}'
+            f'{first}'
             f'{_rank_card("下单 · 按销售", "期内下单额降序 · 智云", rk.get("orders_by_sales"), "orders_by_sales")}'
             f'{_rank_card("回款 · 按客户", "期内到账额降序 · 智云", rk.get("receipts_by_customer"), "receipts_by_customer")}'
             f'</div>')
@@ -557,10 +626,10 @@ def render_rankings(p):
 
 # ---------- 板块③ 收入与毛利结构（确认口径，按客户/销售，随周期切）----------
 def _margin_meta(mp):
-    """项目毛利率 meta：None（收入 0）→ 灰显「项目毛利率 —」。
-    叫「项目毛利率」而非「毛利率」——板块③是项目直接毛利（未含内部译员/PM/VM/手填），
-    区别于利润表的完整毛利率，防误读（明昊 0712）。"""
-    return f'项目毛利率 {mp:.0f}%' if mp is not None else "项目毛利率 —"
+    """系统成本率 meta：None（收入 0）→ 灰显「系统成本率 —」。
+    陆总 0714 改叫「系统成本率」（=系统抓的项目成本÷交付收入）——生产环节大家习惯看成本率；
+    只在利润表层才还原成"生产毛利"的利润概念。入参 mp=cost_pct。"""
+    return f'系统成本率 {mp:.0f}%' if mp is not None else "系统成本率 —"
 
 
 def _pname(name):
@@ -570,11 +639,16 @@ def _pname(name):
     return f'<span class="ev-name" title="{n}" data-tip="{_esc(n)}">{n}</span>'
 
 
-def _profit_rank_card(title, tag, rk, dim=""):
-    """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 毛利率。金额/率均后端算好，前端零运算（铁律2）。
-    与板块④排名卡同款行样式；「其余 N 个」点开→ /api/profit_ranking 全量弹窗（dim=customer/sales）。"""
+def _profit_rank_card(title, tag, rk, dim="", show_meta=True):
+    """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 系统成本率。金额/率均后端算好，前端零运算（铁律2）。
+    与板块④排名卡同款行样式；「其余 N 个」点开→ /api/profit_ranking 全量弹窗（dim=customer/sales）。
+    show_meta=False → 隐藏成本率列（陆总 0714：按销售的率先不显示，防"人力算不算"连锁追问）。"""
     items = (rk or {}).get("items") or []
     unfilled = (rk or {}).get("unfilled")
+
+    def _meta(it):
+        return f'<span class="rk-meta">{_margin_meta(it.get("cost_pct"))}</span>' if show_meta else ""
+
     if not items and not unfilled:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
@@ -586,7 +660,7 @@ def _profit_rank_card(title, tag, rk, dim=""):
                         f'{_pname(it["name"])}'
                         f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
                         f'<span class="ev-amt">{_rank_amt(it["revenue"])}</span>'
-                        f'<span class="rk-meta">{_margin_meta(it["margin_pct"])}</span></div>')
+                        f'{_meta(it)}</div>')
         others = rk.get("others")
         if others:
             rows.append(f'<div class="ev-row rk-row rk-others pr-more" title="点开看全部{others["names"]}个明细">'
@@ -594,13 +668,13 @@ def _profit_rank_card(title, tag, rk, dim=""):
                         f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
-                        f'<span class="rk-meta">{_margin_meta(others["margin_pct"])}</span></div>')
+                        f'{_meta(others)}</div>')
         if unfilled:
             rows.append(f'<div class="ev-row rk-row rk-unfilled"><span class="rk-no">⚠</span>'
                         f'<span class="ev-name" title="源头未填客户/销售，去管理端归类">（未填）</span>'
                         f'<span class="ev-track"></span>'
                         f'<span class="ev-amt">{_rank_amt(unfilled["revenue"])}</span>'
-                        f'<span class="rk-meta">{_margin_meta(unfilled["margin_pct"])}</span></div>')
+                        f'{_meta(unfilled)}</div>')
         body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
     return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} {tag}</div>{body}</div>')
 
@@ -622,7 +696,7 @@ def render_profit_rankings(p):
     cust, sale = pr.get("revenue_by_customer"), pr.get("revenue_by_sales")
     return (f'<div class="grid-2e pr-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
             f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust, "customer")}'
-            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales")}'
+            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales", show_meta=False)}'
             f'</div>')
 
 
@@ -868,7 +942,8 @@ EXPORT_JS = r"""
  btn.addEventListener('click',function(){
    if(location.protocol==='file:'){alert('图片导出需在看板服务页面使用（浏览器打开 http://服务器:端口/）');return;}
    var k=window._curBlk||'';var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span>⬇</span> 生成中…';
-   fetch('/export.png?blk='+encodeURIComponent(k)).then(function(r){
+   var url=btn.getAttribute('data-export')||'/export.png';
+   fetch(url+'?blk='+encodeURIComponent(k)).then(function(r){
      if(!r.ok){return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});}
      var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'甲骨易智能经营罗盘.png';
      return r.blob().then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);
@@ -1035,7 +1110,10 @@ def render_dashboard(summary, cfg, logo_b64):
     month_keys = meta["tab_groups"]["月"]
     spark_cache = _spark_cache(P, month_keys)
     budget = meta.get("budget")
-    kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget)) for k in all_keys)
+    BUO = meta.get("bu_orders") or {}
+    kpi_views = "".join(
+        _pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget, bu_orders=BUO.get(k)))
+        for k in all_keys)
     BD = summary.get("expense_by_department", {})
     BP = summary.get("expense_by_profit_center", {})
     donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
@@ -1080,7 +1158,7 @@ def render_dashboard(summary, cfg, logo_b64):
   <span class="pr-f-h">计算逻辑</span>
   <span class="pr-f-item"><b>交付金额</b> = 智云直接抓（含税）<i>系统原数</i></span>
   <span class="pr-f-item"><b>交付收入</b> = 交付金额 ÷ 1.06<i>确认口径 · 按整单交付日期归属</i></span>
-  <span class="pr-f-item"><b>项目毛利率</b> = 项目毛利 ÷ 交付收入<i>项目毛利 = 交付收入 − 项目成本（直接毛利，未含内部译员/PM/VM/手填，≠ 利润表完整毛利率）</i></span>
+  <span class="pr-f-item"><b>系统成本率</b> = 项目成本 ÷ 交付收入<i>项目成本 = 系统抓数（未含内部译员/PM/VM/手填，≠ 利润表完整口径）</i></span>
   <span class="pr-f-item"><b>集中度</b> = 前5大交付收入 ÷ 期内总交付收入</span>
  </div>
 
@@ -1118,8 +1196,9 @@ def _bu_pending_row(name, note):
             f'<span class="pl-amt" style="color:var(--mut2);font-size:12px">{_esc(note)}</span></div>')
 
 
-def render_bu_pl_table(p, alloc_meta=None):
-    """BU 版利润表：费用有数就显示数（台账直记 ± 公共分摊），无再装「暂不分摊」藏金额。"""
+def render_bu_pl_table(p, alloc_meta=None, fine=None):
+    """BU 版利润表：费用有数就显示数（台账直记 ± 公共分摊），无再装「暂不分摊」藏金额。
+    迭代22·D4：费用大类可下钻（抽屉=手填人力 + 台账直记细类 + 分摊自公共），与整体页一致。"""
     alloc = alloc_meta or {}
     on = bool(alloc.get("enabled"))
     rdisp = alloc.get("ratio_disp") or ""
@@ -1150,13 +1229,34 @@ def render_bu_pl_table(p, alloc_meta=None):
         kind_label = "台账·本BU无费用"
         tag_note = "本 BU 暂无台账归属费用"
 
+    fine = fine or {}
+    alloc_added = p.get("alloc_added") or {}
+    # 大类 → (抽屉key, 手填项, 台账类)；财务费用的手填是"补充"、挂台账行后面
+    _GROUPS = (("sales", "营销费用", "营销人力成本", "市场费用"),
+               ("admin", "管理费用", "管理人力成本", "管理费用"),
+               ("fixed", "固定运营费用", None, "固定运营费用"),
+               ("rd", "研发费用", "研发人力成本", "技术服务费"),
+               ("fin", "财务费用", None, "财务费用"))
+
     rows = [_row("交付收入（不含税）", p["revenue_net"], "system", "交付金额÷1.06")]
     rows.append(_open_row("cost", "交付成本（生产成本）", -p["production_cost"]))
     rows.append(_row("管理毛利", p["gross_profit"], "", total=True))
-    for nm in ("营销费用", "管理费用", "固定运营费用", "研发费用", "财务费用"):
+    exp_details = []
+    for cat_key, nm, man_key, led_cat in _GROUPS:
         v = float(exp.get(nm) or 0)
         if has_fee or abs(v) > 0.005:
-            rows.append(_row(nm, -v, "ledger", fee_src))
+            rows.append(_open_row(cat_key, nm, -v))
+            alloc_amt = float(alloc_added.get(led_cat) or 0.0)
+            direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
+            inner = ""
+            if man_key:
+                inner += _drow(man_key, -float(man.get(man_key) or 0), "manual", "手填·本BU")
+            inner += _d_ledger(f"{led_cat}（台账直记）", direct_amt, "台账·本BU", fine.get(led_cat))
+            if nm == "财务费用":
+                inner += _drow("财务费用补充", -float(man.get("财务费用补充") or 0), "manual", "手填·本BU")
+            if alloc_amt > 0.005:
+                inner += _drow("分摊自公共", -alloc_amt, "ledger", "公共池×本BU比例")
+            exp_details.append(_detail_block(cat_key, f"{nm}构成", inner))
         else:
             rows.append(_bu_pending_row(nm, "本BU无台账费用"))
     rows.append(_row("附加税费", -p["surtax"], "system", "管理估算·净收入×6%×12%"))
@@ -1166,6 +1266,8 @@ def render_bu_pl_table(p, alloc_meta=None):
         rows.append(_bu_pending_row("其他损益", "手填待补·本BU"))
     pretax_src = "毛利−期间费用−附加税±其他"
     rows.append(_row("税前利润", p["pretax_profit"], "", pretax_src, grand=True))
+    # 陆总0714：销售利润率（BU 负责人绩效指标）——整体/BU 两版同口径
+    rows.append(_pct_row("销售利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
 
     prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
     if has_manual:
@@ -1178,8 +1280,9 @@ def render_bu_pl_table(p, alloc_meta=None):
                          '<span class="pl-amt" style="color:var(--mut2);font-size:12px">未填=0</span></div>')
     cost_inner = (_drow("系统直接成本", -p["system_direct_cost"], "system", "智云·按销售")
                   + _drow("减：系统内部译员", p["inhouse_cost"], "system", "in-house·按销售")
+                  + _drow("减：直接成本增值税", float(man.get("直接成本增值税") or 0), "manual", "手填·本BU·默认0")
                   + man_cost_html)
-    details = _detail_block("cost", "交付成本构成", cost_inner)
+    details = _detail_block("cost", "交付成本构成", cost_inner) + "".join(exp_details)
     man_tip = "管理端「人工填写」选本 BU 范围维护；未填按 0" if not has_manual else "已含本 BU 手填"
     man_label = "手填·本BU已填" if has_manual else "手填·本BU未填=0"
     kinds = (f'<div class="kinds"><span class="ktip" data-tip="智云四源已按本 BU 销售名单过滤">'
@@ -1188,7 +1291,7 @@ def render_bu_pl_table(p, alloc_meta=None):
              f'<i style="background:var(--kind-ledger)"></i>{_esc(kind_label)}</span>'
              f'<span class="ktip" data-tip="{_esc(man_tip)}">'
              f'<i style="background:var(--kind-manual)"></i>{_esc(man_label)}</span>'
-             f'<span style="margin-left:auto;color:var(--mut2)">点成本行看构成</span></div>')
+             f'<span style="margin-left:auto;color:var(--mut2)">点成本/费用行看构成</span></div>')
     note = (f'<div class="chart-note pl-note">期间费用合计 <b>{charts.fmt_wan(exp_total)}万</b> · '
             f'{_esc(tag_note)} · 税前=管理毛利−期间费用−附加税±其他</div>')
     return (f'<div class="pl">{"".join(rows)}</div>{kinds}{note}'
@@ -1196,8 +1299,10 @@ def render_bu_pl_table(p, alloc_meta=None):
 
 
 def render_bu_page(bu_name, summary, cfg, logo_b64):
-    """单 BU 独立只读页：周期选择 + BU 利润表 + 排名。不含全公司导出/日明细出口。"""
-    meta = summary["meta"]; P = summary["periods"]
+    """单 BU 独立只读页（迭代22·D：口径与整体页全对齐，只是数按本 BU 过滤）：
+    周期选择 + KPI + 趋势图 + 利润表（可下钻）+ 费用构成（大类/类别）+ 收入毛利结构 + 回款情况 + 排名 + 导出。
+    仍不含全公司出口（/api/daily、/api/profit_ranking 弹窗在本页不启用·铁律12）。"""
+    meta = summary["meta"]; P = summary["periods"]; FT = summary.get("expense_fine_type") or {}
     yk = meta["year_key"]
     all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
                 + meta["tab_groups"].get("区间", []))
@@ -1205,9 +1310,11 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     alloc = meta.get("public_allocation") or {"enabled": False}
     pl_parts, tag_note = [], ""
     for k in all_keys:
-        pl_html, tag_note = render_bu_pl_table(P[k], alloc)
+        pl_html, tag_note = render_bu_pl_table(P[k], alloc, fine=FT.get(k))
         pl_parts.append(_pv(k, yk, pl_html))
     pl_views = "".join(pl_parts)
+    donut_views = "".join(_pv(k, yk, render_bu_expense_views(P[k], FT.get(k))) for k in all_keys)
+    profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     name = _esc(bu_name)
     # 用全年周期判断是否有费用，写脚注
@@ -1230,6 +1337,12 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     spark_cache = _spark_cache(P, month_keys)
     budget = meta.get("budget")
     kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget)) for k in all_keys)
+    hl = meta["current_month_label"].split("年")[1]
+    # 回款情况：与整体页同款（全年视角+周期高亮），数据已按本 BU 过滤
+    receipts_html = render_receipts(summary['receipt_order_monthly'], budget,
+                                    period_months_map=_period_months_map(summary), year_key=yk)
+    from urllib.parse import quote as _q
+    export_url = f"/bu/{_q(bu_name)}/export.png"
 
     body = f"""
 {PARTICLES_HTML}
@@ -1237,6 +1350,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  <span class="tb-right">
  <a class="bu-back" href="/" title="返回整体看板（也可当刷新）">← 返回整体</a>
  <span class="live"><i></i>实时</span><span class="tb-time">数据更新 {meta['generated_at']}</span>
+ <button class="toggle" id="exportBtn" data-export="{export_url}"><span>⬇</span> 导出</button>
  <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 {PW_MODAL_HTML}
@@ -1250,9 +1364,15 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  <div id="periodSync">
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
  {kpi_views}
- <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 管理利润表</span></div>
- <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · {_esc(tag_note)}</span></div>{pl_views}</div>
- <div class="sec"><span class="sec-n">三</span><span class="sec-t">{name} · 下单与回款排名</span></div>
+ <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 经营利润</span></div>
+ <div class="grid-2">
+   <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">全口径结构 · {_esc(tag_note)}</span></div>{pl_views}</div>
+ </div>
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">{name} · 收入与毛利结构</span></div>
+ <div id="profitRankViews">{profit_rank_views}</div>
+ <div class="sec"><span class="sec-n">四</span><span class="sec-t">{name} · 资金与回款</span></div>
+ <div class="period-receipts" style="margin-top:4px">{receipts_html}</div>
  <div id="rankViews">{rank_views}</div>
  </div>
  <div class="foot">
@@ -1263,7 +1383,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {DRAWER_HTML}
 <div id="tip"></div>
 <style>.rk-open{{display:none}}</style>
-<script>{JS}{PW_JS}</script>
+<script>{JS}{PW_JS}{EXPORT_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'

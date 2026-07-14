@@ -207,7 +207,7 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn("交付金额", self.html)
         self.assertIn("交付收入", self.html)
         self.assertIn("÷ 1.06", self.html)
-        self.assertIn("项目毛利率", self.html)
+        self.assertIn("系统成本率", self.html)   # 陆总0714 改名
 
     def test_receipt_month_highlight_hooks(self):
         """迭代21-A：回款柱带 data-rm、周期→月份映射 data-rm-map、卡头「全年视角 · 选中周期高亮」。"""

@@ -60,15 +60,18 @@ def compute_receipts(receipt_rows, cols_cfg, start, end):
     return _sum_amount_in_period(receipt_rows, cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end)
 
 
-def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）"):
+def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）",
+                    name_of=None):
     """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None,
     unfilled:{amount,count}|None, total}。count=笔数；amount 已 round(2)。
-    名字为空归"（未填）"→ 单拆 unfilled 固定置底展示（不参与前top排位，但计入 total=守恒：各组合计==总额）。"""
+    名字为空归"（未填）"→ 单拆 unfilled 固定置底展示（不参与前top排位，但计入 total=守恒：各组合计==总额）。
+    name_of=可选 callable(row)->str：派生分组名（如 销售→BU 映射·陆总0714）；返回空串归 empty_label。"""
     agg: dict[str, list] = {}
     for r in rows:
         if not periods.date_in_range(loaders.parse_date_parts(r.get(date_col)), start, end):
             continue
-        name = str(r.get(name_col) or "").strip() or empty_label
+        raw_name = name_of(r) if name_of else r.get(name_col)
+        name = str(raw_name or "").strip() or empty_label
         a = agg.setdefault(name, [0.0, 0])
         a[0] += loaders.parse_amount(r.get(amount_col))
         a[1] += 1
@@ -107,7 +110,9 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
         rev = g[0] / div
         prof = rev - g[1]
         return {"name": name, "revenue": round(rev, 2), "profit": round(prof, 2),
-                "margin_pct": round(prof / rev * 100, 1) if rev else None, "count": g[2]}
+                "margin_pct": round(prof / rev * 100, 1) if rev else None,
+                # 系统成本率=Σ项目成本÷收入（陆总0714：业务侧习惯看成本率，展示层用它替代"项目毛利率"）
+                "cost_pct": round(g[1] / rev * 100, 1) if rev else None, "count": g[2]}
 
     def _agg_row(name, gs):   # 合并多组（其余/合计）后再算率，避免率的加权错误
         tot = [sum(x[0] for x in gs), sum(x[1] for x in gs), sum(x[2] for x in gs)]
@@ -324,7 +329,10 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     man = manual_for_period(cfg, filled_manual, start, end, cur_date)
 
     prod_manual = man["PM人力成本"] + man["VM人力成本"] + man["实际内部译员成本"] + man["税费损失"] + man["技术流量成本"] + man["其他（生产成本）"]
-    production_cost = round(rc["system_direct_cost"] - inhouse + prod_manual, 2)
+    # 陆总0714·E1：直接成本增值税（手填·默认0）——从生产成本里减掉，得不含税成本；
+    # "给未来留缺口"：现阶段她不填=0，业务系统能统计后再启用（旧 config 缺该项按 0，兼容旧测试）
+    cost_vat = man.get("直接成本增值税", 0.0)
+    production_cost = round(rc["system_direct_cost"] - inhouse + prod_manual - cost_vat, 2)
     gross_profit = round(net - production_cost, 2)
 
     led, led_count = compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols)
@@ -703,6 +711,8 @@ def _merge_alloc_into_period(p: dict, add_by_cat: dict[str, float]) -> None:
     led = dict(p.get("ledger_expenses") or {})
     for cat in _LEDGER_TO_EXPENSE:
         led[cat] = round(float(led.get(cat) or 0.0) + float(add_by_cat.get(cat) or 0.0), 2)
+    # 记下本周期各类实际叠加的分摊额（迭代22·D4：BU 利润表抽屉把「直记」与「分摊自公共」分开展示）
+    p["alloc_added"] = {cat: round(float(add_by_cat.get(cat) or 0.0), 2) for cat in _LEDGER_TO_EXPENSE}
     sales_exp = round(float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0), 2)
     admin_exp = round(float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0), 2)
     fixed_exp = round(float(led.get("固定运营费用") or 0), 2)

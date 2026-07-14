@@ -68,7 +68,10 @@ def alloc_context(cfg, conn, today, root=None):
     """公共费用按月分摊上下文（迭代20）。返回 None=没有任何比例记录（不分摊）；否则
     {public_month_led:{(y,m):{5类:额}}, ratios:{'YYYY-MM':{BU:比例%}}, bu_names:[...],
      warnings:[孤儿BU提示…], month_total(month)->float}。"""
-    ratios = db.load_alloc_ratios(conn)
+    # 陆总0714：比例默认沿用最近一次填写月（改了从当月生效）——计算一律用「生效比例」；
+    # 孤儿 BU 告警仍扫原始填写记录，避免同一条错误被沿用后逐月重复报
+    raw = db.load_alloc_ratios(conn)
+    ratios = db.effective_alloc_ratios(conn, today.year, today.month)
     if not ratios:
         return None
     lh, lr = db.load_ledger(cfg, conn)
@@ -89,7 +92,7 @@ def alloc_context(cfg, conn, today, root=None):
     bu_names = [b["name"] for b in bucfg["bus"]]
     warnings = []
     known = set(bu_names)
-    for month, r in sorted(ratios.items()):
+    for month, r in sorted(raw.items()):
         orphans = [b for b in r if b not in known]
         if orphans:
             warnings.append(f"{month} 分摊比例含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）")
@@ -141,6 +144,54 @@ def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
     summary.setdefault("meta", {})["unknown_profit_centers"] = items
 
 
+def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
+    """陆总0714·C1：下单 KPI 卡展示三大 BU 下单进度（虚线=年目标、实线=达成）。
+    每周期每 BU：期内下单额 + 全年累计/BU 年目标完成率（目标读该 BU 业绩目标·元）。
+    挂 summary.meta.bu_orders={周期key:[{name,amount,year_amount,target,pct}…]}；
+    只挂全公司 summary——BU 页绝不带其他 BU 数据（铁律12）。没配 BU → 不挂。"""
+    bucfg = bu.load_bu_config(cfg, root)
+    if not bucfg or not bucfg.get("bus"):
+        return
+    import periods as _periods
+    orders = db.load_orders(cfg, conn)
+    cols = cfg["columns"]
+    ranges = _periods.all_period_ranges(today)
+    yk = f"{today.year}年"
+    per_bu = []
+    for b in bucfg["bus"]:
+        rows = profit.filter_rows_by_sales(orders, set(b.get("销售") or []))
+        bud = db.load_budget(conn, scope=b["name"])
+        target = ((bud.get(str(today.year)) or {}).get("下单年预算"))  # 元；未填=None
+        per_bu.append((b["name"], rows, float(target) if target else None))
+    out: dict[str, list] = {}
+    for key, (_label, start, end, _grp) in ranges.items():
+        out[key] = [{"name": name, "amount": profit.compute_orders(rows, cols, start, end),
+                     "target": target} for name, rows, target in per_bu]
+    year_amounts = {d["name"]: d["amount"] for d in out.get(yk, [])}
+    for lst in out.values():
+        for d in lst:
+            ya = year_amounts.get(d["name"], 0.0)
+            d["year_amount"] = ya
+            d["pct"] = round(ya / d["target"] * 100.0, 1) if d["target"] else None
+    summary.setdefault("meta", {})["bu_orders"] = out
+    # C2：板块④「下单·按部门」→「下单·按BU」（销售→BU 映射聚合；未归属销售=（未归属）置底）
+    sales_map = {}
+    for b in bucfg["bus"]:
+        for s in (b.get("销售") or []):
+            sales_map.setdefault(str(s).strip(), b["name"])
+
+    def _bu_of(row):
+        return sales_map.get(str(row.get("销售") or "").strip(), "")
+
+    for key, (_label, start, end, _grp) in ranges.items():
+        p = summary["periods"].get(key)
+        if not p or "rankings" not in p:
+            continue
+        p["rankings"]["orders_by_bu"] = profit.compute_ranking(
+            orders, "销售", cols["order_amount"], cols["order_date"], start, end,
+            empty_label="（未归属）", name_of=_bu_of)
+
+
 def summary_from_conn(cfg, conn, today):
     """计算层只吃库：标准表 + 手填表 → summary（profit 不再自己扫文件）。
     迭代20：有按月分摊比例时，「构成·按业务BU」视图跟着分摊挪（总额不变）。
@@ -153,6 +204,7 @@ def summary_from_conn(cfg, conn, today):
         dept_budget_raw=db.load_dept_budget(conn))
     attach_allocation_to_summary(cfg, conn, today, s)
     attach_unknown_pc_warnings(cfg, conn, today, s)
+    attach_bu_orders(cfg, conn, today, s)   # 陆总0714·C1/C2：下单卡 BU 进度 + 下单排名按 BU
     return s
 
 

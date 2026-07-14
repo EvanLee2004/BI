@@ -436,6 +436,41 @@ def load_alloc_ratios(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
     return out
 
 
+def effective_alloc_month(conn: sqlite3.Connection, month: str) -> tuple[dict[str, float], str | None]:
+    """某月**生效**分摊比例（陆总0714：默认沿用最近一次填写月，改了从当月生效）。
+    该月自己填过 → (该月比例, 该月)；没填 → 沿用 ≤该月 最近一个填过的月 (其比例, 来源月)；
+    从没填过 → ({}, None)。月份键 YYYY-MM 字符串序即时间序。"""
+    month = str(month or "").strip()
+    own = get_alloc_ratios(conn, month)
+    if own:
+        return own, month
+    raw = load_alloc_ratios(conn)
+    prev = sorted(k for k in raw if k < month)
+    if not prev:
+        return {}, None
+    src = prev[-1]
+    return dict(raw[src]), src
+
+
+def effective_alloc_ratios(conn: sqlite3.Connection, year: int, upto_month: int) -> dict[str, dict[str, float]]:
+    """当年 1..upto_month 每月的**生效**比例（沿用规则同 effective_alloc_month）。
+    供分摊计算用：{'YYYY-MM': {BU: 比例%}}；从没填过任何比例 → {}。"""
+    raw = load_alloc_ratios(conn)
+    if not raw:
+        return {}
+    filled = sorted(raw)
+    out: dict[str, dict[str, float]] = {}
+    for m in range(1, max(1, int(upto_month)) + 1):
+        key = f"{int(year):04d}-{m:02d}"
+        if key in raw:
+            out[key] = dict(raw[key])
+            continue
+        prev = [k for k in filled if k < key]
+        if prev:
+            out[key] = dict(raw[prev[-1]])
+    return out
+
+
 def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str = "全公司") -> list[dict]:
     """管理端列表。范围=全公司读 manual_手填；否则读 manual_手填BU。"""
     scope = (范围 or "全公司").strip() or "全公司"

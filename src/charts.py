@@ -218,9 +218,12 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11.5" '
                      f'fill="{MUT}"{drm}>{label}</text>')
         if ratio is not None:
-            parts.append(f'<text x="{cx:.1f}" y="{h-pb+30:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
-                         f'fill="{ORANGE}"{drm}>{ratio:.0f}%</text>')
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
+            # 陆总 0714：率%从柱底行挪到折线数据点旁（符合看图习惯）。
+            # 点太靠顶（可能与柱顶金额重叠）→ 标点下方，否则标点上方
+            ry = ly + 15 if ly < pt + 20 else ly - 8
+            parts.append(f'<text class="rl" x="{cx:.1f}" y="{ry:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
+                         f'fill="{ORANGE}"{drm}>{ratio:.0f}%</text>')
             line_pts.append((cx, ly, rm))
         tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{fmt_wan(_order)}万"
                f"{('<br>回款/下单比&nbsp;'+format(ratio,'.1f')+'%') if ratio is not None else ''}")
@@ -245,7 +248,7 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
                      f'stroke-width="1.2" data-rm="{rm}"/>')
     legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额（柱顶·万）</span>'
-              f'<span><i style="background:{ORANGE}"></i>回款/下单比（月下·% · 右轴）</span>')
+              f'<span><i style="background:{ORANGE}"></i>回款/下单比（线上·% · 右轴）</span>')
     if budget_month:
         legend += f'<span><i style="background:{TEAL}"></i>月均预算</span>'
     legend += '</div>'

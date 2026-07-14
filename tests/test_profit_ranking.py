@@ -107,8 +107,11 @@ class TestRenderProfitRankings(unittest.TestCase):
         self.assertIn("收入 · 按客户", html)
         self.assertIn("收入 · 按销售", html)
         self.assertIn("grid-2e", html)
-        self.assertIn("项目毛利率 75%", html)          # 客户甲 率75（板块③=项目毛利率）
-        self.assertIn("项目毛利率 33%", html)          # 客户乙 率33.3→33
+        self.assertIn("系统成本率 25%", html)          # 客户甲 成本率25（陆总0714：板块③改叫系统成本率）
+        self.assertIn("系统成本率 67%", html)          # 客户乙 成本率66.7→67
+        # 按销售的率先不显示（陆总0714）：销售卡无 rk-meta 率列
+        sales_card = html.split('data-dim="sales"')[1]
+        self.assertNotIn("系统成本率", sales_card)
         self.assertIn("前5大占收入 <b>91%</b>", html)   # 集中度 90.9→91（.0f）·数字放大突出
         self.assertIn('class="conc"', html)              # 集中度独立高亮块（放大）
         self.assertIn("客户乙", html)
@@ -197,9 +200,10 @@ class TestProfitRankingEndpoint(unittest.TestCase):
         self.assertTrue(d["items"][-1].get("unfilled"))
         it0 = d["items"][0]
         self.assertIn("万", it0["revenue_disp"])              # 金额成串
-        self.assertIn("毛利率", it0["margin_disp"])
+        self.assertIn("系统成本率", it0["margin_disp"])   # 陆总0714 改名
         self.assertNotIn("revenue", it0)                      # 原始数值不下发（前端零运算）
         self.assertNotIn("margin_pct", it0)
+        self.assertNotIn("cost_pct", it0)
 
     def test_sales_dim(self):
         d = self._q(dim="sales").json()
