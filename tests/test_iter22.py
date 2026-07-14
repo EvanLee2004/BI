@@ -245,7 +245,11 @@ class TestBuPageAlignment(unittest.TestCase):
         html, _ = render.render_bu_pl_table(
             p, {"enabled": True, "ratio_disp": "按月比例"}, fine=self._fine())
         self.assertIn("分摊自公共", html)
-        self.assertIn("台账直记", html)                        # 直记与分摊分行展示
+        # 直记与分摊分行展示（468d131 起不再标「台账直记」字样）：管理费用抽屉里
+        # 台账直记额（led−分摊）与独立「分摊自公共」行并列，不并进大类总额
+        admin_drawer = html.split('data-title="管理费用构成"', 1)[1]
+        self.assertIn('pl-name">管理费用', admin_drawer)        # 台账直记额单独成行
+        self.assertIn('pl-name">分摊自公共', admin_drawer)      # 分摊单独成行
 
     def test_bu_expense_views_no_dept(self):
         html = render.render_bu_expense_views(self._bu_period(), self._fine())

@@ -115,7 +115,7 @@ class TestRenderProfitRankings(unittest.TestCase):
         self.assertIn("前5大占收入 <b>91%</b>", html)   # 集中度 90.9→91（.0f）·数字放大突出
         self.assertIn('class="conc"', html)              # 集中度独立高亮块（放大）
         self.assertIn("客户乙", html)
-        self.assertIn("（未填）", html)            # 未填置底
+        self.assertNotIn("（未填）", html)         # 用户端排名卡隐藏「（未填）」行（4fd2729）；未填归类只在管理端异常处理，后端 unfilled 仍算（守恒）
         self.assertNotIn("客户丙", html)           # 期外不出现
 
     def test_name_hover_and_expand_hooks(self):
