@@ -131,6 +131,15 @@ def _publish(cfg, summary, html, bu_pages=None):
     _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _apply_profile(html: str, profile: str) -> str:
+    """把渲染缓存里默认的 <html … data-profile="full"> 换成本次服务对象的视图档案（Phase 1）。
+    executive=姜总精简版（CSS 隐藏公式/解释标注，页面数字不变）；full/空/非法 → 不改（安全默认=完整）。
+    纯替换根节点属性一次；'data-profile="full"' 只在 <html> 标签出现，replace(...,1) 命中它。"""
+    if not html or profile == accounts.VIEW_FULL or profile not in accounts.VIEW_PROFILES:
+        return html
+    return html.replace('data-profile="full"', f'data-profile="{profile}"', 1)
+
+
 def _do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
@@ -918,6 +927,7 @@ html.theme-light .stab:hover{border-color:#94a3b8}
   <button id="btnRefresh" onclick="doRefresh()" title="从智云/台账重新抓数并重算看板">更新数据</button>
   <span id="msg" class="muted"></span>
   <span style="margin-left:auto"></span>
+  <button type="button" class="ghost" id="profBtn" title="预览下方看板：完整（你/陆总看的）↔ 精简（姜总看的，隐藏公式与解释标注）">👁 完整视图</button>
   <button type="button" class="ghost" id="themeBtn" title="深色/浅色（与看板共用，全局同步）"><span>◑</span> 浅色</button>
   <a class="logout" href="/admin/logout">退出</a>
 </div>
@@ -984,6 +994,13 @@ html.theme-light .stab:hover{border-color:#94a3b8}
     <div class="muted" id="allocInherit" style="margin:4px 0 0"></div>
     <div class="tbl-box no-scroll"><table id="aTbl"></table></div>
     <div class="muted" id="allocSum" style="margin-top:6px"></div>
+  </div>
+  <div class="sec-block" id="detaxBlock" style="display:none">
+    <div class="blk-h">💧 费用去税率（按类别·全公司）</div>
+    <div class="note info">台账费用多为<b>含税</b>金额。能抵扣进项的费用（<b>主要是房租/物业</b>）可填增值税率 %，
+      看板把它按「<b>不含税额 = 含税额 ÷ (1 + 税率%)</b>」还原成真实费用；<b>大部分费用抵不了税（业务招待、水电等）留空即可</b>。
+      <b>默认全空 = 不去税，页面数字一分不变</b>；类别按全年金额从大到小排（大头在前，按重要性挑填）。全公司一套、常年沿用。与上方共用底部「保存全部」。</div>
+    <div class="tbl-box no-scroll"><table id="dTbl"></table></div>
   </div>
   <div class="sec-block">
     <div class="blk-h">🎯 业绩目标（优先）</div>
@@ -1235,6 +1252,24 @@ html.theme-light .stab:hover{border-color:#94a3b8}
   });
 })();
 
+/* 视图档案预览：陆总在控制台切「完整↔精简（姜总视角）」，只影响下方内嵌看板（postMessage，纯 CSS 显隐）。
+   不改姜总实际所见（姜总账号登录恒 executive）；管理端本页缓存的 iframe 默认 full。 */
+(function(){
+  var btn=document.getElementById("profBtn"), exec=false;
+  function apply(){
+    if(btn) btn.innerHTML=exec?'👁 精简视图（姜总）':'👁 完整视图';
+    try{
+      var f=document.getElementById("dashFrame");
+      if(f&&f.contentWindow) f.contentWindow.postMessage({type:"cockpit-profile", profile:exec?"executive":"full"}, location.origin);
+      var d=f&&f.contentDocument; if(d) d.documentElement.setAttribute("data-profile", exec?"executive":"full");
+    }catch(e){}
+  }
+  if(btn) btn.addEventListener("click", function(){ exec=!exec; apply(); });
+  // iframe 载入完成后补发一次（重载/首帧时机）
+  var fr=document.getElementById("dashFrame");
+  if(fr) fr.addEventListener("load", apply);
+})();
+
 let ADJ_FIELDS={};  // R1：可调字段由服务端下发（schema 黑名单制推导），不再前端写死
 async function loadAdjFields(){try{ADJ_FIELDS=await jget("/api/adjust_fields");}catch(e){}}
 const STD={"收入明细":"std_收入明细","下单":"std_下单","回款":"std_回款","内部译员":"std_内部译员","费用明细":"std_费用明细"};
@@ -1253,7 +1288,7 @@ function confirmLeave(){if(!_formDirty)return true;return confirm("有 "+_formDi
 function setDirtyCount(n){_formDirty=n||0;const bar=document.getElementById("saveBar"),c=document.getElementById("dirtyCount");
   if(bar)bar.classList.toggle("on",_formDirty>0);if(c)c.textContent=String(_formDirty);}
 function refreshDirtyUI(){let n=0;
-  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig]").forEach(el=>{
+  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig],#dTbl input[data-orig]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim();
     const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
     const dirty=cur!==orig;el.closest("tr")&&el.closest("tr").classList.toggle("dirty",dirty);if(dirty)n++;});
@@ -1784,7 +1819,7 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
     "<td><input id='"+id+"' class='amt' data-kind='manual' data-item='"+esc(it)+"' data-orig='"+esc(orig)+"' size='16' value='"+esc(disp)+"' placeholder='如 1,000,000'></td></tr>";});
   document.getElementById("mTbl").innerHTML=h;
   document.querySelectorAll("#mTbl input.amt").forEach(el=>{bindThousands(el);el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});
-  await bLoad();await aLoad();refreshDirtyUI();}
+  await bLoad();await aLoad();await dLoad();refreshDirtyUI();}
 // 公共费用分摊比例（按月·迭代20）：范围=全公司才显示；比例%纯前端加总（非金额运算），金额串后端下发
 let ALLOC_DATA=null;
 async function aLoad(){const blk=document.getElementById("allocBlock");if(!blk)return;
@@ -1823,6 +1858,25 @@ function aSum(){const el=document.getElementById("allocSum");if(!el||!ALLOC_DATA
   const amt=dirty?"（保存后更新金额）":("约 ¥"+(ALLOC_DATA.remain_amt_disp||"0.00")+" 未分摊");
   el.innerHTML="本月合计 <b>"+sum+"%</b> · 剩余 <b>"+remain+"%</b> 留公司层 "+amt+
     (ALLOC_DATA.orphans&&ALLOC_DATA.orphans.length?('　<span style="color:#fbbf24">另有历史比例含未知 BU：'+esc(ALLOC_DATA.orphans.join("、"))+'（未生效）</span>'):"");}
+// 费用去税率（按类别·全局一套·陆总0714）：范围=全公司才显示；税率%纯录入，不做金额运算（铁律2）
+let DETAX_DATA=null;
+async function dLoad(){const blk=document.getElementById("detaxBlock");if(!blk)return;
+  const scope=(document.getElementById("mScope")||{}).value||"全公司";
+  if(scope!=="全公司"){blk.style.display="none";DETAX_DATA=null;return;}
+  try{DETAX_DATA=await jget("/api/detax_rates");}
+  catch(e){blk.style.display="none";DETAX_DATA=null;return;}
+  const d=DETAX_DATA;
+  if(!d.categories||!d.categories.length){blk.style.display="none";return;}
+  blk.style.display="";
+  let h="<tr><th>费用类别</th><th>全年含税金额</th><th>去税率(%)</th></tr>";
+  d.categories.forEach((c,i)=>{const cat=c.category;
+    const v=(d.rates&&d.rates[cat]!=null)?String(d.rates[cat]):"";
+    h+="<tr><td>"+esc(cat)+"</td><td class='muted'>"+esc(c.amount_disp||"")+"</td>"+
+      "<td><input id='dx_"+i+"' class='amt' data-kind='detax' data-cat='"+esc(cat)+
+      "' data-orig='"+esc(v)+"' size='8' value='"+esc(v)+"' placeholder='留空=不去税'></td></tr>";});
+  document.getElementById("dTbl").innerHTML=h;
+  document.querySelectorAll("#dTbl input.amt").forEach(el=>{
+    el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});}
 // 业绩目标（金额界面=万元 / 毛利率=百分数）
 const BUDGET_METRICS=[
   {k:"下单年预算",tip:"万元 · 全年下单目标",thou:true,pct:false,wan:true},
@@ -1905,14 +1959,22 @@ async function batchSaveAll(){
     if(cur===orig)return;
     allocs[el.dataset.bu]=cur===""?null:Number(cur);allocChanged++;});
   if(allocChanged&&allocSum>100.05){alert("本月各 BU 比例合计 "+Math.round(allocSum*10)/10+"% 超过 100%，请调整（可以小于 100%，剩余留公司层）");throw new Error("bad");}
-  if(!manuals.length&&!budgets.length&&!allocChanged){showToast("没有需要保存的更改");return;}
+  const detax={};let detaxChanged=0;
+  document.querySelectorAll("#dTbl input[data-kind=detax]").forEach(el=>{
+    const cur=String(el.value).trim(),orig=String(el.dataset.orig||"").trim();
+    if(cur!==""){const n=Number(cur);
+      if(isNaN(n)||n<0||n>100){alert("费用类别「"+el.dataset.cat+"」去税率须为 0~100 的数字");throw new Error("bad");}}
+    if(cur===orig)return;
+    detax[el.dataset.cat]=cur===""?null:Number(cur);detaxChanged++;});
+  if(!manuals.length&&!budgets.length&&!allocChanged&&!detaxChanged){showToast("没有需要保存的更改");return;}
   const btn=document.getElementById("btnBatchSave");btn.disabled=true;btn.textContent="保存中…";
   try{
     if(manuals.length)await jpost("/api/manual_batch",{归属月:m,范围:mScope,items:manuals});
     if(budgets.length)await jpost("/api/budget_batch",{items:budgets});
     if(allocChanged)await jpost("/api/alloc_ratios",{归属月:m,ratios:allocs});
+    if(detaxChanged)await jpost("/api/detax_rates",{rates:detax});
     setDirtyCount(0);
-    showToast("✓ 已保存 "+(manuals.length+budgets.length+allocChanged)+" 项并重算");
+    showToast("✓ 已保存 "+(manuals.length+budgets.length+allocChanged+detaxChanged)+" 项并重算");
     msg("批量保存完成（留痕·看板已重算）");
     reloadDash();loadHealth();await mLoad();
   }catch(e){if(e.message!=="bad")alert("保存失败："+e.message);}
@@ -2187,8 +2249,10 @@ def create_app(cfg, root=None) -> FastAPI:
                 '<span class="bu-nav-label">我的 BU</span>'
                 '<span class="bu-nav-links">' + links + '</span></div>')
 
-    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False) -> str:
-        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。"""
+    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False,
+                      profile: str = accounts.VIEW_FULL) -> str:
+        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。
+        profile：视图档案，末尾注入根节点 data-profile（BU 账号看=executive 精简，管理员看=full）。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             return ""
@@ -2200,7 +2264,7 @@ def create_app(cfg, root=None) -> FastAPI:
         html = page["html"]
         if any(parts):
             html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
-        return html
+        return _apply_profile(html, profile)
 
     def _set_vcookie(resp, account: str):
         resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL,
@@ -2222,7 +2286,8 @@ def create_app(cfg, root=None) -> FastAPI:
         acc = _vacc_row(request)
         if acc:
             if accounts.is_main(acc):
-                return HTMLResponse(_main_with_nav() or "<h1>数据尚未生成，请稍候刷新</h1>")
+                return HTMLResponse(_main_with_nav(profile=accounts.view_profile(acc))
+                                    or "<h1>数据尚未生成，请稍候刷新</h1>")
             names = accounts.bu_names_of(acc)  # 多 BU：绑定名单（旧单 BU 账号=[该名]）
             if names:
                 existing = [n for n in names if n in _state.get("bu_pages", {})]
@@ -2230,17 +2295,19 @@ def create_app(cfg, root=None) -> FastAPI:
                     return HTMLResponse(_view_login_page(
                         "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"))
                 # 落在第一个绑定的 BU；绑定多个时顶部带「我的 BU」切换条
-                return HTMLResponse(_bu_view_html(existing[0], names))
+                return HTMLResponse(_bu_view_html(existing[0], names,
+                                                  profile=accounts.view_profile(acc)))
             # 管理员账号误走查看 cookie：引导去 /admin
             if accounts.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
         return HTMLResponse(_view_login_page())
 
-    def _main_with_nav(hide_pw: bool = False) -> str:
+    def _main_with_nav(hide_pw: bool = False, profile: str = accounts.VIEW_FULL) -> str:
         """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
         看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
         hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
-        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
+        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。
+        profile：视图档案（full=管理员完整 / executive=整体·姜总精简），末尾按档案注入根节点 data-profile。"""
         html = _state["user_html"]
         if not html:
             return html
@@ -2258,8 +2325,8 @@ def create_app(cfg, root=None) -> FastAPI:
                          '<span class="bu-nav-label">业务 BU 分页</span>'
                          '<span class="bu-nav-links">' + links + '</span></div>')
         if parts:
-            return html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
-        return html
+            html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
+        return _apply_profile(html, profile)
 
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):
@@ -2286,8 +2353,9 @@ def create_app(cfg, root=None) -> FastAPI:
             return HTMLResponse(page["html"].replace(
                 '<div class="wrap">', _HIDE_PW_STYLE + '<div class="wrap">', 1))
         # 多 BU 账号：注入「我的 BU」切换条（只列其绑定的 BU）；整体账号 bu_names_of=[] 不注入
-        my = accounts.bu_names_of(_vacc_row(request))
-        return HTMLResponse(_bu_view_html(name, my))
+        vacc = _vacc_row(request)
+        my = accounts.bu_names_of(vacc)
+        return HTMLResponse(_bu_view_html(name, my, profile=accounts.view_profile(vacc)))
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):
@@ -3036,6 +3104,61 @@ def create_app(cfg, root=None) -> FastAPI:
         finally:
             conn.close()
         _audit(cfg, root, user, ("分摊", f"公共费用分摊：{month} 比例已更改（合计 {out['sum_pct']:g}%）"))
+        recompute(cfg, root)
+        out.update({"status": "ok", "built_at": _state["built_at"]})
+        return out
+
+    def _detax_payload(conn) -> dict:
+        """费用去税率录入页数据：可去税类别（含全年金额参考·降序）+ 已填税率。"""
+        cats = db.list_detax_categories(conn, cfg)
+        rates = db.load_detax_rates(conn)
+        return {
+            "categories": [{"category": c["category"],
+                            "amount_disp": charts.fmt_wan(c["amount"]) + "万"} for c in cats],
+            "rates": rates,
+        }
+
+    @app.get("/api/detax_rates")
+    def api_detax_get(request: Request):
+        _require(request)
+        conn = _conn()
+        try:
+            return _detax_payload(conn)
+        finally:
+            conn.close()
+
+    @app.post("/api/detax_rates")
+    def api_detax_set(request: Request, payload: dict = Body(default={})):
+        """写费用去税率（管理员·全局一套·陆总0714）。payload={rates:{费用类别:税率%|null}}。
+        税率 0~100；null/空/0 → 删行=该类别不去税（等价默认，页面数字回归红线中性）。"""
+        user = _require(request)
+        rates = payload.get("rates")
+        if not isinstance(rates, dict) or not rates:
+            raise HTTPException(status_code=400, detail="rates 不能为空")
+        vals: dict[str, float | None] = {}
+        for cat, v in rates.items():
+            cat = str(cat).strip()
+            if not cat:
+                raise HTTPException(status_code=400, detail="费用类别不能为空")
+            if v is None or v == "":
+                vals[cat] = None
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"去税率须为数字：{cat}")
+            if not (0 <= fv <= 100):
+                raise HTTPException(status_code=400, detail=f"去税率须在 0~100：{cat}")
+            vals[cat] = round(fv, 2)
+        conn = _conn()
+        try:
+            for cat, v in vals.items():
+                db.set_detax_rate(conn, cat, v, user)
+            out = _detax_payload(conn)
+        finally:
+            conn.close()
+        changed = "、".join(f"{c}={v if v is not None else '清除'}" for c, v in vals.items())
+        _audit(cfg, root, user, ("去税", f"费用去税率已更改：{changed}"))
         recompute(cfg, root)
         out.update({"status": "ok", "built_at": _state["built_at"]})
         return out

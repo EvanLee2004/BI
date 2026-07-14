@@ -37,4 +37,6 @@ $PY tests/test_update.py
 $PY tests/test_alloc_monthly.py
 $PY tests/test_iter21.py
 $PY tests/test_iter22.py
+$PY tests/test_profile.py
+$PY tests/test_detax.py
 echo "✓ 全部通过"

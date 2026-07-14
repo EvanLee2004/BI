@@ -201,7 +201,8 @@ def summary_from_conn(cfg, conn, today):
         db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
         *db.load_ledger(cfg, conn), today.year, today,
         manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn),
-        dept_budget_raw=db.load_dept_budget(conn))
+        dept_budget_raw=db.load_dept_budget(conn),
+        detax_rates=db.load_detax_rates(conn))   # 费用去税（陆总0714·默认空=不去税）
     attach_allocation_to_summary(cfg, conn, today, s)
     attach_unknown_pc_warnings(cfg, conn, today, s)
     attach_bu_orders(cfg, conn, today, s)   # 陆总0714·C1/C2：下单卡 BU 进度 + 下单排名按 BU

@@ -436,6 +436,58 @@ def load_alloc_ratios(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
     return out
 
 
+# ---------- 费用去税率（陆总0714·按费用类别手填，默认0=不去税） ----------
+def set_detax_rate(conn: sqlite3.Connection, category: str, rate, user: str) -> None:
+    """写/删某费用类别的去税率(%)。rate=None/空/0 → 删行（该类别不去税，等价默认）。"""
+    category = str(category or "").strip()
+    if not category:
+        raise ValueError("费用类别不能为空")
+    if rate is None or rate == "" or float(rate) == 0:
+        conn.execute("DELETE FROM manual_费用去税率 WHERE 费用类别=?", (category,))
+    else:
+        v = float(rate)
+        if not (0 <= v <= 100):
+            raise ValueError(f"去税率须在 0~100：{category}={rate}")
+        conn.execute(
+            "INSERT OR REPLACE INTO manual_费用去税率(费用类别,税率,填写时间,经手人) VALUES(?,?,?,?)",
+            (category, round(v, 2), _now(), user))
+    conn.commit()
+
+
+def load_detax_rates(conn: sqlite3.Connection) -> dict[str, float]:
+    """全部费用去税率 → {费用类别: 税率%}。无表/无数据 → {}（默认不去税·回归红线中性）。"""
+    try:
+        rows = conn.execute("SELECT 费用类别,税率 FROM manual_费用去税率").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {str(c): float(v) for c, v in rows if c is not None and v is not None and float(v) > 0}
+
+
+def list_detax_categories(conn: sqlite3.Connection, cfg: dict) -> list[dict]:
+    """可去税的费用类别清单（陆总按重要性挑房租等填）——台账「预算明细费用类型」细类去重，
+    限「对应报表大类」在期间费用白名单内（与利润表口径一致），带全年含税金额参考、按金额降序（大头在前）。
+    返回 [{category, amount}]；空细类不列（归「(未分类)」不去税）。用于管理端录入页只读展示，不参与计算。"""
+    included = set(cfg.get("expense_categories_included") or [])
+    if not included:
+        return []
+    rows = conn.execute(
+        "SELECT 对应报表大类,预算明细费用类型,含税金额 FROM std_费用明细 WHERE 已删除=0").fetchall()
+    agg: dict[str, float] = {}
+    for big, fine, amt in rows:
+        if str(big or "").strip() not in included:
+            continue
+        fine = str(fine or "").strip()
+        if not fine:
+            continue
+        try:
+            agg[fine] = agg.get(fine, 0.0) + float(amt or 0)
+        except (TypeError, ValueError):
+            agg.setdefault(fine, 0.0)
+    out = [{"category": k, "amount": round(v, 2)} for k, v in agg.items()]
+    out.sort(key=lambda d: (-d["amount"], d["category"]))
+    return out
+
+
 def effective_alloc_month(conn: sqlite3.Connection, month: str) -> tuple[dict[str, float], str | None]:
     """某月**生效**分摊比例（陆总0714：默认沿用最近一次填写月，改了从当月生效）。
     该月自己填过 → (该月比例, 该月)；没填 → 沿用 ≤该月 最近一个填过的月 (其比例, 来源月)；

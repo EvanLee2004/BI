@@ -26,6 +26,13 @@ CONFIG_NAME = "看板账号.json"
 
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
+
+# 视图档案（Phase 1·2026-07-14）：同一套渲染管线按档案控制"深浅"（progressive disclosure）。
+# full=陆总/管理员看的完整版（全公式/全标注）；executive=姜总等看的精简版（隐藏公式与解释标注，数字/板块/图表不变）。
+# 纯展示层：executive 只用 CSS 隐藏 .src/.pr-formula/.chart-note/.foot/.faint-note/.kinds，页面数字一分不变（回归红线中性）。
+VIEW_FULL = "full"
+VIEW_EXEC = "executive"
+VIEW_PROFILES = (VIEW_FULL, VIEW_EXEC)
 PERM_BU = "BU"      # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
 
 
@@ -281,6 +288,15 @@ def is_admin(acc: dict | None) -> bool:
 
 def is_main(acc: dict | None) -> bool:
     return role_of(acc) == PERM_MAIN
+
+
+def view_profile(acc: dict | None) -> str:
+    """账号的视图档案：账号 `视图` 字段(full/executive)优先；未设→按角色默认
+    （管理员=full 看完整，整体/BU=executive 看精简）。管理员控制台内嵌看板恒 full（另有预览开关切换）。"""
+    v = str((acc or {}).get("视图") or "").strip()
+    if v in VIEW_PROFILES:
+        return v
+    return VIEW_FULL if is_admin(acc) else VIEW_EXEC
 
 
 def bu_names_of(acc: dict | None) -> list[str]:

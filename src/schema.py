@@ -126,6 +126,10 @@ HUMAN_TABLES: dict[str, str] = {
             归属月 TEXT, BU TEXT, 比例 REAL, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, BU)
         )""",
+    "manual_费用去税率": """
+        CREATE TABLE IF NOT EXISTS manual_费用去税率 (
+            费用类别 TEXT PRIMARY KEY, 税率 REAL, 填写时间 TEXT, 经手人 TEXT
+        )""",
     "manual_历史": """
         CREATE TABLE IF NOT EXISTS manual_历史 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

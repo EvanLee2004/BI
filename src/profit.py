@@ -195,6 +195,33 @@ def compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end):
     )
 
 
+# ---------- 费用去税（陆总 0714·按费用类别手填去税率） ----------
+def detax_ledger_rows(ledger_header, ledger_rows, detax_rates):
+    """按「预算明细费用类型」的手填去税率，把台账每行含税额换成不含税额（真实进项抵减后费用）。
+    detax_rates={费用类别:税率%}；**空/None → 原样返回**（默认0=不去税，页面数字一分不变·回归红线中性）。
+    不含税额 = 含税额 / (1 + 税率/100)；只改金额列、不改行数（体检/守恒不受影响）。
+    在源头统一去税一次 → 大类/细类/按BU/公共池分摊全部一致，不会两处真相（守恒自动成立）。"""
+    if not detax_rates or not ledger_header:
+        return ledger_rows
+    lcols = columns.resolve_ledger_columns(ledger_header)
+    c_amt, c_fine = lcols.get("含税金额"), lcols.get("预算明细费用类型")
+    if c_amt is None or c_fine is None:
+        return ledger_rows
+    out = []
+    for row in ledger_rows:
+        fine_raw = row[c_fine] if len(row) > c_fine else None
+        fine = str(fine_raw).strip() if fine_raw not in (None, "") else ""
+        r = detax_rates.get(fine)
+        if r and float(r) > 0 and len(row) > c_amt:
+            amt = loaders.parse_amount(row[c_amt])
+            if amt:
+                lst = list(row)
+                lst[c_amt] = amt / (1.0 + float(r) / 100.0)  # 不逐行 round，末端再统一 round，避免累积误差
+                row = tuple(lst)
+        out.append(row)
+    return out
+
+
 # ---------- 台账费用 ----------
 def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
     included = cfg["expense_categories_included"]
@@ -452,9 +479,10 @@ def build_budget_block(budget_raw, year, year_period, h1_period=None) -> dict | 
 
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
                   ledger_header, ledger_rows, ledger_year, today, manual_raw=None,
-                  budget_raw=None, dept_budget_raw=None):
+                  budget_raw=None, dept_budget_raw=None, detax_rates=None):
     cols_cfg = cfg["columns"]
     lcols = columns.resolve_ledger_columns(ledger_header)
+    ledger_rows = detax_ledger_rows(ledger_header, ledger_rows, detax_rates)  # 费用去税（默认空=恒等）
     ranges = periods.all_period_ranges(today)
     # manual_raw 由调用方注入（run.py 从库读 db.load_manual）；不传则回退读手填 xlsx（现有测试路径）
     if manual_raw is None:
@@ -657,7 +685,7 @@ def filter_ledger_rows_by_pc(header, rows, want: set[str]) -> list:
 def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set,
                      *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False,
                      budget_raw=None, ledger_header=None, ledger_rows=None, ledger_year=None,
-                     manual_raw=None, bu_name: str | None = None):
+                     manual_raw=None, bu_name: str | None = None, detax_rates=None):
     """单 BU summary：智云四源按销售过滤；台账按利润归属中心直记本 BU；
     公共池（利润归属中心=公共）× 分摊比例叠加（可选）；手填可按 BU 范围注入。
     兼容旧测：不传 ledger → 空台账；company_ledger_by_period 视为「公共池」费用字典。"""
@@ -672,7 +700,7 @@ def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, 
         filter_rows_by_sales(receipt_rows, sales_set),
         filter_rows_by_sales(inhouse_rows, sales_set),
         lh, lr, ly, today,
-        manual_raw=man, budget_raw=budget_raw, dept_budget_raw=None)
+        manual_raw=man, budget_raw=budget_raw, dept_budget_raw=None, detax_rates=detax_rates)
     if bu_name:
         s.setdefault("meta", {})["bu_name"] = bu_name
     if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
