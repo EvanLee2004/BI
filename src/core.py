@@ -242,8 +242,10 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         if ctx:
             profit.apply_public_expense_allocation_monthly(
                 s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
+        # summary 一并挂上：v1.4 JSON API /api/v1/cockpit/bu 只序列化、不算账（计算仍是上面 build_bu_summary）
         pages[b["name"]] = {"name": b["name"],
-                            "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
+                            "html": render.render_bu_page(b["name"], s, cfg, logo_b64),
+                            "summary": s}
     return pages
 
 

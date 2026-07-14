@@ -36,6 +36,7 @@ import render
 import assets
 import version as product_version
 import updater
+import api_v1
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
@@ -2345,6 +2346,92 @@ def create_app(cfg, root=None) -> FastAPI:
         vacc = _vacc_row(request)
         my = accounts.bu_names_of(vacc)
         return HTMLResponse(_bu_view_html(name, my, profile=accounts.view_profile(vacc)))
+
+    # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
+    @app.get("/api/v1/session")
+    def api_v1_session(request: Request):
+        admin = _user(request)
+        if admin:
+            acc = accounts.find_account(cfg, root, admin)
+            return api_v1.session_public(acc, is_admin_session=True)
+        acc = _vacc_row(request)
+        if not acc:
+            raise HTTPException(status_code=401, detail="未登录")
+        return api_v1.session_public(acc)
+
+    @app.post("/api/v1/login")
+    def api_v1_login(payload: dict = Body(default={})):
+        account = str(payload.get("account") or "").strip()
+        password = str(payload.get("password") or "")
+        acc = accounts.authenticate(cfg, root, account, password)
+        if not acc:
+            raise HTTPException(status_code=401, detail="账号或密码不正确")
+        accounts.mark_login(cfg, root, account)
+        if accounts.is_admin(acc):
+            sess = api_v1.session_public(acc, is_admin_session=True)
+            resp = JSONResponse({"ok": True, "redirect": "/admin", "session": sess})
+            return _set_acookie(resp, account)
+        sess = api_v1.session_public(acc)
+        redir = "/"
+        if not accounts.is_main(acc):
+            names = accounts.bu_names_of(acc)
+            if names:
+                redir = f"/bu/{names[0]}"
+        resp = JSONResponse({"ok": True, "redirect": redir, "session": sess})
+        return _set_vcookie(resp, account)
+
+    @app.post("/api/v1/logout")
+    def api_v1_logout():
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie(COOKIE)
+        resp.delete_cookie(VCOOKIE)
+        return resp
+
+    @app.get("/api/v1/cockpit")
+    def api_v1_cockpit(request: Request):
+        """整体驾驶舱 JSON（数字与 golden 全等；前端/飞书等复用）。"""
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        if not _can_view_main(request):
+            raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
+        summary = _state.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="数据尚未生成")
+        out = api_v1.cockpit_payload(summary, scope="整体")
+        if _state.get("built_at"):
+            out.setdefault("meta", {})["built_at"] = _state["built_at"]
+        return out
+
+    @app.get("/api/v1/cockpit/bu/{name}")
+    def api_v1_cockpit_bu(name: str, request: Request):
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=403, detail="无权查看该 BU")
+        page = (_state.get("bu_pages") or {}).get(name)
+        if not page:
+            raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+        summary = page.get("summary")
+        if not summary:
+            # 基准版 bu_pages 仅有 html：现场重算会动 core——此处 503 提示需带 summary 的发布
+            raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
+        return api_v1.cockpit_payload(summary, scope="BU", bu_name=name)
+
+    @app.get("/api/v1/cockpit/view", response_class=HTMLResponse)
+    def api_v1_cockpit_view(request: Request):
+        """像素级同源：返回与 / 完全同一套 render_dashboard HTML（只读缓存/现算展示层）。"""
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        if not _can_view_main(request):
+            raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
+        html = _state.get("user_html") or ""
+        if not html:
+            raise HTTPException(status_code=503, detail="数据尚未生成")
+        # 与 / 整体页一致：注入 BU 条与 profile
+        if _user(request):
+            return HTMLResponse(_main_with_nav(hide_pw=True) or html)
+        acc = _vacc_row(request)
+        return HTMLResponse(_main_with_nav(profile=accounts.view_profile(acc)) or html)
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):
