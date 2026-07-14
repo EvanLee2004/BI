@@ -14,8 +14,8 @@ import columns  # noqa: E402
 import loaders  # noqa: E402
 import periods  # noqa: E402
 import render  # noqa: E402
-from profit import (build_dept_budget_block, compute_expenses_by_group,  # noqa: E402
-                    compute_ledger_expenses)
+from profit import (build_dept_budget_block, compute_expenses_by_fine_type,  # noqa: E402
+                    compute_expenses_by_group, compute_ledger_expenses)
 
 CFG = loaders.load_config()
 START, END = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
@@ -35,14 +35,31 @@ class TestGroupAggregation(unittest.TestCase):
     def _l(self):
         return columns.resolve_ledger_columns(HDR)
 
-    def test_conservation_both_views(self):
-        """守恒红线：各组合计（含未分类）== 台账白名单费用合计，两个视角同验。"""
+    def test_conservation_group_and_fine_views(self):
+        """守恒红线：部门/BU/类别 各组合计（含未分类）== 台账白名单费用合计。"""
         lcols = self._l()
         led, _ = compute_ledger_expenses(ROWS, 2026, START, END, CFG, lcols)
         total = sum(led.values())
         for field in ("预算归属部门", "业务BU"):
             rows = compute_expenses_by_group(ROWS, 2026, START, END, CFG, lcols, field)
             self.assertAlmostEqual(sum(v for _, v, _ in rows), total, places=2, msg=field)
+        # 按类别：_fine_to_rows 摊平后合计 = 白名单合计
+        fine_k = compute_expenses_by_fine_type(ROWS, 2026, START, END, CFG, lcols)
+        fine_rows = render._fine_to_rows(fine_k)
+        self.assertAlmostEqual(sum(v for _, v, _ in fine_rows), total, places=2, msg="按类别")
+
+    def test_fine_type_merge_and_unlabeled(self):
+        """按类别：同名细类跨大类合并；空细类→未标注明细类型；白名单外不进。"""
+        fine_k = compute_expenses_by_fine_type(ROWS, 2026, START, END, CFG, self._l())
+        rows = render._fine_to_rows(fine_k)
+        d = {g: v for g, v, _ in rows}
+        self.assertEqual(d["办公用品"], 100.0)
+        self.assertEqual(d["差旅费"], 50.0)
+        self.assertEqual(d[CFG["unclassified_label_fine_type"]], 30.0)  # 空细类
+        self.assertNotIn(999.0, d.values())  # 生产成本-译费白名单外
+        # 抽屉明细：办公用品只来自管理费用
+        office = next(r for r in rows if r[0] == "办公用品")
+        self.assertEqual(dict(office[2]), {"管理费用": 100.0})
 
     def test_groups_and_unfilled(self):
         rows = compute_expenses_by_group(ROWS, 2026, START, END, CFG, self._l(), "预算归属部门")
@@ -99,14 +116,41 @@ class TestRenderSwitches(unittest.TestCase):
             self.assertEqual(render.render_dept_budget(arg), "")
 
     def test_hbar_degrade_paths(self):
-        self.assertIn("无「预算归属部门」列", render._hbar_rows(None, "dept"))
-        self.assertIn("本期无台账费用", render._hbar_rows([], "dept"))
+        self.assertIn("缺分组列", render._hbar_rows(None, "fine"))
+        self.assertIn("本期无台账费用", render._hbar_rows([], "fine"))
 
     def test_hbar_unfilled_sinks_to_bottom(self):
         rows = [("未分类", 500.0, []), ("运保", 100.0, [])]
-        html = render._hbar_rows(rows, "dept")
+        html = render._hbar_rows(rows, "pc")
         self.assertLess(html.find("运保"), html.find("未分类"))
         self.assertIn("unfilled", html)
+        # 按类别：未标注明细类型同样沉底
+        rows2 = [("未标注明细类型", 30.0, []), ("办公用品", 100.0, [])]
+        html2 = render._hbar_rows(rows2, "fine")
+        self.assertLess(html2.find("办公用品"), html2.find("未标注明细类型"))
+
+    def test_expense_views_tabs_are_cat_fine_pc(self):
+        """整体页三态：按大类｜按类别｜按业务BU；不再出现「按部门」。"""
+        p = {"expense": {"total": 180.0, "营销费用": 0, "管理费用": 150, "固定运营费用": 0,
+                         "研发费用": 0, "财务费用": 30},
+             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+             "ledger_expenses": {"市场费用": 0, "管理费用": 150, "固定运营费用": 0,
+                                 "技术服务费": 0, "财务费用": 30}}
+        fine_rows = [("办公用品", 100.0, [("管理费用", 100.0)]),
+                     ("差旅费", 50.0, [("管理费用", 50.0)]),
+                     ("未标注明细类型", 30.0, [("市场费用", 30.0)])]
+        pc_rows = [("语言", 100.0, []), ("数据", 50.0, []), ("未分类", 30.0, [])]
+        html = render.render_expense_views(p, fine_rows, pc_rows)
+        self.assertIn("按大类", html)
+        self.assertIn("按类别", html)
+        self.assertIn("按业务BU", html)
+        self.assertNotIn("按部门", html)
+        self.assertIn('data-ev="fine"', html)
+        self.assertIn("办公用品", html)
+        self.assertIn("预算明细费用类型", html)
+        # 类别小计=台账 180，与条合计一致（显示串 18.0万 if 元→万：180元=0.0万? wait charts.fmt_wan)
+        # 金额单位=元，fmt_wan(180)=0.0 — 合成小样只验文案在位
+        self.assertIn("点类别看所属大类", html)
 
 
 class TestLedgerRowDateMonthGuard(unittest.TestCase):

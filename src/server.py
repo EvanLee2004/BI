@@ -125,7 +125,7 @@ def _check_vsubject(sec: dict, token: str, now: float | None = None) -> str | No
 def _publish(cfg, summary, html, bu_pages=None):
     _state["summary"] = summary
     _state["user_html"] = html
-    _state["admin_html"] = _admin_page(html, summary)
+    _state["admin_html"] = _admin_page(html, summary, cfg)
     if bu_pages is not None:
         _state["bu_pages"] = bu_pages
     _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -530,9 +530,15 @@ def _diff_accounts(old_accs: list, new_accs: list) -> list:
     return [("账号", _join_summary("账号：", lines))] if lines else []
 
 
-def _admin_page(dash_html: str, summary: dict) -> str:
-    """管理员控制台：体检条 + 立即更新 + 明细编辑/手填/调整台账 标签页 + 内嵌驾驶舱。"""
-    return _ADMIN_CONSOLE
+def _admin_page(dash_html: str, summary: dict, cfg: dict | None = None) -> str:
+    """管理员控制台：体检条 + 立即更新 + 明细编辑/手填/调整台账 标签页 + 内嵌驾驶舱。
+    手填项目清单从 config.manual_items 注入（迭代22修硬编码：config 加项后填写页要自动出现）。"""
+    import json as _json
+    items = [it["name"] for it in (cfg or {}).get("manual_items") or []] or [
+        "营销人力成本", "管理人力成本", "研发人力成本", "财务费用补充", "PM人力成本", "VM人力成本",
+        "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）", "其他损益"]
+    return _ADMIN_CONSOLE.replace("__MANUAL_ITEMS__",
+                                  _json.dumps(items, ensure_ascii=False, separators=(",", ":")))
 
 
 def _run_reasons(report: dict) -> list[str]:
@@ -1132,8 +1138,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
 let ADJ_FIELDS={};  // R1：可调字段由服务端下发（schema 黑名单制推导），不再前端写死
 async function loadAdjFields(){try{ADJ_FIELDS=await jget("/api/adjust_fields");}catch(e){}}
 const STD={"收入明细":"std_收入明细","下单":"std_下单","回款":"std_回款","内部译员":"std_内部译员","费用明细":"std_费用明细"};
-const MANUAL_ITEMS=["营销人力成本","管理人力成本","研发人力成本","财务费用补充","PM人力成本","VM人力成本",
-"实际内部译员成本","税费损失","技术流量成本","其他（生产成本）","其他损益"];
+const MANUAL_ITEMS=__MANUAL_ITEMS__; /* 由 config.manual_items 服务端注入（迭代22修：曾硬编码致新增项不出现在填写页） */
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function msg(t){document.getElementById("msg").textContent=t||"";}
 async function api(path,opts){const r=await fetch(path,Object.assign({credentials:"same-origin"},opts||{}));

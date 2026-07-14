@@ -230,20 +230,24 @@ def render_donut(p):
             f'<div class="legend">{legend}</div>')
 
 
+# 横条「未填/未标」沉底名：部门/BU 视角=未分类；类别视角=未标注明细类型（config 同文案）
+_HBAR_SINK = frozenset({"未分类", "未标注明细类型"})
+
+
 def _hbar_rows(rows, prefix):
-    """横向条形列表（台账白名单口径分组）+ 每组的抽屉明细块。rows=[(组名,合计,[(细类,金额),...]),...]。
-    宽度按最大组归一（服务端算好，前端零运算）；「未分类」灰色沉底。"""
+    """横向条形列表（台账白名单口径分组）+ 每组的抽屉明细块。rows=[(组名,合计,[(细项,金额),...]),...]。
+    宽度按最大组归一（服务端算好，前端零运算）；未分类/未标注明细类型灰色沉底。"""
     if rows is None:
-        return '<div class="ev-empty">收单台账无「预算归属部门」列（老台账），换新表头台账后自动出现</div>'
+        return '<div class="ev-empty">收单台账缺分组列（老台账），换新表头后自动出现</div>'
     if not rows:
         return '<div class="ev-empty">本期无台账费用</div>'
-    ordered = [r for r in rows if r[0] != "未分类"] + [r for r in rows if r[0] == "未分类"]
+    ordered = [r for r in rows if r[0] not in _HBAR_SINK] + [r for r in rows if r[0] in _HBAR_SINK]
     mx = max(v for _, v, _ in rows) or 1
     out, details = [], []
     for name, val, fine in ordered:
         key = f"{prefix}:{name}"
         w = max(2.0, val / mx * 100)
-        cls = " unfilled" if name == "未分类" else ""
+        cls = " unfilled" if name in _HBAR_SINK else ""
         out.append(f'<div class="ev-row pl-open{cls}" data-cat="{_esc(key)}" role="button" tabindex="0">'
                    f'<span class="ev-name">{_esc(name)}</span>'
                    f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
@@ -261,26 +265,29 @@ def _ledger_subtotal(rows):
     return charts.fmt_wan(sum(v for _, v, _ in rows)) + "万" if rows else "0万"
 
 
-def render_expense_views(p, dept_rows, pc_rows):
-    """期间费用构成卡：按大类（环形图）｜按部门｜按业务BU（利润中心） 三态切换。口径同一（白名单内含税）。"""
+def render_expense_views(p, fine_rows, pc_rows):
+    """期间费用构成卡：按大类（环形图）｜按类别（预算明细费用类型）｜按业务BU（利润中心）。
+    三态台账白名单含税口径同一；卡头合计含手填人力，横条小计仅为台账部分。"""
     e = p["expense"]
     tabs = ('<span class="ev-tabs">'
             '<button class="ev-tab on" data-ev="cat">按大类</button>'
-            '<button class="ev-tab" data-ev="dept">按部门</button>'
+            '<button class="ev-tab" data-ev="fine">按类别</button>'
             '<button class="ev-tab" data-ev="pc">按业务BU（利润中心）</button></span>')
     return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e["total"])}万</span>{tabs}</div>'
             f'<div class="ev-body">'
             f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
-            f'<div class="ev-pane" data-ev="dept" style="display:none">{_hbar_rows(dept_rows, "dept")}'
-            f'<div class="chart-note">按收单台账「预算归属部门」，台账部分小计 {_ledger_subtotal(dept_rows)}（白名单内含税；不含手填人力，故小于卡头合计）；点部门看细类。</div></div>'
+            f'<div class="ev-pane" data-ev="fine" style="display:none">{_hbar_rows(fine_rows, "fine")}'
+            f'<div class="chart-note">按收单台账「预算明细费用类型」，台账部分小计 {_ledger_subtotal(fine_rows)}'
+            f'（白名单内含税；不含手填人力，故小于卡头合计）；点类别看所属大类。</div></div>'
             f'<div class="ev-pane" data-ev="pc" style="display:none">{_hbar_rows(pc_rows, "pc")}'
-            f'<div class="chart-note">按收单台账「利润归属中心」=业务BU（数据/游戏/营销/公共等），台账部分小计 {_ledger_subtotal(pc_rows)}；BU 页按此列直记费用。点条看细类。</div></div>'
+            f'<div class="chart-note">按收单台账「利润归属中心」=业务BU（数据/游戏/营销/公共等），'
+            f'台账部分小计 {_ledger_subtotal(pc_rows)}；BU 页按此列直记费用。点条看细类。</div></div>'
             f'</div></div>')
 
 
 def _fine_to_rows(fine_k):
-    """把 {大类:[(细类,金额)…]} 摊平成「按费用类别」横条行 [(细类,合计,[(大类,金额)…])…]（迭代22·D2）。
-    同名细类跨大类合并；抽屉里按大类拆开看。"""
+    """把 {大类:[(细类,金额)…]} 摊平成「按类别」横条行 [(细类,合计,[(大类,金额)…])…]（迭代22·D2）。
+    同名细类跨大类合并；抽屉里按大类拆开看。金额全后端 round，前端零运算。"""
     if not fine_k:
         return []
     agg: dict[str, float] = {}
@@ -295,18 +302,19 @@ def _fine_to_rows(fine_k):
 
 
 def render_bu_expense_views(p, fine_k):
-    """BU 页期间费用构成卡（迭代22·D2·陆总0714）：按大类（环形）｜按费用类别（横条）两态。
-    不出「按部门」——BU 层面看类别，部门口径只留整体页（给陆总）。"""
+    """BU 页期间费用构成卡：按大类（环形）｜按类别（横条）两态。
+    与整体页「按类别」同口径（预算明细费用类型）；不出「按部门」。"""
     e = p.get("expense") or {}
     rows = _fine_to_rows(fine_k)
     tabs = ('<span class="ev-tabs">'
             '<button class="ev-tab on" data-ev="cat">按大类</button>'
-            '<button class="ev-tab" data-ev="fine">按费用类别</button></span>')
+            '<button class="ev-tab" data-ev="fine">按类别</button></span>')
     return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e.get("total") or 0)}万</span>{tabs}</div>'
             f'<div class="ev-body">'
             f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
             f'<div class="ev-pane" data-ev="fine" style="display:none">{_hbar_rows(rows, "fine")}'
-            f'<div class="chart-note">按收单台账「预算明细费用类型」（本 BU 直记部分；不含手填人力与公共分摊）；点类别看所属大类。</div></div>'
+            f'<div class="chart-note">按收单台账「预算明细费用类型」（本 BU 直记部分；不含手填人力与公共分摊）；'
+            f'台账部分小计 {_ledger_subtotal(rows)}；点类别看所属大类。</div></div>'
             f'</div></div>')
 
 
@@ -1121,9 +1129,12 @@ def render_dashboard(summary, cfg, logo_b64):
     kpi_views = "".join(
         _pv(k, yk, render_basic(k, P, meta["year"], spark_cache, budget, bu_orders=BUO.get(k)))
         for k in all_keys)
-    BD = summary.get("expense_by_department", {})
+    # 费用构成：按大类 | 按类别（预算明细费用类型，与 FT 同源守恒）| 按业务BU
     BP = summary.get("expense_by_profit_center", {})
-    donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
+    donut_views = "".join(
+        _pv(k, yk, render_expense_views(P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k)))
+        for k in all_keys)
+
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
     # 未分类金额行只挂全年利润表（分周期拆分未做，避免假精确）；月/季靠 faint-note 无金额提示
     pl_views = "".join(

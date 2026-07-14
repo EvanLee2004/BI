@@ -243,9 +243,10 @@ class TestBuPageAlignment(unittest.TestCase):
 
     def test_bu_expense_views_no_dept(self):
         html = render.render_bu_expense_views(self._bu_period(), self._fine())
-        self.assertIn("按费用类别", html)
+        self.assertIn("按类别", html)
         self.assertIn("按大类", html)
-        self.assertNotIn("按部门", html)                       # BU 页无部门口径（陆总0714）
+        self.assertNotIn("按部门", html)                       # BU 页无部门口径
+        self.assertNotIn("按费用类别", html)                   # 文案与整体页统一为「按类别」
 
 
 class TestCostVatManual(unittest.TestCase):
@@ -281,6 +282,22 @@ class TestCostVatManual(unittest.TestCase):
         self.assertIn("减：直接成本增值税", html)
         bu_html, _ = render.render_bu_pl_table(s["periods"]["2026年"])
         self.assertIn("减：直接成本增值税", bu_html)
+
+
+
+class TestManualItemsInjected(unittest.TestCase):
+    """迭代22修：管理端手填清单从 config 注入（曾硬编码致「直接成本增值税」不出现在填写页）。"""
+
+    def test_admin_page_contains_new_item(self):
+        import server
+        cfg = loaders.load_config()
+        html = server._admin_page("", {}, cfg)
+        self.assertIn("直接成本增值税", html)               # 新项出现在填写页 JS 清单
+        self.assertNotIn("__MANUAL_ITEMS__", html)          # 占位符已替换
+
+    def test_placeholder_exists_in_template(self):
+        import server
+        self.assertIn("__MANUAL_ITEMS__", server._ADMIN_CONSOLE)
 
 
 class TestBuExportGate(unittest.TestCase):

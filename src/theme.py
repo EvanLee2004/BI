@@ -493,19 +493,19 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .donut-sweep{opacity:.16;mix-blend-mode:screen;filter:blur(1px)}
 .theme-light .donut-sweep{display:none}
 
-/* —— 费用构成三态切换 + 横条视角（按部门/按利润中心）—— */
+/* —— 费用构成三态切换 + 横条视角（按类别/按利润中心）—— */
 .ev-tabs{margin-left:auto;display:inline-flex;gap:4px}
 .ev-tab{background:none;border:1px solid var(--line);color:var(--mut);font-size:11.5px;
  padding:3px 10px;border-radius:999px;cursor:pointer;font-family:inherit}
 .ev-tab.on{color:var(--ink);border-color:var(--purple);background:rgba(139,92,246,.12)}
 .ev-tab:hover{color:var(--ink)}
-/* 固定卡身高度：切换 按大类(环形)/按部门(15行)/按利润中心(5行) 不再忽高忽低顶动下方 */
+/* 固定卡身高度：切换 按大类(环形)/按类别(多行)/按利润中心 不再忽高忽低顶动下方 */
 .ev-body{height:360px;overflow:hidden auto}
 .ev-body .ev-pane[data-ev="cat"]{height:100%;display:flex;flex-direction:column;justify-content:center}
 .ev-list{max-height:300px;overflow-y:auto;padding:4px 2px}
 .ev-row{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:7px;cursor:pointer}
 .ev-row:hover{background:rgba(139,92,246,.08)}
-.ev-name{flex:0 0 108px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-name{flex:0 0 120px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-track{flex:1;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .ev-track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--teal),var(--blue));
  box-shadow:0 0 6px var(--teal)}
