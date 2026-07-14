@@ -114,7 +114,12 @@ body{
   box-shadow:0 0 0 1px rgba(34,211,238,.18),0 8px 28px rgba(0,0,0,.35),var(--glow)}
 .theme-light .kpi:hover{box-shadow:0 4px 14px rgba(31,58,95,.1);transform:none}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
-.kpi-l{font-size:13px;color:var(--mut);margin-bottom:7px;letter-spacing:.4px;font-weight:600}
+.kpi-l{font-size:13px;color:var(--mut);margin-bottom:7px;letter-spacing:.4px;font-weight:600;
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.kpi-period{flex:0 0 auto;font-size:11px;font-weight:500;color:var(--mut2);letter-spacing:0;
+  padding:1px 7px;border-radius:999px;border:1px solid var(--line);background:rgba(148,163,184,.06);
+  font-variant-numeric:tabular-nums}
+.theme-light .kpi-period{background:rgba(15,23,42,.04)}
 .kpi-cum{font-size:28px;font-weight:700;line-height:1.05;letter-spacing:.5px}
 .kpi-cum .u{font-size:13px;font-weight:500;color:var(--mut);margin-left:2px}
 .kpi-cum-l{font-size:11px;color:var(--mut2);margin-bottom:6px}

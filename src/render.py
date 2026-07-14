@@ -167,9 +167,22 @@ def _bu_orders_block(bu_list):
     return f'<div class="kpi-bus">{rows}</div>'
 
 
+def _kpi_period_label(pkey, year):
+    """基本情况卡头旁的时段角标：全年写「2026年」；季/月/区间去掉年份前缀写「Q1」「3月」「1-6月」。
+    与顶部「看哪段」同源（.pv 按周期预渲染，前端只切显示、零运算）。"""
+    yk = f"{year}年"
+    if pkey == yk:
+        return yk
+    if isinstance(pkey, str) and pkey.startswith(yk):
+        rest = pkey[len(yk):]
+        return rest or yk
+    return str(pkey or yk)
+
+
 def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
     p = P[pkey]
     prev = _prev_period_key(pkey, year)
+    period_tag = _esc(_kpi_period_label(pkey, year))
     cards = ""
     for label, key, src, up_good, pctkey, _color, tkey in KPI_CARDS:
         val = _kpi_val(p, key)
@@ -198,7 +211,8 @@ def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
         tgt = _target_bar(budget, tkey, pkey, year, p)
         # 陆总0714·C1：下单卡尾部挂三大 BU 进度（仅整体页传入）
         bus_html = _bu_orders_block(bu_orders) if key == "orders" else ""
-        cards += (f'<div class="kpi"><div class="kpi-l">{label}</div>'
+        cards += (f'<div class="kpi"><div class="kpi-l">{label}'
+                  f'<span class="kpi-period" title="当前查看时段">{period_tag}</span></div>'
                   f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}{tgt}{bus_html}'
                   f'<div class="kpi-spark">{spark_cache[key]}</div>'
                   f'<div class="kpi-src">{src}</div></div>')
@@ -348,11 +362,13 @@ def _open_row(cat, name, impact):
 
 
 def _drow(name, impact, kind, src="", sub=False):
-    """抽屉内明细行（始终展开、无需切换）。"""
+    """抽屉内明细行（始终展开、无需切换）。
+    金额只显示绝对值：行名已带「加/减」语义，用户只看数额；主表利润影响仍走 _row/_open_row 带符号。"""
     cls = "pl-drow" + (" sub" if sub else "")
     dot = f'<span class="dot {kind}"></span>' if kind else '<span class="dot none"></span>'
     src_html = f'<span class="src">{src}</span>' if src else ""
-    return f'<div class="{cls}">{dot}<div class="pl-name">{_esc(name)}{src_html}</div>{_amt(impact)}</div>'
+    return (f'<div class="{cls}">{dot}<div class="pl-name">{_esc(name)}{src_html}</div>'
+            f'{_amt(abs(float(impact or 0)))}</div>')
 
 
 def _d_ledger(name, amount, src, fine_pairs, limit=8):
