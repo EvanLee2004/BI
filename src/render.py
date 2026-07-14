@@ -1323,13 +1323,14 @@ def render_dashboard(summary, cfg, logo_b64):
 </div>
 {DRAWER_HTML}
 <div id="tip"></div>
-<script>{JS}{EXPORT_JS}{DAILY_JS}{PROFIT_JS}{PW_JS}</script>
+<script src="/static/js/cockpit.js"></script>
 """
+    # v1.4：CSS/JS 外置到 static/（内容与基准版 theme.get_css / JS* 常量一致），HTML 结构不变
     return (f'<!DOCTYPE html><html lang="zh-CN" data-profile="full"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>甲骨易智能经营罗盘</title>'
             f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'
-            f'<style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<link rel="stylesheet" href="/static/css/theme.css"></head><body>{body}</body></html>')
 
 
 # ---------- BU 分页（迭代 14 → 费用直记）：完整利润表 ----------
@@ -1498,10 +1499,10 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 {DRAWER_HTML}
 {RK_MODAL_HTML}
 <div id="tip"></div>
-<script>{JS}{PW_JS}{EXPORT_JS}{BU_LOCAL_EXPAND_JS}</script>
+<script src="/static/js/cockpit-bu.js"></script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN" data-profile="full"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>甲骨易智能经营罗盘 · {name}</title>'
             f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'
-            f'<style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<link rel="stylesheet" href="/static/css/theme.css"></head><body>{body}</body></html>')

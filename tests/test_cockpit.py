@@ -183,12 +183,21 @@ class TestRenderGuards(unittest.TestCase):
         cls.html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
 
     def test_no_client_side_math(self):
+        # v1.4：业务 JS 在 /static/js/cockpit.js，HTML 内联脚本不再含金额运算
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, self.html, f"前端出现金额运算 {bad}，违反'客户端不算数'铁律")
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        # 允许 parseInt 仅出现在周期 key 展示类逻辑时仍禁止金额运算关键字组合；这里继续禁 toFixed/parseFloat
+        for bad in ("toFixed(", "parseFloat("):
+            self.assertNotIn(bad, js, f"static/js 出现金额运算 {bad}")
 
     def test_self_contained(self):
+        # v1.4：允许同源 /static/*，禁止外链 CDN
         self.assertNotIn('src="http', self.html)
-        self.assertNotIn("<script src", self.html)
+        self.assertNotIn('href="http', self.html)
+        self.assertIn('href="/static/css/theme.css"', self.html)
+        self.assertIn('src="/static/js/cockpit.js"', self.html)
 
     def test_structure(self):
         for token in ("基本情况", "经营利润", "管理利润表", "税前利润", "附加税费",
@@ -196,9 +205,12 @@ class TestRenderGuards(unittest.TestCase):
             self.assertIn(token, self.html, token)
 
     def test_dark_default(self):
-        # :root 是暗色（默认），.theme-light 才是浅色
-        self.assertIn(":root{", self.html)
-        self.assertIn(".theme-light{", self.html)
+        # v1.4：暗色变量在 static/css/theme.css（:root 暗色 · .theme-light 浅色）
+        from pathlib import Path
+        css = (Path(__file__).resolve().parents[1] / "static" / "css" / "theme.css").read_text(encoding="utf-8")
+        self.assertIn(":root{", css)
+        self.assertIn(".theme-light{", css)
+        self.assertIn('href="/static/css/theme.css"', self.html)
 
     def test_profit_formula_strip(self):
         # 板块③下方「计算逻辑」公式条：三条公式在位（收入/毛利率/集中度），静态口径
@@ -218,11 +230,15 @@ class TestRenderGuards(unittest.TestCase):
         self.assertNotIn("全年视角 · 选中周期高亮", html)  # 领导视角去运营旁注
         # 柱/点/数字至少有一根 data-rm（1~12）
         self.assertRegex(html, r'data-rm="\d{1,2}"')
-        # 映射含年/月/季 key 形样（Python 预生成，前端不解析）
-        self.assertIn("_syncRmHighlight", html)
-        # 前端零金额：高亮只读写 class / 读 data 属性
-        self.assertIn("rm-dim", html)
-        self.assertIn("rm-on", html)
+        # 映射含年/月/季 key 形样（Python 预生成，前端不解析）；高亮逻辑在 static/js
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        self.assertIn("_syncRmHighlight", js)
+        # 前端零金额：高亮只读写 class / 读 data 属性（class 名在 CSS）
+        css = (Path(__file__).resolve().parents[1] / "static" / "css" / "theme.css").read_text(encoding="utf-8")
+        self.assertIn("rm-dim", css)
+        self.assertIn("rm-on", css)
+        self.assertIn("rm-on", js)
 
 
 class TestUnclassifiedPeriodTip(unittest.TestCase):

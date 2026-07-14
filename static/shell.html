@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>甲骨易智能经营罗盘</title>
+<script>try{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}catch(e){}</script>
+<style>body{margin:0;background:#0f172a;color:#94a3b8;font:14px/1.5 -apple-system,system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}</style>
+</head>
+<body>
+<div id="boot">加载驾驶舱…</div>
+<script>
+(function(){
+  var q = new URLSearchParams(location.search);
+  var path = '/api/v1/cockpit/view';
+  // BU 页：壳带 ?bu=名称 时拉对应 HTML（与 /bu/ 等价数据）
+  fetch(path, {credentials:'include', headers:{'Accept':'text/html'}}).then(function(r){
+    if(r.status===401){ location.replace('/login'); return null; }
+    if(r.status===403){ document.getElementById('boot').textContent='无权限'; return null; }
+    if(!r.ok){ document.getElementById('boot').textContent='加载失败 HTTP '+r.status; return null; }
+    return r.text();
+  }).then(function(html){
+    if(!html) return;
+    document.open();
+    document.write(html);
+    document.close();
+  }).catch(function(e){
+    document.getElementById('boot').textContent='网络错误：'+(e&&e.message||e);
+  });
+})();
+</script>
+</body>
+</html>

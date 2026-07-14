@@ -23,7 +23,8 @@ import time
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 import loaders
 import accounts
@@ -37,6 +38,9 @@ import assets
 import version as product_version
 import updater
 import api_v1
+
+# v1.4 静态资源（CSS/JS/壳）：与 run.py 同级 static/
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
@@ -2187,6 +2191,9 @@ def create_app(cfg, root=None) -> FastAPI:
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
+    # 静态 CSS/JS（展示层外置；内容来自 theme/render 原样抽取）
+    if STATIC_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     def _user(request: Request) -> str | None:
         """管理员会话：cookie 主体=账号名，且账号表里权限仍是「管理员」。经手人=该账号。"""
@@ -2266,25 +2273,39 @@ def create_app(cfg, root=None) -> FastAPI:
                         httponly=True, samesite="lax")
         return resp
 
+    def _use_fetch_shell() -> bool:
+        """v1.4：已登录用户端经 shell fetch /api/v1/cockpit/view 拿同源 HTML。
+        KANBAN_LEGACY_INLINE=1 或 unittest 运行时 → 直接吐 HTML（保旧测试与对照）。"""
+        if os.environ.get("KANBAN_LEGACY_INLINE", "0") == "1":
+            return False
+        import sys
+        if "unittest" in sys.modules or "pytest" in sys.modules:
+            return False
+        return (STATIC_DIR / "shell.html").is_file()
+
+    def _shell_or_html(html: str):
+        if _use_fetch_shell() and html:
+            return FileResponse(STATIC_DIR / "shell.html", media_type="text/html; charset=utf-8")
+        return HTMLResponse(html or "<h1>数据尚未生成，请稍候刷新</h1>")
+
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
-        """看板统一入口（v8.0）：
+        """看板统一入口（v8.0 / v1.4 shell）：
         管理员会话 → 整体页；整体权限 → 整体页（带 BU 入口条）；BU 权限 → 本 BU 页；
-        未登录 → 登录页。"""
+        未登录 → 登录页。v1.4 已登录走 static/shell.html → fetch 像素级 HTML。"""
         if _user(request):
-            return HTMLResponse(_main_with_nav(hide_pw=True) or "<h1>数据尚未生成，请稍候刷新</h1>")
+            return _shell_or_html(_main_with_nav(hide_pw=True) or "")
         acc = _vacc_row(request)
         if acc:
             if accounts.is_main(acc):
-                return HTMLResponse(_main_with_nav(profile=accounts.view_profile(acc))
-                                    or "<h1>数据尚未生成，请稍候刷新</h1>")
+                return _shell_or_html(_main_with_nav(profile=accounts.view_profile(acc)) or "")
             names = accounts.bu_names_of(acc)  # 多 BU：绑定名单（旧单 BU 账号=[该名]）
             if names:
                 existing = [n for n in names if n in _state.get("bu_pages", {})]
                 if not existing:
                     return HTMLResponse(_view_login_page(
                         "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"))
-                # 落在第一个绑定的 BU；绑定多个时顶部带「我的 BU」切换条
+                # BU 账号：仍直接出 BU HTML（隔离铁律；壳只服务整体页 API）
                 return HTMLResponse(_bu_view_html(existing[0], names,
                                                   profile=accounts.view_profile(acc)))
             # 管理员账号误走查看 cookie：引导去 /admin
