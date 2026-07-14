@@ -36,21 +36,23 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
+> **图集与代码对齐说明（2026-07-15）**  
+> 对照 `VERSION=1.4.0-beta` 源码核对：五层架构 / 登录分流 / 部署拓扑 / 模块图 / 时序 / ER **均为当前代码现状**。  
+> 矢量源在 `docs/设计图/`；README 内嵌 **PNG**（GitHub / Gitee 均可渲染）。诚实边界：管理端巨型 HTML 仍在 `server.py`，未拆 static。
+
 五层单向数据流。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
 
+### 1. 逻辑架构（主图）
+
 ![系统架构图 v1.5](docs/images/architecture.png)
-
-> 架构图 v1.5 · 对齐产品 v1.4.0-beta · 矢量源见 [docs/设计图/](docs/设计图/)
-
-### 数据怎么流
 
 ```
 ① 抓数    智云四源自动登录抓 + 收单台账 SMB + 管理端表单手填
     ↓ 进料口：数据/ 目录（6 个 xlsx + 配置，不进 git）
 ② 清洗    规范化 → 行哈希定位键 → 重放人工调整
-③ 存储    SQLite 单文件（std_ 标准表 + 调整/手填人工表）
+③ 存储    SQLite 单文件（std_ 标准表 + adj_/manual_/meta_）
 ④ 计算    profit 纯函数 → 32 周期 summary
-⑤ 展示    FastAPI · 账号分流页 · static/ 外置 · /api/v1 JSON
+⑤ 展示    FastAPI · 账号分流 · static/ · /api/v1 JSON
 ```
 
 | 契约 | 含义 |
@@ -59,9 +61,31 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 | 库是后端私产 | 浏览器只经 HTTP，从不直连 SQLite |
 | 抓数可降级 | 失败 → 沿用本地副本 + 体检黄，管道继续跑 |
 
-### 每天怎么跑（大白话）
+### 2. 部署与运行拓扑
+
+![部署拓扑](docs/images/deploy.png)
+
+Windows 内网单机：看门狗常驻 `--serve` · 计划任务 `--scheduled` · 浏览器/JSON 客户端访问。
+
+### 3. 模块与组件（对齐 `src/`）
+
+![模块组件图](docs/images/modules.png)
+
+### 4. 账号登录与权限分流
+
+![登录分流](docs/images/auth.png)
+
+### 5. 每天怎么跑（大白话）
 
 ![运行逻辑](docs/images/howto-run.png)
+
+### 6. 关键时序 · 数据模型
+
+![关键流程时序](docs/images/sequence.png)
+
+![数据库 ER v1.2](docs/images/er.png)
+
+ER 已对齐 `src/schema.py` 全表：`std_*` 五表 + `adj_调整` + `manual_手填/手填BU/分摊比例/去税率/预算/配置变更/历史` + `meta_运行日志`；账号/BU 在 JSON 不在库。
 
 ---
 
@@ -99,14 +123,6 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 - **公共费用按月分摊**到 BU（合计可 &lt; 100%，残留留公司层）  
 - **费用去税率**按类别手填（空 = 不去税）  
 - 每轮更新有数据体检（绿 / 黄 / 红）
-
-**每日更新 / 改数时序**
-
-![关键流程时序图](docs/images/sequence.png)
-
-**数据库结构**
-
-![数据库 ER 图](docs/images/er.png)
 
 ---
 
@@ -202,18 +218,31 @@ tests/  docs/  golden/
 
 ## 文档与设计图
 
-| 资源 | 说明 |
+### 标准软件工程图集（当前代码 · PNG 可渲染）
+
+| 图 | 软工类型 | 文件 | 对齐状态 |
+|----|----------|------|----------|
+| 系统逻辑架构 | 架构 / 上下文 | [architecture.png](docs/images/architecture.png) | ✅ v1.5 = v1.4.0-beta |
+| 部署运行拓扑 | 部署图 | [deploy.png](docs/images/deploy.png) | ✅ 看门狗·计划任务·内网 |
+| 模块与组件 | 组件图 | [modules.png](docs/images/modules.png) | ✅ 对齐 `src/` + `static/` |
+| 登录权限分流 | 用例 / 时序 | [auth.png](docs/images/auth.png) | ✅ 账号·BU 解耦 |
+| 运行逻辑（白话） | 流程说明 | [howto-run.png](docs/images/howto-run.png) | ✅ |
+| 关键时序 | 时序图 | [sequence.png](docs/images/sequence.png) | ✅ 日更 + 改数重算 |
+| 数据库 ER | 数据模型 | [er.png](docs/images/er.png) | ✅ v1.2 = `schema.py` 全表 |
+
+矢量源（编辑用）：[docs/设计图/](docs/设计图/)（SVG 在 Gitee README 里不渲染，故主 README 用 PNG）。
+
+### 文字文档
+
+| 文档 | 说明 |
 |------|------|
-| [architecture.png](docs/images/architecture.png) | 系统架构（README 主图，GitHub / Gitee 均可渲染） |
-| [howto-run.png](docs/images/howto-run.png) | 每天怎么跑（大白话） |
-| [sequence.png](docs/images/sequence.png) | 每日更新 / 改数时序 |
-| [er.png](docs/images/er.png) | 数据库 ER |
-| [docs/设计图/](docs/设计图/) | 矢量源 SVG（编辑用） |
 | [Windows 部署手册](docs/Windows部署手册.md) | 装机 · 计划任务 · 看门狗 |
 | [数据来源说明](docs/数据来源说明.md) | 六源字段与口径 |
 | [v1.4 交付说明](docs/v1.4前后端分离交付说明.md) | 分离动机 · 回退 · 边界 |
+| [API v1 契约](docs/api-v1-cockpit.md) | cockpit JSON |
+| [CLAUDE.md](CLAUDE.md) | 开发铁律与模块地图 |
 
-> 需求台账、详细设计、迭代计划等在项目本地文档库（含业务口径，不随公开仓发布）。
+> 需求台账、概要/详细设计全文、迭代计划等在项目本地文档库（含业务口径，不随公开仓发布）。
 
 ---
 
