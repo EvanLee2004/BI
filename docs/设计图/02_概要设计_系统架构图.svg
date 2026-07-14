@@ -1,5 +1,5 @@
 <svg viewBox="0 0 820 780" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
-<title>利润看板架构 v1.5（产品 v1.4.0-beta · 2026-07-15）</title>
+<title>利润看板架构 v1.6（产品 v1.5.0-beta · 2026-07-15）</title>
 <desc>抓数→进料口→清洗→SQLite→计算→展示(账号分流·static外置·/api/v1 JSON)；单向数据流+调度+人工调整回路</desc>
 <defs>
 <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7a8699"/></marker>
@@ -24,7 +24,7 @@
 
 <!-- 标题条 -->
 <text x="410" y="22" class="t" text-anchor="middle" font-size="14">甲骨易智能经营罗盘 · 系统架构 v1.5</text>
-<text x="410" y="38" class="xs" text-anchor="middle">产品 v1.4.0-beta · 五层单向 · CSS/JS 外置 · JSON API · 无 React/npm</text>
+<text x="410" y="38" class="xs" text-anchor="middle">产品 v1.5.0-beta · 五层单向 · CSS/JS 外置 · JSON API · 无 React/npm</text>
 
 <!-- ① 抓数层 -->
 <text x="20" y="58" class="lbl">① 抓数层（采集：搬进进料口 · 抓不到自动沿用本地副本+体检黄）</text>
@@ -131,7 +131,7 @@
 <text x="480" y="576" class="s" text-anchor="middle">销售归属 · 账号与权限</text>
 <text x="480" y="592" class="s" text-anchor="middle">异常处理 · 操作记录</text>
 <text x="480" y="608" class="s" text-anchor="middle">一键更新 · 设置 · 体检</text>
-<text x="480" y="622" class="half" text-anchor="middle">◧ HTML 仍在 server.py</text>
+<text x="480" y="622" class="half" text-anchor="middle">◧ static/admin 外置</text>
 
 <!-- API 边界 -->
 <rect x="600" y="504" width="200" height="128" rx="8" fill="#6366f11a" stroke="#6366f1"/>
@@ -154,6 +154,6 @@
 <text x="36" y="672" class="lbl">图例与契约</text>
 <text x="36" y="692" class="s">实线 = 单向数据流　　绿点线 = 调度触发（定时 / 立即更新 / 一键更新）　　橙虚线 = 人工调整回路（改指令不改原始）</text>
 <text x="36" y="710" class="s">① 进料口是唯一接缝　　② 库只给后端碰，浏览器只经 HTTP　　③ 抓数失败永不中断管道（local_fallback + 体检黄）</text>
-<text x="36" y="728" class="s">④ 前端零金额运算（预渲染 .pv 块 + 显示串 *_disp）　　⑤ 主看端 static/ 外置；管理端巨型 HTML 诚实仍在 server.py</text>
-<text x="36" y="746" class="done">● 已建　　◧ 半做/诚实边界　　—— 架构图 v1.5 · 对齐产品 v1.4.0-beta（2026-07-15）· 回退：KANBAN_LEGACY_INLINE=1 或 git reset --hard efacf8c</text>
+<text x="36" y="728" class="s">④ 前端零金额运算（预渲染 .pv 块 + 显示串 *_disp）　　⑤ 主看端 static/ 外置；管理端 static/admin 已外置（v1.5）</text>
+<text x="36" y="746" class="done">● 已建　　◧ 半做/诚实边界　　—— 架构图 v1.6 · 对齐产品 v1.5.0-beta（2026-07-15）· 回退：KANBAN_LEGACY_INLINE=1 或 git reset --hard efacf8c</text>
 </svg>
