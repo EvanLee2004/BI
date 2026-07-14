@@ -256,13 +256,12 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """分摊关：看端脚注说明本BU范围；有返回整体 + 基本情况；不含全公司出口。"""
+        """分摊关：有返回整体 + 基本情况；看端不展示口径长文；不含全公司出口。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._pages()["BU甲"]["html"]
-        # 看端精简：一句话范围脚注（直记/分摊），不再堆「利润归属中心」长说明
-        self.assertTrue(
-            ("本BU直记" in h) or ("公共分摊" in h) or ("仅含" in h),
-            "BU 页应有本页范围脚注")
+        self.assertIn("当前 BU", h)
+        self.assertNotIn("仅含", h)                 # 用户端不展示范围说明长文
+        self.assertNotIn("利润归属中心", h)
         self.assertIn("基本情况", h)
         self.assertIn("返回整体", h)
         self.assertIn('href="/"', h)

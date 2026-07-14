@@ -1346,12 +1346,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     name = _esc(bu_name)
-    # 看端脚注：一句话说明本页范围即可（明细在管理端）
-    if alloc.get("enabled"):
-        rdisp = _esc(alloc.get("ratio_disp") or "")
-        faint = f'仅含 <b>{name}</b> · 收入按销售 · 费用含公共分摊 <b>{rdisp}</b>'
-    else:
-        faint = f'仅含 <b>{name}</b> · 收入按销售 · 费用按本BU直记'
+    # 看端不展示口径说明长文（管理端数据/设置里看明细）
 
     # BU 基本情况 KPI（与整体页同构；目标取该 BU 的 budget meta，无则空态）
     month_keys = meta["tab_groups"]["月"]
@@ -1382,7 +1377,6 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
   <a class="bu-back bu-back-inline" href="/" title="返回整体看板（点一下即回主页/刷新）">← 返回整体</a>
   <span class="bu-subnav-cur">当前 BU · <b>{name}</b></span>
  </div>
- <div class="faint-note" style="margin:8px 0 0">{faint}</div>
  {render_period_bar(summary)}
  <div id="periodSync">
  <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
