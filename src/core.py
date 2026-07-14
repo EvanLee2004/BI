@@ -116,9 +116,35 @@ def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None)
         "months": sorted(ctx["ratios"].keys()), "bu_names": ctx["bu_names"]}
 
 
+def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
+    """迭代21：台账「利润归属中心」未知名 → 体检 warnings（只加警告不改算数）。
+    没配任何 BU（配置不存在/为空）时跳过——BU 功能未启用不该报警。"""
+    bucfg = bu.load_bu_config(cfg, root)
+    if not bucfg or not bucfg.get("bus"):
+        return
+    bu_names = [b.get("name") for b in bucfg["bus"] if str(b.get("name") or "").strip()]
+    if not bu_names:
+        return
+    lh, lr = db.load_ledger(cfg, conn)
+    if not lh:
+        return
+    import columns as _columns
+    lcols = _columns.resolve_ledger_columns(lh)
+    items = profit.scan_unknown_profit_centers(
+        lr, today.year, lcols, cfg, bu_names, year=today.year)
+    warns = profit.unknown_pc_warnings(items)
+    if not warns:
+        return
+    health = (summary.get("meta") or {}).setdefault("health", {})
+    health.setdefault("warnings", []).extend(warns)
+    # 管理端 BU 卡用：服务端算好显示串（原文名已在 warning 文案里；此处给清单钩子）
+    summary.setdefault("meta", {})["unknown_profit_centers"] = items
+
+
 def summary_from_conn(cfg, conn, today):
     """计算层只吃库：标准表 + 手填表 → summary（profit 不再自己扫文件）。
-    迭代20：有按月分摊比例时，「构成·按业务BU」视图跟着分摊挪（总额不变）。"""
+    迭代20：有按月分摊比例时，「构成·按业务BU」视图跟着分摊挪（总额不变）。
+    迭代21：未知归属中心挂体检警告。"""
     s = profit.build_summary(
         cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
         db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
@@ -126,6 +152,7 @@ def summary_from_conn(cfg, conn, today):
         manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn),
         dept_budget_raw=db.load_dept_budget(conn))
     attach_allocation_to_summary(cfg, conn, today, s)
+    attach_unknown_pc_warnings(cfg, conn, today, s)
     return s
 
 

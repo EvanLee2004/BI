@@ -438,19 +438,62 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None):
     )
 
 
-def render_receipts(receipt_order_monthly, budget=None):
-    """回款图（柱顶万 + 月下率%）+ 右侧累计/缺口洞察（不重复月表）。"""
+def _months_for_period_key(key: str, year_key: str) -> list[int]:
+    """单个周期 key → 月份列表（与顶部选择器 key 形如 2026年 / 2026年Q1 / 2026年3月 / 2026年1-3月 对齐）。"""
+    if not key or key == year_key or (key.endswith("年") and "Q" not in key and "月" not in key):
+        return list(range(1, 13))
+    try:
+        rest = key.split("年", 1)[1]
+    except IndexError:
+        return list(range(1, 13))
+    if rest.startswith("Q"):
+        q = int(rest[1:])
+        sm = (q - 1) * 3 + 1
+        return [sm, sm + 1, sm + 2]
+    if rest.endswith("月"):
+        body = rest[:-1]  # 去「月」
+        if "-" in body:
+            a, b = body.split("-", 1)
+            return list(range(int(a), int(b) + 1))
+        return [int(body)]
+    return list(range(1, 13))
+
+
+def _period_months_map(summary) -> dict[str, list[int]]:
+    """周期 key → 应高亮的月份列表（Python 侧预生成塞 data-rm-map，前端只读应用、不解析 key）。
+    年=1..12 全亮；季=该季 3 月；月=单月；区间=起止月闭区间。"""
+    meta = summary.get("meta") or {}
+    yk = meta.get("year_key") or ""
+    groups = meta.get("tab_groups") or {}
+    keys = [yk] + list(groups.get("季度") or []) + list(groups.get("月") or []) + list(groups.get("区间") or [])
+    # 去重保序
+    seen, ordered = set(), []
+    for k in keys:
+        if k and k not in seen:
+            seen.add(k)
+            ordered.append(k)
+    return {k: _months_for_period_key(k, yk) for k in ordered}
+
+
+def render_receipts(receipt_order_monthly, budget=None, *, period_months_map=None, year_key=None):
+    """回款图（柱顶万 + 月下率%）+ 右侧累计/缺口洞察（不重复月表）。
+    迭代21：卡根挂 data-rm-map（周期→月份）供前端只切高亮，全年视角数据不变。"""
+    import json
     rb = (budget or {}).get("receipt") if budget else None
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
     side = _receipt_insight_panel(receipt_order_monthly, budget)
-    return (f'<div class="card rc-card"><div class="card-h">回款情况 '
-            f'<span class="tag">按月 · 柱顶=回款万 · 月下=回款/下单比%</span>'
+    rm_map = period_months_map or {}
+    yk = year_key or ""
+    map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
+    return (f'<div class="card rc-card" id="rcCard" data-rm-year="{_esc(yk)}" '
+            f'data-rm-map="{_esc(map_json)}"><div class="card-h">回款情况 '
+            f'<span class="tag">按月 · 柱顶=回款万 · 月下=回款/下单比% · 全年视角 · 选中周期高亮</span>'
             f'{_budget_tag(budget)}</div>'
             f'<div class="rc-split">'
             f'<div class="rc-body">{charts.receipt_order_chart(receipt_order_monthly, budget_month=budget_month)}</div>'
             f'<div class="rc-side">{side}</div></div>'
             f'<div class="chart-note">回款/下单比 = 当月回款 ÷ 当月下单；{RECEIPT_NOTE}。'
-            f'右侧驾驶舱：缺口大数 + 回款占下单 + 峰谷月。</div></div>')
+            f'右侧驾驶舱：缺口大数 + 回款占下单 + 峰谷月。图固定全年 12 月，切周期只高亮对应月。</div></div>')
 
 
 # ---------- 板块③ 下单与回款排名（随周期切）----------
@@ -663,10 +706,32 @@ JS = """
   window._curBlk=pYear+'年';
   // 切周期：整区 periodSync 统一淡出→切 .pv→淡入（与基本情况同观感；零金额运算）
   var _periodT=null;
+  // 迭代21：回款卡全年视角 · 选中周期月份高亮（映射由服务端 data-rm-map 下发，前端只读写 class）
+  window._syncRmHighlight=function(key){
+    var card=document.getElementById('rcCard');if(!card)return;
+    var els=card.querySelectorAll('[data-rm]');
+    var yearKey=card.getAttribute('data-rm-year')||'';
+    var mapStr=card.getAttribute('data-rm-map')||'{}';
+    var map={};try{map=JSON.parse(mapStr);}catch(e){map={};}
+    var months=map[key];
+    // 全年 / 无映射 / 映射含 12 月 → 全亮（去掉任何额外样式）
+    var full=!months||key===yearKey||months.length>=12;
+    if(full){
+      card.classList.remove('rc-rm-filter');
+      els.forEach(function(el){el.classList.remove('rm-dim','rm-on');});
+      return;}
+    card.classList.add('rc-rm-filter');
+    var on={};months.forEach(function(m){on[String(m)]=1;});
+    els.forEach(function(el){
+      var m=el.getAttribute('data-rm');
+      if(on[m]){el.classList.add('rm-on');el.classList.remove('rm-dim');}
+      else{el.classList.add('rm-dim');el.classList.remove('rm-on');}
+    });};
   function applyPeriod(key,label){
     if(key===window._curBlk){ // 同周期只更新按钮态
       pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
       ppanel.querySelectorAll('.pp-chip').forEach(function(c){c.classList.toggle('on',c.getAttribute('data-key')===key);});
+      if(window._syncRmHighlight)window._syncRmHighlight(key);
       return;}
     window._curBlk=key;
     pbtn.innerHTML=label+' <span class="pbtn-c">▾</span>';
@@ -674,7 +739,8 @@ JS = """
     var sync=document.getElementById('periodSync');
     function swap(){
       document.querySelectorAll('.pv').forEach(function(x){x.style.display=x.getAttribute('data-blk')===key?'':'none';});
-      if(window._syncDailyDates)window._syncDailyDates(key);}
+      if(window._syncDailyDates)window._syncDailyDates(key);
+      if(window._syncRmHighlight)window._syncRmHighlight(key);}
     if(!sync||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
       swap();return;}
     if(_periodT){clearTimeout(_periodT);_periodT=null;}
@@ -689,6 +755,8 @@ JS = """
       _periodT=setTimeout(function(){sync.classList.remove('is-period-enter');_periodT=null;},380);
     },150);}
   window.applyPeriod=applyPeriod;
+  // 初始默认年：全亮（显式调一次，与 _curBlk 对齐）
+  if(window._syncRmHighlight)window._syncRmHighlight(window._curBlk);
   function markMonths(a,b){ppanel.querySelectorAll('.pp-m').forEach(function(x){
     var m=+x.getAttribute('data-m');
     x.classList.toggle('sel',a!==null&&b!==null&&m>=a&&m<=b);
@@ -952,9 +1020,17 @@ def render_dashboard(summary, cfg, logo_b64):
     logo = f'<img class="tb-logo" src="{logo_b64}" alt="logo">' if logo_b64 else ""
     unc = meta["unclassified"]["expense"]
     # C1'：老板端不放体检徽章/预警 banner（财务自检工具，只留管理员端），但保留一行极淡小字兜底
-    # 防"利润悄悄虚高"——未分类费用未计入会让税前利润偏高。金额取 summary 现成的未分类额，不新算。
-    faint_note = (f'<div class="faint-note">口径提示：另含 {_wan(unc["amount"])} 待分类费用尚未计入（税前利润略偏高）</div>'
-                  if unc["count"] else "")
+    # 防"利润悄悄虚高"——未分类费用未计入会让税前利润偏高。
+    # 迭代21：年周期带金额；月/季/区间只出无金额口径提示（未分类未按月拆，标金额会假精确）。
+    if unc["count"]:
+        faint_year = (f'<div class="faint-note">口径提示：另含 {_wan(unc["amount"])} 待分类费用尚未计入'
+                      f'（税前利润略偏高）</div>')
+        faint_other = ('<div class="faint-note">口径提示：全年另有待分类台账费用未计入，'
+                       '各期税前利润均可能略偏高（金额见全年视图）</div>')
+        faint_note = "".join(
+            _pv(k, yk, faint_year if k == yk else faint_other) for k in all_keys)
+    else:
+        faint_note = ""
 
     month_keys = meta["tab_groups"]["月"]
     spark_cache = _spark_cache(P, month_keys)
@@ -964,7 +1040,7 @@ def render_dashboard(summary, cfg, logo_b64):
     BP = summary.get("expense_by_profit_center", {})
     donut_views = "".join(_pv(k, yk, render_expense_views(P[k], BD.get(k), BP.get(k))) for k in all_keys)
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
-    # 未分类金额按「全年」挂各周期同一提示（分周期拆分未做，避免假精确）
+    # 未分类金额行只挂全年利润表（分周期拆分未做，避免假精确）；月/季靠 faint-note 无金额提示
     pl_views = "".join(
         _pv(k, yk, render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None))
         for k in all_keys)
@@ -972,8 +1048,10 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
-    # 回款情况：图+右侧月度数字表（填满宽屏空白；部门费用预算卡已下线）
-    receipts_html = render_receipts(summary['receipt_order_monthly'], summary['meta'].get('budget'))
+    # 回款情况：全年视角固定 12 月 + 周期高亮映射（迭代21）；部门费用预算卡已下线
+    receipts_html = render_receipts(
+        summary['receipt_order_monthly'], summary['meta'].get('budget'),
+        period_months_map=_period_months_map(summary), year_key=yk)
     receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
 
     body = f"""

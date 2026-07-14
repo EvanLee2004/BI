@@ -553,6 +553,65 @@ def normalize_profit_center(raw) -> str:
     return _PC_TO_BU.get(s, s)
 
 
+def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names,
+                                year: int | None = None) -> list[dict]:
+    """扫描全年台账白名单费用行的「利润归属中心」归一结果，收集未知名清单。
+
+    返回 [{name, count, amount}, ...] 按金额降序。
+    未知 = 非空、归一后既不是「公共」、也不等于任一已配 BU 名。
+    空归属中心不进此清单（另有未分类提示）。不改任何算数，只体检。
+    """
+    if not bu_names or not ledger_rows or not lcols:
+        return []
+    known = {"公共"} | {str(b).strip() for b in bu_names if str(b).strip()}
+    included = set(cfg.get("expense_categories_included") or [])
+    c_amt = lcols["含税金额"]
+    c_pc = lcols["业务BU"]
+    y = int(year if year is not None else ledger_year)
+    start, end = datetime.date(y, 1, 1), datetime.date(y, 12, 31)
+    # raw 原文聚合（便于对照台账改名）
+    stats: dict[str, list] = defaultdict(lambda: [0, 0.0])  # count, amount
+    for row in ledger_rows:
+        if not row:
+            continue
+        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        if amt == 0.0:
+            continue
+        if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
+            continue
+        cat = columns.classify_expense_category(row, cfg, lcols)[0]
+        if cat not in included:
+            continue
+        raw = str(row[c_pc] if len(row) > c_pc else "").strip()
+        if not raw:
+            continue
+        pc = normalize_profit_center(raw)
+        if pc in known:
+            continue
+        stats[raw][0] += 1
+        stats[raw][1] += amt
+    out = [{"name": n, "count": c, "amount": round(a, 2)}
+           for n, (c, a) in stats.items()]
+    out.sort(key=lambda x: (-x["amount"], x["name"]))
+    return out
+
+
+def unknown_pc_warnings(items: list[dict]) -> list[str]:
+    """把未知归属中心清单编成体检警告文案（金额服务端算好）。"""
+    warns = []
+    for it in items or []:
+        name = str(it.get("name") or "")
+        n = int(it.get("count") or 0)
+        amt = float(it.get("amount") or 0)
+        if not name or n <= 0:
+            continue
+        warns.append(
+            f"台账 {n} 笔费用的利润归属中心『{name}』不在 BU 名单"
+            f"（¥{amt/1e4:.1f} 万）——不进任何 BU 直记也不进公共池，请到设置核对 BU 名或修正台账"
+        )
+    return warns
+
+
 def filter_ledger_rows_by_pc(header, rows, want: set[str]) -> list:
     """按利润归属中心(业务BU列)过滤台账行。want 为归一后中心名集合，如 {\"数据\"} 或 {\"公共\"}。"""
     if not rows or not header:

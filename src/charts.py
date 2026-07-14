@@ -199,21 +199,29 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
             parts.append(f'<text x="{w-pr+6}" y="{y+3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
                          f'{rmx_axis*frac:.0f}%</text>')
     for i, (label, rec, _order, ratio) in enumerate(series):
+        # 月份号：标签形如「1月」/「10月」；供周期高亮 data-rm（纯展示，不参与金额）
+        rm = str(i + 1)
+        if isinstance(label, str) and label.endswith("月"):
+            head = label[:-1]
+            if head.isdigit():
+                rm = str(int(head))
+        drm = f' data-rm="{rm}"'
         cx = pl + gw * i + gw / 2
         bh = max(1.0, rec / mx * bar_h) if rec else 0.0
         by = pt + plot_h - bh
         parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
                      f'x="{cx-bw/2:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{max(bh, 1.0):.1f}" rx="3" '
-                     f'fill="{color}" opacity="0.9"/>')
+                     f'fill="{color}" opacity="0.9"{drm}/>')
         # 柱顶金额用蓝色，与交付收入图统一
         parts.append(f'<text x="{cx:.1f}" y="{by-5:.1f}" text-anchor="middle" font-size="10.5" '
-                     f'font-weight="700" fill="{BLUE}">{fmt_wan(rec)}</text>')
-        parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11.5" fill="{MUT}">{label}</text>')
+                     f'font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rec)}</text>')
+        parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11.5" '
+                     f'fill="{MUT}"{drm}>{label}</text>')
         if ratio is not None:
             parts.append(f'<text x="{cx:.1f}" y="{h-pb+30:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
-                         f'fill="{ORANGE}">{ratio:.0f}%</text>')
+                         f'fill="{ORANGE}"{drm}>{ratio:.0f}%</text>')
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
-            line_pts.append((cx, ly))
+            line_pts.append((cx, ly, rm))
         tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{fmt_wan(_order)}万"
                f"{('<br>回款/下单比&nbsp;'+format(ratio,'.1f')+'%') if ratio is not None else ''}")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
@@ -225,16 +233,17 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         parts.append(f'<text x="{w-pr-2:.1f}" y="{by-4:.1f}" text-anchor="end" font-size="9.5" fill="{TEAL}">'
                      f'月均预算 {fmt_wan(budget_month)}万</text>')
     if len(line_pts) >= 2:
-        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
-        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y, _rm in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _rm in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.2" '
                      f'stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>')
         parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2" '
                      f'stroke-linejoin="round" stroke-linecap="round"/>')
         parts.append(f'<circle class="comet" r="3" fill="#fff">'
                      f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
-    for x, y in line_pts:
-        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" stroke-width="1.2"/>')
+    for x, y, rm in line_pts:
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
+                     f'stroke-width="1.2" data-rm="{rm}"/>')
     legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额（柱顶·万）</span>'
               f'<span><i style="background:{ORANGE}"></i>回款/下单比（月下·% · 右轴）</span>')
     if budget_month:

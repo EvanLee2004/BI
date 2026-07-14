@@ -1043,6 +1043,7 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
         <div class="sub">销售归到哪个 BU=该人口径进那张 BU 利润表（一人一 BU）。<b>勾选多人→选 BU→批量指定</b>，或直接拖动；改完点底部「保存全部设置」即重算。与登录账号无关。未归属不进任何 BU 子页。没配 BU=分页关闭。</div></div></div>
       <div class="scard-b">
         <div id="buUnassignedHint" class="note" style="display:none;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:0 8px 8px 0;background:var(--panel2);margin:0 0 12px"></div>
+        <div id="buUnknownPcHint" class="note" style="display:none;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:0 8px 8px 0;background:var(--panel2);margin:0 0 12px"></div>
         <div class="bu-batch" id="buBatch" style="display:none">
           <span>已勾选 <b id="buPickN">0</b> 人 →</span>
           <select id="buPickTo"></select>
@@ -1176,7 +1177,8 @@ async function loadHealth(){try{const h=await jget("/api/health");window._health
   if(h.result&&h.result!=="绿"){const s=_shortReason(h);if(s)label+=" · "+s;}
   else if(nWarn)label+=" · "+nWarn+"警";
   el.textContent=label+" ▾";
-  if(document.getElementById("hDetail").style.display==="block")renderHealth(h);}catch(e){}}
+  if(document.getElementById("hDetail").style.display==="block")renderHealth(h);
+  if(typeof buUpdateUnknownPcHint==="function")buUpdateUnknownPcHint();}catch(e){}}
 function toggleHealth(){const d=document.getElementById("hDetail");
   if(d.style.display==="block"){d.style.display="none";return;}renderHealth(window._health||{});d.style.display="block";}
 function renderHealth(h){h=h||{};const reasons=h.run_reasons||[],warns=h.warnings||[];
@@ -1467,6 +1469,13 @@ function buUpdateUnassignedHint(){const el=document.getElementById("buUnassigned
   if(!n){el.style.display="none";return;}el.style.display="";
   el.innerHTML="⚠ 未归属销售 <b>"+n+"</b> 人，当年下单合计 <b>"+esc(buUnassigned.unassigned_orders_disp||"")+
     "</b> —— 这部分业务不进任何 BU 页（各 BU 合计小于全公司）。归属后点保存即计入。<span class='muted'>（金额=上次保存后快照，保存后刷新）</span>";}
+// 迭代21：台账「利润归属中心」未知名（服务端 warnings 已算好显示串；前端 esc 后展示，零运算）
+function buUpdateUnknownPcHint(){const el=document.getElementById("buUnknownPcHint");if(!el)return;
+  const warns=((window._health&&window._health.warnings)||[]).filter(function(w){
+    return typeof w==="string"&&w.indexOf("利润归属中心")>=0&&w.indexOf("不在 BU 名单")>=0;});
+  if(!warns.length){el.style.display="none";el.innerHTML="";return;}
+  el.style.display="";
+  el.innerHTML="⚠ "+warns.map(function(w){return esc(w);}).join("<br>");}
 function _bindDrag(root){if(!root)return;
   root.querySelectorAll(".bu-chip").forEach(ch=>{
     ch.addEventListener("dragstart",e=>{
@@ -1515,7 +1524,7 @@ function buRender(){const claimed=_claimedSales();
         +(sales.length?sales.map(n=>_chipHtml(n,true)).join(""):'<div class="bu-empty">拖销售到这里</div>')
         +'</div></div>';}).join("");}}
   _bindDrag(document.getElementById("buBoard"));
-  buRenderBatch();buUpdateUnassignedHint();buRenderAlloc();
+  buRenderBatch();buUpdateUnassignedHint();buUpdateUnknownPcHint();buRenderAlloc();
   if(acctList.length)acctRender();}
 function buAdd(){buList.push({name:"",负责人:[],销售:[],分摊比例:null});buRender();setMark("bu");}
 function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;

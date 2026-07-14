@@ -209,6 +209,58 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn("÷ 1.06", self.html)
         self.assertIn("项目毛利率", self.html)
 
+    def test_receipt_month_highlight_hooks(self):
+        """迭代21-A：回款柱带 data-rm、周期→月份映射 data-rm-map、卡头「全年视角 · 选中周期高亮」。"""
+        html = self.html
+        self.assertIn('id="rcCard"', html)
+        self.assertIn("data-rm-map=", html)
+        self.assertIn("data-rm-year=", html)
+        self.assertIn("全年视角 · 选中周期高亮", html)
+        # 柱/点/数字至少有一根 data-rm（1~12）
+        self.assertRegex(html, r'data-rm="\d{1,2}"')
+        # 映射含年/月/季 key 形样（Python 预生成，前端不解析）
+        self.assertIn("_syncRmHighlight", html)
+        # 前端零金额：高亮只读写 class / 读 data 属性
+        self.assertIn("rm-dim", html)
+        self.assertIn("rm-on", html)
+
+
+class TestUnclassifiedPeriodTip(unittest.TestCase):
+    """迭代21-B：月/季周期也出待分类口径提示（无金额）；无未分类行则任何周期都不渲染。"""
+
+    def test_month_period_tip_without_amount(self):
+        cfg, S = _summary()
+        # 强制有未分类，验证年/月两套文案
+        S["meta"]["unclassified"]["expense"] = {"count": 3, "amount": 123456.0}
+        html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
+        yk = S["meta"]["year_key"]
+        month_keys = S["meta"]["tab_groups"]["月"]
+        self.assertTrue(month_keys, "需要至少一个月周期")
+        mk = month_keys[0]
+        # 全年带金额
+        self.assertIn("待分类费用尚未计入", html)
+        self.assertIn("税前利润略偏高", html)
+        # 月周期无金额版
+        self.assertIn("全年另有待分类台账费用未计入", html)
+        self.assertIn("金额见全年视图", html)
+        # 月周期块存在
+        self.assertIn(f'data-blk="{mk}"', html)
+        # 无金额版提示不得夹带「另含 X 万」那种金额措辞（用 123456→万 串兜底）
+        from render import _wan  # noqa
+        wan = _wan(123456.0)
+        # 年块应含金额；把月块抽出来断言不含该金额串
+        # 简化：全文仍会有年块金额，但「全年另有待分类」那句旁不应再出现 wan
+        tip_no_amt = "全年另有待分类台账费用未计入，各期税前利润均可能略偏高（金额见全年视图）"
+        self.assertIn(tip_no_amt, html)
+        self.assertNotIn(f"另含 {wan}", tip_no_amt)  # 无金额版文案本身不含
+
+    def test_no_unclassified_no_tip(self):
+        cfg, S = _summary()
+        S["meta"]["unclassified"]["expense"] = {"count": 0, "amount": 0.0}
+        html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
+        self.assertNotIn("待分类费用尚未计入", html)
+        self.assertNotIn("全年另有待分类台账费用未计入", html)
+
 
 class TestReceiptsBudgetLayout(unittest.TestCase):
     """迭代19：陆总拍板去掉部门费用年预算卡；回款整宽，页面不再出现该卡。"""

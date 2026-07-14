@@ -229,11 +229,17 @@ body{
   transform-origin:left;animation:rcBarGrow .85s .15s cubic-bezier(.2,.75,.25,1) both}
 .rc-bud-t{font-size:12px;color:#94a3b8;margin-top:4px}
 .rc-side-empty{padding:24px 8px;text-align:center;color:#94a3b8;font-size:13px}
+/* 迭代21：回款卡周期联动高亮——非选中月降透明，选中月柱轻微发光；全亮状态无额外样式 */
+.rc-card.rc-rm-filter [data-rm].rm-dim{opacity:.28!important;filter:none!important;transition:opacity .2s ease}
+.rc-card.rc-rm-filter [data-rm].rm-on{opacity:1!important;transition:opacity .2s ease}
+.rc-card.rc-rm-filter rect.bar.rm-on{filter:drop-shadow(0 0 8px var(--accent))!important}
+.rc-card.rc-rm-filter circle.rm-on{filter:drop-shadow(0 0 6px var(--orange))}
 @media(max-width:900px){
   .rc-card .rc-split{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
   .rc-hero,.rc-rate,.rc-pills,.rc-bud,.rc-rate-bar i,.rc-bud-bar i{animation:none!important}
+  .rc-card.rc-rm-filter [data-rm].rm-dim,.rc-card.rc-rm-filter [data-rm].rm-on{transition:none!important}
 }
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
