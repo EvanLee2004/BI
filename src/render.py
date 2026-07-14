@@ -137,26 +137,33 @@ def _spark_cache(P, month_keys):
 
 
 def _bu_orders_block(bu_list):
-    """下单卡内三大 BU 进度（陆总0714·C1）：期内下单额 + 全年累计/BU 年目标（虚线轨道=目标）。
+    """下单卡内各 BU 进度（陆总0714·C1）：期内下单额 + 全年累计/BU 年目标。
+    布局：上行 名+金额+率，下行 全宽进度条（更清晰）。
+    有目标 → 填充=年累计/年目标；未设目标 → 仍画轨道，填充=期内额相对最大 BU（比大小，非达成率）。
     只在全公司整体页出现（BU 页不传此参数·铁律12）。金额/率全部后端算好。"""
     if not bu_list:
         return ""
+    max_amt = max((float(d.get("amount") or 0.0) for d in bu_list), default=0.0) or 1.0
     rows = ""
     for d in bu_list:
-        amt = charts.fmt_wan(d.get("amount") or 0.0)
+        amt_v = float(d.get("amount") or 0.0)
+        amt = charts.fmt_wan(amt_v)
         pct = d.get("pct")
         if pct is not None:
-            w = min(max(pct, 0.0), 100.0)
+            w = min(max(float(pct), 0.0), 100.0)
             cls = "ok" if pct >= 100 else ("warn" if pct >= 80 else "low")
-            tail = (f'<span class="kpi-bu-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
-                    f'<span class="kpi-bu-p">{pct:.0f}%</span>')
+            badge = f'<span class="kpi-bu-p">{pct:.0f}%</span>'
+            track = f'<span class="kpi-bu-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
             tip = f'年目标 {charts.fmt_wan(d["target"])}万 · 全年累计 {charts.fmt_wan(d.get("year_amount") or 0)}万'
         else:
-            tail = '<span class="kpi-bu-p muted">未设目标</span>'
-            tip = "该 BU 未填下单年目标（管理端·人工填写·业绩目标·选 BU 范围）"
+            # 未设目标：轨道仍在；填充只反映相对大小（最大 BU=100%），文案标明未设
+            w = min(max(amt_v / max_amt * 100.0, 0.0), 100.0) if amt_v else 0.0
+            badge = '<span class="kpi-bu-p muted">未设目标</span>'
+            track = f'<span class="kpi-bu-track soft"><i class="soft" style="width:{w:.1f}%"></i></span>'
+            tip = "该 BU 未填下单年目标（管理端·人工填写·业绩目标·选 BU 范围）；条长仅为部门间相对大小"
         rows += (f'<div class="kpi-bu" data-tip="{_esc(_esc(tip))}">'
-                 f'<span class="kpi-bu-n">{_esc(d["name"])}</span>'
-                 f'<span class="kpi-bu-a">{amt}万</span>{tail}</div>')
+                 f'<div class="kpi-bu-h"><span class="kpi-bu-n">{_esc(d["name"])}</span>'
+                 f'<span class="kpi-bu-a">{amt}万</span>{badge}</div>{track}</div>')
     return f'<div class="kpi-bus">{rows}</div>'
 
 
@@ -201,7 +208,7 @@ def render_basic(pkey, P, year, spark_cache, budget=None, bu_orders=None):
 # ---------- 板块②-1 交付金额 · 毛利趋势（整年，静态）----------
 def render_trend(trend, hl):
     return (f'<div class="card"><div class="card-h">交付收入 · 生产毛利趋势 '
-            f'<span class="tag">按月 · 柱顶=收入/成本万 · 月下=生产毛利率%</span></div>'
+            f'<span class="tag">按月 · 柱顶=收入/成本万 · 线上=生产毛利率%</span></div>'
             f'{charts.combo_bar_line_chart(trend, hl)}</div>')
 
 
@@ -961,13 +968,13 @@ EXPORT_JS = r"""
 # 顶部「看哪段」不动；本面板只改板块③排名（查询才打 /api/daily；跟顶只改日期框）。
 DAILY_HTML = """
 <div class="card" id="dailyPanel" style="margin-bottom:16px">
-  <div class="card-h">按时间段看 <span class="tag">默认跟顶部周期 · 可改任意起止日查询 · 费用/利润按月仍看上面板块</span>
-    <button class="toggle daily-close" id="dailyClose" type="button">返回默认（年）</button></div>
+  <div class="card-h">按时间段看 <span class="tag">默认跟顶部周期 · 可改任意起止日查询 · 费用/利润按月仍看上面板块</span></div>
   <div class="daily-bar">
     <input type="date" id="dailyS"> ~ <input type="date" id="dailyE">
     <button class="toggle" id="dailyGo" type="button">查询</button>
     <button class="toggle" id="dailyToday" type="button">今日</button>
     <button class="toggle" id="dailyMonth" type="button">本月</button>
+    <button class="toggle" id="dailyClose" type="button">本年</button>
     <span id="dailySum" class="daily-note"></span>
   </div>
 </div>
@@ -1004,7 +1011,7 @@ DAILY_JS = """
  iS.addEventListener('change',function(){if(iE.value&&iE.value<iS.value)iE.value=iS.value;});
  var esc=function(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){
    return({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'})[c];});};
- /** 返回默认（年）：清自定义、排名回预渲染全年、顶部切全年、日期回全年。 */
+ /** 本年：清自定义、排名回预渲染全年、顶部切全年、日期回全年。 */
  function restoreYear(){
   range=null;sum.textContent='';
   if(rkCustom){rkCustom.style.display='none';rkCustom.innerHTML='';}

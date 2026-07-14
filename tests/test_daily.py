@@ -157,7 +157,7 @@ class TestDailyEndpoint(unittest.TestCase):
 
 class TestDailyFrontend(unittest.TestCase):
     def test_user_page_has_entry_and_no_math(self):
-        """迭代17 批次A：板块③日期区常显、默认全年、返回默认（年）、跟顶钩子；无折叠入口。"""
+        """迭代17 批次A：板块③日期区常显、默认全年、「本年」在本月旁、跟顶钩子；无折叠入口。"""
         import assets, render
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
@@ -167,9 +167,15 @@ class TestDailyFrontend(unittest.TestCase):
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
         for token in ("dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
-                      "返回默认（年）", "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start=",
+                      "本年", "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start=",
                       "_syncDailyDates", "restoreYear", "yearRange", "window.applyPeriod"):
             self.assertIn(token, html, token)
+        # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
+        self.assertIn('id="dailyMonth"', html)
+        self.assertIn('id="dailyClose"', html)
+        self.assertNotIn("返回默认（年）", html)
+        bar = html.split('class="daily-bar"')[1].split("</div>")[0]
+        self.assertLess(bar.find("dailyMonth"), bar.find("dailyClose"))
         # 常显：面板不得默认 display:none；无折叠入口 dailyBtn
         self.assertNotIn('id="dailyPanel" style="display:none', html)
         self.assertNotIn("dailyBtn", html)
@@ -189,7 +195,7 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), today, {"合成销售"})
         h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
-        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "返回默认（年）", "dailyGo"):
+        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "dailyClose", "dailyGo"):
             self.assertNotIn(leak, h, leak)
 
 

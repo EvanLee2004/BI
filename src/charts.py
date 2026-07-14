@@ -106,11 +106,11 @@ def _tip(title, total, pairs, limit=6):
 
 def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highlight_label: str | None = None) -> str:
     """[(label, 收入, 成本, 毛利率%), ...] 收入/成本双柱 + 毛利率折线。
-    柱顶常显收入/成本（万）；毛利率%标在月下（不标在折线点上）。
+    柱顶常显收入/成本（万）；毛利率%标在折线数据点旁（默认点上方）。
     折线带 flowline 流光 + comet 光点动效；柱带光晕。
     柱高留顶空（headroom）保证最高柱的金额字一定在柱上方。"""
-    w, h = 640, 300
-    pl, pr, pt, pb = 54, 36, 34, 50
+    w, h = 640, 288
+    pl, pr, pt, pb = 54, 36, 34, 32
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(groups)
     if n == 0:
@@ -145,35 +145,37 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
                      f'font-size="9" font-weight="600" fill="{MUT}">{fmt_wan(cost)}</text>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11" '
                      f'font-weight="{"700" if is_hl else "400"}" fill="{INK if is_hl else MUT}">{label}</text>')
-        parts.append(f'<text x="{cx:.1f}" y="{h-pb+30:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
-                     f'fill="{ORANGE}">{margin:.0f}%</text>')
         ly = pt + plot_h * (1 - max(0.0, min(margin, 100.0)) / 100.0)
-        line_pts.append((cx, ly))
+        line_pts.append((cx, ly, margin))
         tip = (f"{label}<br>交付收入&nbsp;{fmt_wan(rev)}万&nbsp;·&nbsp;交付成本&nbsp;{fmt_wan(cost)}万"
                f"<br>毛利率&nbsp;{margin:.1f}%")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
                     f'height="{plot_h:.1f}" fill="transparent"/>')
     if len(line_pts) >= 2:
-        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
-        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in line_pts)
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y, _m in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _m in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.2" '
                      f'stroke-linejoin="round" stroke-linecap="round" opacity="0.88"/>')
         parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2" '
                      f'stroke-linejoin="round" stroke-linecap="round"/>')
         parts.append(f'<circle class="comet" r="3" fill="#fff">'
                      f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
-    for x, y in line_pts:
+    for x, y, margin in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" stroke-width="1.2"/>')
+        # 毛利率%标在折线点旁（默认点上方；贴顶时改标下方，避免出图）
+        ty = y + 15 if y < pt + 20 else y - 8
+        parts.append(f'<text x="{x:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
+                     f'fill="{ORANGE}">{margin:.0f}%</text>')
     legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>交付收入（柱顶·万）</span>'
               f'<span><i style="background:{COST}"></i>交付成本（柱顶·万）</span>'
-              f'<span><i style="background:{ORANGE}"></i>毛利率（月下·% · 右轴）</span></div>')
+              f'<span><i style="background:{ORANGE}"></i>毛利率（线上·% · 右轴）</span></div>')
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
 
 def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
                         budget_month: float | None = None) -> str:
     """回款柱 + 回款/下单比折线。
-    柱顶=回款万（蓝色，与交付收入柱顶统一）；率%在月下；flowline+comet；柱高留顶空。"""
+    柱顶=回款万（蓝色，与交付收入柱顶统一）；率%标在折线点旁；flowline+comet；柱高留顶空。"""
     w, h = 640, 352   # v1.0.5.1 拉高：左图放大后与右侧「累计与缺口」等高对称，不再下方留白
     pl, pr, pt, pb = 52, 40, 34, 50
     plot_w, plot_h = w - pl - pr, h - pt - pb

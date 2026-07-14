@@ -104,55 +104,60 @@ body{
 .card-h{font-size:13.5px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .card-h .tag{font-size:13px;color:var(--note);font-weight:500}
 
-/* 基本情况 KPI（5 卡） */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+/* 基本情况 KPI（5 卡）· 略放大便于扫读 */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .kpi-grid.kpi-5{grid-template-columns:repeat(5,1fr)}
 .kpi{background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);
-  border-radius:var(--radius);padding:14px 14px 12px;box-shadow:var(--glow);position:relative;overflow:hidden;
+  border-radius:var(--radius);padding:16px 16px 14px;box-shadow:var(--glow);position:relative;overflow:hidden;
   display:flex;flex-direction:column;transition:transform .2s ease,border-color .2s,box-shadow .2s}
 .kpi:hover{transform:translateY(-2px);border-color:var(--accent);
   box-shadow:0 0 0 1px rgba(34,211,238,.18),0 8px 28px rgba(0,0,0,.35),var(--glow)}
 .theme-light .kpi:hover{box-shadow:0 4px 14px rgba(31,58,95,.1);transform:none}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
-.kpi-l{font-size:12px;color:var(--mut);margin-bottom:6px;letter-spacing:.4px;font-weight:600}
-.kpi-cum{font-size:24px;font-weight:700;line-height:1.05;letter-spacing:.5px}
-.kpi-cum .u{font-size:12px;font-weight:500;color:var(--mut);margin-left:2px}
-.kpi-cum-l{font-size:10.5px;color:var(--mut2);margin-bottom:6px}
-.kpi-sub{font-size:12px;color:var(--note);margin-top:5px}
+.kpi-l{font-size:13px;color:var(--mut);margin-bottom:7px;letter-spacing:.4px;font-weight:600}
+.kpi-cum{font-size:28px;font-weight:700;line-height:1.05;letter-spacing:.5px}
+.kpi-cum .u{font-size:13px;font-weight:500;color:var(--mut);margin-left:2px}
+.kpi-cum-l{font-size:11px;color:var(--mut2);margin-bottom:6px}
+.kpi-sub{font-size:12.5px;color:var(--note);margin-top:6px}
 .kpi-sub b{color:var(--ink);font-weight:700}
-.kpi-note{font-size:9.5px;color:var(--mut2);margin-top:3px;line-height:1.35}
-.kpi-delta{font-size:11px;margin-top:5px;font-variant-numeric:tabular-nums;font-weight:600}
-.kpi-delta span{color:var(--mut2);font-weight:400;font-size:10px;margin-left:2px}
+.kpi-note{font-size:10px;color:var(--mut2);margin-top:3px;line-height:1.35}
+.kpi-delta{font-size:12px;margin-top:6px;font-variant-numeric:tabular-nums;font-weight:600}
+.kpi-delta span{color:var(--mut2);font-weight:400;font-size:11px;margin-left:2px}
 .kpi-delta.up{color:var(--pos)} .kpi-delta.down{color:var(--neg)} .kpi-delta.muted{color:var(--mut2);font-weight:400}
 /* 业务目标进度（嵌 KPI 内） */
-.kpi-tgt{margin-top:8px;padding-top:7px;border-top:1px dashed var(--line)}
-.kpi-tgt.muted{font-size:10.5px;color:var(--mut2);border:0;padding-top:4px}
-.kpi-tgt-h{font-size:10.5px;color:var(--mut);line-height:1.35;margin-bottom:4px}
+.kpi-tgt{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+.kpi-tgt.muted{font-size:11.5px;color:var(--mut2);border:0;padding-top:4px}
+.kpi-tgt-h{font-size:11.5px;color:var(--mut);line-height:1.4;margin-bottom:5px}
 .kpi-tgt-h b{color:var(--ink);font-weight:700}
-.kpi-tgt-track{display:block;height:6px;border-radius:4px;background:var(--track);overflow:hidden}
-.kpi-tgt-track i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--teal),var(--blue));
+.kpi-tgt-track{display:block;height:8px;border-radius:5px;background:var(--track);overflow:hidden}
+.kpi-tgt-track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--teal),var(--blue));
   box-shadow:0 0 8px rgba(34,211,238,.45)}
 .kpi-tgt-track i.warn{background:linear-gradient(90deg,var(--orange),#f59e0b);box-shadow:0 0 6px rgba(251,191,36,.4)}
 .kpi-tgt-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost));box-shadow:none}
 .kpi-tgt-track i.ok{background:linear-gradient(90deg,var(--pos),var(--teal))}
-.kpi-tgt-n{font-size:10px;color:var(--mut2);margin-top:3px;text-align:right}
-/* 下单卡·三大BU进度（迭代22·C1）：虚线轨道=目标、实心填充=达成 */
-.kpi-bus{margin-top:7px;padding-top:6px;border-top:1px dashed var(--line-2);display:flex;flex-direction:column;gap:4px}
-.kpi-bu{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--mut)}
-.kpi-bu-n{flex:0 0 auto;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--note);font-weight:600}
-.kpi-bu-a{flex:0 0 auto;color:var(--ink);font-weight:700}
-.kpi-bu-track{flex:1 1 auto;height:5px;border-radius:3px;border:1px dashed var(--line-2);background:transparent;overflow:hidden}
-.kpi-bu-track i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal),var(--blue))}
-.kpi-bu-track i.warn{background:linear-gradient(90deg,var(--orange),#f59e0b)}
-.kpi-bu-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost))}
+.kpi-tgt-n{font-size:11px;color:var(--mut2);margin-top:4px;text-align:right}
+/* 下单卡·各BU进度：上行名+额+率，下行全宽条（未设目标也画轨道，软填充=相对大小） */
+.kpi-bus{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2);display:flex;flex-direction:column;gap:9px}
+.kpi-bu{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
+.kpi-bu-h{display:flex;align-items:center;gap:8px;min-width:0}
+.kpi-bu-n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--note);font-weight:600;font-size:12px}
+.kpi-bu-a{flex:0 0 auto;color:var(--ink);font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums}
+.kpi-bu-track{display:block;width:100%;height:8px;border-radius:4px;border:1px dashed var(--line-2);
+  background:rgba(148,163,184,.08);overflow:hidden}
+.kpi-bu-track.soft{border-style:dashed;background:rgba(148,163,184,.05)}
+.kpi-bu-track i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--teal),var(--blue));
+  box-shadow:0 0 6px rgba(34,211,238,.35)}
+.kpi-bu-track i.warn{background:linear-gradient(90deg,var(--orange),#f59e0b);box-shadow:0 0 5px rgba(251,191,36,.35)}
+.kpi-bu-track i.low{background:linear-gradient(90deg,var(--mut2),var(--cost));box-shadow:none}
 .kpi-bu-track i.ok{background:linear-gradient(90deg,var(--pos),var(--teal))}
-.kpi-bu-p{flex:0 0 auto;min-width:30px;text-align:right;font-weight:700;color:var(--note)}
-.kpi-bu-p.muted{color:var(--mut2);font-weight:400}
-.kpi-spark{margin-top:auto;padding-top:7px}
-.kpi-spark .spark{width:100%;height:28px;display:block;opacity:.9}
-.kpi-mo{font-size:12px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.kpi-bu-track i.soft{background:linear-gradient(90deg,rgba(167,139,250,.55),rgba(56,189,248,.5));box-shadow:none}
+.kpi-bu-p{flex:0 0 auto;min-width:48px;text-align:right;font-weight:700;color:var(--note);font-size:11.5px}
+.kpi-bu-p.muted{color:var(--mut2);font-weight:400;font-size:11px}
+.kpi-spark{margin-top:auto;padding-top:9px}
+.kpi-spark .spark{width:100%;height:32px;display:block;opacity:.9}
+.kpi-mo{font-size:12.5px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .kpi-mo b{color:var(--ink);font-weight:600}
-.kpi-src{font-size:9.5px;color:var(--mut2);margin-top:6px}
+.kpi-src{font-size:10.5px;color:var(--mut2);margin-top:7px}
 .chart-note{font-size:13.5px;color:var(--note);margin-top:8px;line-height:1.55}
 .faint-note,.kpi-note{font-size:13px!important;color:var(--note)!important;line-height:1.5}
 
@@ -382,7 +387,8 @@ body{
 .daily-tbl th:first-child,.daily-tbl td:first-child{text-align:left}
 .daily-tbl th{color:var(--mut);font-weight:600}
 .daily-total td{font-weight:700;color:var(--accent);border-top:1px solid var(--line-2)}
-.daily-close{margin-left:auto}
+/* 弹窗关闭仍靠右；「本年」已与本月同排在 daily-bar，不再用 daily-close 顶栏右贴 */
+.rkm-box .daily-close{margin-left:auto}
 /* 「其余 N 个」点开全量明细 */
 .rk-more{cursor:pointer}
 .rk-more:hover{background:rgba(34,211,238,.1)}
@@ -440,7 +446,7 @@ body{
 .kpi-grid .kpi:nth-child(3) .kpi-cum{animation-delay:.3s}
 .kpi-grid .kpi:nth-child(4) .kpi-cum{animation-delay:.45s}
 .kpi-grid .kpi:nth-child(5) .kpi-cum{animation-delay:.6s}
-.kpi-grid .kpi .kpi-tgt-track i{animation:rcBarGrow .9s cubic-bezier(.2,.75,.25,1) both}
+.kpi-grid .kpi .kpi-tgt-track i,.kpi-grid .kpi .kpi-bu-track i{animation:rcBarGrow .9s cubic-bezier(.2,.75,.25,1) both}
 @media(prefers-reduced-motion:reduce){
   .kpi-grid .kpi::after,.kpi-grid .kpi .kpi-cum,.kpi-grid .kpi .kpi-tgt-track i{animation:none!important}
 }
@@ -575,8 +581,8 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 /* ==================== FUI 科技大屏层（框线/角标/网格/扫描·纯装饰不碰数据）==================== */
 /* 数字用等宽数码字体 + 辉光（暗色更强科技感；浅色关闭辉光保持简洁） */
 .kpi-cum,.pl-amt,.pl-drow .pl-amt,.hbar-v{font-family:var(--num-font)}
-.kpi-cum{font-size:26px;text-shadow:0 0 20px rgba(34,211,238,.38),0 0 2px rgba(34,211,238,.2)}
-.theme-light .kpi-cum{text-shadow:none;font-size:24px}
+.kpi-cum{font-size:28px;text-shadow:0 0 20px rgba(34,211,238,.38),0 0 2px rgba(34,211,238,.2)}
+.theme-light .kpi-cum{text-shadow:none;font-size:26px}
 .pl-row.grand .pl-amt{text-shadow:0 0 14px rgba(52,211,153,.35)}
 .theme-light .pl-row.grand .pl-amt{text-shadow:none}
 
