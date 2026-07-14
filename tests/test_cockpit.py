@@ -247,6 +247,12 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         self.assertNotIn("minmax(200px,280px)", css)
         self.assertNotIn(".rc-side{max-width:280px}", css)
 
+    def test_receipt_body_column_layout(self):
+        """迭代20-A1：图例必须在图下方（rc-body 纵向列），不得与 SVG 左右并排。"""
+        import theme
+        css = theme.get_css()
+        self.assertIn("flex-direction:column", css.split(".rc-card .rc-body{")[1].split("}")[0])
+
     def test_note_texts_enlarged(self):
         """v1.0.4：口径/公式小字统一放大提亮（--note 色，chart-note/pr-formula >=13px）。"""
         import theme
@@ -290,9 +296,12 @@ class TestRankingsAndRanges(unittest.TestCase):
     def test_rendered_rankings_and_picker(self):
         cfg, S = _summary()
         html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
-        for token in ("下单与回款排名", "下单 · 按部门", "下单 · 按销售", "回款 · 按客户",
+        for token in ("资金与回款", "下单 · 按部门", "下单 · 按销售", "回款 · 按客户",
                       "periodBtn", "ppanel", "pp-grid"):
             self.assertIn(token, html, token)
+        # 迭代20-A2：回款情况卡并入板块④「资金与回款」（在③收入与毛利结构之后）
+        self.assertLess(html.index("收入与毛利结构"), html.index('class="period-receipts"'))
+        self.assertLess(html.index("资金与回款"), html.index('class="period-receipts"'))
         # 区间周期块已预渲染（前端只切显示、不算数）
         yr = S["meta"]["year"]
         if S["meta"]["tab_groups"]["区间"]:

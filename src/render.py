@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""组装经营驾驶舱 HTML（科技风暗色默认 + 浅色切换）。四段骨架：基本情况/经营利润/收入与毛利结构/下单与回款排名。
+"""组装经营驾驶舱 HTML（科技风暗色默认 + 浅色切换）。四段骨架：基本情况/经营利润/收入与毛利结构/资金与回款（回款情况+下单回款排名）。
 全局时间选择器（月/季/年，默认年）驱动 基本情况+利润表+费用构成 一起切；趋势图/回款图是整年时间线。
 所有金额 Python 算好，JS 只做主题切换/周期切换/展开折叠/提示定位，不做任何金额运算。"""
 from __future__ import annotations
@@ -995,7 +995,6 @@ def render_dashboard(summary, cfg, logo_b64):
    <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">算到税前利润 · 可展开看构成</span></div>{pl_views}</div>
  </div>
- {receipts_budget}
 
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></div>
  <div id="profitRankViews">{profit_rank_views}</div>
@@ -1007,7 +1006,8 @@ def render_dashboard(summary, cfg, logo_b64):
   <span class="pr-f-item"><b>集中度</b> = 前5大交付收入 ÷ 期内总交付收入</span>
  </div>
 
- <div class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款排名</span></div>
+ <div class="sec"><span class="sec-n">四</span><span class="sec-t">资金与回款</span></div>
+ {receipts_budget}
  {DAILY_HTML}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
