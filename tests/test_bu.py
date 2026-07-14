@@ -291,9 +291,9 @@ class TestBuPages(_Base):
         h = self._pages()["BU甲"]["html"]
         self.assertNotIn("公共费用·暂不分摊", h)
         self.assertIn("营销费用", h)
-        # 5万 → 5.0万 展示
+        # 5万 → 5.0万 展示（有台账费用必须露数，不得藏）
         self.assertIn("5.0万", h)
-        self.assertIn("本BU直记", h)  # 看端短标签（明细口径在管理端）
+        self.assertNotIn("仅含", h)  # 用户端不展示口径说明长文
 
     def test_page_alloc_monthly_shows_note_not_other_bu(self):
         """迭代20：按月分摊生效时本 BU 标「按月比例」；旧静态比例配置不再生效；不泄漏他 BU。"""
