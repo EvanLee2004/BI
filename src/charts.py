@@ -58,11 +58,12 @@ def sparkline(values: Sequence[float], color: str = BLUE, w: int = 108, h: int =
 
 
 def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_value: str,
-          size: int = 260, detail: dict | None = None) -> str:
-    """环形图。size 默认 260（卡框 ev-body 仍 360，只放大圆盘不撑大外框）。"""
+          size: int = 300, detail: dict | None = None) -> str:
+    """环形图。size 默认 300（卡框 ev-body 仍 360，只放大圆盘不撑大外框）。"""
     total = sum(max(v, 0) for _, v, _ in segs) or 1
     cx = cy = size / 2
-    ro, ri = size * 0.42, size * 0.27
+    # 略加大外径占比，环更饱满；内径同步，中心字仍清晰
+    ro, ri = size * 0.45, size * 0.29
     start = 0.0
     paths = []
     for name, v, color in segs:
@@ -88,9 +89,10 @@ def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_valu
              f'stroke-width="{ro - ri:.1f}" stroke-dasharray="30 {2 * _m.pi * rmid:.0f}" stroke-linecap="round">'
              f'<animateTransform attributeName="transform" type="rotate" from="0 {cx} {cy}" to="360 {cx} {cy}" '
              f'dur="6s" repeatCount="indefinite"/></circle>')
-    # 中心字号随环放大，卡框高度不变
-    fs_lab, fs_val = max(12, int(size * 0.055)), max(20, int(size * 0.095))
-    return (f'<svg viewBox="0 0 {size} {size}" style="max-width:100%;max-height:{size}px;display:block;margin:0 auto">'
+    # 中心字号随环放大，卡框高度不变；max-height 略留图例位（~48px）防撑破 360
+    fs_lab, fs_val = max(12, int(size * 0.052)), max(20, int(size * 0.09))
+    max_h = min(size, 308)
+    return (f'<svg viewBox="0 0 {size} {size}" style="max-width:100%;max-height:{max_h}px;width:min(100%,{size}px);display:block;margin:0 auto;flex:0 0 auto">'
             f'{body}{sweep}<text x="{cx}" y="{cy - size * 0.035:.1f}" text-anchor="middle" font-size="{fs_lab}" fill="{MUT}">{center_label}</text>'
             f'<text x="{cx}" y="{cy + size * 0.07:.1f}" text-anchor="middle" font-size="{fs_val}" font-weight="700" fill="{INK}">{center_value}</text></svg>')
 

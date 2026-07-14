@@ -541,7 +541,9 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .ev-tab:hover{color:var(--ink)}
 /* 固定卡身高度：切换 按大类(环形)/按类别(多行)/按利润中心 不再忽高忽低顶动下方 */
 .ev-body{height:360px;overflow:hidden auto}
-.ev-body .ev-pane[data-ev="cat"]{height:100%;display:flex;flex-direction:column;justify-content:center}
+.ev-body .ev-pane[data-ev="cat"]{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:4px 0}
+/* 环形图下图例收紧，把垂直空间让给圆盘 */
+.ev-body .ev-pane[data-ev="cat"] .legend{margin-top:4px;gap:10px 14px;justify-content:center;font-size:11px}
 .ev-list{max-height:300px;overflow-y:auto;padding:4px 2px}
 .ev-row{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:7px;cursor:pointer}
 .ev-row:hover{background:rgba(139,92,246,.08)}
