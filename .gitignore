@@ -44,3 +44,7 @@ data/*.json
 
 # 一键更新回滚点标记（本机运行态：apply_update 写更新前 commit，看门狗据此失败回滚）
 .update_rollback
+
+# 重构 golden 用临时假数据目录（可重建）
+_golden_data/
+golden/_run_verify_raw.log

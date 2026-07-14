@@ -1,0 +1,2654 @@
+{
+  "meta_year": 2026,
+  "meta_year_key": "2026年",
+  "period_keys": [
+    "2026年",
+    "2026年Q1",
+    "2026年Q2",
+    "2026年Q3",
+    "2026年1月",
+    "2026年2月",
+    "2026年3月",
+    "2026年4月",
+    "2026年5月",
+    "2026年6月",
+    "2026年7月",
+    "2026年1-2月",
+    "2026年1-3月",
+    "2026年1-4月",
+    "2026年1-5月",
+    "2026年1-6月",
+    "2026年1-7月",
+    "2026年2-3月",
+    "2026年2-4月",
+    "2026年2-5月",
+    "2026年2-6月",
+    "2026年2-7月",
+    "2026年3-4月",
+    "2026年3-5月",
+    "2026年3-6月",
+    "2026年3-7月",
+    "2026年4-5月",
+    "2026年4-6月",
+    "2026年4-7月",
+    "2026年5-6月",
+    "2026年5-7月",
+    "2026年6-7月"
+  ],
+  "periods": {
+    "2026年": {
+      "delivery_count": 8407,
+      "revenue_gross": 462517589.59,
+      "revenue_net": 436337348.67,
+      "vat": 26180240.92,
+      "system_direct_cost": 258883035.7,
+      "inhouse_cost": 9578475.13,
+      "production_cost": 251426200.57,
+      "gross_profit": 184911148.1,
+      "gross_margin_pct": 42.38,
+      "surtax": 3141628.91,
+      "other_pl": 0.0,
+      "pretax_profit": 169081711.09,
+      "pretax_margin_pct": 38.75,
+      "orders": 459431137.73,
+      "receipts": 249165563.24,
+      "receipt_order_ratio_pct": 54.23,
+      "expense": {
+        "营销费用": 3666023.1,
+        "管理费用": 4977435.4,
+        "固定运营费用": 1092540.33,
+        "研发费用": 2514651.74,
+        "财务费用": 437157.53,
+        "total": 12687808.1
+      },
+      "manual": {
+        "营销人力成本": 1104171.0,
+        "管理人力成本": 1577997.0,
+        "研发人力成本": 1101741.0,
+        "财务费用补充": 49307.0,
+        "PM人力成本": 558831.0,
+        "VM人力成本": 386514.0,
+        "实际内部译员成本": 806477.0,
+        "税费损失": 98602.0,
+        "技术流量成本": 206147.0,
+        "其他（生产成本）": 65069.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 2561852.1,
+        "管理费用": 3399438.4,
+        "固定运营费用": 1092540.33,
+        "技术服务费": 1412910.74,
+        "财务费用": 387850.53
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 459431137.73,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 459431137.73,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 249165563.24,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 436337348.67,
+          "total_profit": 177454312.97,
+          "conc_pct": 30.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 436337348.67,
+          "total_profit": 177454312.97,
+          "conc_pct": 61.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年Q1": {
+      "delivery_count": 3603,
+      "revenue_gross": 200415405.68,
+      "revenue_net": 189071137.43,
+      "vat": 11344268.25,
+      "system_direct_cost": 113862111.71,
+      "inhouse_cost": 4075825.74,
+      "production_cost": 110723226.97,
+      "gross_profit": 78347910.46,
+      "gross_margin_pct": 41.44,
+      "surtax": 1361312.19,
+      "other_pl": 0.0,
+      "pretax_profit": 71670766.76,
+      "pretax_margin_pct": 37.91,
+      "orders": 220997541.75,
+      "receipts": 106661899.48,
+      "receipt_order_ratio_pct": 48.26,
+      "expense": {
+        "营销费用": 1539988.19,
+        "管理费用": 2110075.58,
+        "固定运营费用": 411253.22,
+        "研发费用": 1099137.73,
+        "财务费用": 155376.79,
+        "total": 5315831.51
+      },
+      "manual": {
+        "营销人力成本": 517611.0,
+        "管理人力成本": 701558.0,
+        "研发人力成本": 483435.0,
+        "财务费用补充": 20312.0,
+        "PM人力成本": 254623.0,
+        "VM人力成本": 177139.0,
+        "实际内部译员成本": 347297.0,
+        "税费损失": 44733.0,
+        "技术流量成本": 84894.0,
+        "其他（生产成本）": 28255.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1022377.19,
+        "管理费用": 1408517.58,
+        "固定运营费用": 411253.22,
+        "技术服务费": 615702.73,
+        "财务费用": 135064.79
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 220997541.75,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 220997541.75,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 106661899.48,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 189071137.43,
+          "total_profit": 75209025.72,
+          "conc_pct": 30.4,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 189071137.43,
+          "total_profit": 75209025.72,
+          "conc_pct": 61.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年Q2": {
+      "delivery_count": 3603,
+      "revenue_gross": 191830250.23,
+      "revenue_net": 180971934.18,
+      "vat": 10858316.05,
+      "system_direct_cost": 106377062.75,
+      "inhouse_cost": 4141659.87,
+      "production_cost": 103101010.88,
+      "gross_profit": 77870923.3,
+      "gross_margin_pct": 43.03,
+      "surtax": 1302997.93,
+      "other_pl": 0.0,
+      "pretax_profit": 71026502.94,
+      "pretax_margin_pct": 39.25,
+      "orders": 216114269.75,
+      "receipts": 107141255.81,
+      "receipt_order_ratio_pct": 49.58,
+      "expense": {
+        "营销费用": 1602985.65,
+        "管理费用": 2174413.71,
+        "固定运营费用": 513421.13,
+        "研发费用": 1059109.4,
+        "财务费用": 191492.54,
+        "total": 5541422.43
+      },
+      "manual": {
+        "营销人力成本": 451943.0,
+        "管理人力成本": 626204.0,
+        "研发人力成本": 454457.0,
+        "财务费用补充": 20871.0,
+        "PM人力成本": 224581.0,
+        "VM人力成本": 151369.0,
+        "实际内部译员成本": 329948.0,
+        "税费损失": 39341.0,
+        "技术流量成本": 91752.0,
+        "其他（生产成本）": 28617.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1151042.65,
+        "管理费用": 1548209.71,
+        "固定运营费用": 513421.13,
+        "技术服务费": 604652.4,
+        "财务费用": 170621.54
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 216114269.75,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 216114269.75,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 107141255.81,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 180971934.18,
+          "total_profit": 74594871.43,
+          "conc_pct": 30.2,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 180971934.18,
+          "total_profit": 74594871.43,
+          "conc_pct": 62.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年Q3": {
+      "delivery_count": 1201,
+      "revenue_gross": 70271933.68,
+      "revenue_net": 66294277.06,
+      "vat": 3977656.62,
+      "system_direct_cost": 38643861.24,
+      "inhouse_cost": 1360989.52,
+      "production_cost": 37601962.72,
+      "gross_profit": 28692314.34,
+      "gross_margin_pct": 43.28,
+      "surtax": 477318.79,
+      "other_pl": 0.0,
+      "pretax_profit": 26384441.39,
+      "pretax_margin_pct": 39.8,
+      "orders": 22319326.23,
+      "receipts": 35362407.95,
+      "receipt_order_ratio_pct": 158.44,
+      "expense": {
+        "营销费用": 523049.26,
+        "管理费用": 692946.11,
+        "固定运营费用": 167865.98,
+        "研发费用": 356404.61,
+        "财务费用": 90288.2,
+        "total": 1830554.16
+      },
+      "manual": {
+        "营销人力成本": 134617.0,
+        "管理人力成本": 250235.0,
+        "研发人力成本": 163849.0,
+        "财务费用补充": 8124.0,
+        "PM人力成本": 79627.0,
+        "VM人力成本": 58006.0,
+        "实际内部译员成本": 129232.0,
+        "税费损失": 14528.0,
+        "技术流量成本": 29501.0,
+        "其他（生产成本）": 8197.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 388432.26,
+        "管理费用": 442711.11,
+        "固定运营费用": 167865.98,
+        "技术服务费": 192555.61,
+        "财务费用": 82164.2
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 22319326.23,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 22319326.23,
+          "n_items": 10,
+          "n_full": 19
+        },
+        "receipts_by_customer": {
+          "total": 35362407.95,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 66294277.06,
+          "total_profit": 27650415.82,
+          "conc_pct": 36.3,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 66294277.06,
+          "total_profit": 27650415.82,
+          "conc_pct": 63.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1月": {
+      "delivery_count": 1201,
+      "revenue_gross": 62748853.47,
+      "revenue_net": 59197031.58,
+      "vat": 3551821.89,
+      "system_direct_cost": 35481743.66,
+      "inhouse_cost": 1413779.68,
+      "production_cost": 34367660.98,
+      "gross_profit": 24829370.6,
+      "gross_margin_pct": 41.94,
+      "surtax": 426218.63,
+      "other_pl": 0.0,
+      "pretax_profit": 22651515.67,
+      "pretax_margin_pct": 38.26,
+      "orders": 78716468.59,
+      "receipts": 36270471.48,
+      "receipt_order_ratio_pct": 46.08,
+      "expense": {
+        "营销费用": 495701.7,
+        "管理费用": 749632.3,
+        "固定运营费用": 110513.25,
+        "研发费用": 361433.07,
+        "财务费用": 34355.98,
+        "total": 1751636.3
+      },
+      "manual": {
+        "营销人力成本": 176923.0,
+        "管理人力成本": 238062.0,
+        "研发人力成本": 153407.0,
+        "财务费用补充": 6400.0,
+        "PM人力成本": 75067.0,
+        "VM人力成本": 51928.0,
+        "实际内部译员成本": 121516.0,
+        "税费损失": 12516.0,
+        "技术流量成本": 29681.0,
+        "其他（生产成本）": 8989.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 318778.7,
+        "管理费用": 511570.3,
+        "固定运营费用": 110513.25,
+        "技术服务费": 208026.07,
+        "财务费用": 27955.98
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 78716468.59,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 78716468.59,
+          "n_items": 10,
+          "n_full": 21
+        },
+        "receipts_by_customer": {
+          "total": 36270471.48,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 59197031.58,
+          "total_profit": 23715287.92,
+          "conc_pct": 29.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 59197031.58,
+          "total_profit": 23715287.92,
+          "conc_pct": 60.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2月": {
+      "delivery_count": 1201,
+      "revenue_gross": 69169030.41,
+      "revenue_net": 65253802.27,
+      "vat": 3915228.14,
+      "system_direct_cost": 38866634.7,
+      "inhouse_cost": 1334091.36,
+      "production_cost": 37837464.34,
+      "gross_profit": 27416337.93,
+      "gross_margin_pct": 42.01,
+      "surtax": 469827.38,
+      "other_pl": 0.0,
+      "pretax_profit": 24966437.0,
+      "pretax_margin_pct": 38.26,
+      "orders": 67837394.05,
+      "receipts": 35676014.82,
+      "receipt_order_ratio_pct": 52.59,
+      "expense": {
+        "营销费用": 507977.63,
+        "管理费用": 781258.48,
+        "固定运营费用": 164876.5,
+        "研发费用": 427481.74,
+        "财务费用": 98479.2,
+        "total": 1980073.55
+      },
+      "manual": {
+        "营销人力成本": 177590.0,
+        "管理人力成本": 241187.0,
+        "研发人力成本": 156996.0,
+        "财务费用补充": 6386.0,
+        "PM人力成本": 90869.0,
+        "VM人力成本": 59798.0,
+        "实际内部译员成本": 101568.0,
+        "税费损失": 16340.0,
+        "技术流量成本": 26935.0,
+        "其他（生产成本）": 9411.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 330387.63,
+        "管理费用": 540071.48,
+        "固定运营费用": 164876.5,
+        "技术服务费": 270485.74,
+        "财务费用": 92093.2
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 67837394.05,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 67837394.05,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 35676014.82,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 65253802.27,
+          "total_profit": 26387167.57,
+          "conc_pct": 30.9,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 65253802.27,
+          "total_profit": 26387167.57,
+          "conc_pct": 64.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年3月": {
+      "delivery_count": 1201,
+      "revenue_gross": 68497521.8,
+      "revenue_net": 64620303.58,
+      "vat": 3877218.22,
+      "system_direct_cost": 39513733.35,
+      "inhouse_cost": 1327954.7,
+      "production_cost": 38518101.65,
+      "gross_profit": 26102201.93,
+      "gross_margin_pct": 40.39,
+      "surtax": 465266.19,
+      "other_pl": 0.0,
+      "pretax_profit": 24052814.08,
+      "pretax_margin_pct": 37.22,
+      "orders": 74443679.11,
+      "receipts": 34715413.18,
+      "receipt_order_ratio_pct": 46.63,
+      "expense": {
+        "营销费用": 536308.86,
+        "管理费用": 579184.8,
+        "固定运营费用": 135863.47,
+        "研发费用": 310222.92,
+        "财务费用": 22541.61,
+        "total": 1584121.66
+      },
+      "manual": {
+        "营销人力成本": 163098.0,
+        "管理人力成本": 222309.0,
+        "研发人力成本": 173032.0,
+        "财务费用补充": 7526.0,
+        "PM人力成本": 88687.0,
+        "VM人力成本": 65413.0,
+        "实际内部译员成本": 124213.0,
+        "税费损失": 15877.0,
+        "技术流量成本": 28278.0,
+        "其他（生产成本）": 9855.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 373210.86,
+        "管理费用": 356875.8,
+        "固定运营费用": 135863.47,
+        "技术服务费": 137190.92,
+        "财务费用": 15015.61
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 74443679.11,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 74443679.11,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 34715413.18,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 64620303.58,
+          "total_profit": 25106570.23,
+          "conc_pct": 33.5,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 64620303.58,
+          "total_profit": 25106570.23,
+          "conc_pct": 59.9,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年4月": {
+      "delivery_count": 1201,
+      "revenue_gross": 66142606.45,
+      "revenue_net": 62398685.33,
+      "vat": 3743921.12,
+      "system_direct_cost": 37090250.48,
+      "inhouse_cost": 1385138.24,
+      "production_cost": 36015573.24,
+      "gross_profit": 26383112.09,
+      "gross_margin_pct": 42.28,
+      "surtax": 449270.53,
+      "other_pl": 0.0,
+      "pretax_profit": 24149599.94,
+      "pretax_margin_pct": 38.7,
+      "orders": 73349143.78,
+      "receipts": 36915044.33,
+      "receipt_order_ratio_pct": 50.33,
+      "expense": {
+        "营销费用": 487947.7,
+        "管理费用": 628924.81,
+        "固定运营费用": 210018.2,
+        "研发费用": 362317.58,
+        "财务费用": 95033.33,
+        "total": 1784241.62
+      },
+      "manual": {
+        "营销人力成本": 178531.0,
+        "管理人力成本": 181445.0,
+        "研发人力成本": 137610.0,
+        "财务费用补充": 6596.0,
+        "PM人力成本": 85924.0,
+        "VM人力成本": 48740.0,
+        "实际内部译员成本": 122267.0,
+        "税费损失": 11907.0,
+        "技术流量成本": 33305.0,
+        "其他（生产成本）": 8318.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 309416.7,
+        "管理费用": 447479.81,
+        "固定运营费用": 210018.2,
+        "技术服务费": 224707.58,
+        "财务费用": 88437.33
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 73349143.78,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 73349143.78,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 36915044.33,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 62398685.33,
+          "total_profit": 25308434.85,
+          "conc_pct": 31.5,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 62398685.33,
+          "total_profit": 25308434.85,
+          "conc_pct": 66.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年5月": {
+      "delivery_count": 1201,
+      "revenue_gross": 63439427.07,
+      "revenue_net": 59848516.1,
+      "vat": 3590910.97,
+      "system_direct_cost": 35393338.22,
+      "inhouse_cost": 1390817.51,
+      "production_cost": 34272437.71,
+      "gross_profit": 25576078.39,
+      "gross_margin_pct": 42.73,
+      "surtax": 430909.32,
+      "other_pl": 0.0,
+      "pretax_profit": 23314675.26,
+      "pretax_margin_pct": 38.96,
+      "orders": 73590099.13,
+      "receipts": 35674846.41,
+      "receipt_order_ratio_pct": 48.48,
+      "expense": {
+        "营销费用": 576598.54,
+        "管理费用": 744724.96,
+        "固定运营费用": 140578.68,
+        "研发费用": 343604.99,
+        "财务费用": 24986.64,
+        "total": 1830493.81
+      },
+      "manual": {
+        "营销人力成本": 132409.0,
+        "管理人力成本": 204736.0,
+        "研发人力成本": 167822.0,
+        "财务费用补充": 6785.0,
+        "PM人力成本": 68148.0,
+        "VM人力成本": 51867.0,
+        "实际内部译员成本": 94287.0,
+        "税费损失": 12047.0,
+        "技术流量成本": 33173.0,
+        "其他（生产成本）": 10395.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 444189.54,
+        "管理费用": 539988.96,
+        "固定运营费用": 140578.68,
+        "技术服务费": 175782.99,
+        "财务费用": 18201.64
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 73590099.13,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 73590099.13,
+          "n_items": 10,
+          "n_full": 21
+        },
+        "receipts_by_customer": {
+          "total": 35674846.41,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 59848516.1,
+          "total_profit": 24455177.88,
+          "conc_pct": 30.0,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 59848516.1,
+          "total_profit": 24455177.88,
+          "conc_pct": 63.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年6月": {
+      "delivery_count": 1201,
+      "revenue_gross": 62248216.71,
+      "revenue_net": 58724732.75,
+      "vat": 3523483.96,
+      "system_direct_cost": 33893474.05,
+      "inhouse_cost": 1365704.12,
+      "production_cost": 32812999.93,
+      "gross_profit": 25911732.82,
+      "gross_margin_pct": 44.12,
+      "surtax": 422818.08,
+      "other_pl": 0.0,
+      "pretax_profit": 23562227.74,
+      "pretax_margin_pct": 40.12,
+      "orders": 69175026.84,
+      "receipts": 34551365.07,
+      "receipt_order_ratio_pct": 49.95,
+      "expense": {
+        "营销费用": 538439.41,
+        "管理费用": 800763.94,
+        "固定运营费用": 162824.25,
+        "研发费用": 353186.83,
+        "财务费用": 71472.57,
+        "total": 1926687.0
+      },
+      "manual": {
+        "营销人力成本": 141003.0,
+        "管理人力成本": 240023.0,
+        "研发人力成本": 149025.0,
+        "财务费用补充": 7490.0,
+        "PM人力成本": 70509.0,
+        "VM人力成本": 50762.0,
+        "实际内部译员成本": 113394.0,
+        "税费损失": 15387.0,
+        "技术流量成本": 25274.0,
+        "其他（生产成本）": 9904.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 397436.41,
+        "管理费用": 560740.94,
+        "固定运营费用": 162824.25,
+        "技术服务费": 204161.83,
+        "财务费用": 63982.57
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 69175026.84,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 69175026.84,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 34551365.07,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 58724732.75,
+          "total_profit": 24831258.7,
+          "conc_pct": 30.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 58724732.75,
+          "total_profit": 24831258.7,
+          "conc_pct": 60.9,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年7月": {
+      "delivery_count": 1201,
+      "revenue_gross": 70271933.68,
+      "revenue_net": 66294277.06,
+      "vat": 3977656.62,
+      "system_direct_cost": 38643861.24,
+      "inhouse_cost": 1360989.52,
+      "production_cost": 37601962.72,
+      "gross_profit": 28692314.34,
+      "gross_margin_pct": 43.28,
+      "surtax": 477318.79,
+      "other_pl": 0.0,
+      "pretax_profit": 26384441.39,
+      "pretax_margin_pct": 39.8,
+      "orders": 22319326.23,
+      "receipts": 35362407.95,
+      "receipt_order_ratio_pct": 158.44,
+      "expense": {
+        "营销费用": 523049.26,
+        "管理费用": 692946.11,
+        "固定运营费用": 167865.98,
+        "研发费用": 356404.61,
+        "财务费用": 90288.2,
+        "total": 1830554.16
+      },
+      "manual": {
+        "营销人力成本": 134617.0,
+        "管理人力成本": 250235.0,
+        "研发人力成本": 163849.0,
+        "财务费用补充": 8124.0,
+        "PM人力成本": 79627.0,
+        "VM人力成本": 58006.0,
+        "实际内部译员成本": 129232.0,
+        "税费损失": 14528.0,
+        "技术流量成本": 29501.0,
+        "其他（生产成本）": 8197.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 388432.26,
+        "管理费用": 442711.11,
+        "固定运营费用": 167865.98,
+        "技术服务费": 192555.61,
+        "财务费用": 82164.2
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 22319326.23,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 22319326.23,
+          "n_items": 10,
+          "n_full": 19
+        },
+        "receipts_by_customer": {
+          "total": 35362407.95,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 66294277.06,
+          "total_profit": 27650415.82,
+          "conc_pct": 36.3,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 66294277.06,
+          "total_profit": 27650415.82,
+          "conc_pct": 63.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-2月": {
+      "delivery_count": 2402,
+      "revenue_gross": 131917883.88,
+      "revenue_net": 124450833.85,
+      "vat": 7467050.03,
+      "system_direct_cost": 74348378.36,
+      "inhouse_cost": 2747871.04,
+      "production_cost": 72205125.32,
+      "gross_profit": 52245708.53,
+      "gross_margin_pct": 41.98,
+      "surtax": 896046.0,
+      "other_pl": 0.0,
+      "pretax_profit": 47617952.68,
+      "pretax_margin_pct": 38.26,
+      "orders": 146553862.64,
+      "receipts": 71946486.3,
+      "receipt_order_ratio_pct": 49.09,
+      "expense": {
+        "营销费用": 1003679.33,
+        "管理费用": 1530890.78,
+        "固定运营费用": 275389.75,
+        "研发费用": 788914.81,
+        "财务费用": 132835.18,
+        "total": 3731709.85
+      },
+      "manual": {
+        "营销人力成本": 354513.0,
+        "管理人力成本": 479249.0,
+        "研发人力成本": 310403.0,
+        "财务费用补充": 12786.0,
+        "PM人力成本": 165936.0,
+        "VM人力成本": 111726.0,
+        "实际内部译员成本": 223084.0,
+        "税费损失": 28856.0,
+        "技术流量成本": 56616.0,
+        "其他（生产成本）": 18400.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 649166.33,
+        "管理费用": 1051641.78,
+        "固定运营费用": 275389.75,
+        "技术服务费": 478511.81,
+        "财务费用": 120049.18
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 146553862.64,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 146553862.64,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 71946486.3,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 124450833.85,
+          "total_profit": 50102455.49,
+          "conc_pct": 29.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 124450833.85,
+          "total_profit": 50102455.49,
+          "conc_pct": 62.4,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-3月": {
+      "delivery_count": 3603,
+      "revenue_gross": 200415405.68,
+      "revenue_net": 189071137.43,
+      "vat": 11344268.25,
+      "system_direct_cost": 113862111.71,
+      "inhouse_cost": 4075825.74,
+      "production_cost": 110723226.97,
+      "gross_profit": 78347910.46,
+      "gross_margin_pct": 41.44,
+      "surtax": 1361312.19,
+      "other_pl": 0.0,
+      "pretax_profit": 71670766.76,
+      "pretax_margin_pct": 37.91,
+      "orders": 220997541.75,
+      "receipts": 106661899.48,
+      "receipt_order_ratio_pct": 48.26,
+      "expense": {
+        "营销费用": 1539988.19,
+        "管理费用": 2110075.58,
+        "固定运营费用": 411253.22,
+        "研发费用": 1099137.73,
+        "财务费用": 155376.79,
+        "total": 5315831.51
+      },
+      "manual": {
+        "营销人力成本": 517611.0,
+        "管理人力成本": 701558.0,
+        "研发人力成本": 483435.0,
+        "财务费用补充": 20312.0,
+        "PM人力成本": 254623.0,
+        "VM人力成本": 177139.0,
+        "实际内部译员成本": 347297.0,
+        "税费损失": 44733.0,
+        "技术流量成本": 84894.0,
+        "其他（生产成本）": 28255.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1022377.19,
+        "管理费用": 1408517.58,
+        "固定运营费用": 411253.22,
+        "技术服务费": 615702.73,
+        "财务费用": 135064.79
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 220997541.75,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 220997541.75,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 106661899.48,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 189071137.43,
+          "total_profit": 75209025.72,
+          "conc_pct": 30.4,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 189071137.43,
+          "total_profit": 75209025.72,
+          "conc_pct": 61.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-4月": {
+      "delivery_count": 4804,
+      "revenue_gross": 266558012.13,
+      "revenue_net": 251469822.76,
+      "vat": 15088189.37,
+      "system_direct_cost": 150952362.19,
+      "inhouse_cost": 5460963.98,
+      "production_cost": 146738800.21,
+      "gross_profit": 104731022.55,
+      "gross_margin_pct": 41.65,
+      "surtax": 1810582.72,
+      "other_pl": 0.0,
+      "pretax_profit": 95820366.7,
+      "pretax_margin_pct": 38.1,
+      "orders": 294346685.53,
+      "receipts": 143576943.81,
+      "receipt_order_ratio_pct": 48.78,
+      "expense": {
+        "营销费用": 2027935.89,
+        "管理费用": 2739000.39,
+        "固定运营费用": 621271.42,
+        "研发费用": 1461455.31,
+        "财务费用": 250410.12,
+        "total": 7100073.13
+      },
+      "manual": {
+        "营销人力成本": 696142.0,
+        "管理人力成本": 883003.0,
+        "研发人力成本": 621045.0,
+        "财务费用补充": 26908.0,
+        "PM人力成本": 340547.0,
+        "VM人力成本": 225879.0,
+        "实际内部译员成本": 469564.0,
+        "税费损失": 56640.0,
+        "技术流量成本": 118199.0,
+        "其他（生产成本）": 36573.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1331793.89,
+        "管理费用": 1855997.39,
+        "固定运营费用": 621271.42,
+        "技术服务费": 840410.31,
+        "财务费用": 223502.12
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 294346685.53,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 294346685.53,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 143576943.81,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 251469822.76,
+          "total_profit": 100517460.57,
+          "conc_pct": 30.4,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 251469822.76,
+          "total_profit": 100517460.57,
+          "conc_pct": 62.1,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-5月": {
+      "delivery_count": 6005,
+      "revenue_gross": 329997439.2,
+      "revenue_net": 311318338.87,
+      "vat": 18679100.33,
+      "system_direct_cost": 186345700.41,
+      "inhouse_cost": 6851781.49,
+      "production_cost": 181011237.92,
+      "gross_profit": 130307100.95,
+      "gross_margin_pct": 41.86,
+      "surtax": 2241492.04,
+      "other_pl": 0.0,
+      "pretax_profit": 119135041.97,
+      "pretax_margin_pct": 38.27,
+      "orders": 367936784.66,
+      "receipts": 179251790.22,
+      "receipt_order_ratio_pct": 48.72,
+      "expense": {
+        "营销费用": 2604534.43,
+        "管理费用": 3483725.35,
+        "固定运营费用": 761850.1,
+        "研发费用": 1805060.3,
+        "财务费用": 275396.76,
+        "total": 8930566.94
+      },
+      "manual": {
+        "营销人力成本": 828551.0,
+        "管理人力成本": 1087739.0,
+        "研发人力成本": 788867.0,
+        "财务费用补充": 33693.0,
+        "PM人力成本": 408695.0,
+        "VM人力成本": 277746.0,
+        "实际内部译员成本": 563851.0,
+        "税费损失": 68687.0,
+        "技术流量成本": 151372.0,
+        "其他（生产成本）": 46968.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1775983.43,
+        "管理费用": 2395986.35,
+        "固定运营费用": 761850.1,
+        "技术服务费": 1016193.3,
+        "财务费用": 241703.76
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 367936784.66,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 367936784.66,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 179251790.22,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 311318338.87,
+          "total_profit": 124972638.46,
+          "conc_pct": 30.2,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 311318338.87,
+          "total_profit": 124972638.46,
+          "conc_pct": 61.9,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-6月": {
+      "delivery_count": 7206,
+      "revenue_gross": 392245655.91,
+      "revenue_net": 370043071.61,
+      "vat": 22202584.3,
+      "system_direct_cost": 220239174.46,
+      "inhouse_cost": 8217485.61,
+      "production_cost": 213824237.85,
+      "gross_profit": 156218833.76,
+      "gross_margin_pct": 42.22,
+      "surtax": 2664310.12,
+      "other_pl": 0.0,
+      "pretax_profit": 142697269.7,
+      "pretax_margin_pct": 38.56,
+      "orders": 437111811.5,
+      "receipts": 213803155.29,
+      "receipt_order_ratio_pct": 48.91,
+      "expense": {
+        "营销费用": 3142973.84,
+        "管理费用": 4284489.29,
+        "固定运营费用": 924674.35,
+        "研发费用": 2158247.13,
+        "财务费用": 346869.33,
+        "total": 10857253.94
+      },
+      "manual": {
+        "营销人力成本": 969554.0,
+        "管理人力成本": 1327762.0,
+        "研发人力成本": 937892.0,
+        "财务费用补充": 41183.0,
+        "PM人力成本": 479204.0,
+        "VM人力成本": 328508.0,
+        "实际内部译员成本": 677245.0,
+        "税费损失": 84074.0,
+        "技术流量成本": 176646.0,
+        "其他（生产成本）": 56872.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 2173419.84,
+        "管理费用": 2956727.29,
+        "固定运营费用": 924674.35,
+        "技术服务费": 1220355.13,
+        "财务费用": 305686.33
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 437111811.5,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 437111811.5,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 213803155.29,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 370043071.61,
+          "total_profit": 149803897.15,
+          "conc_pct": 30.1,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 370043071.61,
+          "total_profit": 149803897.15,
+          "conc_pct": 61.4,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年1-7月": {
+      "delivery_count": 8407,
+      "revenue_gross": 462517589.59,
+      "revenue_net": 436337348.67,
+      "vat": 26180240.92,
+      "system_direct_cost": 258883035.7,
+      "inhouse_cost": 9578475.13,
+      "production_cost": 251426200.57,
+      "gross_profit": 184911148.1,
+      "gross_margin_pct": 42.38,
+      "surtax": 3141628.91,
+      "other_pl": 0.0,
+      "pretax_profit": 169081711.09,
+      "pretax_margin_pct": 38.75,
+      "orders": 459431137.73,
+      "receipts": 249165563.24,
+      "receipt_order_ratio_pct": 54.23,
+      "expense": {
+        "营销费用": 3666023.1,
+        "管理费用": 4977435.4,
+        "固定运营费用": 1092540.33,
+        "研发费用": 2514651.74,
+        "财务费用": 437157.53,
+        "total": 12687808.1
+      },
+      "manual": {
+        "营销人力成本": 1104171.0,
+        "管理人力成本": 1577997.0,
+        "研发人力成本": 1101741.0,
+        "财务费用补充": 49307.0,
+        "PM人力成本": 558831.0,
+        "VM人力成本": 386514.0,
+        "实际内部译员成本": 806477.0,
+        "税费损失": 98602.0,
+        "技术流量成本": 206147.0,
+        "其他（生产成本）": 65069.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 2561852.1,
+        "管理费用": 3399438.4,
+        "固定运营费用": 1092540.33,
+        "技术服务费": 1412910.74,
+        "财务费用": 387850.53
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 459431137.73,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 459431137.73,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 249165563.24,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 436337348.67,
+          "total_profit": 177454312.97,
+          "conc_pct": 30.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 436337348.67,
+          "total_profit": 177454312.97,
+          "conc_pct": 61.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2-3月": {
+      "delivery_count": 2402,
+      "revenue_gross": 137666552.21,
+      "revenue_net": 129874105.86,
+      "vat": 7792446.35,
+      "system_direct_cost": 78380368.05,
+      "inhouse_cost": 2662046.06,
+      "production_cost": 76355565.99,
+      "gross_profit": 53518539.87,
+      "gross_margin_pct": 41.21,
+      "surtax": 935093.56,
+      "other_pl": 0.0,
+      "pretax_profit": 49019251.1,
+      "pretax_margin_pct": 37.74,
+      "orders": 142281073.16,
+      "receipts": 70391428.0,
+      "receipt_order_ratio_pct": 49.47,
+      "expense": {
+        "营销费用": 1044286.49,
+        "管理费用": 1360443.28,
+        "固定运营费用": 300739.97,
+        "研发费用": 737704.66,
+        "财务费用": 121020.81,
+        "total": 3564195.21
+      },
+      "manual": {
+        "营销人力成本": 340688.0,
+        "管理人力成本": 463496.0,
+        "研发人力成本": 330028.0,
+        "财务费用补充": 13912.0,
+        "PM人力成本": 179556.0,
+        "VM人力成本": 125211.0,
+        "实际内部译员成本": 225781.0,
+        "税费损失": 32217.0,
+        "技术流量成本": 55213.0,
+        "其他（生产成本）": 19266.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 703598.49,
+        "管理费用": 896947.28,
+        "固定运营费用": 300739.97,
+        "技术服务费": 407676.66,
+        "财务费用": 107108.81
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 142281073.16,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 142281073.16,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 70391428.0,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 129874105.86,
+          "total_profit": 51493737.81,
+          "conc_pct": 31.9,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 129874105.86,
+          "total_profit": 51493737.81,
+          "conc_pct": 61.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2-4月": {
+      "delivery_count": 3603,
+      "revenue_gross": 203809158.66,
+      "revenue_net": 192272791.19,
+      "vat": 11536367.47,
+      "system_direct_cost": 115470618.53,
+      "inhouse_cost": 4047184.3,
+      "production_cost": 112371139.23,
+      "gross_profit": 79901651.96,
+      "gross_margin_pct": 41.56,
+      "surtax": 1384364.1,
+      "other_pl": 0.0,
+      "pretax_profit": 73168851.03,
+      "pretax_margin_pct": 38.05,
+      "orders": 215630216.94,
+      "receipts": 107306472.33,
+      "receipt_order_ratio_pct": 49.76,
+      "expense": {
+        "营销费用": 1532234.19,
+        "管理费用": 1989368.09,
+        "固定运营费用": 510758.17,
+        "研发费用": 1100022.24,
+        "财务费用": 216054.14,
+        "total": 5348436.83
+      },
+      "manual": {
+        "营销人力成本": 519219.0,
+        "管理人力成本": 644941.0,
+        "研发人力成本": 467638.0,
+        "财务费用补充": 20508.0,
+        "PM人力成本": 265480.0,
+        "VM人力成本": 173951.0,
+        "实际内部译员成本": 348048.0,
+        "税费损失": 44124.0,
+        "技术流量成本": 88518.0,
+        "其他（生产成本）": 27584.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1013015.19,
+        "管理费用": 1344427.09,
+        "固定运营费用": 510758.17,
+        "技术服务费": 632384.24,
+        "财务费用": 195546.14
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 215630216.94,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 215630216.94,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 107306472.33,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 192272791.19,
+          "total_profit": 76802172.66,
+          "conc_pct": 30.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 192272791.19,
+          "total_profit": 76802172.66,
+          "conc_pct": 62.9,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2-5月": {
+      "delivery_count": 4804,
+      "revenue_gross": 267248585.73,
+      "revenue_net": 252121307.29,
+      "vat": 15127278.44,
+      "system_direct_cost": 150863956.75,
+      "inhouse_cost": 5438001.81,
+      "production_cost": 146643576.94,
+      "gross_profit": 105477730.35,
+      "gross_margin_pct": 41.84,
+      "surtax": 1815273.41,
+      "other_pl": 0.0,
+      "pretax_profit": 96483526.3,
+      "pretax_margin_pct": 38.27,
+      "orders": 289220316.07,
+      "receipts": 142981318.74,
+      "receipt_order_ratio_pct": 49.44,
+      "expense": {
+        "营销费用": 2108832.73,
+        "管理费用": 2734093.05,
+        "固定运营费用": 651336.85,
+        "研发费用": 1443627.23,
+        "财务费用": 241040.78,
+        "total": 7178930.64
+      },
+      "manual": {
+        "营销人力成本": 651628.0,
+        "管理人力成本": 849677.0,
+        "研发人力成本": 635460.0,
+        "财务费用补充": 27293.0,
+        "PM人力成本": 333628.0,
+        "VM人力成本": 225818.0,
+        "实际内部译员成本": 442335.0,
+        "税费损失": 56171.0,
+        "技术流量成本": 121691.0,
+        "其他（生产成本）": 37979.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1457204.73,
+        "管理费用": 1884416.05,
+        "固定运营费用": 651336.85,
+        "技术服务费": 808167.23,
+        "财务费用": 213747.78
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 289220316.07,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 289220316.07,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 142981318.74,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 252121307.29,
+          "total_profit": 101257350.54,
+          "conc_pct": 30.3,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 252121307.29,
+          "total_profit": 101257350.54,
+          "conc_pct": 62.4,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2-6月": {
+      "delivery_count": 6005,
+      "revenue_gross": 329496802.44,
+      "revenue_net": 310846040.04,
+      "vat": 18650762.4,
+      "system_direct_cost": 184757430.8,
+      "inhouse_cost": 6803705.93,
+      "production_cost": 179456576.87,
+      "gross_profit": 131389463.17,
+      "gross_margin_pct": 42.27,
+      "surtax": 2238091.49,
+      "other_pl": 0.0,
+      "pretax_profit": 120045754.04,
+      "pretax_margin_pct": 38.62,
+      "orders": 358395342.91,
+      "receipts": 177532683.81,
+      "receipt_order_ratio_pct": 49.54,
+      "expense": {
+        "营销费用": 2647272.14,
+        "管理费用": 3534856.99,
+        "固定运营费用": 814161.1,
+        "研发费用": 1796814.06,
+        "财务费用": 312513.35,
+        "total": 9105617.64
+      },
+      "manual": {
+        "营销人力成本": 792631.0,
+        "管理人力成本": 1089700.0,
+        "研发人力成本": 784485.0,
+        "财务费用补充": 34783.0,
+        "PM人力成本": 404137.0,
+        "VM人力成本": 276580.0,
+        "实际内部译员成本": 555729.0,
+        "税费损失": 71558.0,
+        "技术流量成本": 146965.0,
+        "其他（生产成本）": 47883.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1854641.14,
+        "管理费用": 2445156.99,
+        "固定运营费用": 814161.1,
+        "技术服务费": 1012329.06,
+        "财务费用": 277730.35
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 358395342.91,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 358395342.91,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 177532683.81,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 310846040.04,
+          "total_profit": 126088609.24,
+          "conc_pct": 30.2,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 310846040.04,
+          "total_profit": 126088609.24,
+          "conc_pct": 61.7,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年2-7月": {
+      "delivery_count": 7206,
+      "revenue_gross": 399768736.12,
+      "revenue_net": 377140317.09,
+      "vat": 22628419.03,
+      "system_direct_cost": 223401292.04,
+      "inhouse_cost": 8164695.45,
+      "production_cost": 217058539.59,
+      "gross_profit": 160081777.5,
+      "gross_margin_pct": 42.45,
+      "surtax": 2715410.28,
+      "other_pl": 0.0,
+      "pretax_profit": 146430195.42,
+      "pretax_margin_pct": 38.83,
+      "orders": 380714669.14,
+      "receipts": 212895091.76,
+      "receipt_order_ratio_pct": 55.92,
+      "expense": {
+        "营销费用": 3170321.4,
+        "管理费用": 4227803.1,
+        "固定运营费用": 982027.08,
+        "研发费用": 2153218.67,
+        "财务费用": 402801.55,
+        "total": 10936171.8
+      },
+      "manual": {
+        "营销人力成本": 927248.0,
+        "管理人力成本": 1339935.0,
+        "研发人力成本": 948334.0,
+        "财务费用补充": 42907.0,
+        "PM人力成本": 483764.0,
+        "VM人力成本": 334586.0,
+        "实际内部译员成本": 684961.0,
+        "税费损失": 86086.0,
+        "技术流量成本": 176466.0,
+        "其他（生产成本）": 56080.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 2243073.4,
+        "管理费用": 2887868.1,
+        "固定运营费用": 982027.08,
+        "技术服务费": 1204884.67,
+        "财务费用": 359894.55
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 380714669.14,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 380714669.14,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 212895091.76,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 377140317.09,
+          "total_profit": 153739025.05,
+          "conc_pct": 31.0,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 377140317.09,
+          "total_profit": 153739025.05,
+          "conc_pct": 61.9,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年3-4月": {
+      "delivery_count": 2402,
+      "revenue_gross": 134640128.25,
+      "revenue_net": 127018988.92,
+      "vat": 7621139.33,
+      "system_direct_cost": 76603983.83,
+      "inhouse_cost": 2713092.94,
+      "production_cost": 74533674.89,
+      "gross_profit": 52485314.03,
+      "gross_margin_pct": 41.32,
+      "surtax": 914536.72,
+      "other_pl": 0.0,
+      "pretax_profit": 48202414.03,
+      "pretax_margin_pct": 37.95,
+      "orders": 147792822.89,
+      "receipts": 71630457.51,
+      "receipt_order_ratio_pct": 48.47,
+      "expense": {
+        "营销费用": 1024256.56,
+        "管理费用": 1208109.61,
+        "固定运营费用": 345881.67,
+        "研发费用": 672540.5,
+        "财务费用": 117574.94,
+        "total": 3368363.28
+      },
+      "manual": {
+        "营销人力成本": 341629.0,
+        "管理人力成本": 403754.0,
+        "研发人力成本": 310642.0,
+        "财务费用补充": 14122.0,
+        "PM人力成本": 174611.0,
+        "VM人力成本": 114153.0,
+        "实际内部译员成本": 246480.0,
+        "税费损失": 27784.0,
+        "技术流量成本": 61583.0,
+        "其他（生产成本）": 18173.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 682627.56,
+        "管理费用": 804355.61,
+        "固定运营费用": 345881.67,
+        "技术服务费": 361898.5,
+        "财务费用": 103452.94
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 147792822.89,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 147792822.89,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 71630457.51,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 127018988.92,
+          "total_profit": 50415005.09,
+          "conc_pct": 32.5,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 127018988.92,
+          "total_profit": 50415005.09,
+          "conc_pct": 62.7,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年3-5月": {
+      "delivery_count": 3603,
+      "revenue_gross": 198079555.32,
+      "revenue_net": 186867505.02,
+      "vat": 11212050.3,
+      "system_direct_cost": 111997322.05,
+      "inhouse_cost": 4103910.45,
+      "production_cost": 108806112.6,
+      "gross_profit": 78061392.42,
+      "gross_margin_pct": 41.77,
+      "surtax": 1345446.04,
+      "other_pl": 0.0,
+      "pretax_profit": 71517089.29,
+      "pretax_margin_pct": 38.27,
+      "orders": 221382922.02,
+      "receipts": 107305303.92,
+      "receipt_order_ratio_pct": 48.47,
+      "expense": {
+        "营销费用": 1600855.1,
+        "管理费用": 1952834.57,
+        "固定运营费用": 486460.35,
+        "研发费用": 1016145.49,
+        "财务费用": 142561.58,
+        "total": 5198857.09
+      },
+      "manual": {
+        "营销人力成本": 474038.0,
+        "管理人力成本": 608490.0,
+        "研发人力成本": 478464.0,
+        "财务费用补充": 20907.0,
+        "PM人力成本": 242759.0,
+        "VM人力成本": 166020.0,
+        "实际内部译员成本": 340767.0,
+        "税费损失": 39831.0,
+        "技术流量成本": 94756.0,
+        "其他（生产成本）": 28568.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1126817.1,
+        "管理费用": 1344344.57,
+        "固定运营费用": 486460.35,
+        "技术服务费": 537681.49,
+        "财务费用": 121654.58
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 221382922.02,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 221382922.02,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 107305303.92,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 186867505.02,
+          "total_profit": 74870182.97,
+          "conc_pct": 31.5,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 186867505.02,
+          "total_profit": 74870182.97,
+          "conc_pct": 62.1,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年3-6月": {
+      "delivery_count": 4804,
+      "revenue_gross": 260327772.03,
+      "revenue_net": 245592237.76,
+      "vat": 14735534.27,
+      "system_direct_cost": 145890796.1,
+      "inhouse_cost": 5469614.57,
+      "production_cost": 141619112.53,
+      "gross_profit": 103973125.23,
+      "gross_margin_pct": 42.34,
+      "surtax": 1768264.11,
+      "other_pl": 0.0,
+      "pretax_profit": 95079317.03,
+      "pretax_margin_pct": 38.71,
+      "orders": 290557948.86,
+      "receipts": 141856668.99,
+      "receipt_order_ratio_pct": 48.82,
+      "expense": {
+        "营销费用": 2139294.51,
+        "管理费用": 2753598.51,
+        "固定运营费用": 649284.6,
+        "研发费用": 1369332.32,
+        "财务费用": 214034.15,
+        "total": 7125544.09
+      },
+      "manual": {
+        "营销人力成本": 615041.0,
+        "管理人力成本": 848513.0,
+        "研发人力成本": 627489.0,
+        "财务费用补充": 28397.0,
+        "PM人力成本": 313268.0,
+        "VM人力成本": 216782.0,
+        "实际内部译员成本": 454161.0,
+        "税费损失": 55218.0,
+        "技术流量成本": 120030.0,
+        "其他（生产成本）": 38472.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1524253.51,
+        "管理费用": 1905085.51,
+        "固定运营费用": 649284.6,
+        "技术服务费": 741843.32,
+        "财务费用": 185637.15
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 290557948.86,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 290557948.86,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 141856668.99,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 245592237.76,
+          "total_profit": 99701441.66,
+          "conc_pct": 31.1,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 245592237.76,
+          "total_profit": 99701441.66,
+          "conc_pct": 61.3,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年3-7月": {
+      "delivery_count": 6005,
+      "revenue_gross": 330599705.71,
+      "revenue_net": 311886514.82,
+      "vat": 18713190.89,
+      "system_direct_cost": 184534657.34,
+      "inhouse_cost": 6830604.09,
+      "production_cost": 179221075.25,
+      "gross_profit": 132665439.57,
+      "gross_margin_pct": 42.54,
+      "surtax": 2245582.91,
+      "other_pl": 0.0,
+      "pretax_profit": 121463758.41,
+      "pretax_margin_pct": 38.94,
+      "orders": 312877275.09,
+      "receipts": 177219076.94,
+      "receipt_order_ratio_pct": 56.64,
+      "expense": {
+        "营销费用": 2662343.77,
+        "管理费用": 3446544.62,
+        "固定运营费用": 817150.58,
+        "研发费用": 1725736.93,
+        "财务费用": 304322.35,
+        "total": 8956098.25
+      },
+      "manual": {
+        "营销人力成本": 749658.0,
+        "管理人力成本": 1098748.0,
+        "研发人力成本": 791338.0,
+        "财务费用补充": 36521.0,
+        "PM人力成本": 392895.0,
+        "VM人力成本": 274788.0,
+        "实际内部译员成本": 583393.0,
+        "税费损失": 69746.0,
+        "技术流量成本": 149531.0,
+        "其他（生产成本）": 46669.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1912685.77,
+        "管理费用": 2347796.62,
+        "固定运营费用": 817150.58,
+        "技术服务费": 934398.93,
+        "财务费用": 267801.35
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 312877275.09,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 312877275.09,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 177219076.94,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 311886514.82,
+          "total_profit": 127351857.48,
+          "conc_pct": 31.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 311886514.82,
+          "total_profit": 127351857.48,
+          "conc_pct": 61.6,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年4-5月": {
+      "delivery_count": 2402,
+      "revenue_gross": 129582033.52,
+      "revenue_net": 122247201.43,
+      "vat": 7334832.09,
+      "system_direct_cost": 72483588.7,
+      "inhouse_cost": 2775955.75,
+      "production_cost": 70288010.95,
+      "gross_profit": 51959190.48,
+      "gross_margin_pct": 42.5,
+      "surtax": 880179.85,
+      "other_pl": 0.0,
+      "pretax_profit": 47464275.2,
+      "pretax_margin_pct": 38.83,
+      "orders": 146939242.91,
+      "receipts": 72589890.74,
+      "receipt_order_ratio_pct": 49.4,
+      "expense": {
+        "营销费用": 1064546.24,
+        "管理费用": 1373649.77,
+        "固定运营费用": 350596.88,
+        "研发费用": 705922.57,
+        "财务费用": 120019.97,
+        "total": 3614735.43
+      },
+      "manual": {
+        "营销人力成本": 310940.0,
+        "管理人力成本": 386181.0,
+        "研发人力成本": 305432.0,
+        "财务费用补充": 13381.0,
+        "PM人力成本": 154072.0,
+        "VM人力成本": 100607.0,
+        "实际内部译员成本": 216554.0,
+        "税费损失": 23954.0,
+        "技术流量成本": 66478.0,
+        "其他（生产成本）": 18713.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 753606.24,
+        "管理费用": 987468.77,
+        "固定运营费用": 350596.88,
+        "技术服务费": 400490.57,
+        "财务费用": 106638.97
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 146939242.91,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 146939242.91,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 72589890.74,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 122247201.43,
+          "total_profit": 49763612.73,
+          "conc_pct": 30.4,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 122247201.43,
+          "total_profit": 49763612.73,
+          "conc_pct": 63.3,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年4-6月": {
+      "delivery_count": 3603,
+      "revenue_gross": 191830250.23,
+      "revenue_net": 180971934.18,
+      "vat": 10858316.05,
+      "system_direct_cost": 106377062.75,
+      "inhouse_cost": 4141659.87,
+      "production_cost": 103101010.88,
+      "gross_profit": 77870923.3,
+      "gross_margin_pct": 43.03,
+      "surtax": 1302997.93,
+      "other_pl": 0.0,
+      "pretax_profit": 71026502.94,
+      "pretax_margin_pct": 39.25,
+      "orders": 216114269.75,
+      "receipts": 107141255.81,
+      "receipt_order_ratio_pct": 49.58,
+      "expense": {
+        "营销费用": 1602985.65,
+        "管理费用": 2174413.71,
+        "固定运营费用": 513421.13,
+        "研发费用": 1059109.4,
+        "财务费用": 191492.54,
+        "total": 5541422.43
+      },
+      "manual": {
+        "营销人力成本": 451943.0,
+        "管理人力成本": 626204.0,
+        "研发人力成本": 454457.0,
+        "财务费用补充": 20871.0,
+        "PM人力成本": 224581.0,
+        "VM人力成本": 151369.0,
+        "实际内部译员成本": 329948.0,
+        "税费损失": 39341.0,
+        "技术流量成本": 91752.0,
+        "其他（生产成本）": 28617.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1151042.65,
+        "管理费用": 1548209.71,
+        "固定运营费用": 513421.13,
+        "技术服务费": 604652.4,
+        "财务费用": 170621.54
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 216114269.75,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 216114269.75,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 107141255.81,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 180971934.18,
+          "total_profit": 74594871.43,
+          "conc_pct": 30.2,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 180971934.18,
+          "total_profit": 74594871.43,
+          "conc_pct": 62.0,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年4-7月": {
+      "delivery_count": 4804,
+      "revenue_gross": 262102183.91,
+      "revenue_net": 247266211.24,
+      "vat": 14835972.67,
+      "system_direct_cost": 145020923.99,
+      "inhouse_cost": 5502649.39,
+      "production_cost": 140702973.6,
+      "gross_profit": 106563237.64,
+      "gross_margin_pct": 43.1,
+      "surtax": 1780316.72,
+      "other_pl": 0.0,
+      "pretax_profit": 97410944.33,
+      "pretax_margin_pct": 39.4,
+      "orders": 238433595.98,
+      "receipts": 142503663.76,
+      "receipt_order_ratio_pct": 59.77,
+      "expense": {
+        "营销费用": 2126034.91,
+        "管理费用": 2867359.82,
+        "固定运营费用": 681287.11,
+        "研发费用": 1415514.01,
+        "财务费用": 281780.74,
+        "total": 7371976.59
+      },
+      "manual": {
+        "营销人力成本": 586560.0,
+        "管理人力成本": 876439.0,
+        "研发人力成本": 618306.0,
+        "财务费用补充": 28995.0,
+        "PM人力成本": 304208.0,
+        "VM人力成本": 209375.0,
+        "实际内部译员成本": 459180.0,
+        "税费损失": 53869.0,
+        "技术流量成本": 121253.0,
+        "其他（生产成本）": 36814.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1539474.91,
+        "管理费用": 1990920.82,
+        "固定运营费用": 681287.11,
+        "技术服务费": 797208.01,
+        "财务费用": 252785.74
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 238433595.98,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 238433595.98,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 142503663.76,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 247266211.24,
+          "total_profit": 102245287.25,
+          "conc_pct": 31.4,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 247266211.24,
+          "total_profit": 102245287.25,
+          "conc_pct": 62.2,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年5-6月": {
+      "delivery_count": 2402,
+      "revenue_gross": 125687643.78,
+      "revenue_net": 118573248.85,
+      "vat": 7114394.93,
+      "system_direct_cost": 69286812.27,
+      "inhouse_cost": 2756521.63,
+      "production_cost": 67085437.64,
+      "gross_profit": 51487811.21,
+      "gross_margin_pct": 43.42,
+      "surtax": 853727.39,
+      "other_pl": 0.0,
+      "pretax_profit": 46876903.01,
+      "pretax_margin_pct": 39.53,
+      "orders": 142765125.97,
+      "receipts": 70226211.48,
+      "receipt_order_ratio_pct": 49.19,
+      "expense": {
+        "营销费用": 1115037.95,
+        "管理费用": 1545488.9,
+        "固定运营费用": 303402.93,
+        "研发费用": 696791.82,
+        "财务费用": 96459.21,
+        "total": 3757180.81
+      },
+      "manual": {
+        "营销人力成本": 273412.0,
+        "管理人力成本": 444759.0,
+        "研发人力成本": 316847.0,
+        "财务费用补充": 14275.0,
+        "PM人力成本": 138657.0,
+        "VM人力成本": 102629.0,
+        "实际内部译员成本": 207681.0,
+        "税费损失": 27434.0,
+        "技术流量成本": 58447.0,
+        "其他（生产成本）": 20299.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 841625.95,
+        "管理费用": 1100729.9,
+        "固定运营费用": 303402.93,
+        "技术服务费": 379944.82,
+        "财务费用": 82184.21
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 142765125.97,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 142765125.97,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 70226211.48,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 118573248.85,
+          "total_profit": 49286436.58,
+          "conc_pct": 29.5,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 118573248.85,
+          "total_profit": 49286436.58,
+          "conc_pct": 61.4,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年5-7月": {
+      "delivery_count": 3603,
+      "revenue_gross": 195959577.46,
+      "revenue_net": 184867525.91,
+      "vat": 11092051.55,
+      "system_direct_cost": 107930673.51,
+      "inhouse_cost": 4117511.15,
+      "production_cost": 104687400.36,
+      "gross_profit": 80180125.55,
+      "gross_margin_pct": 43.37,
+      "surtax": 1331046.19,
+      "other_pl": 0.0,
+      "pretax_profit": 73261344.39,
+      "pretax_margin_pct": 39.63,
+      "orders": 165084452.2,
+      "receipts": 105588619.43,
+      "receipt_order_ratio_pct": 63.96,
+      "expense": {
+        "营销费用": 1638087.21,
+        "管理费用": 2238435.01,
+        "固定运营费用": 471268.91,
+        "研发费用": 1053196.43,
+        "财务费用": 186747.41,
+        "total": 5587734.97
+      },
+      "manual": {
+        "营销人力成本": 408029.0,
+        "管理人力成本": 694994.0,
+        "研发人力成本": 480696.0,
+        "财务费用补充": 22399.0,
+        "PM人力成本": 218284.0,
+        "VM人力成本": 160635.0,
+        "实际内部译员成本": 336913.0,
+        "税费损失": 41962.0,
+        "技术流量成本": 87948.0,
+        "其他（生产成本）": 28496.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 1230058.21,
+        "管理费用": 1543441.01,
+        "固定运营费用": 471268.91,
+        "技术服务费": 572500.43,
+        "财务费用": 164348.41
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 165084452.2,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 165084452.2,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 105588619.43,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 184867525.91,
+          "total_profit": 76936852.4,
+          "conc_pct": 31.3,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 184867525.91,
+          "total_profit": 76936852.4,
+          "conc_pct": 61.4,
+          "n_items": 10
+        }
+      }
+    },
+    "2026年6-7月": {
+      "delivery_count": 2402,
+      "revenue_gross": 132520150.39,
+      "revenue_net": 125019009.8,
+      "vat": 7501140.59,
+      "system_direct_cost": 72537335.29,
+      "inhouse_cost": 2726693.64,
+      "production_cost": 70414962.65,
+      "gross_profit": 54604047.15,
+      "gross_margin_pct": 43.68,
+      "surtax": 900136.87,
+      "other_pl": 0.0,
+      "pretax_profit": 49946669.12,
+      "pretax_margin_pct": 39.95,
+      "orders": 91494353.07,
+      "receipts": 69913773.02,
+      "receipt_order_ratio_pct": 76.41,
+      "expense": {
+        "营销费用": 1061488.67,
+        "管理费用": 1493710.05,
+        "固定运营费用": 330690.23,
+        "研发费用": 709591.44,
+        "财务费用": 161760.77,
+        "total": 3757241.16
+      },
+      "manual": {
+        "营销人力成本": 275620.0,
+        "管理人力成本": 490258.0,
+        "研发人力成本": 312874.0,
+        "财务费用补充": 15614.0,
+        "PM人力成本": 150136.0,
+        "VM人力成本": 108768.0,
+        "实际内部译员成本": 242626.0,
+        "税费损失": 29915.0,
+        "技术流量成本": 54775.0,
+        "其他（生产成本）": 18101.0,
+        "直接成本增值税": 0.0,
+        "其他损益": 0.0
+      },
+      "ledger_expenses": {
+        "市场费用": 785868.67,
+        "管理费用": 1003452.05,
+        "固定运营费用": 330690.23,
+        "技术服务费": 396717.44,
+        "财务费用": 146146.77
+      },
+      "rankings_totals": {
+        "orders_by_dept": {
+          "total": 91494353.07,
+          "n_items": 0,
+          "n_full": 0
+        },
+        "orders_by_sales": {
+          "total": 91494353.07,
+          "n_items": 10,
+          "n_full": 22
+        },
+        "receipts_by_customer": {
+          "total": 69913773.02,
+          "n_items": 10,
+          "n_full": 106
+        }
+      },
+      "profit_rankings_totals": {
+        "revenue_by_customer": {
+          "total_revenue": 125019009.8,
+          "total_profit": 52481674.51,
+          "conc_pct": 33.8,
+          "n_items": 10
+        },
+        "revenue_by_sales": {
+          "total_revenue": 125019009.8,
+          "total_profit": 52481674.51,
+          "conc_pct": 61.2,
+          "n_items": 10
+        }
+      }
+    }
+  },
+  "trend": [
+    [
+      "1月",
+      59197031.58,
+      34367660.98,
+      41.94
+    ],
+    [
+      "2月",
+      65253802.27,
+      37837464.34,
+      42.01
+    ],
+    [
+      "3月",
+      64620303.58,
+      38518101.65,
+      40.39
+    ],
+    [
+      "4月",
+      62398685.33,
+      36015573.24,
+      42.28
+    ],
+    [
+      "5月",
+      59848516.1,
+      34272437.71,
+      42.73
+    ],
+    [
+      "6月",
+      58724732.75,
+      32812999.93,
+      44.12
+    ],
+    [
+      "7月",
+      66294277.06,
+      37601962.72,
+      43.28
+    ]
+  ],
+  "receipt_monthly": [
+    [
+      "1月",
+      36270471.48
+    ],
+    [
+      "2月",
+      35676014.82
+    ],
+    [
+      "3月",
+      34715413.18
+    ],
+    [
+      "4月",
+      36915044.33
+    ],
+    [
+      "5月",
+      35674846.41
+    ],
+    [
+      "6月",
+      34551365.07
+    ],
+    [
+      "7月",
+      35362407.95
+    ]
+  ],
+  "receipt_order_monthly": [
+    [
+      "1月",
+      36270471.48,
+      78716468.59,
+      46.08
+    ],
+    [
+      "2月",
+      35676014.82,
+      67837394.05,
+      52.59
+    ],
+    [
+      "3月",
+      34715413.18,
+      74443679.11,
+      46.63
+    ],
+    [
+      "4月",
+      36915044.33,
+      73349143.78,
+      50.33
+    ],
+    [
+      "5月",
+      35674846.41,
+      73590099.13,
+      48.48
+    ],
+    [
+      "6月",
+      34551365.07,
+      69175026.84,
+      49.95
+    ],
+    [
+      "7月",
+      35362407.95,
+      22319326.23,
+      158.44
+    ]
+  ]
+}
