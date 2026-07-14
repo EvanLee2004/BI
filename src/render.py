@@ -831,11 +831,17 @@ def _pv(key, default_key, inner):
 JS = """
 (function(){
  var root=document.documentElement, btn=document.getElementById('themeBtn');
- function setL(l){root.classList.toggle('theme-light',l);document.body.classList.toggle('theme-light',l);
-   btn.innerHTML=l?'<span>◐</span> 深色':'<span>◑</span> 浅色';}
+ function setL(l){root.classList.toggle('theme-light',!!l);document.body.classList.toggle('theme-light',!!l);
+   if(btn) btn.innerHTML=l?'<span>◐</span> 深色':'<span>◑</span> 浅色';}
  try{setL(localStorage.getItem('cockpit-theme')==='light');}catch(e){}
- btn.addEventListener('click',function(){var l=!root.classList.contains('theme-light');setL(l);
+ if(btn) btn.addEventListener('click',function(){var l=!root.classList.contains('theme-light');setL(l);
    try{localStorage.setItem('cockpit-theme',l?'light':'dark');}catch(e){}});
+ // 跨页/管理端 iframe 同步（同源 localStorage + postMessage）
+ window.addEventListener('storage',function(e){if(e.key==='cockpit-theme')setL(e.newValue==='light');});
+ window.addEventListener('message',function(e){
+   if(e.origin!==location.origin)return;
+   if(e.data&&e.data.type==='cockpit-theme')setL(e.data.theme==='light');
+ });
  // 周期选择：日历面板。所有周期块已预渲染，这里只切显示、不算任何数。
  var pbtn=document.getElementById('periodBtn'),ppanel=document.getElementById('ppanel');
  if(pbtn&&ppanel){
@@ -1237,7 +1243,9 @@ def render_dashboard(summary, cfg, logo_b64):
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>甲骨易智能经营罗盘</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<title>甲骨易智能经营罗盘</title>'
+            f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'
+            f'<style>{theme.get_css()}</style></head><body>{body}</body></html>')
 
 
 # ---------- BU 分页（迭代 14 → 费用直记）：完整利润表 ----------
@@ -1409,4 +1417,6 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>甲骨易智能经营罗盘 · {name}</title><style>{theme.get_css()}</style></head><body>{body}</body></html>')
+            f'<title>甲骨易智能经营罗盘 · {name}</title>'
+            f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'
+            f'<style>{theme.get_css()}</style></head><body>{body}</body></html>')
