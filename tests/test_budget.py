@@ -88,5 +88,22 @@ class TestRenderSwitch(unittest.TestCase):
         self.assertIn("下单年预算", html)
 
 
+class TestBudgetFollowsTopFilter(unittest.TestCase):
+    """业绩目标改跟顶部统一「范围/年份」（明昊 2026-07-14）：管理端控制台不再有独立的 bY/bScope 下拉。"""
+    def test_console_has_no_own_budget_selectors(self):
+        import server
+        tpl = server._ADMIN_CONSOLE
+        self.assertNotIn('id="bY"', tpl)
+        self.assertNotIn('id="bScope"', tpl)
+        self.assertNotIn("bFillScopes", tpl)
+        self.assertIn("跟随顶部", tpl)                       # 说明文案已改
+        # bLoad 取顶部 mY/mScope（不再读自有下拉）
+        i = tpl.find("async function bLoad(")
+        self.assertNotEqual(i, -1)
+        body = tpl[i:i + 400]
+        self.assertIn('getElementById("mY")', body)
+        self.assertIn('getElementById("mScope")', body)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

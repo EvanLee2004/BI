@@ -1000,13 +1000,11 @@ html.theme-light .stab:hover{border-color:#94a3b8}
     <div class="note info">台账费用多为<b>含税</b>金额。能抵扣进项的费用（<b>主要是房租/物业</b>）可填增值税率 %，
       看板把它按「<b>不含税额 = 含税额 ÷ (1 + 税率%)</b>」还原成真实费用；<b>大部分费用抵不了税（业务招待、水电等）留空即可</b>。
       <b>默认全空 = 不去税，页面数字一分不变</b>；类别按全年金额从大到小排（大头在前，按重要性挑填）。全公司一套、常年沿用。与上方共用底部「保存全部」。</div>
-    <div class="tbl-box no-scroll"><table id="dTbl"></table></div>
+    <div class="tbl-box no-scroll"><table id="dxTbl"></table></div>
   </div>
   <div class="sec-block">
     <div class="blk-h">🎯 业绩目标（优先）</div>
-    <div class="note info">下单 / 回款目标填<strong>万元</strong>（如 8000 = 8000 万）；毛利率填百分数（35 = 35%）。可选全公司或 BU。与上方共用底部「保存全部」。</div>
-    <div class="toolbar"><span class="field-inline">年份 <select id="bY"></select></span>
-      <span class="field-inline">范围 <select id="bScope"><option value="全公司">全公司</option></select></span></div>
+    <div class="note info">下单 / 回款目标填<strong>万元</strong>（如 8000 = 8000 万）；毛利率填百分数（35 = 35%）。<b>跟随顶部「月份」的年份与「范围」</b>（全公司 / 某 BU）。与上方共用底部「保存全部」。</div>
     <div class="tbl-box no-scroll"><table id="bTbl"></table></div>
   </div>
   <div id="saveBar" class="save-bar">
@@ -1288,7 +1286,7 @@ function confirmLeave(){if(!_formDirty)return true;return confirm("有 "+_formDi
 function setDirtyCount(n){_formDirty=n||0;const bar=document.getElementById("saveBar"),c=document.getElementById("dirtyCount");
   if(bar)bar.classList.toggle("on",_formDirty>0);if(c)c.textContent=String(_formDirty);}
 function refreshDirtyUI(){let n=0;
-  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig],#dTbl input[data-orig]").forEach(el=>{
+  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig],#dxTbl input[data-orig]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim();
     const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
     const dirty=cur!==orig;el.closest("tr")&&el.closest("tr").classList.toggle("dirty",dirty);if(dirty)n++;});
@@ -1874,8 +1872,8 @@ async function dLoad(){const blk=document.getElementById("detaxBlock");if(!blk)r
     h+="<tr><td>"+esc(cat)+"</td><td class='muted'>"+esc(c.amount_disp||"")+"</td>"+
       "<td><input id='dx_"+i+"' class='amt' data-kind='detax' data-cat='"+esc(cat)+
       "' data-orig='"+esc(v)+"' size='8' value='"+esc(v)+"' placeholder='留空=不去税'></td></tr>";});
-  document.getElementById("dTbl").innerHTML=h;
-  document.querySelectorAll("#dTbl input.amt").forEach(el=>{
+  document.getElementById("dxTbl").innerHTML=h;
+  document.querySelectorAll("#dxTbl input.amt").forEach(el=>{
     el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});}
 // 业绩目标（金额界面=万元 / 毛利率=百分数）
 const BUDGET_METRICS=[
@@ -1886,20 +1884,11 @@ const BUDGET_METRICS=[
   {k:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true},
   {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false},
 ];
-async function bFillScopes(){
-  const sel=document.getElementById("bScope");if(!sel)return;
-  let bus=[];try{const d=await jget("/api/bu_config");bus=(d.bus||[]).map(b=>b.name);}catch(e){}
-  const cur=sel.value||"全公司";
-  sel.innerHTML='<option value="全公司">全公司</option>'+bus.map(n=>'<option value="'+esc(n)+'">BU · '+esc(n)+'</option>').join("");
-  sel.value=[...sel.options].some(o=>o.value===cur)?cur:"全公司";
-  sel.onchange=async()=>{if(!confirmLeave()){await bFillScopes();return;}await bLoad();};
-}
-async function bLoad(){const sel=document.getElementById("bY");
-  if(!sel.options.length){const my=document.getElementById("mY");
-    sel.innerHTML=my.innerHTML;sel.value=my.value;}
-  sel.onchange=async()=>{if(!confirmLeave())return;await bLoad();};
-  await bFillScopes();
-  const y=sel.value,scope=(document.getElementById("bScope")||{}).value||"全公司";
+async function bLoad(){
+  // 业绩目标改跟顶部统一筛选（明昊 2026-07-14）：年份取顶部「月份」的年、范围取顶部「范围」，无独立下拉
+  const y=(document.getElementById("mY")||{}).value;
+  const scope=(document.getElementById("mScope")||{}).value||"全公司";
+  if(!y){return;}
   const cur=await jget("/api/budget?year="+encodeURIComponent(y));
   const map={};cur.filter(x=>(x["范围"]||"全公司")===scope&&x["指标"]!=="费用年预算").forEach(x=>map[x["指标"]]=x["金额"]);
   let h="<tr><th>指标</th><th>说明</th><th>当前</th><th>新值</th></tr>";
@@ -1924,9 +1913,9 @@ async function bLoad(){const sel=document.getElementById("bY");
   refreshDirtyUI();}
 function discardDirty(){if(!_formDirty)return;if(!confirm("放弃全部未保存修改？"))return;mLoad();}
 async function batchSaveAll(){
-  const m=ymVal("mY","mM");const y=(document.getElementById("bY")||{}).value;
+  const m=ymVal("mY","mM");const y=(document.getElementById("mY")||{}).value;
   const mScope=(document.getElementById("mScope")||{}).value||"全公司";
-  const scope=(document.getElementById("bScope")||{}).value||"全公司";
+  const scope=mScope;   // 业绩目标改跟顶部统一范围（明昊 2026-07-14）
   const manuals=[],budgets=[];
   document.querySelectorAll("#mTbl input[data-kind=manual]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
@@ -1960,7 +1949,7 @@ async function batchSaveAll(){
     allocs[el.dataset.bu]=cur===""?null:Number(cur);allocChanged++;});
   if(allocChanged&&allocSum>100.05){alert("本月各 BU 比例合计 "+Math.round(allocSum*10)/10+"% 超过 100%，请调整（可以小于 100%，剩余留公司层）");throw new Error("bad");}
   const detax={};let detaxChanged=0;
-  document.querySelectorAll("#dTbl input[data-kind=detax]").forEach(el=>{
+  document.querySelectorAll("#dxTbl input[data-kind=detax]").forEach(el=>{
     const cur=String(el.value).trim(),orig=String(el.dataset.orig||"").trim();
     if(cur!==""){const n=Number(cur);
       if(isNaN(n)||n<0||n>100){alert("费用类别「"+el.dataset.cat+"」去税率须为 0~100 的数字");throw new Error("bad");}}
@@ -3110,6 +3099,7 @@ def create_app(cfg, root=None) -> FastAPI:
 
     def _detax_payload(conn) -> dict:
         """费用去税率录入页数据：可去税类别（含全年金额参考·降序）+ 已填税率。"""
+        import charts  # 局部导入避免循环依赖（与本模块其余 charts 用法一致）
         cats = db.list_detax_categories(conn, cfg)
         rates = db.load_detax_rates(conn)
         return {

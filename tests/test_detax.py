@@ -154,6 +154,18 @@ class TestDetaxApi(unittest.TestCase):
         server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
+        # 种入真实台账细类：GET 才走 categories+amount_disp（fmt_wan）路径——
+        # 空库 categories=[] 会漏掉 fmt_wan（曾漏 server.py 缺 import charts 的 500，见 test_get_categories_populated）
+        conn = db.connect(cls.cfg, cls.root)
+        try:
+            for big, fine, amt in [("固定运营费用", "房租", 1090000.0),
+                                   ("管理费用", "办公用品", 100000.0),
+                                   ("生产成本-译费", "译费", 999.0)]:  # 白名单外
+                conn.execute("INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) "
+                             "VALUES(?,?,?,0)", (amt, big, fine))
+            conn.commit()
+        finally:
+            conn.close()
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
@@ -162,6 +174,27 @@ class TestDetaxApi(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         server.recompute = cls._orig_recompute
+
+    def test_get_categories_populated(self):
+        # 非空台账 → categories 带金额串（fmt_wan）·降序·排除白名单外（回归 server.py 缺 import charts 的 500）
+        g = self.client.get("/api/detax_rates", headers=self.hdr)
+        self.assertEqual(g.status_code, 200, g.text)
+        cats = g.json()["categories"]
+        names = [c["category"] for c in cats]
+        self.assertIn("房租", names)
+        self.assertIn("办公用品", names)
+        self.assertNotIn("译费", names)               # 白名单外
+        self.assertLess(names.index("房租"), names.index("办公用品"))  # 金额降序
+        self.assertTrue(cats[0]["amount_disp"].endswith("万"))         # 金额串格式化成功
+
+    def test_no_duplicate_element_ids_in_console(self):
+        # 回归：detax 表 id 曾用 dTbl 与既有明细表 dTbl 撞车 → getElementById 命中错表、去税表空白不渲染。
+        # 全控制台静态 id 不得重复（这类"页面看着空但 DOM 有数据"的坑，单测/接口都抓不到，只有整页扫 id 能防）。
+        import re, collections
+        ids = re.findall(r'id="([A-Za-z][\w-]*)"', server._ADMIN_CONSOLE)
+        dups = [i for i, n in collections.Counter(ids).items() if n > 1]
+        self.assertEqual(dups, [], f"控制台存在重复 element id：{dups}")
+        self.assertIn("dxTbl", ids)   # 去税表 id 存在且唯一
 
     def test_requires_login(self):
         self.assertEqual(self.anon.get("/api/detax_rates").status_code, 401)
