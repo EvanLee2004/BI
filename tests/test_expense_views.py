@@ -147,10 +147,7 @@ class TestRenderSwitches(unittest.TestCase):
         self.assertNotIn("按部门", html)
         self.assertIn('data-ev="fine"', html)
         self.assertIn("办公用品", html)
-        self.assertIn("预算明细费用类型", html)
-        # 类别小计=台账 180，与条合计一致（显示串 18.0万 if 元→万：180元=0.0万? wait charts.fmt_wan)
-        # 金额单位=元，fmt_wan(180)=0.0 — 合成小样只验文案在位
-        self.assertIn("点类别看所属大类", html)
+        self.assertIn("台账小计", html)  # 看端精简脚注，不再堆口径长文
 
 
 class TestLedgerRowDateMonthGuard(unittest.TestCase):

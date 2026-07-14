@@ -256,13 +256,13 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """分摊关：无台账直记时说明无费用；有返回整体 + 基本情况；不含全公司出口。"""
+        """分摊关：看端脚注说明本BU范围；有返回整体 + 基本情况；不含全公司出口。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._pages()["BU甲"]["html"]
-        # 合成数据无台账 → 应提示本BU无台账费用（不再假写「暂不分摊」藏金额）
+        # 看端精简：一句话范围脚注（直记/分摊），不再堆「利润归属中心」长说明
         self.assertTrue(
-            ("本BU无台账" in h) or ("台账·本BU" in h) or ("利润归属中心" in h),
-            "BU 页应说明费用口径（直记/无费用）")
+            ("本BU直记" in h) or ("公共分摊" in h) or ("仅含" in h),
+            "BU 页应有本页范围脚注")
         self.assertIn("基本情况", h)
         self.assertIn("返回整体", h)
         self.assertIn('href="/"', h)
@@ -294,7 +294,8 @@ class TestBuPages(_Base):
         self.assertIn("营销费用", h)
         # 5万 → 5.0万 展示
         self.assertIn("5.0万", h)
-        self.assertIn("利润归属中心", h)
+        self.assertIn("本BU直记", h)  # 看端短标签（明细口径在管理端）
+
     def test_page_alloc_monthly_shows_note_not_other_bu(self):
         """迭代20：按月分摊生效时本 BU 标「按月比例」；旧静态比例配置不再生效；不泄漏他 BU。"""
         data = {"bus": [

@@ -210,12 +210,12 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn("系统成本率", self.html)   # 陆总0714 改名
 
     def test_receipt_month_highlight_hooks(self):
-        """迭代21-A：回款柱带 data-rm、周期→月份映射 data-rm-map、卡头「全年视角 · 选中周期高亮」。"""
+        """迭代21-A：回款柱带 data-rm、周期→月份映射 data-rm-map；看端卡头已精简。"""
         html = self.html
         self.assertIn('id="rcCard"', html)
         self.assertIn("data-rm-map=", html)
         self.assertIn("data-rm-year=", html)
-        self.assertIn("全年视角 · 选中周期高亮", html)
+        self.assertNotIn("全年视角 · 选中周期高亮", html)  # 领导视角去运营旁注
         # 柱/点/数字至少有一根 data-rm（1~12）
         self.assertRegex(html, r'data-rm="\d{1,2}"')
         # 映射含年/月/季 key 形样（Python 预生成，前端不解析）

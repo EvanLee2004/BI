@@ -94,6 +94,28 @@ class TestComputeDaily(unittest.TestCase):
         self.assertEqual(rk["unfilled"], {"amount": 2000.0, "count": 1})
         self.assertEqual({i["name"] for i in rk["items"]}, {"部门A", "部门B"})
 
+    def test_orders_by_bu_when_sales_map(self):
+        """配了销售→BU 映射时，时间段查询也应出 orders_by_bu（与全年预渲染同口径）。"""
+        orders = [
+            {"下单日期": "2026-03-01", "下单预估额": 1000.0, "部门": "部门B", "销售": "张三"},
+            {"下单日期": "2026-03-01", "下单预估额": 2000.0, "部门": "", "销售": "李四"},
+            {"下单日期": "2026-03-05", "下单预估额": 300.0, "部门": "部门A", "销售": "王五"},
+        ]
+        receipts = []
+        cols = {"order_amount": "下单预估额", "order_date": "下单日期",
+                "receipt_amount": "到账金额", "receipt_date": "到账日期"}
+        # 张三+李四 → 游戏；王五未映射 → 未归属
+        d = profit.compute_daily(orders, receipts, cols, D1, D31,
+                                 sales_to_bu={"张三": "游戏", "李四": "游戏"})
+        self.assertIn("orders_by_bu", d["rankings"])
+        bu = d["rankings"]["orders_by_bu"]
+        self.assertEqual(bu["items"][0]["name"], "游戏")
+        self.assertEqual(bu["items"][0]["amount"], 3000.0)
+        self.assertEqual(bu["unfilled"]["amount"], 300.0)
+        # 无映射时不挂该键（前端回退按部门）
+        d0 = profit.compute_daily(orders, receipts, cols, D1, D31)
+        self.assertNotIn("orders_by_bu", d0["rankings"])
+
 
 class TestDailyEndpoint(unittest.TestCase):
     @classmethod
@@ -168,7 +190,8 @@ class TestDailyFrontend(unittest.TestCase):
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
         for token in ("dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
                       "本年", "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start=",
-                      "_syncDailyDates", "restoreYear", "yearRange", "window.applyPeriod"):
+                      "_syncDailyDates", "restoreYear", "yearRange", "window.applyPeriod",
+                      "orders_by_bu", "下单 · 按BU"):  # 时间段查询优先按 BU（与全年预渲染一致）
             self.assertIn(token, html, token)
         # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
         self.assertIn('id="dailyMonth"', html)

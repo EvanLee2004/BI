@@ -279,9 +279,10 @@ class TestCostVatManual(unittest.TestCase):
     def test_row_in_pl_drawers(self):
         s = self._summary({"2026-01": {"直接成本增值税": 100.0}})
         html = render.render_pl_table(s["periods"]["2026年"], {})
-        self.assertIn("减：直接成本增值税", html)
+        self.assertIn("直接成本增值税", html)
+        self.assertNotIn("减：直接成本增值税", html)  # 看端抽屉去掉加/减前缀
         bu_html, _ = render.render_bu_pl_table(s["periods"]["2026年"])
-        self.assertIn("减：直接成本增值税", bu_html)
+        self.assertIn("直接成本增值税", bu_html)
 
 
 
@@ -298,6 +299,35 @@ class TestManualItemsInjected(unittest.TestCase):
     def test_placeholder_exists_in_template(self):
         import server
         self.assertIn("__MANUAL_ITEMS__", server._ADMIN_CONSOLE)
+
+
+class TestReceiptDeliveredUnpaid(unittest.TestCase):
+    """资金与回款右侧：下单未回款改名 + 已交付未回款（交付金额−回款·近似应收）。"""
+
+    SERIES = [("1月", 200_000.0, 500_000.0, 40.0),
+              ("2月", 200_000.0, 500_000.0, 40.0)]  # 累计回款 40 万、下单 100 万
+
+    def test_rename_and_delivered_row(self):
+        html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0)
+        self.assertIn("下单未回款", html)
+        self.assertIn("已交付未回款", html)
+        self.assertNotIn("缺口（下单 − 回款）", html)
+        self.assertIn("含未交付订单，非应收", html)
+
+    def test_no_delivered_gross_hides_row(self):
+        html = render.render_receipts(self.SERIES)  # 不传 delivered_gross
+        self.assertIn("下单未回款", html)
+        self.assertNotIn("已交付未回款", html)   # 行与脚注均不提
+        self.assertNotIn("rc-recv", html)
+
+    def test_amount_string(self):
+        # 交付 100 万 − 回款 40 万 = 60.0万（后端算好串）
+        html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0)
+        self.assertIn("60.0万", html)
+        # 回款超交付 → 全角负号，不 clamp
+        html_neg = render.render_receipts(
+            [("1月", 1_500_000.0, 100_000.0, None)], delivered_gross=1_000_000.0)
+        self.assertIn("−50.0万", html_neg)
 
 
 class TestBuExportGate(unittest.TestCase):

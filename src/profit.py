@@ -136,10 +136,11 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
             "conc_k": conc_k, "conc_pct": conc_pct}
 
 
-def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10):
+def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_to_bu=None):
     """按天明细（/api/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
     days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
-    只做下单/回款——费用/手填按月，切不出按天利润（2026-07-10 拍板口径）。"""
+    只做下单/回款——费用/手填按月，切不出按天利润（2026-07-10 拍板口径）。
+    sales_to_bu={销售名:BU名} 有值时额外算 rankings.orders_by_bu（与全年预渲染「下单·按BU」同口径）。"""
     days: dict[str, list] = {}   # day -> [下单额, 下单笔数, 回款额, 回款笔数]
 
     def _acc(rows, amount_col, date_col, ai, ci):
@@ -168,6 +169,15 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10):
         "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
                                                 cols_cfg["receipt_date"], start, end, top),
     }
+    if sales_to_bu:
+        smap = {str(k).strip(): v for k, v in sales_to_bu.items() if str(k).strip()}
+
+        def _bu_of(row):
+            return smap.get(str(row.get("销售") or "").strip(), "")
+
+        rankings["orders_by_bu"] = compute_ranking(
+            order_rows, "销售", cols_cfg["order_amount"], cols_cfg["order_date"], start, end, top,
+            empty_label="（未归属）", name_of=_bu_of)
     return {"days": out_days, "totals": totals, "rankings": rankings}
 
 

@@ -57,6 +57,10 @@ body{
 .tb-logo{height:40px;width:auto;border-radius:6px}
 .tb-title{font-size:16px;font-weight:600;letter-spacing:.5px}
 .tb-title b{color:var(--accent)}
+.tb-ver{margin-left:10px;font-size:11.5px;font-weight:600;color:var(--accent);letter-spacing:.2px;
+  border:1px solid var(--line-2);border-radius:999px;padding:3px 11px;
+  background:rgba(34,211,238,.10);white-space:nowrap;vertical-align:middle}
+.theme-light .tb-ver{background:rgba(46,111,173,.08);color:var(--blue)}
 .tb-sub{font-size:11.5px;color:var(--mut2);margin-left:2px}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:12px}
 .tb-time{font-size:11.5px;color:var(--mut2)}
@@ -223,10 +227,13 @@ body{
 .rc-hero-flat .rc-hero-num{color:#e2e8f0;text-shadow:none}
 .rc-hero-u{font-size:14px;font-weight:700;color:#fdba74;opacity:.95}
 .rc-hero-good .rc-hero-u{color:#6ee7b7}
-/* 回款占下单进度 */
+/* 回款占下单进度 / 已交付未回款行 */
 .rc-rate{animation:riseIn .55s .08s cubic-bezier(.2,.7,.2,1) both}
 .rc-rate-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:#cbd5e1;margin-bottom:6px}
 .rc-rate-h b{font-size:17px;font-family:var(--num-font);color:var(--orange);font-weight:800}
+.rc-recv-note{font-size:11px;color:#94a3b8;line-height:1.4;margin-top:2px}
+.theme-light .rc-recv-note{color:var(--mut2)}
+
 .rc-rate-bar{height:8px;border-radius:6px;background:var(--track);overflow:hidden}
 .rc-rate-bar i{display:block;height:100%;border-radius:6px;
   background:linear-gradient(90deg,var(--orange),#fbbf24);transform-origin:left;

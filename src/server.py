@@ -2339,7 +2339,22 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         import charts
         import profit as _profit
-        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top)
+        # 与全年预渲染一致：有销售→BU 映射则多算 orders_by_bu（看端时间段查询统一按 BU）
+        sales_to_bu = None
+        try:
+            import bu as _bu
+            bucfg = _bu.load_bu_config(cfg, root)
+            if bucfg and bucfg.get("bus"):
+                sales_to_bu = {}
+                for b in bucfg["bus"]:
+                    for sal in (b.get("销售") or []):
+                        sales_to_bu.setdefault(str(sal).strip(), b["name"])
+                if not sales_to_bu:
+                    sales_to_bu = None
+        except Exception:
+            sales_to_bu = None
+        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top,
+                                  sales_to_bu=sales_to_bu)
 
         def _wan(v):   # 显示串：与排名卡一致（负数全角−）
             return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
