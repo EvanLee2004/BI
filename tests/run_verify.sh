@@ -40,4 +40,5 @@ $PY tests/test_iter22.py
 $PY tests/test_profile.py
 $PY tests/test_detax.py
 $PY tests/test_api_v1_numbers.py
+$PY tests/test_admin_static.py
 echo "✓ 全部通过"

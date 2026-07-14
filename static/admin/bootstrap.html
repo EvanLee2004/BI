@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>首次取数 · 甲骨易智能经营罗盘</title>
+<style>
+body{margin:0;background:#0b1020;color:#dbe4ff;font:14px/1.7 -apple-system,"Microsoft YaHei",sans-serif;
+display:flex;justify-content:center;padding:48px 16px}
+.card{width:100%;max-width:460px;background:#121a33;border:1px solid #26314f;border-radius:14px;padding:28px}
+h1{font-size:18px;margin:0 0 6px}.sub{color:#8fa1c7;font-size:12.5px;margin:0 0 18px}
+label{display:block;font-size:12px;color:#8fa1c7;margin:12px 0 4px}
+input{width:100%;box-sizing:border-box;background:#0b1020;border:1px solid #2c3a5e;border-radius:8px;
+color:#dbe4ff;padding:9px 10px;font-size:14px}
+button{margin-top:18px;width:100%;padding:11px;border:0;border-radius:8px;background:#22d3ee;color:#08111f;
+font-weight:700;font-size:14px;cursor:pointer}button:disabled{opacity:.5;cursor:default}
+.msg{margin-top:12px;font-size:12.5px;color:#8fa1c7;min-height:20px;white-space:pre-wrap}
+.msg.err{color:#f87171}.msg.ok{color:#34d399}</style></head><body><div class="card">
+<h1>系统已装好，还差第一次取数</h1>
+<p class="sub">填入智云账号后点下方按钮，系统自动抓数并生成看板（约 2~3 分钟）；完成后本页自动进入完整管理端。台账路径与四张表地址已内置默认，一般不用改。</p>
+<label>智云账号</label><input id="u" autocomplete="off">
+<label>智云密码</label><input id="p" type="password" autocomplete="off">
+<label>收单台账共享盘路径（已预填默认，共享盘没搬家就别动）</label><input id="lp" autocomplete="off" spellcheck="false">
+<button id="go" onclick="go()">保存并开始首次取数</button>
+<div class="msg" id="m"></div></div>
+<script>
+async function jj(url,opt){const r=await fetch(url,opt);if(!r.ok&&r.status!==409)throw new Error((await r.json().catch(()=>({}))).detail||("HTTP "+r.status));return r.json().catch(()=>({}));}
+jj("/api/settings").then(s=>{document.getElementById("u").value=s.zhiyun_username||"";
+  document.getElementById("p").value=s.zhiyun_password||"";
+  document.getElementById("lp").value=s.ledger_share_path||"";}).catch(()=>{});
+let t0=0;
+async function go(){const m=document.getElementById("m"),b=document.getElementById("go");
+  const u=document.getElementById("u").value.trim(),p=document.getElementById("p").value;
+  m.className="msg";
+  if(!u||!p){m.className="msg err";m.textContent="智云账号和密码都要填";return;}
+  b.disabled=true;m.textContent="保存配置…";
+  try{const pay={zhiyun_username:u,zhiyun_password:p};
+    const lp=document.getElementById("lp").value.trim();if(lp)pay.ledger_share_path=lp;
+    await jj("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(pay)});
+  }catch(e){m.className="msg err";m.textContent="保存失败："+e.message;b.disabled=false;return;}
+  m.textContent="开始取数…（智云在线抓约 80 秒 + 计算约 1 分钟）";t0=Date.now();
+  try{await jj("/api/refresh",{method:"POST"});}catch(e){}
+  poll();}
+async function poll(){const m=document.getElementById("m"),b=document.getElementById("go");
+  try{const s=await jj("/api/refresh_status");
+    if(s.running){m.textContent="取数中… 已 "+Math.round((Date.now()-t0)/1000)+" 秒（在线抓+32 周期计算，请勿关页）";setTimeout(poll,3000);return;}
+    const last=s.last||{};
+    if(last.status==="ok"){m.className="msg ok";m.textContent="✓ 完成，正在进入管理端…";setTimeout(()=>location.reload(),1200);return;}
+    m.className="msg err";b.disabled=false;
+    m.textContent="取数失败："+(last.detail||last.error||"未知原因")+"\\n检查账号密码后可重试；反复失败联系明昊。";
+  }catch(e){setTimeout(poll,3000);}}
+</script></body></html>

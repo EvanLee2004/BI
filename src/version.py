@@ -58,6 +58,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 PRODUCT_CHANGELOG: list[dict] = [
     {
         "date": "2026-07-15",
+        "title": "公测 Beta v1.5.0：管理端也前后端分离（全系统拆完，界面与数字不变）",
+        "items": [
+            "管理端控制台的页面样式与交互脚本也外置到 static/admin/，和看端一样不靠改 Python 大文件就能维护界面。",
+            "看端 + 管理端现已全部前后端分离；算账、口径、一键更新流程不变，部署仍是一条命令、无需 Node。",
+            "应急可开 KANBAN_LEGACY_INLINE=1 回退管理端整页内嵌（与 v1.4 看端回退同一开关语义）。",
+        ],
+    },
+    {
+        "date": "2026-07-15",
         "title": "公测 Beta v1.4.0：前后端分离（界面像素级不变，数字同一套）",
         "items": [
             "架构：驾驶舱 CSS/JS 外置到 static/，数据经 /api/v1/cockpit JSON 暴露；页面 HTML 仍由原 render 生成，观感与 v1.3.1 一致。",
