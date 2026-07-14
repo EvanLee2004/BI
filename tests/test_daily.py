@@ -210,7 +210,8 @@ class TestDailyFrontend(unittest.TestCase):
             self.assertNotIn(bad, html)
 
     def test_bu_page_has_no_daily_outlet(self):
-        """铁律12：BU 页不得出现 /api/daily 与按时间段控件。"""
+        """铁律12：BU 页不得出现 /api/daily 与按时间段控件。
+        允许本地「其余」弹窗（rkModal + 预渲染 full，不调全公司 API）。"""
         import assets, render
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
@@ -218,8 +219,13 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), today, {"合成销售"})
         h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
-        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "dailyClose", "dailyGo"):
+        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "dailyClose", "dailyGo",
+                     "/api/profit_ranking"):
             self.assertNotIn(leak, h, leak)
+        # 本地展开 + 回款侧栏随周期
+        self.assertIn("rkModal", h)
+        self.assertIn("openFull", h)
+        self.assertIn('class="rc-side"', h)
 
 
 if __name__ == "__main__":

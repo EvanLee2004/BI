@@ -492,22 +492,11 @@ def _budget_tag(budget):
     return f'<span class="tag">{"　".join(parts)}</span>' if parts else ""
 
 
-def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=None):
-    """回款右侧驾驶舱：下单未回款大数字 + 已交付未回款（可选）+ 回款占下单 + 可选年预算条。
-    delivered_gross=全年交付金额（含税·revenue_gross）；None → 不渲染「已交付未回款」行。"""
-    if not receipt_order_monthly:
-        return '<div class="rc-side-empty">暂无按月数据</div>'
-    tot_r = tot_o = 0.0
-    best = worst = None  # (label, rec)
-    for label, rec, order, _ratio in receipt_order_monthly:
-        rec = rec or 0.0
-        order = order or 0.0
-        tot_r += rec
-        tot_o += order
-        if best is None or rec > best[1]:
-            best = (label, rec)
-        if worst is None or rec < worst[1]:
-            worst = (label, rec)
+def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None):
+    """回款右侧驾驶舱（纯展示）：下单未回款 + 已交付未回款 + 回款占下单 + 可选年预算条。
+    金额均由调用方传入（已是本期合计），本函数只拼 HTML、零运算。"""
+    tot_o = float(tot_o or 0.0)
+    tot_r = float(tot_r or 0.0)
     gap = tot_o - tot_r  # 下单 − 回款：>0 表示尚待回款（含未交付）
     ytd_pct = (tot_r / tot_o * 100.0) if tot_o else None
     ytd_txt = f"{ytd_pct:.1f}%" if ytd_pct is not None else "—"
@@ -516,7 +505,6 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
     gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
     gap_num = charts.fmt_wan(abs(gap))
 
-    # 结构：顶行标签+徽章，中行超大数字（避免被挤没），底行不叠进度条
     hero = (
         f'<div class="rc-hero rc-hero-{gap_mod}">'
         f'<div class="rc-hero-top"><span class="rc-hero-l">下单未回款（下单 − 回款）</span>'
@@ -525,7 +513,6 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
         f'<span class="rc-hero-num">{gap_num}</span><span class="rc-hero-u">万</span></div>'
         f'</div>'
     )
-    # 已交付未回款 = 交付金额(含税) − 累计回款；回款超交付时如实显示负数（全角−）
     recv = ""
     if delivered_gross is not None:
         ar = float(delivered_gross) - tot_r
@@ -545,7 +532,6 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
         f'<span><em>累计回款</em>{charts.fmt_wan(tot_r)}万</span>'
         f'</div></div>'
     )
-    # 峰值/谷值徽章：陆总 0714 拍板去掉（图上已一目了然）；best/worst 计算保留（成本极低，避免连带改动）
     pills = ""
     bud = ""
     rb = (budget or {}).get("receipt") if budget else None
@@ -554,7 +540,6 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
         if not (b and b.get("target")):
             continue
         pct = b.get("pct")
-        # 目标填太小会出夸张完成率，展示上封顶文案避免 UI 崩
         if pct is None:
             pct_txt = "—"
         elif pct > 999:
@@ -572,6 +557,24 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
         f'<div class="rc-side-title">累计与回款</div>'
         f'<div class="rc-side-list rc-cockpit">{hero}{recv}{rate}{pills}{bud}</div>'
     )
+
+
+def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=None):
+    """回款右侧驾驶舱（全年按月加总版，兼容旧调用）。"""
+    if not receipt_order_monthly:
+        return '<div class="rc-side-empty">暂无按月数据</div>'
+    tot_r = tot_o = 0.0
+    for _label, rec, order, _ratio in receipt_order_monthly:
+        tot_r += rec or 0.0
+        tot_o += order or 0.0
+    return _receipt_insight_totals(tot_o, tot_r, delivered_gross=delivered_gross, budget=budget)
+
+
+def _receipt_insight_from_period(p, budget=None):
+    """单周期回款侧栏：用该周期已算好的 orders/receipts/revenue_gross（随 .pv 切，零运算）。"""
+    return _receipt_insight_totals(
+        p.get("orders"), p.get("receipts"),
+        delivered_gross=p.get("revenue_gross"), budget=budget)
 
 
 def _months_for_period_key(key: str, year_key: str) -> list[int]:
@@ -612,18 +615,26 @@ def _period_months_map(summary) -> dict[str, list[int]]:
 
 
 def render_receipts(receipt_order_monthly, budget=None, *, period_months_map=None,
-                    year_key=None, delivered_gross=None):
+                    year_key=None, delivered_gross=None, periods=None, default_key=None):
     """回款图（柱顶万 + 线上率%）+ 右侧驾驶舱（下单未回款 / 已交付未回款 / 回款占下单）。
-    迭代21：卡根挂 data-rm-map（周期→月份）供前端只切高亮，全年视角数据不变。
-    delivered_gross=全年交付金额（含税）；透传侧栏「已交付未回款」；None 则该行不渲染。"""
+    迭代21：卡根挂 data-rm-map（周期→月份）供前端只切高亮，柱图全年视角不变。
+    periods=各周期 dict 时：侧栏按 .pv 预渲染随「看哪段」切（数字跟周期，铁律2 前端零运算）；
+    年目标条只挂在全年块。delivered_gross 仅兼容旧调用（无 periods 时用）。"""
     import json
     rb = (budget or {}).get("receipt") if budget else None
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
-    side = _receipt_insight_panel(receipt_order_monthly, budget, delivered_gross=delivered_gross)
-    rm_map = period_months_map or {}
     yk = year_key or ""
+    dk = default_key or yk
+    if periods and yk:
+        # 侧栏随周期切：本期下单/回款/交付；预算条只在全年显示（年目标 vs 年完成）
+        side = "".join(
+            _pv(k, dk, _receipt_insight_from_period(
+                periods[k], budget if k == yk else None))
+            for k in periods)
+    else:
+        side = _receipt_insight_panel(receipt_order_monthly, budget, delivered_gross=delivered_gross)
+    rm_map = period_months_map or {}
     map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
-    # 看端：卡头精简；卡底运营/交互说明去掉（指标名已自解释）
     return (f'<div class="card rc-card" id="rcCard" data-rm-year="{_esc(yk)}" '
             f'data-rm-map="{_esc(map_json)}"><div class="card-h">回款情况 '
             f'<span class="tag">按月</span>'
@@ -644,52 +655,68 @@ def _rank_amt(v):
     return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
 
 
-def _rank_card(title, tag, rk, kind=""):
+def _rank_rows_html(items, total, *, share=True):
+    """排名行 HTML。金额/占比后端已定（入参 amount 为数、展示用 _rank_amt）。"""
+    if not items:
+        return '<div class="ev-empty">本期无数据</div>'
+    mx = max((it["amount"] for it in items), default=0) or 1
+    rows = []
+    for i, it in enumerate(items, 1):
+        w = max(it["amount"] / mx * 100, 0)
+        meta = f'{it["count"]}笔'
+        if share:
+            meta += f'·{it["amount"] / total * 100:.0f}%' if total > 0 else "·—"
+        rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
+                    f'<span class="ev-name" title="{_esc(it["name"])}">{_esc(it["name"])}</span>'
+                    f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
+                    f'<span class="ev-amt">{_rank_amt(it["amount"])}</span>'
+                    f'<span class="rk-meta">{meta}</span></div>')
+    return "".join(rows)
+
+
+def _rank_card(title, tag, rk, kind="", embed_full=False):
     """一张排名卡：名次 + 名称 + 横条(按最大值归一) + 金额 + 笔数/占比。金额均后端算好，前端零运算。
     kind=接口里 rankings 的键（orders_by_dept…），「其余」行点开全量明细时前端用它取数。
+    embed_full=True（BU 页）：预渲染 .rk-full 全量，本地弹窗展开，不调全公司 API（铁律12）。
     用户端不展示「（未填）」行——未填归类只在管理端异常处理；后端 unfilled 仍算（守恒）。"""
     items = (rk or {}).get("items") or []
+    total = (rk or {}).get("total") or 0
     if not items:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
-        mx = max((it["amount"] for it in items), default=0) or 1
-        total = rk.get("total") or 0
-        rows = []
-        for i, it in enumerate(items, 1):
-            w = max(it["amount"] / mx * 100, 0)
-            share = f'{it["amount"] / total * 100:.0f}%' if total > 0 else "—"
-            rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
-                        f'<span class="ev-name" title="{_esc(it["name"])}">{_esc(it["name"])}</span>'
-                        f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
-                        f'<span class="ev-amt">{_rank_amt(it["amount"])}</span>'
-                        f'<span class="rk-meta">{it["count"]}笔·{share}</span></div>')
+        rows_html = _rank_rows_html(items, total)
         others = rk.get("others")
+        more = ""
         if others:
-            rows.append(f'<div class="ev-row rk-row rk-others rk-more" title="点开看 10 名以后的完整明细">'
-                        f'<span class="rk-no">…</span>'
-                        f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
-                        f'<span class="ev-track"></span>'
-                        f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
-                        f'<span class="rk-meta">{others["count"]}笔</span></div>')
-        body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
-    # tag 空则不渲染副标题（看端去掉「期内降序·智云」类备注）
+            more = (f'<div class="ev-row rk-row rk-others rk-more" title="点开看 10 名以后的完整明细">'
+                    f'<span class="rk-no">…</span>'
+                    f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
+                    f'<span class="ev-track"></span>'
+                    f'<span class="ev-amt">{_rank_amt(others["amount"])}</span>'
+                    f'<span class="rk-meta">{others["count"]}笔</span></div>')
+        full = ""
+        if embed_full and others:
+            full_items = rk.get("full_items") or items
+            full = f'<div class="rk-full" hidden><div class="ev-list">{_rank_rows_html(full_items, total)}</div></div>'
+        body = f'<div class="ev-list rk-list">{rows_html}{more}</div>{full}'
     tag_html = f' <span class="tag">{_esc(tag)}</span>' if tag else ""
     return (f'<div class="card" data-kind="{_esc(kind)}"><div class="card-h">{title}{tag_html}</div>{body}</div>')
 
 
-def render_rankings(p):
+def render_rankings(p, embed_full=False):
     rk = p.get("rankings") or {}
     s, e = p.get("range", ("", ""))
     # 陆总0714·C2：配了 BU 归属 → 首卡"按部门"换"按BU"（按销售→BU 映射聚合；未配 BU 时回退按部门）
     by_bu = rk.get("orders_by_bu")
     if by_bu is not None:
-        first = _rank_card("下单 · 按BU", "", by_bu, "orders_by_bu")
+        first = _rank_card("下单 · 按BU", "", by_bu, "orders_by_bu", embed_full=embed_full)
     else:
-        first = _rank_card("下单 · 按部门", "", rk.get("orders_by_dept"), "orders_by_dept")
+        first = _rank_card("下单 · 按部门", "", rk.get("orders_by_dept"), "orders_by_dept",
+                           embed_full=embed_full)
     return (f'<div class="grid-3 rk-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
             f'{first}'
-            f'{_rank_card("下单 · 按销售", "", rk.get("orders_by_sales"), "orders_by_sales")}'
-            f'{_rank_card("回款 · 按客户", "", rk.get("receipts_by_customer"), "receipts_by_customer")}'
+            f'{_rank_card("下单 · 按销售", "", rk.get("orders_by_sales"), "orders_by_sales", embed_full=embed_full)}'
+            f'{_rank_card("回款 · 按客户", "", rk.get("receipts_by_customer"), "receipts_by_customer", embed_full=embed_full)}'
             f'</div>')
 
 
@@ -708,9 +735,29 @@ def _pname(name):
     return f'<span class="ev-name" title="{n}" data-tip="{_esc(n)}">{n}</span>'
 
 
-def _profit_rank_card(title, tag, rk, dim="", show_meta=True):
+def _profit_rank_rows_html(items, show_meta=True):
+    """收入排名行 HTML。"""
+    if not items:
+        return '<div class="ev-empty">本期无数据</div>'
+
+    def _meta(it):
+        return f'<span class="rk-meta">{_margin_meta(it.get("cost_pct"))}</span>' if show_meta else ""
+
+    mx = max((abs(it["revenue"]) for it in items), default=0) or 1
+    rows = []
+    for i, it in enumerate(items, 1):
+        w = max(it["revenue"] / mx * 100, 0)
+        rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
+                    f'{_pname(it["name"])}'
+                    f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
+                    f'<span class="ev-amt">{_rank_amt(it["revenue"])}</span>'
+                    f'{_meta(it)}</div>')
+    return "".join(rows)
+
+
+def _profit_rank_card(title, tag, rk, dim="", show_meta=True, embed_full=False):
     """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 系统成本率。金额/率均后端算好，前端零运算（铁律2）。
-    与板块④排名卡同款行样式；「其余 N 个」点开→ /api/profit_ranking 全量弹窗（dim=customer/sales）。
+    整体页「其余」→ /api/profit_ranking；BU 页 embed_full 预渲染 .pr-full 本地展开（铁律12）。
     show_meta=False → 隐藏成本率列（陆总 0714：按销售的率先不显示，防"人力算不算"连锁追问）。
     用户端不展示「（未填）」行。"""
     items = (rk or {}).get("items") or []
@@ -721,24 +768,22 @@ def _profit_rank_card(title, tag, rk, dim="", show_meta=True):
     if not items:
         body = '<div class="ev-empty">本期无数据</div>'
     else:
-        mx = max((abs(it["revenue"]) for it in items), default=0) or 1
-        rows = []
-        for i, it in enumerate(items, 1):
-            w = max(it["revenue"] / mx * 100, 0)
-            rows.append(f'<div class="ev-row rk-row"><span class="rk-no">{i}</span>'
-                        f'{_pname(it["name"])}'
-                        f'<span class="ev-track"><i style="width:{w:.1f}%"></i></span>'
-                        f'<span class="ev-amt">{_rank_amt(it["revenue"])}</span>'
-                        f'{_meta(it)}</div>')
+        rows_html = _profit_rank_rows_html(items, show_meta=show_meta)
         others = rk.get("others")
+        more = ""
         if others:
-            rows.append(f'<div class="ev-row rk-row rk-others pr-more" title="点开看全部{others["names"]}个明细">'
-                        f'<span class="rk-no">…</span>'
-                        f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
-                        f'<span class="ev-track"></span>'
-                        f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
-                        f'{_meta(others)}</div>')
-        body = f'<div class="ev-list rk-list">{"".join(rows)}</div>'
+            more = (f'<div class="ev-row rk-row rk-others pr-more" title="点开看全部{others["names"]}个明细">'
+                    f'<span class="rk-no">…</span>'
+                    f'<span class="ev-name">其余 {others["names"]} 个 <span class="rk-open">点开看明细 ›</span></span>'
+                    f'<span class="ev-track"></span>'
+                    f'<span class="ev-amt">{_rank_amt(others["revenue"])}</span>'
+                    f'{_meta(others)}</div>')
+        full = ""
+        if embed_full and others:
+            full_items = rk.get("full_items") or items
+            full = (f'<div class="pr-full" hidden><div class="ev-list">'
+                    f'{_profit_rank_rows_html(full_items, show_meta=show_meta)}</div></div>')
+        body = f'<div class="ev-list rk-list">{rows_html}{more}</div>{full}'
     return (f'<div class="card" data-dim="{_esc(dim)}"><div class="card-h">{title} {tag}</div>{body}</div>')
 
 
@@ -753,13 +798,13 @@ def _conc_tag(rk):
             f'<span class="conc">前{k}大占收入 <b>{c:.0f}%</b></span>')
 
 
-def render_profit_rankings(p):
+def render_profit_rankings(p, embed_full=False):
     pr = p.get("profit_rankings") or {}
     s, e = p.get("range", ("", ""))
     cust, sale = pr.get("revenue_by_customer"), pr.get("revenue_by_sales")
     return (f'<div class="grid-2e pr-grid" data-start="{_esc(s)}" data-end="{_esc(e)}">'
-            f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust, "customer")}'
-            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales", show_meta=False)}'
+            f'{_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust, "customer", embed_full=embed_full)}'
+            f'{_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales", show_meta=False, embed_full=embed_full)}'
             f'</div>')
 
 
@@ -1027,6 +1072,16 @@ EXPORT_JS = r"""
 # ---------- 按天明细（迭代17 批次A：常显 + 跟顶 + 返回默认全年）----------
 # 铁律2：金额显示串全部由 /api/daily 后端算好（*_disp），这里的 JS 只拼字符串、零金额运算；
 # 铁律10：接口返回的部门/销售/客户名是自由文本，插 HTML 前必过 esc。file:// 打开时 fetch 失败给提示。
+# 排名「其余」弹窗壳（整体页 API 展开 / BU 页本地预渲染展开共用）
+RK_MODAL_HTML = """
+<div id="rkModal" style="display:none">
+  <div class="rkm-box">
+    <div class="card-h"><span id="rkmTitle"></span> <span class="tag" id="rkmTag"></span>
+      <button class="toggle daily-close" id="rkmClose" type="button"><span>✕</span> 关闭</button></div>
+    <div class="rkm-list" id="rkmList"></div>
+  </div>
+</div>"""
+
 # 顶部「看哪段」不动；本面板只改板块③排名（查询才打 /api/daily；跟顶只改日期框）。
 DAILY_HTML = """
 <div class="card" id="dailyPanel" style="margin-bottom:16px">
@@ -1040,13 +1095,40 @@ DAILY_HTML = """
     <span id="dailySum" class="daily-note"></span>
   </div>
 </div>
-<div id="rkModal" style="display:none">
-  <div class="rkm-box">
-    <div class="card-h"><span id="rkmTitle"></span> <span class="tag" id="rkmTag"></span>
-      <button class="toggle daily-close" id="rkmClose" type="button"><span>✕</span> 关闭</button></div>
-    <div class="rkm-list" id="rkmList"></div>
-  </div>
-</div>"""
+""" + RK_MODAL_HTML
+
+# BU 页：用预渲染 .rk-full / .pr-full 展开「其余」，绝不请求全公司 API（铁律12）
+BU_LOCAL_EXPAND_JS = r"""
+(function(){
+ var modal=document.getElementById('rkModal'); if(!modal) return;
+ if(modal.parentElement!==document.body)document.body.appendChild(modal);
+ function openFull(title, tag, html){
+  document.getElementById('rkmTitle').textContent=title||'完整排名';
+  document.getElementById('rkmTag').textContent=tag||'';
+  document.getElementById('rkmList').innerHTML=html||'<div class="ev-empty">本期无数据</div>';
+  modal.style.display='';}
+ document.addEventListener('click',function(ev){
+  var row=ev.target.closest?ev.target.closest('.rk-more'):null;
+  if(row){
+   var card=row.closest('.card'); if(!card)return;
+   var full=card.querySelector('.rk-full'); if(!full)return;
+   var h=card.querySelector('.card-h');
+   var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
+   openFull(title+' · 完整排名','',full.innerHTML); return;}
+  row=ev.target.closest?ev.target.closest('.pr-more'):null;
+  if(row){
+   var card=row.closest('[data-dim]'); if(!card)return;
+   var full=card.querySelector('.pr-full'); if(!full)return;
+   var h=card.querySelector('.card-h');
+   var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
+   openFull(title+' · 完整排名','',full.innerHTML);}
+ });
+ var xc=document.getElementById('rkmClose');
+ if(xc)xc.addEventListener('click',function(){modal.style.display='none';});
+ modal.addEventListener('click',function(ev){if(ev.target===modal)modal.style.display='none';});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')modal.style.display='none';});
+})();
+"""
 
 DAILY_JS = """
 (function(){
@@ -1188,11 +1270,11 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
-    # 回款情况：全年视角固定 12 月 + 周期高亮映射（迭代21）；交付金额→已交付未回款
+    # 回款情况：柱图全年视角 + 周期高亮；侧栏 .pv 随「看哪段」切本期数（迭代21+周期侧栏）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], summary['meta'].get('budget'),
         period_months_map=_period_months_map(summary), year_key=yk,
-        delivered_gross=P[yk]["revenue_gross"])
+        periods=P, default_key=yk)
     receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
 
     body = f"""
@@ -1343,7 +1425,7 @@ def render_bu_pl_table(p, alloc_meta=None, fine=None):
 def render_bu_page(bu_name, summary, cfg, logo_b64):
     """单 BU 独立只读页（迭代22·D：口径与整体页全对齐，只是数按本 BU 过滤）：
     周期选择 + KPI + 趋势图 + 利润表（可下钻）+ 费用构成（大类/类别）+ 收入毛利结构 + 回款情况 + 排名 + 导出。
-    仍不含全公司出口（/api/daily、/api/profit_ranking 弹窗在本页不启用·铁律12）。"""
+    铁律12：不含 /api/daily、/api/profit_ranking；「其余」用预渲染全量本地弹窗；回款侧栏随周期 .pv 切。"""
     meta = summary["meta"]; P = summary["periods"]; FT = summary.get("expense_fine_type") or {}
     yk = meta["year_key"]
     all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
@@ -1356,21 +1438,22 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
         pl_parts.append(_pv(k, yk, pl_html))
     pl_views = "".join(pl_parts)
     donut_views = "".join(_pv(k, yk, render_bu_expense_views(P[k], FT.get(k))) for k in all_keys)
-    profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
-    rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
+    # embed_full：其余可展开且不调全公司 API
+    profit_rank_views = "".join(
+        _pv(k, yk, render_profit_rankings(P[k], embed_full=True)) for k in all_keys)
+    rank_views = "".join(
+        _pv(k, yk, render_rankings(P[k], embed_full=True)) for k in all_keys)
     name = _esc(bu_name)
-    # 看端不展示口径说明长文（管理端数据/设置里看明细）
 
-    # BU 基本情况 KPI（与整体页同构；目标取该 BU 的 budget meta，无则空态）
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")
     kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget)) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
-    # 回款情况：与整体页同款；交付金额取本 BU 已过滤的全年 revenue_gross（铁律12）
+    # 回款：柱图全年+高亮；侧栏各周期预渲染（本 BU 过滤后的数）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], budget,
         period_months_map=_period_months_map(summary), year_key=yk,
-        delivered_gross=P[yk]["revenue_gross"])
+        periods=P, default_key=yk)
     from urllib.parse import quote as _q
     export_url = f"/bu/{_q(bu_name)}/export.png"
     pl_tag = f' <span class="tag">{_esc(tag_note)}</span>' if tag_note else ""
@@ -1411,9 +1494,9 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  </div>
 </div>
 {DRAWER_HTML}
+{RK_MODAL_HTML}
 <div id="tip"></div>
-<style>.rk-open{{display:none}}</style>
-<script>{JS}{PW_JS}{EXPORT_JS}</script>
+<script>{JS}{PW_JS}{EXPORT_JS}{BU_LOCAL_EXPAND_JS}</script>
 """
     return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'

@@ -79,11 +79,14 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
     uf = agg.pop(empty_label, None)
     unfilled = {"amount": round(uf[0], 2), "count": uf[1]} if uf else None
     ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])
-    items = [{"name": n, "amount": round(v[0], 2), "count": v[1]} for n, v in ranked[:top]]
+    full_items = [{"name": n, "amount": round(v[0], 2), "count": v[1]} for n, v in ranked]
+    items = full_items[:top]
     rest = ranked[top:]
     others = ({"names": len(rest), "amount": round(sum(v[0] for _, v in rest), 2),
                "count": sum(v[1] for _, v in rest)} if rest else None)
-    return {"items": items, "others": others, "unfilled": unfilled, "total": total}
+    # full_items：完整排序（供 BU 页「其余」本地展开，不调全公司 /api/daily·铁律12）
+    return {"items": items, "others": others, "unfilled": unfilled, "total": total,
+            "full_items": full_items}
 
 
 def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rate,
@@ -123,7 +126,8 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     uf = agg.pop(empty_label, None)
     unfilled = _row(empty_label, uf) if uf else None
     ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])   # 按含税交付额降序＝按收入降序（div 恒正）
-    items = [_row(n, g) for n, g in ranked[:top]]
+    full_items = [_row(n, g) for n, g in ranked]
+    items = full_items[:top]
     rest = [g for _, g in ranked[top:]]
     others = _agg_row(f"其余 {len(rest)} 个", rest) if rest else None
     if others:
@@ -131,9 +135,10 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     # 集中度=前 conc_k 大（按含税交付额=收入）占总收入；从完整排序列取，稳健于 top<conc_k
     conc_rev = sum(g[0] for _, g in ranked[:conc_k]) / div
     conc_pct = round(conc_rev / total_rev * 100, 1) if total_rev else None
+    # full_items：完整排序（供 BU 页「其余」本地展开，不调 /api/profit_ranking·铁律12）
     return {"items": items, "others": others, "unfilled": unfilled,
             "total_revenue": total_rev, "total_profit": total_prof,
-            "conc_k": conc_k, "conc_pct": conc_pct}
+            "conc_k": conc_k, "conc_pct": conc_pct, "full_items": full_items}
 
 
 def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_to_bu=None):
