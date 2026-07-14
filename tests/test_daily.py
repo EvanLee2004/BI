@@ -188,11 +188,20 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
-        for token in ("dailyPanel", "/api/daily", "按时间段看", "rankViews", "rkCustom", "dailyClose",
-                      "本年", "rkModal", "rk-more", 'data-kind="orders_by_dept"', "data-start=",
-                      "_syncDailyDates", "restoreYear", "yearRange", "window.applyPeriod",
-                      "orders_by_bu", "下单 · 按BU"):  # 时间段查询优先按 BU（与全年预渲染一致）
+        # HTML 结构标记（仍在页面上）；首卡按部门或按BU 取决于是否配了 BU 归属
+        for token in ("dailyPanel", "按时间段看", "rankViews", "rkCustom", "dailyClose",
+                      "本年", "rkModal", "rk-more", "data-start="):
             self.assertIn(token, html, token)
+        self.assertTrue(
+            'data-kind="orders_by_dept"' in html or 'data-kind="orders_by_bu"' in html,
+            "排名首卡应有按部门或按BU")
+        self.assertIn('src="/static/js/cockpit.js"', html)
+        # 交互与 API 入口在 static/js（v1.4 外置，内容与基准版常量一致）
+        from pathlib import Path
+        js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        for token in ("/api/daily", "_syncDailyDates", "restoreYear", "yearRange",
+                      "window.applyPeriod", "orders_by_bu", "下单 · 按BU"):
+            self.assertIn(token, js, token)
         # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
         self.assertIn('id="dailyMonth"', html)
         self.assertIn('id="dailyClose"', html)
@@ -208,6 +217,8 @@ class TestDailyFrontend(unittest.TestCase):
         self.assertIn(f"{y}-01-01", html)  # yearRange / data-start 全年
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, html)
+        for bad in ("toFixed(", "parseFloat("):
+            self.assertNotIn(bad, js)
 
     def test_bu_page_has_no_daily_outlet(self):
         """铁律12：BU 页不得出现 /api/daily 与按时间段控件。
@@ -219,12 +230,18 @@ class TestDailyFrontend(unittest.TestCase):
             cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
             loaders.load_receipts(cfg), loaders.load_inhouse(cfg), today, {"合成销售"})
         h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
-        for leak in ("/api/daily", "dailyPanel", "dailyBtn", "dailyClose", "dailyGo",
-                     "/api/profit_ranking"):
+        for leak in ("dailyPanel", "dailyBtn", "dailyClose", "dailyGo"):
             self.assertNotIn(leak, h, leak)
+        # API 泄漏检查：BU 页脚本不得含全公司动态口
+        from pathlib import Path
+        bu_js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit-bu.js").read_text(encoding="utf-8")
+        for leak in ("/api/daily", "/api/profit_ranking"):
+            self.assertNotIn(leak, h, leak)
+            self.assertNotIn(leak, bu_js, leak)
+        self.assertIn('src="/static/js/cockpit-bu.js"', h)
         # 本地展开 + 回款侧栏随周期
         self.assertIn("rkModal", h)
-        self.assertIn("openFull", h)
+        self.assertIn("openFull", bu_js)  # openFull 在 BU 脚本
         self.assertIn('class="rc-side"', h)
 
 

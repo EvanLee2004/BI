@@ -57,6 +57,16 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "date": "2026-07-15",
+        "title": "公测 Beta v1.4.0：前后端分离（界面像素级不变，数字同一套）",
+        "items": [
+            "架构：驾驶舱 CSS/JS 外置到 static/，数据经 /api/v1/cockpit JSON 暴露；页面 HTML 仍由原 render 生成，观感与 v1.3.1 一致。",
+            "已登录看端可经轻量壳 fetch 同源 HTML 视图；算账逻辑（profit 等）未改。",
+            "部署仍 python run.py :8018 一条命令，.bat 与一键更新流程不变、无需 Node。",
+        ],
+    },
+
+    {
         "date": "2026-07-14",
         "title": "公测 Beta v1.3.1：修好费用去税录入表显示 + 业绩目标跟随顶部筛选",
         "items": [
