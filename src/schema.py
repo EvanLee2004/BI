@@ -120,6 +120,12 @@ HUMAN_TABLES: dict[str, str] = {
             归属月 TEXT, 范围 TEXT, 项目 TEXT, 金额 REAL, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, 范围, 项目)
         )""",
+    # 公共费用分摊比例（迭代20·按月）：每月每 BU 一行 0~100 百分数；无行=该月该 BU 不分摊
+    "manual_分摊比例": """
+        CREATE TABLE IF NOT EXISTS manual_分摊比例 (
+            归属月 TEXT, BU TEXT, 比例 REAL, 填写时间 TEXT, 经手人 TEXT,
+            PRIMARY KEY (归属月, BU)
+        )""",
     "manual_历史": """
         CREATE TABLE IF NOT EXISTS manual_历史 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

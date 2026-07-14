@@ -30,6 +30,7 @@ import accounts
 import bu
 import db
 import core
+import profit
 import ingest
 import render
 import assets
@@ -904,6 +905,14 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
   </div>
   <div class="note info">人工填写：人力/补充等。选「范围」可按全公司或某个业务 BU 填。可批量改数，离开会提醒。业绩目标金额请填<strong>万元</strong>。</div>
   <div class="tbl-box no-scroll"><table id="mTbl"></table></div>
+  <div class="sec-block" id="allocBlock" style="display:none">
+    <div class="blk-h">🏦 公共费用分摊比例（按月）</div>
+    <div class="note info">本月公共费用总额 <strong id="allocTotal">—</strong> 元（台账「利润归属中心=公共」5 类合计）。
+      各 BU 填比例 %；<b>合计可以小于 100%</b>（剩余留公司层不分摊）、超过 100% 不能保存；留空=该 BU 本月不分摊。
+      BU 名单与「设置→BU 数据归属」同源。与上方共用底部「保存全部」。</div>
+    <div class="tbl-box no-scroll"><table id="aTbl"></table></div>
+    <div class="muted" id="allocSum" style="margin-top:6px"></div>
+  </div>
   <div class="sec-block">
     <div class="blk-h">🎯 业绩目标（优先）</div>
     <div class="note info">下单 / 回款目标填<strong>万元</strong>（如 8000 = 8000 万）；毛利率填百分数（35 = 35%）。可选全公司或 BU。与上方共用底部「保存全部」。</div>
@@ -1054,9 +1063,10 @@ font-size:12px;font-weight:600;cursor:grab;user-select:none;max-width:100%}
         </div>
         <div id="buAllocBox" style="margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">
           <div style="font-weight:600;margin-bottom:6px">公共费用分摊</div>
-          <div class="muted" style="font-size:12px;margin-bottom:10px">各 BU 填比例 %（0~100）。<b>全部留空 = 暂不分摊</b>（BU 页公共费用不显示金额）；一旦填写则每个 BU 都要填且合计须为 100%。只摊台账 5 类，手填人力不摊，公式在系统里。</div>
-          <div id="buAllocRows"></div>
-          <div id="buAllocSum" class="muted" style="font-size:12px;margin-top:6px"></div>
+          <div class="muted" style="font-size:12px">分摊比例已改为<b>按月填写</b>——去「数据调整 → 人工填写 → 公共费用分摊比例（按月）」填；
+            合计可小于 100%（剩余留公司层）。只摊台账 5 类，手填人力不摊。</div>
+          <div id="buAllocLegacy" class="muted" style="font-size:12px;margin-top:6px;color:#fbbf24;display:none">
+            ⚠ 检测到旧的「全年一套」分摊比例配置——已停用不再生效，请到人工填写页按月重填。</div>
         </div>
       </div>
       <div class="scard-f"><span id="buMsg" class="muted"></span></div>
@@ -1135,7 +1145,7 @@ function confirmLeave(){if(!_formDirty)return true;return confirm("有 "+_formDi
 function setDirtyCount(n){_formDirty=n||0;const bar=document.getElementById("saveBar"),c=document.getElementById("dirtyCount");
   if(bar)bar.classList.toggle("on",_formDirty>0);if(c)c.textContent=String(_formDirty);}
 function refreshDirtyUI(){let n=0;
-  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig]").forEach(el=>{
+  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim();
     const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
     const dirty=cur!==orig;el.closest("tr")&&el.closest("tr").classList.toggle("dirty",dirty);if(dirty)n++;});
@@ -1431,32 +1441,9 @@ function _chipHtml(name,withX){const p=salesPool.find(p=>p.name===name)||{};
 /** 分摊是否启用：任一比例非空即视为要分摊（保存时全填+合计100%）；全空=不分摊 */
 function buAllocEnabledFromList(){
   return buList.some(b=>b.分摊比例!=null&&b.分摊比例!==""&&!isNaN(Number(b.分摊比例)));}
-function buRenderAlloc(){const rows=document.getElementById("buAllocRows");
-  if(!rows)return;
-  rows.innerHTML=buList.map((b,i)=>{
-    const v=b.分摊比例==null||b.分摊比例===""?"":b.分摊比例;
-    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
-      +'<span style="min-width:100px">'+esc(b.name||("BU"+(i+1)))+'</span>'
-      +'<input type="number" min="0" max="100" step="0.01" style="width:90px" value="'+esc(v)+'" '
-      +'placeholder="空" '
-      +'onchange="buList['+i+'].分摊比例=this.value===\'\'?null:Number(this.value);buRenderAllocSum()" '
-      +'oninput="buList['+i+'].分摊比例=this.value===\'\'?null:Number(this.value);buRenderAllocSum()">'
-      +'<span class="muted">%</span></div>';}).join("")
-    ||'<div class="muted">请先点上方「＋ 加一个 BU」</div>';
-  buRenderAllocSum();}
-function buRenderAllocSum(){const sum=document.getElementById("buAllocSum");if(!sum)return;
-  if(!buList.length){sum.textContent="";return;}
-  let filled=0,t=0,bad=false;
-  buList.forEach(b=>{const r=b.分摊比例;
-    if(r==null||r==="")return;
-    filled++;
-    if(isNaN(Number(r))||Number(r)<0||Number(r)>100)bad=true;
-    else t+=Number(r);});
-  if(filled===0){sum.textContent="全部留空 → 暂不分摊（保存后 BU 页公共费用不摊）";sum.style.color="#94a3b8";return;}
-  if(filled<buList.length||bad){sum.textContent="已填 "+filled+"/"+buList.length+" —— 要分摊请每个 BU 都填，或全部清空=不分摊";sum.style.color="#fbbf24";return;}
-  const diff=Math.abs(t-100);
-  sum.textContent="合计 "+t.toFixed(2)+"% "+(diff<=0.05?"✓ 可保存（启用分摊）":"← 须为 100% 才能保存");
-  sum.style.color=diff<=0.05?"#86efac":"#fbbf24";}
+function buRenderAlloc(){const hint=document.getElementById("buAllocLegacy");if(!hint)return;
+  // 迭代20：比例改按月（人工填写页）；这里只提示遗留的旧全年比例已停用
+  hint.style.display=buAllocEnabledFromList()?"":"none";}
 // 批量多选归属（勾选若干人→选目标 BU→应用）
 function buPick(cb){const n=cb.getAttribute("data-name");if(cb.checked)buPicked.add(n);else buPicked.delete(n);buRenderBatch();}
 function buClearPick(){buPicked.clear();buRender();}
@@ -1681,7 +1668,43 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
     "<td><input id='"+id+"' class='amt' data-kind='manual' data-item='"+esc(it)+"' data-orig='"+esc(orig)+"' size='16' value='"+esc(disp)+"' placeholder='如 1,000,000'></td></tr>";});
   document.getElementById("mTbl").innerHTML=h;
   document.querySelectorAll("#mTbl input.amt").forEach(el=>{bindThousands(el);el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});
-  await bLoad();refreshDirtyUI();}
+  await bLoad();await aLoad();refreshDirtyUI();}
+// 公共费用分摊比例（按月·迭代20）：范围=全公司才显示；比例%纯前端加总（非金额运算），金额串后端下发
+let ALLOC_DATA=null;
+async function aLoad(){const blk=document.getElementById("allocBlock");if(!blk)return;
+  const m=ymVal("mY","mM");
+  const scope=(document.getElementById("mScope")||{}).value||"全公司";
+  if(scope!=="全公司"||!m){blk.style.display="none";ALLOC_DATA=null;return;}
+  try{ALLOC_DATA=await jget("/api/alloc_ratios?month="+encodeURIComponent(m));}
+  catch(e){blk.style.display="none";ALLOC_DATA=null;return;}
+  const d=ALLOC_DATA;
+  if(!d.bus||!d.bus.length){blk.style.display="none";return;}
+  blk.style.display="";
+  document.getElementById("allocTotal").textContent=d.month_total_disp||"0.00";
+  let h="<tr><th>BU</th><th>本月分摊比例(%)</th></tr>";
+  d.bus.forEach((bn,i)=>{const v=(d.ratios&&d.ratios[bn]!=null)?String(d.ratios[bn]):"";
+    h+="<tr><td>"+esc(bn)+"</td><td><input id='al_"+i+"' class='amt' data-kind='alloc' data-bu='"+esc(bn)+
+      "' data-orig='"+esc(v)+"' size='8' value='"+esc(v)+"' placeholder='空=不分摊'></td></tr>";});
+  document.getElementById("aTbl").innerHTML=h;
+  document.querySelectorAll("#aTbl input.amt").forEach(el=>{
+    el.addEventListener("input",()=>{refreshDirtyUI();aSum();});
+    el.addEventListener("blur",()=>{refreshDirtyUI();aSum();});});
+  aSum();}
+function aSum(){const el=document.getElementById("allocSum");if(!el||!ALLOC_DATA)return;
+  let sum=0,dirty=false,bad=false;
+  document.querySelectorAll("#aTbl input[data-kind=alloc]").forEach(inp=>{
+    const cur=String(inp.value).trim();
+    if(cur!==String(inp.dataset.orig||"").trim())dirty=true;
+    if(cur==="")return;
+    const n=Number(cur);if(isNaN(n)||n<0||n>100){bad=true;return;}
+    sum+=n;});
+  sum=Math.round(sum*10)/10;
+  if(bad){el.innerHTML='<span style="color:#fecaca">有比例不是 0~100 的数字</span>';return;}
+  if(sum>100.05){el.innerHTML='<span style="color:#fecaca">本月合计 '+sum+'%，超过 100%——保存会被拒绝，请调整（可以小于 100%）</span>';return;}
+  const remain=Math.round((100-sum)*10)/10;
+  const amt=dirty?"（保存后更新金额）":("约 ¥"+(ALLOC_DATA.remain_amt_disp||"0.00")+" 未分摊");
+  el.innerHTML="本月合计 <b>"+sum+"%</b> · 剩余 <b>"+remain+"%</b> 留公司层 "+amt+
+    (ALLOC_DATA.orphans&&ALLOC_DATA.orphans.length?('　<span style="color:#fbbf24">另有历史比例含未知 BU：'+esc(ALLOC_DATA.orphans.join("、"))+'（未生效）</span>'):"");}
 // 业绩目标（金额界面=万元 / 毛利率=百分数）
 const BUDGET_METRICS=[
   {k:"下单年预算",tip:"万元 · 全年下单目标",thou:true,pct:false,wan:true},
@@ -1755,13 +1778,23 @@ async function batchSaveAll(){
     }
     budgets.push({指标:el.dataset.item,金额:n,范围:scope,年份:y});
   });
-  if(!manuals.length&&!budgets.length){showToast("没有需要保存的更改");return;}
+  const allocs={};let allocSum=0,allocChanged=0;
+  document.querySelectorAll("#aTbl input[data-kind=alloc]").forEach(el=>{
+    const cur=String(el.value).trim(),orig=String(el.dataset.orig||"").trim();
+    if(cur!==""){const n=Number(cur);
+      if(isNaN(n)||n<0||n>100){alert("BU「"+el.dataset.bu+"」比例须为 0~100 的数字");throw new Error("bad");}
+      allocSum+=n;}
+    if(cur===orig)return;
+    allocs[el.dataset.bu]=cur===""?null:Number(cur);allocChanged++;});
+  if(allocChanged&&allocSum>100.05){alert("本月各 BU 比例合计 "+Math.round(allocSum*10)/10+"% 超过 100%，请调整（可以小于 100%，剩余留公司层）");throw new Error("bad");}
+  if(!manuals.length&&!budgets.length&&!allocChanged){showToast("没有需要保存的更改");return;}
   const btn=document.getElementById("btnBatchSave");btn.disabled=true;btn.textContent="保存中…";
   try{
     if(manuals.length)await jpost("/api/manual_batch",{归属月:m,范围:mScope,items:manuals});
     if(budgets.length)await jpost("/api/budget_batch",{items:budgets});
+    if(allocChanged)await jpost("/api/alloc_ratios",{归属月:m,ratios:allocs});
     setDirtyCount(0);
-    showToast("✓ 已保存 "+(manuals.length+budgets.length)+" 项并重算");
+    showToast("✓ 已保存 "+(manuals.length+budgets.length+allocChanged)+" 项并重算");
     msg("批量保存完成（留痕·看板已重算）");
     reloadDash();loadHealth();await mLoad();
   }catch(e){if(e.message!=="bad")alert("保存失败："+e.message);}
@@ -2759,6 +2792,96 @@ def create_app(cfg, root=None) -> FastAPI:
             conn.close()
         recompute(cfg, root)
         return {"status": "ok", "count": n, "built_at": _state["built_at"]}
+
+    def _alloc_month_payload(conn, month: str) -> dict:
+        """某月分摊面板数据：BU 名单（与设置页同源）+ 比例 + 本月公共费用总额/剩余（显示串后端下发·铁律2）。"""
+        import datetime as _dt
+        import columns as _columns
+        try:
+            y, m = int(month[:4]), int(month[5:7])
+            assert 1 <= m <= 12 and month[4] == "-"
+        except (ValueError, AssertionError, IndexError):
+            raise HTTPException(status_code=400, detail="归属月格式须为 YYYY-MM")
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+        bu_names = [b["name"] for b in bucfg["bus"]]
+        ratios = db.get_alloc_ratios(conn, month)
+        lh, lr = db.load_ledger(cfg, conn)
+        month_total = 0.0
+        if lh:
+            lcols = _columns.resolve_ledger_columns(lh)
+            public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
+            start = _dt.date(y, m, 1)
+            end = _dt.date(y, m + 1, 1) - _dt.timedelta(days=1) if m < 12 else _dt.date(y, 12, 31)
+            led, _ = profit.compute_ledger_expenses(public_rows, y, start, end, cfg, lcols)
+            month_total = round(sum(float(v or 0) for v in led.values()), 2)
+        known = {b: p for b, p in ratios.items() if b in set(bu_names)}
+        sum_pct = round(sum(known.values()), 1)
+        remain_pct = round(max(0.0, 100.0 - sum_pct), 1)
+        remain_amt = round(month_total * remain_pct / 100.0, 2)
+        orphans = sorted(set(ratios) - set(bu_names))
+        return {"month": month, "bus": bu_names, "ratios": known,
+                "orphans": orphans,
+                "month_total": month_total,
+                "month_total_disp": f"{month_total:,.2f}",
+                "sum_pct": sum_pct, "remain_pct": remain_pct,
+                "remain_amt_disp": f"{remain_amt:,.2f}"}
+
+    @app.get("/api/alloc_ratios")
+    def api_alloc_get(request: Request, month: str = ""):
+        _require(request)
+        conn = _conn()
+        try:
+            return _alloc_month_payload(conn, month)
+        finally:
+            conn.close()
+
+    @app.post("/api/alloc_ratios")
+    def api_alloc_set(request: Request, payload: dict = Body(default={})):
+        """写某月分摊比例（管理员）。payload={归属月, ratios:{BU:比例%|null}}。
+        约束：BU 须在设置页 BU 名单内；单值 0~100；已知 BU 合计 ≤100（容差 0.05）。null=删行不分摊。"""
+        user = _require(request)
+        month = str(payload.get("归属月") or "").strip()
+        ratios = payload.get("ratios")
+        if not isinstance(ratios, dict) or not ratios:
+            raise HTTPException(status_code=400, detail="ratios 不能为空")
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+        known = {b["name"] for b in bucfg["bus"]}
+        vals: dict[str, float | None] = {}
+        for b, v in ratios.items():
+            b = str(b).strip()
+            if b not in known:
+                raise HTTPException(status_code=400, detail=f"未知 BU：{b}（以设置页 BU 名单为准）")
+            if v is None or v == "":
+                vals[b] = None
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"比例须为数字：{b}")
+            if not (0 <= fv <= 100):
+                raise HTTPException(status_code=400, detail=f"比例须在 0~100：{b}")
+            vals[b] = round(fv, 1)
+        conn = _conn()
+        try:
+            merged = dict(db.get_alloc_ratios(conn, month))
+            for b, v in vals.items():
+                if v is None:
+                    merged.pop(b, None)
+                else:
+                    merged[b] = v
+            total = sum(p for b, p in merged.items() if b in known)
+            if total > 100.05:
+                raise HTTPException(status_code=400,
+                                    detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）")
+            for b, v in vals.items():
+                db.set_alloc_ratio(conn, month, b, v, user)
+            out = _alloc_month_payload(conn, month)
+        finally:
+            conn.close()
+        _audit(cfg, root, user, ("分摊", f"公共费用分摊：{month} 比例已更改（合计 {out['sum_pct']:g}%）"))
+        recompute(cfg, root)
+        out.update({"status": "ok", "built_at": _state["built_at"]})
+        return out
 
     @app.get("/api/budget")
     def api_budget_get(request: Request, year: str | None = None):

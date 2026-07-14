@@ -291,8 +291,8 @@ class TestBuPages(_Base):
         # 5万 → 5.0万 展示
         self.assertIn("5.0万", h)
         self.assertIn("利润归属中心", h)
-    def test_page_alloc_on_shows_ratio_not_other_bu(self):
-        """分摊开：本 BU 显示比例分摊标注；不泄漏他 BU 名与他 BU 比例。"""
+    def test_page_alloc_monthly_shows_note_not_other_bu(self):
+        """迭代20：按月分摊生效时本 BU 标「按月比例」；旧静态比例配置不再生效；不泄漏他 BU。"""
         data = {"bus": [
             {"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"], "分摊比例": 40},
             {"name": "BU乙", "负责人": ["负责人乙"], "销售": ["销售B"], "分摊比例": 60},
@@ -300,11 +300,18 @@ class TestBuPages(_Base):
         p = bu.config_path(self.cfg, self.root)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        # 旧静态比例已停用：无按月比例记录 → 页面不出现 40% 分摊标注
+        h0 = self._pages()["BU甲"]["html"]
+        self.assertNotIn("公共×40%", h0)
+        # 写按月比例（manual_分摊比例）→ 生效并标「按月比例」
+        conn = db.connect(self.cfg, self.root)
+        try:
+            db.set_alloc_ratio(conn, f"{TODAY.year}-{TODAY.month:02d}", "BU甲", 40, "t")
+            db.set_alloc_ratio(conn, f"{TODAY.year}-{TODAY.month:02d}", "BU乙", 60, "t")
+        finally:
+            conn.close()
         h = self._pages()["BU甲"]["html"]
-        # 分摊开：脚注/图例带 40%；不泄漏他 BU 名与「按60%」分摊文案
-        self.assertTrue("40%" in h, "应显示本 BU 40% 分摊")
-        self.assertTrue(("<b>40%</b>" in h) or ("公共×40%" in h) or ("公共40%" in h),
-                        "脚注/图例应标注 40% 分摊")
+        self.assertIn("按月比例", h)
         self.assertNotIn("BU乙", h)
         self.assertNotIn("按60%", h)
         self.assertNotIn("公共×60%", h)

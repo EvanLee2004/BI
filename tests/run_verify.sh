@@ -34,4 +34,5 @@ $PY tests/test_version.py
 $PY tests/test_schedule.py
 $PY tests/test_multibu.py
 $PY tests/test_update.py
+$PY tests/test_alloc_monthly.py
 echo "✓ 全部通过"

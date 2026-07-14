@@ -64,14 +64,69 @@ def attach_unassigned(cfg, conn, today, summary, root=None) -> None:
     }
 
 
+def alloc_context(cfg, conn, today, root=None):
+    """公共费用按月分摊上下文（迭代20）。返回 None=没有任何比例记录（不分摊）；否则
+    {public_month_led:{(y,m):{5类:额}}, ratios:{'YYYY-MM':{BU:比例%}}, bu_names:[...],
+     warnings:[孤儿BU提示…], month_total(month)->float}。"""
+    ratios = db.load_alloc_ratios(conn)
+    if not ratios:
+        return None
+    lh, lr = db.load_ledger(cfg, conn)
+    if not lh:
+        return None
+    import columns as _columns
+    import periods as _periods
+    import datetime as _dt
+    lcols = _columns.resolve_ledger_columns(lh)
+    public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
+    public_month_led: dict[tuple[int, int], dict] = {}
+    for m in range(1, today.month + 1):
+        start = _dt.date(today.year, m, 1)
+        end = _dt.date(today.year, m + 1, 1) - _dt.timedelta(days=1) if m < 12 else _dt.date(today.year, 12, 31)
+        led, _ = profit.compute_ledger_expenses(public_rows, today.year, start, end, cfg, lcols)
+        public_month_led[(today.year, m)] = led
+    bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+    bu_names = [b["name"] for b in bucfg["bus"]]
+    warnings = []
+    known = set(bu_names)
+    for month, r in sorted(ratios.items()):
+        orphans = [b for b in r if b not in known]
+        if orphans:
+            warnings.append(f"{month} 分摊比例含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）")
+    return {"public_month_led": public_month_led, "ratios": ratios,
+            "bu_names": bu_names, "warnings": warnings}
+
+
+def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None):
+    """把按月分摊套进全公司 summary 的「构成·按业务BU」视图 + 体检警告（迭代20·防两处真相）。
+    只挪归属不改总额：全公司利润表/税前一分不变（回归红线守）。"""
+    ctx = ctx if ctx is not None else alloc_context(cfg, conn, today, root)
+    if not ctx:
+        return
+    alloc = profit.alloc_amounts_by_period(
+        ctx["public_month_led"], ctx["ratios"], ctx["bu_names"], today)
+    BP = summary.get("expense_by_profit_center") or {}
+    for key, per_bu in alloc.items():
+        if key in BP and BP[key]:
+            BP[key] = profit.apply_alloc_to_pc_view(BP[key], per_bu)
+    health = (summary.get("meta") or {}).get("health")
+    if health is not None and ctx["warnings"]:
+        health.setdefault("warnings", []).extend(ctx["warnings"])
+    summary.setdefault("meta", {})["monthly_allocation"] = {
+        "months": sorted(ctx["ratios"].keys()), "bu_names": ctx["bu_names"]}
+
+
 def summary_from_conn(cfg, conn, today):
-    """计算层只吃库：标准表 + 手填表 → summary（profit 不再自己扫文件）。"""
-    return profit.build_summary(
+    """计算层只吃库：标准表 + 手填表 → summary（profit 不再自己扫文件）。
+    迭代20：有按月分摊比例时，「构成·按业务BU」视图跟着分摊挪（总额不变）。"""
+    s = profit.build_summary(
         cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
         db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
         *db.load_ledger(cfg, conn), today.year, today,
         manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn),
         dept_budget_raw=db.load_dept_budget(conn))
+    attach_allocation_to_summary(cfg, conn, today, s)
+    return s
 
 
 def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
@@ -86,20 +141,9 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     orders = db.load_orders(cfg, conn)
     receipts = db.load_receipts(cfg, conn)
     inhouse = db.load_inhouse(cfg, conn)
-    alloc_on = bool(bucfg.get("公共费用分摊启用"))
-    # 台账：按利润归属中心直记各 BU；公共池单独抽出来按比例分摊
+    # 迭代20：分摊改按月比例（manual_分摊比例表）；BU配置.json 旧静态比例已停用不再消费
     lh, lr = db.load_ledger(cfg, conn)
-    import columns as _columns
-    lcols = _columns.resolve_ledger_columns(lh) if lh else None
-    public_led = None
-    if alloc_on and lcols:
-        public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
-        import periods as _periods
-        ranges = _periods.all_period_ranges(today)
-        public_led = {}
-        for key, (_lab, start, end, _g) in ranges.items():
-            led, _ = profit.compute_ledger_expenses(public_rows, today.year, start, end, cfg, lcols)
-            public_led[key] = led
+    ctx = alloc_context(cfg, conn, today, root)
     pages: dict[str, dict] = {}
     for b in bucfg["bus"]:
         bu_budget = db.load_budget(conn, scope=b["name"])  # 该 BU 业务目标（无则空）
@@ -109,15 +153,15 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         bu_manual = db.load_manual_scope(cfg, conn, bu_name)
         s = profit.build_bu_summary(
             cfg, project, orders, receipts, inhouse, today, set(b["销售"]),
-            company_ledger_by_period=public_led,
-            alloc_ratio_pct=b.get("分摊比例"),
-            alloc_enabled=alloc_on,
             budget_raw=bu_budget or None,
             ledger_header=lh if lh else None,
             ledger_rows=direct_rows,
             ledger_year=today.year,
             manual_raw=bu_manual,
             bu_name=bu_name)
+        if ctx:
+            profit.apply_public_expense_allocation_monthly(
+                s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
         pages[b["name"]] = {"name": b["name"],
                             "html": render.render_bu_page(b["name"], s, cfg, logo_b64)}
     return pages

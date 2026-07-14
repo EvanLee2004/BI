@@ -393,6 +393,49 @@ def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[s
     return out
 
 
+def set_alloc_ratio(conn: sqlite3.Connection, month: str, bu: str, pct, user: str) -> None:
+    """写/删某月某 BU 的分摊比例（迭代20）。pct=None/空 → 删行（该月该 BU 不分摊）。"""
+    month = str(month or "").strip()
+    bu = str(bu or "").strip()
+    if not month or not bu:
+        raise ValueError("归属月与 BU 不能为空")
+    if pct is None or pct == "":
+        conn.execute("DELETE FROM manual_分摊比例 WHERE 归属月=? AND BU=?", (month, bu))
+    else:
+        v = float(pct)
+        if not (0 <= v <= 100):
+            raise ValueError(f"比例须在 0~100：{bu}={pct}")
+        now = _now()
+        conn.execute(
+            "INSERT OR REPLACE INTO manual_分摊比例(归属月,BU,比例,填写时间,经手人) VALUES(?,?,?,?,?)",
+            (month, bu, round(v, 1), now, user))
+    conn.commit()
+
+
+def get_alloc_ratios(conn: sqlite3.Connection, month: str) -> dict[str, float]:
+    """某月分摊比例 → {BU: 比例%}。无表/无数据 → {}。"""
+    try:
+        rows = conn.execute(
+            "SELECT BU,比例 FROM manual_分摊比例 WHERE 归属月=?", (str(month or "").strip(),)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {str(b): float(v) for b, v in rows if b is not None and v is not None}
+
+
+def load_alloc_ratios(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
+    """全部分摊比例 → {'YYYY-MM': {BU: 比例%}}。无表/无数据 → {}。"""
+    try:
+        rows = conn.execute("SELECT 归属月,BU,比例 FROM manual_分摊比例").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, float]] = {}
+    for 归属月, b, v in rows:
+        if 归属月 is None or b is None or v is None:
+            continue
+        out.setdefault(str(归属月), {})[str(b)] = float(v)
+    return out
+
+
 def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str = "全公司") -> list[dict]:
     """管理端列表。范围=全公司读 manual_手填；否则读 manual_手填BU。"""
     scope = (范围 or "全公司").strip() or "全公司"
