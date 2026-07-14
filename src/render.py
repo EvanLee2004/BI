@@ -426,7 +426,7 @@ def render_pl_table(p, fine, unclassified_amt=None):
     # 主表：公式留 / 运营备注去
     rows = [_row("交付收入（不含税）", p["revenue_net"], "system", "交付金额÷1.06")]
     rows.append(_open_row("cost", "交付成本（生产成本）", -p["production_cost"]))
-    rows.append(_row("管理毛利（完整）", p["gross_profit"], "", total=True))
+    rows.append(_row("管理毛利", p["gross_profit"], "", total=True))
     rows.append(_open_row("sales", "营销费用", -e["营销费用"]))
     rows.append(_open_row("admin", "管理费用", -e["管理费用"]))
     rows.append(_open_row("fixed", "固定运营费用", -e["固定运营费用"]))
@@ -461,7 +461,7 @@ def render_pl_table(p, fine, unclassified_amt=None):
                       _drow("研发人力成本", -man["研发人力成本"], "manual")
                       + _d_ledger("技术服务费", led["技术服务费"], "", fine.get("技术服务费"))),
         _detail_block("fin", "财务费用构成",
-                      _d_ledger("财务费用（台账）", led["财务费用"], "", fine.get("财务费用"))
+                      _d_ledger("财务费用", led["财务费用"], "", fine.get("财务费用"))
                       + _drow("财务费用补充", -man["财务费用补充"], "manual")),
     ])
     kinds = ('<div class="kinds">'
@@ -1296,7 +1296,7 @@ def render_bu_pl_table(p, alloc_meta=None, fine=None):
             inner = ""
             if man_key:
                 inner += _drow(man_key, -float(man.get(man_key) or 0), "manual")
-            inner += _d_ledger(f"{led_cat}（台账直记）", direct_amt, "", fine.get(led_cat))
+            inner += _d_ledger(led_cat, direct_amt, "", fine.get(led_cat))
             if nm == "财务费用":
                 inner += _drow("财务费用补充", -float(man.get("财务费用补充") or 0), "manual")
             if alloc_amt > 0.005:
