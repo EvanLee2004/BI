@@ -19,26 +19,27 @@
   window._curBlk=pYear+'年';
   // 切周期：整区 periodSync 统一淡出→切 .pv→淡入（与基本情况同观感；零金额运算）
   var _periodT=null;
-  // 迭代21：回款卡全年视角 · 选中周期月份高亮（映射由服务端 data-rm-map 下发，前端只读写 class）
+  // 迭代21+：全年视角 · 选中周期月份高亮（回款卡+经营利润趋势图共用；映射由服务端 data-rm-map 下发，前端只读写 class）
   window._syncRmHighlight=function(key){
-    var card=document.getElementById('rcCard');if(!card)return;
-    var els=card.querySelectorAll('[data-rm]');
-    var yearKey=card.getAttribute('data-rm-year')||'';
-    var mapStr=card.getAttribute('data-rm-map')||'{}';
-    var map={};try{map=JSON.parse(mapStr);}catch(e){map={};}
-    var months=map[key];
-    // 全年 / 无映射 / 映射含 12 月 → 全亮（去掉任何额外样式）
-    var full=!months||key===yearKey||months.length>=12;
-    if(full){
-      card.classList.remove('rc-rm-filter');
-      els.forEach(function(el){el.classList.remove('rm-dim','rm-on');});
-      return;}
-    card.classList.add('rc-rm-filter');
-    var on={};months.forEach(function(m){on[String(m)]=1;});
-    els.forEach(function(el){
-      var m=el.getAttribute('data-rm');
-      if(on[m]){el.classList.add('rm-on');el.classList.remove('rm-dim');}
-      else{el.classList.add('rm-dim');el.classList.remove('rm-on');}
+    document.querySelectorAll('[data-rm-map]').forEach(function(card){
+      var els=card.querySelectorAll('[data-rm]');
+      var yearKey=card.getAttribute('data-rm-year')||'';
+      var mapStr=card.getAttribute('data-rm-map')||'{}';
+      var map={};try{map=JSON.parse(mapStr);}catch(e){map={};}
+      var months=map[key];
+      // 全年 / 无映射 / 映射含 12 月 → 全亮（去掉任何额外样式）
+      var full=!months||key===yearKey||months.length>=12;
+      if(full){
+        card.classList.remove('rc-rm-filter');
+        els.forEach(function(el){el.classList.remove('rm-dim','rm-on');});
+        return;}
+      card.classList.add('rc-rm-filter');
+      var on={};months.forEach(function(m){on[String(m)]=1;});
+      els.forEach(function(el){
+        var m=el.getAttribute('data-rm');
+        if(on[m]){el.classList.add('rm-on');el.classList.remove('rm-dim');}
+        else{el.classList.add('rm-dim');el.classList.remove('rm-on');}
+      });
     });};
   function applyPeriod(key,label){
     if(key===window._curBlk){ // 同周期只更新按钮态

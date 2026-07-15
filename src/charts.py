@@ -146,43 +146,51 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
         parts.append(f'<text x="{w-pr+6}" y="{y+3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
                      f'{frac*100:.0f}%</text>')
     for i, (label, rev, cost, margin) in enumerate(groups):
+        # 月份号：标签形如「1月」/「10月」；供周期高亮 data-rm（与回款卡同约定，纯展示）
+        rm = str(i + 1)
+        if isinstance(label, str) and label.endswith("月"):
+            head = label[:-1]
+            if head.isdigit():
+                rm = str(int(head))
+        drm = f' data-rm="{rm}"'
         cx = pl + gw * i + gw / 2
         rh = max(1.0, rev / mx * bar_h) if rev else 1.0
         chh = max(1.0, cost / mx * bar_h) if cost else 1.0
         is_hl = highlight_label is not None and label == highlight_label
         ry, cy = pt + plot_h - rh, pt + plot_h - chh
         parts.append(f'<rect class="bar bar-rev" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {BLUE})" '
-                     f'x="{cx-bw-2:.1f}" y="{ry:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" fill="url(#barGradRev)" opacity="0.95"/>')
+                     f'x="{cx-bw-2:.1f}" y="{ry:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" fill="url(#barGradRev)" opacity="0.95"{drm}/>')
         parts.append(f'<rect class="bar bar-cost" style="animation-delay:{i*0.05:.2f}s" '
-                     f'x="{cx+2:.1f}" y="{cy:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" fill="url(#barGradCost)" opacity="0.9"/>')
+                     f'x="{cx+2:.1f}" y="{cy:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" fill="url(#barGradCost)" opacity="0.9"{drm}/>')
         # 金额始终在柱顶上方（不夹进柱内）
         parts.append(f'<text x="{cx-bw/2-1:.1f}" y="{ry-5:.1f}" text-anchor="middle" '
-                     f'font-size="9.5" font-weight="700" fill="{BLUE}">{fmt_wan(rev)}</text>')
+                     f'font-size="9.5" font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rev)}</text>')
         parts.append(f'<text x="{cx+bw/2+3:.1f}" y="{cy-5:.1f}" text-anchor="middle" '
-                     f'font-size="9" font-weight="600" fill="{MUT}">{fmt_wan(cost)}</text>')
+                     f'font-size="9" font-weight="600" fill="{MUT}"{drm}>{fmt_wan(cost)}</text>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11" '
-                     f'font-weight="{"700" if is_hl else "400"}" fill="{INK if is_hl else MUT}">{label}</text>')
+                     f'font-weight="{"700" if is_hl else "400"}" fill="{INK if is_hl else MUT}"{drm}>{label}</text>')
         ly = pt + plot_h * (1 - max(0.0, min(margin, 100.0)) / 100.0)
-        line_pts.append((cx, ly, margin))
+        line_pts.append((cx, ly, margin, rm))
         tip = (f"{label}<br>交付收入&nbsp;{fmt_wan(rev)}万&nbsp;·&nbsp;交付成本&nbsp;{fmt_wan(cost)}万"
                f"<br>毛利率&nbsp;{margin:.1f}%")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
                     f'height="{plot_h:.1f}" fill="transparent"/>')
     if len(line_pts) >= 2:
-        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y, _m in line_pts)
-        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _m in line_pts)
+        poly = " ".join(f"{x:.1f},{y:.1f}" for x, y, _m, _rm in line_pts)
+        mpath = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _m, _rm in line_pts)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="{ORANGE}" stroke-width="2.2" '
                      f'stroke-linejoin="round" stroke-linecap="round" opacity="0.88"/>')
         parts.append(f'<polyline class="flowline" points="{poly}" fill="none" stroke="#fff" stroke-width="2" '
                      f'stroke-linejoin="round" stroke-linecap="round"/>')
         parts.append(f'<circle class="comet" r="3" fill="#fff">'
                      f'<animateMotion dur="3.2s" repeatCount="indefinite" path="{mpath}"/></circle>')
-    for x, y, margin in line_pts:
-        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" stroke-width="1.2"/>')
+    for x, y, margin, rm in line_pts:
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
+                     f'stroke-width="1.2" data-rm="{rm}"/>')
         # 毛利率%标在折线点旁（默认点上方；贴顶时改标下方，避免出图）
         ty = y + 15 if y < pt + 20 else y - 8
         parts.append(f'<text x="{x:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
-                     f'fill="{ORANGE}">{margin:.0f}%</text>')
+                     f'fill="{ORANGE}" data-rm="{rm}">{margin:.0f}%</text>')
     legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>交付收入（柱顶·万）</span>'
               f'<span><i style="background:{COST}"></i>交付成本（柱顶·万）</span>'
               f'<span><i style="background:{ORANGE}"></i>毛利率（线上·% · 右轴）</span></div>')

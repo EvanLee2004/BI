@@ -23,10 +23,16 @@ GROUP_COLORS = {"营销费用": "var(--blue)", "管理费用": "var(--purple)", 
 LED_OF = {"营销费用": "市场费用", "管理费用": "管理费用", "固定运营费用": "固定运营费用",
           "研发费用": "技术服务费", "财务费用": "财务费用"}
 
-# ---------- 板块②-1 交付金额 · 毛利趋势（整年，静态）----------
-def render_trend(trend, hl):
-    # 看端卡头只留「按月」；柱顶/线上说明见图例，不堆运营备注
-    return (f'<div class="card"><div class="card-h">交付收入 · 生产毛利趋势 '
+# ---------- 板块②-1 交付金额 · 毛利趋势（整年，静态；周期高亮同回款卡）----------
+def render_trend(trend, hl, *, period_months_map=None, year_key=None):
+    # 看端卡头只留「按月」；柱顶/线上说明见图例，不堆运营备注。
+    # 迭代：卡根挂 data-rm-map（复用 _period_months_map）供前端只切高亮，柱图全年视角不变。
+    import json
+    yk = year_key or ""
+    rm_map = period_months_map or {}
+    map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
+    return (f'<div class="card" id="trendCard" data-rm-year="{_esc(yk)}" '
+            f'data-rm-map="{_esc(map_json)}"><div class="card-h">交付收入 · 生产毛利趋势 '
             f'<span class="tag">按月</span></div>'
             f'{charts.combo_bar_line_chart(trend, hl)}</div>')
 
@@ -579,12 +585,15 @@ def render_dashboard(summary, cfg, logo_b64):
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
 
+    # 周期→月份映射一处生成，回款卡 + 趋势图共用（前端只切 class）
+    rm_map = _period_months_map(summary)
     # 回款情况：柱图全年视角 + 周期高亮；侧栏 .pv 随「看哪段」切本期数（迭代21+周期侧栏）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], summary['meta'].get('budget'),
-        period_months_map=_period_months_map(summary), year_key=yk,
+        period_months_map=rm_map, year_key=yk,
         periods=P, default_key=yk)
     receipts_budget = f'<div class="period-receipts" style="margin-top:16px">{receipts_html}</div>'
+    trend_html = render_trend(summary['trend'], hl, period_months_map=rm_map, year_key=yk)
 
     body = f"""
 {PARTICLES_HTML}
@@ -602,7 +611,7 @@ def render_dashboard(summary, cfg, logo_b64):
 
  <div class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></div>
  <div class="grid-2">
-   <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="grid-2-main">{trend_html}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">算到税前利润</span></div>{pl_views}</div>
  </div>
 
@@ -756,11 +765,14 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     budget = meta.get("budget")
     kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget)) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
+    # 周期→月份映射一处生成，回款卡 + 趋势图共用
+    rm_map = _period_months_map(summary)
     # 回款：柱图全年+高亮；侧栏各周期预渲染（本 BU 过滤后的数）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], budget,
-        period_months_map=_period_months_map(summary), year_key=yk,
+        period_months_map=rm_map, year_key=yk,
         periods=P, default_key=yk)
+    trend_html = render_trend(summary['trend'], hl, period_months_map=rm_map, year_key=yk)
     from urllib.parse import quote as _q
     export_url = f"/bu/{_q(bu_name)}/export.png"
     pl_tag = f' <span class="tag">{_esc(tag_note)}</span>' if tag_note else ""
@@ -785,7 +797,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
  {kpi_views}
  <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 经营利润</span></div>
  <div class="grid-2">
-   <div class="grid-2-main">{render_trend(summary['trend'], hl)}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="grid-2-main">{trend_html}<div style="margin-top:16px">{donut_views}</div></div>
    <div class="card pl-card"><div class="card-h">管理利润表{pl_tag}</div>{pl_views}</div>
  </div>
  <div class="sec"><span class="sec-n">三</span><span class="sec-t">{name} · 收入与毛利结构</span></div>

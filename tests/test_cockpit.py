@@ -240,6 +240,26 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn("rm-dim", css)
         self.assertIn("rm-on", css)
         self.assertIn("rm-on", js)
+        # 通用选择器：任意 [data-rm-map] 卡（回款+趋势），非仅 #rcCard
+        self.assertIn("[data-rm-map]", js)
+        self.assertIn(".rc-rm-filter", css)
+
+    def test_trend_month_highlight_hooks(self):
+        """经营利润趋势图复用回款卡 data-rm-map / data-rm 机制。"""
+        html = self.html
+        self.assertIn('id="trendCard"', html)
+        # 趋势卡根挂 map（与回款卡同格式）
+        self.assertRegex(html, r'id="trendCard"[^>]*data-rm-map=')
+        self.assertRegex(html, r'id="trendCard"[^>]*data-rm-year=')
+        # 趋势图柱组带 data-rm
+        from pathlib import Path
+        import charts
+        svg = charts.combo_bar_line_chart(
+            [("1月", 100.0, 40.0, 60.0), ("2月", 80.0, 30.0, 62.5)], None)
+        self.assertIn('data-rm="1"', svg)
+        self.assertIn('data-rm="2"', svg)
+        # 收入柱 + 成本柱 + 毛利率点均带标识
+        self.assertGreaterEqual(svg.count('data-rm="1"'), 3)
 
 
 class TestUnclassifiedPeriodTip(unittest.TestCase):
