@@ -755,8 +755,9 @@ def serve(cfg=None, root=None):
             import updater
 
             updater.clear_rollback_marker(loaders.ROOT)
-        except Exception:
-            pass
+        except Exception as e:
+            # 看门狗标记清理失败不挡服务；下次更新仍可重试。记一行便于排障。
+            print(f"[server] clear_rollback_marker 跳过：{type(e).__name__}: {e}")
 
     threading.Thread(target=_confirm_update_good, daemon=True).start()
 

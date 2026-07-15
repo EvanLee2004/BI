@@ -33,13 +33,57 @@ def _local_config_path(base: Path, cfg: dict) -> Path:
     return base / cfg.get("data_dir", "数据") / LOCAL_CONFIG_NAME
 
 
+# 启动/管道必需键（缺则清晰报错，避免深处 KeyError）
+_REQUIRED_CONFIG_KEYS = (
+    "data_dir",
+    "files",
+    "columns",
+)
+
+
+def validate_config(cfg: dict) -> None:
+    """校验 config 形状；失败抛 ValueError（带键路径），不吞。"""
+    if not isinstance(cfg, dict):
+        raise ValueError("config 必须是 JSON 对象")
+    for k in _REQUIRED_CONFIG_KEYS:
+        if k not in cfg:
+            raise ValueError(f"config.json 缺少必需键：{k}")
+    if not isinstance(cfg["files"], dict):
+        raise ValueError("config.files 必须是对象")
+    for fk in ("project_detail_stem", "orders", "receipts", "inhouse", "ledger", "manual"):
+        if fk not in cfg["files"]:
+            raise ValueError(f"config.files 缺少：{fk}")
+    if not isinstance(cfg["columns"], dict):
+        raise ValueError("config.columns 必须是对象")
+    for ck in (
+        "project_delivery_date",
+        "project_revenue",
+        "project_cost",
+        "order_date",
+        "order_amount",
+        "receipt_date",
+        "receipt_amount",
+        "inhouse_date",
+        "inhouse_amount",
+        "inhouse_type",
+    ):
+        if ck not in cfg["columns"]:
+            raise ValueError(f"config.columns 缺少：{ck}")
+
+
 def load_config(root: Path | None = None) -> dict:
     """读 config.json（出厂默认），再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
     覆盖只认非 None 值；坏文件/缺文件静默跳过。config.json 本身只读不写。"""
     base = root or ROOT
-    with open(base / "config.json", encoding="utf-8") as f:
-        cfg = json.load(f)
-    ov = _local_config_path(base, cfg)
+    path = base / "config.json"
+    try:
+        with open(path, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except FileNotFoundError as e:
+        raise ValueError(f"找不到 config.json：{path}") from e
+    except json.JSONDecodeError as e:
+        raise ValueError(f"config.json JSON 无效：{e}") from e
+    ov = _local_config_path(base, cfg if isinstance(cfg, dict) else {})
     if ov.exists():
         try:
             data = json.loads(ov.read_text(encoding="utf-8"))
@@ -49,6 +93,7 @@ def load_config(root: Path | None = None) -> dict:
                         cfg[k] = v
         except (OSError, ValueError):
             pass  # 覆盖文件坏了不致命：退回 config.json 默认，管理端重存即可
+    validate_config(cfg)
     return cfg
 
 

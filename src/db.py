@@ -88,7 +88,8 @@ def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
             }
             for d, a, o, dep, sal, cu in rows
         ]
-    except Exception:
+    except sqlite3.OperationalError:
+        # 极老库缺「客户」列：降级不选该列（非吞所有异常）
         rows = conn.execute(
             "SELECT 下单日期,下单预估额,订单号,部门,销售 FROM std_下单 WHERE 已删除=0 ORDER BY id"
         ).fetchall()

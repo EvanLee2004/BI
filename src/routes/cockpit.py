@@ -138,7 +138,8 @@ def register(app, d):
             logo = ""
             try:
                 logo = assets.load_logo_base64(cfg) or ""
-            except Exception:
+            except OSError as e:
+                print(f"[cockpit] logo 加载失败：{e}")
                 logo = ""
             pack = api_v1.cockpit_fragments(summary, cfg, logo, client=True)
             fr = pack["fragments"]
@@ -153,7 +154,9 @@ def register(app, d):
                     try:
                         views = api_v1.build_cockpit_views(summary, cfg)
                         _state["views"] = views
-                    except Exception:
+                    except Exception as e:
+                        # 任务书33·B：不可静默空 views（周期切换会空）。记日志后退化空壳，不 500。
+                        print(f"[cockpit] build_cockpit_views 失败：{type(e).__name__}: {e}")
                         views = {"year_key": "", "period_keys": [], "rankings_view": {}}
                 else:
                     views = {"year_key": "", "period_keys": [], "rankings_view": {}}
@@ -189,7 +192,9 @@ def register(app, d):
             logo = ""
             try:
                 logo = assets.load_logo_base64(cfg) or ""
-            except Exception:
+            except OSError as e:
+                # logo 文件缺失/不可读：页面仍可出，仅无 Logo
+                print(f"[cockpit] BU logo 加载失败：{e}")
                 logo = ""
             fr_full = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
             fr = api_v1.client_strip_fragments(fr_full)
@@ -203,7 +208,8 @@ def register(app, d):
                     try:
                         views = api_v1.build_bu_cockpit_views(name, summary, cfg)
                         page["views"] = views
-                    except Exception:
+                    except Exception as e:
+                        print(f"[cockpit] build_bu_cockpit_views 失败：{type(e).__name__}: {e}")
                         views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
                 else:
                     views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
