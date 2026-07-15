@@ -543,7 +543,7 @@ def admin_ui_source() -> str:
 
 def _run_reasons(report: dict) -> list[str]:
     """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
-    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整。
+    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、定位键重复、库检查、备份。
     注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
     report = report or {}
     reasons: list[str] = []
@@ -560,6 +560,19 @@ def _run_reasons(report: dict) -> list[str]:
         reasons.append(
             f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·数据修正』人工复核"
         )
+    dups = report.get("duplicate_locators") or {}
+    n_dup_keys = sum(len(v) for v in dups.values()) if isinstance(dups, dict) else 0
+    if n_dup_keys:
+        reasons.append(
+            f"{n_dup_keys} 组定位键重复（内容完全相同行）→ 写调整拒、重放标过期疑似；请在源表区分"
+        )
+    dbc = report.get("db_check") or {}
+    if dbc and not dbc.get("ok", True):
+        reasons.append(f"数据库 quick_check 异常：{dbc.get('detail') or 'unknown'} → 判红")
+    bak = report.get("backup") or {}
+    if bak.get("status") == "error" or bak.get("ok") is False:
+        reasons.append(f"每日备份失败：{bak.get('detail') or bak.get('status')}")
+    # 备份成功不写 run_reasons（避免绿时顶栏堆字）；状态在体检 JSON backup 字段，管理端可查
     return reasons
 
 

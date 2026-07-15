@@ -128,6 +128,12 @@ def build_std_db(
     # 5) 重放调整 + 过期校验（改数不改结果、只记指令）
     report["adjust"] = adjust.apply_adjustments(conn, now)
 
+    # 5b) A4 定位键重复审计（不改数，只报告；写调整/重放已拒多行）
+    report["duplicate_locators"] = db.audit_duplicate_locators(conn)
+
+    # 5c) A7 库完整性 quick_check（异常 → 体检红）
+    report["db_check"] = db.pragma_quick_check(conn)
+
     # 6) 写运行日志（结果绿/黄/红）——注意不把 records 塞进日志 JSON
     report["result"] = _log_run(conn, now, trigger, report)
 
@@ -186,18 +192,34 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
 
 
 def _log_run(conn, now: str, trigger: str, report: dict) -> str:
-    """据本轮情况判绿/黄/红，写 meta_运行日志。黄=fetch走本地副本 / 有过期疑似 / 有调整定位键失配未套用。"""
+    """据本轮情况判绿/黄/红，写 meta_运行日志。
+
+    黄=fetch 走本地 / 过期疑似 / 调整失配 / 智云降级 / 定位键重复。
+    红=无源 或 PRAGMA quick_check 失败。
+    备份结果在 report['backup']，管理端 /api/health 经体检 JSON 可见。
+    """
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
     # 智云在线抓时：任一源没抓到（走本地副本/无源）也算黄（诚实反映数据陈旧）
     zy = report.get("fetch_zhiyun") or {}
     zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
-    yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or adj.get("missing", 0) > 0 or zy_degraded
-    red = report["fetch"]["status"] == "no_source"
+    dups = report.get("duplicate_locators") or {}
+    has_dups = any(dups.values())
+    db_bad = not (report.get("db_check") or {}).get("ok", True)
+    yellow = (
+        (not fetch_ok)
+        or adj.get("expired", 0) > 0
+        or adj.get("missing", 0) > 0
+        or zy_degraded
+        or has_dups
+    )
+    red = report["fetch"]["status"] == "no_source" or db_bad
     结果 = "红" if red else ("黄" if yellow else "绿")
+    # 日志 JSON 不塞 records（体积大）
+    log_body = {k: v for k, v in report.items() if k != "records"}
     conn.execute(
         "INSERT INTO meta_运行日志(时间,触发方式,结果,体检JSON) VALUES(?,?,?,?)",
-        (now, trigger, 结果, json.dumps(report, ensure_ascii=False)),
+        (now, trigger, 结果, json.dumps(log_body, ensure_ascii=False)),
     )
     conn.commit()
     return 结果

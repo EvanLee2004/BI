@@ -27,19 +27,51 @@ def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None =
         keep = max(1, int(cfg.get("backup_keep_days", 30) or 30))
     src = db.db_path(cfg, root)
     if not src.exists():
-        return {"status": "skip", "detail": "库文件不存在"}
+        return {"status": "skip", "detail": "库文件不存在", "ok": False}
     day = today or datetime.date.today()
     bdir = loaders.data_dir(cfg, root) / "备份"
     bdir.mkdir(parents=True, exist_ok=True)
     dst = bdir / f"看板_{day:%Y%m%d}.db"
-    shutil.copy2(src, dst)
+    try:
+        shutil.copy2(src, dst)
+    except OSError as e:
+        return {"status": "error", "detail": str(e), "ok": False}
     backups = sorted(bdir.glob("看板_*.db"))
     pruned = 0
     while len(backups) > keep:
         backups[0].unlink()
         backups.pop(0)
         pruned += 1
-    return {"status": "ok", "path": str(dst), "kept": len(backups), "pruned": pruned}
+    return {"status": "ok", "path": str(dst), "kept": len(backups), "pruned": pruned, "ok": True}
+
+
+def restore_db_from_backup(
+    cfg: dict, backup_path: Path | str, root: Path | None = None
+) -> dict:
+    """从每日滚动备份恢复看板.db（覆盖当前库）。测试/演练用；部署手册「恢复演练」章节同步骤。
+
+    步骤：停写 → copy2 备份→目标 → 下次 connect 自动 migrate/建表。
+    返回 {status, path, detail}。
+    """
+    src = Path(backup_path)
+    if not src.exists() or not src.is_file():
+        return {"status": "error", "detail": f"备份不存在：{src}"}
+    dst = db.db_path(cfg, root)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    # 恢复前再留一份当前库（若存在）
+    if dst.exists():
+        pre = dst.with_name(dst.name + f".pre-restore-{datetime.datetime.now():%Y%m%d%H%M%S}")
+        try:
+            shutil.copy2(dst, pre)
+        except OSError:
+            pre = None
+    else:
+        pre = None
+    try:
+        shutil.copy2(src, dst)
+    except OSError as e:
+        return {"status": "error", "detail": str(e), "pre": str(pre) if pre else None}
+    return {"status": "ok", "path": str(dst), "from": str(src), "pre": str(pre) if pre else None}
 
 
 def snapshot_page(

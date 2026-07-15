@@ -423,6 +423,39 @@ def exceptions_summary(conn: sqlite3.Connection) -> dict:
     }
 
 
+def audit_duplicate_locators(conn: sqlite3.Connection) -> dict:
+    """审计各 std 表「定位键」重复（内容完全相同 → 同哈希）。
+
+    任务书33·A4 约定行为（已实现、本函数只报告）：
+    - **写调整**（add_adjustment）：命中 >1 行 → **拒绝**，不静默改多行；
+    - **重放**（apply_adjustments）：命中 >1 行 → **过期疑似**、不套用，体检黄。
+    返回 {表名: {定位键: 行数}, …} 仅含 count≥2 的键；无重复 → {}。
+    """
+    out: dict[str, dict[str, int]] = {}
+    for table in schema.STD_TABLE_NAMES:
+        try:
+            rows = conn.execute(
+                f"SELECT 定位键, COUNT(*) c FROM {table} WHERE 已删除=0 AND 定位键 IS NOT NULL AND TRIM(定位键)<>'' "
+                f"GROUP BY 定位键 HAVING c>1"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            continue
+        if rows:
+            out[table] = {str(k): int(c) for k, c in rows}
+    return out
+
+
+def pragma_quick_check(conn: sqlite3.Connection) -> dict:
+    """PRAGMA quick_check → {ok: bool, detail: str}。异常 → 体检红。"""
+    try:
+        rows = conn.execute("PRAGMA quick_check").fetchall()
+        msgs = [str(r[0]) for r in rows if r and r[0] is not None]
+        ok = len(msgs) == 1 and msgs[0].lower() == "ok"
+        return {"ok": ok, "detail": "; ".join(msgs) if msgs else "empty"}
+    except sqlite3.Error as e:
+        return {"ok": False, "detail": f"quick_check failed: {e}"}
+
+
 def _now() -> str:
     import datetime
 
