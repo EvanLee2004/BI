@@ -38,6 +38,7 @@ import assets
 import version as product_version
 import updater
 import api_v1
+import tpl
 
 # v1.4 静态资源（CSS/JS/壳）：与 run.py 同级 static/
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -48,7 +49,15 @@ COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
 SESSION_TTL = 24 * 3600
 # 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
-_HIDE_PW_STYLE = '<style>#pwBtn{display:none!important}</style>'
+# 模板缓存于模块载入（tpl.load 一次）；内容与迁前逐字节一致
+_HIDE_PW_STYLE = tpl.load("partials/hide_pw_style.html")
+_WRAP_OPEN = tpl.load("partials/wrap_open.html")
+_EMPTY_DATA_HTML = tpl.load("partials/empty_data.html")
+_LOGIN_HTML = tpl.load("login.html")
+_VIEW_LOGIN_HTML = tpl.load("view_login.html")
+_LOGIN_ERR_TPL = tpl.load("partials/login_err.html")
+_BU_NAV_TPL = tpl.load("partials/bu_nav.html")
+_BU_NAV_LINK_TPL = tpl.load("partials/bu_nav_link.html")
 # 兼容旧测试/文档引用（v8.0 起管理员口令在 看板账号.json，不再走密钥哈希）
 DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", accounts.DEFAULT_ADMIN_PW)
 DEFAULT_VIEW_PW = accounts.DEFAULT_VIEW_PW
@@ -602,93 +611,16 @@ def _run_reasons(report: dict) -> list[str]:
     return reasons
 
 
-_LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>管理员登录 · 甲骨易智能经营罗盘</title>
-<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>
-<style>
-:root{{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--line:#334155;--input-bg:#0f172a;--hint:#64748b;--err:#f87171}}
-html.theme-light{{--bg:#eef1f5;--card:#fff;--fg:#1d2836;--mut:#525c68;--line:#e3e8ef;--input-bg:#fff;--hint:#64748b;--err:#dc2626}}
-body{{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);
-display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;position:relative}}
-.card{{background:var(--card);padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.2);border:1px solid var(--line)}}
-h1{{font-size:18px;margin:0 0 20px}}label{{font-size:13px;color:var(--mut)}}
-input{{width:100%;box-sizing:border-box;margin:6px 0 16px;padding:9px;border-radius:7px;
-border:1px solid var(--line);background:var(--input-bg);color:var(--fg);font-size:14px}}
-button[type=submit]{{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
-font-size:15px;cursor:pointer}}.err{{color:var(--err);font-size:13px;margin-bottom:10px}}
-.hint{{color:var(--hint);font-size:12px;margin-top:12px}}
-#themeBtn{{position:fixed;top:14px;right:16px;background:transparent;border:1px solid var(--line);color:var(--fg);
-padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}}
-#themeBtn:hover{{border-color:#8b5cf6}}
-</style></head>
-<body>
-<button type="button" id="themeBtn" title="深色/浅色（全局同步）">◑ 浅色</button>
-<form class="card" method="post" action="/admin/login">
-<h1>管理员端登录</h1>{err}
-<label>账号</label><input name="account" value="{account}" autocomplete="username" autofocus>
-<label>密码</label><input type="password" name="password" autocomplete="current-password">
-<button type="submit">进入</button>
-<div class="hint">管理员账号见「看板账号」表（默认 lushasha）。</div></form>
-<script>
-(function(){{var r=document.documentElement,b=document.getElementById("themeBtn");
-function setL(l){{r.classList.toggle("theme-light",!!l);if(b)b.textContent=l?"◐ 深色":"◑ 浅色";}}
-try{{setL(localStorage.getItem("cockpit-theme")==="light");}}catch(e){{}}
-if(b)b.onclick=function(){{var l=!r.classList.contains("theme-light");try{{localStorage.setItem("cockpit-theme",l?"light":"dark");}}catch(e){{}}setL(l);}};
-window.addEventListener("storage",function(e){{if(e.key==="cockpit-theme")setL(e.newValue==="light");}});}})();
-</script></body></html>"""
-
-
-
 def _login_page(err: str = "", account: str = "") -> str:
-    err_html = f'<div class="err">{err}</div>' if err else ""
+    err_html = _LOGIN_ERR_TPL.format(err=err) if err else ""
     acct = str(account or DEFAULT_ADMIN_ACCOUNT).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
     return _LOGIN_HTML.format(err=err_html, account=acct)
 
 
-# 查看端登录页（v8.0）：账号+密码，按权限分流（管理员→/admin、整体→整体页、BU→本 BU 页）。
-_VIEW_LOGIN_HTML = """<!doctype html><html lang="zh"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>看板登录 · 甲骨易智能经营罗盘</title>
-<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>
-<style>
-:root{{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--line:#334155;--input-bg:#0f172a;--hint:#64748b;--err:#f87171}}
-html.theme-light{{--bg:#eef1f5;--card:#fff;--fg:#1d2836;--mut:#525c68;--line:#e3e8ef;--input-bg:#fff;--hint:#64748b;--err:#dc2626}}
-body{{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);
-display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;position:relative}}
-.card{{background:var(--card);padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.2);border:1px solid var(--line)}}
-h1{{font-size:18px;margin:0 0 20px}}label{{font-size:13px;color:var(--mut)}}
-input{{width:100%;box-sizing:border-box;margin:6px 0 16px;padding:9px;border-radius:7px;
-border:1px solid var(--line);background:var(--input-bg);color:var(--fg);font-size:14px}}
-button[type=submit]{{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
-font-size:15px;cursor:pointer}}.err{{color:var(--err);font-size:13px;margin-bottom:10px}}
-.hint{{color:var(--hint);font-size:12px;margin-top:12px}}
-#themeBtn{{position:fixed;top:14px;right:16px;background:transparent;border:1px solid var(--line);color:var(--fg);
-padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}}
-#themeBtn:hover{{border-color:#8b5cf6}}
-</style></head>
-<body>
-<button type="button" id="themeBtn" title="深色/浅色（全局同步）">◑ 浅色</button>
-<form class="card" method="post" action="/login">
-<h1>看板登录</h1>{err}
-<label>账号</label><input name="account" value="{account}" autocomplete="username" autofocus>
-<label>密码</label><input type="password" name="password" autocomplete="current-password">
-<button type="submit">进入</button>
-<div class="hint">账号密码问财务部管理员要；登录后可自己改密码。忘记密码找管理员重置。</div></form>
-<script>
-(function(){{var r=document.documentElement,b=document.getElementById("themeBtn");
-function setL(l){{r.classList.toggle("theme-light",!!l);if(b)b.textContent=l?"◐ 深色":"◑ 浅色";}}
-try{{setL(localStorage.getItem("cockpit-theme")==="light");}}catch(e){{}}
-if(b)b.onclick=function(){{var l=!r.classList.contains("theme-light");try{{localStorage.setItem("cockpit-theme",l?"light":"dark");}}catch(e){{}}setL(l);}};
-window.addEventListener("storage",function(e){{if(e.key==="cockpit-theme")setL(e.newValue==="light");}});}})();
-</script></body></html>"""
-
-
 def _view_login_page(err: str = "", account: str = "") -> str:
-    err_html = f'<div class="err">{err}</div>' if err else ""
+    err_html = _LOGIN_ERR_TPL.format(err=err) if err else ""
     acct = str(account).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
     return _VIEW_LOGIN_HTML.format(err=err_html, account=acct)
-
 
 
 
@@ -746,12 +678,12 @@ def create_app(cfg, root=None) -> FastAPI:
         if len(existing) <= 1:
             return ""
         links = "".join(
-            f'<a class="bu-nav-a" href="/bu/{quote(n)}"'
-            + (' aria-current="page" style="border-color:var(--blue)"' if n == current else "")
-            + f'>{esc(n)}</a>' for n in existing)
-        return ('<div class="bu-nav" role="navigation" aria-label="我的 BU 分页">'
-                '<span class="bu-nav-label">我的 BU</span>'
-                '<span class="bu-nav-links">' + links + '</span></div>')
+            _BU_NAV_LINK_TPL.format(
+                href=quote(n),
+                current_attrs=(' aria-current="page" style="border-color:var(--blue)"' if n == current else ""),
+                name=esc(n),
+            ) for n in existing)
+        return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
 
     def _bu_view_html(name: str, my_names=None, hide_pw: bool = False) -> str:
         """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。"""
@@ -765,7 +697,7 @@ def create_app(cfg, root=None) -> FastAPI:
             parts.append(_bu_switcher_html(my_names, name))
         html = page["html"]
         if any(parts):
-            html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
+            html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
         return html
 
     def _set_vcookie(resp, account: str):
@@ -785,7 +717,7 @@ def create_app(cfg, root=None) -> FastAPI:
     def _shell_or_html(html: str):
         if _use_fetch_shell() and html:
             return FileResponse(STATIC_DIR / "shell.html", media_type="text/html; charset=utf-8")
-        return HTMLResponse(html or "<h1>数据尚未生成，请稍候刷新</h1>")
+        return HTMLResponse(html or _EMPTY_DATA_HTML)
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
@@ -828,12 +760,13 @@ def create_app(cfg, root=None) -> FastAPI:
             parts.append(_HIDE_PW_STYLE)
         names = list(_state.get("bu_pages", {}))
         if names:
-            links = "".join(f'<a class="bu-nav-a" href="/bu/{quote(n)}">{_esc(n)}</a>' for n in names)
-            parts.append('<div class="bu-nav" role="navigation" aria-label="BU 分页">'
-                         '<span class="bu-nav-label">业务 BU 分页</span>'
-                         '<span class="bu-nav-links">' + links + '</span></div>')
+            links = "".join(
+                _BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n))
+                for n in names)
+            parts.append(_BU_NAV_TPL.format(
+                aria_label="BU 分页", label="业务 BU 分页", links=links))
         if parts:
-            html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
+            html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
         return html
 
     @app.post("/login")
@@ -859,7 +792,7 @@ def create_app(cfg, root=None) -> FastAPI:
             return HTMLResponse(_view_login_page())
         if _user(request):  # 管理员看 BU 页也隐藏「🔑密码」自改入口（与整体页一致）
             return HTMLResponse(page["html"].replace(
-                '<div class="wrap">', _HIDE_PW_STYLE + '<div class="wrap">', 1))
+                _WRAP_OPEN, _HIDE_PW_STYLE + _WRAP_OPEN, 1))
         # 多 BU 账号：注入「我的 BU」切换条（只列其绑定的 BU）；整体账号 bu_names_of=[] 不注入
         vacc = _vacc_row(request)
         my = accounts.bu_names_of(vacc)

@@ -1,0 +1,35 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>看板登录 · 甲骨易智能经营罗盘</title>
+<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>
+<style>
+:root{{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--line:#334155;--input-bg:#0f172a;--hint:#64748b;--err:#f87171}}
+html.theme-light{{--bg:#eef1f5;--card:#fff;--fg:#1d2836;--mut:#525c68;--line:#e3e8ef;--input-bg:#fff;--hint:#64748b;--err:#dc2626}}
+body{{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);
+display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;position:relative}}
+.card{{background:var(--card);padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.2);border:1px solid var(--line)}}
+h1{{font-size:18px;margin:0 0 20px}}label{{font-size:13px;color:var(--mut)}}
+input{{width:100%;box-sizing:border-box;margin:6px 0 16px;padding:9px;border-radius:7px;
+border:1px solid var(--line);background:var(--input-bg);color:var(--fg);font-size:14px}}
+button[type=submit]{{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
+font-size:15px;cursor:pointer}}.err{{color:var(--err);font-size:13px;margin-bottom:10px}}
+.hint{{color:var(--hint);font-size:12px;margin-top:12px}}
+#themeBtn{{position:fixed;top:14px;right:16px;background:transparent;border:1px solid var(--line);color:var(--fg);
+padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}}
+#themeBtn:hover{{border-color:#8b5cf6}}
+</style></head>
+<body>
+<button type="button" id="themeBtn" title="深色/浅色（全局同步）">◑ 浅色</button>
+<form class="card" method="post" action="/login">
+<h1>看板登录</h1>{err}
+<label>账号</label><input name="account" value="{account}" autocomplete="username" autofocus>
+<label>密码</label><input type="password" name="password" autocomplete="current-password">
+<button type="submit">进入</button>
+<div class="hint">账号密码问财务部管理员要；登录后可自己改密码。忘记密码找管理员重置。</div></form>
+<script>
+(function(){{var r=document.documentElement,b=document.getElementById("themeBtn");
+function setL(l){{r.classList.toggle("theme-light",!!l);if(b)b.textContent=l?"◐ 深色":"◑ 浅色";}}
+try{{setL(localStorage.getItem("cockpit-theme")==="light");}}catch(e){{}}
+if(b)b.onclick=function(){{var l=!r.classList.contains("theme-light");try{{localStorage.setItem("cockpit-theme",l?"light":"dark");}}catch(e){{}}setL(l);}};
+window.addEventListener("storage",function(e){{if(e.key==="cockpit-theme")setL(e.newValue==="light");}});}})();
+</script></body></html>
