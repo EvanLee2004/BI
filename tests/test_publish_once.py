@@ -68,7 +68,8 @@ class TestPublishOnce(unittest.TestCase):
 
     def test_http_serves_cached_views_without_rebuild(self):
         """_state 已有 strip fragments + views 时，HTTP 原样下发 views 标记。"""
-        import accounts, bu
+        import accounts
+        import bu
 
         tmp = Path(tempfile.mkdtemp())
         cfg = loaders.load_config()

@@ -17,7 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, profit, db, ingest  # noqa: E402
+import loaders
+import profit
+import db
+import ingest  # noqa: E402
 
 
 def summary_from_files(cfg, today, ledger_year):

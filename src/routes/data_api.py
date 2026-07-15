@@ -2,26 +2,16 @@
 
 from __future__ import annotations
 
-import re
 import time
 from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import HTTPException, Query, Request
+from fastapi.responses import JSONResponse, Response
 
 import accounts
-import api_v1
-import assets
-import bu
 import charts
-import core
 import db
-import loaders
-import profit
-import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import _state
 
 
 def register(app, d):
@@ -79,8 +69,6 @@ def register(app, d):
         表头+行与明细页一致；月份/搜索条件与页面筛选相同。"""
         _require(request)
         import io
-        from urllib.parse import quote
-        from fastapi.responses import Response
         import openpyxl
 
         conn = _conn()
@@ -189,7 +177,6 @@ def register(app, d):
             receipts = db.load_receipts(cfg, conn)
         finally:
             conn.close()
-        import charts
         import profit as _profit
 
         # 与全年预渲染一致：有销售→BU 映射则多算 orders_by_bu（看端时间段查询统一按 BU）
@@ -255,7 +242,6 @@ def register(app, d):
             project = db.load_project_detail(cfg, conn)
         finally:
             conn.close()
-        import charts
         import profit as _profit
 
         vat = cfg["tax"]["vat_rate"]

@@ -12,7 +12,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, db, schema, ingest, profit, columns  # noqa: E402
+import loaders
+import db
+import schema
+import ingest
+import profit
+import columns  # noqa: E402
 import regress_db_vs_files as regress  # noqa: E402
 
 

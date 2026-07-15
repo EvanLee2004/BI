@@ -6,22 +6,12 @@ import re
 import time
 from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import HTTPException, Request
+from fastapi.responses import Response
 
-import accounts
-import api_v1
-import assets
-import bu
-import charts
-import core
 import db
 import loaders
-import profit
-import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import _state, _EXPORT_LOCK
 
 
 def register(app, d):
@@ -110,7 +100,6 @@ def register(app, d):
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
-        from urllib.parse import quote
 
         fn = quote(f"甲骨易智能经营罗盘_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(
@@ -144,7 +133,6 @@ def register(app, d):
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
-        from urllib.parse import quote
 
         fn = quote(f"甲骨易智能经营罗盘_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(

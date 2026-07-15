@@ -18,7 +18,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, server, render, api_v1, core, assets  # noqa: E402
+import accounts
+import bu
+import loaders
+import server
+import render
+import api_v1
+import core
+import assets  # noqa: E402
 
 _CLIENT_FIELDS = api_v1._CLIENT_ASSEMBLE_FIELDS
 

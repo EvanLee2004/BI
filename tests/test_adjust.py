@@ -12,7 +12,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import schema, db, profit, loaders  # noqa: E402
+import schema
+import db
+import profit
+import loaders  # noqa: E402
 from ingest import adjust  # noqa: E402
 
 NOW = "2026-07-08 10:00:00"

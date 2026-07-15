@@ -19,7 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import db, loaders, profit, server  # noqa: E402
+import db
+import loaders
+import profit
+import server  # noqa: E402
 
 D1, D31 = datetime.date(2026, 3, 1), datetime.date(2026, 3, 31)
 
@@ -196,7 +199,8 @@ class TestDailyEndpoint(unittest.TestCase):
 class TestDailyFrontend(unittest.TestCase):
     def test_user_page_has_entry_and_no_math(self):
         """迭代17 批次A：板块③日期区常显、默认全年、「本年」在本月旁、跟顶钩子；无折叠入口。"""
-        import assets, render
+        import assets
+        import render
 
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
@@ -263,7 +267,8 @@ class TestDailyFrontend(unittest.TestCase):
     def test_bu_page_has_no_daily_outlet(self):
         """铁律12：BU 页不得出现 /api/daily 与按时间段控件。
         允许本地「其余」弹窗（rkModal + 预渲染 full，不调全公司 API）。"""
-        import assets, render
+        import assets
+        import render
 
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)

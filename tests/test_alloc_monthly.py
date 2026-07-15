@@ -20,7 +20,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, server, db, profit, bu  # noqa: E402
+import loaders
+import server
+import db
+import profit
+import bu  # noqa: E402
 
 TODAY = datetime.date(2026, 7, 15)
 CATS = list(profit._LEDGER_TO_EXPENSE)

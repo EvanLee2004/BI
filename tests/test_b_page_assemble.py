@@ -21,7 +21,10 @@ class TestPageAssemble(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
-        import loaders, core, render, assets
+        import loaders
+        import core
+        import render
+        import assets
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"

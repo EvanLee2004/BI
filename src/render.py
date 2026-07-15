@@ -8,8 +8,6 @@ HTML 外置 static/templates/render/，本模块只算值与 format 填充。"""
 from __future__ import annotations
 
 import charts
-import theme
-import version as product_version
 import tpl
 from render_shell import (
     DRAWER_HTML,
@@ -19,17 +17,8 @@ from render_shell import (
     DAILY_HTML,
 )
 from render_widgets import (
-    KPI_CARDS,
-    RECEIPT_NOTE,
-    _kpi_val,
-    _prev_period_key,
-    _wan,
     _title_version_html,
     _amt,
-    _target_bar,
-    _kpi_peak_row,
-    _bu_orders_block,
-    _kpi_period_label,
     render_basic,
     render_period_bar,
     _pv,

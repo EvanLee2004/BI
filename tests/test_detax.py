@@ -199,7 +199,8 @@ class TestDetaxApi(unittest.TestCase):
     def test_no_duplicate_element_ids_in_console(self):
         # 回归：detax 表 id 曾用 dTbl 与既有明细表 dTbl 撞车 → getElementById 命中错表、去税表空白不渲染。
         # 全控制台静态 id 不得重复（这类"页面看着空但 DOM 有数据"的坑，单测/接口都抓不到，只有整页扫 id 能防）。
-        import re, collections
+        import re
+        import collections
 
         ids = re.findall(r'id="([A-Za-z][\w-]*)"', server.admin_ui_source())
         dups = [i for i, n in collections.Counter(ids).items() if n > 1]

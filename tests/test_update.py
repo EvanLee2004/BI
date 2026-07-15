@@ -21,7 +21,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, server, updater  # noqa: E402
+import loaders
+import server
+import updater  # noqa: E402
 
 _ENV = {
     **os.environ,

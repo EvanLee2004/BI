@@ -2,26 +2,14 @@
 
 from __future__ import annotations
 
-import re
-import time
-from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import Body, HTTPException, Request
 
-import accounts
-import api_v1
-import assets
 import bu
 import charts
-import core
 import db
-import loaders
 import profit
-import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import _state
 
 
 def register(app, d):
@@ -312,7 +300,6 @@ def register(app, d):
 
     def _detax_payload(conn) -> dict:
         """费用去税率录入页数据：可去税类别（含全年金额参考·降序）+ 已填税率。"""
-        import charts  # 局部导入避免循环依赖（与本模块其余 charts 用法一致）
 
         cats = db.list_detax_categories(conn, cfg)
         rates = db.load_detax_rates(conn)

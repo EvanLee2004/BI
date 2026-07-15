@@ -83,7 +83,9 @@ class TestAdminStaticHttp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import tempfile
-        import accounts, server, loaders
+        import accounts
+        import server
+        import loaders
 
         cls.tmp = Path(tempfile.mkdtemp())
         cls.cfg = loaders.load_config(ROOT)

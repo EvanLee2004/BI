@@ -11,7 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, server  # noqa: E402
+import loaders
+import server  # noqa: E402
 
 
 class TestServerAuth(unittest.TestCase):

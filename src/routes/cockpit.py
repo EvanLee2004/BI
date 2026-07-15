@@ -2,26 +2,16 @@
 
 from __future__ import annotations
 
-import re
-import time
 from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 
 import accounts
 import api_v1
 import assets
-import bu
-import charts
-import core
-import db
-import loaders
-import profit
 import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import _state
 
 
 def register(app, d):
@@ -107,7 +97,6 @@ def register(app, d):
 
     def _main_chrome_prefix(hide_pw: bool = False) -> str:
         """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前。"""
-        from urllib.parse import quote
 
         def _esc(s):
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")

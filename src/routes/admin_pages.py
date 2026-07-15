@@ -2,26 +2,12 @@
 
 from __future__ import annotations
 
-import re
-import time
-from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 import accounts
-import api_v1
-import assets
-import bu
-import charts
-import core
-import db
-import loaders
-import profit
-import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import COOKIE, STATIC_DIR, _state
 
 
 def register(app, d):
@@ -87,7 +73,6 @@ def register(app, d):
     def admin_app_js(request: Request):
         """管理端应用 JS：磁盘 static/admin/admin.js 与抽取常量一致，
         仅将 __MANUAL_ITEMS__ 换成当前 config 手填项 JSON（纯注入、不算账）。"""
-        from fastapi.responses import Response
 
         js_path = STATIC_DIR / "admin" / "admin.js"
         if not js_path.is_file():

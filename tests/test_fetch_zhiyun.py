@@ -162,7 +162,8 @@ class TestZhiyunDefaults(unittest.TestCase):
             self.assertFalse(zy.get("username"))  # 账号密码绝不内置
 
     def test_file_overrides_defaults_and_blank_ignored(self):
-        import json as _json, tempfile
+        import json as _json
+        import tempfile
 
         with tempfile.TemporaryDirectory() as td:
             (Path(td) / "智云配置.json").write_text(
@@ -188,7 +189,8 @@ class TestZhiyunDefaults(unittest.TestCase):
 
     def test_save_session_creates_missing_file(self):
         """连接走内置默认（无文件）时登录成功也要能持久化 token，否则每轮更新重登。"""
-        import json as _json, tempfile
+        import json as _json
+        import tempfile
 
         with tempfile.TemporaryDirectory() as td:
             cfg = self._cfg(Path(td))
@@ -375,7 +377,8 @@ class TestFetchSourceStates(unittest.TestCase):
         orig = login_zhiyun.login
         login_zhiyun.login = boom
         try:
-            import types, sys
+            import types
+            import sys
 
             zy = {"base_url": "http://x", "account_id": "a", "md_pss_id": "DEAD", "username": "u", "password": "bad"}
 

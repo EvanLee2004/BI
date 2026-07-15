@@ -10,7 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, profit, render, assets, charts, columns, validate  # noqa: E402
+import loaders
+import profit
+import render
+import assets
+import charts
+import columns
+import validate  # noqa: E402
 
 
 def _summary():
@@ -298,7 +304,6 @@ class TestRenderGuards(unittest.TestCase):
         self.assertRegex(html, r'id="trendCard"[^>]*data-rm-year=')
         # 趋势图柱组带 data-rm
         from pathlib import Path
-        import charts
 
         svg = charts.combo_bar_line_chart([("1月", 100.0, 40.0, 60.0), ("2月", 80.0, 30.0, 62.5)], None)
         self.assertIn('data-rm="1"', svg)
@@ -405,7 +410,8 @@ class TestRankingsAndRanges(unittest.TestCase):
         self.assertAlmostEqual(rk["total"], 600.0)
 
     def test_period_ranges_include_month_spans(self):
-        import datetime as dt, periods
+        import datetime as dt
+        import periods
 
         r = periods.all_period_ranges(dt.date(2026, 7, 15))
         self.assertIn("2026年1-3月", r)

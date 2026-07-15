@@ -13,7 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import charts, loaders, render, schema, server  # noqa: E402
+import charts
+import loaders
+import render
+import schema
+import server  # noqa: E402
 from ingest import adjust  # noqa: E402
 
 EVIL = '<img src=x onerror=alert(1)>"&'

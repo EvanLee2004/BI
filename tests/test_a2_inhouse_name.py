@@ -65,7 +65,9 @@ class TestInhouseTotalsUnchanged(unittest.TestCase):
     """改前后各周期内部译员合计全等：用 golden 数据跑 generate 后 periods.inhouse_cost 可算。"""
 
     def test_golden_inhouse_cost_stable(self):
-        import loaders, core, db as dbmod
+        import loaders
+        import core
+        import db as dbmod
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"

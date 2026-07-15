@@ -13,7 +13,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, server  # noqa: E402
+import accounts
+import bu
+import loaders
+import server  # noqa: E402
 from support import fake_main_frags, fake_views  # noqa: E402
 
 

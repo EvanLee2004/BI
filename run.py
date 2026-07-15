@@ -18,8 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, validate  # noqa: E402
-import db, core  # noqa: E402
+import loaders
+import validate  # noqa: E402
+import db
+import core  # noqa: E402
 
 
 def run_batch(trigger="manual") -> int:

@@ -23,7 +23,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import bu, core, db, loaders, profit, render, server  # noqa: E402
+import bu
+import core
+import db
+import loaders
+import profit
+import render
+import server  # noqa: E402
 
 TODAY = datetime.date(2026, 7, 11)
 

@@ -22,7 +22,10 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, server
+import accounts
+import bu
+import loaders
+import server
 from support import fake_main_frags, fake_bu_page, fake_views  # noqa: E402
 
 

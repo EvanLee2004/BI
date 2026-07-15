@@ -41,7 +41,11 @@ class TestP0ShippedPath(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
-        import loaders, core, render, api_v1, assets
+        import loaders
+        import core
+        import render
+        import api_v1
+        import assets
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"

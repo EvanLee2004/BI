@@ -17,7 +17,10 @@ sys.path.insert(0, str(ROOT / "src"))
 class TestBuLedgerIsolation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        import loaders, server, bu as bu_mod, db as dbmod
+        import loaders
+        import server
+        import bu as bu_mod
+        import db as dbmod
         from fastapi.testclient import TestClient
 
         cls.root = Path(tempfile.mkdtemp())

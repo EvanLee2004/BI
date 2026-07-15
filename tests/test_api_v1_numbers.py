@@ -17,7 +17,11 @@ FAKE_DIR = ROOT / "_golden_data"
 
 
 def _build_summary():
-    import loaders, core, db, ingest, assets
+    import loaders
+    import core
+    import db
+    import ingest
+    import assets
 
     cfg = loaders.load_config(ROOT)
     cfg["data_dir"] = "_golden_data"
@@ -88,7 +92,12 @@ class TestCockpitHttp(unittest.TestCase):
             raise unittest.SkipTest("无 _golden_data")
         import tempfile
         from fastapi.testclient import TestClient
-        import accounts, server, loaders, db, ingest, core
+        import accounts
+        import server
+        import loaders
+        import db
+        import ingest
+        import core
 
         cls.tmp = Path(tempfile.mkdtemp())
         # 复用仓库假数据目录（只读）— 通过 cfg data_dir 绝对路径不方便，改用 ROOT/_golden_data

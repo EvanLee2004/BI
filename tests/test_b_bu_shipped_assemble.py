@@ -51,7 +51,12 @@ class TestBuShippedAssemble(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
-        import loaders, core, db, api_v1, assets, bu
+        import loaders
+        import core
+        import db
+        import api_v1
+        import assets
+        import bu
 
         cls.tmp = Path(tempfile.mkdtemp(prefix="bu_shipped_"))
         db_copy = cls.tmp / "golden.db"

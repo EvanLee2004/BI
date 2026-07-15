@@ -17,7 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import loaders, server, db  # noqa: E402
+import loaders
+import server
+import db  # noqa: E402
 from ingest import archive  # noqa: E402
 
 
@@ -271,7 +273,8 @@ class TestAdminWrite(unittest.TestCase):
 
     # ---- 设置：读/写/校验（config.json 写进临时 root，不碰真配置） ----
     def test_settings_roundtrip_and_validation(self):
-        import json as _json, shutil as _sh
+        import json as _json
+        import shutil as _sh
 
         _sh.copy2(ROOT / "config.json", self.root / "config.json")
         r = self.client.get("/api/settings", headers=self.hdr)
@@ -304,7 +307,8 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_settings_zhiyun_creds(self):
         """智云账号：GET 可见 / 改了才写+清旧会话 / 空值 400 / 同值不动。"""
-        import json as _json, shutil as _sh
+        import json as _json
+        import shutil as _sh
 
         _sh.copy2(ROOT / "config.json", self.root / "config.json")
         zp = loaders.data_dir(self.cfg, self.root) / "智云配置.json"
@@ -347,7 +351,8 @@ class TestAdminWrite(unittest.TestCase):
     def test_settings_zhiyun_conn(self):
         """智云连接配置（服务器/四表ID）：GET 返回生效默认值；改了写覆盖层+清会话；
         存回默认值=删除覆盖；config.json 始终不动（F-01）。"""
-        import json as _json, shutil as _sh
+        import json as _json
+        import shutil as _sh
         from ingest import fetch_zhiyun as fz
 
         _sh.copy2(ROOT / "config.json", self.root / "config.json")

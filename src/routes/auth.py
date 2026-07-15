@@ -2,26 +2,14 @@
 
 from __future__ import annotations
 
-import re
-import time
-from urllib.parse import quote
 
-from fastapi import Body, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi import Body, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import accounts
 import api_v1
-import assets
-import bu
-import charts
-import core
 import db
-import loaders
-import profit
-import render
-import updater
-import version as product_version
-from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+from app_state import COOKIE, VCOOKIE, _state
 
 
 def register(app, d):

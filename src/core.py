@@ -79,7 +79,6 @@ def alloc_context(cfg, conn, today, root=None):
     if not lh:
         return None
     import columns as _columns
-    import periods as _periods
     import datetime as _dt
 
     lcols = _columns.resolve_ledger_columns(lh)

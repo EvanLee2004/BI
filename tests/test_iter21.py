@@ -17,7 +17,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import columns, profit, core, bu, loaders, db  # noqa: E402
+import columns
+import profit
+import core
+import bu
+import loaders
+import db  # noqa: E402
 
 TODAY = datetime.date(2026, 7, 15)
 HEADER = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型"]

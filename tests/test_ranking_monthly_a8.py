@@ -156,7 +156,8 @@ class TestRankingMonthlyA8(unittest.TestCase):
 
     def test_golden_generate_monthly_present(self):
         """真实 generate 路径：views 挂 monthly，守恒抽查一主体。"""
-        import loaders, core
+        import loaders
+        import core
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"

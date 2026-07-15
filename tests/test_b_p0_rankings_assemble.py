@@ -29,7 +29,8 @@ class TestP0RankingsAssemble(unittest.TestCase):
             raise unittest.SkipTest(f"node required: {e}")
 
     def test_node_js_equals_python_render(self):
-        import render, api_v1
+        import render
+        import api_v1
 
         p = {
             "range": ("2026-01-01", "2026-12-31"),

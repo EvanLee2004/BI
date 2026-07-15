@@ -20,7 +20,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import charts, db, loaders, profit, render  # noqa: E402
+import charts
+import db
+import loaders
+import profit
+import render  # noqa: E402
 
 S, E = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
 COLS = {"project_delivery_date": "整单交付日期", "project_revenue": "交付额", "project_cost": "项目成本"}
