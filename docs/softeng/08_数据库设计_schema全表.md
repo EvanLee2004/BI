@@ -1,7 +1,7 @@
 # 08 · 数据库设计（对齐 `src/schema.py` · 任务书33 修订）
 
 > **产品 v1.5.0-beta** · 唯一 DDL 源：`程序/看板正式程序/src/schema.py`  
-> **SCHEMA_VERSION = 2**（1→2：金额 REAL 元 → INTEGER **分**）  
+> **SCHEMA_VERSION = 3**（1→2：金额 REAL 元 → INTEGER **分**；2→3：adj 金额 原值/新值 元 TEXT → **分 TEXT**）  
 > **统计**：标准表 **5** + 人工/元数据表 **11**（含 `meta_schema`）= **16** 张。  
 > **库文件**：`数据/看板.db`（gitignore）。无独立 DB 服务。  
 > 配图：`docs/images/er.png`（金额单位以本文为准）。
@@ -16,17 +16,18 @@
 
 无物理外键：调整用 `(目标表, 定位键, 字段)` 逻辑关联 std 行。
 
-## 二、金额：INTEGER 分（SCHEMA v2）
+## 二、金额：INTEGER 分（SCHEMA v3）
 
 | 规则 | 说明 |
 |------|------|
 | 存储 | 金额列 **INTEGER，单位：分** |
 | 进料 | xlsx 元值 → `decimal.Decimal` → `ROUND_HALF_UP` → 分（`src/money.py`） |
-| 算账 | `db.load_*` **读回元 float** 交给 `profit`（显示层再 fmt） |
-| 禁止 | `float × 100` 直乘入库 |
+| 算账 | `db.load_*` 返回 **int 分**；`profit` **全程分整数**；仅显示层 `fmt_wan` 等分→万元串 |
+| 禁止 | `float × 100` 直乘入库；库内分再 `yuan_to_fen`（双×100） |
 | 迁移 | `migrate_money_to_fen_if_needed`：版本门控、幂等、迁移前备份 `*.bak-fen-*` |
 | 定位键 | **normalize 用元算哈希**，再转分入库 → 哈希不因分存储漂移 |
-| adj 原值/新值 | 仍为 **元 TEXT**（人类可读）；重放时分↔元换算 |
+| adj 原值/新值 | 金额字段库内为 **分整数字符串**；`list_adjustments` 管理端展示转回**元**；重放 `_values_match` 兼容未迁存量元文本 |
+| 预算比率 | 毛利率/税前利润率目标 **≠ 钱**：存**百分位点**（35%→3500），`budget_value_to/from_store`，**绝不用** `yuan_to_fen` |
 
 **非金额 REAL 不动**：分摊比例、去税率仍为百分数 REAL。
 
@@ -71,7 +72,7 @@
 | `adj_调整记录` | 原值/新值 TEXT | 金额字段存**分**整数字符串；非金额仍为原文。管理端录入元→写入前转分 |
 | `manual_手填` / `manual_手填BU` | 金额 INTEGER 分 | 当月未填=0 |
 | `manual_历史` | 旧值/新值 分 | |
-| `manual_预算` / `manual_预算历史` | 金额 分 | 比率类指标亦×100 存（数值同构） |
+| `manual_预算` / `manual_预算历史` | 金额：分；比率：百分位点 | 见 `BUDGET_RATE_METRICS`；`get_budget` 金额→元、比率→百分数 |
 | `manual_分摊比例` | 比例 REAL | 非金额 |
 | `manual_费用去税率` | 税率 REAL | 非金额 |
 | `meta_schema` | key/value | `version`=SCHEMA_VERSION |
@@ -108,4 +109,4 @@ erDiagram
   }
 ```
 
-**修订记录**：2026-07-16 任务书33 — 整数分 + WAL + 单事务重建 + 重复定位键行为 + quick_check。
+**修订记录**：2026-07-16 任务书33 — 整数分 + WAL + 单事务重建 + 重复定位键行为 + quick_check；同日补 SCHEMA v3（adj 分文本 + 预算比率百分位点）。
