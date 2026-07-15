@@ -44,4 +44,5 @@ run_t tests/test_detax.py
 run_t tests/test_api_v1_numbers.py
 run_t tests/test_admin_static.py
 run_t tests/test_serve_shell.py
+run_t tests/test_no_html_in_py.py
 echo "✓ 全部通过"

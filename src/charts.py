@@ -7,6 +7,8 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
+import tpl
+
 BLUE = "var(--blue)"; COST = "var(--cost)"; ORANGE = "var(--orange)"; TEAL = "var(--teal)"
 POS = "var(--pos)"; NEG = "var(--neg)"; PURPLE = "var(--purple)"
 INK = "var(--ink)"; MUT = "var(--mut)"; MUT2 = "var(--mut2)"
@@ -121,7 +123,7 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(groups)
     if n == 0:
-        return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
+        return tpl.fill("charts/empty.html", color=MUT2)
     mx = max((max(rev, cost) for _, rev, cost, _ in groups), default=0) or 1
     # 柱最多占 plot 的 88%，顶部留给金额字
     bar_h = plot_h * 0.88
@@ -191,9 +193,7 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
         ty = y + 15 if y < pt + 20 else y - 8
         parts.append(f'<text x="{x:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
                      f'fill="{ORANGE}" data-rm="{rm}">{margin:.0f}%</text>')
-    legend = (f'<div class="legend"><span><i style="background:{BLUE}"></i>交付收入（柱顶·万）</span>'
-              f'<span><i style="background:{COST}"></i>交付成本（柱顶·万）</span>'
-              f'<span><i style="background:{ORANGE}"></i>毛利率（线上·% · 右轴）</span></div>')
+    legend = tpl.fill("charts/legend_combo.html", blue=BLUE, cost=COST, orange=ORANGE)
     return f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">{"".join(parts)}{"".join(hits)}</svg>{legend}'
 
 
@@ -206,7 +206,7 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)
     if n == 0:
-        return f'<div style="color:{MUT2};font-size:12px">暂无数据</div>'
+        return tpl.fill("charts/empty.html", color=MUT2)
     mx = max((v for _, v, _, _ in series), default=0) or 1
     if budget_month:
         mx = max(mx, budget_month * 1.15)
@@ -278,11 +278,8 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     for x, y, rm in line_pts:
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
                      f'stroke-width="1.2" data-rm="{rm}"/>')
-    legend = (f'<div class="legend"><span><i style="background:{color}"></i>回款额（柱顶·万）</span>'
-              f'<span><i style="background:{ORANGE}"></i>回款/下单比（线上·% · 右轴）</span>')
-    if budget_month:
-        legend += f'<span><i style="background:{TEAL}"></i>月均预算</span>'
-    legend += '</div>'
+    budget_span = tpl.fill("charts/legend_budget_span.html", teal=TEAL) if budget_month else ""
+    legend = tpl.fill("charts/legend_receipt.html", color=color, orange=ORANGE, budget_span=budget_span)
     return (f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:300px;display:block">'
             f'{"".join(parts)}{"".join(hits)}</svg>{legend}')
 

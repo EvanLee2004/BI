@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""周期选择 / KPI 基本情况 等纯渲染小部件（从 render.py 按符号迁出）。"""
+"""周期选择 / KPI 基本情况 等纯渲染小部件（从 render.py 按符号迁出）。
+HTML 外置 static/templates/render/，本模块只填占位符。"""
 from __future__ import annotations
 
 import charts
 import version as product_version
+import tpl
 
 # 基本情况 KPI 卡（陆总 2026-07-13：5 张）
 # (标签, 取值键, 来源, 涨为好, 附率键, 趋势线色, 目标键)
@@ -53,14 +55,14 @@ def _title_version_html() -> str:
     base = v.partition("-")[0]
     stage = product_version.product_stage(v)
     text = f"v{base}" if (not stage or stage == "正式版") else f"v{base} · {stage}"
-    return f'<span class="tb-ver" title="产品版本">{_esc(text)}</span>'
+    return tpl.fill("render/title_version.html", text=_esc(text))
 
 def _amt(v, colored=False, muted=False):
     s = ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
     cls = "pl-amt"
     if colored:
         cls += " pos" if v >= 0 else " neg"
-    return f'<span class="{cls}">{s}</span>'
+    return tpl.fill("render/amt.html", cls=cls, s=s)
 
 def _target_bar(budget, tkey, pkey, year, p):
     """KPI 下业务目标进度条。tkey=order/receipt/margin；无目标→空态小字。
@@ -78,7 +80,7 @@ def _target_bar(budget, tkey, pkey, year, p):
         item = budget.get(tkey)
         label = "年目标"
     if not item:
-        return '<div class="kpi-tgt muted">未设目标</div>'
+        return tpl.load("render/kpi_tgt_empty.html")
     tgt, done, pct = item.get("target"), item.get("done"), item.get("pct")
     if tkey == "margin":
         # 「当前」必须与达成率同一口径：H1 用 item.done，否则用本周期毛利率
@@ -90,9 +92,8 @@ def _target_bar(budget, tkey, pkey, year, p):
         pct_s = f"{pct:.0f}%" if pct is not None else "—"
         w = min(max(pct or 0, 0), 100)
         cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
-        return (f'<div class="kpi-tgt"><div class="kpi-tgt-h">{label} {tgt:.1f}% · 当前 <b>{cur_s}</b></div>'
-                f'<span class="kpi-tgt-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
-                f'<div class="kpi-tgt-n">达成 {pct_s}</div></div>')
+        return tpl.fill("render/kpi_tgt_margin.html",
+                        label=label, tgt=tgt, cur_s=cur_s, cls=cls, w=w, pct_s=pct_s)
     # 金额类：完成 / 目标 · 进度（年目标 done 为全年累计，标签已写「年目标」）
     if done is None:
         done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
@@ -100,9 +101,9 @@ def _target_bar(budget, tkey, pkey, year, p):
     pct_s = f"{pct:.1f}%" if pct is not None else "—"
     w = min(max(pct or 0, 0), 100)
     cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
-    return (f'<div class="kpi-tgt"><div class="kpi-tgt-h">{label} {charts.fmt_wan(tgt)}万 · 已完成 <b>{charts.fmt_wan(done)}万</b></div>'
-            f'<span class="kpi-tgt-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
-            f'<div class="kpi-tgt-n">进度 {pct_s}</div></div>')
+    return tpl.fill("render/kpi_tgt_amount.html",
+                    label=label, tgt_wan=charts.fmt_wan(tgt), done_wan=charts.fmt_wan(done),
+                    cls=cls, w=w, pct_s=pct_s)
 
 # ---------- 板块① 基本情况（单周期，5 KPI：值+环比+目标进度+峰值/对照）----------
 def _kpi_peak_row(month_keys, P, key, year):
@@ -118,8 +119,7 @@ def _kpi_peak_row(month_keys, P, key, year):
             float(_kpi_val(P[mk], key) or 0.0) == 0.0 for mk in month_keys)):
         return ""
     lab = best_mk.replace(f"{year}年", "") if isinstance(best_mk, str) and best_mk.startswith(f"{year}年") else str(best_mk)
-    return (f'<div class="kpi-foot-row"><span class="kpi-foot-l">全年峰值</span>'
-            f'<span class="kpi-foot-v"><b>{_esc(lab)}</b> {charts.fmt_wan(best_v)}万</span></div>')
+    return tpl.fill("render/kpi_peak_row.html", lab=_esc(lab), val_wan=charts.fmt_wan(best_v))
 
 def _bu_orders_block(bu_list):
     """下单卡内各 BU 进度（陆总0714·C1）：期内下单额 + 全年累计/BU 年目标。
@@ -137,19 +137,19 @@ def _bu_orders_block(bu_list):
         if pct is not None:
             w = min(max(float(pct), 0.0), 100.0)
             cls = "ok" if pct >= 100 else ("warn" if pct >= 80 else "low")
-            badge = f'<span class="kpi-bu-p">{pct:.0f}%</span>'
-            track = f'<span class="kpi-bu-track"><i class="{cls}" style="width:{w:.1f}%"></i></span>'
+            badge = tpl.fill("render/kpi_bu_badge_pct.html", pct=pct)
+            track = tpl.fill("render/kpi_bu_track.html", cls=cls, w=w)
             tip = f'年目标 {charts.fmt_wan(d["target"])}万 · 全年累计 {charts.fmt_wan(d.get("year_amount") or 0)}万'
         else:
             # 未设目标：轨道仍在；填充只反映相对大小（最大 BU=100%），文案标明未设
             w = min(max(amt_v / max_amt * 100.0, 0.0), 100.0) if amt_v else 0.0
-            badge = '<span class="kpi-bu-p muted">未设目标</span>'
-            track = f'<span class="kpi-bu-track soft"><i class="soft" style="width:{w:.1f}%"></i></span>'
+            badge = tpl.load("render/kpi_bu_badge_none.html")
+            track = tpl.fill("render/kpi_bu_track_soft.html", w=w)
             tip = "该 BU 未填下单年目标（管理端·人工填写·业绩目标·选 BU 范围）；条长仅为部门间相对大小"
-        rows += (f'<div class="kpi-bu" data-tip="{_esc(_esc(tip))}">'
-                 f'<div class="kpi-bu-h"><span class="kpi-bu-n">{_esc(d["name"])}</span>'
-                 f'<span class="kpi-bu-a">{amt}万</span>{badge}</div>{track}</div>')
-    return f'<div class="kpi-bus">{rows}</div>'
+        rows += tpl.fill("render/kpi_bu_row.html",
+                         tip=_esc(_esc(tip)), name=_esc(d["name"]),
+                         amt=amt, badge=badge, track=track)
+    return tpl.fill("render/kpi_bus.html", rows=rows)
 
 def _kpi_period_label(pkey, year):
     """基本情况卡头旁的时段角标：全年写「2026年」；季/月/区间去掉年份前缀写「Q1」「3月」「1-6月」。
@@ -170,7 +170,7 @@ def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
     cards = ""
     for label, key, src, up_good, pctkey, _color, tkey in KPI_CARDS:
         val = float(_kpi_val(p, key) or 0.0)
-        vhtml = f'{charts.fmt_wan(val)}<span class="u">万</span>'
+        vhtml = tpl.fill("render/kpi_u.html", val=charts.fmt_wan(val))
         # 环比上期（同粒度）
         if prev is not None and _kpi_val(P.get(prev) or {}, key):
             pv = float(_kpi_val(P[prev], key) or 0.0)
@@ -178,25 +178,28 @@ def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
                 d = (val - pv) / abs(pv) * 100
                 good = (d >= 0) == up_good
                 arrow = "▲" if d >= 0 else "▼"
-                delta = f'<div class="kpi-delta {"up" if good else "down"}">{arrow} {abs(d):.1f}% <span>环比上期</span></div>'
+                delta = tpl.fill("render/kpi_delta.html",
+                                 cls=("up" if good else "down"), arrow=arrow, d=abs(d))
             else:
-                delta = '<div class="kpi-delta muted">— 无上期对比</div>'
+                delta = tpl.load("render/kpi_delta_muted.html")
         else:
-            delta = '<div class="kpi-delta muted">— 无上期对比</div>'
+            delta = tpl.load("render/kpi_delta_muted.html")
         sub = ""
         if key == "revenue_gross":
-            sub = f'<div class="kpi-sub">交付收入(÷1.06) <b>{charts.fmt_wan(p["revenue_net"])}万</b></div>'
+            sub = tpl.fill("render/kpi_sub.html",
+                           label="交付收入(÷1.06)", val=charts.fmt_wan(p["revenue_net"]) + "万")
             o = float(p.get("orders") or 0.0)
             if o > 0:
-                sub += f'<div class="kpi-sub">交付占下单 <b>{val / o * 100:.0f}%</b></div>'
+                sub += tpl.fill("render/kpi_sub.html",
+                                label="交付占下单", val=f"{val / o * 100:.0f}%")
         elif pctkey == "gross_margin_pct":
-            sub = f'<div class="kpi-sub">毛利率 <b>{p[pctkey]:.1f}%</b></div>'
+            sub = tpl.fill("render/kpi_sub.html", label="毛利率", val=f"{p[pctkey]:.1f}%")
         elif pctkey == "pretax_margin_pct":
-            sub = f'<div class="kpi-sub">利润率 <b>{p[pctkey]:.1f}%</b></div>'
+            sub = tpl.fill("render/kpi_sub.html", label="利润率", val=f"{p[pctkey]:.1f}%")
         if key == "receipts":
             r = p["receipt_order_ratio_pct"]
             rtxt = f'{r:.1f}%' if r is not None else '—'
-            sub = f'<div class="kpi-sub">总回款/下单比 <b>{rtxt}</b></div>'
+            sub = tpl.fill("render/kpi_sub.html", label="总回款/下单比", val=rtxt)
         tgt = _target_bar(budget, tkey, pkey, year, p)
         bus_html = _bu_orders_block(bu_orders) if key == "orders" else ""
         # 卡底有用信息：全年峰值；回款卡再加本期「已交付未回款」
@@ -204,14 +207,13 @@ def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
         if key == "receipts":
             ar = float(p.get("revenue_gross") or 0.0) - val  # 交付金额(含税)−回款，近似应收
             ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
-            foot_rows += (f'<div class="kpi-foot-row"><span class="kpi-foot-l">已交付未回款</span>'
-                          f'<span class="kpi-foot-v"><b>{ar_s}</b>万</span></div>')
-        foot = f'<div class="kpi-foot">{foot_rows}</div>' if foot_rows else ""
-        cards += (f'<div class="kpi"><div class="kpi-l">{label}'
-                  f'<span class="kpi-period" title="当前查看时段">{period_tag}</span></div>'
-                  f'<div class="kpi-cum">{vhtml}</div>{sub}{delta}{tgt}{bus_html}'
-                  f'{foot}<div class="kpi-src">{src}</div></div>')
-    return f'<div class="kpi-grid kpi-5">{cards}</div>'
+            foot_rows += tpl.fill("render/kpi_foot_ar.html", ar_s=ar_s)
+        foot = tpl.fill("render/kpi_foot.html", foot_rows=foot_rows) if foot_rows else ""
+        cards += tpl.fill("render/kpi_card.html",
+                          label=label, period_tag=period_tag, vhtml=vhtml,
+                          sub=sub, delta=delta, tgt=tgt, bus_html=bus_html,
+                          foot=foot, src=src)
+    return tpl.fill("render/kpi_grid.html", cards=cards)
 
 # ---------- 全局周期选择器（下拉菜单）----------
 def render_period_bar(summary):
@@ -221,20 +223,17 @@ def render_period_bar(summary):
     tg = meta["tab_groups"]
     year, yk = meta["year"], meta["year_key"]
     cur_month = len(tg["月"])
-    chips = f'<button class="pp-chip on" data-key="{yk}">全年</button>'
-    chips += "".join(f'<button class="pp-chip" data-key="{q}">{q.split("年")[1]}</button>' for q in tg["季度"])
+    chips = tpl.fill("render/period_chip.html", on=" on", key=yk, label="全年")
+    chips += "".join(
+        tpl.fill("render/period_chip.html", on="", key=q, label=q.split("年")[1])
+        for q in tg["季度"])
     cells = "".join(
-        f'<button class="pp-m" data-m="{m}"{"" if m <= cur_month else " disabled"}>{m}月</button>'
+        tpl.fill("render/period_m.html", m=m,
+                 disabled=("" if m <= cur_month else " disabled"))
         for m in range(1, 13))
-    return (f'<div class="pbar"><label class="pbar-l">看哪段</label>'
-            f'<button id="periodBtn" class="psel pbtn" data-year="{year}" data-cur="{cur_month}" '
-            f'aria-haspopup="true" aria-expanded="false">{year}年 <span class="pbtn-c">▾</span></button>'
-            f'<div id="ppanel" class="ppanel" hidden>'
-            f'<div class="pp-row">{chips}</div>'
-            f'<div class="pp-hint" id="ppHint">自选区间：点起始月，再点结束月</div>'
-            f'<div class="pp-grid">{cells}</div>'
-            f'</div></div>')
+    return tpl.fill("render/period_bar.html",
+                    year=year, cur_month=cur_month, chips=chips, cells=cells)
 
 def _pv(key, default_key, inner):
-    return f'<div class="pv" data-blk="{key}" style="{"" if key == default_key else "display:none"}">{inner}</div>'
-
+    style = "" if key == default_key else "display:none"
+    return tpl.fill("render/pv.html", key=key, style=style, inner=inner)

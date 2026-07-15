@@ -1,0 +1,39 @@
+
+{particles}
+<div class="topbar">{logo}<span class="tb-title">甲骨易智能经营<b>罗盘</b> · {name}</span>{version}
+ <span class="tb-right">
+ <span class="live"><i></i>实时</span><span class="tb-time">数据更新 {generated_at}</span>
+ <button class="toggle" id="exportBtn" data-export="{export_url}"><span>⬇</span> 导出</button>
+ <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
+ <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
+{pw_modal}
+<div class="wrap">
+ <div class="bu-subnav" role="navigation" aria-label="返回整体">
+  <a class="bu-back bu-back-inline" href="/" title="返回整体看板（点一下即回主页/刷新）">← 返回整体</a>
+  <span class="bu-subnav-cur">当前 BU · <b>{name}</b></span>
+ </div>
+ {period_bar}
+ <div id="periodSync">
+ <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
+ {kpi_views}
+ <div class="sec"><span class="sec-n">二</span><span class="sec-t">{name} · 经营利润</span></div>
+ <div class="grid-2">
+   <div class="grid-2-main">{trend_html}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="card pl-card"><div class="card-h">管理利润表{pl_tag}</div>{pl_views}</div>
+ </div>
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">{name} · 收入与毛利结构</span></div>
+ <div id="profitRankViews">{profit_rank_views}</div>
+ <div class="sec"><span class="sec-n">四</span><span class="sec-t">{name} · 资金与回款</span></div>
+ <div class="period-receipts" style="margin-top:4px">{receipts_html}</div>
+ <div id="rankViews">{rank_views}</div>
+ </div>
+ <div class="foot">
+  甲骨易智能经营罗盘 · {name} &nbsp;|&nbsp;
+  税前利润 = 管理毛利 − 期间费用 − 附加税费 ± 其他损益 &nbsp;|&nbsp;
+  交付收入 = 交付金额 ÷ 1.06
+ </div>
+</div>
+{drawer}
+{rk_modal}
+<div id="tip"></div>
+<script src="/static/js/cockpit-bu.js"></script>

@@ -1,0 +1,45 @@
+
+{particles}
+<div class="topbar">{logo}<span class="tb-title">甲骨易智能经营<b>罗盘</b></span>{version}
+ <span class="tb-right"><span class="live"><i></i>实时</span><span class="tb-time">数据更新 {generated_at}</span>
+ <button class="toggle" id="pwBtn" type="button"><span>🔑</span> 密码</button>
+ <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
+ <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
+{pw_modal}
+<div class="wrap">
+ {period_bar}
+ <div id="periodSync">
+ <div class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></div>
+ {kpi_views}
+
+ <div class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></div>
+ <div class="grid-2">
+   <div class="grid-2-main">{trend_html}<div style="margin-top:16px">{donut_views}</div></div>
+   <div class="card pl-card"><div class="card-h">管理利润表 <span class="tag">算到税前利润</span></div>{pl_views}</div>
+ </div>
+
+ <div class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></div>
+ <div id="profitRankViews">{profit_rank_views}</div>
+ <div class="pr-formula">
+  <span class="pr-f-h">计算逻辑</span>
+  <span class="pr-f-item"><b>交付金额</b> = 智云含税原数</span>
+  <span class="pr-f-item"><b>交付收入</b> = 交付金额 ÷ 1.06</span>
+  <span class="pr-f-item"><b>系统成本率</b> = 项目成本 ÷ 交付收入</span>
+  <span class="pr-f-item"><b>集中度</b> = 前5大交付收入 ÷ 期内总交付收入</span>
+ </div>
+
+ <div class="sec"><span class="sec-n">四</span><span class="sec-t">资金与回款</span></div>
+ {receipts_budget}
+ {daily_html}
+ <div id="rankViews">{rank_views}</div>
+ <div id="rkCustom" style="display:none"></div>
+ </div>
+ <div class="foot">
+  甲骨易智能经营罗盘 · 财务部 &nbsp;|&nbsp;
+  税前利润 = 管理毛利 − 期间费用 − 附加税费 ± 其他损益 &nbsp;|&nbsp;
+  交付收入 = 交付金额 ÷ 1.06
+ </div>
+</div>
+{drawer}
+<div id="tip"></div>
+<script src="/static/js/cockpit.js"></script>

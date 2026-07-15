@@ -93,3 +93,4 @@
 
 ## 版本备忘
 - **v1.5 部署流程不变**：仍 `看门狗启动.bat` / 一键更新；管理端静态资源随代码 pull 到 `static/admin/`，浏览器 **Ctrl+F5** 强刷即可。
+- **看端 HTML 模板**（2026-07-15 起）：在 `static/templates/`（login / partials / render / charts），与 `static/css|js|shell.html|admin/` 一并随代码 pull；**勿删、勿单独改模板内容**（改了会导致看端版式异常；回退用 git）。
