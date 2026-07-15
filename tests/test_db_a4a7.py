@@ -115,7 +115,7 @@ class TestBackupRestoreA6(unittest.TestCase):
             conn = db.connect(cfg, tmp)
             db.set_manual(conn, "2026-06", "闲置人力", 99999.0, "wrecker")
             m = db.load_manual(cfg, conn)
-            self.assertAlmostEqual(m["2026-06"]["闲置人力"], 99999.0, places=2)
+            self.assertEqual(m["2026-06"]["闲置人力"], 9999900)  # 分
             conn.close()
 
             # 恢复
@@ -123,7 +123,7 @@ class TestBackupRestoreA6(unittest.TestCase):
             self.assertEqual(res["status"], "ok")
             conn = db.connect(cfg, tmp)
             m2 = db.load_manual(cfg, conn)
-            self.assertAlmostEqual(m2["2026-06"]["闲置人力"], 123.45, places=2)
+            self.assertEqual(m2["2026-06"]["闲置人力"], 12345)  # 123.45 元
             q = db.pragma_quick_check(conn)
             self.assertTrue(q["ok"])
             conn.close()
