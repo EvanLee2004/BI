@@ -58,6 +58,9 @@
     if (views.rankings_view) data.rank_views = buildRankViewsHtml(views);
     if (views.trend_html != null) data.trend_html = views.trend_html;
     if (views.receipts_budget != null) data.receipts_budget = views.receipts_budget;
+    // BU 专属：fragments strip 后由 views 还原（非周期 .pv 卡，显示成品串）
+    if (views.receipts_html != null) data.receipts_html = views.receipts_html;
+    if (views.pl_tag != null) data.pl_tag = views.pl_tag;
     if (views.period_bar != null) data.period_bar = views.period_bar;
     if (views.daily_html != null) data.daily_html = views.daily_html;
     return data;
