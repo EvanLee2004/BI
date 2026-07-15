@@ -43,6 +43,7 @@ tests/test_b_p4_remainder.py
 tests/test_serve_shell.py
 tests/test_b_p5_no_view.py
 tests/test_b_p4_login_static.py
+tests/test_b_bu_shipped_assemble.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
