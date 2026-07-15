@@ -1,0 +1,242 @@
+"""鉴权与页面入口（/ · /login · /bu 页 · session/login/logout · accounts） — 从 server.create_app 纯搬家。"""
+from __future__ import annotations
+
+import re
+import time
+from urllib.parse import quote
+
+from fastapi import Body, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+
+import accounts
+import api_v1
+import assets
+import bu
+import charts
+import core
+import db
+import loaders
+import profit
+import render
+import updater
+import version as product_version
+from app_state import COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR, _state, _EXPORT_LOCK
+
+
+def register(app, d):
+    cfg = d.cfg
+    root = d.root
+    _user = d.user
+    _vacct = d.vacct
+    _vacc_row = d.vacc_row
+    _can_view_main = d.can_view_main
+    _can_view_bu = d.can_view_bu
+    _bu_switcher_html = d.bu_switcher_html
+    _bu_view_html = d.bu_view_html
+    _set_vcookie = d.set_vcookie
+    _set_acookie = d.set_acookie
+    _main_shell = d.main_shell
+    _bu_shell = d.bu_shell
+    _view_login_file = d.view_login_file
+    _admin_login_file = d.admin_login_file
+    _admin_static_html = d.admin_static_html
+    _bootstrap_page = d.bootstrap_page
+    _manual_items_json = d.manual_items_json
+    _html_doc = d.html_doc
+    _file_html_doc = d.file_html_doc
+    _audit = d.audit
+    _diff_accounts = d.diff_accounts
+    _diff_bu_config = d.diff_bu_config
+    _run_reasons = d.run_reasons
+    def start_refresh_async(cfg, root=None, trigger="manual"):
+        import server as _srv
+        return _srv.start_refresh_async(cfg, root, trigger)
+    def recompute(cfg, root=None):
+        import server as _srv
+        return _srv.recompute(cfg, root)
+    get_schedule_times = d.get_schedule_times
+    normalize_schedule_times = d.normalize_schedule_times
+    save_settings = d.save_settings
+    read_zhiyun_creds = d.read_zhiyun_creds
+    save_zhiyun_creds = d.save_zhiyun_creds
+    read_zhiyun_conn = d.read_zhiyun_conn
+    save_zhiyun_conn = d.save_zhiyun_conn
+    _screenshot_png = d.screenshot_png
+    _HIDE_PW_STYLE = d.HIDE_PW_STYLE
+    _WRAP_OPEN = d.WRAP_OPEN
+    DEFAULT_PW = d.DEFAULT_PW
+    _BU_NAV_TPL = d.BU_NAV_TPL
+    _BU_NAV_LINK_TPL = d.BU_NAV_LINK_TPL
+
+
+    def _require(request: Request) -> str:
+        user = _user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="需要管理员登录")
+        return user
+
+    def _conn():
+        return db.connect(cfg, root)
+
+
+    @app.get("/", response_class=HTMLResponse)
+    def user_page(request: Request):
+        """看板统一入口：未登录 → static 登录；已登录 → shell/shell-bu（fragments 组装）。"""
+        if _user(request):
+            return _main_shell()
+        acc = _vacc_row(request)
+        if acc:
+            if accounts.is_main(acc):
+                return _main_shell()
+            names = accounts.bu_names_of(acc)
+            if names:
+                existing = [n for n in names if n in _state.get("bu_pages", {})]
+                if not existing:
+                    return RedirectResponse(
+                        "/login?msg=" + __import__("urllib.parse").parse.quote(
+                            "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"),
+                        status_code=303)
+                # BU 账号：壳 + 本 BU fragments（隔离由 fragments API 保证）
+                return RedirectResponse(f"/bu/{existing[0]}", status_code=303)
+            if accounts.is_admin(acc):
+                return RedirectResponse("/admin", status_code=303)
+        return _view_login_file()
+
+    def _main_with_nav(hide_pw: bool = False) -> str:
+        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
+        看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
+        hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
+        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
+        html = _state["user_html"]
+        if not html:
+            return html
+        from urllib.parse import quote
+
+        def _esc(s):
+            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        parts = []
+        if hide_pw:
+            parts.append(_HIDE_PW_STYLE)
+        names = list(_state.get("bu_pages", {}))
+        if names:
+            links = "".join(
+                _BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n))
+                for n in names)
+            parts.append(_BU_NAV_TPL.format(
+                aria_label="BU 分页", label="业务 BU 分页", links=links))
+        if parts:
+            html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
+        return html
+
+    @app.get("/login", response_class=HTMLResponse)
+    def viewer_login_page():
+        """看板登录 static 页（B-P4）。"""
+        return _view_login_file()
+
+    @app.post("/login")
+    def viewer_login(account: str = Form(""), password: str = Form("")):
+        """兼容旧 form POST：成功重定向；失败回登录 static（错误见 query，前端也可走 /api/v1/login）。"""
+        account = account.strip()
+        acc = accounts.authenticate(cfg, root, account, password)
+        if not acc:
+            return RedirectResponse("/login?msg=" + __import__("urllib.parse").parse.quote(
+                "账号或密码不正确"), status_code=303)
+        accounts.mark_login(cfg, root, account)
+        if accounts.is_admin(acc):
+            return _set_acookie(RedirectResponse("/admin", status_code=303), account)
+        if accounts.is_main(acc):
+            return _set_vcookie(RedirectResponse("/", status_code=303), account)
+        names = accounts.bu_names_of(acc)
+        redir = f"/bu/{names[0]}" if names else "/"
+        return _set_vcookie(RedirectResponse(redir, status_code=303), account)
+
+    @app.get("/bu/{name}", response_class=HTMLResponse)
+    def bu_page(name: str, request: Request):
+        """BU 页：shell-bu → fragments 组装（与整体页同一 page.js）。未登录 → 登录 static。"""
+        page = _state.get("bu_pages", {}).get(name)
+        if not page:
+            raise HTTPException(status_code=404, detail="Not Found")
+        if not _can_view_bu(request, name):
+            return _view_login_file()
+        return _bu_shell()
+
+    # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
+    @app.get("/api/v1/session")
+    def api_v1_session(request: Request):
+        admin = _user(request)
+        if admin:
+            acc = accounts.find_account(cfg, root, admin)
+            return api_v1.session_public(acc, is_admin_session=True)
+        acc = _vacc_row(request)
+        if not acc:
+            raise HTTPException(status_code=401, detail="未登录")
+        return api_v1.session_public(acc)
+
+    @app.post("/api/v1/login")
+    def api_v1_login(payload: dict = Body(default={})):
+        account = str(payload.get("account") or "").strip()
+        password = str(payload.get("password") or "")
+        acc = accounts.authenticate(cfg, root, account, password)
+        if not acc:
+            raise HTTPException(status_code=401, detail="账号或密码不正确")
+        accounts.mark_login(cfg, root, account)
+        if accounts.is_admin(acc):
+            sess = api_v1.session_public(acc, is_admin_session=True)
+            resp = JSONResponse({"ok": True, "redirect": "/admin", "session": sess})
+            return _set_acookie(resp, account)
+        sess = api_v1.session_public(acc)
+        redir = "/"
+        if not accounts.is_main(acc):
+            names = accounts.bu_names_of(acc)
+            if names:
+                redir = f"/bu/{names[0]}"
+        resp = JSONResponse({"ok": True, "redirect": redir, "session": sess})
+        return _set_vcookie(resp, account)
+
+    @app.post("/api/v1/logout")
+    def api_v1_logout():
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie(COOKIE)
+        resp.delete_cookie(VCOOKIE)
+        return resp
+
+    @app.post("/api/my_passwd")
+    def api_my_passwd(request: Request, payload: dict = Body(default={})):
+        """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，写回 看板账号.json 明文。"""
+        name = _vacct(request)
+        if not name:
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        old, new = str(payload.get("old") or ""), str(payload.get("new") or "")
+        err = accounts.change_password(cfg, root, name, old, new)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+        _audit(cfg, root, name, ("密码", f"账号 {name} 自改密码"))  # C3：不记密码内容
+        return {"note": "密码已修改"}
+
+    @app.get("/api/accounts")
+    def api_accounts_get(request: Request):
+        """账号表（管理员会话）：含明文密码。绝不出现在其他出口。"""
+        _require(request)
+        rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
+        return {"accounts": rows, "count": len(rows),
+                "master_account": accounts.MASTER_ACCOUNT}
+
+    @app.post("/api/accounts")
+    def api_accounts_post(request: Request, payload: dict = Body(default={})):
+        """保存账号表（管理员）。至少保留一个管理员；总账号不可删。C3：变更留痕（密码只记「改密码」）。"""
+        user = _require(request)
+        raw = payload.get("accounts")
+        if not isinstance(raw, list):
+            raise HTTPException(status_code=400, detail="accounts 须为列表")
+        if len(raw) > 50:
+            raise HTTPException(status_code=400, detail="账号数量过多（上限 50）")
+        old_accs = accounts.load_accounts(cfg, root, create=False)
+        try:
+            saved = accounts.save_accounts(cfg, root, raw)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        _audit(cfg, root, user, _diff_accounts(old_accs, saved))
+        rows = [accounts.public_row(a, with_password=True) for a in saved]
+        return {"accounts": rows, "count": len(rows), "note": "已保存",
+                "master_account": accounts.MASTER_ACCOUNT}
+

@@ -11,7 +11,7 @@ PY=python3
 JOBS="${KANBAN_VERIFY_JOBS:-4}"
 echo "用解释器：$PY  并行 jobs=$JOBS"
 echo "[1/4] 语法检查"
-$PY -m py_compile src/*.py src/ingest/*.py run.py tests/*.py
+$PY -m py_compile src/*.py src/ingest/*.py src/routes/*.py run.py tests/*.py
 echo "[2/4] 端到端生成"
 $PY run.py >/dev/null
 echo "[3/4] 回归红线：从库算 == 从文件算（一分不差）"
