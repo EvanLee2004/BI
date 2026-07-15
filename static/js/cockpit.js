@@ -295,6 +295,15 @@
 
 
 (function(){
+ var lo=document.getElementById('logoutBtn');
+ if(lo)lo.addEventListener('click',function(){
+  fetch('/api/v1/logout',{method:'POST',credentials:'same-origin'})
+   .then(function(){location.replace('/login');})
+   .catch(function(){location.replace('/login');});
+ });
+})();
+
+(function(){
  var btn=document.getElementById('pwBtn'),modal=document.getElementById('pwModal');
  if(!btn||!modal)return;
  function open(){modal.style.display='flex';document.getElementById('pwMsg').textContent='';
