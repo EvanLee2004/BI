@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """精简视图已下线守卫：响应中不得出现 executive / data-profile。"""
+
 from __future__ import annotations
 
 import json
@@ -31,11 +32,15 @@ class TestNoProfileResidue(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         _write_bucfg(self.cfg, self.tmp, [{"name": "BU甲", "销售": ["销售A"]}])
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
-            {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
-            {"账号": "user_a", "显示名": "甲负责人", "权限": "BU甲", "密码": server.DEFAULT_VIEW_PW},
-        ])
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
+                {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
+                {"账号": "user_a", "显示名": "甲负责人", "权限": "BU甲", "密码": server.DEFAULT_VIEW_PW},
+            ],
+        )
         server._state["user_html"] = _SHELL.format("USER-MAIN")
         server._state["bu_pages"] = {"BU甲": {"name": "BU甲", "html": _SHELL.format("PAGE-A")}}
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
@@ -43,6 +48,7 @@ class TestNoProfileResidue(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def _assert_no_profile(self, text: str):

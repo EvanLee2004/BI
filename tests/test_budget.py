@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """年度预算（P-A）+ 管理端业绩目标矩阵页签。"""
+
 from __future__ import annotations
 
 import json
@@ -69,26 +70,30 @@ class TestBudgetBlock(unittest.TestCase):
 
     def test_partial_and_zero_target(self):
         b = build_budget_block({"2026": {"回款年预算": 0.0}}, 2026, self.YEAR_P)
-        self.assertIsNone(b["order"])            # 没填下单 → 该项 None
-        self.assertIsNone(b["receipt"]["pct"])   # 目标 0 → 完成率 None 不除零
+        self.assertIsNone(b["order"])  # 没填下单 → 该项 None
+        self.assertIsNone(b["receipt"]["pct"])  # 目标 0 → 完成率 None 不除零
 
 
 class TestRenderSwitch(unittest.TestCase):
     def test_no_budget_renders_identical(self):
         """红线：没填预算时，回款卡 HTML 与传 None 完全一致（页面一分不变）。"""
         import render
+
         series = [("1月", 10.0, 20.0, 50.0), ("2月", 12.0, 24.0, 50.0)]
         self.assertEqual(render.render_receipts(series, None), render.render_receipts(series))
         self.assertNotIn("预算", render.render_receipts(series, None))
 
     def test_budget_renders_line_and_tag(self):
         import render
+
         series = [("1月", 10.0, 20.0, 50.0), ("2月", 12.0, 24.0, 50.0)]
-        budget = {"year": 2026,
-                  "order": {"target": 1200.0, "done": 600.0, "pct": 50.0},
-                  "receipt": {"target": 2400.0, "done": 600.0, "pct": 25.0}}
+        budget = {
+            "year": 2026,
+            "order": {"target": 1200.0, "done": 600.0, "pct": 50.0},
+            "receipt": {"target": 2400.0, "done": 600.0, "pct": 25.0},
+        }
         html = render.render_receipts(series, budget)
-        self.assertIn("月均预算", html)          # 图上预算线（2400/12=200万/月）
+        self.assertIn("月均预算", html)  # 图上预算线（2400/12=200万/月）
         self.assertIn("回款年预算", html)
         self.assertIn("25.0%", html)
         self.assertIn("下单年预算", html)
@@ -122,7 +127,7 @@ class TestBudgetMatrixAdminUi(unittest.TestCase):
         # 矩阵渲染不读人工填写 mY/mScope
         i = tpl.find("async function bLoad(")
         self.assertNotEqual(i, -1)
-        body = tpl[i:i + 2500]
+        body = tpl[i : i + 2500]
         self.assertIn('getElementById("tgY")', body)
         self.assertNotIn('getElementById("mY")', body)
         self.assertNotIn('getElementById("mScope")', body)
@@ -141,9 +146,13 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         cls.cfg = dict(loaders.load_config())
         cls.cfg["data_dir"] = str(cls.tmp / "数据")
         (cls.tmp / "数据").mkdir(parents=True, exist_ok=True)
-        accounts.save_accounts(cls.cfg, cls.tmp, [
-            {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
-        ])
+        accounts.save_accounts(
+            cls.cfg,
+            cls.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
+            ],
+        )
         conn = db.connect(cls.cfg, root=cls.tmp)
         conn.close()
         # 桩重算：只验写库与读回，不跑完整管道
@@ -160,6 +169,7 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def _admin(self):
@@ -172,11 +182,16 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         # 全公司 20000 万 → 元；BU「数据」 8000 万
         co_yuan = 20000 * 10000
         bu_yuan = 8000 * 10000
-        r = c.post("/api/budget_batch", json={"items": [
-            {"年份": "2026", "指标": "下单年预算", "金额": co_yuan, "范围": "全公司"},
-            {"年份": "2026", "指标": "下单年预算", "金额": bu_yuan, "范围": "数据"},
-            {"年份": "2026", "指标": "回款年预算", "金额": 1000 * 10000, "范围": "全公司"},
-        ]})
+        r = c.post(
+            "/api/budget_batch",
+            json={
+                "items": [
+                    {"年份": "2026", "指标": "下单年预算", "金额": co_yuan, "范围": "全公司"},
+                    {"年份": "2026", "指标": "下单年预算", "金额": bu_yuan, "范围": "数据"},
+                    {"年份": "2026", "指标": "回款年预算", "金额": 1000 * 10000, "范围": "全公司"},
+                ]
+            },
+        )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json().get("count"), 3)
 

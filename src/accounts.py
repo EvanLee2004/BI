@@ -13,6 +13,7 @@
 铁律：真实人名只进 数据/ 本地文件；代码默认 seed / 测试 / 样例一律合成名。
 口令比较一律 bytes（铁律 13）。
 """
+
 from __future__ import annotations
 
 import hmac
@@ -27,13 +28,14 @@ CONFIG_NAME = "看板账号.json"
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
 
-PERM_BU = "BU"      # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
+PERM_BU = "BU"  # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
 
 
 def _clean_bu_list(v) -> list[str]:
     """可见BU 名单清洗：列表/顿号·逗号分隔串 → 去空白、去「整体」保留字、去重（保序）。"""
     if isinstance(v, str):
         import re
+
         v = re.split(r"[、，,;；\n]", v)
     if not isinstance(v, (list, tuple)):
         return []
@@ -44,6 +46,7 @@ def _clean_bu_list(v) -> list[str]:
             seen.add(s)
             out.append(s)
     return out
+
 
 # 总账号（主管理员登录名）：不可删除、不可改登录名；改权限也不影响「总账号」身份。
 # 部署机缺 看板账号.json 时 seed 会建这个号，否则无人能进 /admin。
@@ -113,8 +116,7 @@ def _write(path: Path, accounts: list[dict]) -> None:
         if a.get("最后登录"):
             row["最后登录"] = a["最后登录"]
         rows.append(row)
-    path.write_text(json.dumps({"accounts": rows}, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
+    path.write_text(json.dumps({"accounts": rows}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def seed_defaults(cfg: dict, root: Path | None = None) -> list[dict]:
@@ -235,8 +237,7 @@ def mark_login(cfg: dict, root: Path | None, account: str) -> None:
         _write(config_path(cfg, root), rows)
 
 
-def change_password(cfg: dict, root: Path | None, account: str,
-                    old_pw: str, new_pw: str) -> str | None:
+def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new_pw: str) -> str | None:
     """自改密码：验旧设新。成功返回 None；失败返回错误文案。"""
     if len(new_pw or "") < 4:
         return "新密码至少 4 位"

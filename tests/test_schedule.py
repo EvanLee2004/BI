@@ -10,6 +10,7 @@
   兼容旧单值 schedule_time；列表含非法 → 400
 - 控制台含多时间点 UI 锚点（schedTimes / schedAdd / saveSchedule）
 """
+
 import json
 import shutil
 import sys
@@ -25,13 +26,11 @@ import loaders, server  # noqa: E402
 
 class TestNormalizeTimes(unittest.TestCase):
     def test_list_dedup_sort(self):
-        self.assertEqual(server.normalize_schedule_times(["17:30", "09:30", "09:30"]),
-                         ["09:30", "17:30"])
+        self.assertEqual(server.normalize_schedule_times(["17:30", "09:30", "09:30"]), ["09:30", "17:30"])
 
     def test_single_and_separated_strings(self):
         self.assertEqual(server.normalize_schedule_times("09:30"), ["09:30"])
-        self.assertEqual(server.normalize_schedule_times("09:30、12:00,17:30"),
-                         ["09:30", "12:00", "17:30"])
+        self.assertEqual(server.normalize_schedule_times("09:30、12:00,17:30"), ["09:30", "12:00", "17:30"])
 
     def test_invalid_time_raises(self):
         for bad in (["25:00"], ["9点半"], ["9:5"], ["24:00"], ["12:60"]):
@@ -54,29 +53,31 @@ class TestNormalizeTimes(unittest.TestCase):
 
 class TestGetTimes(unittest.TestCase):
     def test_prefers_schedule_times(self):
-        self.assertEqual(server.get_schedule_times(
-            {"schedule_times": ["12:00", "09:30"], "schedule_time": "08:00"}),
-            ["09:30", "12:00"])
+        self.assertEqual(
+            server.get_schedule_times({"schedule_times": ["12:00", "09:30"], "schedule_time": "08:00"}),
+            ["09:30", "12:00"],
+        )
 
     def test_falls_back_to_single(self):
         self.assertEqual(server.get_schedule_times({"schedule_time": "08:15"}), ["08:15"])
 
     def test_bad_values_default(self):
         self.assertEqual(server.get_schedule_times({}), ["09:30"])
-        self.assertEqual(server.get_schedule_times({"schedule_times": ["坏"], "schedule_time": "坏"}),
-                         ["09:30"])
+        self.assertEqual(server.get_schedule_times({"schedule_times": ["坏"], "schedule_time": "坏"}), ["09:30"])
 
 
 class TestTaskNames(unittest.TestCase):
     def test_naming(self):
         self.assertEqual(server._win_task_names(1), [server.SCHTASK_NAME])
-        self.assertEqual(server._win_task_names(3),
-                         [server.SCHTASK_NAME, f"{server.SCHTASK_NAME}_2", f"{server.SCHTASK_NAME}_3"])
+        self.assertEqual(
+            server._win_task_names(3), [server.SCHTASK_NAME, f"{server.SCHTASK_NAME}_2", f"{server.SCHTASK_NAME}_3"]
+        )
 
 
 class TestSettingsApi(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
+
         self.root = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         shutil.copy2(ROOT / "config.json", self.root / "config.json")
@@ -102,15 +103,14 @@ class TestSettingsApi(unittest.TestCase):
 
     def test_post_multi_times(self):
         before_cfg = self._raw()  # 存下 config.json 原样
-        r = self.client.post("/api/settings", headers=self.hdr,
-                             json={"schedule_times": ["17:30", "09:30", "12:00"]})
+        r = self.client.post("/api/settings", headers=self.hdr, json={"schedule_times": ["17:30", "09:30", "12:00"]})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["schedule_times"], ["09:30", "12:00", "17:30"])
         # F-01 修复：写覆盖文件、旧 schedule_time=最早时间点；**config.json 一字不动**
         ov = self._override()
         self.assertEqual(ov["schedule_times"], ["09:30", "12:00", "17:30"])
         self.assertEqual(ov["schedule_time"], "09:30")
-        self.assertEqual(self._raw(), before_cfg)   # config.json 未被程序改动（git 工作区保持干净）
+        self.assertEqual(self._raw(), before_cfg)  # config.json 未被程序改动（git 工作区保持干净）
         # 内存 cfg 已更新
         self.assertEqual(self.cfg["schedule_times"], ["09:30", "12:00", "17:30"])
         self.assertEqual(self.cfg["schedule_time"], "09:30")
@@ -123,15 +123,18 @@ class TestSettingsApi(unittest.TestCase):
         ov = self._override()
         self.assertEqual(ov["schedule_time"], "08:45")
         self.assertEqual(ov["schedule_times"], ["08:45"])
-        self.assertEqual(self._raw(), before_cfg)   # config.json 未变
+        self.assertEqual(self._raw(), before_cfg)  # config.json 未变
 
     def test_config_json_never_dirtied_by_settings(self):
         """F-01 守卫：多次改各类设置后，config.json 逐字节不变（部署机 git 工作区不脏→一键更新可用）。"""
         before = (self.root / "config.json").read_text(encoding="utf-8")
-        for body in ({"schedule_times": ["10:00"]}, {"backup_keep_days": 200},
-                     {"ledger_share_path": r"\\srv\share\台账.xlsx"}, {"zhiyun_auto_fetch": True}):
-            self.assertEqual(self.client.post("/api/settings", headers=self.hdr, json=body).status_code,
-                             200, body)
+        for body in (
+            {"schedule_times": ["10:00"]},
+            {"backup_keep_days": 200},
+            {"ledger_share_path": r"\\srv\share\台账.xlsx"},
+            {"zhiyun_auto_fetch": True},
+        ):
+            self.assertEqual(self.client.post("/api/settings", headers=self.hdr, json=body).status_code, 200, body)
         self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before)
         # 但效果都落进了覆盖文件
         ov = self._override()
@@ -146,14 +149,12 @@ class TestSettingsApi(unittest.TestCase):
         self.assertEqual(loaders.load_config(self.root)["ledger_share_path"], p)  # 合并后生效
 
     def test_invalid_in_list_400(self):
-        for bad in ({"schedule_times": ["09:30", "25:00"]}, {"schedule_times": []},
-                    {"schedule_times": ["9点"]}):
+        for bad in ({"schedule_times": ["09:30", "25:00"]}, {"schedule_times": []}, {"schedule_times": ["9点"]}):
             r = self.client.post("/api/settings", headers=self.hdr, json=bad)
             self.assertEqual(r.status_code, 400, f"{bad} 应 400")
 
     def test_audit_records_time_change(self):
-        self.client.post("/api/settings", headers=self.hdr,
-                         json={"schedule_times": ["09:30", "18:00"]})
+        self.client.post("/api/settings", headers=self.hdr, json={"schedule_times": ["09:30", "18:00"]})
         d = self.client.get("/api/config_changes?category=设置", headers=self.hdr).json()
         joined = json.dumps(d.get("changes", []), ensure_ascii=False)
         self.assertIn("更新时间", joined)
@@ -182,8 +183,9 @@ class TestRegisterBatReadsMergedConfig(unittest.TestCase):
             cfg0 = json.loads((tmp / "config.json").read_text(encoding="utf-8"))
             ov = loaders._local_config_path(tmp, cfg0)
             ov.parent.mkdir(parents=True, exist_ok=True)
-            ov.write_text(json.dumps({"schedule_times": ["09:00", "12:00", "17:00"]},
-                                     ensure_ascii=False), encoding="utf-8")
+            ov.write_text(
+                json.dumps({"schedule_times": ["09:00", "12:00", "17:00"]}, ensure_ascii=False), encoding="utf-8"
+            )
             self.assertEqual(self._bat_oneliner_times(tmp), ["09:00", "12:00", "17:00"])
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

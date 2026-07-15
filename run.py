@@ -8,6 +8,7 @@
   python run.py --serve         起 FastAPI 内网服务（用户端 / + 管理员端 /admin），端口见 config
 切换测试/正式数据：改 config.json 的 data_dir（+ period_pin），代码不动。
 """
+
 from __future__ import annotations
 
 import json
@@ -37,8 +38,11 @@ def run_batch(trigger="manual") -> int:
     # BU 分页只经 --serve 的 /bu/{token} 出，不落盘 output/（避免 token 命名文件散落）
     summary, html, ing, _bu_pages = core.generate(cfg, today, trigger=trigger)
     print(f"数据库：{db.db_path(cfg)}  台账fetch：{ing['fetch']['status']}（{ing['fetch']['detail']}）")
-    print("  标准表：" + " ".join(f"{k}={v}" for k, v in ing["counts"].items())
-          + f"  手填迁移：{ing['migrate_manual']['status']}({ing['migrate_manual']['imported']})")
+    print(
+        "  标准表："
+        + " ".join(f"{k}={v}" for k, v in ing["counts"].items())
+        + f"  手填迁移：{ing['migrate_manual']['status']}({ing['migrate_manual']['imported']})"
+    )
     _a = ing["adjust"]
     print(f"  运行结果：{ing['result']}  调整：套用{_a['applied']}/过期{_a['expired']}/剔除{_a['removed']}")
 
@@ -64,14 +68,17 @@ def run_batch(trigger="manual") -> int:
 
     yp = summary["periods"][summary["meta"]["year_key"]]
     print(f"\n=== {yp['label']} 累计 ===")
-    print(f"  收入 {yp['revenue_net']/1e4:,.1f}万  毛利率 {yp['gross_margin_pct']}%  "
-          f"税前利润 {yp['pretax_profit']/1e4:,.1f}万 ({yp['pretax_margin_pct']}%)")
+    print(
+        f"  收入 {yp['revenue_net'] / 1e4:,.1f}万  毛利率 {yp['gross_margin_pct']}%  "
+        f"税前利润 {yp['pretax_profit'] / 1e4:,.1f}万 ({yp['pretax_margin_pct']}%)"
+    )
     print(f"\n✓ HTML → {html_path}  ({html_path.stat().st_size:,} bytes)")
     return 0
 
 
 def serve() -> int:
     import server
+
     server.serve()
     return 0
 

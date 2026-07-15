@@ -9,6 +9,7 @@
 - 列全部按表头文字定位，不认死列号。
 - data_dir + period_pin 由 config 决定，测试/正式一键切换。
 """
+
 from __future__ import annotations
 
 import csv
@@ -81,6 +82,7 @@ def pinned_today(cfg: dict) -> datetime.date:
     pin = cfg.get("period_pin")
     if pin and pin.get("year") and pin.get("month"):
         import calendar
+
         last = calendar.monthrange(pin["year"], pin["month"])[1]
         return datetime.date(pin["year"], pin["month"], min(datetime.date.today().day, last))
     return datetime.date.today()
@@ -218,7 +220,8 @@ def resolve_project_detail_path(cfg: dict, root: Path | None = None) -> Path:
 def _require_file(path: Path, name: str) -> Path:
     if not path.exists():
         raise FileNotFoundError(
-            f"未找到「{name}」：{path}\n请把该文件放进数据目录（文件名固定，来源见 数据/README.md）。")
+            f"未找到「{name}」：{path}\n请把该文件放进数据目录（文件名固定，来源见 数据/README.md）。"
+        )
     return path
 
 
@@ -231,32 +234,45 @@ def _load_checked(path: Path, name: str, required: list[str]) -> list[dict[str, 
         if missing:
             raise ValueError(
                 f"「{name}」缺少必需列：{missing}\n实际列：{sorted(have)}\n"
-                f"可能是导出格式变了或导错了文件——请核对来源（数据/README.md），或在 config.json 的 columns 里更新列名。")
+                f"可能是导出格式变了或导错了文件——请核对来源（数据/README.md），或在 config.json 的 columns 里更新列名。"
+            )
     return rows
 
 
 def load_project_detail(cfg: dict, root: Path | None = None) -> list[dict[str, str]]:
     c = cfg["columns"]
-    return _load_checked(resolve_project_detail_path(cfg, root), "项目明细",
-                         [c["project_delivery_date"], c["project_revenue"], c["project_cost"]])
+    return _load_checked(
+        resolve_project_detail_path(cfg, root),
+        "项目明细",
+        [c["project_delivery_date"], c["project_revenue"], c["project_cost"]],
+    )
 
 
 def load_orders(cfg: dict, root: Path | None = None) -> list[dict[str, str]]:
     c = cfg["columns"]
-    return _load_checked(_require_file(data_dir(cfg, root) / cfg["files"]["orders"], cfg["files"]["orders"]),
-                         "下单", [c["order_amount"], c["order_date"]])
+    return _load_checked(
+        _require_file(data_dir(cfg, root) / cfg["files"]["orders"], cfg["files"]["orders"]),
+        "下单",
+        [c["order_amount"], c["order_date"]],
+    )
 
 
 def load_receipts(cfg: dict, root: Path | None = None) -> list[dict[str, str]]:
     c = cfg["columns"]
-    return _load_checked(_require_file(data_dir(cfg, root) / cfg["files"]["receipts"], cfg["files"]["receipts"]),
-                         "回款记录", [c["receipt_amount"], c["receipt_date"]])
+    return _load_checked(
+        _require_file(data_dir(cfg, root) / cfg["files"]["receipts"], cfg["files"]["receipts"]),
+        "回款记录",
+        [c["receipt_amount"], c["receipt_date"]],
+    )
 
 
 def load_inhouse(cfg: dict, root: Path | None = None) -> list[dict[str, str]]:
     c = cfg["columns"]
-    return _load_checked(_require_file(data_dir(cfg, root) / cfg["files"]["inhouse"], cfg["files"]["inhouse"]),
-                         "内部译员", [c["inhouse_amount"], c["inhouse_date"], c["inhouse_type"]])
+    return _load_checked(
+        _require_file(data_dir(cfg, root) / cfg["files"]["inhouse"], cfg["files"]["inhouse"]),
+        "内部译员",
+        [c["inhouse_amount"], c["inhouse_date"], c["inhouse_type"]],
+    )
 
 
 # 收单台账：按年份 sheet + 表头文字定位列
@@ -284,6 +300,7 @@ def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, floa
     表头形如 [项目, 归属, 备注, 2026-01, 2026-02, ...]；某项某月留空=不写入（留给"默认上月/0"逻辑）。
     维护友好：每月只在最右加一列，11 个项目始终整列可见、不会漏填。"""
     import re
+
     path = data_dir(cfg, root) / cfg["files"]["manual"]
     if not path.exists():
         return {}
@@ -292,6 +309,7 @@ def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, floa
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return {}
+
     def _hdr(h):
         # 月份列名可能被 Excel 存成日期单元格(datetime)——统一格式化成 YYYY-MM，否则该月整列会被漏读
         if h is None:
@@ -304,6 +322,7 @@ def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, floa
         if m:
             return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
         return s
+
     header = [_hdr(h) for h in rows[0]]
     month_cols = {i: h for i, h in enumerate(header) if re.fullmatch(r"\d{4}-\d{2}", h)}
     try:

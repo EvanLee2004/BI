@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """静态 HTML 模板加载器：模块载入时缓存，str.format 填充。禁止热读磁盘。"""
+
 from __future__ import annotations
 
 from pathlib import Path

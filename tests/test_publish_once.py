@@ -8,6 +8,7 @@
 - client_strip_fragments 对已 strip 缓存幂等；assert_clean 能抓回潮
 - 不在 HTTP 路径强制 rebuild（缓存 views 原样下发）
 """
+
 from __future__ import annotations
 
 import datetime
@@ -29,33 +30,33 @@ from support import fake_bu_page, fake_main_frags, fake_views  # noqa: E402
 class TestPublishOnce(unittest.TestCase):
     def test_generate_caches_client_ready(self):
         import core
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
         cfg["zhiyun_auto_fetch"] = False
-        summary, html, ing, bu_pages = core.generate(
-            cfg, datetime.date(2026, 6, 30), trigger="publish-once")
+        summary, html, ing, bu_pages = core.generate(cfg, datetime.date(2026, 6, 30), trigger="publish-once")
         self.assertTrue(html)
         fr = summary.get("_fragments") or {}
         views = summary.get("_views") or {}
         self.assertTrue(fr, "generate 须挂 _fragments")
-        self.assertTrue(views.get("period_keys") or views.get("rankings_view"),
-                        "generate 须挂 client-ready _views")
-        self.assertTrue(api_v1.fragments_client_fields_empty(fr),
-                        f"publish-once fragments 应已 strip: "
-                        f"{[f for f in api_v1._CLIENT_ASSEMBLE_FIELDS if fr.get(f)]}")
+        self.assertTrue(views.get("period_keys") or views.get("rankings_view"), "generate 须挂 client-ready _views")
+        self.assertTrue(
+            api_v1.fragments_client_fields_empty(fr),
+            f"publish-once fragments 应已 strip: {[f for f in api_v1._CLIENT_ASSEMBLE_FIELDS if fr.get(f)]}",
+        )
         # 幂等 strip + assert_clean 不炸
         api_v1.client_strip_fragments(fr, assert_clean=True)
         # BU
         if bu_pages:
             for name, page in bu_pages.items():
                 self.assertTrue(
-                    api_v1.fragments_client_fields_empty(page.get("fragments") or {}),
-                    f"BU {name} fragments 应已 strip")
+                    api_v1.fragments_client_fields_empty(page.get("fragments") or {}), f"BU {name} fragments 应已 strip"
+                )
                 self.assertTrue(
-                    (page.get("views") or {}).get("period_keys")
-                    or (page.get("views") or {}).get("rankings_view"),
-                    f"BU {name} 应有 views")
+                    (page.get("views") or {}).get("period_keys") or (page.get("views") or {}).get("rankings_view"),
+                    f"BU {name} 应有 views",
+                )
 
     def test_strip_assert_clean_catches_dirty(self):
         dirty = {"kpi_views": "预拼串", "title": "t"}
@@ -68,16 +69,21 @@ class TestPublishOnce(unittest.TestCase):
     def test_http_serves_cached_views_without_rebuild(self):
         """_state 已有 strip fragments + views 时，HTTP 原样下发 views 标记。"""
         import accounts, bu
+
         tmp = Path(tempfile.mkdtemp())
         cfg = loaders.load_config()
         p = bu.config_path(cfg, tmp)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text('{"bus":[{"name":"BU甲","销售":["销售A"]}]}', encoding="utf-8")
-        accounts.save_accounts(cfg, tmp, [
-            {"账号": "overall", "显示名": "整", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
-            {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": server.DEFAULT_PW},
-            {"账号": "user_a", "显示名": "甲", "权限": "BU甲", "密码": server.DEFAULT_VIEW_PW},
-        ])
+        accounts.save_accounts(
+            cfg,
+            tmp,
+            [
+                {"账号": "overall", "显示名": "整", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
+                {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": server.DEFAULT_PW},
+                {"账号": "user_a", "显示名": "甲", "权限": "BU甲", "密码": server.DEFAULT_VIEW_PW},
+            ],
+        )
         mark = "CACHED-VIEWS-MARK-XYZ"
         fr = fake_main_frags("FULL-PRE")
         fr = api_v1.client_strip_fragments(fr)
@@ -101,6 +107,7 @@ class TestPublishOnce(unittest.TestCase):
         server._state["admin_html"] = "ready"
         app = server.create_app(cfg, root=tmp)
         from fastapi.testclient import TestClient
+
         c = TestClient(app, follow_redirects=False)
         r = c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)

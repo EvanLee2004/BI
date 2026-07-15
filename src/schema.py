@@ -10,6 +10,7 @@
   月度变体、金额/日期各异，故 ID 不唯一——2026-07-08 首日核实结论，退行哈希）。
 - **人工表（adj_/manual_/meta_）重建时永不清空**。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -173,11 +174,25 @@ HUMAN_TABLE_NAMES = tuple(HUMAN_TABLES.keys())
 # 版本升级时给存量库补列（不丢人工表）：表 → [(列名, 列定义)]
 _ADD_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "std_收入明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT")],
-    "std_下单": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("部门", "TEXT"), ("销售", "TEXT"), ("客户", "TEXT")],
+    "std_下单": [
+        ("原值_归属月", "TEXT"),
+        ("已删除", "INTEGER DEFAULT 0"),
+        ("部门", "TEXT"),
+        ("销售", "TEXT"),
+        ("客户", "TEXT"),
+    ],
     "std_回款": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("客户", "TEXT"), ("销售", "TEXT")],
-    "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"),
-                  ("销售", "TEXT"), ("译员姓名", "TEXT")],
-    "std_费用明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("预算归属部门", "TEXT"),("事项", "TEXT"), ("提单人", "TEXT"), ("提单人部门", "TEXT"), ("业务员", "TEXT"), ("配音费合同号", "TEXT")],
+    "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT"), ("译员姓名", "TEXT")],
+    "std_费用明细": [
+        ("原值_归属月", "TEXT"),
+        ("已删除", "INTEGER DEFAULT 0"),
+        ("预算归属部门", "TEXT"),
+        ("事项", "TEXT"),
+        ("提单人", "TEXT"),
+        ("提单人部门", "TEXT"),
+        ("业务员", "TEXT"),
+        ("配音费合同号", "TEXT"),
+    ],
 }
 
 
@@ -208,8 +223,9 @@ def reset_std_tables(conn: sqlite3.Connection) -> None:
         cur.execute(f"DELETE FROM {name}")
     # 释放 AUTOINCREMENT 计数，避免 id 无限增长（sqlite_sequence 可能不存在）
     try:
-        cur.execute("DELETE FROM sqlite_sequence WHERE name IN (%s)"
-                    % ",".join("?" * len(STD_TABLE_NAMES)), STD_TABLE_NAMES)
+        cur.execute(
+            "DELETE FROM sqlite_sequence WHERE name IN (%s)" % ",".join("?" * len(STD_TABLE_NAMES)), STD_TABLE_NAMES
+        )
     except sqlite3.OperationalError:
         pass
     conn.commit()

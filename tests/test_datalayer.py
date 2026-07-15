@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """刀1 数据层测试：ingest 无损落库 + 手填一次性迁移忠实 + 标准表重建不碰人工表 + 回归红线。
 跑：python3 tests/test_datalayer.py"""
+
 import sqlite3
 import sys
 import tempfile
@@ -45,15 +46,16 @@ class TestIngestRoundtrip(unittest.TestCase):
     def test_revenue_sum_lossless(self):
         # 从库读回的收入合计 == 从文件读的收入合计（金额 REAL 存取数值等价）
         cc = self.cfg["columns"]
-        from_db = sum(loaders.parse_amount(r.get(cc["project_revenue"]))
-                      for r in db.load_project_detail(self.cfg, self.conn))
-        from_file = sum(loaders.parse_amount(r.get(cc["project_revenue"]))
-                        for r in loaders.load_project_detail(self.cfg))
+        from_db = sum(
+            loaders.parse_amount(r.get(cc["project_revenue"])) for r in db.load_project_detail(self.cfg, self.conn)
+        )
+        from_file = sum(
+            loaders.parse_amount(r.get(cc["project_revenue"])) for r in loaders.load_project_detail(self.cfg)
+        )
         self.assertAlmostEqual(from_db, from_file, places=2)
 
     def test_locator_key_present(self):
-        n_empty = self.conn.execute(
-            "SELECT COUNT(*) FROM std_收入明细 WHERE 定位键 IS NULL OR 定位键=''").fetchone()[0]
+        n_empty = self.conn.execute("SELECT COUNT(*) FROM std_收入明细 WHERE 定位键 IS NULL OR 定位键=''").fetchone()[0]
         self.assertEqual(n_empty, 0)
 
 
@@ -80,8 +82,10 @@ class TestHumanTablesSurvive(unittest.TestCase):
     def test_std_rebuild_keeps_adjustments(self):
         cfg = loaders.load_config()
         conn = _tmp_conn()
-        conn.execute("INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型) "
-                     "VALUES('t','明昊','std_收入明细','abc','整单交付日期','x','y','测试','改值')")
+        conn.execute(
+            "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型) "
+            "VALUES('t','明昊','std_收入明细','abc','整单交付日期','x','y','测试','改值')"
+        )
         conn.commit()
         ingest.build_std_db(cfg, loaders.pinned_today(cfg).year, conn=conn)  # 全量重建标准表
         n = conn.execute("SELECT COUNT(*) FROM adj_调整记录").fetchone()[0]
@@ -91,6 +95,7 @@ class TestHumanTablesSurvive(unittest.TestCase):
 class TestUnclassifiedQuery(unittest.TestCase):
     """B3：query_detail(unclassified=True) 只返回"未填对应报表大类"的费用明细行，
     且笔数与 build_unclassified_summary(全年)一致（DB费用明细只含当年台账）。"""
+
     def test_unclassified_filter_matches_summary(self):
         cfg = loaders.load_config()
         yr = loaders.pinned_today(cfg).year

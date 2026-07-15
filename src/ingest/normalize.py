@@ -10,6 +10,7 @@
 - 定位键=行哈希（造数把同 ID 复制成 7 个金额/日期各异的变体，ID 不唯一→退行哈希；标准表用自增 id
   做主键、绝不塌行，定位键只作刀2匹配索引）。
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -57,14 +58,21 @@ def norm_project_detail(rows: list[dict[str, str]], c: dict) -> list[dict]:
         rev, cost = _amt(r.get(c["project_revenue"])), _amt(r.get(c["project_cost"]))
         so = str(r.get("订单号") or r.get("SO") or "").strip()
         sod = r.get("SOD") or ""  # 定位键=SOD（明细行级，稳定）
-        out.append({
-            "订单号": so, "客户": str(r.get("客户", "")).strip(),
-            "业务线": str(r.get("业务线", "")).strip(),
-            "销售": str(r.get("销售") or "").strip(),
-            "整单交付日期": iso, "交付额": rev, "项目成本": cost,
-            "归属月": ym, "原值_交付日期": iso, "原值_归属月": ym,
-            "定位键": _locator(sod, so, iso, rev, cost),
-        })
+        out.append(
+            {
+                "订单号": so,
+                "客户": str(r.get("客户", "")).strip(),
+                "业务线": str(r.get("业务线", "")).strip(),
+                "销售": str(r.get("销售") or "").strip(),
+                "整单交付日期": iso,
+                "交付额": rev,
+                "项目成本": cost,
+                "归属月": ym,
+                "原值_交付日期": iso,
+                "原值_归属月": ym,
+                "定位键": _locator(sod, so, iso, rev, cost),
+            }
+        )
     return out
 
 
@@ -74,10 +82,19 @@ def norm_orders(rows: list[dict[str, str]], c: dict) -> list[dict]:
         iso, ym = _iso_and_month(r.get(c["order_date"]))
         amt = _amt(r.get(c["order_amount"]))
         so = str(r.get("订单号") or r.get("SO") or "").strip()
-        out.append({"订单号": so, "下单日期": iso, "下单预估额": amt,
-                    "部门": str(r.get("部门") or "").strip(), "销售": str(r.get("销售") or "").strip(),
-                    "客户": str(r.get("客户") or r.get("客户名称") or "").strip(),
-                    "归属月": ym, "原值_归属月": ym, "定位键": _locator(so, so, iso, amt)})
+        out.append(
+            {
+                "订单号": so,
+                "下单日期": iso,
+                "下单预估额": amt,
+                "部门": str(r.get("部门") or "").strip(),
+                "销售": str(r.get("销售") or "").strip(),
+                "客户": str(r.get("客户") or r.get("客户名称") or "").strip(),
+                "归属月": ym,
+                "原值_归属月": ym,
+                "定位键": _locator(so, so, iso, amt),
+            }
+        )
     return out
 
 
@@ -87,10 +104,18 @@ def norm_receipts(rows: list[dict[str, str]], c: dict) -> list[dict]:
         iso, ym = _iso_and_month(r.get(c["receipt_date"]))
         amt = _amt(r.get(c["receipt_amount"]))
         rid = str(r.get("回款记录ID") or "").strip()
-        out.append({"回款ID": rid, "到账日期": iso, "到账金额": amt,
-                    "客户": str(r.get("客户") or "").strip(),
-                    "销售": str(r.get("销售") or "").strip(),
-                    "归属月": ym, "原值_归属月": ym, "定位键": _locator(rid, rid, iso, amt)})
+        out.append(
+            {
+                "回款ID": rid,
+                "到账日期": iso,
+                "到账金额": amt,
+                "客户": str(r.get("客户") or "").strip(),
+                "销售": str(r.get("销售") or "").strip(),
+                "归属月": ym,
+                "原值_归属月": ym,
+                "定位键": _locator(rid, rid, iso, amt),
+            }
+        )
     return out
 
 
@@ -110,11 +135,19 @@ def norm_inhouse(rows: list[dict[str, str]], c: dict, cfg: dict) -> list[dict]:
         tid = str(r.get("任务明细ID") or "").strip()
         # 译员姓名：配置列优先；缺列时尝试常见别名（旧导出兼容）
         name = str(r.get(ncol) or r.get("供应商姓名") or r.get("译员姓名") or "").strip()
-        out.append({"任务ID": tid, "任务提交日期": iso, "结算金额": amt,
-                    "译员类型": typ, "译员姓名": name,
-                    "销售": str(r.get("销售") or "").strip(),
-                    "归属月": ym, "原值_归属月": ym,
-                    "定位键": _locator(tid, tid, iso, amt)})
+        out.append(
+            {
+                "任务ID": tid,
+                "任务提交日期": iso,
+                "结算金额": amt,
+                "译员类型": typ,
+                "译员姓名": name,
+                "销售": str(r.get("销售") or "").strip(),
+                "归属月": ym,
+                "原值_归属月": ym,
+                "定位键": _locator(tid, tid, iso, amt),
+            }
+        )
     return out
 
 
@@ -123,6 +156,7 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
     """收单台账原始行 → 标准记录。**逐行原样保留（含全空行）**，保证行数与旧读法一致（体检面板行数红线）。
     收单日期/收单月份保留原文文本；归属月由 ledger_row_date 另算。"""
     import periods
+
     c_m, c_d, c_amt = lcols["收单月份"], lcols["收单日期"], lcols["含税金额"]
     c_bu, c_cat, c_fine = lcols["业务BU"], lcols["对应报表大类"], lcols["预算明细费用类型"]
     c_dept = lcols.get("预算归属部门")  # 软字段：老台账可能没有
@@ -151,14 +185,23 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
         dept = _txt(row, c_dept) if c_dept is not None else None
         parts = periods.ledger_row_date(row, ledger_year, lcols)
         ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
-        out.append({
-            "收单月份": 月份, "收单日期": 日期, "含税金额": 金额_store,
-            "业务BU": bu, "对应报表大类": cat, "预算明细费用类型": fine,
-            "预算归属部门": dept,
-            "事项": _txt(row, c_item), "提单人": _txt(row, c_sub),
-            "提单人部门": _txt(row, c_subd), "业务员": _txt(row, c_sales),
-            "配音费合同号": _txt(row, c_po),
-            "归属月": ym, "原值_归属月": ym,
-            "定位键": _hash(月份, 日期, 金额_store, bu, cat, fine),  # 台账无自然ID，行哈希
-        })
+        out.append(
+            {
+                "收单月份": 月份,
+                "收单日期": 日期,
+                "含税金额": 金额_store,
+                "业务BU": bu,
+                "对应报表大类": cat,
+                "预算明细费用类型": fine,
+                "预算归属部门": dept,
+                "事项": _txt(row, c_item),
+                "提单人": _txt(row, c_sub),
+                "提单人部门": _txt(row, c_subd),
+                "业务员": _txt(row, c_sales),
+                "配音费合同号": _txt(row, c_po),
+                "归属月": ym,
+                "原值_归属月": ym,
+                "定位键": _hash(月份, 日期, 金额_store, bu, cat, fine),  # 台账无自然ID，行哈希
+            }
+        )
     return out

@@ -8,6 +8,7 @@
 
 跑：python3 tests/regress_db_vs_files.py    （退出码 0=一致）
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,9 +29,17 @@ def summary_from_files(cfg, today, ledger_year):
     conn.close()
     lh, lr = loaders.load_ledger(cfg, str(ledger_year))
     return profit.build_summary(
-        cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
-        loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, ledger_year, today,
-        manual_raw=manual)
+        cfg,
+        loaders.load_project_detail(cfg),
+        loaders.load_orders(cfg),
+        loaders.load_receipts(cfg),
+        loaders.load_inhouse(cfg),
+        lh,
+        lr,
+        ledger_year,
+        today,
+        manual_raw=manual,
+    )
 
 
 def summary_from_db(cfg, today, ledger_year):
@@ -38,9 +47,17 @@ def summary_from_db(cfg, today, ledger_year):
     ingest.build_std_db(cfg, ledger_year, conn=conn)
     lh, lr = db.load_ledger(cfg, conn)
     s = profit.build_summary(
-        cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
-        db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn), lh, lr, ledger_year, today,
-        manual_raw=db.load_manual(cfg, conn))
+        cfg,
+        db.load_project_detail(cfg, conn),
+        db.load_orders(cfg, conn),
+        db.load_receipts(cfg, conn),
+        db.load_inhouse(cfg, conn),
+        lh,
+        lr,
+        ledger_year,
+        today,
+        manual_raw=db.load_manual(cfg, conn),
+    )
     conn.close()
     return s
 
@@ -48,6 +65,7 @@ def summary_from_db(cfg, today, ledger_year):
 def _strip_ts(s):
     """去掉会随时间变的字段，只比数字/结构。"""
     import copy
+
     s = copy.deepcopy(s)
     s.get("meta", {}).pop("generated_at", None)
     return s

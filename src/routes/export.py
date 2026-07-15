@@ -1,4 +1,5 @@
 """导出 PNG 与历史快照 — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -67,8 +73,8 @@ def register(app, d):
 
     def _screenshot_png(html, blk="", width=1440):
         import server as _srv
-        return _srv._screenshot_png(html, blk, width=width)
 
+        return _srv._screenshot_png(html, blk, width=width)
 
     def _require(request: Request) -> str:
         user = _user(request)
@@ -78,7 +84,6 @@ def register(app, d):
 
     def _conn():
         return db.connect(cfg, root)
-
 
     @app.get("/export.png")
     def api_export_png(request: Request, blk: str = ""):
@@ -99,16 +104,20 @@ def register(app, d):
         except HTTPException:
             raise
         except Exception as e:  # noqa: BLE001 chromium 未装/超时等
-            raise HTTPException(status_code=503,
-                                detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium")
+            raise HTTPException(
+                status_code=503, detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium"
+            )
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         from urllib.parse import quote
+
         fn = quote(f"甲骨易智能经营罗盘_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
-        return Response(content=png, media_type="image/png",
-                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
-                                 "X-Filename": fn})
+        return Response(
+            content=png,
+            media_type="image/png",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
+        )
 
     @app.get("/bu/{name}/export.png")
     def api_bu_export_png(name: str, request: Request, blk: str = ""):
@@ -129,16 +138,20 @@ def register(app, d):
         except HTTPException:
             raise
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(status_code=503,
-                                detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium")
+            raise HTTPException(
+                status_code=503, detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium"
+            )
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         from urllib.parse import quote
+
         fn = quote(f"甲骨易智能经营罗盘_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
-        return Response(content=png, media_type="image/png",
-                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}",
-                                 "X-Filename": fn})
+        return Response(
+            content=png,
+            media_type="image/png",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
+        )
 
     @app.get("/api/history")
     def api_history(request: Request):
@@ -148,9 +161,14 @@ def register(app, d):
         out = []
         for p in sorted(bdir.glob("页面_*.html"), reverse=True):
             d = p.stem.split("_")[1]
-            out.append({"day": d, "label": f"{d[:4]}-{d[4:6]}-{d[6:]}",
-                        "saved_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(p.stat().st_mtime)),
-                        "kb": round(p.stat().st_size / 1024)})
+            out.append(
+                {
+                    "day": d,
+                    "label": f"{d[:4]}-{d[4:6]}-{d[6:]}",
+                    "saved_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(p.stat().st_mtime)),
+                    "kb": round(p.stat().st_size / 1024),
+                }
+            )
         return out
 
     @app.get("/api/history/{day}")
@@ -163,4 +181,3 @@ def register(app, d):
         if not p.exists():
             raise HTTPException(status_code=404, detail="该日无页面快照")
         return _html_doc(p.read_text(encoding="utf-8"))
-

@@ -9,6 +9,7 @@
 - 接口纯只读：POST /api/daily 不存在（405）；v7.8 起须整体页/管理员会话（未登录 401）
 - 用户页含「按天明细」入口与面板；显示串由后端下发（days/totals/rankings 全是 *_disp）
 """
+
 import datetime
 import sys
 import tempfile
@@ -29,17 +30,21 @@ def _seed(cfg, root):
         ("O1", "SO1", "2026-03-01", 1000.0, "部门B", "张三"),
         ("O2", "SO2", "2026-03-01", 2000.0, "", "李四"),
         ("O3", "SO3", "2026-03-05", 300.0, "部门A", "王五"),
-        ("O4", "SO4", "2026-04-01", 999.0, "部门A", "王五"),   # 区间外
+        ("O4", "SO4", "2026-04-01", 999.0, "部门A", "王五"),  # 区间外
     ]
     for k, o, d, a, dep, sal in orders:
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,0)", (k, o, d, a, dep, sal, d[:7], d[:7]))
+            " VALUES(?,?,?,?,?,?,?,?,0)",
+            (k, o, d, a, dep, sal, d[:7], d[:7]),
+        )
     receipts = [("R1", "HK1", "2026-03-05", 500.0, "客户甲"), ("R2", "HK2", "2026-03-31", 700.0, "客户乙")]
     for k, rid, d, a, cu in receipts:
         conn.execute(
             "INSERT INTO std_回款(定位键,回款ID,到账日期,到账金额,客户,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,0)", (k, rid, d, a, cu, d[:7], d[:7]))
+            " VALUES(?,?,?,?,?,?,?,0)",
+            (k, rid, d, a, cu, d[:7], d[:7]),
+        )
     conn.commit()
     conn.close()
 
@@ -70,10 +75,12 @@ class TestComputeDaily(unittest.TestCase):
     def test_conservation_sum_days_eq_period_total(self):
         """守恒红线：∑按天 == 同区间 compute_orders / compute_receipts。"""
         d = self._daily()
-        self.assertAlmostEqual(sum(r["orders"] for r in d["days"]),
-                               profit.compute_orders(self.orders, self.cols, D1, D31), places=2)
-        self.assertAlmostEqual(sum(r["receipts"] for r in d["days"]),
-                               profit.compute_receipts(self.receipts, self.cols, D1, D31), places=2)
+        self.assertAlmostEqual(
+            sum(r["orders"] for r in d["days"]), profit.compute_orders(self.orders, self.cols, D1, D31), places=2
+        )
+        self.assertAlmostEqual(
+            sum(r["receipts"] for r in d["days"]), profit.compute_receipts(self.receipts, self.cols, D1, D31), places=2
+        )
         self.assertAlmostEqual(d["totals"]["orders"], 3300.0, places=2)
         self.assertAlmostEqual(d["totals"]["receipts"], 1200.0, places=2)
 
@@ -103,11 +110,14 @@ class TestComputeDaily(unittest.TestCase):
             {"下单日期": "2026-03-05", "下单预估额": 300.0, "部门": "部门A", "销售": "王五"},
         ]
         receipts = []
-        cols = {"order_amount": "下单预估额", "order_date": "下单日期",
-                "receipt_amount": "到账金额", "receipt_date": "到账日期"}
+        cols = {
+            "order_amount": "下单预估额",
+            "order_date": "下单日期",
+            "receipt_amount": "到账金额",
+            "receipt_date": "到账日期",
+        }
         # 张三+李四 → 游戏；王五未映射 → 未归属
-        d = profit.compute_daily(orders, receipts, cols, D1, D31,
-                                 sales_to_bu={"张三": "游戏", "李四": "游戏"})
+        d = profit.compute_daily(orders, receipts, cols, D1, D31, sales_to_bu={"张三": "游戏", "李四": "游戏"})
         self.assertIn("orders_by_bu", d["rankings"])
         bu = d["rankings"]["orders_by_bu"]
         self.assertEqual(bu["items"][0]["name"], "游戏")
@@ -122,14 +132,15 @@ class TestDailyEndpoint(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
         _seed(cls.cfg, cls.root)
         server._state["user_html"] = "<html>USER</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
-        cls.raw = TestClient(cls.app, follow_redirects=False)     # 真·未登录（v7.8 起接口要看板会话）
-        cls.anon = TestClient(cls.app, follow_redirects=False)    # 整体页会话（原"公开"改为登录后可用）
+        cls.raw = TestClient(cls.app, follow_redirects=False)  # 真·未登录（v7.8 起接口要看板会话）
+        cls.anon = TestClient(cls.app, follow_redirects=False)  # 整体页会话（原"公开"改为登录后可用）
         r = cls.anon.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         assert r.status_code == 303
 
@@ -151,16 +162,18 @@ class TestDailyEndpoint(unittest.TestCase):
         rk = d["rankings"]["orders_by_sales"]
         self.assertIn("disp", rk["items"][0])
         self.assertNotIn("amount", rk["items"][0])
-        self.assertNotIn("total", rk)          # 原始数值不下发，前端无从运算
+        self.assertNotIn("total", rk)  # 原始数值不下发，前端无从运算
         # A6 按销售排名：seed 销售均有名 → unfilled 可为空
         if rk.get("unfilled"):
             self.assertIn("disp", rk["unfilled"])
 
     def test_bad_inputs_400(self):
-        for q in ({"start": "2026/03/01", "end": "2026-03-31"},
-                  {"start": "2026-03-31", "end": "2026-03-01"},
-                  {"start": "2025-01-01", "end": "2026-03-01"},
-                  {"start": "", "end": ""}):
+        for q in (
+            {"start": "2026/03/01", "end": "2026-03-31"},
+            {"start": "2026-03-31", "end": "2026-03-01"},
+            {"start": "2025-01-01", "end": "2026-03-01"},
+            {"start": "", "end": ""},
+        ):
             r = self.anon.get("/api/daily", params=q)
             self.assertEqual(r.status_code, 400, q)
 
@@ -184,26 +197,50 @@ class TestDailyFrontend(unittest.TestCase):
     def test_user_page_has_entry_and_no_math(self):
         """迭代17 批次A：板块③日期区常显、默认全年、「本年」在本月旁、跟顶钩子；无折叠入口。"""
         import assets, render
+
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
         lh, lr = loaders.load_ledger(cfg, str(today.year))
         summary = profit.build_summary(
-            cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
-            loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, today.year, today)
+            cfg,
+            loaders.load_project_detail(cfg),
+            loaders.load_orders(cfg),
+            loaders.load_receipts(cfg),
+            loaders.load_inhouse(cfg),
+            lh,
+            lr,
+            today.year,
+            today,
+        )
         html = render.render_dashboard(summary, cfg, assets.load_logo_base64(cfg))
         # HTML 结构标记（仍在页面上）；首卡按部门或按BU 取决于是否配了 BU 归属
-        for token in ("dailyPanel", "按时间段看", "rankViews", "rkCustom", "dailyClose",
-                      "本年", "rkModal", "rk-more", "data-start="):
+        for token in (
+            "dailyPanel",
+            "按时间段看",
+            "rankViews",
+            "rkCustom",
+            "dailyClose",
+            "本年",
+            "rkModal",
+            "rk-more",
+            "data-start=",
+        ):
             self.assertIn(token, html, token)
-        self.assertTrue(
-            'dual-grid' in html or 'dual-bar' in html or '下单/回款 · 按销售' in html,
-            "排名应有双血条网格")
+        self.assertTrue("dual-grid" in html or "dual-bar" in html or "下单/回款 · 按销售" in html, "排名应有双血条网格")
         self.assertIn('src="/static/js/cockpit.js"', html)
         # 交互与 API 入口在 static/js（v1.4 外置，内容与基准版常量一致）
         from pathlib import Path
+
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
-        for token in ("/api/daily", "_syncDailyDates", "restoreYear", "yearRange",
-                      "window.applyPeriod", "orders_by_sales", "orders_by_customer"):
+        for token in (
+            "/api/daily",
+            "_syncDailyDates",
+            "restoreYear",
+            "yearRange",
+            "window.applyPeriod",
+            "orders_by_sales",
+            "orders_by_customer",
+        ):
             self.assertIn(token, js, token)
         # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
         self.assertIn('id="dailyMonth"', html)
@@ -227,16 +264,24 @@ class TestDailyFrontend(unittest.TestCase):
         """铁律12：BU 页不得出现 /api/daily 与按时间段控件。
         允许本地「其余」弹窗（rkModal + 预渲染 full，不调全公司 API）。"""
         import assets, render
+
         cfg = loaders.load_config()
         today = loaders.pinned_today(cfg)
         s = profit.build_bu_summary(
-            cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
-            loaders.load_receipts(cfg), loaders.load_inhouse(cfg), today, {"合成销售"})
+            cfg,
+            loaders.load_project_detail(cfg),
+            loaders.load_orders(cfg),
+            loaders.load_receipts(cfg),
+            loaders.load_inhouse(cfg),
+            today,
+            {"合成销售"},
+        )
         h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
         for leak in ("dailyPanel", "dailyBtn", "dailyClose", "dailyGo"):
             self.assertNotIn(leak, h, leak)
         # API 泄漏检查：BU 页脚本不得含全公司动态口
         from pathlib import Path
+
         bu_js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit-bu.js").read_text(encoding="utf-8")
         for leak in ("/api/daily", "/api/profit_ranking"):
             self.assertNotIn(leak, h, leak)

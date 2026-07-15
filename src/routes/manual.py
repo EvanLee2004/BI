@@ -1,4 +1,5 @@
 """手填/调整/分摊/去税/预算 — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -65,7 +71,6 @@ def register(app, d):
     _WRAP_OPEN = d.WRAP_OPEN
     DEFAULT_PW = d.DEFAULT_PW
 
-
     def _require(request: Request) -> str:
         user = _user(request)
         if not user:
@@ -75,16 +80,21 @@ def register(app, d):
     def _conn():
         return db.connect(cfg, root)
 
-
     @app.post("/api/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         conn = _conn()
         try:
-            aid = db.add_adjustment(conn, user, payload.get("目标表", ""),
-                                    payload.get("定位键", ""), payload.get("字段", ""),
-                                    payload.get("新值", ""), payload.get("原因", ""),
-                                    payload.get("类型", "改值"))
+            aid = db.add_adjustment(
+                conn,
+                user,
+                payload.get("目标表", ""),
+                payload.get("定位键", ""),
+                payload.get("字段", ""),
+                payload.get("新值", ""),
+                payload.get("原因", ""),
+                payload.get("类型", "改值"),
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         finally:
@@ -200,6 +210,7 @@ def register(app, d):
         """某月分摊面板数据：BU 名单（与设置页同源）+ 比例 + 本月公共费用总额/剩余（显示串后端下发·铁律2）。"""
         import datetime as _dt
         import columns as _columns
+
         try:
             y, m = int(month[:4]), int(month[5:7])
             assert 1 <= m <= 12 and month[4] == "-"
@@ -224,13 +235,18 @@ def register(app, d):
         remain_pct = round(max(0.0, 100.0 - sum_pct), 1)
         remain_amt = round(month_total * remain_pct / 100.0, 2)
         orphans = sorted(set(ratios) - set(bu_names))
-        return {"month": month, "bus": bu_names, "ratios": known,
-                "inherited_from": inherited_from,
-                "orphans": orphans,
-                "month_total": month_total,
-                "month_total_disp": f"{month_total:,.2f}",
-                "sum_pct": sum_pct, "remain_pct": remain_pct,
-                "remain_amt_disp": f"{remain_amt:,.2f}"}
+        return {
+            "month": month,
+            "bus": bu_names,
+            "ratios": known,
+            "inherited_from": inherited_from,
+            "orphans": orphans,
+            "month_total": month_total,
+            "month_total_disp": f"{month_total:,.2f}",
+            "sum_pct": sum_pct,
+            "remain_pct": remain_pct,
+            "remain_amt_disp": f"{remain_amt:,.2f}",
+        }
 
     @app.get("/api/alloc_ratios")
     def api_alloc_get(request: Request, month: str = ""):
@@ -280,8 +296,10 @@ def register(app, d):
                     merged[b] = v
             total = sum(p for b, p in merged.items() if b in known)
             if total > 100.05:
-                raise HTTPException(status_code=400,
-                                    detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）",
+                )
             for b in known:
                 db.set_alloc_ratio(conn, month, b, merged.get(b), user)
             out = _alloc_month_payload(conn, month)
@@ -295,11 +313,13 @@ def register(app, d):
     def _detax_payload(conn) -> dict:
         """费用去税率录入页数据：可去税类别（含全年金额参考·降序）+ 已填税率。"""
         import charts  # 局部导入避免循环依赖（与本模块其余 charts 用法一致）
+
         cats = db.list_detax_categories(conn, cfg)
         rates = db.load_detax_rates(conn)
         return {
-            "categories": [{"category": c["category"],
-                            "amount_disp": charts.fmt_wan(c["amount"]) + "万"} for c in cats],
+            "categories": [
+                {"category": c["category"], "amount_disp": charts.fmt_wan(c["amount"]) + "万"} for c in cats
+            ],
             "rates": rates,
         }
 
@@ -430,5 +450,3 @@ def register(app, d):
         """R1：各明细表可调整字段（schema 黑名单制推导），管理员端字段下拉数据源。"""
         _require(request)
         return db.adjustable_fields()
-
-

@@ -11,6 +11,7 @@
 - 明文密码只在管理员 /api/accounts 出现；黄标=初始密码；自改弹窗文案
 - /admin 无身份下拉，账号+密码；经手人=登录账号
 """
+
 import json
 import sys
 import tempfile
@@ -57,12 +58,16 @@ class TestAccountsModule(unittest.TestCase):
         self.assertTrue(accounts.config_path(self.cfg, self.tmp).exists())
 
     def test_unique_account_and_multi_bu(self):
-        saved = accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
-            {"账号": "a1", "显示名": "一", "权限": "BU甲", "密码": "8888"},
-            {"账号": "a1", "显示名": "重复", "权限": "BU乙", "密码": "9999"},  # 同名丢弃
-            {"账号": "a2", "显示名": "二", "权限": "BU甲", "密码": "8888"},
-        ])
+        saved = accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
+                {"账号": "a1", "显示名": "一", "权限": "BU甲", "密码": "8888"},
+                {"账号": "a1", "显示名": "重复", "权限": "BU乙", "密码": "9999"},  # 同名丢弃
+                {"账号": "a2", "显示名": "二", "权限": "BU甲", "密码": "8888"},
+            ],
+        )
         self.assertEqual([a["账号"] for a in saved], ["lushasha", "a1", "a2"])
         self.assertEqual(saved[1]["权限"], "BU甲")  # a1 保留第一条
         # 同 BU 多账号
@@ -74,9 +79,14 @@ class TestAccountsModule(unittest.TestCase):
         self.assertFalse(accounts.is_initial_password("changed1"))
 
     def test_chinese_password_bytes_compare(self):
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
-            {"账号": "u1", "显示名": "测", "权限": "整体", "密码": "中文密码甲"}])
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管", "权限": "管理员", "密码": "kanban2026"},
+                {"账号": "u1", "显示名": "测", "权限": "整体", "密码": "中文密码甲"},
+            ],
+        )
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "u1", "中文密码甲"))
         self.assertIsNone(accounts.authenticate(self.cfg, self.tmp, "u1", "中文密码乙"))
 
@@ -85,10 +95,14 @@ class TestViewerAuth(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
-        _write_bucfg(self.cfg, self.tmp, [
-            {"name": "BU甲", "销售": ["销售A"]},
-            {"name": "BU乙", "销售": ["销售B"]},
-        ])
+        _write_bucfg(
+            self.cfg,
+            self.tmp,
+            [
+                {"name": "BU甲", "销售": ["销售A"]},
+                {"name": "BU乙", "销售": ["销售B"]},
+            ],
+        )
         _write_accts(self.cfg, self.tmp, _std_accts())
         server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
@@ -103,6 +117,7 @@ class TestViewerAuth(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def _login(self, account, pw):
@@ -162,7 +177,9 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("加载 BU", rbu.text)  # shell-bu
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
         self.assertEqual(fr.status_code, 200)
-        j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+        j = fr.json()
+        self.assertEqual(j["fragments"].get("kpi_views"), "")
+        self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
         self.assertIn("看板登录", c.get(f"/bu/{quote('BU乙')}").text)
 
@@ -176,13 +193,19 @@ class TestViewerAuth(unittest.TestCase):
             self.assertEqual(r.status_code, 303)
             fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
             self.assertEqual(fr.status_code, 200)
-            j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+            j = fr.json()
+            self.assertEqual(j["fragments"].get("kpi_views"), "")
+            self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
 
     def test_main_and_admin_can_view_any_bu(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        j=c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+        j = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
+        self.assertEqual(j["fragments"].get("kpi_views"), "")
+        self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         a = self._admin()
-        j=a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+        j = a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json()
+        self.assertEqual(j["fragments"].get("kpi_views"), "")
+        self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
 
     def test_unknown_bu_404(self):
         self.assertEqual(self.raw.get(f"/bu/{quote('不存在BU')}").status_code, 404)
@@ -243,14 +266,16 @@ class TestViewerAuth(unittest.TestCase):
                 r["权限"] = "BU乙"
         self.assertEqual(a.post("/api/accounts", json={"accounts": rows}).status_code, 200)
         c, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
-        r0=c.get("/")
+        r0 = c.get("/")
         # 重绑后可能 303 到 BU 或 shell；数据看 fragments
-        if r0.status_code==303:
-            fr=c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
+        if r0.status_code == 303:
+            fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
             self.assertEqual(fr.status_code, 200)
-            j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+            j = fr.json()
+            self.assertEqual(j["fragments"].get("kpi_views"), "")
+            self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         else:
-            fr=c.get("/api/v1/cockpit/fragments")
+            fr = c.get("/api/v1/cockpit/fragments")
             # 若仍整体则至少不崩溃
             self.assertIn(fr.status_code, (200, 403))
         # 旧 BU 甲 fragments 应 403
@@ -284,6 +309,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertTrue(any("密码" in r and r["密码"] for r in rows))
         # 自改密码弹窗文案在 HTML 壳（JS 只绑事件，文案不在 static/js）
         import render
+
         self.assertIn("密码管理员可见，请勿使用你在其他地方用的密码", render.PW_MODAL_HTML)
         _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", _js)
@@ -312,8 +338,8 @@ class TestViewerAuth(unittest.TestCase):
         self.assertNotIn(">保存账号<", html)
         self.assertNotIn("保存自动更新<", html)
         self.assertNotIn("保存备份设置<", html)
-        self.assertIn("智云账号 · 台账路径", html)   # 智云账号卡并入收单台账共享盘路径（F-01 配置分离）
-        self.assertIn("sLedgerPath", html)          # 台账路径输入框
+        self.assertIn("智云账号 · 台账路径", html)  # 智云账号卡并入收单台账共享盘路径（F-01 配置分离）
+        self.assertIn("sLedgerPath", html)  # 台账路径输入框
         self.assertIn("showToast", html)
         self.assertNotIn("登录密码（集中管理）", html)
         self.assertNotIn("密码（填=重置", html)
@@ -348,10 +374,14 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(a.get("/api/accounts").status_code, 200)
 
     def test_bu_config_no_password_column_persists_clean(self):
-        saved = bu.save_bu_config(self.cfg, self.tmp, [
-            {"name": "BU甲", "销售": ["销售A"], "密码hash": "should-drop", "新密码": "x"},
-            {"name": "整体", "销售": ["x"]},  # 保留字拒
-        ])
+        saved = bu.save_bu_config(
+            self.cfg,
+            self.tmp,
+            [
+                {"name": "BU甲", "销售": ["销售A"], "密码hash": "should-drop", "新密码": "x"},
+                {"name": "整体", "销售": ["x"]},  # 保留字拒
+            ],
+        )
         self.assertEqual([b["name"] for b in saved["bus"]], ["BU甲"])
         self.assertNotIn("密码hash", saved["bus"][0])
         self.assertNotIn("新密码", saved["bus"][0])
@@ -360,6 +390,7 @@ class TestViewerAuth(unittest.TestCase):
 class TestHidePwForAdmin(unittest.TestCase):
     """管理员会话看内嵌看板时隐藏「🔑密码」自改入口；看的人（整体/BU）仍保留。
     （明昊 2026-07-12：管理员改密码走 /admin 设置页，防在内嵌看板里误改。）"""
+
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
@@ -367,19 +398,19 @@ class TestHidePwForAdmin(unittest.TestCase):
         _write_accts(self.cfg, self.tmp, _std_accts())
         server._state["user_html"] = (
             '<html><head></head><body><button id="pwBtn">🔑 密码</button>'
-            '<div class="wrap">USER-MAIN</div></body></html>')
+            '<div class="wrap">USER-MAIN</div></body></html>'
+        )
         server._state["fragments"] = fake_main_frags("USER-MAIN")
         server._state["views"] = fake_views("USER-MAIN")
         page = fake_bu_page("BU甲", "PAGE-A")
-        page["html"] = (
-            '<html><body><button id="pwBtn">🔑 密码</button>'
-            '<div class="wrap">PAGE-A</div></body></html>')
+        page["html"] = '<html><body><button id="pwBtn">🔑 密码</button><div class="wrap">PAGE-A</div></body></html>'
         server._state["bu_pages"] = {"BU甲": page}
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def _as(self, account, pw, admin=False):
@@ -409,13 +440,15 @@ class TestHidePwForAdmin(unittest.TestCase):
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), ""); self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
+        self.assertEqual(fr["fragments"].get("kpi_views"), "")
+        self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
 
     def test_bu_viewer_keeps_pw(self):
         c = self._as("user_a", server.DEFAULT_VIEW_PW)
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), ""); self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
+        self.assertEqual(fr["fragments"].get("kpi_views"), "")
+        self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
         self.assertIn('id="pwBtn"', server._state["bu_pages"]["BU甲"]["html"])
 

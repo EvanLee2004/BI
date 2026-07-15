@@ -4,6 +4,7 @@
 重放调整/过期校验 → 写运行日志。profit 只从库读，数字与 v6-final 一分不差（回归红线）。
 （可疑单/diff 分级机制已于 R0 整套删除，见 4_管理过程/10_迭代计划_数据库分层改造R系列.md 三。）
 """
+
 from __future__ import annotations
 
 import datetime
@@ -19,11 +20,45 @@ from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, arc
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
 
 _STD_INSERT = {
-    "std_收入明细": (["定位键", "订单号", "客户", "业务线", "销售", "整单交付日期", "交付额", "项目成本", "归属月", "原值_交付日期", "原值_归属月"]),
+    "std_收入明细": (
+        [
+            "定位键",
+            "订单号",
+            "客户",
+            "业务线",
+            "销售",
+            "整单交付日期",
+            "交付额",
+            "项目成本",
+            "归属月",
+            "原值_交付日期",
+            "原值_归属月",
+        ]
+    ),
     "std_下单": (["定位键", "订单号", "下单日期", "下单预估额", "部门", "销售", "客户", "归属月", "原值_归属月"]),
     "std_回款": (["定位键", "回款ID", "到账日期", "到账金额", "客户", "销售", "归属月", "原值_归属月"]),
-    "std_内部译员": (["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月", "原值_归属月"]),
-    "std_费用明细": (["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门","事项", "提单人", "提单人部门", "业务员", "配音费合同号", "归属月", "原值_归属月"]),
+    "std_内部译员": (
+        ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月", "原值_归属月"]
+    ),
+    "std_费用明细": (
+        [
+            "定位键",
+            "收单月份",
+            "收单日期",
+            "含税金额",
+            "业务BU",
+            "对应报表大类",
+            "预算明细费用类型",
+            "预算归属部门",
+            "事项",
+            "提单人",
+            "提单人部门",
+            "业务员",
+            "配音费合同号",
+            "归属月",
+            "原值_归属月",
+        ]
+    ),
 }
 
 
@@ -33,9 +68,15 @@ def _insert(conn, table: str, records: list[dict]) -> None:
     conn.executemany(sql, [tuple(r.get(c) for c in cols) for r in records])
 
 
-def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
-                 conn=None, today=None, trigger: str = "manual",
-                 archive_backups: bool = False) -> dict:
+def build_std_db(
+    cfg: dict,
+    ledger_year: int,
+    root: Path | None = None,
+    conn=None,
+    today=None,
+    trigger: str = "manual",
+    archive_backups: bool = False,
+) -> dict:
     """跑一次更新管道：fetch → 规范化 → 全量重建 → 手填迁移 → 重放调整/过期校验 →
     写运行日志。返回状态报告 dict。"""
     own = conn is None
@@ -62,8 +103,13 @@ def build_std_db(cfg: dict, ledger_year: int, root: Path | None = None,
     lcols = columns.resolve_ledger_columns(lheader)
     ledger = normalize.norm_ledger(lheader, lrows, ledger_year, lcols)
 
-    records = {"std_收入明细": proj, "std_下单": orders, "std_回款": receipts,
-               "std_内部译员": inhouse, "std_费用明细": ledger}
+    records = {
+        "std_收入明细": proj,
+        "std_下单": orders,
+        "std_回款": receipts,
+        "std_内部译员": inhouse,
+        "std_费用明细": ledger,
+    }
 
     # 3) 全量重建标准表（人工表不动）
     _rebuild_std(conn, records)
@@ -120,6 +166,7 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     结果 = "红" if red else ("黄" if yellow else "绿")
     conn.execute(
         "INSERT INTO meta_运行日志(时间,触发方式,结果,体检JSON) VALUES(?,?,?,?)",
-        (now, trigger, 结果, json.dumps(report, ensure_ascii=False)))
+        (now, trigger, 结果, json.dumps(report, ensure_ascii=False)),
+    )
     conn.commit()
     return 结果

@@ -10,6 +10,7 @@
 - 接口：仅管理员；未知 BU 拒；合计>100 拒（可<100）；月格式校验；C3 留痕
 - UI 锚点：人工填写页分摊区块 + 设置页旧输入区已撤、留指路
 """
+
 import datetime
 import sys
 import tempfile
@@ -45,12 +46,12 @@ class TestDbAllocRatios(unittest.TestCase):
 
     def test_set_get_load_delete(self):
         db.set_alloc_ratio(self.conn, "2026-07", "游戏", 30, "t")
-        db.set_alloc_ratio(self.conn, "2026-07", "数据", 20.55, "t")   # 四舍五入到 0.1
+        db.set_alloc_ratio(self.conn, "2026-07", "数据", 20.55, "t")  # 四舍五入到 0.1
         db.set_alloc_ratio(self.conn, "2026-06", "游戏", 50, "t")
         self.assertEqual(db.get_alloc_ratios(self.conn, "2026-07"), {"游戏": 30.0, "数据": 20.6})
         allr = db.load_alloc_ratios(self.conn)
         self.assertEqual(set(allr), {"2026-07", "2026-06"})
-        db.set_alloc_ratio(self.conn, "2026-07", "数据", None, "t")   # None=删行
+        db.set_alloc_ratio(self.conn, "2026-07", "数据", None, "t")  # None=删行
         self.assertEqual(db.get_alloc_ratios(self.conn, "2026-07"), {"游戏": 30.0})
 
     def test_range_guard(self):
@@ -76,12 +77,12 @@ class TestAllocMath(unittest.TestCase):
 
     def test_missing_month_no_alloc(self):
         led = _month_led({6: 500.0, 7: 1000.0})
-        ratios = {"2026-07": {"游戏": 40}}   # 6 月没填=不摊
+        ratios = {"2026-07": {"游戏": 40}}  # 6 月没填=不摊
         per = profit.alloc_amounts_by_period(led, ratios, ["游戏"], TODAY)
         m6 = [v for k, v in per.items() if k.endswith("6月")]
         self.assertTrue(all("游戏" not in v or v["游戏"] == 0 for v in m6) or not m6)
         year_key = [k for k in per if k.endswith("年")]
-        if year_key:   # 全年=只含 7 月那份
+        if year_key:  # 全年=只含 7 月那份
             self.assertAlmostEqual(per[year_key[0]]["游戏"], 1000.0 * 0.40, places=1)
 
     def test_orphan_bu_ignored(self):
@@ -103,13 +104,12 @@ class TestAllocMath(unittest.TestCase):
 class TestPcViewConsistency(unittest.TestCase):
     def test_view_moves_with_alloc_total_unchanged(self):
         """构成视图三处一致：公共条减、BU 条加正数行、各条合计一分不变。"""
-        groups = [("公共", 1000.0, [("房租", 800.0), ("水电", 200.0)]),
-                  ("游戏", 300.0, [("差旅", 300.0)])]
+        groups = [("公共", 1000.0, [("房租", 800.0), ("水电", 200.0)]), ("游戏", 300.0, [("差旅", 300.0)])]
         out = profit.apply_alloc_to_pc_view(groups, {"游戏": 300.0, "数据": 200.0})
         gm = {g: (t, dict(f)) for g, t, f in out}
         self.assertAlmostEqual(gm["公共"][0], 500.0)
         self.assertAlmostEqual(gm["游戏"][0], 600.0)
-        self.assertAlmostEqual(gm["数据"][0], 200.0)          # 无直记 BU 也出现
+        self.assertAlmostEqual(gm["数据"][0], 200.0)  # 无直记 BU 也出现
         self.assertEqual(gm["游戏"][1][profit.ALLOC_IN_LABEL], 300.0)
         self.assertEqual(gm["公共"][1][profit.ALLOC_OUT_LABEL], -500.0)
         # 总额守恒
@@ -127,28 +127,37 @@ class TestPcViewConsistency(unittest.TestCase):
 class TestBuSummaryMonthlyAlloc(unittest.TestCase):
     def test_apply_monthly_into_bu_summary(self):
         """按月分摊叠进 BU summary：费用/税前联动；无比例月不动。"""
-        p = {"range": ("2026-07-01", "2026-07-31"), "manual": {},
-             "ledger_expenses": {c: 0.0 for c in CATS},
-             "gross_profit": 1000.0, "surtax": 0.0, "other_pl": 0.0,
-             "revenue_net": 2000.0,
-             "expense": {"total": 0.0}}
+        p = {
+            "range": ("2026-07-01", "2026-07-31"),
+            "manual": {},
+            "ledger_expenses": {c: 0.0 for c in CATS},
+            "gross_profit": 1000.0,
+            "surtax": 0.0,
+            "other_pl": 0.0,
+            "revenue_net": 2000.0,
+            "expense": {"total": 0.0},
+        }
         s = {"periods": {"2026年7月": p}, "meta": {}}
         led = _month_led({7: 1000.0})
-        profit.apply_public_expense_allocation_monthly(
-            s, led, {"2026-07": {"游戏": 30}}, "游戏", TODAY)
+        profit.apply_public_expense_allocation_monthly(s, led, {"2026-07": {"游戏": 30}}, "游戏", TODAY)
         self.assertTrue(s["meta"]["public_allocation"]["enabled"])
         self.assertEqual(s["meta"]["public_allocation"]["mode"], "monthly")
         self.assertAlmostEqual(p["expense"]["total"], 300.0, places=1)
         self.assertAlmostEqual(p["pretax_profit"], 700.0, places=1)
 
     def test_no_ratio_disabled(self):
-        p = {"range": ("2026-07-01", "2026-07-31"), "manual": {},
-             "ledger_expenses": {c: 0.0 for c in CATS},
-             "gross_profit": 1000.0, "surtax": 0.0, "other_pl": 0.0,
-             "revenue_net": 2000.0, "expense": {"total": 0.0}}
+        p = {
+            "range": ("2026-07-01", "2026-07-31"),
+            "manual": {},
+            "ledger_expenses": {c: 0.0 for c in CATS},
+            "gross_profit": 1000.0,
+            "surtax": 0.0,
+            "other_pl": 0.0,
+            "revenue_net": 2000.0,
+            "expense": {"total": 0.0},
+        }
         s = {"periods": {"2026年7月": p}, "meta": {}}
-        profit.apply_public_expense_allocation_monthly(
-            s, _month_led({7: 1000.0}), {}, "游戏", TODAY)
+        profit.apply_public_expense_allocation_monthly(s, _month_led({7: 1000.0}), {}, "游戏", TODAY)
         self.assertFalse(s["meta"]["public_allocation"]["enabled"])
         self.assertEqual(p["expense"]["total"], 0.0)
 
@@ -157,13 +166,18 @@ class TestAllocApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
-        bu.save_bu_config(cls.cfg, cls.root, [
-            {"name": "游戏", "销售": ["销售A"]},
-            {"name": "数据", "销售": ["销售B"]},
-        ])
+        bu.save_bu_config(
+            cls.cfg,
+            cls.root,
+            [
+                {"name": "游戏", "销售": ["销售A"]},
+                {"name": "数据", "销售": ["销售B"]},
+            ],
+        )
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>USER</html>"
@@ -187,48 +201,48 @@ class TestAllocApi(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_save_and_readback_and_partial_sum(self):
-        r = self.client.post("/api/alloc_ratios", headers=self.hdr,
-                             json={"归属月": "2026-07", "ratios": {"游戏": 30, "数据": 20}})
+        r = self.client.post(
+            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"游戏": 30, "数据": 20}}
+        )
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertEqual(d["ratios"], {"游戏": 30.0, "数据": 20.0})
         self.assertAlmostEqual(d["sum_pct"], 50.0)
-        self.assertAlmostEqual(d["remain_pct"], 50.0)   # 可 <100%
+        self.assertAlmostEqual(d["remain_pct"], 50.0)  # 可 <100%
         g = self.client.get("/api/alloc_ratios?month=2026-07", headers=self.hdr).json()
-        self.assertEqual(g["bus"], ["游戏", "数据"])     # 与设置页 BU 同源
+        self.assertEqual(g["bus"], ["游戏", "数据"])  # 与设置页 BU 同源
         # None=删行
-        r2 = self.client.post("/api/alloc_ratios", headers=self.hdr,
-                              json={"归属月": "2026-07", "ratios": {"数据": None}})
+        r2 = self.client.post(
+            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"数据": None}}
+        )
         self.assertEqual(r2.json()["ratios"], {"游戏": 30.0})
 
     def test_reject_unknown_bu_and_over_100(self):
-        r = self.client.post("/api/alloc_ratios", headers=self.hdr,
-                             json={"归属月": "2026-08", "ratios": {"野BU": 10}})
+        r = self.client.post("/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"野BU": 10}})
         self.assertEqual(r.status_code, 400)
-        r2 = self.client.post("/api/alloc_ratios", headers=self.hdr,
-                              json={"归属月": "2026-08", "ratios": {"游戏": 60, "数据": 50}})
+        r2 = self.client.post(
+            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"游戏": 60, "数据": 50}}
+        )
         self.assertEqual(r2.status_code, 400)
         self.assertIn("100", r2.json()["detail"])
 
     def test_audit_logged(self):
-        self.client.post("/api/alloc_ratios", headers=self.hdr,
-                         json={"归属月": "2026-05", "ratios": {"游戏": 15}})
+        self.client.post("/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-05", "ratios": {"游戏": 15}})
         conn = db.connect(self.cfg, self.root)
         try:
-            rows = conn.execute(
-                "SELECT 摘要 FROM manual_配置变更 WHERE 类别='分摊'").fetchall()
+            rows = conn.execute("SELECT 摘要 FROM manual_配置变更 WHERE 类别='分摊'").fetchall()
         finally:
             conn.close()
         self.assertTrue(any("2026-05" in r[0] for r in rows))
 
     def test_ui_anchors(self):
         html = server.admin_ui_source()
-        self.assertIn("allocBlock", html)                 # 人工填写页分摊区块
+        self.assertIn("allocBlock", html)  # 人工填写页分摊区块
         self.assertIn("公共费用分摊比例（按月）", html)
-        self.assertIn("allocTotal", html)                 # 本月公共费用总额
+        self.assertIn("allocTotal", html)  # 本月公共费用总额
         self.assertIn("/api/alloc_ratios", html)
-        self.assertNotIn("buAllocRows", html)             # 设置页旧输入区已撤
-        self.assertIn("buAllocLegacy", html)              # 旧全年比例停用提示
+        self.assertNotIn("buAllocRows", html)  # 设置页旧输入区已撤
+        self.assertIn("buAllocLegacy", html)  # 旧全年比例停用提示
 
 
 if __name__ == "__main__":

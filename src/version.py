@@ -11,6 +11,7 @@
 不是自动解析）：管理端「版本与更新日志」卡按它渲染。每条=一次面向用户的更新，倒序（最新在上），
 用管理层看得懂的话讲「这版能多干啥」，不写代码细节。
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -74,7 +75,6 @@ PRODUCT_CHANGELOG: list[dict] = [
             "部署仍 python run.py :8018 一条命令，.bat 与一键更新流程不变、无需 Node。",
         ],
     },
-
     {
         "date": "2026-07-14",
         "title": "公测 Beta v1.3.1：修好费用去税录入表显示 + 业绩目标跟随顶部筛选",

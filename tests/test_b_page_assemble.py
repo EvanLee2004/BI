@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B：整页碎片 + page.js（node）组装 == render_dashboard 逐字节。"""
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ class TestPageAssemble(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
         import loaders, core, render, assets
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
@@ -32,6 +34,7 @@ class TestPageAssemble(unittest.TestCase):
 
     def test_python_assemble_equals_dashboard(self):
         import render
+
         a = render.assemble_dashboard_html(self.frags)
         self.assertEqual(a, self.html)
 
@@ -52,6 +55,7 @@ class TestPageAssemble(unittest.TestCase):
 
     def test_page_js_no_money_ops(self):
         import re
+
         js = (ROOT / "static/js/assemble/page.js").read_text(encoding="utf-8")
         code = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
         code = re.sub(r"//.*?$", "", code, flags=re.M)

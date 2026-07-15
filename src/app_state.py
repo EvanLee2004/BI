@@ -5,6 +5,7 @@
 依赖铁律：本模块不 import render/profit/core（避免环依赖）。
 server / refresh_pipeline / 路由读同一套 _state。
 """
+
 from __future__ import annotations
 
 import threading

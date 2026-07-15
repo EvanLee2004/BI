@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """守卫：src/*.py 不得内嵌 HTML 标记（div/span/table/html/script）。
 新 HTML 只能进 static/templates/。"""
+
 from __future__ import annotations
 
 import re

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B-P4：回款卡/双血条/drawer/日段 + BU 隔离回归 + data-assembled 契约。"""
+
 from __future__ import annotations
 
 import json
@@ -30,12 +31,12 @@ class TestP4Remainder(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
         import loaders, core, render, assets
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
         cfg["zhiyun_auto_fetch"] = False
-        cls.summary, cls.html, _, cls.bu_pages = core.generate(
-            cfg, date(2026, 6, 30), trigger="b-p4")
+        cls.summary, cls.html, _, cls.bu_pages = core.generate(cfg, date(2026, 6, 30), trigger="b-p4")
         logo = assets.load_logo_base64(cfg) or ""
         cls.frags = render.build_dashboard_fragments(cls.summary, cfg, logo)
         cls.cfg = cfg

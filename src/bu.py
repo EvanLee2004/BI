@@ -13,6 +13,7 @@
 配置含真实人名，存 数据/BU配置.json（.gitignore 已挡，绝不进 git）；
 git 内只有占位符样例 docs/BU配置样例.json。
 """
+
 from __future__ import annotations
 
 import json
@@ -21,8 +22,8 @@ from pathlib import Path
 import loaders
 
 CONFIG_NAME = "BU配置.json"
-MAIN_ACCOUNT = "整体"     # 整体页权限保留字（账号权限字段同字面；BU 名不能叫这个）
-RATIO_SUM_TOL = 0.05      # 分摊开启时合计=100% 的浮点容差（百分点）
+MAIN_ACCOUNT = "整体"  # 整体页权限保留字（账号权限字段同字面；BU 名不能叫这个）
+RATIO_SUM_TOL = 0.05  # 分摊开启时合计=100% 的浮点容差（百分点）
 
 
 def config_path(cfg: dict, root: Path | None = None) -> Path:
@@ -33,6 +34,7 @@ def _clean_names(v) -> list[str]:
     """名单字段清洗：列表/顿号·逗号分隔字符串 → 去空白去重（保序）。"""
     if isinstance(v, str):
         import re
+
         v = re.split(r"[、，,;；\n]", v)
     if not isinstance(v, list):
         return []
@@ -66,8 +68,12 @@ def _valid_bu(b: dict) -> dict | None:
     name = str(b.get("name") or "").strip()
     if not name or name == MAIN_ACCOUNT:
         return None
-    return {"name": name, "负责人": _clean_names(b.get("负责人")),
-            "销售": _clean_names(b.get("销售")), "分摊比例": _parse_ratio(b.get("分摊比例"))}
+    return {
+        "name": name,
+        "负责人": _clean_names(b.get("负责人")),
+        "销售": _clean_names(b.get("销售")),
+        "分摊比例": _parse_ratio(b.get("分摊比例")),
+    }
 
 
 def load_bu_config(cfg: dict, root: Path | None = None) -> dict | None:
@@ -82,7 +88,7 @@ def load_bu_config(cfg: dict, root: Path | None = None) -> dict | None:
     if not isinstance(raw, dict):
         return None
     bus, seen = [], set()
-    for b in (raw.get("bus") or []):
+    for b in raw.get("bus") or []:
         v = _valid_bu(b)
         if not v or v["name"] in seen:
             continue
@@ -118,8 +124,7 @@ def validate_allocation(bus: list[dict], enabled: bool) -> str | None:
     return None
 
 
-def save_bu_config(cfg: dict, root: Path | None, bus: list[dict],
-                   公共费用分摊启用: bool = False) -> dict:
+def save_bu_config(cfg: dict, root: Path | None, bus: list[dict], 公共费用分摊启用: bool = False) -> dict:
     """管理端保存：逐条校验规范化后落盘（纯数据归属，无密码字段）。
     **一人一 BU**：同一销售名若出现在多个 BU，只保留先出现的那个 BU。
     **分摊**：各 BU 比例**全部为空 → 不分摊**（忽略开关）；任一有值 → 启用，
@@ -143,8 +148,7 @@ def save_bu_config(cfg: dict, root: Path | None, bus: list[dict],
         ratio = _parse_ratio(raw_r)
         if raw_r not in (None, "") and ratio is None:
             raise ValueError(f"「{name}」分摊比例须为 0~100 的数字")
-        out.append({"name": name, "负责人": _clean_names(b.get("负责人")),
-                    "销售": sales, "分摊比例": ratio})
+        out.append({"name": name, "负责人": _clean_names(b.get("负责人")), "销售": sales, "分摊比例": ratio})
     # 全空 = 不分摊；有填 = 启用（须齐全且合计 100%）
     any_ratio = any(b["分摊比例"] is not None for b in out)
     all_ratio = all(b["分摊比例"] is not None for b in out) if out else False

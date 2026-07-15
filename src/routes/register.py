@@ -1,4 +1,5 @@
 """路由总注册：按域调用 routes.*（批次3 纯搬家）。"""
+
 from __future__ import annotations
 
 from . import auth, cockpit, admin_pages, data_api, export, config_api, manual

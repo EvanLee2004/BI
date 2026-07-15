@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B-P0：执行 static/js/assemble/rankings.js（node）vs render_rankings 逐字节相等。"""
+
 from __future__ import annotations
 
 import json
@@ -29,21 +30,30 @@ class TestP0RankingsAssemble(unittest.TestCase):
 
     def test_node_js_equals_python_render(self):
         import render, api_v1
+
         p = {
             "range": ("2026-01-01", "2026-12-31"),
             "rankings": {
                 "orders_by_sales": {
                     "items": [{"name": "甲", "amount": 1000000.0, "count": 1}],
-                    "full_items": [{"name": "甲", "amount": 1000000.0, "count": 1}], "total": 1000000.0},
+                    "full_items": [{"name": "甲", "amount": 1000000.0, "count": 1}],
+                    "total": 1000000.0,
+                },
                 "receipts_by_sales": {
                     "items": [{"name": "甲", "amount": 400000.0, "count": 1}],
-                    "full_items": [{"name": "甲", "amount": 400000.0, "count": 1}], "total": 400000.0},
+                    "full_items": [{"name": "甲", "amount": 400000.0, "count": 1}],
+                    "total": 400000.0,
+                },
                 "orders_by_customer": {
                     "items": [{"name": "客", "amount": 800000.0, "count": 1}],
-                    "full_items": [{"name": "客", "amount": 800000.0, "count": 1}], "total": 800000.0},
+                    "full_items": [{"name": "客", "amount": 800000.0, "count": 1}],
+                    "total": 800000.0,
+                },
                 "receipts_by_customer": {
                     "items": [{"name": "客", "amount": 300000.0, "count": 1}],
-                    "full_items": [{"name": "客", "amount": 300000.0, "count": 1}], "total": 300000.0},
+                    "full_items": [{"name": "客", "amount": 300000.0, "count": 1}],
+                    "total": 300000.0,
+                },
             },
         }
         py_html = render.render_rankings(p)
@@ -51,14 +61,14 @@ class TestP0RankingsAssemble(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump(view, f, ensure_ascii=False)
             vp = f.name
-        r = subprocess.run(
-            ["node", str(RUNNER), vp], capture_output=True, text=True, check=True)
+        r = subprocess.run(["node", str(RUNNER), vp], capture_output=True, text=True, check=True)
         js_html = r.stdout
+
         # normalize: JS may omit some newlines present in tpl dual_row
         def norm(s):
             return re.sub(r">\s+<", "><", s.replace("\n", ""))
-        self.assertEqual(norm(py_html), norm(js_html),
-                         f"py/js mismatch\nPY:{py_html[:200]!r}\nJS:{js_html[:200]!r}")
+
+        self.assertEqual(norm(py_html), norm(js_html), f"py/js mismatch\nPY:{py_html[:200]!r}\nJS:{js_html[:200]!r}")
 
     def test_assemble_js_no_money_math(self):
         js = JS.read_text(encoding="utf-8")

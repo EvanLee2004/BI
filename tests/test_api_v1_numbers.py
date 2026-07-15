@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """第1步：API 数字与 golden/baseline_numbers.json 全等（假数据套装）。"""
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ FAKE_DIR = ROOT / "_golden_data"
 
 def _build_summary():
     import loaders, core, db, ingest, assets
+
     cfg = loaders.load_config(ROOT)
     cfg["data_dir"] = "_golden_data"
     cfg["zhiyun_auto_fetch"] = False
@@ -24,8 +26,7 @@ def _build_summary():
     today = loaders.pinned_today(cfg)
     conn = db.connect(cfg, ROOT)
     try:
-        ingest.build_std_db(cfg, today.year, conn=conn, today=today,
-                            trigger="test_golden", archive_backups=False)
+        ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger="test_golden", archive_backups=False)
         summary = core.summary_from_conn(cfg, conn, today)
         try:
             core.attach_unassigned(cfg, conn, today, summary, ROOT)
@@ -56,6 +57,7 @@ class TestGoldenNumbers(unittest.TestCase):
 
     def test_extract_numbers_deep_equal(self):
         import api_v1
+
         got = api_v1.extract_numbers(self.summary)
         # JSON 往返统一类型（tuple→list 等）
         got_j = json.loads(json.dumps(got, ensure_ascii=False, default=str))
@@ -70,6 +72,7 @@ class TestGoldenNumbers(unittest.TestCase):
 
     def test_cockpit_payload_has_numbers(self):
         import api_v1
+
         p = api_v1.cockpit_payload(self.summary)
         self.assertEqual(p["api_version"], "v1")
         self.assertIn("numbers", p)
@@ -99,16 +102,19 @@ class TestCockpitHttp(unittest.TestCase):
         # loaders.data_dir(cfg, root) = root / data_dir if relative
         # 所以 root 必须是 ROOT，账号会读 数据/看板账号.json（本机已有）— 测试用临时 seed
         (ROOT / "数据").mkdir(exist_ok=True)
-        accounts.save_accounts(cfg, ROOT, [
-            {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": "kanban2026"},
-            {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": "8888"},
-            {"账号": "bu_only", "显示名": "BU", "权限": "BU", "可见BU": ["营销"], "密码": "8888"},
-        ])
+        accounts.save_accounts(
+            cfg,
+            ROOT,
+            [
+                {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": "kanban2026"},
+                {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": "8888"},
+                {"账号": "bu_only", "显示名": "BU", "权限": "BU", "可见BU": ["营销"], "密码": "8888"},
+            ],
+        )
         today = loaders.pinned_today(cfg)
         conn = db.connect(cfg, ROOT)
         try:
-            ingest.build_std_db(cfg, today.year, conn=conn, today=today,
-                                trigger="http_test", archive_backups=False)
+            ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger="http_test", archive_backups=False)
             summary = core.summary_from_conn(cfg, conn, today)
         finally:
             conn.close()
@@ -126,11 +132,13 @@ class TestCockpitHttp(unittest.TestCase):
 
     def test_session_401(self):
         from fastapi.testclient import TestClient
+
         r = TestClient(self.app, follow_redirects=False).get("/api/v1/session")
         self.assertEqual(r.status_code, 401)
 
     def test_cockpit_numbers_match(self):
         import api_v1
+
         r = self.client.post("/api/v1/login", json={"account": "overall", "password": "8888"})
         self.assertEqual(r.status_code, 200, r.text)
         r2 = self.client.get("/api/v1/cockpit")
@@ -145,6 +153,7 @@ class TestCockpitHttp(unittest.TestCase):
 
     def test_bu_forbidden_main(self):
         from fastapi.testclient import TestClient
+
         c = TestClient(self.app, follow_redirects=False)
         self.assertEqual(c.post("/api/v1/login", json={"account": "bu_only", "password": "8888"}).status_code, 200)
         self.assertEqual(c.get("/api/v1/cockpit").status_code, 403)

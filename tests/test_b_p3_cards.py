@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B-P3：大卡 shipped 路径（views + page.js），非 Python 预拼 fragments fill。"""
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,13 @@ sys.path.insert(0, str(ROOT / "src"))
 RUNNER = ROOT / "static" / "js" / "assemble" / "page_node_runner.js"
 
 CARD_MARKERS = (
-    "经营利润", "data-rm-map", "管理利润表", "pl-open", "费用构成",
-    "收入 · 按客户", "收入 · 按销售",
+    "经营利润",
+    "data-rm-map",
+    "管理利润表",
+    "pl-open",
+    "费用构成",
+    "收入 · 按客户",
+    "收入 · 按销售",
 )
 
 
@@ -31,12 +37,12 @@ class TestP3BigCardsShipped(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
         import loaders, core, api_v1, assets
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
         cfg["zhiyun_auto_fetch"] = False
-        cls.summary, cls.py_html, _, _ = core.generate(
-            cfg, date(2026, 6, 30), trigger="b-p3")
+        cls.summary, cls.py_html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-p3")
         logo = assets.load_logo_base64(cfg) or ""
         cls.pack = api_v1.cockpit_fragments(cls.summary, cfg, logo, client=True)
 

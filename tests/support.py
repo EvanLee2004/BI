@@ -10,6 +10,7 @@ HTTP 测试断言页面内容请走：
   - 或直接读 `server._state["user_html"]` / `bu_pages[n]["html"]`
 由 tests/run_test.py 在加载任意测试脚本前 import。
 """
+
 from __future__ import annotations
 
 import sys
@@ -30,7 +31,9 @@ def fake_views(mark: str = "USER-MAIN", year_key: str = "2026年") -> dict:
         "period_keys": [year_key],
         "rankings_view": {
             year_key: {
-                "visible": True, "start": "", "end": "",
+                "visible": True,
+                "start": "",
+                "end": "",
                 "sales": {"title": "", "dim": "sales", "items": [], "others": None, "empty": True},
                 "customer": {"title": "", "dim": "customer", "items": [], "others": None, "empty": True},
             }
@@ -49,9 +52,22 @@ def fake_views(mark: str = "USER-MAIN", year_key: str = "2026年") -> dict:
 def fake_main_frags(mark: str = "USER-MAIN") -> dict:
     """模拟 publish 缓存：卡字段有预拼串（HTTP 必须 strip 掉）。"""
     keys = (
-        "title", "particles", "logo", "version", "generated_at", "pw_modal",
-        "period_bar", "kpi_views", "trend_html", "donut_views", "pl_views",
-        "profit_rank_views", "receipts_budget", "daily_html", "rank_views", "drawer",
+        "title",
+        "particles",
+        "logo",
+        "version",
+        "generated_at",
+        "pw_modal",
+        "period_bar",
+        "kpi_views",
+        "trend_html",
+        "donut_views",
+        "pl_views",
+        "profit_rank_views",
+        "receipts_budget",
+        "daily_html",
+        "rank_views",
+        "drawer",
     )
     fr = {k: "" for k in keys}
     fr["title"] = "甲骨易智能经营罗盘"
@@ -62,12 +78,24 @@ def fake_main_frags(mark: str = "USER-MAIN") -> dict:
 def fake_bu_page(name: str, mark: str) -> dict:
     fr = {
         "title": f"甲骨易智能经营罗盘 · {name}",
-        "particles": "", "logo": "", "name": name, "version": "",
-        "generated_at": "", "export_url": f"/bu/{name}/export.png",
-        "pw_modal": "", "period_bar": "", "kpi_views": mark,
-        "trend_html": "", "donut_views": "", "pl_tag": "", "pl_views": "",
-        "profit_rank_views": "", "receipts_html": "", "rank_views": "",
-        "drawer": "", "rk_modal": "",
+        "particles": "",
+        "logo": "",
+        "name": name,
+        "version": "",
+        "generated_at": "",
+        "export_url": f"/bu/{name}/export.png",
+        "pw_modal": "",
+        "period_bar": "",
+        "kpi_views": mark,
+        "trend_html": "",
+        "donut_views": "",
+        "pl_tag": "",
+        "pl_views": "",
+        "profit_rank_views": "",
+        "receipts_html": "",
+        "rank_views": "",
+        "drawer": "",
+        "rk_modal": "",
     }
     return {
         "name": name,

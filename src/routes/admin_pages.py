@@ -1,4 +1,5 @@
 """管理端文档页 /admin — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -82,23 +88,24 @@ def register(app, d):
         """管理端应用 JS：磁盘 static/admin/admin.js 与抽取常量一致，
         仅将 __MANUAL_ITEMS__ 换成当前 config 手填项 JSON（纯注入、不算账）。"""
         from fastapi.responses import Response
+
         js_path = STATIC_DIR / "admin" / "admin.js"
         if not js_path.is_file():
             raise HTTPException(status_code=404, detail="admin.js missing")
         raw = js_path.read_text(encoding="utf-8")
         body = raw.replace("__MANUAL_ITEMS__", _manual_items_json(cfg))
-        return Response(body, media_type="application/javascript; charset=utf-8",
-                        headers={"Cache-Control": "no-store"})
+        return Response(body, media_type="application/javascript; charset=utf-8", headers={"Cache-Control": "no-store"})
 
     @app.post("/admin/login")
-    def admin_login(account: str = Form(""), password: str = Form(""),
-                    identity: str = Form("")):  # identity 兼容旧表单字段名，忽略
+    def admin_login(
+        account: str = Form(""), password: str = Form(""), identity: str = Form("")
+    ):  # identity 兼容旧表单字段名，忽略
         account = (account or identity or "").strip()
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc or not accounts.is_admin(acc):
             return RedirectResponse(
-                "/admin?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"),
-                status_code=303)
+                "/admin?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"), status_code=303
+            )
         accounts.mark_login(cfg, root, account)
         return _set_acookie(RedirectResponse("/admin", status_code=303), account)
 
@@ -107,4 +114,3 @@ def register(app, d):
         resp = RedirectResponse("/admin", status_code=303)
         resp.delete_cookie(COOKIE)
         return resp
-

@@ -10,6 +10,7 @@
 安全实现用标准库：会话 HMAC 签名 token；账号明文存 数据/看板账号.json（不进 git）。
 会话签名密钥存 数据/管理员密钥.json（只保留 cookie_key；旧 salt/pw_hash 字段读时忽略）。
 """
+
 from __future__ import annotations
 
 import json
@@ -39,8 +40,13 @@ import tpl
 import auth_session
 import refresh_pipeline
 from app_state import (  # noqa: F401  # 测试/外部可读 server._state
-    COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR,
-    _state, _LOCK, _EXPORT_LOCK,
+    COOKIE,
+    VCOOKIE,
+    SESSION_TTL,
+    STATIC_DIR,
+    _state,
+    _LOCK,
+    _EXPORT_LOCK,
 )
 
 # B-P5：已登录整体/BU 页固定 static shell + fragments（无 SERVE_SHELL 化石开关）。
@@ -109,13 +115,15 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
         try:
             ing = _do_full(cfg, root, trigger)
             _state["last_refresh"] = {
-                "status": "ok", "result": ing.get("result"),
+                "status": "ok",
+                "result": ing.get("result"),
                 "seconds": round(time.time() - t0, 1),
                 "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
         except Exception as e:
             _state["last_refresh"] = {
-                "status": "error", "detail": f"{type(e).__name__}: {e}",
+                "status": "error",
+                "detail": f"{type(e).__name__}: {e}",
                 "seconds": round(time.time() - t0, 1),
                 "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
@@ -179,6 +187,7 @@ def get_schedule_times(cfg) -> list[str]:
 def _schtask_command(root=None) -> str:
     """计划任务要跑的命令：<当前解释器> <run.py> --scheduled（部署机上解释器=venv python）。"""
     import sys
+
     py = sys.executable or "python"
     runpy = str((root or loaders.ROOT) / "run.py")
     return f'"{py}" "{runpy}" --scheduled'
@@ -195,30 +204,31 @@ def _win_sync_schedule(times: list[str], root=None) -> str:
     再删掉多出来的编号任务（时间点变少时）。全程 best-effort + try/except，
     **永不抛异常打断保存**；返回人读备注。非 Windows 不会走到这里。"""
     import subprocess
+
     tr = _schtask_command(root)
     names = _win_task_names(len(times))
     created = changed = failed = 0
     try:
         for name, t in zip(names, times):
-            r = subprocess.run(["schtasks", "/Change", "/TN", name, "/ST", t],
-                               capture_output=True, timeout=15)
+            r = subprocess.run(["schtasks", "/Change", "/TN", name, "/ST", t], capture_output=True, timeout=15)
             if r.returncode == 0:
                 changed += 1
                 continue
-            rc = subprocess.run(["schtasks", "/Create", "/TN", name, "/SC", "DAILY",
-                                 "/ST", t, "/TR", tr, "/F"], capture_output=True, timeout=15)
+            rc = subprocess.run(
+                ["schtasks", "/Create", "/TN", name, "/SC", "DAILY", "/ST", t, "/TR", tr, "/F"],
+                capture_output=True,
+                timeout=15,
+            )
             if rc.returncode == 0:
                 created += 1
             else:
                 failed += 1
         for i in range(len(times) + 1, MAX_SCHEDULE_TIMES + 2):  # 删多余编号任务
-            subprocess.run(["schtasks", "/Delete", "/TN", f"{SCHTASK_NAME}_{i}", "/F"],
-                           capture_output=True, timeout=15)
+            subprocess.run(["schtasks", "/Delete", "/TN", f"{SCHTASK_NAME}_{i}", "/F"], capture_output=True, timeout=15)
     except Exception:
         return "；⚠计划任务同步出错——请以管理员身份重跑 注册每日更新.bat"
     if failed:
-        return (f"；⚠有 {failed} 个时间点没同步成（多半需管理员权限）"
-                "——请以管理员身份重跑 注册每日更新.bat")
+        return f"；⚠有 {failed} 个时间点没同步成（多半需管理员权限）——请以管理员身份重跑 注册每日更新.bat"
     return f"；计划任务已同步（{len(times)} 个时间点：{'、'.join(times)}）"
 
 
@@ -248,8 +258,8 @@ def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
     if d.get("username") == username and d.get("password") == password:
         return False
     d["username"], d["password"] = username, password
-    d["md_pss_id"] = ""      # 旧会话作废，强制新账号重登
-    d["account_id"] = ""     # 登录时从页面全局变量自动取新账号的 GUID
+    d["md_pss_id"] = ""  # 旧会话作废，强制新账号重登
+    d["account_id"] = ""  # 登录时从页面全局变量自动取新账号的 GUID
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
     return True
@@ -258,9 +268,9 @@ def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
 def read_zhiyun_conn(cfg, root=None) -> dict:
     """读智云连接配置的**生效值**（内置默认 ZHIYUN_DEFAULTS + 本地覆盖合并后）：服务器地址 + 四表ID。"""
     from ingest import fetch_zhiyun
+
     zy = fetch_zhiyun._load_zhiyun_cfg(cfg, root)
-    tables = {s: str(((zy.get("tables") or {}).get(s) or {}).get("worksheetId", ""))
-              for s in fetch_zhiyun.SOURCES}
+    tables = {s: str(((zy.get("tables") or {}).get(s) or {}).get("worksheetId", "")) for s in fetch_zhiyun.SOURCES}
     return {"base_url": zy.get("base_url", ""), "tables": tables}
 
 
@@ -269,6 +279,7 @@ def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
     与内置默认相同的项**删除覆盖**（文件保持精简、跟着代码默认走）；不同才写覆盖。
     改了服务器地址顺带清旧会话（token 绑服务器）。返回生效值是否发生变更。"""
     from ingest import fetch_zhiyun
+
     defaults = fetch_zhiyun.ZHIYUN_DEFAULTS
     before = read_zhiyun_conn(cfg, root)
     base_url = str(base_url or "").strip().rstrip("/")
@@ -328,14 +339,16 @@ def save_settings(cfg, root, payload: dict) -> dict:
         keep = int(cfg.get("backup_keep_days", 30))
     if not (1 <= keep <= 365):
         raise ValueError("备份保留天数须在 1~365 之间")
-    auto = bool(payload.get("zhiyun_auto_fetch", cfg.get("zhiyun_auto_fetch", False))) \
-        if "zhiyun_auto_fetch" in payload else bool(cfg.get("zhiyun_auto_fetch", False))
+    auto = (
+        bool(payload.get("zhiyun_auto_fetch", cfg.get("zhiyun_auto_fetch", False)))
+        if "zhiyun_auto_fetch" in payload
+        else bool(cfg.get("zhiyun_auto_fetch", False))
+    )
 
     cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
     cfg["schedule_times"] = times
     # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
-    updates = {"schedule_time": st, "schedule_times": times,
-               "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
+    updates = {"schedule_time": st, "schedule_times": times, "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
     # 收单台账共享盘路径（部署机专属·界面填）：传了才改，一并落覆盖文件
     if "ledger_share_path" in payload:
         lsp = str(payload.get("ledger_share_path") or "").strip()
@@ -368,13 +381,19 @@ def save_settings(cfg, root, payload: dict) -> dict:
     # 仅当本次真的提交了更新时间时才动计划任务（各卡就近保存）
     if changed_times:
         import sys
+
         if sys.platform == "win32":
             note += _win_sync_schedule(times, root)
         else:
             note += f"（本机非 Windows：{len(times)} 个时间点在部署机上生效）"
-    return {"schedule_time": st, "schedule_times": times,
-            "backup_keep_days": keep, "zhiyun_auto_fetch": auto,
-            "ledger_share_path": cfg.get("ledger_share_path", ""), "note": note}
+    return {
+        "schedule_time": st,
+        "schedule_times": times,
+        "backup_keep_days": keep,
+        "zhiyun_auto_fetch": auto,
+        "ledger_share_path": cfg.get("ledger_share_path", ""),
+        "note": note,
+    }
 
 
 # recompute 已由 refresh_pipeline 提供（秒级重算：缓存记录→重放→重算→重渲染）
@@ -402,9 +421,9 @@ def _join_summary(prefix: str, items: list[str], cap: int = 8) -> str:
     return prefix + "；".join(items[:cap]) + f"；等共 {len(items)} 项"
 
 
-def _diff_bu_config(old_bus: list, new_bus: list,
-                    old_alloc: bool = False, new_alloc: bool = False) -> list:
+def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_alloc: bool = False) -> list:
     """销售归属/BU 结构/分摊比例变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
+
     def sale_map(bus):
         m = {}
         for b in bus:
@@ -413,16 +432,24 @@ def _diff_bu_config(old_bus: list, new_bus: list,
         return m
 
     om, nm = sale_map(old_bus), sale_map(new_bus)
-    moves = [f"{s} {om.get(s) or '未归属'}→{nm.get(s) or '未归属'}"
-             for s in sorted(set(om) | set(nm)) if om.get(s) != nm.get(s)]
+    moves = [
+        f"{s} {om.get(s) or '未归属'}→{nm.get(s) or '未归属'}"
+        for s in sorted(set(om) | set(nm))
+        if om.get(s) != nm.get(s)
+    ]
     onames = {b["name"] for b in old_bus}
     nnames = {b["name"] for b in new_bus}
     oown = {b["name"]: "、".join(b.get("负责人") or []) for b in old_bus}
     nown = {b["name"]: "、".join(b.get("负责人") or []) for b in new_bus}
-    struct = ([f"新增 BU {x}" for x in sorted(nnames - onames)]
-              + [f"删除 BU {x}" for x in sorted(onames - nnames)]
-              + [f"{x} 负责人改为「{nown.get(x) or '（空）'}」"
-                 for x in sorted(nnames & onames) if oown.get(x) != nown.get(x)])
+    struct = (
+        [f"新增 BU {x}" for x in sorted(nnames - onames)]
+        + [f"删除 BU {x}" for x in sorted(onames - nnames)]
+        + [
+            f"{x} 负责人改为「{nown.get(x) or '（空）'}」"
+            for x in sorted(nnames & onames)
+            if oown.get(x) != nown.get(x)
+        ]
+    )
     out = []
     if moves:
         out.append(("销售归属", _join_summary("销售归属：", moves)))
@@ -437,8 +464,10 @@ def _diff_bu_config(old_bus: list, new_bus: list,
     for nm in sorted(set(orat) | set(nrat)):
         o, n = orat.get(nm), nrat.get(nm)
         if o != n:
+
             def _fmt(v):
                 return "空" if v is None else f"{v:g}%"
+
             alloc_lines.append(f"{nm} {_fmt(o)}→{_fmt(n)}")
     if alloc_lines:
         out.append(("分摊", _join_summary("分摊：", alloc_lines)))
@@ -468,9 +497,20 @@ def _diff_accounts(old_accs: list, new_accs: list) -> list:
 def _manual_items_json(cfg: dict | None = None) -> str:
     """手填项目名列表 JSON（注入管理端 JS；与 config.manual_items 同步）。"""
     import json as _json
+
     items = [it["name"] for it in (cfg or {}).get("manual_items") or []] or [
-        "营销人力成本", "管理人力成本", "研发人力成本", "财务费用补充", "PM人力成本", "VM人力成本",
-        "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）", "其他损益"]
+        "营销人力成本",
+        "管理人力成本",
+        "研发人力成本",
+        "财务费用补充",
+        "PM人力成本",
+        "VM人力成本",
+        "实际内部译员成本",
+        "税费损失",
+        "技术流量成本",
+        "其他（生产成本）",
+        "其他损益",
+    ]
     return _json.dumps(items, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -510,10 +550,6 @@ def admin_ui_source() -> str:
     return "\n".join(parts)
 
 
-
-
-
-
 def _run_reasons(report: dict) -> list[str]:
     """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
     与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整。
@@ -530,7 +566,9 @@ def _run_reasons(report: dict) -> list[str]:
     if adj.get("expired", 0):
         reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·数据修正』看")
     if adj.get("missing", 0):
-        reasons.append(f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·数据修正』人工复核")
+        reasons.append(
+            f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·数据修正』人工复核"
+        )
     return reasons
 
 
@@ -597,6 +635,7 @@ def create_app(cfg, root=None) -> FastAPI:
 
         def esc(s):
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
         existing = [n for n in my_names if n in _state.get("bu_pages", {})]
         if len(existing) <= 1:
             return ""
@@ -605,18 +644,17 @@ def create_app(cfg, root=None) -> FastAPI:
                 href=quote(n),
                 current_attrs=(' aria-current="page" style="border-color:var(--blue)"' if n == current else ""),
                 name=esc(n),
-            ) for n in existing)
+            )
+            for n in existing
+        )
         return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
 
-
     def _set_vcookie(resp, account: str):
-        resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL,
-                        httponly=True, samesite="lax")
+        resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL, httponly=True, samesite="lax")
         return resp
 
     def _set_acookie(resp, account: str):
-        resp.set_cookie(COOKIE, _make_token(sec, account), max_age=SESSION_TTL,
-                        httponly=True, samesite="lax")
+        resp.set_cookie(COOKIE, _make_token(sec, account), max_age=SESSION_TTL, httponly=True, samesite="lax")
         return resp
 
     def _main_shell():
@@ -632,56 +670,60 @@ def create_app(cfg, root=None) -> FastAPI:
             return _html_doc(_EMPTY_DATA_HTML, status_code=503)
         return _file_html_doc(p)
 
-
     # 批次3：路由纯搬家到 routes.register_all（行为零变化）
     from types import SimpleNamespace
     from routes import register_all
     import export_png as _export_png
-    register_all(app, SimpleNamespace(
-        cfg=cfg,
-        root=root,
-        user=_user,
-        vacct=_vacct,
-        vacc_row=_vacc_row,
-        can_view_main=_can_view_main,
-        can_view_bu=_can_view_bu,
-        bu_switcher_html=_bu_switcher_html,
-        set_vcookie=_set_vcookie,
-        set_acookie=_set_acookie,
-        main_shell=_main_shell,
-        bu_shell=_bu_shell,
-        view_login_file=_view_login_file,
-        admin_login_file=_admin_login_file,
-        admin_static_html=_admin_static_html,
-        bootstrap_page=_bootstrap_page,
-        manual_items_json=_manual_items_json,
-        html_doc=_html_doc,
-        file_html_doc=_file_html_doc,
-        audit=_audit,
-        diff_accounts=_diff_accounts,
-        diff_bu_config=_diff_bu_config,
-        run_reasons=_run_reasons,
-        start_refresh_async=start_refresh_async,
-        recompute=recompute,
-        get_schedule_times=get_schedule_times,
-        normalize_schedule_times=normalize_schedule_times,
-        save_settings=save_settings,
-        read_zhiyun_creds=read_zhiyun_creds,
-        save_zhiyun_creds=save_zhiyun_creds,
-        read_zhiyun_conn=read_zhiyun_conn,
-        save_zhiyun_conn=save_zhiyun_conn,
-        screenshot_png=_export_png.screenshot_png,
-        HIDE_PW_STYLE=_HIDE_PW_STYLE,
-        WRAP_OPEN=_WRAP_OPEN,
-        DEFAULT_PW=DEFAULT_PW,
-        BU_NAV_TPL=_BU_NAV_TPL,
-        BU_NAV_LINK_TPL=_BU_NAV_LINK_TPL,
-        EDITABLE_SETTINGS=EDITABLE_SETTINGS,
-    ))
+
+    register_all(
+        app,
+        SimpleNamespace(
+            cfg=cfg,
+            root=root,
+            user=_user,
+            vacct=_vacct,
+            vacc_row=_vacc_row,
+            can_view_main=_can_view_main,
+            can_view_bu=_can_view_bu,
+            bu_switcher_html=_bu_switcher_html,
+            set_vcookie=_set_vcookie,
+            set_acookie=_set_acookie,
+            main_shell=_main_shell,
+            bu_shell=_bu_shell,
+            view_login_file=_view_login_file,
+            admin_login_file=_admin_login_file,
+            admin_static_html=_admin_static_html,
+            bootstrap_page=_bootstrap_page,
+            manual_items_json=_manual_items_json,
+            html_doc=_html_doc,
+            file_html_doc=_file_html_doc,
+            audit=_audit,
+            diff_accounts=_diff_accounts,
+            diff_bu_config=_diff_bu_config,
+            run_reasons=_run_reasons,
+            start_refresh_async=start_refresh_async,
+            recompute=recompute,
+            get_schedule_times=get_schedule_times,
+            normalize_schedule_times=normalize_schedule_times,
+            save_settings=save_settings,
+            read_zhiyun_creds=read_zhiyun_creds,
+            save_zhiyun_creds=save_zhiyun_creds,
+            read_zhiyun_conn=read_zhiyun_conn,
+            save_zhiyun_conn=save_zhiyun_conn,
+            screenshot_png=_export_png.screenshot_png,
+            HIDE_PW_STYLE=_HIDE_PW_STYLE,
+            WRAP_OPEN=_WRAP_OPEN,
+            DEFAULT_PW=DEFAULT_PW,
+            BU_NAV_TPL=_BU_NAV_TPL,
+            BU_NAV_LINK_TPL=_BU_NAV_LINK_TPL,
+            EDITABLE_SETTINGS=EDITABLE_SETTINGS,
+        ),
+    )
     return app
 
 
 import export_png as _export_png
+
 _screenshot_png = _export_png.screenshot_png
 
 
@@ -695,6 +737,7 @@ def serve(cfg=None, root=None):
         print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/refresh 或重启）")
     app = create_app(cfg, root)
     import uvicorn
+
     host = cfg.get("server_host", "0.0.0.0")
     # 环境变量 KANBAN_PORT 可覆盖端口（本机多会话调试时避开 config 固定端口，不影响部署默认值）
     port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
@@ -706,9 +749,11 @@ def serve(cfg=None, root=None):
         time.sleep(20)
         try:
             import updater
+
             updater.clear_rollback_marker(loaders.ROOT)
         except Exception:
             pass
+
     threading.Thread(target=_confirm_update_good, daemon=True).start()
 
     uvicorn.run(app, host=host, port=port, log_level="info")

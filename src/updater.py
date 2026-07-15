@@ -15,6 +15,7 @@
 - 全部 git 命令带超时、捕获输出，绝不交互式挂起；
 - 看门狗侧：非 42 退出=异常，连续多次则停下报警，避免坏版本无限重启。
 """
+
 from __future__ import annotations
 
 import os
@@ -25,8 +26,8 @@ from pathlib import Path
 
 import loaders
 
-RESTART_EXIT_CODE = 42   # 看门狗据此判「更新后重启」；须与 看门狗启动.bat 里的 42 一致
-_TIMEOUT = 30            # 单条 git 命令默认超时（秒）
+RESTART_EXIT_CODE = 42  # 看门狗据此判「更新后重启」；须与 看门狗启动.bat 里的 42 一致
+_TIMEOUT = 30  # 单条 git 命令默认超时（秒）
 _ROOT = Path(__file__).resolve().parent.parent  # 程序根=git 仓库工作区（.git/run.py 所在层）
 
 
@@ -37,8 +38,7 @@ def _root(root=None) -> Path:
 def _git(root, *args, timeout=_TIMEOUT):
     """跑一条 git 命令，返回 (rc, stdout, stderr)（都 strip）。失败/超时不抛，rc≠0。"""
     try:
-        r = subprocess.run(["git", "-C", str(root), *args],
-                           capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=timeout)
         return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
     except Exception as e:  # git 不存在 / 超时 / 其它
         return 1, "", f"{type(e).__name__}: {e}"
@@ -72,6 +72,7 @@ def _run_pip(root) -> tuple[int, str, str]:
     空串=不强制镜像、走 pip 自身配置（应急后门）。可经 数据/本地配置.json 覆盖（铁律19）。
     返回 (rc, stdout, stderr)。独立成函数便于测试替换（stub）。"""
     import sys
+
     base = _root(root)
     req = base / "requirements.txt"
     cmd = [sys.executable, "-m", "pip", "install", "-r", str(req)]
@@ -150,18 +151,31 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:
     root = _root(root)
     remote = str(remote or "origin").strip() or "origin"
     if not is_repo(root):
-        return {"supported": False, "available": False, "remote": remote,
-                "reason": "非 git 仓库，一键更新不可用（需 git clone 部署）"}
+        return {
+            "supported": False,
+            "available": False,
+            "remote": remote,
+            "reason": "非 git 仓库，一键更新不可用（需 git clone 部署）",
+        }
     branch = _current_branch(root)
     if not branch:
-        return {"supported": False, "available": False, "remote": remote,
-                "reason": "当前处于游离 HEAD，无法判断分支，暂不支持一键更新"}
+        return {
+            "supported": False,
+            "available": False,
+            "remote": remote,
+            "reason": "当前处于游离 HEAD，无法判断分支，暂不支持一键更新",
+        }
     up = f"{remote}/{branch}"
     if do_fetch:
         rc, _, err = _git(root, "fetch", "--quiet", remote, branch, timeout=90)
         if rc != 0:
-            return {"supported": True, "available": False, "branch": branch, "remote": remote,
-                    "reason": f"从远端「{remote}」拉取信息失败（网络/权限/远端不存在？）：{err or '未知错误'}"}
+            return {
+                "supported": True,
+                "available": False,
+                "branch": branch,
+                "remote": remote,
+                "reason": f"从远端「{remote}」拉取信息失败（网络/权限/远端不存在？）：{err or '未知错误'}",
+            }
     rc, out, _ = _git(root, "rev-list", "--left-right", "--count", f"HEAD...{up}")
     ahead = behind = 0
     if rc == 0 and out:
@@ -186,10 +200,20 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:
         reason = "本地有未提交改动，先提交或还原再更新（避免被覆盖）"
     else:
         reason = f"有新版本：落后远端 {behind} 个提交，可一键更新"
-    return {"supported": True, "available": behind > 0, "branch": branch, "remote": remote,
-            "ahead": ahead, "behind": behind, "dirty": dirty, "can_update": can_update,
-            "reason": reason, "log": log,
-            "local": _short(root, "HEAD"), "remote_rev": _short(root, up)}
+    return {
+        "supported": True,
+        "available": behind > 0,
+        "branch": branch,
+        "remote": remote,
+        "ahead": ahead,
+        "behind": behind,
+        "dirty": dirty,
+        "can_update": can_update,
+        "reason": reason,
+        "log": log,
+        "local": _short(root, "HEAD"),
+        "remote_rev": _short(root, up),
+    }
 
 
 def apply_update(root=None, remote="origin") -> dict:
@@ -202,8 +226,7 @@ def apply_update(root=None, remote="origin") -> dict:
     if not chk.get("supported"):
         return {"ok": False, "reason": chk.get("reason", "不支持一键更新")}
     if not chk.get("can_update"):
-        return {"ok": False, "reason": chk.get("reason", "无需更新或不满足更新条件"),
-                "behind": chk.get("behind", 0)}
+        return {"ok": False, "reason": chk.get("reason", "无需更新或不满足更新条件"), "behind": chk.get("behind", 0)}
     branch = chk["branch"]
     before = chk.get("local", "")
     rc, out, err = _git(root, "pull", "--ff-only", remote, branch, timeout=180)
@@ -214,19 +237,32 @@ def apply_update(root=None, remote="origin") -> dict:
     if not deps["ok"]:
         # 装依赖失败 → 回滚这次拉取，不带着装不上的新代码重启（更新期自愈）
         rb_rc, _, rb_err = _git(root, "reset", "--hard", before, timeout=60)
-        return {"ok": False, "rolled_back": rb_rc == 0, "deps": deps,
-                "reason": f"拉取成功但安装依赖失败，已回滚到更新前版本（{before}）：{deps['detail']}"
-                          + ("" if rb_rc == 0 else f"；⚠回滚也失败（{rb_err}），请人工 `git reset --hard {before}`")}
+        return {
+            "ok": False,
+            "rolled_back": rb_rc == 0,
+            "deps": deps,
+            "reason": f"拉取成功但安装依赖失败，已回滚到更新前版本（{before}）：{deps['detail']}"
+            + ("" if rb_rc == 0 else f"；⚠回滚也失败（{rb_err}），请人工 `git reset --hard {before}`"),
+        }
     # 写"回滚点"给看门狗：这版若启动即崩，看门狗据此自动回滚一次（正常起 N 秒后 server 会清掉此标记）
     write_rollback_marker(root, before)
-    return {"ok": True, "pulled": chk.get("behind", 0), "from": before,
-            "to": _short(root, "HEAD"), "branch": branch, "detail": out, "deps": deps}
+    return {
+        "ok": True,
+        "pulled": chk.get("behind", 0),
+        "from": before,
+        "to": _short(root, "HEAD"),
+        "branch": branch,
+        "detail": out,
+        "deps": deps,
+    }
 
 
 def request_restart(delay: float = 1.0) -> None:
     """触发进程重启：后台线程延时后以 RESTART_EXIT_CODE 退出（让 HTTP 响应先发回）；
     看门狗据码用新代码重新拉起。**没有看门狗时=服务停掉**（部署手册要求用 看门狗启动.bat 起）。"""
+
     def _bye():
         time.sleep(max(0.1, delay))
         os._exit(RESTART_EXIT_CODE)
+
     threading.Thread(target=_bye, daemon=True).start()

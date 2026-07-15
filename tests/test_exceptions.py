@@ -9,6 +9,7 @@
 - 处理一条（部门补上）→ 清单和排名（未填）两边同步减
 - 「复核」改名「异常处理」后各页签路由可达
 """
+
 import datetime
 import sqlite3
 import sys
@@ -27,17 +28,19 @@ def _seed_orders(cfg, root):
     rows = [
         # 定位键, 订单号, 日期, 金额, 部门, 销售, 已删除
         ("O1", "SO1", "2026-03-01", 1000.0, "部门B", "张三", 0),
-        ("O2", "SO2", "2026-03-05", 2000.0, "", "李四", 0),          # 未填部门
-        ("O3", "SO3", "2026-04-02", 3000.0, None, "王五", 0),        # 未填部门(NULL)
-        ("O4", "SO4", "2026-04-03", 0.0, "", "赵六", 0),             # 金额0 → 不算异常
-        ("O5", "SO5", "2026-04-04", 500.0, "  ", "钱七", 0),         # 空白 → 未填
-        ("O6", "SO6", "2026-04-05", 800.0, "", "孙八", 1),           # 已删除 → 排除
+        ("O2", "SO2", "2026-03-05", 2000.0, "", "李四", 0),  # 未填部门
+        ("O3", "SO3", "2026-04-02", 3000.0, None, "王五", 0),  # 未填部门(NULL)
+        ("O4", "SO4", "2026-04-03", 0.0, "", "赵六", 0),  # 金额0 → 不算异常
+        ("O5", "SO5", "2026-04-04", 500.0, "  ", "钱七", 0),  # 空白 → 未填
+        ("O6", "SO6", "2026-04-05", 800.0, "", "孙八", 1),  # 已删除 → 排除
         ("O7", "SO7", "2026-05-06", 4000.0, "部门A", "周九", 0),
     ]
     for k, o, d, a, dep, sal, rm in rows:
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,?)", (k, o, d, a, dep, sal, d[:7], d[:7], rm))
+            " VALUES(?,?,?,?,?,?,?,?,?)",
+            (k, o, d, a, dep, sal, d[:7], d[:7], rm),
+        )
     conn.commit()
     return conn
 
@@ -53,8 +56,9 @@ class TestRankingUnfilled(unittest.TestCase):
     ]
 
     def _rk(self, top=10):
-        return profit.compute_ranking(self.ROWS, "部门", "下单预估额", "下单日期",
-                                      datetime.date(2026, 1, 1), datetime.date(2026, 12, 31), top=top)
+        return profit.compute_ranking(
+            self.ROWS, "部门", "下单预估额", "下单日期", datetime.date(2026, 1, 1), datetime.date(2026, 12, 31), top=top
+        )
 
     def test_unfilled_separated_from_items(self):
         rk = self._rk()
@@ -63,7 +67,7 @@ class TestRankingUnfilled(unittest.TestCase):
         self.assertEqual(rk["unfilled"], {"amount": 5000.0, "count": 2})
 
     def test_conservation_items_others_unfilled_eq_total(self):
-        rk = self._rk(top=1)   # 逼出 others
+        rk = self._rk(top=1)  # 逼出 others
         s = sum(it["amount"] for it in rk["items"])
         s += (rk["others"] or {}).get("amount", 0)
         s += (rk["unfilled"] or {}).get("amount", 0)
@@ -72,8 +76,9 @@ class TestRankingUnfilled(unittest.TestCase):
 
     def test_no_unfilled_is_none(self):
         rows = [r for r in self.ROWS if (r["部门"] or "").strip()]
-        rk = profit.compute_ranking(rows, "部门", "下单预估额", "下单日期",
-                                    datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
+        rk = profit.compute_ranking(
+            rows, "部门", "下单预估额", "下单日期", datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
+        )
         self.assertIsNone(rk["unfilled"])
 
     def test_render_hides_unfilled_on_user_page(self):
@@ -126,8 +131,14 @@ class TestUnfilledDeptQueries(unittest.TestCase):
     def test_list_matches_ranking_unfilled(self):
         """清单口径 == 排名（未填）口径（金额0那笔：清单不列，但排名计1笔0元——共用非零条件故一致）。"""
         rows = db.load_orders(self.cfg, self.conn)
-        rk = profit.compute_ranking(rows, "部门", self.cfg["columns"]["order_amount"],
-                                    self.cfg["columns"]["order_date"], datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
+        rk = profit.compute_ranking(
+            rows,
+            "部门",
+            self.cfg["columns"]["order_amount"],
+            self.cfg["columns"]["order_date"],
+            datetime.date(2026, 1, 1),
+            datetime.date(2026, 12, 31),
+        )
         d = db.query_detail(self.conn, "下单", unfilled_dept=True)
         amt = sum(r["下单预估额"] for r in d["rows"])
         self.assertAlmostEqual(amt, rk["unfilled"]["amount"], places=2)
@@ -138,9 +149,15 @@ class TestUnfilledDeptQueries(unittest.TestCase):
         self.conn.commit()
         self.assertEqual(db.query_detail(self.conn, "下单", unfilled_dept=True)["total"], 2)
         rows = db.load_orders(self.cfg, self.conn)
-        rk = profit.compute_ranking(rows, "部门", self.cfg["columns"]["order_amount"],
-                                    self.cfg["columns"]["order_date"], datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
-        self.assertEqual(rk["unfilled"]["count"], 3)   # O3/O5 + O4（0元也算1笔，金额守恒不受影响）
+        rk = profit.compute_ranking(
+            rows,
+            "部门",
+            self.cfg["columns"]["order_amount"],
+            self.cfg["columns"]["order_date"],
+            datetime.date(2026, 1, 1),
+            datetime.date(2026, 12, 31),
+        )
+        self.assertEqual(rk["unfilled"]["count"], 3)  # O3/O5 + O4（0元也算1笔，金额守恒不受影响）
         self.assertAlmostEqual(rk["unfilled"]["amount"], 3500.0, places=2)
 
     def test_adjust_dept_field_allowed(self):
@@ -158,6 +175,7 @@ class TestExceptionEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
@@ -177,8 +195,7 @@ class TestExceptionEndpoints(unittest.TestCase):
         server.recompute = cls._orig_recompute
 
     def test_endpoints_require_login(self):
-        for p in ("/api/exceptions", "/api/order_depts",
-                  "/api/detail?table=%E4%B8%8B%E5%8D%95&unfilled_dept=1"):
+        for p in ("/api/exceptions", "/api/order_depts", "/api/detail?table=%E4%B8%8B%E5%8D%95&unfilled_dept=1"):
             self.assertEqual(self.anon.get(p).status_code, 401, p)
 
     def test_exceptions_summary_endpoint(self):
@@ -191,8 +208,7 @@ class TestExceptionEndpoints(unittest.TestCase):
         self.assertEqual(self.client.get("/api/order_depts", headers=self.hdr).json(), ["部门A", "部门B"])
 
     def test_detail_unfilled_dept_endpoint(self):
-        d = self.client.get("/api/detail", params={"table": "下单", "unfilled_dept": "1"},
-                            headers=self.hdr).json()
+        d = self.client.get("/api/detail", params={"table": "下单", "unfilled_dept": "1"}, headers=self.hdr).json()
         self.assertEqual(d["total"], 3)
 
     def test_detail_unfilled_dept_wrong_table_400(self):
@@ -207,9 +223,18 @@ class TestExceptionEndpoints(unittest.TestCase):
 
     def test_adjust_dept_via_api(self):
         """异常处理归类的完整写链：POST /api/adjust 部门改值 → 记录入台账。"""
-        r = self.client.post("/api/adjust", headers=self.hdr, json={
-            "目标表": "std_下单", "定位键": "O3", "字段": "部门",
-            "新值": "部门A", "原因": "异常处理·归类部门", "类型": "改值"})
+        r = self.client.post(
+            "/api/adjust",
+            headers=self.hdr,
+            json={
+                "目标表": "std_下单",
+                "定位键": "O3",
+                "字段": "部门",
+                "新值": "部门A",
+                "原因": "异常处理·归类部门",
+                "类型": "改值",
+            },
+        )
         self.assertEqual(r.status_code, 200, r.text)
         adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
         a = [x for x in adjs if x["定位键"] == "O3"][0]

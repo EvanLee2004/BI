@@ -5,6 +5,7 @@
 用法：.venv/bin/python tests/run_test.py tests/test_auth.py
 run_verify.sh 全部经此入口，避免 26 个文件逐个改 SERVE_SHELL。
 """
+
 from __future__ import annotations
 
 import runpy

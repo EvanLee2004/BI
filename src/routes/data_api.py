@@ -1,4 +1,5 @@
 """明细/日查/排名/体检/刷新 — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -66,8 +72,9 @@ def register(app, d):
     DEFAULT_PW = d.DEFAULT_PW
 
     @app.get("/api/detail_export")
-    def api_detail_export(request: Request, table: str = Query("收入明细"),
-                          month: str | None = None, q: str | None = None):
+    def api_detail_export(
+        request: Request, table: str = Query("收入明细"), month: str | None = None, q: str | None = None
+    ):
         """当前筛选结果导出 Excel（.xlsx · 管理员；上限 5000 行，避免拖垮）。
         表头+行与明细页一致；月份/搜索条件与页面筛选相同。"""
         _require(request)
@@ -75,6 +82,7 @@ def register(app, d):
         from urllib.parse import quote
         from fastapi.responses import Response
         import openpyxl
+
         conn = _conn()
         try:
             d = db.query_detail(conn, table, month, q, page=1, page_size=5000)
@@ -85,7 +93,7 @@ def register(app, d):
         wb = openpyxl.Workbook()
         ws = wb.active
         # sheet 名最多 31 字，去掉 Excel 非法字符
-        safe = "".join(c for c in str(table) if c not in r'[]:*?/\\')[:31] or "明细"
+        safe = "".join(c for c in str(table) if c not in r"[]:*?/\\")[:31] or "明细"
         ws.title = safe
         cols = d["columns"]
         ws.append(list(cols))
@@ -110,22 +118,30 @@ def register(app, d):
         )
 
     @app.get("/api/detail")
-    def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
-                   q: str | None = None, page: int = 1, page_size: int = 50,
-                   unclassified: bool = False, unfilled_dept: bool = False,
-                   year: str | None = None, bu: str | None = None):
+    def api_detail(
+        request: Request,
+        table: str = Query("收入明细"),
+        month: str | None = None,
+        q: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+        unclassified: bool = False,
+        unfilled_dept: bool = False,
+        year: str | None = None,
+        bu: str | None = None,
+    ):
         """明细查询。管理员：全表。A5：查看端会话仅可查「费用明细」且必须带本 BU 过滤（铁律隔离）。"""
         user = _user(request)
         vacc = _vacc_row(request)
         force_bu = None
         if user:
             # 管理员：bu 可选过滤；其余参数原样
-            force_bu = (bu.strip() if bu else None)
+            force_bu = bu.strip() if bu else None
         elif vacc and table == "费用明细":
             # BU / 整体：整体可看全部（不强制 bu）；BU 账号只能看绑定 BU
             names = accounts.bu_names_of(vacc)
             if accounts.is_main(vacc):
-                force_bu = (bu.strip() if bu else None)
+                force_bu = bu.strip() if bu else None
             else:
                 if not names:
                     raise HTTPException(status_code=403, detail="无权查看费用明细")
@@ -138,9 +154,11 @@ def register(app, d):
         conn = db.connect(cfg, root)
         try:
             try:
-                return JSONResponse(db.query_detail(
-                    conn, table, month, q, page, page_size,
-                    unclassified, unfilled_dept, year=year, bu=force_bu))
+                return JSONResponse(
+                    db.query_detail(
+                        conn, table, month, q, page, page_size, unclassified, unfilled_dept, year=year, bu=force_bu
+                    )
+                )
             except KeyError as e:
                 raise HTTPException(status_code=400, detail=str(e))
         finally:
@@ -154,6 +172,7 @@ def register(app, d):
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
         import datetime as _dt
+
         try:
             s = _dt.date.fromisoformat(start)
             e = _dt.date.fromisoformat(end)
@@ -163,7 +182,7 @@ def register(app, d):
             raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
         if (e - s).days > 366:
             raise HTTPException(status_code=400, detail="区间最长 366 天")
-        top = max(1, min(2000, int(top)))   # 排名条数：默认前10，「其余点开看明细」传 2000 拿全量
+        top = max(1, min(2000, int(top)))  # 排名条数：默认前10，「其余点开看明细」传 2000 拿全量
         conn = db.connect(cfg, root)
         try:
             orders = db.load_orders(cfg, conn)
@@ -172,24 +191,25 @@ def register(app, d):
             conn.close()
         import charts
         import profit as _profit
+
         # 与全年预渲染一致：有销售→BU 映射则多算 orders_by_bu（看端时间段查询统一按 BU）
         sales_to_bu = None
         try:
             import bu as _bu
+
             bucfg = _bu.load_bu_config(cfg, root)
             if bucfg and bucfg.get("bus"):
                 sales_to_bu = {}
                 for b in bucfg["bus"]:
-                    for sal in (b.get("销售") or []):
+                    for sal in b.get("销售") or []:
                         sales_to_bu.setdefault(str(sal).strip(), b["name"])
                 if not sales_to_bu:
                     sales_to_bu = None
         except Exception:
             sales_to_bu = None
-        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top,
-                                  sales_to_bu=sales_to_bu)
+        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top, sales_to_bu=sales_to_bu)
 
-        def _wan(v):   # 显示串：与排名卡一致（负数全角−）
+        def _wan(v):  # 显示串：与排名卡一致（负数全角−）
             return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
 
         for row in d["days"]:
@@ -203,12 +223,13 @@ def register(app, d):
                 rk["others"]["disp"] = _wan(rk["others"].pop("amount"))
             if rk.get("unfilled"):
                 rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
-            rk.pop("total", None)   # 用不到就不下发，防前端拿去做运算
+            rk.pop("total", None)  # 用不到就不下发，防前端拿去做运算
         return {"start": start, "end": end, **d}
 
     @app.get("/api/profit_ranking")
-    def api_profit_ranking(request: Request, dim: str = Query(""), start: str = Query(""),
-                           end: str = Query(""), top: int = Query(5000)):
+    def api_profit_ranking(
+        request: Request, dim: str = Query(""), start: str = Query(""), end: str = Query(""), top: int = Query(5000)
+    ):
         """板块③「收入与毛利结构」全量明细（「其余 N 个」点开）：确认口径 收入/毛利 按客户/销售。
         与 /api/daily 同为全公司口径出口——要整体页/管理员会话（BU 会话 401，防绕过页面隔离）；
         **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。入参严格校验：dim∈{customer,sales}、ISO 日期、区间≤366天。"""
@@ -218,6 +239,7 @@ def register(app, d):
         if not name_col:
             raise HTTPException(status_code=400, detail="dim 须为 customer 或 sales")
         import datetime as _dt
+
         try:
             s = _dt.date.fromisoformat(start)
             e = _dt.date.fromisoformat(end)
@@ -235,6 +257,7 @@ def register(app, d):
             conn.close()
         import charts
         import profit as _profit
+
         vat = cfg["tax"]["vat_rate"]
         rk = _profit.compute_profit_ranking(project, name_col, cfg["columns"], s, e, vat, top=top)
 
@@ -248,12 +271,14 @@ def register(app, d):
             cp = it.get("cost_pct")
             return f"系统成本率 {cp:.0f}%" if cp is not None else "系统成本率 —"
 
-        items = [{"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it)}
-                 for it in rk["items"]]
+        items = [
+            {"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it)} for it in rk["items"]
+        ]
         if rk.get("unfilled"):
             uf = rk["unfilled"]
-            items.append({"name": "（未填）", "revenue_disp": _wan(uf["revenue"]),
-                          "margin_disp": _mg(uf), "unfilled": True})
+            items.append(
+                {"name": "（未填）", "revenue_disp": _wan(uf["revenue"]), "margin_disp": _mg(uf), "unfilled": True}
+            )
         return {"dim": dim, "start": start, "end": end, "items": items}
 
     @app.get("/api/exceptions")
@@ -286,20 +311,20 @@ def register(app, d):
             conn.close()
         meta = (_state.get("summary") or {}).get("meta", {})
         health = meta.get("health", {})
-        result = (run_log or {}).get("结果")               # 黄/红/绿：管道运行日志
+        result = (run_log or {}).get("结果")  # 黄/红/绿：管道运行日志
         reasons = _run_reasons((run_log or {}).get("体检", {}))  # 「黄/红」：为啥（fetch/过期调整）
         # A3：未归属销售>0 → 至少判黄 + 顶栏短原因（沿用 v8.0 机制；不覆盖已判红）
         n_un = int((meta.get("unassigned") or {}).get("count") or 0)
         if n_un > 0:
             reasons = [f"{n_un} 名销售未归属 BU（业务不进任何 BU 页，各 BU 合计小于全公司）"] + reasons
-            if result in ("绿", None):   # 未判红时至少判黄（无运行日志时 result 为 None 也升黄）
+            if result in ("绿", None):  # 未判红时至少判黄（无运行日志时 result 为 None 也升黄）
                 result = "黄"
         return {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
-            "warnings": health.get("warnings", []),          # 「警」：数据体检（未填分类等）
+            "warnings": health.get("warnings", []),  # 「警」：数据体检（未填分类等）
             "run_reasons": reasons,
         }
 
@@ -324,7 +349,10 @@ def register(app, d):
     @app.get("/api/refresh_status")
     def api_refresh_status(request: Request):
         _require(request)
-        return {"running": bool(_state["refreshing"]), "refreshing": _state["refreshing"],
-                "last": _state["last_refresh"], "built_at": _state["built_at"],
-                "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch"))}
-
+        return {
+            "running": bool(_state["refreshing"]),
+            "refreshing": _state["refreshing"],
+            "last": _state["last_refresh"],
+            "built_at": _state["built_at"],
+            "zhiyun_auto_fetch": bool(cfg.get("zhiyun_auto_fetch")),
+        }

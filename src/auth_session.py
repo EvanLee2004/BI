@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """会话密钥与 HMAC token（C：从 server 抽出）。"""
+
 from __future__ import annotations
 
 import base64

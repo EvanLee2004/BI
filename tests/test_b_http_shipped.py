@@ -5,6 +5,7 @@
 
 禁止只测 api_v1.cockpit_fragments(client=True) 绕过 server 缓存分支。
 """
+
 from __future__ import annotations
 
 import json
@@ -39,8 +40,7 @@ class TestHttpShippedFragments(unittest.TestCase):
         cfg["zhiyun_auto_fetch"] = False
         cfg["show_delivered_unpaid"] = False
         cls.golden_cfg = cfg
-        cls.summary, cls.html, _, _ = core.generate(
-            cfg, date(2026, 6, 30), trigger="http-shipped")
+        cls.summary, cls.html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="http-shipped")
         cls.logo = assets.load_logo_base64(cfg) or ""
         # 满血 Python 预拼（publish 会缓存这个）
         cls.fr_full = render.build_dashboard_fragments(cls.summary, cfg, cls.logo)
@@ -52,10 +52,14 @@ class TestHttpShippedFragments(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = dict(self.golden_cfg)
         _write_bucfg(self.cfg, self.tmp, [{"name": "BU甲", "销售": ["销售A"]}])
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
-            {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
-        ])
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
+                {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
+            ],
+        )
         # 模拟 publish 后：缓存满血预拼 HTML
         server._state["summary"] = self.summary
         server._state["fragments"] = dict(self.fr_full)
@@ -67,6 +71,7 @@ class TestHttpShippedFragments(unittest.TestCase):
 
     def _login_overall(self):
         from fastapi.testclient import TestClient
+
         c = TestClient(self.app, follow_redirects=False)
         c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         return c
@@ -75,18 +80,19 @@ class TestHttpShippedFragments(unittest.TestCase):
         c = self._login_overall()
         # 缓存里仍有预拼
         self.assertTrue(server._state["fragments"].get("kpi_views"))
-        self.assertIn("kpi-grid", server._state["fragments"]["kpi_views"][:200]
-                      if "kpi" in server._state["fragments"]["kpi_views"][:50].lower()
-                      or True else "")
+        self.assertIn(
+            "kpi-grid",
+            server._state["fragments"]["kpi_views"][:200]
+            if "kpi" in server._state["fragments"]["kpi_views"][:50].lower() or True
+            else "",
+        )
         r = c.get("/api/v1/cockpit/fragments")
         self.assertEqual(r.status_code, 200, r.text[:400])
         body = r.json()
         fr = body["fragments"]
         for f in _CLIENT_FIELDS:
             if f in self.fr_full:
-                self.assertEqual(
-                    fr.get(f), "",
-                    f"HTTP 缓存路径未清空 {f}；仍有 {str(fr.get(f))[:80]!r}")
+                self.assertEqual(fr.get(f), "", f"HTTP 缓存路径未清空 {f}；仍有 {str(fr.get(f))[:80]!r}")
         self.assertIn("views", body)
         self.assertIn("rankings_view", body["views"])
         self.assertTrue(body["views"].get("kpi_body"), "views.kpi_body 应有各周期正文")
@@ -115,10 +121,10 @@ class TestHttpShippedFragments(unittest.TestCase):
     def test_publish_then_http_strip(self):
         """经 refresh_pipeline.publish 写入缓存后，HTTP 仍 strip。"""
         import refresh_pipeline
+
         refresh_pipeline.set_admin_page_builder(lambda h, s, c: "ready")
         fr_full = dict(self.fr_full)
-        refresh_pipeline.publish(
-            self.cfg, self.summary, self.html, bu_pages={}, fragments=fr_full)
+        refresh_pipeline.publish(self.cfg, self.summary, self.html, bu_pages={}, fragments=fr_full)
         self.assertTrue(server._state["fragments"].get("kpi_views"))
         c = self._login_overall()
         r = c.get("/api/v1/cockpit/fragments")

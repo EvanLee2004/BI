@@ -3,6 +3,7 @@
 """2026-07-11 bug 排查修复回归（台账见 软件工程文档/4_管理过程/11_bug排查与修复台账_20260711.md）。
 BUG-01 渲染层转义 / BUG-03 调整定位键失配计数 / BUG-04 日期合理性校验 / BUG-05 export.png 节流。
 跑：.venv/bin/python tests/test_bugfix_0711.py"""
+
 import sqlite3
 import sys
 import tempfile
@@ -31,12 +32,13 @@ class TestEscaping(unittest.TestCase):
     def test_dept_budget_retired_no_html(self):
         # 迭代19：部门预算卡下线，render 恒空（无 XSS 面）
         html = render.render_dept_budget(
-            {"year": 2026, "rows": [{"dept": EVIL, "pct": 50.0, "used": 1.0, "target": 2.0}]})
+            {"year": 2026, "rows": [{"dept": EVIL, "pct": 50.0, "used": 1.0, "target": 2.0}]}
+        )
         self.assertEqual(html, "")
 
     def test_detail_block_escapes_attrs(self):
         html = render._detail_block(f"dept:{EVIL}", EVIL, "inner")
-        self.assertNotIn('<img', html)
+        self.assertNotIn("<img", html)
         self.assertIn("&lt;img", html)
 
     def test_drow_escapes_name(self):
@@ -45,11 +47,10 @@ class TestEscaping(unittest.TestCase):
 
     def test_donut_tip_double_escaped(self):
         """data-tip 经 getAttribute 解一层、innerHTML 再解析一层 → 名称须双层转义，<br> 恢复单层。"""
-        html = charts.donut([(EVIL, 100.0, "var(--blue)")], "c", "v",
-                            detail={EVIL: [(EVIL, 100.0)]})
+        html = charts.donut([(EVIL, 100.0, "var(--blue)")], "c", "v", detail={EVIL: [(EVIL, 100.0)]})
         self.assertNotIn("<img", html)
-        self.assertIn("&amp;lt;img", html)          # 名称双层：属性解码后仍是 &lt;img
-        self.assertIn("&lt;br&gt;", html)           # <br> 单层：属性解码后恢复 <br> 供 innerHTML 换行
+        self.assertIn("&amp;lt;img", html)  # 名称双层：属性解码后仍是 &lt;img
+        self.assertIn("&lt;br&gt;", html)  # <br> 单层：属性解码后恢复 <br> 供 innerHTML 换行
         self.assertNotIn('data-tip="<', html)
 
     def test_normal_names_render_unchanged(self):
@@ -67,7 +68,8 @@ class TestAdjustMissing(unittest.TestCase):
         conn.execute(
             "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
             " VALUES(?,?,?,?,?,?,?,?,?,?)",
-            ("2026-07-11 10:00:00", "明昊", "std_费用明细", "键已失配", "含税金额", "100", "0", "测试", "剔除", "生效"))
+            ("2026-07-11 10:00:00", "明昊", "std_费用明细", "键已失配", "含税金额", "100", "0", "测试", "剔除", "生效"),
+        )
         conn.commit()
         rep = adjust.apply_adjustments(conn, "2026-07-11 10:00:00")
         self.assertEqual(rep["missing"], 1)
@@ -78,8 +80,7 @@ class TestAdjustMissing(unittest.TestCase):
         self.assertEqual(st, "生效")
 
     def test_missing_bubbles_to_reasons(self):
-        reasons = server._run_reasons({"fetch": {"status": "fetched"},
-                                       "adjust": {"missing": 2, "expired": 0}})
+        reasons = server._run_reasons({"fetch": {"status": "fetched"}, "adjust": {"missing": 2, "expired": 0}})
         self.assertTrue(any("失配" in r for r in reasons))
 
 
@@ -87,7 +88,7 @@ class TestDateSanity(unittest.TestCase):
     """BUG-04：非日期长数字串不许被硬解析成假日期。"""
 
     def test_invalid_month_day_rejected(self):
-        self.assertIsNone(loaders.parse_date_parts("20261345"))      # 13月45日
+        self.assertIsNone(loaders.parse_date_parts("20261345"))  # 13月45日
         self.assertIsNone(loaders.parse_date_parts("2026-13-01"))
         self.assertIsNone(loaders.parse_date_parts("2026-00"))
         self.assertIsNone(loaders.parse_date_parts("1234567890123"))  # 订单号误填（→ 5678月）
@@ -106,6 +107,7 @@ class TestExportThrottle(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cfg = loaders.load_config()
         server._state["user_html"] = "<html><body>x</body></html>"

@@ -1,4 +1,5 @@
 """鉴权与页面入口（/ · /login · /bu 页 · session/login/logout · accounts） — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -67,7 +73,6 @@ def register(app, d):
     _BU_NAV_TPL = d.BU_NAV_TPL
     _BU_NAV_LINK_TPL = d.BU_NAV_LINK_TPL
 
-
     def _require(request: Request) -> str:
         user = _user(request)
         if not user:
@@ -76,7 +81,6 @@ def register(app, d):
 
     def _conn():
         return db.connect(cfg, root)
-
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
@@ -92,15 +96,15 @@ def register(app, d):
                 existing = [n for n in names if n in _state.get("bu_pages", {})]
                 if not existing:
                     return RedirectResponse(
-                        "/login?msg=" + __import__("urllib.parse").parse.quote(
-                            "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"),
-                        status_code=303)
+                        "/login?msg="
+                        + __import__("urllib.parse").parse.quote("你绑定的 BU 已被管理员移除，请重新登录或联系管理员"),
+                        status_code=303,
+                    )
                 # BU 账号：壳 + 本 BU fragments（隔离由 fragments API 保证）
                 return RedirectResponse(f"/bu/{existing[0]}", status_code=303)
             if accounts.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
         return _view_login_file()
-
 
     @app.get("/login", response_class=HTMLResponse)
     def viewer_login_page():
@@ -113,8 +117,9 @@ def register(app, d):
         account = account.strip()
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
-            return RedirectResponse("/login?msg=" + __import__("urllib.parse").parse.quote(
-                "账号或密码不正确"), status_code=303)
+            return RedirectResponse(
+                "/login?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"), status_code=303
+            )
         accounts.mark_login(cfg, root, account)
         if accounts.is_admin(acc):
             return _set_acookie(RedirectResponse("/admin", status_code=303), account)
@@ -192,8 +197,7 @@ def register(app, d):
         """账号表（管理员会话）：含明文密码。绝不出现在其他出口。"""
         _require(request)
         rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
-        return {"accounts": rows, "count": len(rows),
-                "master_account": accounts.MASTER_ACCOUNT}
+        return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
 
     @app.post("/api/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
@@ -211,6 +215,4 @@ def register(app, d):
             raise HTTPException(status_code=400, detail=str(e))
         _audit(cfg, root, user, _diff_accounts(old_accs, saved))
         rows = [accounts.public_row(a, with_password=True) for a in saved]
-        return {"accounts": rows, "count": len(rows), "note": "已保存",
-                "master_account": accounts.MASTER_ACCOUNT}
-
+        return {"accounts": rows, "count": len(rows), "note": "已保存", "master_account": accounts.MASTER_ACCOUNT}

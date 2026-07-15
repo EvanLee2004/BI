@@ -8,6 +8,7 @@
 - 本机（macOS）读不到该 UNC 属正常：exists() 为假即走本地副本；开发期直接用数据目录里现有台账。
 - 一律 pathlib，不硬编码反斜杠拼接。
 """
+
 from __future__ import annotations
 
 import shutil
@@ -39,12 +40,13 @@ def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:
             return {"status": "fetched", "detail": f"已从共享拉取：{share}"}
         except OSError as e:
             if local.exists():
-                return {"status": "local_fallback",
-                        "detail": f"共享可达但复制失败（{e}），用上次本地副本（体检黄）"}
+                return {"status": "local_fallback", "detail": f"共享可达但复制失败（{e}），用上次本地副本（体检黄）"}
             return {"status": "no_source", "detail": f"共享可达但复制失败且无本地副本：{e}"}
 
     # 共享不可达（本机 macOS 属正常）
     if local.exists():
-        return {"status": "local_fallback",
-                "detail": f"共享不可达（{share}），用数据目录现有台账（体检黄；部署机上应可达）"}
+        return {
+            "status": "local_fallback",
+            "detail": f"共享不可达（{share}），用数据目录现有台账（体检黄；部署机上应可达）",
+        }
     return {"status": "no_source", "detail": f"共享不可达且无本地副本：{share}"}

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """核心生成流程（run.py 批处理 与 server.py 服务 共用）：跑更新管道 → 算 summary → 渲染 HTML。
 独立成模块以免 run↔server 循环导入。"""
+
 from __future__ import annotations
 
 import bu
@@ -33,13 +34,14 @@ def unassigned_snapshot(cfg, conn, today, root=None) -> dict:
     """管理端 A3 快照（不依赖 summary）：未归属人数 + 当年未归属下单额展示串。
     未归属人数=四源出现、非空、不在任何 BU；金额=当年（含销售空行）未归属下单额（精确差额）。"""
     import datetime
+
     assigned = _assigned_sales(bu.load_bu_config(cfg, root))
     people = db.list_salespeople(conn)
     n = sum(1 for p in people if p["name"] not in assigned)
-    unassigned = [r for r in db.load_orders(cfg, conn)
-                  if str(r.get("销售") or "").strip() not in assigned]
-    amt = profit.compute_orders(unassigned, cfg["columns"],
-                                datetime.date(today.year, 1, 1), datetime.date(today.year, 12, 31))
+    unassigned = [r for r in db.load_orders(cfg, conn) if str(r.get("销售") or "").strip() not in assigned]
+    amt = profit.compute_orders(
+        unassigned, cfg["columns"], datetime.date(today.year, 1, 1), datetime.date(today.year, 12, 31)
+    )
     return {"unassigned_count": n, "unassigned_orders_disp": _unassigned_wan(amt)}
 
 
@@ -54,10 +56,9 @@ def attach_unassigned(cfg, conn, today, summary, root=None) -> None:
         summary.setdefault("meta", {})["unassigned"] = {"count": 0, "by_period": {}}
         return
     assigned = _assigned_sales(bucfg)
-    people = db.list_salespeople(conn)                       # [{name(TRIM), rows}]
+    people = db.list_salespeople(conn)  # [{name(TRIM), rows}]
     n = sum(1 for p in people if p["name"] not in assigned)
-    by_amt = profit.compute_unassigned_orders_by_period(
-        db.load_orders(cfg, conn), assigned, cfg["columns"], today)
+    by_amt = profit.compute_unassigned_orders_by_period(db.load_orders(cfg, conn), assigned, cfg["columns"], today)
     summary.setdefault("meta", {})["unassigned"] = {
         "count": n,
         "by_period": {k: _unassigned_wan(v) for k, v in by_amt.items()},
@@ -80,6 +81,7 @@ def alloc_context(cfg, conn, today, root=None):
     import columns as _columns
     import periods as _periods
     import datetime as _dt
+
     lcols = _columns.resolve_ledger_columns(lh)
     public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
     public_month_led: dict[tuple[int, int], dict] = {}
@@ -96,8 +98,7 @@ def alloc_context(cfg, conn, today, root=None):
         orphans = [b for b in r if b not in known]
         if orphans:
             warnings.append(f"{month} 分摊比例含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）")
-    return {"public_month_led": public_month_led, "ratios": ratios,
-            "bu_names": bu_names, "warnings": warnings}
+    return {"public_month_led": public_month_led, "ratios": ratios, "bu_names": bu_names, "warnings": warnings}
 
 
 def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None):
@@ -106,8 +107,7 @@ def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None)
     ctx = ctx if ctx is not None else alloc_context(cfg, conn, today, root)
     if not ctx:
         return
-    alloc = profit.alloc_amounts_by_period(
-        ctx["public_month_led"], ctx["ratios"], ctx["bu_names"], today)
+    alloc = profit.alloc_amounts_by_period(ctx["public_month_led"], ctx["ratios"], ctx["bu_names"], today)
     BP = summary.get("expense_by_profit_center") or {}
     for key, per_bu in alloc.items():
         if key in BP and BP[key]:
@@ -116,7 +116,9 @@ def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None)
     if health is not None and ctx["warnings"]:
         health.setdefault("warnings", []).extend(ctx["warnings"])
     summary.setdefault("meta", {})["monthly_allocation"] = {
-        "months": sorted(ctx["ratios"].keys()), "bu_names": ctx["bu_names"]}
+        "months": sorted(ctx["ratios"].keys()),
+        "bu_names": ctx["bu_names"],
+    }
 
 
 def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
@@ -132,9 +134,9 @@ def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
     if not lh:
         return
     import columns as _columns
+
     lcols = _columns.resolve_ledger_columns(lh)
-    items = profit.scan_unknown_profit_centers(
-        lr, today.year, lcols, cfg, bu_names, year=today.year)
+    items = profit.scan_unknown_profit_centers(lr, today.year, lcols, cfg, bu_names, year=today.year)
     warns = profit.unknown_pc_warnings(items)
     if not warns:
         return
@@ -153,6 +155,7 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
     if not bucfg or not bucfg.get("bus"):
         return
     import periods as _periods
+
     orders = db.load_orders(cfg, conn)
     cols = cfg["columns"]
     ranges = _periods.all_period_ranges(today)
@@ -161,12 +164,14 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
     for b in bucfg["bus"]:
         rows = profit.filter_rows_by_sales(orders, set(b.get("销售") or []))
         bud = db.load_budget(conn, scope=b["name"])
-        target = ((bud.get(str(today.year)) or {}).get("下单年预算"))  # 元；未填=None
+        target = (bud.get(str(today.year)) or {}).get("下单年预算")  # 元；未填=None
         per_bu.append((b["name"], rows, float(target) if target else None))
     out: dict[str, list] = {}
     for key, (_label, start, end, _grp) in ranges.items():
-        out[key] = [{"name": name, "amount": profit.compute_orders(rows, cols, start, end),
-                     "target": target} for name, rows, target in per_bu]
+        out[key] = [
+            {"name": name, "amount": profit.compute_orders(rows, cols, start, end), "target": target}
+            for name, rows, target in per_bu
+        ]
     year_amounts = {d["name"]: d["amount"] for d in out.get(yk, [])}
     for lst in out.values():
         for d in lst:
@@ -177,7 +182,7 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
     # C2：板块④「下单·按部门」→「下单·按BU」（销售→BU 映射聚合；未归属销售=（未归属）置底）
     sales_map = {}
     for b in bucfg["bus"]:
-        for s in (b.get("销售") or []):
+        for s in b.get("销售") or []:
             sales_map.setdefault(str(s).strip(), b["name"])
 
     def _bu_of(row):
@@ -188,8 +193,15 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
         if not p or "rankings" not in p:
             continue
         p["rankings"]["orders_by_bu"] = profit.compute_ranking(
-            orders, "销售", cols["order_amount"], cols["order_date"], start, end,
-            empty_label="（未归属）", name_of=_bu_of)
+            orders,
+            "销售",
+            cols["order_amount"],
+            cols["order_date"],
+            start,
+            end,
+            empty_label="（未归属）",
+            name_of=_bu_of,
+        )
 
 
 def summary_from_conn(cfg, conn, today):
@@ -197,15 +209,22 @@ def summary_from_conn(cfg, conn, today):
     迭代20：有按月分摊比例时，「构成·按业务BU」视图跟着分摊挪（总额不变）。
     迭代21：未知归属中心挂体检警告。"""
     s = profit.build_summary(
-        cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
-        db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn),
-        *db.load_ledger(cfg, conn), today.year, today,
-        manual_raw=db.load_manual(cfg, conn), budget_raw=db.load_budget(conn),
+        cfg,
+        db.load_project_detail(cfg, conn),
+        db.load_orders(cfg, conn),
+        db.load_receipts(cfg, conn),
+        db.load_inhouse(cfg, conn),
+        *db.load_ledger(cfg, conn),
+        today.year,
+        today,
+        manual_raw=db.load_manual(cfg, conn),
+        budget_raw=db.load_budget(conn),
         dept_budget_raw=db.load_dept_budget(conn),
-        detax_rates=db.load_detax_rates(conn))   # 费用去税（陆总0714·默认空=不去税）
+        detax_rates=db.load_detax_rates(conn),
+    )  # 费用去税（陆总0714·默认空=不去税）
     attach_allocation_to_summary(cfg, conn, today, s)
     attach_unknown_pc_warnings(cfg, conn, today, s)
-    attach_bu_orders(cfg, conn, today, s)   # 陆总0714·C1/C2：下单卡 BU 进度 + 下单排名按 BU
+    attach_bu_orders(cfg, conn, today, s)  # 陆总0714·C1/C2：下单卡 BU 进度 + 下单排名按 BU
     return s
 
 
@@ -232,19 +251,26 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         direct_rows = profit.filter_ledger_rows_by_pc(lh, lr, {bu_name}) if lh else []
         bu_manual = db.load_manual_scope(cfg, conn, bu_name)
         s = profit.build_bu_summary(
-            cfg, project, orders, receipts, inhouse, today, set(b["销售"]),
+            cfg,
+            project,
+            orders,
+            receipts,
+            inhouse,
+            today,
+            set(b["销售"]),
             budget_raw=bu_budget or None,
             ledger_header=lh if lh else None,
             ledger_rows=direct_rows,
             ledger_year=today.year,
             manual_raw=bu_manual,
-            bu_name=bu_name)
+            bu_name=bu_name,
+        )
         if ctx:
-            profit.apply_public_expense_allocation_monthly(
-                s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
+            profit.apply_public_expense_allocation_monthly(s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
         # summary + fragments + views：publish-once（HTTP 直接取 client-ready，不再请求时 rebuild）
         # html 仍用全量 fr 组装，供导出/快照
         import api_v1
+
         fr_full = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
         views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
         pages[b["name"]] = {
@@ -265,9 +291,9 @@ def generate(cfg, today, trigger="manual"):
     HTTP 路径直接取缓存，不再 build-full→strip→rebuild。
     """
     import api_v1
+
     conn = db.connect(cfg)
-    ing = ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger=trigger,
-                              archive_backups=True)
+    ing = ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger=trigger, archive_backups=True)
     summary = summary_from_conn(cfg, conn, today)
     logo = assets.load_logo_base64(cfg)
     bu_pages = build_bu_pages(cfg, conn, today, logo)

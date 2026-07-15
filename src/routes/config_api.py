@@ -1,4 +1,5 @@
 """BU 配置/设置/版本更新 — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -66,7 +72,6 @@ def register(app, d):
     DEFAULT_PW = d.DEFAULT_PW
     EDITABLE_SETTINGS = d.EDITABLE_SETTINGS
 
-
     def _require(request: Request) -> str:
         user = _user(request)
         if not user:
@@ -76,14 +81,16 @@ def register(app, d):
     def _conn():
         return db.connect(cfg, root)
 
-
     @app.get("/api/bu_config")
     def api_bu_config_get(request: Request):
         """BU 配置（管理员会话）：BU 清单/负责人/销售名单/分摊比例 + 分摊总开关。"""
         _require(request)
         bucfg = bu.load_bu_config(cfg, root) or {"bus": [], "公共费用分摊启用": False}
-        return {"bus": bucfg["bus"], "count": len(bucfg["bus"]),
-                "公共费用分摊启用": bool(bucfg.get("公共费用分摊启用"))}
+        return {
+            "bus": bucfg["bus"],
+            "count": len(bucfg["bus"]),
+            "公共费用分摊启用": bool(bucfg.get("公共费用分摊启用")),
+        }
 
     @app.get("/api/sales_pool")
     def api_sales_pool(request: Request):
@@ -110,11 +117,12 @@ def register(app, d):
             st = ostats.get(name)
             if not st or not st["count"]:
                 return {"orders_count": 0, "ref_disp": "当年无下单"}
-            return {"orders_count": st["count"],
-                    "ref_disp": f'{st["count"]} 笔 · {core._unassigned_wan(st["amount"])[1:]}'}
+            return {
+                "orders_count": st["count"],
+                "ref_disp": f"{st['count']} 笔 · {core._unassigned_wan(st['amount'])[1:]}",
+            }
 
-        people = [{"name": n, "rows": by[n], **_ref(n)}
-                  for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
+        people = [{"name": n, "rows": by[n], **_ref(n)} for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
         return {"sales": people, "count": len(people), **snap}
 
     @app.post("/api/bu_config")
@@ -134,11 +142,13 @@ def register(app, d):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         recompute(cfg, root)
-        _audit(cfg, root, user, _diff_bu_config(
-            old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))
-        return {"bus": saved["bus"], "count": len(saved["bus"]),
-                "公共费用分摊启用": bool(saved.get("公共费用分摊启用")),
-                "note": "已保存并重算"}
+        _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))
+        return {
+            "bus": saved["bus"],
+            "count": len(saved["bus"]),
+            "公共费用分摊启用": bool(saved.get("公共费用分摊启用")),
+            "note": "已保存并重算",
+        }
 
     @app.get("/api/config_changes")
     def api_config_changes(request: Request, category: str | None = None, limit: int = 200):
@@ -146,8 +156,10 @@ def register(app, d):
         _require(request)
         conn = db.connect(cfg, root)
         try:
-            return {"changes": db.list_config_changes(conn, category or None, limit),
-                    "categories": list(db.CONFIG_CHANGE_CATEGORIES)}
+            return {
+                "changes": db.list_config_changes(conn, category or None, limit),
+                "categories": list(db.CONFIG_CHANGE_CATEGORIES),
+            }
         finally:
             conn.close()
 
@@ -173,10 +185,16 @@ def register(app, d):
         user = _require(request)
         res = updater.apply_update(loaders.ROOT, remote=cfg.get("update_remote") or "origin")
         if res.get("ok"):
-            _audit(cfg, root, user,
-                   ("更新", f"一键更新 {res.get('from') or '?'}→{res.get('to') or '?'}"
-                            f"（{res.get('pulled') or 0} 个提交）"))
-            updater.request_restart()   # 后台延时退出→看门狗重启；HTTP 响应先发回
+            _audit(
+                cfg,
+                root,
+                user,
+                (
+                    "更新",
+                    f"一键更新 {res.get('from') or '?'}→{res.get('to') or '?'}（{res.get('pulled') or 0} 个提交）",
+                ),
+            )
+            updater.request_restart()  # 后台延时退出→看门狗重启；HTTP 响应先发回
             res["restarting"] = True
         return res
 
@@ -191,8 +209,7 @@ def register(app, d):
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         bdir = loaders.data_dir(cfg, root) / "备份"
         baks = (sorted(bdir.glob("看板_*.db")) + sorted(bdir.glob("页面_*.html"))) if bdir.exists() else []
-        out["backup_stats"] = {"count": len(baks),
-                               "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
+        out["backup_stats"] = {"count": len(baks), "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
         return out
 
     @app.post("/api/settings")
@@ -206,8 +223,7 @@ def register(app, d):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         chg = []  # C3：设置变更留痕（智云账号只记「已更换」不记值）
-        if ("schedule_times" in payload or "schedule_time" in payload) \
-                and res["schedule_times"] != old_times:
+        if ("schedule_times" in payload or "schedule_time" in payload) and res["schedule_times"] != old_times:
             chg.append(f"更新时间 {'、'.join(old_times) or '—'}→{'、'.join(res['schedule_times'])}")
         if "backup_keep_days" in payload and res["backup_keep_days"] != old_keep:
             chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
@@ -216,9 +232,11 @@ def register(app, d):
         if "智云连接配置已更新" in (res.get("note") or ""):
             chg.append("智云连接配置已更改（服务器/表ID）")
         # 台账路径含内网服务器名（敏感）→ 只记「已更改」不落值（铁律16）
-        if "ledger_share_path" in payload and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip():
+        if (
+            "ledger_share_path" in payload
+            and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip()
+        ):
             chg.append("收单台账共享盘路径已更改")
         if chg:
             _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
         return res
-

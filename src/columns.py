@@ -7,6 +7,7 @@
 列被插入/改名（如"业务BU"→"利润归属中心"）只需在别名表里加一个候选名；一个候选都对不上直接报错，
 绝不静默拿错列算出好看但错误的数字。（逻辑沿用 v1.3 已验证的 mapping.py。）
 """
+
 from __future__ import annotations
 
 from typing import Any, Sequence
@@ -45,7 +46,8 @@ def resolve_ledger_columns(header_row: Sequence[Any]) -> dict[str, int]:
             continue
         if any(header.count(a) > 1 for a in hits) or len(hits) > 1:
             raise ValueError(
-                f"收单台账表头里「{field}」出现多列（命中：{hits}），无法确定读哪一列，请先在源表里改名去重。\n实际表头：{header}")
+                f"收单台账表头里「{field}」出现多列（命中：{hits}），无法确定读哪一列，请先在源表里改名去重。\n实际表头：{header}"
+            )
         resolved[field] = header.index(hits[0])
     if missing:
         raise ValueError(

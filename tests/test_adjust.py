@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """调整重放/过期校验 + R1 全字段可调（黑名单制）测试（用构造的唯一键用例）。
 跑：python3 tests/test_adjust.py"""
+
 import datetime
 import sqlite3
 import sys
@@ -28,7 +29,8 @@ def _ins_income(conn, 定位键, 交付日期, 交付额=1000.0, 归属月=None,
     conn.execute(
         "INSERT INTO std_收入明细(定位键,订单号,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
         " VALUES(?,?,?,?,?,?,?,?,0)",
-        (定位键, 定位键, 交付日期, 交付额, 0.0, ym, 交付日期, 原值月 or ym))
+        (定位键, 定位键, 交付日期, 交付额, 0.0, ym, 交付日期, 原值月 or ym),
+    )
     conn.commit()
 
 
@@ -36,7 +38,8 @@ def _add_adj(conn, 目标表, 定位键, 字段, 原值, 新值, 类型="改值"
     conn.execute(
         "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
         " VALUES(?,?,?,?,?,?,?,?,?,?)",
-        (NOW, "明昊", 目标表, 定位键, 字段, 原值, 新值, "测试", 类型, 状态))
+        (NOW, "明昊", 目标表, 定位键, 字段, 原值, 新值, "测试", 类型, 状态),
+    )
     conn.commit()
 
 
@@ -53,26 +56,26 @@ class TestReplay(unittest.TestCase):
         r = adjust.apply_adjustments(conn, NOW)
         self.assertEqual(r["applied"], 1)
         d, ym, _ = _income(conn, "SOD_A")
-        self.assertEqual(d, "2026-06-30")      # 套用
-        self.assertEqual(ym, "2026-06")        # 归属月连带重算到 6 月
+        self.assertEqual(d, "2026-06-30")  # 套用
+        self.assertEqual(ym, "2026-06")  # 归属月连带重算到 6 月
         # 模拟重抓：标准表重建成原始值（0701），再重放
         schema.reset_std_tables(conn)
-        _ins_income(conn, "SOD_A", "2026-07-01")   # 源头没变，重抓回 0701
+        _ins_income(conn, "SOD_A", "2026-07-01")  # 源头没变，重抓回 0701
         adjust.apply_adjustments(conn, NOW)
         d2, ym2, _ = _income(conn, "SOD_A")
-        self.assertEqual(d2, "2026-06-30")     # 调整不丢，仍在 6 月
+        self.assertEqual(d2, "2026-06-30")  # 调整不丢，仍在 6 月
         self.assertEqual(ym2, "2026-06")
 
     def test_source_changed_marks_expired(self):
         """改源值→黄牌：重抓后现值与调整原值不符 → 过期疑似、不套用。"""
         conn = _conn()
-        _ins_income(conn, "SOD_B", "2026-07-05")   # 源头已从 0701 改到 0705
+        _ins_income(conn, "SOD_B", "2026-07-05")  # 源头已从 0701 改到 0705
         _add_adj(conn, "std_收入明细", "SOD_B", "整单交付日期", "2026-07-01", "2026-06-30")
         r = adjust.apply_adjustments(conn, NOW)
         self.assertEqual(r["expired"], 1)
         self.assertEqual(r["applied"], 0)
         d, _, _ = _income(conn, "SOD_B")
-        self.assertEqual(d, "2026-07-05")          # 未被套用，保留源值
+        self.assertEqual(d, "2026-07-05")  # 未被套用，保留源值
         st = conn.execute("SELECT 状态 FROM adj_调整记录 WHERE 定位键='SOD_B'").fetchone()[0]
         self.assertEqual(st, "过期疑似")
 
@@ -99,7 +102,8 @@ def _ins_expense(conn, 定位键, 含税金额=100.0, 预算归属部门="市场
     conn.execute(
         "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
         " VALUES(?,?,?,?,?,?,?,?,?,?,0)",
-        (定位键, 归属月, f"{归属月}-15", 含税金额, "语言", "管理费用", "办公费", 预算归属部门, 归属月, 归属月))
+        (定位键, 归属月, f"{归属月}-15", 含税金额, "语言", "管理费用", "办公费", 预算归属部门, 归属月, 归属月),
+    )
     conn.commit()
 
 
@@ -116,8 +120,21 @@ class TestAdjustableFieldsBlacklist(unittest.TestCase):
         """全部业务列开放：以费用明细为例逐列核对（含新开放的 预算归属部门）。"""
         self.assertEqual(
             set(schema.ADJUSTABLE_FIELDS["std_费用明细"]),
-            {"收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门",
-             "事项", "提单人", "提单人部门", "业务员", "配音费合同号"})
+            {
+                "收单月份",
+                "收单日期",
+                "含税金额",
+                "业务BU",
+                "对应报表大类",
+                "预算明细费用类型",
+                "预算归属部门",
+                "事项",
+                "提单人",
+                "提单人部门",
+                "业务员",
+                "配音费合同号",
+            },
+        )
         self.assertIn("客户", schema.ADJUSTABLE_FIELDS["std_收入明细"])
         self.assertIn("订单号", schema.ADJUSTABLE_FIELDS["std_下单"])
 
@@ -161,24 +178,25 @@ class TestLedgerPeriodRecompute(unittest.TestCase):
 
     def test_adjust_ledger_date_recomputes_ym(self):
         conn = _conn()
-        _ins_expense(conn, "LED_D", 归属月="2026-06")   # 收单日期=2026-06-15
+        _ins_expense(conn, "LED_D", 归属月="2026-06")  # 收单日期=2026-06-15
         db.add_adjustment(conn, "明昊", "std_费用明细", "LED_D", "收单日期", "2026-07-02", "挪月", "改值")
         adjust.apply_adjustments(conn, "2026-07-10 10:00:00")
         d, ym = conn.execute("SELECT 收单日期,归属月 FROM std_费用明细 WHERE 定位键='LED_D'").fetchone()
         self.assertEqual(d, "2026-07-02")
-        self.assertEqual(ym, "2026-07")               # 归属月跟着收单日期走
+        self.assertEqual(ym, "2026-07")  # 归属月跟着收单日期走
 
     def test_adjust_ledger_month_recomputes_ym_when_no_date(self):
         """收单日期为空的行：改 收单月份 → 归属月=账年-月（退回逻辑）。"""
         conn = _conn()
         conn.execute(
             "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
-            " VALUES('LED_E','06',NULL,100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)")
+            " VALUES('LED_E','06',NULL,100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)"
+        )
         conn.commit()
         db.add_adjustment(conn, "明昊", "std_费用明细", "LED_E", "收单月份", "03", "改月", "改值")
         adjust.apply_adjustments(conn, "2026-07-10 10:00:00")
         ym = conn.execute("SELECT 归属月 FROM std_费用明细 WHERE 定位键='LED_E'").fetchone()[0]
-        self.assertEqual(ym, "2026-03")               # 账年取本轮更新年(now)
+        self.assertEqual(ym, "2026-03")  # 账年取本轮更新年(now)
 
 
 class TestLocatorCollisionGuard(unittest.TestCase):
@@ -187,7 +205,7 @@ class TestLocatorCollisionGuard(unittest.TestCase):
     def test_add_adjustment_rejected_on_duplicate_rows(self):
         conn = _conn()
         _ins_expense(conn, "LED_DUP")
-        _ins_expense(conn, "LED_DUP")                  # 同键两行（真实台账实测存在这种撞车）
+        _ins_expense(conn, "LED_DUP")  # 同键两行（真实台账实测存在这种撞车）
         for 类型, 字段 in (("改值", "含税金额"), ("剔除", "")):
             with self.assertRaises(ValueError, msg=f"{类型} 应被拒"):
                 db.add_adjustment(conn, "明昊", "std_费用明细", "LED_DUP", 字段, "1", "测试", 类型)
@@ -205,19 +223,28 @@ class TestLocatorCollisionGuard(unittest.TestCase):
         self.assertEqual(r["expired"], 1)
         self.assertEqual(r["applied"], 0)
         vals = [v[0] for v in conn.execute("SELECT 含税金额 FROM std_费用明细 WHERE 定位键='LED_F'")]
-        self.assertEqual(vals, [100.0, 100.0])         # 一行都没被改
+        self.assertEqual(vals, [100.0, 100.0])  # 一行都没被改
         st = conn.execute("SELECT 状态 FROM adj_调整记录 WHERE 定位键='LED_F'").fetchone()[0]
         self.assertEqual(st, "过期疑似")
 
 
 class TestReplayEndToEnd(unittest.TestCase):
     """全链集成：挪月调整 → std → db读 → profit → 利润表数字从 7 月移到 6 月。"""
+
     def _summary(self, conn, cfg, today):
         lh, lr = db.load_ledger(cfg, conn)
         return profit.build_summary(
-            cfg, db.load_project_detail(cfg, conn), db.load_orders(cfg, conn),
-            db.load_receipts(cfg, conn), db.load_inhouse(cfg, conn), lh, lr,
-            today.year, today, manual_raw=db.load_manual(cfg, conn))
+            cfg,
+            db.load_project_detail(cfg, conn),
+            db.load_orders(cfg, conn),
+            db.load_receipts(cfg, conn),
+            db.load_inhouse(cfg, conn),
+            lh,
+            lr,
+            today.year,
+            today,
+            manual_raw=db.load_manual(cfg, conn),
+        )
 
     def test_move_month_reflected_in_profit(self):
         cfg = loaders.load_config()
@@ -232,7 +259,7 @@ class TestReplayEndToEnd(unittest.TestCase):
         adjust.apply_adjustments(conn, NOW)
         S1 = self._summary(conn, cfg, today)
         self.assertAlmostEqual(S1["periods"]["2026年6月"]["revenue_net"], 1000000.0, places=0)  # 到6月
-        self.assertAlmostEqual(S1["periods"]["2026年7月"]["revenue_net"], 0.0, places=0)         # 离开7月
+        self.assertAlmostEqual(S1["periods"]["2026年7月"]["revenue_net"], 0.0, places=0)  # 离开7月
 
 
 if __name__ == "__main__":

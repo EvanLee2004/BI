@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """生产路径：已登录 / 固定 shell；无 SERVE_SHELL 直出化石。"""
+
 from __future__ import annotations
 
 import json
@@ -27,10 +28,14 @@ class TestServeShellProductionPath(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         _write_bucfg(self.cfg, self.tmp, [{"name": "BU甲", "销售": ["销售A"]}])
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
-            {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
-        ])
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
+                {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
+            ],
+        )
         server._state["user_html"] = '<html><body><div class="wrap">USER-MAIN</div></body></html>'
         # 模拟 publish 预拼缓存
         server._state["fragments"] = fake_main_frags("USER-MAIN")
@@ -45,6 +50,7 @@ class TestServeShellProductionPath(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def test_logged_in_overall_gets_shell_not_inline_page(self):

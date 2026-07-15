@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """09计划（费用双视角+部门预算执行）：分组守恒/软列降级/部门预算块/渲染开关。"""
+
 from __future__ import annotations
 
 import datetime
@@ -14,8 +15,12 @@ import columns  # noqa: E402
 import loaders  # noqa: E402
 import periods  # noqa: E402
 import render  # noqa: E402
-from profit import (build_dept_budget_block, compute_expenses_by_fine_type,  # noqa: E402
-                    compute_expenses_by_group, compute_ledger_expenses)
+from profit import (
+    build_dept_budget_block,
+    compute_expenses_by_fine_type,  # noqa: E402
+    compute_expenses_by_group,
+    compute_ledger_expenses,
+)
 
 CFG = loaders.load_config()
 START, END = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
@@ -25,9 +30,9 @@ HDR = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表
 ROWS = [
     ("2026年3月", "2026-03-05", 100.0, "语言", "管理费用", "办公用品", "运保"),
     ("2026年3月", "2026-03-08", 50.0, "数据", "管理费用", "差旅费", "项目中心"),
-    ("2026年4月", "2026-04-02", 30.0, "",    "市场费用", "",       ""),        # BU/部门/细类均未填
+    ("2026年4月", "2026-04-02", 30.0, "", "市场费用", "", ""),  # BU/部门/细类均未填
     ("2026年4月", "2026-04-03", 999.0, "语言", "生产成本-译费", "译费", "运保"),  # 白名单外→两个视角都不算
-    ("2026年5月", None, None, None, None, None, None),                          # 全空行
+    ("2026年5月", None, None, None, None, None, None),  # 全空行
 ]
 
 
@@ -93,8 +98,9 @@ class TestDeptBudgetBlock(unittest.TestCase):
         self.assertEqual(b2["rows"], [])
 
     def test_rows_sorted_by_pct_desc(self):
-        b = build_dept_budget_block({"2026": {"运保": 100.0, "项目中心": 600.0, "人力中心": 50.0}},
-                                    self.DEPT_ROWS, 2026)
+        b = build_dept_budget_block(
+            {"2026": {"运保": 100.0, "项目中心": 600.0, "人力中心": 50.0}}, self.DEPT_ROWS, 2026
+        )
         self.assertEqual([r["dept"] for r in b["rows"]], ["运保", "项目中心", "人力中心"])  # 80%>20%>0%
         self.assertAlmostEqual(b["rows"][0]["pct"], 80.0)
         self.assertEqual(b["rows"][2]["used"], 0.0)  # 有预算无支出也列出
@@ -111,8 +117,11 @@ class TestDeptBudgetBlock(unittest.TestCase):
 class TestRenderSwitches(unittest.TestCase):
     def test_dept_budget_card_retired(self):
         """迭代19：部门费用预算卡界面下线，render 恒空。"""
-        for arg in (None, {"year": 2026, "rows": []},
-                    {"year": 2026, "rows": [{"dept": "运保", "target": 100.0, "used": 130.0, "pct": 130.0}]}):
+        for arg in (
+            None,
+            {"year": 2026, "rows": []},
+            {"year": 2026, "rows": [{"dept": "运保", "target": 100.0, "used": 130.0, "pct": 130.0}]},
+        ):
             self.assertEqual(render.render_dept_budget(arg), "")
 
     def test_hbar_degrade_paths(self):
@@ -131,18 +140,29 @@ class TestRenderSwitches(unittest.TestCase):
 
     def test_expense_views_tabs_are_cat_fine_pc_dept(self):
         """整体页四态：按大类｜按类别｜按业务BU｜按部门。"""
-        p = {"expense": {"total": 180.0, "营销费用": 0, "管理费用": 150, "固定运营费用": 0,
-                         "研发费用": 0, "财务费用": 30},
-             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
-             "ledger_expenses": {"市场费用": 0, "管理费用": 150, "固定运营费用": 0,
-                                 "技术服务费": 0, "财务费用": 30}}
-        fine_rows = [("办公用品", 100.0, [("管理费用", 100.0)]),
-                     ("差旅费", 50.0, [("管理费用", 50.0)]),
-                     ("未标注明细类型", 30.0, [("市场费用", 30.0)])]
+        p = {
+            "expense": {
+                "total": 180.0,
+                "营销费用": 0,
+                "管理费用": 150,
+                "固定运营费用": 0,
+                "研发费用": 0,
+                "财务费用": 30,
+            },
+            "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+            "ledger_expenses": {"市场费用": 0, "管理费用": 150, "固定运营费用": 0, "技术服务费": 0, "财务费用": 30},
+        }
+        fine_rows = [
+            ("办公用品", 100.0, [("管理费用", 100.0)]),
+            ("差旅费", 50.0, [("管理费用", 50.0)]),
+            ("未标注明细类型", 30.0, [("市场费用", 30.0)]),
+        ]
         pc_rows = [("语言", 100.0, []), ("数据", 50.0, []), ("未分类", 30.0, [])]
-        dept_rows = [("运保", 100.0, [("办公用品", 100.0)]),
-                     ("项目中心", 50.0, [("差旅费", 50.0)]),
-                     ("未分类", 30.0, [("未标注明细类型", 30.0)])]
+        dept_rows = [
+            ("运保", 100.0, [("办公用品", 100.0)]),
+            ("项目中心", 50.0, [("差旅费", 50.0)]),
+            ("未分类", 30.0, [("未标注明细类型", 30.0)]),
+        ]
         html = render.render_expense_views(p, fine_rows, pc_rows, dept_rows)
         self.assertIn("按大类", html)
         self.assertIn("按类别", html)
@@ -168,17 +188,23 @@ class TestRenderSwitches(unittest.TestCase):
         lcols = columns.resolve_ledger_columns(HDR)
         led, _ = compute_ledger_expenses(ROWS, 2026, START, END, CFG, lcols)
         total = sum(led.values())
-        dept_rows = compute_expenses_by_group(
-            ROWS, 2026, START, END, CFG, lcols, "预算归属部门")
+        dept_rows = compute_expenses_by_group(ROWS, 2026, START, END, CFG, lcols, "预算归属部门")
         self.assertAlmostEqual(sum(v for _, v, _ in dept_rows), total, places=2)
         names = [g for g, _, _ in dept_rows]
         self.assertIn("未分类", names)
         # 渲染含未分类
-        p = {"expense": {"total": total + 0, "营销费用": 0, "管理费用": total, "固定运营费用": 0,
-                         "研发费用": 0, "财务费用": 0},
-             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
-             "ledger_expenses": {"市场费用": 0, "管理费用": total, "固定运营费用": 0,
-                                 "技术服务费": 0, "财务费用": 0}}
+        p = {
+            "expense": {
+                "total": total + 0,
+                "营销费用": 0,
+                "管理费用": total,
+                "固定运营费用": 0,
+                "研发费用": 0,
+                "财务费用": 0,
+            },
+            "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+            "ledger_expenses": {"市场费用": 0, "管理费用": total, "固定运营费用": 0, "技术服务费": 0, "财务费用": 0},
+        }
         html = render.render_expense_views(p, [], [], dept_rows)
         self.assertIn("按部门", html)
         self.assertIn("未分类", html)
@@ -186,11 +212,11 @@ class TestRenderSwitches(unittest.TestCase):
 
     def test_bu_page_still_no_dept_tab(self):
         """BU 页期间费用卡仍只有按大类｜按类别，不出按部门。"""
-        p = {"expense": {"total": 10.0, "营销费用": 0, "管理费用": 10, "固定运营费用": 0,
-                         "研发费用": 0, "财务费用": 0},
-             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
-             "ledger_expenses": {"市场费用": 0, "管理费用": 10, "固定运营费用": 0,
-                                 "技术服务费": 0, "财务费用": 0}}
+        p = {
+            "expense": {"total": 10.0, "营销费用": 0, "管理费用": 10, "固定运营费用": 0, "研发费用": 0, "财务费用": 0},
+            "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+            "ledger_expenses": {"市场费用": 0, "管理费用": 10, "固定运营费用": 0, "技术服务费": 0, "财务费用": 0},
+        }
         html = render.render_bu_expense_views(p, {"管理费用": [("办公", 10.0)]})
         self.assertIn("按大类", html)
         self.assertIn("按类别", html)
@@ -214,17 +240,17 @@ class TestLedgerRowDateMonthGuard(unittest.TestCase):
 
     def test_out_of_range_month_is_none(self):
         for bad in ("13", "0", "99", "-1"):
-            self.assertIsNone(periods.ledger_row_date(self._row(bad), 2026, self._l()),
-                              msg=f"收单月份={bad} 应判无效")
+            self.assertIsNone(periods.ledger_row_date(self._row(bad), 2026, self._l()), msg=f"收单月份={bad} 应判无效")
 
     def test_nonnumeric_month_is_none(self):
         self.assertIsNone(periods.ledger_row_date(self._row("三月"), 2026, self._l()))
 
     def test_health_counts_bad_month_as_date_bad(self):
         from profit import _scan_ledger_issues
-        rows = [self._row("13"), self._row("3")]   # 一坏一好
+
+        rows = [self._row("13"), self._row("3")]  # 一坏一好
         date_bad, _ = _scan_ledger_issues(rows, 2026, self._l())
-        self.assertEqual(date_bad, 1)   # 越界月被计为"日期解析不出"→体检判黄，不再静默丢
+        self.assertEqual(date_bad, 1)  # 越界月被计为"日期解析不出"→体检判黄，不再静默丢
 
 
 if __name__ == "__main__":

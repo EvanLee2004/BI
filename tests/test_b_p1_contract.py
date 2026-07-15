@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B-P1：模板清单 vs contract 节点表 diff 为空；rankings_view 挂载。"""
+
 from __future__ import annotations
 
 import re
@@ -42,6 +43,7 @@ class TestTemplateContract(unittest.TestCase):
 
     def test_payload_has_rankings_view(self):
         import api_v1
+
         summary = {
             "meta": {"year": 2026, "year_key": "2026年"},
             "periods": {

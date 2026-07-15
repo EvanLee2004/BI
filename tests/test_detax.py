@@ -14,6 +14,7 @@
 - 计算集成：去税后该细类费用缩小、其余不动；大类合计==细类合计（守恒·不出两处真相）
 - 接口：仅管理员（匿名 401）；率越界拒（>100→400）；保存/回读/删行；C3 留痕类别「去税」
 """
+
 from __future__ import annotations
 
 import datetime
@@ -53,13 +54,13 @@ class TestDbDetax(unittest.TestCase):
 
     def test_set_load_delete(self):
         db.set_detax_rate(self.conn, "房租", 9, "t")
-        db.set_detax_rate(self.conn, "物业费", 6.005, "t")   # 四舍五入到 0.01
+        db.set_detax_rate(self.conn, "物业费", 6.005, "t")  # 四舍五入到 0.01
         self.assertEqual(db.load_detax_rates(self.conn), {"房租": 9.0, "物业费": 6.0})
-        db.set_detax_rate(self.conn, "房租", None, "t")       # None=删行
+        db.set_detax_rate(self.conn, "房租", None, "t")  # None=删行
         self.assertEqual(db.load_detax_rates(self.conn), {"物业费": 6.0})
-        db.set_detax_rate(self.conn, "物业费", 0, "t")        # 0=删行（默认不去税）
+        db.set_detax_rate(self.conn, "物业费", 0, "t")  # 0=删行（默认不去税）
         self.assertEqual(db.load_detax_rates(self.conn), {})
-        db.set_detax_rate(self.conn, "房租", "", "t")         # 空串=删行（幂等）
+        db.set_detax_rate(self.conn, "房租", "", "t")  # 空串=删行（幂等）
         self.assertEqual(db.load_detax_rates(self.conn), {})
 
     def test_range_and_empty_guard(self):
@@ -78,17 +79,19 @@ class TestDbDetax(unittest.TestCase):
         for r in ROWS:
             self.conn.execute(
                 "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(?,?,?,0)",
-                (r[2], r[4], r[5]))
+                (r[2], r[4], r[5]),
+            )
         # 空细类行（白名单大类但细类空）不应出现在清单里
         self.conn.execute(
-            "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(50,'管理费用','',0)")
+            "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(50,'管理费用','',0)"
+        )
         self.conn.commit()
         cats = db.list_detax_categories(self.conn, CFG)
         names = [c["category"] for c in cats]
         self.assertIn("房租", names)
         self.assertIn("办公用品", names)
-        self.assertNotIn("译费", names)   # 白名单外大类
-        self.assertNotIn("", names)       # 空细类不列
+        self.assertNotIn("译费", names)  # 白名单外大类
+        self.assertNotIn("", names)  # 空细类不列
         # 按金额降序：房租(109) 在 办公用品(100) 前
         self.assertLess(names.index("房租"), names.index("办公用品"))
         self.assertAlmostEqual(dict((c["category"], c["amount"]) for c in cats)["房租"], 109.0, places=2)
@@ -99,10 +102,10 @@ class TestDetaxLedgerRows(unittest.TestCase):
         out = profit.detax_ledger_rows(HDR, ROWS, {"房租": 9})
         lcols = columns.resolve_ledger_columns(HDR)
         ci = lcols["含税金额"]
-        self.assertAlmostEqual(out[0][ci], 100.0, places=6)   # 109 ÷ 1.09
-        self.assertAlmostEqual(out[1][ci], 100.0, places=6)   # 办公用品未填率=不动
-        self.assertAlmostEqual(out[2][ci], 999.0, places=6)   # 白名单外行也不动（率没配到）
-        self.assertEqual(len(out), len(ROWS))                 # 行数不变
+        self.assertAlmostEqual(out[0][ci], 100.0, places=6)  # 109 ÷ 1.09
+        self.assertAlmostEqual(out[1][ci], 100.0, places=6)  # 办公用品未填率=不动
+        self.assertAlmostEqual(out[2][ci], 999.0, places=6)  # 白名单外行也不动（率没配到）
+        self.assertEqual(len(out), len(ROWS))  # 行数不变
 
     def test_empty_is_identity(self):
         self.assertIs(profit.detax_ledger_rows(HDR, ROWS, {}), ROWS)
@@ -123,6 +126,7 @@ class TestDetaxLedgerRows(unittest.TestCase):
 
 class TestDetaxComputeIntegration(unittest.TestCase):
     """去税后走真实计算：该细类缩小、其余不动、大类合计==细类合计（守恒）。"""
+
     def _l(self):
         return columns.resolve_ledger_columns(HDR)
 
@@ -146,6 +150,7 @@ class TestDetaxApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
@@ -158,11 +163,15 @@ class TestDetaxApi(unittest.TestCase):
         # 空库 categories=[] 会漏掉 fmt_wan（曾漏 server.py 缺 import charts 的 500，见 test_get_categories_populated）
         conn = db.connect(cls.cfg, cls.root)
         try:
-            for big, fine, amt in [("固定运营费用", "房租", 1090000.0),
-                                   ("管理费用", "办公用品", 100000.0),
-                                   ("生产成本-译费", "译费", 999.0)]:  # 白名单外
-                conn.execute("INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) "
-                             "VALUES(?,?,?,0)", (amt, big, fine))
+            for big, fine, amt in [
+                ("固定运营费用", "房租", 1090000.0),
+                ("管理费用", "办公用品", 100000.0),
+                ("生产成本-译费", "译费", 999.0),
+            ]:  # 白名单外
+                conn.execute(
+                    "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(?,?,?,0)",
+                    (amt, big, fine),
+                )
             conn.commit()
         finally:
             conn.close()
@@ -183,18 +192,19 @@ class TestDetaxApi(unittest.TestCase):
         names = [c["category"] for c in cats]
         self.assertIn("房租", names)
         self.assertIn("办公用品", names)
-        self.assertNotIn("译费", names)               # 白名单外
+        self.assertNotIn("译费", names)  # 白名单外
         self.assertLess(names.index("房租"), names.index("办公用品"))  # 金额降序
-        self.assertTrue(cats[0]["amount_disp"].endswith("万"))         # 金额串格式化成功
+        self.assertTrue(cats[0]["amount_disp"].endswith("万"))  # 金额串格式化成功
 
     def test_no_duplicate_element_ids_in_console(self):
         # 回归：detax 表 id 曾用 dTbl 与既有明细表 dTbl 撞车 → getElementById 命中错表、去税表空白不渲染。
         # 全控制台静态 id 不得重复（这类"页面看着空但 DOM 有数据"的坑，单测/接口都抓不到，只有整页扫 id 能防）。
         import re, collections
+
         ids = re.findall(r'id="([A-Za-z][\w-]*)"', server.admin_ui_source())
         dups = [i for i, n in collections.Counter(ids).items() if n > 1]
         self.assertEqual(dups, [], f"控制台存在重复 element id：{dups}")
-        self.assertIn("dxTbl", ids)   # 去税表 id 存在且唯一
+        self.assertIn("dxTbl", ids)  # 去税表 id 存在且唯一
 
     def test_requires_login(self):
         self.assertEqual(self.anon.get("/api/detax_rates").status_code, 401)
@@ -205,16 +215,15 @@ class TestDetaxApi(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertIn("0~100", r.json()["detail"])
         r2 = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {}})
-        self.assertEqual(r2.status_code, 400)   # 空 rates 拒
+        self.assertEqual(r2.status_code, 400)  # 空 rates 拒
 
     def test_save_readback_delete_and_audit(self):
-        r = self.client.post("/api/detax_rates", headers=self.hdr,
-                             json={"rates": {"房租": 9, "物业费": 6}})
+        r = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {"房租": 9, "物业费": 6}})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["rates"], {"房租": 9.0, "物业费": 6.0})
         g = self.client.get("/api/detax_rates", headers=self.hdr).json()
         self.assertEqual(g["rates"], {"房租": 9.0, "物业费": 6.0})
-        self.assertIn("categories", g)   # 类别清单字段在（空库=[]）
+        self.assertIn("categories", g)  # 类别清单字段在（空库=[]）
         # None=删行
         r2 = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {"物业费": None}})
         self.assertEqual(r2.json()["rates"], {"房租": 9.0})

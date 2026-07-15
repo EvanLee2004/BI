@@ -10,6 +10,7 @@
 - A3 体检：未归属人数>0 → /api/health 判黄 + 顶栏短原因
 - C3 留痕：销售归属/BU/账号/设置/密码逐类写入；不含密码明文；操作记录接口鉴权
 """
+
 import datetime
 import json
 import sys
@@ -28,32 +29,46 @@ TODAY = datetime.date(2026, 7, 11)
 def _seed(cfg, root):
     """四源合成数据。下单：A=100万(03)、B=200万(03)、C=40万(04)、销售空=10万(05)。"""
     conn = db.connect(cfg, root)
-    proj = [("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060000.0, 300000.0),
-            ("P2", "SO2", "客户乙", "线1", "销售B", "2026-03-20", 2120000.0, 500000.0),
-            ("P3", "SO3", "客户丙", "线2", "销售C", "2026-04-05", 530000.0, 100000.0)]
+    proj = [
+        ("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060000.0, 300000.0),
+        ("P2", "SO2", "客户乙", "线1", "销售B", "2026-03-20", 2120000.0, 500000.0),
+        ("P3", "SO3", "客户丙", "线2", "销售C", "2026-04-05", 530000.0, 100000.0),
+    ]
     for k, so, cu, ln, sal, d, rev, cost in proj:
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,销售,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)", (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]))
-    orders = [("O1", "SO1", "2026-03-01", 1000000.0, "部门X", "销售A"),
-              ("O2", "SO2", "2026-03-02", 2000000.0, "部门Y", "销售B"),
-              ("O3", "SO3", "2026-04-03", 400000.0, "部门X", "销售C"),
-              ("O4", "SO4", "2026-05-08", 100000.0, "部门X", "")]  # 销售空=未填=进不了任何 BU
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)",
+            (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]),
+        )
+    orders = [
+        ("O1", "SO1", "2026-03-01", 1000000.0, "部门X", "销售A"),
+        ("O2", "SO2", "2026-03-02", 2000000.0, "部门Y", "销售B"),
+        ("O3", "SO3", "2026-04-03", 400000.0, "部门X", "销售C"),
+        ("O4", "SO4", "2026-05-08", 100000.0, "部门X", ""),
+    ]  # 销售空=未填=进不了任何 BU
     for k, so, d, a, dep, sal in orders:
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,0)", (k, so, d, a, dep, sal, d[:7], d[:7]))
-    receipts = [("R1", "HK1", "2026-03-15", 800000.0, "客户甲", "销售A"),
-                ("R2", "HK2", "2026-03-25", 900000.0, "客户乙", "销售B")]
+            " VALUES(?,?,?,?,?,?,?,?,0)",
+            (k, so, d, a, dep, sal, d[:7], d[:7]),
+        )
+    receipts = [
+        ("R1", "HK1", "2026-03-15", 800000.0, "客户甲", "销售A"),
+        ("R2", "HK2", "2026-03-25", 900000.0, "客户乙", "销售B"),
+    ]
     for k, rid, d, a, cu, sal in receipts:
         conn.execute(
             "INSERT INTO std_回款(定位键,回款ID,到账日期,到账金额,客户,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,0)", (k, rid, d, a, cu, sal, d[:7], d[:7]))
+            " VALUES(?,?,?,?,?,?,?,?,0)",
+            (k, rid, d, a, cu, sal, d[:7], d[:7]),
+        )
     inhouse = [("T1", "2026-03-12", 50000.0, "IN-HOUSE", "销售A")]
     for k, d, a, t, sal in inhouse:
         conn.execute(
             "INSERT INTO std_内部译员(定位键,任务ID,任务提交日期,结算金额,译员类型,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,0)", (k, k, d, a, t, sal, d[:7], d[:7]))
+            " VALUES(?,?,?,?,?,?,?,?,0)",
+            (k, k, d, a, t, sal, d[:7], d[:7]),
+        )
     conn.commit()
     conn.close()
 
@@ -113,6 +128,7 @@ class TestSalesPoolEndpoint(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.root = Path(tempfile.mkdtemp())
         cls.cfg = loaders.load_config()
         _seed(cls.cfg, cls.root)
@@ -129,8 +145,8 @@ class TestSalesPoolEndpoint(unittest.TestCase):
     def test_ref_disp_and_unassigned(self):
         d = self.client.get("/api/sales_pool", headers=self.hdr).json()
         by = {x["name"]: x for x in d["sales"]}
-        self.assertIn("1 笔", by["销售A"]["ref_disp"])       # 参考=当年下单笔数
-        self.assertIn("100.0万", by["销售A"]["ref_disp"])    # 100 万
+        self.assertIn("1 笔", by["销售A"]["ref_disp"])  # 参考=当年下单笔数
+        self.assertIn("100.0万", by["销售A"]["ref_disp"])  # 100 万
         # 未归属：B、C 两人（A 已归 BU甲），当年未归属下单额=200+40+10（空）=250 万
         self.assertEqual(d["unassigned_count"], 2)
         self.assertIn("250.0万", d["unassigned_orders_disp"])
@@ -141,10 +157,10 @@ class TestUnassignedHint(_Base):
     def test_attach_counts_and_amounts(self):
         _write_bucfg(self.cfg, self.root, [{"name": "BU甲", "销售": ["销售A"]}])
         un = self._summary()["meta"]["unassigned"]
-        self.assertEqual(un["count"], 2)                          # B、C
-        self.assertIn("250.0万", un["by_period"]["2026年"])       # 全年未归属下单=B200+C40+空10=250万
-        self.assertIn("200.0万", un["by_period"]["2026年3月"])    # 3月未归属=销售B 200万（A已归、C在4月、空在5月）
-        self.assertIn("40.0万", un["by_period"]["2026年4月"])     # 4月未归属=销售C 40万
+        self.assertEqual(un["count"], 2)  # B、C
+        self.assertIn("250.0万", un["by_period"]["2026年"])  # 全年未归属下单=B200+C40+空10=250万
+        self.assertIn("200.0万", un["by_period"]["2026年3月"])  # 3月未归属=销售B 200万（A已归、C在4月、空在5月）
+        self.assertIn("40.0万", un["by_period"]["2026年4月"])  # 4月未归属=销售C 40万
 
     def test_n_zero_no_render(self):
         """全部有名销售归属 → N=0，整体页不渲染提示行（空销售残差不触发提示）。"""
@@ -154,19 +170,21 @@ class TestUnassignedHint(_Base):
 
     def test_no_bu_config_no_nag(self):
         """未配任何 BU（分页关闭）→ count=0 不判黄、整体页无入口条也无提示（体检不被无意义拉黄）。"""
-        un = self._summary()["meta"]["unassigned"]   # 无 BU配置.json
+        un = self._summary()["meta"]["unassigned"]  # 无 BU配置.json
         self.assertEqual(un["count"], 0)
         self.assertEqual(un["by_period"], {})
 
     def test_main_page_has_hint_bu_page_never(self):
         from fastapi.testclient import TestClient
+
         _write_bucfg(self.cfg, self.root, [{"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"]}])
         conn = db.connect(self.cfg, self.root)
         s = core.summary_from_conn(self.cfg, conn, TODAY)
         core.attach_unassigned(self.cfg, conn, TODAY, s, self.root)
         server._state["summary"] = s
-        server._state["user_html"] = "<html><div class=\"wrap\">MAIN</div></html>"
+        server._state["user_html"] = '<html><div class="wrap">MAIN</div></html>'
         import render as _render
+
         server._state["fragments"] = _render.build_dashboard_fragments(s, self.cfg, "")
         server._state["bu_pages"] = core.build_bu_pages(self.cfg, conn, TODAY, "", self.root)
         conn.close()
@@ -187,6 +205,7 @@ class TestUnassignedHint(_Base):
         self.assertIn("业务 BU 分页", chrome)
         # BU 页同样无未归属文案，也不泄漏其他 BU/未归属人名
         from urllib.parse import quote
+
         bupage = client.get(f"/bu/{quote('BU甲')}", headers=hdr).text
         self.assertIn("加载 BU", bupage)
         bfr = client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments", headers=hdr).json()
@@ -198,6 +217,7 @@ class TestUnassignedHint(_Base):
 
     def test_health_yellow_with_reason(self):
         from fastapi.testclient import TestClient
+
         _write_bucfg(self.cfg, self.root, [{"name": "BU甲", "销售": ["销售A"]}])
         conn = db.connect(self.cfg, self.root)
         s = core.summary_from_conn(self.cfg, conn, TODAY)
@@ -217,13 +237,14 @@ class TestAuditTrail(unittest.TestCase):
     def setUpClass(cls):
         import shutil
         from fastapi.testclient import TestClient
+
         cls.root = Path(tempfile.mkdtemp())
-        shutil.copy(ROOT / "config.json", cls.root / "config.json")   # /api/settings 写 root/config.json
+        shutil.copy(ROOT / "config.json", cls.root / "config.json")  # /api/settings 写 root/config.json
         cls.cfg = loaders.load_config()
         _seed(cls.cfg, cls.root)
         _write_bucfg(cls.cfg, cls.root, [{"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"]}])
         conn = db.connect(cls.cfg, cls.root)
-        server._state["user_html"] = "<html><div class=\"wrap\">M</div></html>"
+        server._state["user_html"] = '<html><div class="wrap">M</div></html>'
         server._state["bu_pages"] = core.build_bu_pages(cls.cfg, conn, TODAY, "", cls.root)
         conn.close()
         cls.app = server.create_app(cls.cfg, root=cls.root)
@@ -243,10 +264,18 @@ class TestAuditTrail(unittest.TestCase):
     def test_bu_config_change_logged(self):
         """销售归属改动 → 「销售归属」类记录；新增 BU → 「BU配置」类记录。"""
         from unittest.mock import patch
+
         with patch.object(server, "recompute"):
-            self.client.post("/api/bu_config", headers=self.hdr, json={"bus": [
-                {"name": "BU甲", "负责人": "负责人甲", "销售": "销售A、销售B"},   # 加销售B
-                {"name": "BU乙", "负责人": "负责人乙", "销售": "销售C"}]})       # 新增 BU乙
+            self.client.post(
+                "/api/bu_config",
+                headers=self.hdr,
+                json={
+                    "bus": [
+                        {"name": "BU甲", "负责人": "负责人甲", "销售": "销售A、销售B"},  # 加销售B
+                        {"name": "BU乙", "负责人": "负责人乙", "销售": "销售C"},
+                    ]
+                },
+            )  # 新增 BU乙
         sales = self._changes("销售归属")
         buc = self._changes("BU配置")
         self.assertTrue(any("销售B" in c["摘要"] and "未归属→BU甲" in c["摘要"] for c in sales))
@@ -256,13 +285,13 @@ class TestAuditTrail(unittest.TestCase):
         """账号改密码 → 只记「改密码」，绝不含密码明文。"""
         from unittest.mock import patch
         import accounts
+
         accs = accounts.load_accounts(self.cfg, self.root)
         for a in accs:
             if a["权限"] == accounts.PERM_MAIN:
                 a["密码"] = "TOPSECRET_9182"
         with patch.object(server, "recompute"):
-            self.client.post("/api/accounts", headers=self.hdr,
-                             json={"accounts": accs})
+            self.client.post("/api/accounts", headers=self.hdr, json={"accounts": accs})
         recs = self._changes("账号")
         self.assertTrue(recs, "账号改动应留痕")
         self.assertTrue(any("改密码" in c["摘要"] for c in recs))
@@ -273,11 +302,12 @@ class TestAuditTrail(unittest.TestCase):
     def test_my_passwd_logged_no_plaintext(self):
         """看的人自改密码 → 「密码」类记录，不含明文。自带独立环境（不受别的用例改密码影响）。"""
         from fastapi.testclient import TestClient
+
         root = Path(tempfile.mkdtemp())
         cfg = loaders.load_config()
         _seed(cfg, root)
         app = server.create_app(cfg, root=root)
-        vc = TestClient(app, follow_redirects=False)   # 自带 cookie 罐，登录后自动带 VCOOKIE
+        vc = TestClient(app, follow_redirects=False)  # 自带 cookie 罐，登录后自动带 VCOOKIE
         r = vc.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)
         rr = vc.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "NEWPW_5566"})
@@ -292,6 +322,7 @@ class TestAuditTrail(unittest.TestCase):
 
     def test_settings_change_logged(self):
         from unittest.mock import patch
+
         with patch.object(server, "recompute"):
             self.client.post("/api/settings", headers=self.hdr, json={"backup_keep_days": 99})
         recs = self._changes("设置")

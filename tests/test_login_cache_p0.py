@@ -10,6 +10,7 @@
 2. TestClient：未登录 GET → 登录 → 再 GET 同 URL，两次 body 不同且第二次非登录页
 3. 前端 shell 对 fragments 401 跳 /login（静态字符串守卫）
 """
+
 from __future__ import annotations
 
 import sys
@@ -55,10 +56,14 @@ class TestLoginCacheP0(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
-        _write_bucfg(self.cfg, self.tmp, [
-            {"name": "BU甲", "销售": ["销售A"]},
-            {"name": "BU乙", "销售": ["销售B"]},
-        ])
+        _write_bucfg(
+            self.cfg,
+            self.tmp,
+            [
+                {"name": "BU甲", "销售": ["销售A"]},
+                {"name": "BU乙", "销售": ["销售B"]},
+            ],
+        )
         _write_accts(self.cfg, self.tmp, _std_accts())
         server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
@@ -72,6 +77,7 @@ class TestLoginCacheP0(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def test_document_routes_send_no_store(self):
@@ -85,8 +91,7 @@ class TestLoginCacheP0(unittest.TestCase):
 
         # 整体账号登录后：/ 为 shell
         c_main = self._client()
-        r_login = c_main.post("/login", data={
-            "account": "overall", "password": server.DEFAULT_VIEW_PW})
+        r_login = c_main.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r_login.status_code, 303)
         r_home = c_main.get("/")
         self.assertEqual(r_home.status_code, 200)
@@ -95,8 +100,7 @@ class TestLoginCacheP0(unittest.TestCase):
 
         # BU 账号：/bu 为 shell-bu
         c_bu = self._client()
-        r_login = c_bu.post("/login", data={
-            "account": "user_a", "password": server.DEFAULT_VIEW_PW})
+        r_login = c_bu.post("/login", data={"account": "user_a", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r_login.status_code, 303)
         r_bu = c_bu.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r_bu.status_code, 200)
@@ -105,8 +109,7 @@ class TestLoginCacheP0(unittest.TestCase):
 
         # 管理员：/admin 控制台
         c_adm = self._client()
-        r_login = c_adm.post("/admin/login", data={
-            "account": "lushasha", "password": server.DEFAULT_PW})
+        r_login = c_adm.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         self.assertEqual(r_login.status_code, 303)
         r_adm = c_adm.get("/admin")
         self.assertEqual(r_adm.status_code, 200)
@@ -122,12 +125,15 @@ class TestLoginCacheP0(unittest.TestCase):
         """模拟：先未登录 GET 造缓存场景 → 登录 → 再 GET 同 URL，body 须变且非登录页。"""
         cases = [
             # label, path, login_url, creds, after_marker
-            ("admin", "/admin", "/admin/login",
-             {"account": "lushasha", "password": server.DEFAULT_PW}, "管理员控制台"),
-            ("overall", "/", "/login",
-             {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "加载驾驶舱"),
-            ("bu", f"/bu/{quote('BU甲')}", "/login",
-             {"account": "user_a", "password": server.DEFAULT_VIEW_PW}, "加载 BU"),
+            ("admin", "/admin", "/admin/login", {"account": "lushasha", "password": server.DEFAULT_PW}, "管理员控制台"),
+            ("overall", "/", "/login", {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "加载驾驶舱"),
+            (
+                "bu",
+                f"/bu/{quote('BU甲')}",
+                "/login",
+                {"account": "user_a", "password": server.DEFAULT_VIEW_PW},
+                "加载 BU",
+            ),
         ]
         for label, path, login_url, creds, after_marker in cases:
             with self.subTest(label=label):
@@ -162,8 +168,9 @@ class TestLoginCacheP0(unittest.TestCase):
         admin_js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
         self.assertIn("status===401", admin_js.replace(" ", "").replace("\n", "") or admin_js)
         self.assertTrue(
-            'location.href="/admin"' in admin_js or "location.href='/admin'" in admin_js
-            or 'r.status===401' in admin_js,
+            'location.href="/admin"' in admin_js
+            or "location.href='/admin'" in admin_js
+            or "r.status===401" in admin_js,
             "admin.js 须对 401 跳登录",
         )
 

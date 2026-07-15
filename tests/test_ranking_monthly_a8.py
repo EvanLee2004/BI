@@ -8,6 +8,7 @@
 - JS 组装 ≡ Python render_rankings（规范化）
 - 前端零金额运算；无新跨界 API
 """
+
 from __future__ import annotations
 
 import datetime
@@ -28,8 +29,10 @@ import render  # noqa: E402
 
 S, E = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
 COLS = {
-    "order_amount": "金额", "order_date": "日期",
-    "receipt_amount": "金额", "receipt_date": "日期",
+    "order_amount": "金额",
+    "order_date": "日期",
+    "receipt_amount": "金额",
+    "receipt_date": "日期",
 }
 
 
@@ -55,14 +58,14 @@ def _receipts():
 def _period():
     orders, receipts = _orders(), _receipts()
     rk = {
-        "orders_by_sales": profit.compute_ranking(
-            orders, "销售", COLS["order_amount"], COLS["order_date"], S, E),
+        "orders_by_sales": profit.compute_ranking(orders, "销售", COLS["order_amount"], COLS["order_date"], S, E),
         "receipts_by_sales": profit.compute_ranking(
-            receipts, "销售", COLS["receipt_amount"], COLS["receipt_date"], S, E),
-        "orders_by_customer": profit.compute_ranking(
-            orders, "客户", COLS["order_amount"], COLS["order_date"], S, E),
+            receipts, "销售", COLS["receipt_amount"], COLS["receipt_date"], S, E
+        ),
+        "orders_by_customer": profit.compute_ranking(orders, "客户", COLS["order_amount"], COLS["order_date"], S, E),
         "receipts_by_customer": profit.compute_ranking(
-            receipts, "客户", COLS["receipt_amount"], COLS["receipt_date"], S, E),
+            receipts, "客户", COLS["receipt_amount"], COLS["receipt_date"], S, E
+        ),
     }
     rm = profit.build_rankings_monthly(orders, receipts, COLS, 2026, rk)
     return {
@@ -125,9 +128,14 @@ class TestRankingMonthlyA8(unittest.TestCase):
             vp = f.name
         r = subprocess.run(
             ["node", str(ROOT / "static/js/assemble/rankings_node_runner.js"), vp],
-            capture_output=True, text=True, check=True)
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
         def norm(s):
             return re.sub(r">\s+<", "><", s.replace("\n", ""))
+
         self.assertEqual(norm(py_html), norm(r.stdout))
         self.assertIn("data-monthly=", py_html)
         self.assertIn("rk-entity", py_html)
@@ -149,6 +157,7 @@ class TestRankingMonthlyA8(unittest.TestCase):
     def test_golden_generate_monthly_present(self):
         """真实 generate 路径：views 挂 monthly，守恒抽查一主体。"""
         import loaders, core
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"

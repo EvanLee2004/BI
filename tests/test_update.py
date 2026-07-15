@@ -9,6 +9,7 @@
 - `/api/update/check`、`/api/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
 - 控制台含一键更新 UI 锚点（checkUpdate/applyUpdate/vuAvail）
 """
+
 import os
 import shutil
 import subprocess
@@ -22,14 +23,19 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import loaders, server, updater  # noqa: E402
 
-_ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
-        "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+_ENV = {
+    **os.environ,
+    "GIT_AUTHOR_NAME": "t",
+    "GIT_AUTHOR_EMAIL": "t@t",
+    "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@t",
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_SYSTEM": os.devnull,
+}
 
 
 def _run(*args, cwd=None):
-    r = subprocess.run(["git", *args], cwd=str(cwd) if cwd else None,
-                       capture_output=True, text=True, env=_ENV)
+    r = subprocess.run(["git", *args], cwd=str(cwd) if cwd else None, capture_output=True, text=True, env=_ENV)
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {r.stderr}")
     return r.stdout.strip()
@@ -90,9 +96,9 @@ class TestUpdaterGit(unittest.TestCase):
         self._origin_advance()
         (self.local / "scratch.txt").write_text("未提交改动", encoding="utf-8")
         d = updater.check_update(self.local)
-        self.assertTrue(d["available"])          # 确实有新版本
+        self.assertTrue(d["available"])  # 确实有新版本
         self.assertTrue(d["dirty"])
-        self.assertFalse(d["can_update"])         # 但脏工作区不给自动更新
+        self.assertFalse(d["can_update"])  # 但脏工作区不给自动更新
         res = updater.apply_update(self.local)
         self.assertFalse(res["ok"])
         self.assertIn("未提交", res["reason"])
@@ -121,13 +127,13 @@ class TestUpdaterGit(unittest.TestCase):
         gitee = self.tmp / "gitee.git"
         _run("init", "--bare", str(gitee))
         _run("remote", "add", "gitee", str(gitee), cwd=self.local)
-        _run("push", "gitee", "main", cwd=self.local)                 # 先推上去，此时齐平
+        _run("push", "gitee", "main", cwd=self.local)  # 先推上去，此时齐平
         _run("symbolic-ref", "HEAD", "refs/heads/main", cwd=gitee)
         g2 = self.tmp / "g2"
         _run("clone", str(gitee), str(g2))
         _run("checkout", "main", cwd=g2)
         _commit(g2, "f.txt", "v2", "feat: gitee 专属更新")
-        _run("push", "origin", "main", cwd=g2)                        # g2 的 origin=gitee，推进 gitee
+        _run("push", "origin", "main", cwd=g2)  # g2 的 origin=gitee，推进 gitee
         # 对标 origin(=GitHub 那个 bare)=齐平；对标 gitee=落后可更新
         self.assertFalse(updater.check_update(self.local, remote="origin")["available"])
         d = updater.check_update(self.local, remote="gitee")
@@ -142,9 +148,11 @@ class TestUpdaterGit(unittest.TestCase):
         """替换 updater._run_pip，记录是否被调用；返回 (calls_list, restore_fn)。"""
         calls = []
         orig = updater._run_pip
+
         def fake(root):
             calls.append(str(root))
             return rc, out, err
+
         updater._run_pip = fake
         self.addCleanup(lambda: setattr(updater, "_run_pip", orig))
         return calls
@@ -154,11 +162,11 @@ class TestUpdaterGit(unittest.TestCase):
         _commit(self.helper, "requirements.txt", "openpyxl==3.1.5\nnewpkg==1.0\n", "deps: 加 newpkg")
         _run("push", "origin", "main", cwd=self.helper)
         before = _run("rev-parse", "--short", "HEAD", cwd=self.local)
-        calls = self._stub_pip(0)                       # 装成功
+        calls = self._stub_pip(0)  # 装成功
         res = updater.apply_update(self.local)
         self.assertTrue(res["ok"], res)
         self.assertTrue(res["deps"]["changed"])
-        self.assertEqual(len(calls), 1)                 # requirements 变了→装了一次
+        self.assertEqual(len(calls), 1)  # requirements 变了→装了一次
         # 成功→写了回滚点标记，内容=更新前 commit
         self.assertEqual(updater.read_rollback_marker(self.local), before)
 
@@ -168,19 +176,19 @@ class TestUpdaterGit(unittest.TestCase):
         before = _run("rev-parse", "HEAD", cwd=self.local)
         self._stub_pip(1, err="ERROR: No matching distribution for badpkg==9.9")
         res = updater.apply_update(self.local)
-        self.assertFalse(res["ok"])                     # 装失败=更新失败
-        self.assertTrue(res["rolled_back"])             # 已回滚这次拉取
+        self.assertFalse(res["ok"])  # 装失败=更新失败
+        self.assertTrue(res["rolled_back"])  # 已回滚这次拉取
         self.assertIn("回滚", res["reason"])
         self.assertEqual(_run("rev-parse", "HEAD", cwd=self.local), before)  # HEAD 退回更新前
-        self.assertEqual(updater.read_rollback_marker(self.local), "")       # 失败不留回滚点
+        self.assertEqual(updater.read_rollback_marker(self.local), "")  # 失败不留回滚点
 
     def test_deps_unchanged_skips_pip(self):
-        self._origin_advance("feat: 只改代码不动依赖")   # 只改 f.txt，无 requirements.txt
+        self._origin_advance("feat: 只改代码不动依赖")  # 只改 f.txt，无 requirements.txt
         calls = self._stub_pip(0)
         res = updater.apply_update(self.local)
         self.assertTrue(res["ok"], res)
         self.assertFalse(res["deps"]["changed"])
-        self.assertEqual(len(calls), 0)                 # 依赖没变→不装
+        self.assertEqual(len(calls), 0)  # 依赖没变→不装
 
     def test_rollback_marker_roundtrip(self):
         self.assertEqual(updater.read_rollback_marker(self.local), "")
@@ -204,13 +212,19 @@ class TestUpdateConstants(unittest.TestCase):
 class TestUpdateApi(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
+
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         import accounts
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "权限": "管理员", "密码": server.DEFAULT_PW, "显示名": "管"},
-            {"账号": "overall", "权限": "整体", "密码": server.DEFAULT_VIEW_PW, "显示名": "整"},
-        ])
+
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "权限": "管理员", "密码": server.DEFAULT_PW, "显示名": "管"},
+                {"账号": "overall", "权限": "整体", "密码": server.DEFAULT_VIEW_PW, "显示名": "整"},
+            ],
+        )
         server._state["user_html"] = "<html>U</html>"
         server._state["admin_html"] = "<html>A</html>"
         self.app = server.create_app(self.cfg, root=self.tmp)
@@ -232,13 +246,16 @@ class TestUpdateApi(unittest.TestCase):
 
     def _anon(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def test_check_passthrough(self):
         seen = {}
+
         def _stub(root=None, remote="origin", do_fetch=True):
             seen["remote"] = remote
             return {"supported": True, "available": True, "behind": 2, "can_update": True}
+
         updater.check_update = _stub
         d = self.client.get("/api/update/check", headers=self.hdr).json()
         self.assertTrue(d["available"])
@@ -250,7 +267,7 @@ class TestUpdateApi(unittest.TestCase):
         d = self.client.post("/api/update/apply", headers=self.hdr).json()
         self.assertTrue(d["ok"])
         self.assertTrue(d.get("restarting"))
-        self.assertTrue(self.restarted)               # 触发了重启
+        self.assertTrue(self.restarted)  # 触发了重启
         au = self.client.get("/api/config_changes?category=更新", headers=self.hdr).json()
         joined = str(au.get("changes", []))
         self.assertIn("一键更新", joined)

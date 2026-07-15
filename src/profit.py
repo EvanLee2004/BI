@@ -16,6 +16,7 @@
 - 回款/下单比 = 本期回款 ÷ 本期下单（资金节奏，非当月回收率）。
 - BU 页费用：台账「利润归属中心」直记本 BU + 公共池×分摊比例（可选）；手填可按 BU 范围。
 """
+
 from __future__ import annotations
 
 import datetime
@@ -124,8 +125,7 @@ def build_rankings_monthly(order_rows, receipt_rows, cols_cfg, year: int, rankin
     }
 
 
-def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）",
-                    name_of=None):
+def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）", name_of=None):
     """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None,
     unfilled:{amount,count}|None, total}。count=笔数；amount 已 round(2)。
     名字为空归"（未填）"→ 单拆 unfilled 固定置底展示（不参与前top排位，但计入 total=守恒：各组合计==总额）。
@@ -146,15 +146,18 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
     full_items = [{"name": n, "amount": round(v[0], 2), "count": v[1]} for n, v in ranked]
     items = full_items[:top]
     rest = ranked[top:]
-    others = ({"names": len(rest), "amount": round(sum(v[0] for _, v in rest), 2),
-               "count": sum(v[1] for _, v in rest)} if rest else None)
+    others = (
+        {"names": len(rest), "amount": round(sum(v[0] for _, v in rest), 2), "count": sum(v[1] for _, v in rest)}
+        if rest
+        else None
+    )
     # full_items：完整排序（供 BU 页「其余」本地展开，不调全公司 /api/daily·铁律12）
-    return {"items": items, "others": others, "unfilled": unfilled, "total": total,
-            "full_items": full_items}
+    return {"items": items, "others": others, "unfilled": unfilled, "total": total, "full_items": full_items}
 
 
-def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rate,
-                           top=10, conc_k=5, empty_label="（未填）"):
+def compute_profit_ranking(
+    project_rows, name_col, cols_cfg, start, end, vat_rate, top=10, conc_k=5, empty_label="（未填）"
+):
     """按 name_col（客户/销售）汇总期内**确认收入与项目毛利**并按收入降序排名（收入结构板块用）。
     口径：收入(不含税)=Σ交付额÷(1+vat)；毛利=收入−Σ项目成本（**项目直接毛利**，未含内部译员/手填调整，
     故各组毛利之和与利润表总毛利有差异——footer 已注明）；毛利率=毛利÷收入。
@@ -163,7 +166,7 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     名字空→"（未填）"置底（不参与前 top 排位、计入 total=守恒）。纯函数、只吃行，前端零运算（铁律2 在 render 里成串）。"""
     dcol, rcol, ccol = cols_cfg["project_delivery_date"], cols_cfg["project_revenue"], cols_cfg["project_cost"]
     div = 1.0 + vat_rate
-    agg: dict[str, list] = {}   # name -> [Σ含税交付额, Σ项目成本, 笔数]
+    agg: dict[str, list] = {}  # name -> [Σ含税交付额, Σ项目成本, 笔数]
     for r in project_rows:
         if not periods.date_in_range(loaders.parse_date_parts(r.get(dcol)), start, end):
             continue
@@ -176,12 +179,17 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     def _row(name, g):
         rev = g[0] / div
         prof = rev - g[1]
-        return {"name": name, "revenue": round(rev, 2), "profit": round(prof, 2),
-                "margin_pct": round(prof / rev * 100, 1) if rev else None,
-                # 系统成本率=Σ项目成本÷收入（陆总0714：业务侧习惯看成本率，展示层用它替代"项目毛利率"）
-                "cost_pct": round(g[1] / rev * 100, 1) if rev else None, "count": g[2]}
+        return {
+            "name": name,
+            "revenue": round(rev, 2),
+            "profit": round(prof, 2),
+            "margin_pct": round(prof / rev * 100, 1) if rev else None,
+            # 系统成本率=Σ项目成本÷收入（陆总0714：业务侧习惯看成本率，展示层用它替代"项目毛利率"）
+            "cost_pct": round(g[1] / rev * 100, 1) if rev else None,
+            "count": g[2],
+        }
 
-    def _agg_row(name, gs):   # 合并多组（其余/合计）后再算率，避免率的加权错误
+    def _agg_row(name, gs):  # 合并多组（其余/合计）后再算率，避免率的加权错误
         tot = [sum(x[0] for x in gs), sum(x[1] for x in gs), sum(x[2] for x in gs)]
         return _row(name, tot)
 
@@ -189,7 +197,7 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     total_prof = round(sum(g[0] / div - g[1] for g in agg.values()), 2)
     uf = agg.pop(empty_label, None)
     unfilled = _row(empty_label, uf) if uf else None
-    ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])   # 按含税交付额降序＝按收入降序（div 恒正）
+    ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])  # 按含税交付额降序＝按收入降序（div 恒正）
     full_items = [_row(n, g) for n, g in ranked]
     items = full_items[:top]
     rest = [g for _, g in ranked[top:]]
@@ -200,9 +208,16 @@ def compute_profit_ranking(project_rows, name_col, cols_cfg, start, end, vat_rat
     conc_rev = sum(g[0] for _, g in ranked[:conc_k]) / div
     conc_pct = round(conc_rev / total_rev * 100, 1) if total_rev else None
     # full_items：完整排序（供 BU 页「其余」本地展开，不调 /api/profit_ranking·铁律12）
-    return {"items": items, "others": others, "unfilled": unfilled,
-            "total_revenue": total_rev, "total_profit": total_prof,
-            "conc_k": conc_k, "conc_pct": conc_pct, "full_items": full_items}
+    return {
+        "items": items,
+        "others": others,
+        "unfilled": unfilled,
+        "total_revenue": total_rev,
+        "total_profit": total_prof,
+        "conc_k": conc_k,
+        "conc_pct": conc_pct,
+        "full_items": full_items,
+    }
 
 
 def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_to_bu=None):
@@ -210,7 +225,7 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
     days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
     只做下单/回款——费用/手填按月，切不出按天利润（2026-07-10 拍板口径）。
     sales_to_bu={销售名:BU名} 有值时额外算 rankings.orders_by_bu（与全年预渲染「下单·按BU」同口径）。"""
-    days: dict[str, list] = {}   # day -> [下单额, 下单笔数, 回款额, 回款笔数]
+    days: dict[str, list] = {}  # day -> [下单额, 下单笔数, 回款额, 回款笔数]
 
     def _acc(rows, amount_col, date_col, ai, ci):
         for r in rows:
@@ -223,22 +238,29 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
 
     _acc(order_rows, cols_cfg["order_amount"], cols_cfg["order_date"], 0, 1)
     _acc(receipt_rows, cols_cfg["receipt_amount"], cols_cfg["receipt_date"], 2, 3)
-    out_days = [{"day": k, "orders": round(v[0], 2), "orders_count": v[1],
-                 "receipts": round(v[2], 2), "receipts_count": v[3]}
-                for k, v in sorted(days.items())]
-    totals = {"orders": round(sum(v[0] for v in days.values()), 2),
-              "orders_count": sum(v[1] for v in days.values()),
-              "receipts": round(sum(v[2] for v in days.values()), 2),
-              "receipts_count": sum(v[3] for v in days.values())}
+    out_days = [
+        {"day": k, "orders": round(v[0], 2), "orders_count": v[1], "receipts": round(v[2], 2), "receipts_count": v[3]}
+        for k, v in sorted(days.items())
+    ]
+    totals = {
+        "orders": round(sum(v[0] for v in days.values()), 2),
+        "orders_count": sum(v[1] for v in days.values()),
+        "receipts": round(sum(v[2] for v in days.values()), 2),
+        "receipts_count": sum(v[3] for v in days.values()),
+    }
     rankings = {
-        "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
-                                           cols_cfg["order_date"], start, end, top),
-        "orders_by_customer": compute_ranking(order_rows, "客户", cols_cfg["order_amount"],
-                                              cols_cfg["order_date"], start, end, top),
-        "receipts_by_sales": compute_ranking(receipt_rows, "销售", cols_cfg["receipt_amount"],
-                                             cols_cfg["receipt_date"], start, end, top),
-        "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
-                                                cols_cfg["receipt_date"], start, end, top),
+        "orders_by_sales": compute_ranking(
+            order_rows, "销售", cols_cfg["order_amount"], cols_cfg["order_date"], start, end, top
+        ),
+        "orders_by_customer": compute_ranking(
+            order_rows, "客户", cols_cfg["order_amount"], cols_cfg["order_date"], start, end, top
+        ),
+        "receipts_by_sales": compute_ranking(
+            receipt_rows, "销售", cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end, top
+        ),
+        "receipts_by_customer": compute_ranking(
+            receipt_rows, "客户", cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end, top
+        ),
     }
     if sales_to_bu:
         smap = {str(k).strip(): v for k, v in sales_to_bu.items() if str(k).strip()}
@@ -247,8 +269,16 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
             return smap.get(str(row.get("销售") or "").strip(), "")
 
         rankings["orders_by_bu"] = compute_ranking(
-            order_rows, "销售", cols_cfg["order_amount"], cols_cfg["order_date"], start, end, top,
-            empty_label="（未归属）", name_of=_bu_of)
+            order_rows,
+            "销售",
+            cols_cfg["order_amount"],
+            cols_cfg["order_date"],
+            start,
+            end,
+            top,
+            empty_label="（未归属）",
+            name_of=_bu_of,
+        )
     return {"days": out_days, "totals": totals, "rankings": rankings}
 
 
@@ -256,7 +286,11 @@ def compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end):
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     tcol = cols_cfg["inhouse_type"]
     return _sum_amount_in_period(
-        inhouse_rows, cols_cfg["inhouse_amount"], cols_cfg["inhouse_date"], start, end,
+        inhouse_rows,
+        cols_cfg["inhouse_amount"],
+        cols_cfg["inhouse_date"],
+        start,
+        end,
         extra=lambda r: kw in str(r.get(tcol, "")).upper(),
     )
 
@@ -359,8 +393,10 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
         f = str(fine_raw).strip() if fine_raw not in (None, "") else fine_label
         agg[grp] += amt
         fine[grp][f] += amt
-    return [(g, round(v, 2), sorted(fine[g].items(), key=lambda x: -x[1]))
-            for g, v in sorted(agg.items(), key=lambda x: -x[1])]
+    return [
+        (g, round(v, 2), sorted(fine[g].items(), key=lambda x: -x[1]))
+        for g, v in sorted(agg.items(), key=lambda x: -x[1])
+    ]
 
 
 def build_dept_budget_block(dept_budget_raw, dept_rows_year, year):
@@ -373,8 +409,9 @@ def build_dept_budget_block(dept_budget_raw, dept_rows_year, year):
     rows = []
     for dept, target in budgets.items():
         u = used.get(dept, 0.0)
-        rows.append({"dept": dept, "target": target, "used": round(u, 2),
-                     "pct": (u / target * 100.0) if target else None})
+        rows.append(
+            {"dept": dept, "target": target, "used": round(u, 2), "pct": (u / target * 100.0) if target else None}
+        )
     rows.sort(key=lambda r: (r["pct"] is None, -(r["pct"] or 0)))
     return {"year": year, "rows": rows}
 
@@ -427,8 +464,22 @@ def manual_for_period(cfg, filled, start, end, cur_date) -> dict[str, float]:
 
 
 # ---------- 组装单周期利润表 ----------
-def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                 ledger_rows, ledger_year, lcols, filled_manual, label, start, end, cur_date):
+def build_period(
+    cfg,
+    cols_cfg,
+    project_rows,
+    order_rows,
+    receipt_rows,
+    inhouse_rows,
+    ledger_rows,
+    ledger_year,
+    lcols,
+    filled_manual,
+    label,
+    start,
+    end,
+    cur_date,
+):
     vat = cfg["tax"]["vat_rate"]
     surtax_rate = cfg["tax"]["surtax_rate"]
     rc = compute_revenue_cost(project_rows, cols_cfg, start, end, vat)
@@ -436,7 +487,14 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     inhouse = compute_inhouse_cost(inhouse_rows, cols_cfg, cfg, start, end)
     man = manual_for_period(cfg, filled_manual, start, end, cur_date)
 
-    prod_manual = man["PM人力成本"] + man["VM人力成本"] + man["实际内部译员成本"] + man["税费损失"] + man["技术流量成本"] + man["其他（生产成本）"]
+    prod_manual = (
+        man["PM人力成本"]
+        + man["VM人力成本"]
+        + man["实际内部译员成本"]
+        + man["税费损失"]
+        + man["技术流量成本"]
+        + man["其他（生产成本）"]
+    )
     # 陆总0714·E1：直接成本增值税（手填·默认0）——从生产成本里减掉，得不含税成本；
     # "给未来留缺口"：现阶段她不填=0，业务系统能统计后再启用（旧 config 缺该项按 0，兼容旧测试）
     cost_vat = man.get("直接成本增值税", 0.0)
@@ -462,18 +520,27 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     out = {
         "label": label,
         "delivery_count": rc["delivery_count"],
-        "revenue_gross": rc["revenue_gross"], "revenue_net": net, "vat": rc["vat"],
-        "system_direct_cost": rc["system_direct_cost"], "inhouse_cost": inhouse,
+        "revenue_gross": rc["revenue_gross"],
+        "revenue_net": net,
+        "vat": rc["vat"],
+        "system_direct_cost": rc["system_direct_cost"],
+        "inhouse_cost": inhouse,
         "production_cost": production_cost,
         "gross_profit": gross_profit,
         "gross_margin_pct": round(gross_profit / net * 100, 2) if net else 0.0,
-        "ledger_expenses": led, "ledger_count": led_count,
+        "ledger_expenses": led,
+        "ledger_count": led_count,
         "manual": man,
         "expense": {
-            "营销费用": sales_exp, "管理费用": admin_exp, "固定运营费用": fixed_exp,
-            "研发费用": rd_exp, "财务费用": fin_exp, "total": period_expense,
+            "营销费用": sales_exp,
+            "管理费用": admin_exp,
+            "固定运营费用": fixed_exp,
+            "研发费用": rd_exp,
+            "财务费用": fin_exp,
+            "total": period_expense,
         },
-        "surtax": surtax, "other_pl": other_pl,
+        "surtax": surtax,
+        "other_pl": other_pl,
         "pretax_profit": pretax,
         "pretax_margin_pct": round(pretax / net * 100, 2) if net else 0.0,
         "orders": orders_amt,
@@ -481,14 +548,18 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
         "receipt_order_ratio_pct": receipt_order_ratio,
         # 板块④ 下单与回款（A6）：四维度=销售/客户 × 下单/回款；双血条同主体对比
         "rankings": {
-            "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
-                                               cols_cfg["order_date"], start, end),
-            "orders_by_customer": compute_ranking(order_rows, "客户", cols_cfg["order_amount"],
-                                                  cols_cfg["order_date"], start, end),
-            "receipts_by_sales": compute_ranking(receipt_rows, "销售", cols_cfg["receipt_amount"],
-                                                 cols_cfg["receipt_date"], start, end),
-            "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
-                                                    cols_cfg["receipt_date"], start, end),
+            "orders_by_sales": compute_ranking(
+                order_rows, "销售", cols_cfg["order_amount"], cols_cfg["order_date"], start, end
+            ),
+            "orders_by_customer": compute_ranking(
+                order_rows, "客户", cols_cfg["order_amount"], cols_cfg["order_date"], start, end
+            ),
+            "receipts_by_sales": compute_ranking(
+                receipt_rows, "销售", cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end
+            ),
+            "receipts_by_customer": compute_ranking(
+                receipt_rows, "客户", cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end
+            ),
         },
         # 板块③ 收入与毛利结构：确认收入/项目毛利 按客户、按销售（+集中度），确认口径
         "profit_rankings": {
@@ -502,8 +573,7 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     except (TypeError, ValueError):
         y = 0
     if y:
-        out["rankings_monthly"] = build_rankings_monthly(
-            order_rows, receipt_rows, cols_cfg, y, out["rankings"])
+        out["rankings_monthly"] = build_rankings_monthly(order_rows, receipt_rows, cols_cfg, y, out["rankings"])
     else:
         out["rankings_monthly"] = {"year": 0, "sales": {}, "customer": {}}
     return out
@@ -533,38 +603,53 @@ def build_budget_block(budget_raw, year, year_period, h1_period=None) -> dict | 
     h1_order, h1_receipt = y.get("下单H1目标"), y.get("回款H1目标")
     h1_margin = y.get("毛利率H1目标")
     h1_pretax = y.get("税前利润率H1目标")
-    if all(v is None for v in (order_t, receipt_t, margin_t, pretax_t,
-                               h1_order, h1_receipt, h1_margin, h1_pretax)):
+    if all(v is None for v in (order_t, receipt_t, margin_t, pretax_t, h1_order, h1_receipt, h1_margin, h1_pretax)):
         return None
 
     def _item(target, done):
         if target is None:
             return None
-        return {"target": float(target), "done": done,
-                "pct": (done / target * 100.0) if target and done is not None else None}
+        return {
+            "target": float(target),
+            "done": done,
+            "pct": (done / target * 100.0) if target and done is not None else None,
+        }
 
     def _margin_item(target, actual_pct):
         if target is None:
             return None
         ap = actual_pct if actual_pct is not None else 0.0
-        return {"target": float(target), "done": ap,
-                "pct": (ap / target * 100.0) if target else None}
+        return {"target": float(target), "done": ap, "pct": (ap / target * 100.0) if target else None}
 
     h1 = h1_period or {}
-    return {"year": year,
-            "order": _item(order_t, year_period["orders"]),
-            "receipt": _item(receipt_t, year_period["receipts"]),
-            "margin": _margin_item(margin_t, year_period.get("gross_margin_pct") or 0.0),
-            "pretax_margin": _margin_item(pretax_t, year_period.get("pretax_margin_pct") or 0.0),
-            "order_h1": _item(h1_order, h1.get("orders")),
-            "receipt_h1": _item(h1_receipt, h1.get("receipts")),
-            "margin_h1": _margin_item(h1_margin, h1.get("gross_margin_pct")),
-            "pretax_margin_h1": _margin_item(h1_pretax, h1.get("pretax_margin_pct"))}
+    return {
+        "year": year,
+        "order": _item(order_t, year_period["orders"]),
+        "receipt": _item(receipt_t, year_period["receipts"]),
+        "margin": _margin_item(margin_t, year_period.get("gross_margin_pct") or 0.0),
+        "pretax_margin": _margin_item(pretax_t, year_period.get("pretax_margin_pct") or 0.0),
+        "order_h1": _item(h1_order, h1.get("orders")),
+        "receipt_h1": _item(h1_receipt, h1.get("receipts")),
+        "margin_h1": _margin_item(h1_margin, h1.get("gross_margin_pct")),
+        "pretax_margin_h1": _margin_item(h1_pretax, h1.get("pretax_margin_pct")),
+    }
 
 
-def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                  ledger_header, ledger_rows, ledger_year, today, manual_raw=None,
-                  budget_raw=None, dept_budget_raw=None, detax_rates=None):
+def build_summary(
+    cfg,
+    project_rows,
+    order_rows,
+    receipt_rows,
+    inhouse_rows,
+    ledger_header,
+    ledger_rows,
+    ledger_year,
+    today,
+    manual_raw=None,
+    budget_raw=None,
+    dept_budget_raw=None,
+    detax_rates=None,
+):
     cols_cfg = cfg["columns"]
     lcols = columns.resolve_ledger_columns(ledger_header)
     ledger_rows = detax_ledger_rows(ledger_header, ledger_rows, detax_rates)  # 费用去税（默认空=恒等）
@@ -580,9 +665,23 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     by_pc: dict[str, Any] = {}
     tab_groups = {"年": [], "季度": [], "月": [], "区间": []}
     for key, (label, start, end, group) in ranges.items():
-        P[key] = build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                              ledger_rows, ledger_year, lcols, filled_manual, label, start, end, today)
-        P[key]["range"] = (start.isoformat(), end.isoformat())   # 排名卡「其余」点开全量明细要带的区间
+        P[key] = build_period(
+            cfg,
+            cols_cfg,
+            project_rows,
+            order_rows,
+            receipt_rows,
+            inhouse_rows,
+            ledger_rows,
+            ledger_year,
+            lcols,
+            filled_manual,
+            label,
+            start,
+            end,
+            today,
+        )
+        P[key]["range"] = (start.isoformat(), end.isoformat())  # 排名卡「其余」点开全量明细要带的区间
         fine[key] = compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lcols)
         by_dept[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "预算归属部门")
         by_pc[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "业务BU")
@@ -591,21 +690,53 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     year_key = f"{today.year}年"
     cur_month_key = f"{today.year}年{today.month}月"
     month_keys = tab_groups["月"]
-    trend = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["revenue_net"], P[k]["production_cost"],
-              P[k]["gross_margin_pct"]) for k in month_keys]
+    trend = [
+        (
+            P[k]["label"].replace(f"{today.year}年", ""),
+            P[k]["revenue_net"],
+            P[k]["production_cost"],
+            P[k]["gross_margin_pct"],
+        )
+        for k in month_keys
+    ]
     receipt_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"]) for k in month_keys]
     # 回款柱图叠加"每月回款/下单比"用：逐月 (标签, 回款, 下单, 回款/下单比%)；率为 None 表示当月无下单
-    receipt_order_monthly = [(P[k]["label"].replace(f"{today.year}年", ""), P[k]["receipts"],
-                             P[k]["orders"], P[k]["receipt_order_ratio_pct"]) for k in month_keys]
+    receipt_order_monthly = [
+        (
+            P[k]["label"].replace(f"{today.year}年", ""),
+            P[k]["receipts"],
+            P[k]["orders"],
+            P[k]["receipt_order_ratio_pct"],
+        )
+        for k in month_keys
+    ]
 
     unclassified = columns.build_unclassified_summary(
-        ledger_rows, cfg, lcols,
+        ledger_rows,
+        cfg,
+        lcols,
         amount_filter=lambda r: periods.date_in_range(
             periods.ledger_row_date(r, ledger_year, lcols),
-            datetime.date(today.year, 1, 1), datetime.date(today.year, 12, 31)),
+            datetime.date(today.year, 1, 1),
+            datetime.date(today.year, 12, 31),
+        ),
     )
-    health = _data_health(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
-                          ledger_rows, ledger_year, lcols, P, today, unclassified, month_keys, manual_raw)
+    health = _data_health(
+        cfg,
+        cols_cfg,
+        project_rows,
+        order_rows,
+        receipt_rows,
+        inhouse_rows,
+        ledger_rows,
+        ledger_year,
+        lcols,
+        P,
+        today,
+        unclassified,
+        month_keys,
+        manual_raw,
+    )
     # H1=1–6 月：优先用合成区间；没有则按月累加（绝不用 Q1 冒充 H1）
     h1_key = f"{today.year}年1-6月"
     h1_period = P.get(h1_key)
@@ -622,17 +753,23 @@ def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,
     return {
         "meta": {
             "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "year": today.year, "year_key": year_key, "current_month_key": cur_month_key,
+            "year": today.year,
+            "year_key": year_key,
+            "current_month_key": cur_month_key,
             "current_month_label": P[cur_month_key]["label"],
-            "ledger_sheet_used": str(ledger_year), "tab_groups": tab_groups,
+            "ledger_sheet_used": str(ledger_year),
+            "tab_groups": tab_groups,
             "budget": build_budget_block(budget_raw, today.year, P[year_key], h1_period),
             "dept_budget": build_dept_budget_block(dept_budget_raw, by_dept.get(year_key), today.year),
             "unclassified": unclassified,
             "health": health,
         },
-        "periods": P, "expense_fine_type": fine,
-        "expense_by_department": by_dept, "expense_by_profit_center": by_pc,
-        "trend": trend, "receipt_monthly": receipt_monthly,
+        "periods": P,
+        "expense_fine_type": fine,
+        "expense_by_department": by_dept,
+        "expense_by_profit_center": by_pc,
+        "trend": trend,
+        "receipt_monthly": receipt_monthly,
         "receipt_order_monthly": receipt_order_monthly,
     }
 
@@ -654,13 +791,19 @@ def compute_unassigned_orders_by_period(order_rows, assigned_set, cols_cfg, toda
     s = {str(x).strip() for x in assigned_set if str(x).strip()}
     unassigned = [r for r in order_rows if str(r.get("销售") or "").strip() not in s]
     ranges = periods.all_period_ranges(today)
-    return {key: compute_orders(unassigned, cols_cfg, start, end)
-            for key, (label, start, end, group) in ranges.items()}
+    return {key: compute_orders(unassigned, cols_cfg, start, end) for key, (label, start, end, group) in ranges.items()}
 
 
 # 空台账表头（与 db.LEDGER_STD_COLS 同序）
-_BU_EMPTY_LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU",
-                           "对应报表大类", "预算明细费用类型", "预算归属部门"]
+_BU_EMPTY_LEDGER_HEADER = [
+    "收单月份",
+    "收单日期",
+    "含税金额",
+    "业务BU",
+    "对应报表大类",
+    "预算明细费用类型",
+    "预算归属部门",
+]
 
 # 台账 5 类 → 利润表费用行
 _LEDGER_TO_EXPENSE = {
@@ -673,9 +816,16 @@ _LEDGER_TO_EXPENSE = {
 
 # 利润归属中心 → 业务 BU 名归一（台账写法多样）
 _PC_TO_BU = {
-    "数据": "数据", "数据部门": "数据", "数据BU": "数据",
-    "游戏": "游戏", "游戏部门": "游戏", "游戏BU": "游戏",
-    "营销": "营销", "传统营销": "营销", "营销中心": "营销", "语言": "营销",
+    "数据": "数据",
+    "数据部门": "数据",
+    "数据BU": "数据",
+    "游戏": "游戏",
+    "游戏部门": "游戏",
+    "游戏BU": "游戏",
+    "营销": "营销",
+    "传统营销": "营销",
+    "营销中心": "营销",
+    "语言": "营销",
 }
 _PUBLIC_PC = {"公共", "集团", "财务", "财务部", "公司", "全公司", "总部"}
 
@@ -689,8 +839,7 @@ def normalize_profit_center(raw) -> str:
     return _PC_TO_BU.get(s, s)
 
 
-def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names,
-                                year: int | None = None) -> list[dict]:
+def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names, year: int | None = None) -> list[dict]:
     """扫描全年台账白名单费用行的「利润归属中心」归一结果，收集未知名清单。
 
     返回 [{name, count, amount}, ...] 按金额降序。
@@ -726,8 +875,7 @@ def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names,
             continue
         stats[raw][0] += 1
         stats[raw][1] += amt
-    out = [{"name": n, "count": c, "amount": round(a, 2)}
-           for n, (c, a) in stats.items()]
+    out = [{"name": n, "count": c, "amount": round(a, 2)} for n, (c, a) in stats.items()]
     out.sort(key=lambda x: (-x["amount"], x["name"]))
     return out
 
@@ -743,7 +891,7 @@ def unknown_pc_warnings(items: list[dict]) -> list[str]:
             continue
         warns.append(
             f"台账 {n} 笔费用的利润归属中心『{name}』不在 BU 名单"
-            f"（¥{amt/1e4:.1f} 万）——不进任何 BU 直记也不进公共池，请到设置核对 BU 名或修正台账"
+            f"（¥{amt / 1e4:.1f} 万）——不进任何 BU 直记也不进公共池，请到设置核对 BU 名或修正台账"
         )
     return warns
 
@@ -767,10 +915,26 @@ def filter_ledger_rows_by_pc(header, rows, want: set[str]) -> list:
     return out
 
 
-def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, today, sales_set,
-                     *, company_ledger_by_period=None, alloc_ratio_pct=None, alloc_enabled=False,
-                     budget_raw=None, ledger_header=None, ledger_rows=None, ledger_year=None,
-                     manual_raw=None, bu_name: str | None = None, detax_rates=None):
+def build_bu_summary(
+    cfg,
+    project_rows,
+    order_rows,
+    receipt_rows,
+    inhouse_rows,
+    today,
+    sales_set,
+    *,
+    company_ledger_by_period=None,
+    alloc_ratio_pct=None,
+    alloc_enabled=False,
+    budget_raw=None,
+    ledger_header=None,
+    ledger_rows=None,
+    ledger_year=None,
+    manual_raw=None,
+    bu_name: str | None = None,
+    detax_rates=None,
+):
     """单 BU summary：智云四源按销售过滤；台账按利润归属中心直记本 BU；
     公共池（利润归属中心=公共）× 分摊比例叠加（可选）；手填可按 BU 范围注入。
     兼容旧测：不传 ledger → 空台账；company_ledger_by_period 视为「公共池」费用字典。"""
@@ -784,20 +948,25 @@ def build_bu_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows, 
         filter_rows_by_sales(order_rows, sales_set),
         filter_rows_by_sales(receipt_rows, sales_set),
         filter_rows_by_sales(inhouse_rows, sales_set),
-        lh, lr, ly, today,
-        manual_raw=man, budget_raw=budget_raw, dept_budget_raw=None, detax_rates=detax_rates)
+        lh,
+        lr,
+        ly,
+        today,
+        manual_raw=man,
+        budget_raw=budget_raw,
+        dept_budget_raw=None,
+        detax_rates=detax_rates,
+    )
     if bu_name:
         s.setdefault("meta", {})["bu_name"] = bu_name
     if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
         apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct))
     else:
-        s.setdefault("meta", {})["public_allocation"] = {
-            "enabled": False, "ratio_pct": None, "ratio_disp": ""}
+        s.setdefault("meta", {})["public_allocation"] = {"enabled": False, "ratio_pct": None, "ratio_disp": ""}
     return s
 
 
-def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dict,
-                                    ratio_pct: float) -> None:
+def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dict, ratio_pct: float) -> None:
     """就地：把「公共池」台账 5 类 × 比例 **叠加** 进 BU 已有直记费用（不覆盖直记）。
     company_ledger_by_period 应为公共归属中心的费用；若传入全公司（旧测），则按比例拆全额——
     与「仅公共池」在无直记时数值等价。手填不摊；附加税按 BU 自身收入。"""
@@ -818,11 +987,16 @@ def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dic
         total = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
         p["ledger_expenses"] = led
         p["expense"] = {
-            "营销费用": sales_exp, "管理费用": admin_exp, "固定运营费用": fixed_exp,
-            "研发费用": rd_exp, "财务费用": fin_exp, "total": total,
+            "营销费用": sales_exp,
+            "管理费用": admin_exp,
+            "固定运营费用": fixed_exp,
+            "研发费用": rd_exp,
+            "财务费用": fin_exp,
+            "total": total,
         }
         p["pretax_profit"] = round(
-            float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
+            float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2
+        )
         net = float(p.get("revenue_net") or 0)
         p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
     summary.setdefault("meta", {})["public_allocation"] = {
@@ -849,20 +1023,24 @@ def _merge_alloc_into_period(p: dict, add_by_cat: dict[str, float]) -> None:
     total = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
     p["ledger_expenses"] = led
     p["expense"] = {
-        "营销费用": sales_exp, "管理费用": admin_exp, "固定运营费用": fixed_exp,
-        "研发费用": rd_exp, "财务费用": fin_exp, "total": total,
+        "营销费用": sales_exp,
+        "管理费用": admin_exp,
+        "固定运营费用": fixed_exp,
+        "研发费用": rd_exp,
+        "财务费用": fin_exp,
+        "total": total,
     }
-    p["pretax_profit"] = round(
-        float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
+    p["pretax_profit"] = round(float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
     net = float(p.get("revenue_net") or 0)
     p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
 
 
-def _alloc_cats_for_range(public_month_led: dict, ratios_by_month: dict, bu_name: str,
-                          start, end, cap) -> dict[str, float]:
+def _alloc_cats_for_range(
+    public_month_led: dict, ratios_by_month: dict, bu_name: str, start, end, cap
+) -> dict[str, float]:
     """某周期内：逐月 公共池5类 × 该月该 BU 比例，按类加总。缺月比例=0（不分摊）。"""
     add = {cat: 0.0 for cat in _LEDGER_TO_EXPENSE}
-    for (y, m) in periods.months_in(start, end, cap):
+    for y, m in periods.months_in(start, end, cap):
         pct = (ratios_by_month.get(f"{y:04d}-{m:02d}") or {}).get(bu_name)
         if not pct:
             continue
@@ -872,8 +1050,9 @@ def _alloc_cats_for_range(public_month_led: dict, ratios_by_month: dict, bu_name
     return {cat: round(v, 2) for cat, v in add.items()}
 
 
-def apply_public_expense_allocation_monthly(summary: dict, public_month_led: dict,
-                                            ratios_by_month: dict, bu_name: str, today) -> None:
+def apply_public_expense_allocation_monthly(
+    summary: dict, public_month_led: dict, ratios_by_month: dict, bu_name: str, today
+) -> None:
     """就地：按月比例把公共池费用叠加进单 BU summary 各周期（迭代20）。
     public_month_led={(y,m):{5类:金额}}；ratios_by_month={'YYYY-MM':{BU:比例%}}；
     当月合计可 <100%（剩余留公司层）。没有任何生效比例 → meta 标 enabled=False。"""
@@ -891,13 +1070,16 @@ def apply_public_expense_allocation_monthly(summary: dict, public_month_led: dic
             continue
         _merge_alloc_into_period(p, add)
     summary.setdefault("meta", {})["public_allocation"] = {
-        "enabled": has_ratio, "mode": "monthly", "ratio_pct": None,
+        "enabled": has_ratio,
+        "mode": "monthly",
+        "ratio_pct": None,
         "ratio_disp": "按月比例" if has_ratio else "",
     }
 
 
-def alloc_amounts_by_period(public_month_led: dict, ratios_by_month: dict,
-                            bu_names: list[str], today) -> dict[str, dict[str, float]]:
+def alloc_amounts_by_period(
+    public_month_led: dict, ratios_by_month: dict, bu_names: list[str], today
+) -> dict[str, dict[str, float]]:
     """每周期每 BU 的分摊总额（供全公司「构成·按业务BU」视图跟着挪·迭代20）。
     只认在 bu_names 里的 BU（孤儿比例行由调用方另行告警）。返回 {周期key: {BU: 金额}}。"""
     want = set(bu_names or [])
@@ -905,7 +1087,7 @@ def alloc_amounts_by_period(public_month_led: dict, ratios_by_month: dict,
     out: dict[str, dict[str, float]] = {}
     for key, (_lab, start, end, _grp) in ranges.items():
         per: dict[str, float] = {}
-        for (y, m) in periods.months_in(start, end, today):
+        for y, m in periods.months_in(start, end, today):
             r = ratios_by_month.get(f"{y:04d}-{m:02d}") or {}
             led = public_month_led.get((y, m)) or {}
             month_pub = sum(float(led.get(c) or 0.0) for c in _LEDGER_TO_EXPENSE)
@@ -918,8 +1100,8 @@ def alloc_amounts_by_period(public_month_led: dict, ratios_by_month: dict,
     return out
 
 
-ALLOC_IN_LABEL = "分摊自公共"       # BU 组抽屉里的细类行
-ALLOC_OUT_LABEL = "已分摊至各BU"    # 公共组抽屉里的负数行
+ALLOC_IN_LABEL = "分摊自公共"  # BU 组抽屉里的细类行
+ALLOC_OUT_LABEL = "已分摊至各BU"  # 公共组抽屉里的负数行
 
 
 def apply_alloc_to_pc_view(groups, alloc_by_bu: dict[str, float]):
@@ -932,7 +1114,7 @@ def apply_alloc_to_pc_view(groups, alloc_by_bu: dict[str, float]):
     if total_alloc <= 0:
         return groups
     gmap = {g: (t, list(f)) for g, t, f in groups}
-    if "公共" not in gmap:   # 分摊额来自公共池；池不存在说明上游没数，不动
+    if "公共" not in gmap:  # 分摊额来自公共池；池不存在说明上游没数，不动
         return groups
     for b, amt in alloc_by_bu.items():
         if amt <= 0:
@@ -941,8 +1123,7 @@ def apply_alloc_to_pc_view(groups, alloc_by_bu: dict[str, float]):
         gmap[b] = (round(t + amt, 2), f + [(ALLOC_IN_LABEL, round(amt, 2))])
     t, f = gmap["公共"]
     gmap["公共"] = (round(t - total_alloc, 2), f + [(ALLOC_OUT_LABEL, round(-total_alloc, 2))])
-    return [(g, t, sorted(f, key=lambda x: -x[1]))
-            for g, (t, f) in sorted(gmap.items(), key=lambda kv: -kv[1][0])]
+    return [(g, t, sorted(f, key=lambda x: -x[1])) for g, (t, f) in sorted(gmap.items(), key=lambda kv: -kv[1][0])]
 
 
 def load_manual_safe(cfg):
@@ -978,8 +1159,22 @@ def _scan_ledger_issues(ledger_rows, ledger_year, lcols):
     return date_bad, amt_bad
 
 
-def _data_health(cfg, cc, project, orders, receipts, inhouse, ledger_rows, ledger_year, lcols,
-                 P, today, unclassified, month_keys, manual_raw):
+def _data_health(
+    cfg,
+    cc,
+    project,
+    orders,
+    receipts,
+    inhouse,
+    ledger_rows,
+    ledger_year,
+    lcols,
+    P,
+    today,
+    unclassified,
+    month_keys,
+    manual_raw,
+):
     """数据体检：每个源的覆盖情况 + 关键校验 → 让人信这个数。"""
     year = today.year
 
@@ -993,8 +1188,9 @@ def _data_health(cfg, cc, project, orders, receipts, inhouse, ledger_rows, ledge
 
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     inhouse_hit = sum(1 for r in inhouse if kw in str(r.get(cc["inhouse_type"], "")).upper())
-    led_ms = sorted({p[1] for r in ledger_rows
-                     if (p := periods.ledger_row_date(r, ledger_year, lcols)) and p[0] == year})
+    led_ms = sorted(
+        {p[1] for r in ledger_rows if (p := periods.ledger_row_date(r, ledger_year, lcols)) and p[0] == year}
+    )
 
     sources = [
         {"name": "项目明细(智云)", "rows": len(project), "months": months_of(project, cc["project_delivery_date"])},
@@ -1035,7 +1231,11 @@ def _data_health(cfg, cc, project, orders, receipts, inhouse, ledger_rows, ledge
         if P[k]["revenue_net"] > 0 and P[k]["expense"]["total"] == 0:
             warnings.append(f"{P[k]['label']}有收入但期间费用为0（疑似收单台账缺该月）")
     if inhouse_hit == 0 and len(inhouse) > 0:
-        warnings.append("内部译员表没筛到 IN-HOUSE 行 → 内部译员成本按0算；请确认导出时按「译员类型-资源库=IN-HOUSE」筛过")
+        warnings.append(
+            "内部译员表没筛到 IN-HOUSE 行 → 内部译员成本按0算；请确认导出时按「译员类型-资源库=IN-HOUSE」筛过"
+        )
     if unclassified["expense"]["count"]:
-        warnings.append(f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount']/1e4:.1f}万），未计入费用")
+        warnings.append(
+            f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount'] / 1e4:.1f}万），未计入费用"
+        )
     return {"sources": sources, "warnings": warnings, "ok": len(warnings) == 0}

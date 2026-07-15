@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """B-P4 增补：登录页为 static，错误由 API 前端渲染（服务端不再 format 拼 err）。"""
+
 from __future__ import annotations
 
 import sys

@@ -7,6 +7,7 @@
 - version 模块：read_version / product_stage / product_label / version_info 结构；changelog 是副本（改不动常量）；
 - `/api/version`：仅管理员会话（无会话/查看端 401），下发 version/stage/label/changelog。
 """
+
 import sys
 import tempfile
 import unittest
@@ -69,16 +70,21 @@ class TestVersionApi(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
-        accounts.save_accounts(self.cfg, self.tmp, [
-            {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
-            {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
-        ])
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
+                {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
+            ],
+        )
         server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def test_requires_admin(self):
@@ -103,8 +109,7 @@ class TestVersionApi(unittest.TestCase):
     def test_console_has_version_ui(self):
         # 管理端：摘要卡 + 右侧日志抽屉（默认折叠）
         html = server.admin_ui_source()
-        for anchor in ("verPill", "verCard", "loadVersion", "版本与更新",
-                       "verDrawer", "openVerDrawer", "更新日志"):
+        for anchor in ("verPill", "verCard", "loadVersion", "版本与更新", "verDrawer", "openVerDrawer", "更新日志"):
             self.assertIn(anchor, html, anchor)
 
 

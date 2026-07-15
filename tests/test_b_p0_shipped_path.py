@@ -5,6 +5,7 @@ rank_views 由 JS 组装（非 Python 预渲染 HTML fill）。
 
 验收：规范化后 JS 组装的排名区 == Python render_rankings 各周期拼接。
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,7 @@ def _norm(s: str) -> str:
 
 def _extract_rank_block(html: str) -> str:
     """取 #rankViews 内层（排名区）。"""
-    m = re.search(
-        r'id="rankViews">(.*?)</div>\s*(?:<div id="rkCustom"|<div class="foot")',
-        html, re.S)
+    m = re.search(r'id="rankViews">(.*?)</div>\s*(?:<div id="rkCustom"|<div class="foot")', html, re.S)
     if m:
         return m.group(1)
     m = re.search(r'id="rankViews">(.*)', html, re.S)
@@ -43,6 +42,7 @@ class TestP0ShippedPath(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
         import loaders, core, render, api_v1, assets
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
@@ -84,14 +84,12 @@ class TestP0ShippedPath(unittest.TestCase):
     def test_js_assembled_rank_views_equals_python(self):
         """shipped：page.js + rankings.js + views → rank 区 == Python 各周期 render_rankings。"""
         import render
+
         meta = self.summary["meta"]
         yk = meta["year_key"]
         P = self.summary["periods"]
         all_keys = self.pack["views"]["period_keys"]
-        py_rank = "".join(
-            render._pv(k, yk, render.render_rankings(P[k], embed_full=True))
-            for k in all_keys if k in P
-        )
+        py_rank = "".join(render._pv(k, yk, render.render_rankings(P[k], embed_full=True)) for k in all_keys if k in P)
         # node assemble full page with client pack
         fr = dict(self.pack["fragments"])
         fr["rank_views"] = ""  # force JS path
@@ -111,7 +109,8 @@ class TestP0ShippedPath(unittest.TestCase):
         js_rank = _extract_rank_block(js_html)
         self.assertTrue(js_rank.strip(), "JS 未产出 rankViews")
         self.assertEqual(
-            _norm(py_rank), _norm(js_rank),
+            _norm(py_rank),
+            _norm(js_rank),
             f"排名区 mismatch\nPY[:200]={py_rank[:200]!r}\nJS[:200]={js_rank[:200]!r}",
         )
         # 铁证：JS 路径下 fragments.rank_views 输入为空

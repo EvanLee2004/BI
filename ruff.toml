@@ -1,0 +1,22 @@
+# ruff.toml · 从宽起步（落地包 20260716）
+# 工具：https://github.com/astral-sh/ruff · MIT · 钉 0.15.21
+target-version = "py312"
+line-length = 120
+exclude = ["golden", ".venv", "_golden_data", "数据", "output", "static", "tests/fixtures"]
+
+[lint]
+# 清单：E/F/W + bugbear；暂忽略行宽与「import 不在顶」存量
+select = ["E", "F", "W", "B"]
+ignore = [
+  "E501",  # 行宽交给 format / 后续再收
+  "E402",  # 项目惯例：sys.path 后 import
+  "B008",  # FastAPI Depends 默认参数
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["E402", "F401"]
+"run.py" = ["E402"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

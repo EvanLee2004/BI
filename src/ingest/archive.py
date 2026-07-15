@@ -8,6 +8,7 @@
   "财务永远讲某一个时点"。
 两者都写在 数据/ 内，已由 .gitignore 挡住（绝不进 git）。
 """
+
 from __future__ import annotations
 
 import calendar
@@ -41,8 +42,9 @@ def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None =
     return {"status": "ok", "path": str(dst), "kept": len(backups), "pruned": pruned}
 
 
-def snapshot_page(cfg: dict, html: str, today: datetime.date | None = None,
-                  root: Path | None = None, keep: int | None = None) -> dict:
+def snapshot_page(
+    cfg: dict, html: str, today: datetime.date | None = None, root: Path | None = None, keep: int | None = None
+) -> dict:
     """存当天渲染好的看板页面 → 数据/备份/页面_YYYYMMDD.html（同天覆盖=留当天最后一次），
     滚动保留 keep 天（同 backup_keep_days）。供管理员端「历史快照」按天回看。
     月末那天的页面另随月末快照永久保留（12-31 即年末档）。"""

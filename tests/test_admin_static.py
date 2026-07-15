@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """v1.5 管理端 static/admin 抽取守卫。"""
+
 from __future__ import annotations
 
 import re
@@ -24,11 +25,24 @@ class TestAdminStaticFiles(unittest.TestCase):
     def test_js_core_markers(self):
         js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
         for token in (
-            "showGroup", "showManual", "pickTable", "checkUpdate", "doRefresh",
-            "loadHealth", "loadSettings", "loadAccts", "loadVersion",
-            "showReview", "dxTbl", "MANUAL_ITEMS", "/api/update/apply",
-            "/api/update/check", "/api/alloc_ratios", "/api/detax_rates",
-            "setSaveAll", "openVerDrawer",
+            "showGroup",
+            "showManual",
+            "pickTable",
+            "checkUpdate",
+            "doRefresh",
+            "loadHealth",
+            "loadSettings",
+            "loadAccts",
+            "loadVersion",
+            "showReview",
+            "dxTbl",
+            "MANUAL_ITEMS",
+            "/api/update/apply",
+            "/api/update/check",
+            "/api/alloc_ratios",
+            "/api/detax_rates",
+            "setSaveAll",
+            "openVerDrawer",
         ):
             self.assertIn(token, js, token)
 
@@ -36,6 +50,7 @@ class TestAdminStaticFiles(unittest.TestCase):
         html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
         ids = re.findall(r'\bid=["\']([^"\']+)["\']', html)
         from collections import Counter
+
         dups = {k: v for k, v in Counter(ids).items() if v > 1}
         self.assertEqual(dups, {}, f"duplicate ids: {dups}")
 
@@ -69,11 +84,16 @@ class TestAdminStaticHttp(unittest.TestCase):
     def setUpClass(cls):
         import tempfile
         import accounts, server, loaders
+
         cls.tmp = Path(tempfile.mkdtemp())
         cls.cfg = loaders.load_config(ROOT)
-        accounts.save_accounts(cls.cfg, cls.tmp, [
-            {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
-        ])
+        accounts.save_accounts(
+            cls.cfg,
+            cls.tmp,
+            [
+                {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
+            ],
+        )
         # 标记「已取数成功」即可进完整台（页面读 static）
         server._state["admin_html"] = server._admin_page("", {}, cls.cfg)
         server._state["user_html"] = "<html>u</html>"
@@ -83,6 +103,7 @@ class TestAdminStaticHttp(unittest.TestCase):
 
     def _client(self):
         from fastapi.testclient import TestClient
+
         return TestClient(self.app, follow_redirects=False)
 
     def test_unauthenticated_admin_is_login(self):
@@ -90,9 +111,7 @@ class TestAdminStaticHttp(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("管理员端登录", r.text)
         # B-P4：static 登录 + /api/v1/login（无 form action 服务端拼 HTML）
-        self.assertTrue(
-            'action="/admin/login"' in r.text or "/api/v1/login" in r.text,
-            "管理员登录页应可提交")
+        self.assertTrue('action="/admin/login"' in r.text or "/api/v1/login" in r.text, "管理员登录页应可提交")
         self.assertIn("管理员端登录", r.text)
 
     def test_static_admin_html_is_shell_without_session_data(self):
@@ -156,6 +175,7 @@ class TestAdminToolbarSticky(unittest.TestCase):
         self.assertIn("html.theme-light .toolbar", css)
         self.assertIn("background:var(--panel)", css)
 
+
 class TestBuDelMarksDirty(unittest.TestCase):
     """A1：删 BU 后必须标脏，底部出现「保存全部设置」（与 buAdd 一致）。"""
 
@@ -166,12 +186,12 @@ class TestBuDelMarksDirty(unittest.TestCase):
         self.assertIsNotNone(m, "找不到 buDel 函数")
         body = m.group(1)
         self.assertIn("buList.splice", body)
-        self.assertIn('setMark("bu")', body,
-                      "buDel 删除后未 setMark('bu')——设置页不会出现保存键")
+        self.assertIn('setMark("bu")', body, "buDel 删除后未 setMark('bu')——设置页不会出现保存键")
         # 对照：buAdd 也必须标脏（防回归）
         m2 = re.search(r"function buAdd\(\)\{([\s\S]*?)\nfunction ", js)
         self.assertIsNotNone(m2)
         self.assertIn('setMark("bu")', m2.group(1))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """B-P2~P4 shipped：client 路径 fragments 卡字段为空 + views 显示串；
 page.js 组装后与 Python render_dashboard 规范化全等。"""
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,15 @@ sys.path.insert(0, str(ROOT / "src"))
 RUNNER = ROOT / "static" / "js" / "assemble" / "page_node_runner.js"
 
 _CLIENT_FIELDS = (
-    "kpi_views", "pl_views", "donut_views", "profit_rank_views", "rank_views",
-    "trend_html", "receipts_budget", "period_bar", "daily_html",
+    "kpi_views",
+    "pl_views",
+    "donut_views",
+    "profit_rank_views",
+    "rank_views",
+    "trend_html",
+    "receipts_budget",
+    "period_bar",
+    "daily_html",
 )
 
 
@@ -32,13 +40,13 @@ class TestShippedCards(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(["node", "--version"], check=True, capture_output=True)
         import loaders, core, api_v1, assets
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "_golden_data/看板.db"
         cfg["zhiyun_auto_fetch"] = False
         cls.cfg = cfg
-        cls.summary, cls.py_html, _, _ = core.generate(
-            cfg, date(2026, 6, 30), trigger="b-shipped")
+        cls.summary, cls.py_html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-shipped")
         logo = assets.load_logo_base64(cfg) or ""
         cls.pack = api_v1.cockpit_fragments(cls.summary, cfg, logo, client=True)
 
@@ -70,7 +78,8 @@ class TestShippedCards(unittest.TestCase):
         r = subprocess.run(["node", str(RUNNER), path], capture_output=True, text=True, check=True)
         js_html = r.stdout
         self.assertEqual(
-            _norm(self.py_html), _norm(js_html),
+            _norm(self.py_html),
+            _norm(js_html),
             f"len py={len(self.py_html)} js={len(js_html)}",
         )
 

@@ -11,6 +11,7 @@
 - 边界：收入 0 → 毛利率 None；空数据 → items 空
 - 渲染：卡片标题/毛利率串/集中度串在位；前端零运算（无 JS 金额计算）
 """
+
 import datetime
 import sys
 import tempfile
@@ -29,12 +30,13 @@ S, E = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
 def _rows():
     def r(cu, sal, gross, cost, d):
         return {"客户": cu, "销售": sal, "整单交付日期": d, "交付额": gross, "项目成本": cost}
+
     return [
-        r("客户甲", "销售A", 1060, 300, "2026-03-10"),   # 收入1000 毛利700
-        r("客户甲", "销售A", 1060, 200, "2026-04-10"),   # 收入1000 毛利800  → 客户甲合计 收入2000 毛利1500 率75
+        r("客户甲", "销售A", 1060, 300, "2026-03-10"),  # 收入1000 毛利700
+        r("客户甲", "销售A", 1060, 200, "2026-04-10"),  # 收入1000 毛利800  → 客户甲合计 收入2000 毛利1500 率75
         r("客户乙", "销售B", 3180, 2000, "2026-05-10"),  # 收入3000 毛利1000 率33.3
-        r("",        "",     530, 100, "2026-06-10"),    # 收入500  毛利400 → 未填
-        r("客户丙", "销售C", 1060, 400, "2025-12-31"),   # 期外，应被过滤
+        r("", "", 530, 100, "2026-06-10"),  # 收入500  毛利400 → 未填
+        r("客户丙", "销售C", 1060, 400, "2025-12-31"),  # 期外，应被过滤
     ]
 
 
@@ -42,19 +44,19 @@ class TestComputeProfitRanking(unittest.TestCase):
     def test_customer_caliber_sort_and_margin(self):
         rk = profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06)
         names = [it["name"] for it in rk["items"]]
-        self.assertEqual(names, ["客户乙", "客户甲"])            # 按收入降序
+        self.assertEqual(names, ["客户乙", "客户甲"])  # 按收入降序
         self.assertEqual(rk["items"][0]["revenue"], 3000.0)
         self.assertEqual(rk["items"][0]["profit"], 1000.0)
-        self.assertEqual(rk["items"][0]["margin_pct"], 33.3)     # 1000/3000
+        self.assertEqual(rk["items"][0]["margin_pct"], 33.3)  # 1000/3000
         self.assertEqual(rk["items"][1]["revenue"], 2000.0)
         self.assertEqual(rk["items"][1]["margin_pct"], 75.0)
-        self.assertEqual(rk["unfilled"]["revenue"], 500.0)       # 空名置底
+        self.assertEqual(rk["unfilled"]["revenue"], 500.0)  # 空名置底
         self.assertEqual(rk["unfilled"]["profit"], 400.0)
 
     def test_conservation_and_total(self):
         rk = profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06)
-        self.assertEqual(rk["total_revenue"], 5500.0)            # 1000+1000+3000+500
-        self.assertEqual(rk["total_profit"], 2900.0)             # 700+800+1000+400
+        self.assertEqual(rk["total_revenue"], 5500.0)  # 1000+1000+3000+500
+        self.assertEqual(rk["total_profit"], 2900.0)  # 700+800+1000+400
         got_rev = sum(it["revenue"] for it in rk["items"]) + rk["unfilled"]["revenue"]
         got_prof = sum(it["profit"] for it in rk["items"]) + rk["unfilled"]["profit"]
         self.assertEqual(got_rev, rk["total_revenue"])
@@ -63,11 +65,11 @@ class TestComputeProfitRanking(unittest.TestCase):
     def test_top_and_others_split_conserves(self):
         rk = profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06, top=1)
         self.assertEqual([it["name"] for it in rk["items"]], ["客户乙"])
-        self.assertEqual(rk["others"]["names"], 1)               # 客户甲进「其余」
+        self.assertEqual(rk["others"]["names"], 1)  # 客户甲进「其余」
         self.assertEqual(rk["others"]["revenue"], 2000.0)
-        self.assertEqual(rk["others"]["margin_pct"], 75.0)       # 合并后再算率
+        self.assertEqual(rk["others"]["margin_pct"], 75.0)  # 合并后再算率
         got = rk["items"][0]["revenue"] + rk["others"]["revenue"] + rk["unfilled"]["revenue"]
-        self.assertEqual(got, rk["total_revenue"])              # 守恒不因切分变
+        self.assertEqual(got, rk["total_revenue"])  # 守恒不因切分变
 
     def test_concentration(self):
         rk = profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06, conc_k=5)
@@ -78,14 +80,13 @@ class TestComputeProfitRanking(unittest.TestCase):
     def test_sales_caliber(self):
         rk = profit.compute_profit_ranking(_rows(), "销售", COLS, S, E, 0.06)
         self.assertEqual([it["name"] for it in rk["items"]], ["销售B", "销售A"])
-        self.assertEqual(rk["items"][1]["revenue"], 2000.0)     # 销售A
+        self.assertEqual(rk["items"][1]["revenue"], 2000.0)  # 销售A
 
     def test_zero_revenue_margin_none(self):
-        rows = [{"客户": "客户零", "销售": "S", "整单交付日期": "2026-03-01",
-                 "交付额": 0, "项目成本": 100}]
+        rows = [{"客户": "客户零", "销售": "S", "整单交付日期": "2026-03-01", "交付额": 0, "项目成本": 100}]
         rk = profit.compute_profit_ranking(rows, "客户", COLS, S, E, 0.06)
-        self.assertIsNone(rk["items"][0]["margin_pct"])         # 收入0 → 率 None
-        self.assertIsNone(rk["conc_pct"])                       # 总收入0 → 集中度 None
+        self.assertIsNone(rk["items"][0]["margin_pct"])  # 收入0 → 率 None
+        self.assertIsNone(rk["conc_pct"])  # 总收入0 → 集中度 None
 
     def test_empty(self):
         rk = profit.compute_profit_ranking([], "客户", COLS, S, E, 0.06)
@@ -97,36 +98,41 @@ class TestComputeProfitRanking(unittest.TestCase):
 
 class TestRenderProfitRankings(unittest.TestCase):
     def _period(self, top=10):
-        return {"range": ("2026-01-01", "2026-12-31"),
-                "profit_rankings": {
-                    "revenue_by_customer": profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06, top=top),
-                    "revenue_by_sales": profit.compute_profit_ranking(_rows(), "销售", COLS, S, E, 0.06, top=top)}}
+        return {
+            "range": ("2026-01-01", "2026-12-31"),
+            "profit_rankings": {
+                "revenue_by_customer": profit.compute_profit_ranking(_rows(), "客户", COLS, S, E, 0.06, top=top),
+                "revenue_by_sales": profit.compute_profit_ranking(_rows(), "销售", COLS, S, E, 0.06, top=top),
+            },
+        }
 
     def test_render_structure_and_strings(self):
         html = render.render_profit_rankings(self._period())
         self.assertIn("收入 · 按客户", html)
         self.assertIn("收入 · 按销售", html)
         self.assertIn("grid-2e", html)
-        self.assertIn("系统成本率 25%", html)          # 客户甲 成本率25（陆总0714：板块③改叫系统成本率）
-        self.assertIn("系统成本率 67%", html)          # 客户乙 成本率66.7→67
+        self.assertIn("系统成本率 25%", html)  # 客户甲 成本率25（陆总0714：板块③改叫系统成本率）
+        self.assertIn("系统成本率 67%", html)  # 客户乙 成本率66.7→67
         # 按销售的率先不显示（陆总0714）：销售卡无 rk-meta 率列
         sales_card = html.split('data-dim="sales"')[1]
         self.assertNotIn("系统成本率", sales_card)
-        self.assertIn("前5大占收入 <b>91%</b>", html)   # 集中度 90.9→91（.0f）·数字放大突出
-        self.assertIn('class="conc"', html)              # 集中度独立高亮块（放大）
+        self.assertIn("前5大占收入 <b>91%</b>", html)  # 集中度 90.9→91（.0f）·数字放大突出
+        self.assertIn('class="conc"', html)  # 集中度独立高亮块（放大）
         self.assertIn("客户乙", html)
-        self.assertNotIn("（未填）", html)         # 用户端排名卡隐藏「（未填）」行（4fd2729）；未填归类只在管理端异常处理，后端 unfilled 仍算（守恒）
-        self.assertNotIn("客户丙", html)           # 期外不出现
+        self.assertNotIn(
+            "（未填）", html
+        )  # 用户端排名卡隐藏「（未填）」行（4fd2729）；未填归类只在管理端异常处理，后端 unfilled 仍算（守恒）
+        self.assertNotIn("客户丙", html)  # 期外不出现
 
     def test_name_hover_and_expand_hooks(self):
         # 长名悬浮全名：data-tip（双层转义）+ title 兜底；「其余」可点开：pr-more + 维度/区间钩子
-        html = render.render_profit_rankings(self._period(top=1))   # top=1 → 造出「其余」行
-        self.assertIn("data-tip=", html)                 # 名称悬浮
-        self.assertIn('data-dim="customer"', html)       # 客户卡维度
-        self.assertIn('data-dim="sales"', html)          # 销售卡维度
+        html = render.render_profit_rankings(self._period(top=1))  # top=1 → 造出「其余」行
+        self.assertIn("data-tip=", html)  # 名称悬浮
+        self.assertIn('data-dim="customer"', html)  # 客户卡维度
+        self.assertIn('data-dim="sales"', html)  # 销售卡维度
         self.assertIn('class="grid-2e pr-grid"', html)
-        self.assertIn('data-start="2026-01-01"', html)   # 区间给弹窗取数用
-        self.assertIn("pr-more", html)                   # 「其余」可点
+        self.assertIn('data-start="2026-01-01"', html)  # 区间给弹窗取数用
+        self.assertIn("pr-more", html)  # 「其余」可点
         self.assertIn("点开看明细", html)
 
     def test_no_client_side_math(self):
@@ -136,9 +142,15 @@ class TestRenderProfitRankings(unittest.TestCase):
         self.assertNotIn("margin_pct", html)
 
     def test_empty_period_safe(self):
-        html = render.render_profit_rankings({"range": ("2026-01-01", "2026-12-31"), "profit_rankings": {
-            "revenue_by_customer": profit.compute_profit_ranking([], "客户", COLS, S, E, 0.06),
-            "revenue_by_sales": profit.compute_profit_ranking([], "销售", COLS, S, E, 0.06)}})
+        html = render.render_profit_rankings(
+            {
+                "range": ("2026-01-01", "2026-12-31"),
+                "profit_rankings": {
+                    "revenue_by_customer": profit.compute_profit_ranking([], "客户", COLS, S, E, 0.06),
+                    "revenue_by_sales": profit.compute_profit_ranking([], "销售", COLS, S, E, 0.06),
+                },
+            }
+        )
         self.assertIn("本期无数据", html)
 
 
@@ -149,12 +161,14 @@ def _seed_project(cfg, root):
         ("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060.0, 300.0),
         ("P2", "SO2", "客户甲", "线1", "销售A", "2026-04-10", 1060.0, 200.0),
         ("P3", "SO3", "客户乙", "线2", "销售B", "2026-05-10", 3180.0, 2000.0),
-        ("P4", "SO4", "",       "线2", "",       "2026-06-10", 530.0, 100.0),   # 未填
+        ("P4", "SO4", "", "线2", "", "2026-06-10", 530.0, 100.0),  # 未填
     ]
     for k, so, cu, ln, sal, d, rev, cost in rows:
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,销售,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)", (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]))
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)",
+            (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]),
+        )
     conn.commit()
     conn.close()
 
@@ -163,14 +177,15 @@ class TestProfitRankingEndpoint(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
+
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
         _seed_project(cls.cfg, cls.root)
         server._state["user_html"] = "<html>USER</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
-        cls.raw = TestClient(cls.app, follow_redirects=False)      # 未登录
-        cls.main = TestClient(cls.app, follow_redirects=False)     # 整体会话
+        cls.raw = TestClient(cls.app, follow_redirects=False)  # 未登录
+        cls.main = TestClient(cls.app, follow_redirects=False)  # 整体会话
         r = cls.main.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         assert r.status_code == 303, r.text
 
@@ -181,7 +196,7 @@ class TestProfitRankingEndpoint(unittest.TestCase):
 
     def test_requires_viewer_session(self):
         r = self.raw.get("/api/profit_ranking", params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"})
-        self.assertEqual(r.status_code, 401)     # 全公司口径出口，未登录挡
+        self.assertEqual(r.status_code, 401)  # 全公司口径出口，未登录挡
 
     def test_bad_dim_400(self):
         self.assertEqual(self._q(dim="bogus").status_code, 400)
@@ -195,13 +210,13 @@ class TestProfitRankingEndpoint(unittest.TestCase):
     def test_customer_full_list_and_disp(self):
         d = self._q(dim="customer").json()
         names = [it["name"] for it in d["items"]]
-        self.assertEqual(names[:2], ["客户乙", "客户甲"])     # 按收入降序
-        self.assertEqual(names[-1], "（未填）")               # 未填置底
+        self.assertEqual(names[:2], ["客户乙", "客户甲"])  # 按收入降序
+        self.assertEqual(names[-1], "（未填）")  # 未填置底
         self.assertTrue(d["items"][-1].get("unfilled"))
         it0 = d["items"][0]
-        self.assertIn("万", it0["revenue_disp"])              # 金额成串
-        self.assertIn("系统成本率", it0["margin_disp"])   # 陆总0714 改名
-        self.assertNotIn("revenue", it0)                      # 原始数值不下发（前端零运算）
+        self.assertIn("万", it0["revenue_disp"])  # 金额成串
+        self.assertIn("系统成本率", it0["margin_disp"])  # 陆总0714 改名
+        self.assertNotIn("revenue", it0)  # 原始数值不下发（前端零运算）
         self.assertNotIn("margin_pct", it0)
         self.assertNotIn("cost_pct", it0)
 

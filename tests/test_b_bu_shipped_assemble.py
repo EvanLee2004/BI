@@ -5,6 +5,7 @@
 
 覆盖：回款区、公共分摊 pl_tag、排名「其余」.rk-full / 收入 .pr-full（铁律12）。
 """
+
 from __future__ import annotations
 
 import json
@@ -23,9 +24,21 @@ RUNNER = ROOT / "static" / "js" / "assemble" / "page_node_runner.js"
 
 # 15 名销售 → 双血条 top10 后必有「其余」（golden 里均有交付）
 _SALES = [
-    "员工003", "员工001", "员工028", "员工015", "员工013",
-    "员工019", "员工023", "员工010", "员工024", "员工007",
-    "员工034", "员工030", "员工005", "员工038", "员工022",
+    "员工003",
+    "员工001",
+    "员工028",
+    "员工015",
+    "员工013",
+    "员工019",
+    "员工023",
+    "员工010",
+    "员工024",
+    "员工007",
+    "员工034",
+    "员工030",
+    "员工005",
+    "员工038",
+    "员工022",
 ]
 _BU = "传统营销"
 
@@ -84,11 +97,11 @@ class TestBuShippedAssemble(unittest.TestCase):
         yk = cls.views.get("year_key") or "2026年"
         rv = (cls.views.get("rankings_view") or {}).get(yk) or {}
         sales_blk = rv.get("sales") or {}
-        assert sales_blk.get("embed_full") and sales_blk.get("full_items"), (
-            "排名缺 embed_full/full_items（铁律12）")
+        assert sales_blk.get("embed_full") and sales_blk.get("full_items"), "排名缺 embed_full/full_items（铁律12）"
 
     def test_client_fragments_strip_bu_fields(self):
         import api_v1
+
         for f in api_v1._CLIENT_ASSEMBLE_FIELDS:
             if f in self.fr_client:
                 self.assertEqual(self.fr_client.get(f), "", f"client 须 strip {f}")
@@ -106,20 +119,18 @@ class TestBuShippedAssemble(unittest.TestCase):
             "fragments": self.fr_client,
             "views": self.views,
             "templates": {
-                "dashboard_body": (ROOT / "static/templates/render/bu_body.html").read_text(
-                    encoding="utf-8"),
-                "page_shell": (ROOT / "static/templates/render/page_shell.html").read_text(
-                    encoding="utf-8"),
+                "dashboard_body": (ROOT / "static/templates/render/bu_body.html").read_text(encoding="utf-8"),
+                "page_shell": (ROOT / "static/templates/render/page_shell.html").read_text(encoding="utf-8"),
             },
         }
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump(pack, f, ensure_ascii=False)
             path = f.name
-        r = subprocess.run(
-            ["node", str(RUNNER), path], capture_output=True, text=True, check=True)
+        r = subprocess.run(["node", str(RUNNER), path], capture_output=True, text=True, check=True)
         js_html = r.stdout
         self.assertEqual(
-            _norm(self.py_html), _norm(js_html),
+            _norm(self.py_html),
+            _norm(js_html),
             f"BU node assemble ≠ Python html; len py={len(self.py_html)} js={len(js_html)}",
         )
 
@@ -129,17 +140,14 @@ class TestBuShippedAssemble(unittest.TestCase):
             "fragments": self.fr_client,
             "views": self.views,
             "templates": {
-                "dashboard_body": (ROOT / "static/templates/render/bu_body.html").read_text(
-                    encoding="utf-8"),
-                "page_shell": (ROOT / "static/templates/render/page_shell.html").read_text(
-                    encoding="utf-8"),
+                "dashboard_body": (ROOT / "static/templates/render/bu_body.html").read_text(encoding="utf-8"),
+                "page_shell": (ROOT / "static/templates/render/page_shell.html").read_text(encoding="utf-8"),
             },
         }
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
             json.dump(pack, f, ensure_ascii=False)
             path = f.name
-        r = subprocess.run(
-            ["node", str(RUNNER), path], capture_output=True, text=True, check=True)
+        r = subprocess.run(["node", str(RUNNER), path], capture_output=True, text=True, check=True)
         html = r.stdout
         for m in ("含公共分摊", "rk-full", "pr-full", "dual-grid", "管理利润表", "下单/回款"):
             self.assertIn(m, html, m)

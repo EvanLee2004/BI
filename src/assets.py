@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """logo 读成 base64 内嵌，保持 HTML 自包含、可单独发送。"""
+
 from __future__ import annotations
 
 import base64

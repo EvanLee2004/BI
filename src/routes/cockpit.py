@@ -1,4 +1,5 @@
 """看端 fragments / cockpit JSON — 从 server.create_app 纯搬家。"""
+
 from __future__ import annotations
 
 import re
@@ -47,12 +48,17 @@ def register(app, d):
     _diff_accounts = d.diff_accounts
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
+
     def start_refresh_async(cfg, root=None, trigger="manual"):
         import server as _srv
+
         return _srv.start_refresh_async(cfg, root, trigger)
+
     def recompute(cfg, root=None):
         import server as _srv
+
         return _srv.recompute(cfg, root)
+
     get_schedule_times = d.get_schedule_times
     normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
@@ -111,11 +117,8 @@ def register(app, d):
             parts.append(_HIDE_PW_STYLE)
         names = list(_state.get("bu_pages", {}))
         if names:
-            links = "".join(
-                _BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n))
-                for n in names)
-            parts.append(_BU_NAV_TPL.format(
-                aria_label="BU 分页", label="业务 BU 分页", links=links))
+            links = "".join(_BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n)) for n in names)
+            parts.append(_BU_NAV_TPL.format(aria_label="BU 分页", label="业务 BU 分页", links=links))
         return "".join(parts)
 
     def _bu_chrome_prefix(name: str, request: Request) -> str:
@@ -166,14 +169,16 @@ def register(app, d):
                 else:
                     views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         hide_pw = bool(_user(request))
-        return JSONResponse({
-            "api_version": "v1",
-            "mode": "fragments",
-            "fragments": fr,
-            "views": views,
-            "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
-            "data_assembled": "1",
-        })
+        return JSONResponse(
+            {
+                "api_version": "v1",
+                "mode": "fragments",
+                "fragments": fr,
+                "views": views,
+                "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
+                "data_assembled": "1",
+            }
+        )
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
     def api_v1_cockpit_bu_fragments(name: str, request: Request):
@@ -215,15 +220,15 @@ def register(app, d):
                     views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
         if not views:
             views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
-        return JSONResponse({
-            "api_version": "v1",
-            "mode": "fragments",
-            "scope": "BU",
-            "bu_name": name,
-            "fragments": fr,
-            "views": views,
-            "chrome_prefix": _bu_chrome_prefix(name, request),
-            "data_assembled": "1",
-        })
-
-
+        return JSONResponse(
+            {
+                "api_version": "v1",
+                "mode": "fragments",
+                "scope": "BU",
+                "bu_name": name,
+                "fragments": fr,
+                "views": views,
+                "chrome_prefix": _bu_chrome_prefix(name, request),
+                "data_assembled": "1",
+            }
+        )

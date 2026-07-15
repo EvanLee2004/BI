@@ -11,6 +11,7 @@
 
 金额天天变故定位键用稳定自然键（不含金额），重放才贴得回去——见 04_设计变更_定位键策略。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -69,8 +70,7 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
         if 目标表 not in schema.STD_TABLE_NAMES:
             skipped += 1
             continue
-        match_rows = conn.execute(
-            f"SELECT id FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchall()
+        match_rows = conn.execute(f"SELECT id FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchall()
         if not match_rows:
             missing += 1  # 定位键在本次抓取里不存在（源头删了/键变了）——不动，留调整待人工看
             continue
@@ -90,8 +90,7 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             skipped += 1
             continue
         # 现值取第一条匹配行（重放当刻=原始值）
-        current = conn.execute(
-            f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
+        current = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
         if not _values_match(current, 原值):
             conn.execute("UPDATE adj_调整记录 SET 状态='过期疑似' WHERE id=?", (aid,))
             expired += 1
@@ -105,10 +104,10 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             conn.execute(f"UPDATE {目标表} SET 归属月=? WHERE 定位键=? AND 已删除=0", (ym, 定位键))
         elif 目标表 == "std_费用明细" and 字段 in _LEDGER_DATE_FIELDS:
             d, m = conn.execute(
-                "SELECT 收单日期,收单月份 FROM std_费用明细 WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
+                "SELECT 收单日期,收单月份 FROM std_费用明细 WHERE 定位键=? AND 已删除=0", (定位键,)
+            ).fetchone()
             ym = _ledger_ym(d, m, int(now[:4]))  # 账年=本轮更新年（与 build_std_db 的 ledger_year 一致）
             conn.execute("UPDATE std_费用明细 SET 归属月=? WHERE 定位键=? AND 已删除=0", (ym, 定位键))
         applied += 1
     conn.commit()
-    return {"applied": applied, "expired": expired, "removed": removed,
-            "skipped": skipped, "missing": missing}
+    return {"applied": applied, "expired": expired, "removed": removed, "skipped": skipped, "missing": missing}

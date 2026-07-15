@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """经营驾驶舱回归测试：口径对账 + 手填默认上月 + 前端不做金额运算守卫。跑：python tests/test_cockpit.py"""
+
 import datetime
 import sys
 import unittest
@@ -18,23 +19,44 @@ def _summary():
     yr = today.year
     lh, lr = loaders.load_ledger(cfg, str(yr))
     S = profit.build_summary(
-        cfg, loaders.load_project_detail(cfg), loaders.load_orders(cfg),
-        loaders.load_receipts(cfg), loaders.load_inhouse(cfg), lh, lr, yr, today)
+        cfg,
+        loaders.load_project_detail(cfg),
+        loaders.load_orders(cfg),
+        loaders.load_receipts(cfg),
+        loaders.load_inhouse(cfg),
+        lh,
+        lr,
+        yr,
+        today,
+    )
     return cfg, S
 
 
 class TestReconcile(unittest.TestCase):
     """每个周期都要满足陆总的公式（对账，防口径漂移）。"""
+
     def test_all_periods_reconcile(self):
         cfg, S = _summary()
-        vat = cfg["tax"]["vat_rate"]; sur = cfg["tax"]["surtax_rate"]
+        vat = cfg["tax"]["vat_rate"]
+        sur = cfg["tax"]["surtax_rate"]
         for key, p in S["periods"].items():
-            man = p["manual"]; led = p["ledger_expenses"]
-            prod_manual = sum(man[k] for k in ["PM人力成本", "VM人力成本", "实际内部译员成本",
-                                               "税费损失", "技术流量成本", "其他（生产成本）"])
+            man = p["manual"]
+            led = p["ledger_expenses"]
+            prod_manual = sum(
+                man[k]
+                for k in [
+                    "PM人力成本",
+                    "VM人力成本",
+                    "实际内部译员成本",
+                    "税费损失",
+                    "技术流量成本",
+                    "其他（生产成本）",
+                ]
+            )
             # 生产成本 = 系统直接成本 − 内部译员成本 + 手填生产成本项
-            self.assertAlmostEqual(p["production_cost"],
-                                   p["system_direct_cost"] - p["inhouse_cost"] + prod_manual, places=1, msg=key)
+            self.assertAlmostEqual(
+                p["production_cost"], p["system_direct_cost"] - p["inhouse_cost"] + prod_manual, places=1, msg=key
+            )
             # 毛利
             self.assertAlmostEqual(p["gross_profit"], p["revenue_net"] - p["production_cost"], places=1, msg=key)
             # 财务费用 = 台账 + 手填补充
@@ -47,19 +69,23 @@ class TestReconcile(unittest.TestCase):
             # 税前利润 = 毛利 − 期间费用 − 附加税费 + 其他损益
             self.assertAlmostEqual(
                 p["pretax_profit"],
-                p["gross_profit"] - p["expense"]["total"] - p["surtax"] + p["other_pl"], places=1, msg=key)
+                p["gross_profit"] - p["expense"]["total"] - p["surtax"] + p["other_pl"],
+                places=1,
+                msg=key,
+            )
 
 
 class TestManualDefault(unittest.TestCase):
     """手填：现行 default=zero，当月未填=0（不再沿用上月）。"""
+
     def test_no_carry_forward(self):
         cfg = loaders.load_config()
         raw = {"2024-06": {"研发人力成本": 150000, "其他损益": 5000}}  # 7月都没填
         filled = profit.build_manual_monthly(cfg, raw, 2024, 7)
-        self.assertEqual(filled[(2024, 7)]["研发人力成本"], 0.0)     # zero → 不继承
+        self.assertEqual(filled[(2024, 7)]["研发人力成本"], 0.0)  # zero → 不继承
         self.assertEqual(filled[(2024, 7)]["其他损益"], 0.0)
         self.assertEqual(filled[(2024, 6)]["研发人力成本"], 150000)  # 有填的月保留
-        self.assertEqual(filled[(2024, 6)]["营销人力成本"], 0.0)     # 从没填过 → 0
+        self.assertEqual(filled[(2024, 6)]["营销人力成本"], 0.0)  # 从没填过 → 0
         # 兼容：显式 default=prev 仍可沿用
         cfg2 = {"manual_items": [{"name": "X", "default": "prev"}, {"name": "Y", "default": "zero"}]}
         f2 = profit.build_manual_monthly(cfg2, {"2024-06": {"X": 10}}, 2024, 7)
@@ -69,17 +95,19 @@ class TestManualDefault(unittest.TestCase):
 
 class TestValueGuards(unittest.TestCase):
     """坏值防线：文本金额不崩、坏日期计数、表头重名报错、手填月份列名不补零也能读。"""
+
     LEDGER_HEADER = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型"]
 
     def test_ledger_text_amount_and_bad_date(self):
         cfg = loaders.load_config()
         lcols = columns.resolve_ledger_columns(self.LEDGER_HEADER)
         rows = [
-            (7, None, "1,000.50", "公共", "管理费用", "差旅费"),   # 文本金额带千分位：以前直接崩
-            ("7月", None, 200, "公共", "管理费用", "差旅费"),      # 收单月份"7月"解析不出：行被剔除但必须计数
+            (7, None, "1,000.50", "公共", "管理费用", "差旅费"),  # 文本金额带千分位：以前直接崩
+            ("7月", None, 200, "公共", "管理费用", "差旅费"),  # 收单月份"7月"解析不出：行被剔除但必须计数
         ]
         led, _ = profit.compute_ledger_expenses(
-            rows, 2024, datetime.date(2024, 7, 1), datetime.date(2024, 7, 31), cfg, lcols)
+            rows, 2024, datetime.date(2024, 7, 1), datetime.date(2024, 7, 31), cfg, lcols
+        )
         self.assertAlmostEqual(led["管理费用"], 1000.50)
         date_bad, amt_bad = profit._scan_ledger_issues(rows, 2024, lcols)
         self.assertEqual(date_bad, 1)
@@ -94,11 +122,12 @@ class TestValueGuards(unittest.TestCase):
     def test_manual_month_header_no_padding(self):
         import tempfile
         import openpyxl
+
         with tempfile.TemporaryDirectory() as td:
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "手填与调整"
-            ws.append(["项目", "归属", "备注", "2024-7"])   # 手打不补零
+            ws.append(["项目", "归属", "备注", "2024-7"])  # 手打不补零
             ws.append(["研发人力成本", "x", "", 123])
             d = Path(td) / "d"
             d.mkdir()
@@ -119,6 +148,7 @@ class TestValidate(unittest.TestCase):
         import shutil
         import tempfile
         import openpyxl
+
         cfg = loaders.load_config()
         year = loaders.pinned_today(cfg).year
         with tempfile.TemporaryDirectory() as td:
@@ -130,10 +160,10 @@ class TestValidate(unittest.TestCase):
             ws = wb[str(year)]
             hdr = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
             c_cat, c_m, c_d, c_amt = (hdr.index(x) + 1 for x in ("对应报表大类", "收单月份", "收单日期", "含税金额"))
-            ws.cell(row=3, column=c_cat, value="管理费")            # 口径外类别
-            ws.cell(row=4, column=c_m, value="7月")                 # 月份解析不出
-            ws.cell(row=4, column=c_d).value = None                 # 注意:cell(...,value=None)不会清空,要显式赋值
-            ws.cell(row=5, column=c_amt, value="abc")               # 非数字金额
+            ws.cell(row=3, column=c_cat, value="管理费")  # 口径外类别
+            ws.cell(row=4, column=c_m, value="7月")  # 月份解析不出
+            ws.cell(row=4, column=c_d).value = None  # 注意:cell(...,value=None)不会清空,要显式赋值
+            ws.cell(row=5, column=c_amt, value="abc")  # 非数字金额
             wb.save(p)
             # ② 项目明细：交付日期坏值
             p = root / "数据" / "项目明细.xlsx"
@@ -146,14 +176,15 @@ class TestValidate(unittest.TestCase):
             msgs = "\n".join(f"[{i.source}]{i.message}" for i in rep.errors)
             self.assertIn("管理费", msgs)
             self.assertIn("第3行", msgs)
-            self.assertIn("第4行", msgs)                     # 收单月份坏行
-            self.assertIn("第5行", msgs)                     # 金额坏行
+            self.assertIn("第4行", msgs)  # 收单月份坏行
+            self.assertIn("第5行", msgs)  # 金额坏行
             self.assertIn("[项目明细(智云)]", msgs)
             self.assertIn("第6行", msgs)
 
 
 class TestReceiptOrderRatio(unittest.TestCase):
     """A2 回款/下单比：每期 = 回款÷下单×100（无下单置 None）；逐月序列与月周期对齐。"""
+
     def test_period_ratio_matches_formula(self):
         _, S = _summary()
         for key, p in S["periods"].items():
@@ -177,6 +208,7 @@ class TestReceiptOrderRatio(unittest.TestCase):
 
 class TestRenderGuards(unittest.TestCase):
     """前端守卫：自包含 + 不做金额运算 + 含关键结构。"""
+
     @classmethod
     def setUpClass(cls):
         cfg, S = _summary()
@@ -187,6 +219,7 @@ class TestRenderGuards(unittest.TestCase):
         for bad in ("toFixed(", "parseFloat(", "parseInt("):
             self.assertNotIn(bad, self.html, f"前端出现金额运算 {bad}，违反'客户端不算数'铁律")
         from pathlib import Path
+
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         # 允许 parseInt 仅出现在周期 key 展示类逻辑时仍禁止金额运算关键字组合；这里继续禁 toFixed/parseFloat
         for bad in ("toFixed(", "parseFloat("):
@@ -200,13 +233,24 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn('src="/static/js/cockpit.js"', self.html)
 
     def test_structure(self):
-        for token in ("基本情况", "经营利润", "管理利润表", "税前利润", "附加税费",
-                      "回款情况", "themeBtn", "kpi-grid", "甲骨易智能经营", "罗盘"):
+        for token in (
+            "基本情况",
+            "经营利润",
+            "管理利润表",
+            "税前利润",
+            "附加税费",
+            "回款情况",
+            "themeBtn",
+            "kpi-grid",
+            "甲骨易智能经营",
+            "罗盘",
+        ):
             self.assertIn(token, self.html, token)
 
     def test_dark_default(self):
         # v1.4：暗色变量唯一入口 theme.get_css() → static/css/theme.css
         import theme
+
         css = theme.get_css()
         self.assertIn(":root{", css)
         self.assertIn(".theme-light{", css)
@@ -219,7 +263,7 @@ class TestRenderGuards(unittest.TestCase):
         self.assertIn("交付金额", self.html)
         self.assertIn("交付收入", self.html)
         self.assertIn("÷ 1.06", self.html)
-        self.assertIn("系统成本率", self.html)   # 陆总0714 改名
+        self.assertIn("系统成本率", self.html)  # 陆总0714 改名
 
     def test_receipt_month_highlight_hooks(self):
         """迭代21-A：回款柱带 data-rm、周期→月份映射 data-rm-map；看端卡头已精简。"""
@@ -233,6 +277,7 @@ class TestRenderGuards(unittest.TestCase):
         # 映射含年/月/季 key 形样（Python 预生成，前端不解析）；高亮逻辑在 static/js
         from pathlib import Path
         import theme
+
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("_syncRmHighlight", js)
         # 前端零金额：高亮只读写 class / 读 data 属性（class 名在 CSS，唯一入口 get_css）
@@ -254,8 +299,8 @@ class TestRenderGuards(unittest.TestCase):
         # 趋势图柱组带 data-rm
         from pathlib import Path
         import charts
-        svg = charts.combo_bar_line_chart(
-            [("1月", 100.0, 40.0, 60.0), ("2月", 80.0, 30.0, 62.5)], None)
+
+        svg = charts.combo_bar_line_chart([("1月", 100.0, 40.0, 60.0), ("2月", 80.0, 30.0, 62.5)], None)
         self.assertIn('data-rm="1"', svg)
         self.assertIn('data-rm="2"', svg)
         # 收入柱 + 成本柱 + 毛利率点均带标识
@@ -284,6 +329,7 @@ class TestUnclassifiedPeriodTip(unittest.TestCase):
 
 class TestReceiptsBudgetLayout(unittest.TestCase):
     """迭代19：陆总拍板去掉部门费用年预算卡；回款整宽，页面不再出现该卡。"""
+
     GRID = '<div class="grid-2e rb-grid" style="margin-top:16px"><div class="period-receipts">'
     FULL = '<div class="period-receipts" style="margin-top:16px">'
 
@@ -314,6 +360,7 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
     def test_receipt_split_symmetric_half_half(self):
         """v1.0.4：回款卡左图/右驾驶舱各占一半（明昊拍板），右栏不再压 280px。"""
         import theme
+
         css = theme.get_css()
         self.assertIn(".rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
         self.assertNotIn("minmax(200px,280px)", css)
@@ -322,12 +369,14 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
     def test_receipt_body_column_layout(self):
         """迭代20-A1：图例必须在图下方（rc-body 纵向列），不得与 SVG 左右并排。"""
         import theme
+
         css = theme.get_css()
         self.assertIn("flex-direction:column", css.split(".rc-card .rc-body{")[1].split("}")[0])
 
     def test_note_texts_enlarged(self):
         """v1.0.4：口径/公式小字统一放大提亮（--note 色，chart-note/pr-formula >=13px）。"""
         import theme
+
         css = theme.get_css()
         self.assertIn("--note:", css)
         self.assertIn(".chart-note{font-size:13.5px;color:var(--note)", css)
@@ -339,14 +388,16 @@ class TestRankingsAndRanges(unittest.TestCase):
     """板块③排名（下单按部门/销售、回款按客户）+ 自定义月区间周期。"""
 
     def test_compute_ranking_sorted_top_others(self):
-        rows = ([{"名": "甲", "额": 100, "日": "2026-03-05"}] * 2
-                + [{"名": "乙", "额": 350, "日": "2026-03-08"}]
-                + [{"名": "", "额": 50, "日": "2026-03-09"}]        # 空名归（未填）
-                + [{"名": "丙", "额": 999, "日": "2026-07-01"}])     # 期外不计
+        rows = (
+            [{"名": "甲", "额": 100, "日": "2026-03-05"}] * 2
+            + [{"名": "乙", "额": 350, "日": "2026-03-08"}]
+            + [{"名": "", "额": 50, "日": "2026-03-09"}]  # 空名归（未填）
+            + [{"名": "丙", "额": 999, "日": "2026-07-01"}]
+        )  # 期外不计
         import datetime as dt
-        rk = profit.compute_ranking(rows, "名", "额", "日",
-                                    dt.date(2026, 3, 1), dt.date(2026, 3, 31), top=2)
-        self.assertEqual([i["name"] for i in rk["items"]], ["乙", "甲"])   # 降序
+
+        rk = profit.compute_ranking(rows, "名", "额", "日", dt.date(2026, 3, 1), dt.date(2026, 3, 31), top=2)
+        self.assertEqual([i["name"] for i in rk["items"]], ["乙", "甲"])  # 降序
         self.assertEqual(rk["items"][1], {"name": "甲", "amount": 200.0, "count": 2})
         # v7.4：（未填）不再进排名/其余，单拆 unfilled 置底展示（total 仍含它=守恒）
         self.assertIsNone(rk["others"])
@@ -355,21 +406,21 @@ class TestRankingsAndRanges(unittest.TestCase):
 
     def test_period_ranges_include_month_spans(self):
         import datetime as dt, periods
+
         r = periods.all_period_ranges(dt.date(2026, 7, 15))
         self.assertIn("2026年1-3月", r)
         label, start, end, group = r["2026年1-3月"]
         self.assertEqual((label, group), ("2026年1~3月", "区间"))
         self.assertEqual((start, end), (dt.date(2026, 1, 1), dt.date(2026, 3, 31)))
-        self.assertNotIn("2026年3-1月", r)                # 只生成 m1<m2
-        self.assertNotIn("2026年7-8月", r)                # 未来月不生成
+        self.assertNotIn("2026年3-1月", r)  # 只生成 m1<m2
+        self.assertNotIn("2026年7-8月", r)  # 未来月不生成
         # 组合数 = C(7,2)=21
         self.assertEqual(len([k for k in r if r[k][3] == "区间"]), 21)
 
     def test_rendered_rankings_and_picker(self):
         cfg, S = _summary()
         html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
-        for token in ("下单与回款", "下单/回款 · 按销售", "下单/回款 · 按客户",
-                      "periodBtn", "ppanel", "pp-grid"):
+        for token in ("下单与回款", "下单/回款 · 按销售", "下单/回款 · 按客户", "periodBtn", "ppanel", "pp-grid"):
             self.assertIn(token, html, token)
         # 迭代20-A2：回款情况卡并入板块④「下单与回款」（在③收入与毛利结构之后）
         self.assertLess(html.index("收入与毛利结构"), html.index('class="period-receipts"'))
@@ -382,9 +433,11 @@ class TestRankingsAndRanges(unittest.TestCase):
         k12, k1, k2 = f"{yr}年1-2月", f"{yr}年1月", f"{yr}年2月"
         P = S["periods"]
         if k12 in P:
-            self.assertAlmostEqual(P[k12]["rankings"]["orders_by_sales"]["total"],
-                                   round(P[k1]["rankings"]["orders_by_sales"]["total"]
-                                         + P[k2]["rankings"]["orders_by_sales"]["total"], 2), places=1)
+            self.assertAlmostEqual(
+                P[k12]["rankings"]["orders_by_sales"]["total"],
+                round(P[k1]["rankings"]["orders_by_sales"]["total"] + P[k2]["rankings"]["orders_by_sales"]["total"], 2),
+                places=1,
+            )
 
 
 if __name__ == "__main__":
