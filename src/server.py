@@ -43,17 +43,14 @@ from app_state import (  # noqa: F401  # 测试/外部可读 server._state
     _state, _LOCK, _EXPORT_LOCK,
 )
 
-# 已登录整体页是否走 shell.html。测试写 server.SERVE_SHELL=False（support 入口）。
-SERVE_SHELL: bool = True
+# B-P5：已登录整体/BU 页固定 static shell + fragments（无 SERVE_SHELL 化石开关）。
+# 测试断言 HTML 内容请用 _state["user_html"] / page["html"] / fragments 组装，勿依赖 / 直出 SSR。
 
 # 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
 # 模板缓存于模块载入（tpl.load 一次）；内容与迁前逐字节一致
 _HIDE_PW_STYLE = tpl.load("partials/hide_pw_style.html")
 _WRAP_OPEN = tpl.load("partials/wrap_open.html")
 _EMPTY_DATA_HTML = tpl.load("partials/empty_data.html")
-_LOGIN_HTML = tpl.load("login.html")
-_VIEW_LOGIN_HTML = tpl.load("view_login.html")
-_LOGIN_ERR_TPL = tpl.load("partials/login_err.html")
 _BU_NAV_TPL = tpl.load("partials/bu_nav.html")
 _BU_NAV_LINK_TPL = tpl.load("partials/bu_nav_link.html")
 # 兼容旧测试/文档引用（v8.0 起管理员口令在 看板账号.json，不再走密钥哈希）
@@ -521,17 +518,16 @@ def _run_reasons(report: dict) -> list[str]:
     return reasons
 
 
-def _login_page(err: str = "", account: str = "") -> str:
-    err_html = _LOGIN_ERR_TPL.format(err=err) if err else ""
-    acct = str(account or DEFAULT_ADMIN_ACCOUNT).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
-    return _LOGIN_HTML.format(err=err_html, account=acct)
+def _view_login_file():
+    """看板登录：纯 static（B-P4 增补；错误由前端按 API 渲染）。"""
+    p = STATIC_DIR / "view_login.html"
+    return FileResponse(p, media_type="text/html; charset=utf-8")
 
 
-def _view_login_page(err: str = "", account: str = "") -> str:
-    err_html = _LOGIN_ERR_TPL.format(err=err) if err else ""
-    acct = str(account).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
-    return _VIEW_LOGIN_HTML.format(err=err_html, account=acct)
-
+def _admin_login_file():
+    """管理端登录：纯 static。"""
+    p = STATIC_DIR / "admin_login.html"
+    return FileResponse(p, media_type="text/html; charset=utf-8")
 
 
 # ---------------- FastAPI 应用 ----------------
@@ -620,38 +616,41 @@ def create_app(cfg, root=None) -> FastAPI:
                         httponly=True, samesite="lax")
         return resp
 
-    def _use_fetch_shell() -> bool:
-        """已登录整体页是否走 shell.html（模块级 SERVE_SHELL 控制；测试引导入口置 False）。"""
-        return SERVE_SHELL and (STATIC_DIR / "shell.html").is_file()
+    def _main_shell():
+        """整体页固定 shell → fragments（B-P5 无 SSR 回退开关）。"""
+        p = STATIC_DIR / "shell.html"
+        if not p.is_file():
+            return HTMLResponse(_EMPTY_DATA_HTML, status_code=503)
+        return FileResponse(p, media_type="text/html; charset=utf-8")
 
-    def _shell_or_html(html: str):
-        if _use_fetch_shell() and html:
-            return FileResponse(STATIC_DIR / "shell.html", media_type="text/html; charset=utf-8")
-        return HTMLResponse(html or _EMPTY_DATA_HTML)
+    def _bu_shell():
+        p = STATIC_DIR / "shell-bu.html"
+        if not p.is_file():
+            return HTMLResponse(_EMPTY_DATA_HTML, status_code=503)
+        return FileResponse(p, media_type="text/html; charset=utf-8")
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
-        """看板统一入口（v8.0 / v1.4 shell）：
-        管理员会话 → 整体页；整体权限 → 整体页（带 BU 入口条）；BU 权限 → 本 BU 页；
-        未登录 → 登录页。v1.4 已登录走 static/shell.html → fetch 像素级 HTML。"""
+        """看板统一入口：未登录 → static 登录；已登录 → shell/shell-bu（fragments 组装）。"""
         if _user(request):
-            return _shell_or_html(_main_with_nav(hide_pw=True) or "")
+            return _main_shell()
         acc = _vacc_row(request)
         if acc:
             if accounts.is_main(acc):
-                return _shell_or_html(_main_with_nav() or "")
-            names = accounts.bu_names_of(acc)  # 多 BU：绑定名单（旧单 BU 账号=[该名]）
+                return _main_shell()
+            names = accounts.bu_names_of(acc)
             if names:
                 existing = [n for n in names if n in _state.get("bu_pages", {})]
                 if not existing:
-                    return HTMLResponse(_view_login_page(
-                        "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"))
-                # BU 账号：仍直接出 BU HTML（隔离铁律；壳只服务整体页 API）
-                return HTMLResponse(_bu_view_html(existing[0], names))
-            # 管理员账号误走查看 cookie：引导去 /admin
+                    return RedirectResponse(
+                        "/login?msg=" + __import__("urllib.parse").parse.quote(
+                            "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"),
+                        status_code=303)
+                # BU 账号：壳 + 本 BU fragments（隔离由 fragments API 保证）
+                return RedirectResponse(f"/bu/{existing[0]}", status_code=303)
             if accounts.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
-        return HTMLResponse(_view_login_page())
+        return _view_login_file()
 
     def _main_with_nav(hide_pw: bool = False) -> str:
         """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
@@ -679,34 +678,37 @@ def create_app(cfg, root=None) -> FastAPI:
             html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
         return html
 
+    @app.get("/login", response_class=HTMLResponse)
+    def viewer_login_page():
+        """看板登录 static 页（B-P4）。"""
+        return _view_login_file()
+
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):
-        """账号+密码登录，按权限分流：管理员→/admin；整体→/；BU→/。
-        账号不存在与密码错同一文案。"""
+        """兼容旧 form POST：成功重定向；失败回登录 static（错误见 query，前端也可走 /api/v1/login）。"""
         account = account.strip()
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
-            return HTMLResponse(_view_login_page("账号或密码不正确", account), status_code=401)
+            return RedirectResponse("/login?msg=" + __import__("urllib.parse").parse.quote(
+                "账号或密码不正确"), status_code=303)
         accounts.mark_login(cfg, root, account)
         if accounts.is_admin(acc):
             return _set_acookie(RedirectResponse("/admin", status_code=303), account)
-        return _set_vcookie(RedirectResponse("/", status_code=303), account)
+        if accounts.is_main(acc):
+            return _set_vcookie(RedirectResponse("/", status_code=303), account)
+        names = accounts.bu_names_of(acc)
+        redir = f"/bu/{names[0]}" if names else "/"
+        return _set_vcookie(RedirectResponse(redir, status_code=303), account)
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：本 BU 权限账号（含多 BU 绑定）/ 整体账号 / 管理员可看；未登录出登录页；不存在 404。"""
+        """BU 页：shell-bu → fragments 组装（与整体页同一 page.js）。未登录 → 登录 static。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
         if not _can_view_bu(request, name):
-            return HTMLResponse(_view_login_page())
-        if _user(request):  # 管理员看 BU 页也隐藏「🔑密码」自改入口（与整体页一致）
-            return HTMLResponse(page["html"].replace(
-                _WRAP_OPEN, _HIDE_PW_STYLE + _WRAP_OPEN, 1))
-        # 多 BU 账号：注入「我的 BU」切换条（只列其绑定的 BU）；整体账号 bu_names_of=[] 不注入
-        vacc = _vacc_row(request)
-        my = accounts.bu_names_of(vacc)
-        return HTMLResponse(_bu_view_html(name, my))
+            return _view_login_file()
+        return _bu_shell()
 
     # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
     @app.get("/api/v1/session")
@@ -778,11 +780,10 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
         return api_v1.cockpit_payload(summary, scope="BU", bu_name=name)
 
-    # B-P5：真删旧路径 GET /api/v1/cockpit/view（整页 SSR HTML）。
-    # 整体页仅 shell → fragments → page.js；回退靠 git。user_html 仍缓存供导出/测试 SERVE_SHELL=False。
+    # B-P5：真删 /api/v1/cockpit/view 与 SERVE_SHELL 直出。user_html 仅缓存供导出 PNG。
 
     def _main_chrome_prefix(hide_pw: bool = False) -> str:
-        """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前，与 _main_with_nav 同源。"""
+        """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前。"""
         from urllib.parse import quote
 
         def _esc(s):
@@ -800,18 +801,29 @@ def create_app(cfg, root=None) -> FastAPI:
                 aria_label="BU 分页", label="业务 BU 分页", links=links))
         return "".join(parts)
 
+    def _bu_chrome_prefix(name: str, request: Request) -> str:
+        """BU 页 chrome：管理员隐藏改密 + 多 BU 切换条。"""
+        parts = []
+        if _user(request):
+            parts.append(_HIDE_PW_STYLE)
+        vacc = _vacc_row(request)
+        my = accounts.bu_names_of(vacc) if vacc else []
+        if my:
+            parts.append(_bu_switcher_html(my, name))
+        return "".join(parts)
+
     @app.get("/api/v1/cockpit/fragments")
     def api_v1_cockpit_fragments(request: Request):
-        """B：渲染就绪碎片 JSON（shell 组装用）。与 /api/v1/cockpit 同鉴权（整体/管理员）。"""
+        """B：整体页渲染就绪碎片（shell 组装）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_main(request) and not _user(request):
             raise HTTPException(status_code=403, detail="无权限")
-        summary = _state.get("summary")
-        if not summary:
-            raise HTTPException(status_code=503, detail="数据尚未生成")
         fr = _state.get("fragments")
         if not fr:
+            summary = _state.get("summary")
+            if not summary:
+                raise HTTPException(status_code=503, detail="数据尚未生成")
             logo = ""
             try:
                 logo = assets.load_logo_base64(cfg) or ""
@@ -825,6 +837,37 @@ def create_app(cfg, root=None) -> FastAPI:
             "mode": "fragments",
             "fragments": fr,
             "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
+            "data_assembled": "1",
+        })
+
+    @app.get("/api/v1/cockpit/bu/{name}/fragments")
+    def api_v1_cockpit_bu_fragments(name: str, request: Request):
+        """B-P4：BU 页碎片（shell-bu + page.js；鉴权与 JSON bu 同源）。"""
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=403, detail="无权查看该 BU")
+        page = (_state.get("bu_pages") or {}).get(name)
+        if not page:
+            raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+        fr = page.get("fragments")
+        if not fr:
+            summary = page.get("summary")
+            if not summary:
+                raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
+            logo = ""
+            try:
+                logo = assets.load_logo_base64(cfg) or ""
+            except Exception:
+                logo = ""
+            fr = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
+        return JSONResponse({
+            "api_version": "v1",
+            "mode": "fragments",
+            "scope": "BU",
+            "bu_name": name,
+            "fragments": fr,
+            "chrome_prefix": _bu_chrome_prefix(name, request),
             "data_assembled": "1",
         })
 
@@ -878,7 +921,7 @@ def create_app(cfg, root=None) -> FastAPI:
             if not _state.get("admin_html"):
                 return HTMLResponse(_bootstrap_page())
             return HTMLResponse(_admin_static_html())
-        return HTMLResponse(_login_page())
+        return _admin_login_file()
 
     @app.get("/admin/app.js")
     def admin_app_js(request: Request):
@@ -899,7 +942,9 @@ def create_app(cfg, root=None) -> FastAPI:
         account = (account or identity or "").strip()
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc or not accounts.is_admin(acc):
-            return HTMLResponse(_login_page("账号或密码不正确", account), status_code=401)
+            return RedirectResponse(
+                "/admin?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"),
+                status_code=303)
         accounts.mark_login(cfg, root, account)
         return _set_acookie(RedirectResponse("/admin", status_code=303), account)
 

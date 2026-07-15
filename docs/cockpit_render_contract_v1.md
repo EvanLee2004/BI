@@ -49,7 +49,7 @@
 | render/dual_*.html | fragments.rank_views / rankings_view |
 | render/period_*.html | fragments.period_bar |
 | partials/* | chrome_prefix / shell chrome |
-| login.html / view_login.html | 登录（服务端） |
+| static/view_login.html · admin_login.html | 登录 static + `/api/v1/login`（B-P4；错误前端渲染） |
 | charts/* | chart fragments 嵌在 trend/donut |
 
 ## 验收

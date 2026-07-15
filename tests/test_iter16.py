@@ -166,6 +166,8 @@ class TestUnassignedHint(_Base):
         core.attach_unassigned(self.cfg, conn, TODAY, s, self.root)
         server._state["summary"] = s
         server._state["user_html"] = "<html><div class=\"wrap\">MAIN</div></html>"
+        import render as _render
+        server._state["fragments"] = _render.build_dashboard_fragments(s, self.cfg, "")
         server._state["bu_pages"] = core.build_bu_pages(self.cfg, conn, TODAY, "", self.root)
         conn.close()
         app = server.create_app(self.cfg, root=self.root)
@@ -173,18 +175,26 @@ class TestUnassignedHint(_Base):
         r = client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
         main = client.get("/", headers=hdr).text
+        # shell 不含业务文案；看 chrome/fragments
+        self.assertIn("加载驾驶舱", main)
+        fr = client.get("/api/v1/cockpit/fragments", headers=hdr).json()
+        chrome = fr.get("chrome_prefix") or ""
+        body = fr["fragments"].get("kpi_views") or ""
         # 看端整体页：不展示未归属提示（只留 BU 分页入口；配置仍走管理端）
-        self.assertNotIn("未归属 BU 的业务", main)
-        self.assertNotIn("名销售待配置归属", main)
-        self.assertNotIn("bu-unassigned", main)
-        self.assertIn("业务 BU 分页", main)
+        self.assertNotIn("未归属 BU 的业务", chrome + body)
+        self.assertNotIn("名销售待配置归属", chrome + body)
+        self.assertNotIn("bu-unassigned", chrome + body)
+        self.assertIn("业务 BU 分页", chrome)
         # BU 页同样无未归属文案，也不泄漏其他 BU/未归属人名
         from urllib.parse import quote
         bupage = client.get(f"/bu/{quote('BU甲')}", headers=hdr).text
-        self.assertNotIn("未归属 BU 的业务", bupage)
-        self.assertNotIn("名销售待配置归属", bupage)
-        self.assertNotIn("销售B", bupage)
-        self.assertNotIn("销售C", bupage)
+        self.assertIn("加载 BU", bupage)
+        bfr = client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments", headers=hdr).json()
+        bhtml = (bfr.get("chrome_prefix") or "") + str(bfr.get("fragments") or {})
+        self.assertNotIn("未归属 BU 的业务", bhtml)
+        self.assertNotIn("名销售待配置归属", bhtml)
+        self.assertNotIn("销售B", bhtml)
+        self.assertNotIn("销售C", bhtml)
 
     def test_health_yellow_with_reason(self):
         from fastapi.testclient import TestClient

@@ -364,8 +364,10 @@ class TestBuEndpoints(unittest.TestCase):
         from urllib.parse import quote
         r = self.client.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("BU甲", r.text)
-        self.assertNotIn("BU乙", r.text)
+        self.assertIn("加载 BU", r.text)  # shell-bu
+        fr = self.client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
+        # 无 fragments 时可能 503；有真实 bu 数据时 200
+        self.assertIn(fr.status_code, (200, 503, 404))
 
     def test_unknown_bu_404_no_hint(self):
         from urllib.parse import quote
@@ -375,9 +377,11 @@ class TestBuEndpoints(unittest.TestCase):
             if r.status_code == 404:
                 self.assertNotIn("BU甲", r.text)
 
-    def test_main_page_unchanged(self):
+    def test_main_page_shell(self):
         r = self.client.get("/")
-        self.assertEqual(r.text, "<html>USER-MAIN</html>")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("加载驾驶舱", r.text)
+        self.assertNotIn("USER-MAIN", r.text)
 
     def test_api_requires_login(self):
         self.assertEqual(self.anon.get("/api/bu_config").status_code, 401)

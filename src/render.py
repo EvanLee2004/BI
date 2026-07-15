@@ -756,10 +756,8 @@ def render_bu_pl_table(p, alloc_meta=None, fine=None):
     return (tpl.fill("render/pl_table.html",
                      rows="".join(rows), kinds=kinds, details=details), tag_note)
 
-def render_bu_page(bu_name, summary, cfg, logo_b64):
-    """单 BU 独立只读页（迭代22·D：口径与整体页全对齐，只是数按本 BU 过滤）：
-    周期选择 + KPI + 趋势图 + 利润表（可下钻）+ 费用构成（大类/类别）+ 收入毛利结构 + 回款情况 + 排名 + 导出。
-    铁律12：不含 /api/daily、/api/profit_ranking；「其余」用预渲染全量本地弹窗；回款侧栏随周期 .pv 切。"""
+def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
+    """BU 页渲染就绪碎片（与整体页同源组装：page.js + bu_body 模板）。"""
     meta = summary["meta"]; P = summary["periods"]; FT = summary.get("expense_fine_type") or {}
     yk = meta["year_key"]
     all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
@@ -772,13 +770,11 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
         pl_parts.append(_pv(k, yk, pl_html))
     pl_views = "".join(pl_parts)
     donut_views = "".join(_pv(k, yk, render_bu_expense_views(P[k], FT.get(k))) for k in all_keys)
-    # embed_full：其余可展开且不调全公司 API
     profit_rank_views = "".join(
         _pv(k, yk, render_profit_rankings(P[k], embed_full=True)) for k in all_keys)
     rank_views = "".join(
         _pv(k, yk, render_rankings(P[k], embed_full=True)) for k in all_keys)
     name = _esc(bu_name)
-
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")
     show_ar = bool(cfg.get("show_delivered_unpaid", False))
@@ -787,9 +783,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
                                 show_delivered_unpaid=show_ar))
         for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
-    # 周期→月份映射一处生成，回款卡 + 趋势图共用
     rm_map = _period_months_map(summary)
-    # 回款：柱图全年+高亮；侧栏各周期预渲染（本 BU 过滤后的数）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], budget,
         period_months_map=rm_map, year_key=yk,
@@ -798,15 +792,47 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     from urllib.parse import quote as _q
     export_url = f"/bu/{_q(bu_name)}/export.png"
     pl_tag = tpl.fill("render/bu_pl_tag.html", note=_esc(tag_note)) if tag_note else ""
+    return {
+        "title": f"甲骨易智能经营罗盘 · {name}",
+        "particles": PARTICLES_HTML,
+        "logo": logo,
+        "name": name,
+        "version": _title_version_html(),
+        "generated_at": meta["generated_at"],
+        "export_url": export_url,
+        "pw_modal": PW_MODAL_HTML,
+        "period_bar": render_period_bar(summary),
+        "kpi_views": kpi_views,
+        "trend_html": trend_html,
+        "donut_views": donut_views,
+        "pl_tag": pl_tag,
+        "pl_views": pl_views,
+        "profit_rank_views": profit_rank_views,
+        "receipts_html": receipts_html,
+        "rank_views": rank_views,
+        "drawer": DRAWER_HTML,
+        "rk_modal": RK_MODAL_HTML,
+    }
 
+
+def assemble_bu_dashboard_html(frags: dict) -> str:
+    """BU 碎片 → 完整 HTML（与历史 render_bu_page 逐字节一致）。"""
     body = tpl.fill("render/bu_body.html",
-                    particles=PARTICLES_HTML, logo=logo, name=name,
-                    version=_title_version_html(), generated_at=meta['generated_at'],
-                    export_url=export_url, pw_modal=PW_MODAL_HTML,
-                    period_bar=render_period_bar(summary), kpi_views=kpi_views,
-                    trend_html=trend_html, donut_views=donut_views,
-                    pl_tag=pl_tag, pl_views=pl_views,
-                    profit_rank_views=profit_rank_views, receipts_html=receipts_html,
-                    rank_views=rank_views, drawer=DRAWER_HTML, rk_modal=RK_MODAL_HTML)
+                    particles=frags["particles"], logo=frags["logo"], name=frags["name"],
+                    version=frags["version"], generated_at=frags["generated_at"],
+                    export_url=frags["export_url"], pw_modal=frags["pw_modal"],
+                    period_bar=frags["period_bar"], kpi_views=frags["kpi_views"],
+                    trend_html=frags["trend_html"], donut_views=frags["donut_views"],
+                    pl_tag=frags["pl_tag"], pl_views=frags["pl_views"],
+                    profit_rank_views=frags["profit_rank_views"],
+                    receipts_html=frags["receipts_html"],
+                    rank_views=frags["rank_views"], drawer=frags["drawer"],
+                    rk_modal=frags["rk_modal"])
     return tpl.fill("render/page_shell.html",
-                    title=f"甲骨易智能经营罗盘 · {name}", body=body)
+                    title=frags.get("title") or "甲骨易智能经营罗盘", body=body)
+
+
+def render_bu_page(bu_name, summary, cfg, logo_b64):
+    """兼容入口：BU 碎片 → 组装。"""
+    return assemble_bu_dashboard_html(
+        build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64))

@@ -19,7 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, server  # noqa: E402
+import accounts, bu, loaders, server
+from support import fake_main_frags, fake_bu_page  # noqa: E402
 
 
 def _write_bucfg(cfg, root, names):
@@ -81,10 +82,11 @@ class TestServerMultiBu(unittest.TestCase):
              "密码": server.DEFAULT_VIEW_PW, "显示名": "全删"},
         ])
         server._state["user_html"] = '<html><div class="wrap">MAIN</div></html>'
+        server._state["fragments"] = fake_main_frags("MAIN")
         server._state["bu_pages"] = {
-            "BU甲": {"name": "BU甲", "html": '<html><div class="wrap">PAGE-甲</div></html>'},
-            "BU乙": {"name": "BU乙", "html": '<html><div class="wrap">PAGE-乙</div></html>'},
-            "BU丙": {"name": "BU丙", "html": '<html><div class="wrap">PAGE-丙</div></html>'},
+            "BU甲": fake_bu_page("BU甲", "PAGE-甲"),
+            "BU乙": fake_bu_page("BU乙", "PAGE-乙"),
+            "BU丙": fake_bu_page("BU丙", "PAGE-丙"),
         }
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
@@ -97,52 +99,66 @@ class TestServerMultiBu(unittest.TestCase):
 
     def test_multi_landing_and_switcher(self):
         c = self._login("multi")
-        home = c.get("/").text
-        self.assertIn("PAGE-甲", home)          # 落第一个绑定 BU
-        self.assertIn("我的 BU", home)          # 切换条
-        self.assertIn("BU甲", home)
-        self.assertIn("BU乙", home)
-        self.assertNotIn("BU丙", home)          # 不泄漏未绑定 BU 名
+        r0 = c.get("/")
+        self.assertEqual(r0.status_code, 303)
+        from urllib.parse import unquote
+        loc=unquote(r0.headers.get("location") or "")
+        self.assertIn("/bu/BU甲", loc)
+        fr = c.get("/api/v1/cockpit/bu/BU甲/fragments").json()
+        self.assertIn("PAGE-甲", fr["fragments"]["kpi_views"])
+        chrome = fr.get("chrome_prefix") or ""
+        self.assertIn("我的 BU", chrome)
+        self.assertIn("BU甲", chrome)
+        self.assertIn("BU乙", chrome)
+        self.assertNotIn("BU丙", chrome)
 
     def test_multi_can_view_each_bound(self):
         c = self._login("multi")
-        a = c.get("/bu/BU甲"); b = c.get("/bu/BU乙")
-        self.assertEqual(a.status_code, 200); self.assertIn("PAGE-甲", a.text)
-        self.assertEqual(b.status_code, 200); self.assertIn("PAGE-乙", b.text)
-        self.assertIn("我的 BU", a.text)        # BU 页也带切换条
-        self.assertIn("BU乙", a.text)           # 切换条含另一个绑定 BU
+        for n, mark in (("BU甲", "PAGE-甲"), ("BU乙", "PAGE-乙")):
+            self.assertEqual(c.get(f"/bu/{n}").status_code, 200)
+            self.assertIn("加载 BU", c.get(f"/bu/{n}").text)
+            fr = c.get(f"/api/v1/cockpit/bu/{n}/fragments").json()
+            self.assertIn(mark, fr["fragments"]["kpi_views"])
+            self.assertIn("我的 BU", fr.get("chrome_prefix") or "")
 
     def test_multi_cannot_view_unbound(self):
         c = self._login("multi")
         r = c.get("/bu/BU丙")
-        self.assertNotIn("PAGE-丙", r.text)     # 看不到未绑定 BU 内容
-        self.assertIn("看板登录", r.text)        # 出登录页
+        self.assertIn("看板登录", r.text)
+        self.assertEqual(c.get("/api/v1/cockpit/bu/BU丙/fragments").status_code, 403)
 
     def test_legacy_single_still_works(self):
         c = self._login("legacy")
-        home = c.get("/").text
-        self.assertIn("PAGE-丙", home)
-        self.assertNotIn("我的 BU", home)        # 单个绑定不出切换条
-        self.assertNotIn("PAGE-甲", c.get("/bu/BU甲").text)  # 越权不行
+        r0 = c.get("/")
+        self.assertEqual(r0.status_code, 303)
+        fr = c.get("/api/v1/cockpit/bu/BU丙/fragments").json()
+        self.assertIn("PAGE-丙", fr["fragments"]["kpi_views"])
+        self.assertNotIn("我的 BU", fr.get("chrome_prefix") or "")
+        self.assertEqual(c.get("/api/v1/cockpit/bu/BU甲/fragments").status_code, 403)
 
     def test_overall_sees_all(self):
         c = self._login("overall")
         home = c.get("/").text
-        self.assertIn("MAIN", home)
+        self.assertIn("加载驾驶舱", home)
+        fr = c.get("/api/v1/cockpit/fragments").json()
+        self.assertIn("MAIN", fr["fragments"]["kpi_views"])
         for n in ("BU甲", "BU乙", "BU丙"):
-            self.assertIn(n, home)
-            self.assertIn(f"PAGE-{n[-1]}", c.get(f"/bu/{n}").text)
+            self.assertIn(n, fr.get("chrome_prefix") or "")
+            mark = f"PAGE-{n[-1]}"
+            self.assertIn(mark, c.get(f"/api/v1/cockpit/bu/{n}/fragments").json()["fragments"]["kpi_views"])
 
     def test_bu_account_not_main(self):
         c = self._login("multi")
-        # /api/daily 只认整体/管理员 → BU 账号 401
         self.assertEqual(c.get("/api/daily").status_code, 401)
 
     def test_all_bound_removed(self):
-        c = self._login("ghost")            # 只绑「已删BU」（不在 bu_pages）
-        home = c.get("/").text
-        self.assertIn("已被管理员移除", home)
-        self.assertNotIn("PAGE-", home)
+        c = self._login("ghost")
+        r0 = c.get("/")
+        self.assertEqual(r0.status_code, 303)
+        loc = r0.headers.get("location") or ""
+        self.assertIn("login", loc)
+        from urllib.parse import unquote as _uq
+        self.assertIn("移除", _uq(loc))
 
     def test_console_has_multibu_ui(self):
         html = server.admin_ui_source()

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>甲骨易智能经营罗盘 · BU</title>
+<script>try{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}catch(e){}</script>
+<style>body{margin:0;background:#0f172a;color:#94a3b8;font:14px/1.5 -apple-system,system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}</style>
+</head>
+<body data-assembled="0">
+<div id="boot">加载 BU 驾驶舱…</div>
+<script src="/static/js/assemble/page.js"></script>
+<script>
+(function(){
+  var boot = document.getElementById('boot');
+  function fail(m){ boot.textContent = m; }
+  var parts = location.pathname.split('/').filter(Boolean);
+  var name = parts.length >= 2 && parts[0] === 'bu' ? decodeURIComponent(parts[1]) : '';
+  if(!name){ fail('缺少 BU 名'); return; }
+  Promise.all([
+    fetch('/api/v1/cockpit/bu/' + encodeURIComponent(name) + '/fragments', {credentials:'include', headers:{'Accept':'application/json'}}),
+    fetch('/static/templates/render/bu_body.html', {credentials:'include'}),
+    fetch('/static/templates/render/page_shell.html', {credentials:'include'})
+  ]).then(function(rs){
+    var fr = rs[0];
+    if(fr.status===401){ location.replace('/login'); return null; }
+    if(fr.status===403){ fail('无权限'); return null; }
+    if(fr.status===404){ fail('BU 不存在'); return null; }
+    if(!fr.ok){ fail('加载失败 HTTP '+fr.status); return null; }
+    return Promise.all([fr.json(), rs[1].text(), rs[2].text()]).then(function(x){
+      return {frags:x[0].fragments, chrome:x[0].chrome_prefix||'', bodyTpl:x[1], shellTpl:x[2]};
+    });
+  }).then(function(pack){
+    if(!pack) return;
+    if(typeof assemblePage !== 'function'){ fail('组装器未加载'); return; }
+    function unbrace(s){ return s.replace(/\{\{/g,'{').replace(/\}\}/g,'}'); }
+    var html = assemblePage(pack.frags, {
+      dashboard_body: pack.bodyTpl,
+      page_shell: unbrace(pack.shellTpl)
+    });
+    if(pack.chrome){
+      html = html.replace('<div class="wrap">', pack.chrome + '<div class="wrap">');
+    }
+    if(html.indexOf('data-assembled=') < 0){
+      html = html.replace('<body', '<body data-assembled="1"');
+    } else {
+      html = html.replace(/data-assembled="0"/, 'data-assembled="1"');
+    }
+    document.open();
+    document.write(html);
+    document.close();
+  }).catch(function(e){
+    fail('网络错误：'+(e&&e.message||e));
+  });
+})();
+</script>
+</body>
+</html>

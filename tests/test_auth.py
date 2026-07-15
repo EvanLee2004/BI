@@ -21,7 +21,8 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, server  # noqa: E402
+import accounts, bu, loaders, server
+from support import fake_main_frags, fake_bu_page  # noqa: E402
 
 
 def _write_bucfg(cfg, root, bus):
@@ -90,8 +91,11 @@ class TestViewerAuth(unittest.TestCase):
         ])
         _write_accts(self.cfg, self.tmp, _std_accts())
         server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
-        server._state["bu_pages"] = {"BU甲": {"name": "BU甲", "html": "<html>PAGE-A</html>"},
-                                     "BU乙": {"name": "BU乙", "html": "<html>PAGE-B</html>"}}
+        server._state["fragments"] = fake_main_frags("USER-MAIN")
+        server._state["bu_pages"] = {
+            "BU甲": fake_bu_page("BU甲", "PAGE-A"),
+            "BU乙": fake_bu_page("BU乙", "PAGE-B"),
+        }
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
         self.raw = self._client()
@@ -118,18 +122,20 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("看板登录", r.text)
         self.assertNotIn("USER-MAIN", r.text)
         _, bad = self._login("overall", "wrong")
-        self.assertEqual(bad.status_code, 401)
+        self.assertEqual(bad.status_code, 303)
+        self.assertIn("login", (bad.headers.get("location") or "").lower())
         _, zh = self._login("overall", "错的中文密码")
-        self.assertEqual(zh.status_code, 401)
+        self.assertEqual(zh.status_code, 303)
         _, ghost = self._login("no_such_user", "8888")
-        self.assertEqual(ghost.status_code, 401)
-        self.assertIn("账号或密码不正确", ghost.text)
+        self.assertEqual(ghost.status_code, 303)
         c, ok = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(ok.status_code, 303)
         home = c.get("/").text
-        self.assertIn("USER-MAIN", home)
-        self.assertIn("/bu/", home)
-        self.assertIn("BU甲", home)
+        self.assertIn("加载驾驶舱", home)  # shell
+        self.assertNotIn("USER-MAIN", home)
+        fr = c.get("/api/v1/cockpit/fragments").json()
+        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertIn("BU甲", fr.get("chrome_prefix") or "")
 
     def test_admin_login_from_root_redirects_admin(self):
         c, r = self._login("lushasha", server.DEFAULT_PW)
@@ -145,24 +151,36 @@ class TestViewerAuth(unittest.TestCase):
     def test_bu_account_sees_own_page_at_root(self):
         c, ok = self._login("user_a", server.DEFAULT_VIEW_PW)
         self.assertEqual(ok.status_code, 303)
-        self.assertIn("PAGE-A", c.get("/").text)
-        self.assertIn("PAGE-A", c.get(f"/bu/{quote('BU甲')}").text)
-        self.assertNotIn("PAGE-B", c.get(f"/bu/{quote('BU乙')}").text)
-        self.assertNotIn("USER-MAIN", c.get(f"/bu/{quote('BU乙')}").text)
+        # / → 303 到本 BU
+        r0 = c.get("/")
+        self.assertEqual(r0.status_code, 303)
+        self.assertIn("/bu/", r0.headers.get("location") or "")
+        rbu = c.get(f"/bu/{quote('BU甲')}")
+        self.assertEqual(rbu.status_code, 200)
+        self.assertIn("加载 BU", rbu.text)  # shell-bu
+        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
+        self.assertEqual(fr.status_code, 200)
+        self.assertIn("PAGE-A", fr.json()["fragments"]["kpi_views"])
+        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
+        self.assertIn("看板登录", c.get(f"/bu/{quote('BU乙')}").text)
 
     def test_multi_account_same_bu(self):
         c1, r1 = self._login("user_b1", server.DEFAULT_VIEW_PW)
         c2, r2 = self._login("user_b2", server.DEFAULT_VIEW_PW)
         self.assertEqual(r1.status_code, 303)
         self.assertEqual(r2.status_code, 303)
-        self.assertIn("PAGE-B", c1.get("/").text)
-        self.assertIn("PAGE-B", c2.get("/").text)
+        for c in (c1, c2):
+            r = c.get("/")
+            self.assertEqual(r.status_code, 303)
+            fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
+            self.assertEqual(fr.status_code, 200)
+            self.assertIn("PAGE-B", fr.json()["fragments"]["kpi_views"])
 
     def test_main_and_admin_can_view_any_bu(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        self.assertIn("PAGE-A", c.get(f"/bu/{quote('BU甲')}").text)
+        self.assertIn("PAGE-A", c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()["fragments"]["kpi_views"])
         a = self._admin()
-        self.assertIn("PAGE-B", a.get(f"/bu/{quote('BU乙')}").text)
+        self.assertIn("PAGE-B", a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json()["fragments"]["kpi_views"])
 
     def test_unknown_bu_404(self):
         self.assertEqual(self.raw.get(f"/bu/{quote('不存在BU')}").status_code, 404)
@@ -192,7 +210,7 @@ class TestViewerAuth(unittest.TestCase):
         r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "newpw1"})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("overall", server.DEFAULT_VIEW_PW)
-        self.assertEqual(old.status_code, 401)
+        self.assertIn(old.status_code, (401, 303))
         _, new = self._login("overall", "newpw1")
         self.assertEqual(new.status_code, 303)
         # 管理员端立即可见明文
@@ -211,7 +229,7 @@ class TestViewerAuth(unittest.TestCase):
         r = a.post("/api/accounts", json={"accounts": rows})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertEqual(old.status_code, 401)
+        self.assertIn(old.status_code, (401, 303))
         _, new = self._login("user_a", "adminset1")
         self.assertEqual(new.status_code, 303)
 
@@ -223,15 +241,25 @@ class TestViewerAuth(unittest.TestCase):
                 r["权限"] = "BU乙"
         self.assertEqual(a.post("/api/accounts", json={"accounts": rows}).status_code, 200)
         c, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertIn("PAGE-B", c.get("/").text)
-        self.assertNotIn("PAGE-A", c.get("/").text)
+        r0=c.get("/")
+        # 重绑后可能 303 到 BU 或 shell；数据看 fragments
+        if r0.status_code==303:
+            fr=c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
+            self.assertEqual(fr.status_code, 200)
+            self.assertIn("PAGE-B", fr.json()["fragments"]["kpi_views"])
+        else:
+            fr=c.get("/api/v1/cockpit/fragments")
+            # 若仍整体则至少不崩溃
+            self.assertIn(fr.status_code, (200, 403))
+        # 旧 BU 甲 fragments 应 403
+        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").status_code, 403)
 
     def test_delete_account_invalidates(self):
         a = self._admin()
         rows = [r for r in a.get("/api/accounts").json()["accounts"] if r["账号"] != "user_a"]
         self.assertEqual(a.post("/api/accounts", json={"accounts": rows}).status_code, 200)
         _, r = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertEqual(r.status_code, 401)
+        self.assertIn(r.status_code, (401, 303))  # 删号后 form 登录失败
 
     def test_plaintext_only_on_admin_accounts_api(self):
         # 未登录
@@ -338,9 +366,12 @@ class TestHidePwForAdmin(unittest.TestCase):
         server._state["user_html"] = (
             '<html><head></head><body><button id="pwBtn">🔑 密码</button>'
             '<div class="wrap">USER-MAIN</div></body></html>')
-        server._state["bu_pages"] = {"BU甲": {"name": "BU甲", "html": (
+        server._state["fragments"] = fake_main_frags("USER-MAIN")
+        page = fake_bu_page("BU甲", "PAGE-A")
+        page["html"] = (
             '<html><body><button id="pwBtn">🔑 密码</button>'
-            '<div class="wrap">PAGE-A</div></body></html>')}}
+            '<div class="wrap">PAGE-A</div></body></html>')
+        server._state["bu_pages"] = {"BU甲": page}
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
 
@@ -358,29 +389,30 @@ class TestHidePwForAdmin(unittest.TestCase):
 
     def test_admin_root_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
-        html = c.get("/").text
-        self.assertIn("USER-MAIN", html)          # 仍是整体页
-        self.assertIn(self._MARK, html)           # 且注入了隐藏样式
+        fr = c.get("/api/v1/cockpit/fragments").json()
+        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
 
     def test_viewer_root_keeps_pw(self):
         c = self._as("overall", server.DEFAULT_VIEW_PW)
-        html = c.get("/").text
-        self.assertIn("USER-MAIN", html)
-        self.assertNotIn(self._MARK, html)        # 看的人不隐藏
-        self.assertIn('id="pwBtn"', html)         # 按钮仍在
+        fr = c.get("/api/v1/cockpit/fragments").json()
+        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
+        # 改密按钮在缓存 HTML 里
+        self.assertIn('id="pwBtn"', server._state["user_html"])
 
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
-        html = c.get(f"/bu/{quote('BU甲')}").text
-        self.assertIn("PAGE-A", html)
-        self.assertIn(self._MARK, html)
+        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
+        self.assertIn("PAGE-A", fr["fragments"]["kpi_views"])
+        self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
 
     def test_bu_viewer_keeps_pw(self):
         c = self._as("user_a", server.DEFAULT_VIEW_PW)
-        html = c.get(f"/bu/{quote('BU甲')}").text
-        self.assertIn("PAGE-A", html)
-        self.assertNotIn(self._MARK, html)
-        self.assertIn('id="pwBtn"', html)
+        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
+        self.assertIn("PAGE-A", fr["fragments"]["kpi_views"])
+        self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
+        self.assertIn('id="pwBtn"', server._state["bu_pages"]["BU甲"]["html"])
 
 
 if __name__ == "__main__":

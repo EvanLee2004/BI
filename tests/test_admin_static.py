@@ -89,7 +89,11 @@ class TestAdminStaticHttp(unittest.TestCase):
         r = self._client().get("/admin")
         self.assertEqual(r.status_code, 200)
         self.assertIn("管理员端登录", r.text)
-        self.assertIn('action="/admin/login"', r.text)
+        # B-P4：static 登录 + /api/v1/login（无 form action 服务端拼 HTML）
+        self.assertTrue(
+            'action="/admin/login"' in r.text or "/api/v1/login" in r.text,
+            "管理员登录页应可提交")
+        self.assertIn("管理员端登录", r.text)
 
     def test_static_admin_html_is_shell_without_session_data(self):
         """未登录直接读 /static/admin/admin.html 只是壳，无会话态数据。"""

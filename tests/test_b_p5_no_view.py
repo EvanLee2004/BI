@@ -17,8 +17,6 @@ import accounts, bu, loaders, server  # noqa: E402
 
 class TestP5NoViewPath(unittest.TestCase):
     def setUp(self):
-        self._prev = server.SERVE_SHELL
-        server.SERVE_SHELL = True
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         p = bu.config_path(self.cfg, self.tmp)
@@ -41,7 +39,7 @@ class TestP5NoViewPath(unittest.TestCase):
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def tearDown(self):
-        server.SERVE_SHELL = self._prev
+        pass
 
     def test_view_route_gone(self):
         from fastapi.testclient import TestClient

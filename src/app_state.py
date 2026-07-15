@@ -13,9 +13,7 @@ from pathlib import Path
 # v1.4 静态资源根：与 run.py 同级 static/
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-# 已登录整体页是否走 shell.html。生产默认 True；测试引导入口置 False。
-# 注意：测试写 server.SERVE_SHELL；server 启动时从本模块导入初值，之后以 server 模块属性为准。
-SERVE_SHELL: bool = True
+# B-P5：不再提供 SERVE_SHELL 化石开关；看端固定 shell + fragments。
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"

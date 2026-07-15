@@ -70,14 +70,16 @@ class TestP4Remainder(unittest.TestCase):
         self.assertIn("cockpit/fragments", shell)
         self.assertNotIn("cockpit/view", shell)
 
-    def test_bu_pages_still_isolated_html(self):
-        """BU 页仍服务端出 HTML（隔离铁律）；有 summary 挂载。"""
+    def test_bu_pages_have_fragments_for_shell(self):
+        """BU 页与整体同源碎片（shell-bu 组装）；有 summary + fragments。"""
         self.assertIsInstance(self.bu_pages, dict)
         for name, page in (self.bu_pages or {}).items():
             self.assertIn("html", page)
+            self.assertIn("fragments", page)
             self.assertTrue(page["html"])
-            # 不得出现其他 BU 名作主标题误泄（弱断言：本 BU 名应在页内）
+            self.assertTrue(page["fragments"].get("kpi_views") is not None)
             self.assertIn(name, page["html"])
+            self.assertIn(name, page["fragments"].get("name", "") or page["html"])
 
 
 if __name__ == "__main__":
