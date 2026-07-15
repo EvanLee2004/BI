@@ -136,11 +136,6 @@ def _publish(cfg, summary, html, bu_pages=None):
     _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _apply_profile(html: str, profile: str = "full") -> str:
-    """历史钩子：精简视图已下线，恒返回原 HTML（data-profile 保持 full）。"""
-    return html or ""
-
-
 def _do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
@@ -756,10 +751,8 @@ def create_app(cfg, root=None) -> FastAPI:
                 '<span class="bu-nav-label">我的 BU</span>'
                 '<span class="bu-nav-links">' + links + '</span></div>')
 
-    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False,
-                      profile: str = accounts.VIEW_FULL) -> str:
-        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。
-        profile：历史参数（精简视图已下线，_apply_profile 恒 full）。"""
+    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False) -> str:
+        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             return ""
@@ -771,7 +764,7 @@ def create_app(cfg, root=None) -> FastAPI:
         html = page["html"]
         if any(parts):
             html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
-        return _apply_profile(html, profile)
+        return html
 
     def _set_vcookie(resp, account: str):
         resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL,
@@ -806,7 +799,7 @@ def create_app(cfg, root=None) -> FastAPI:
         acc = _vacc_row(request)
         if acc:
             if accounts.is_main(acc):
-                return _shell_or_html(_main_with_nav(profile=accounts.view_profile(acc)) or "")
+                return _shell_or_html(_main_with_nav() or "")
             names = accounts.bu_names_of(acc)  # 多 BU：绑定名单（旧单 BU 账号=[该名]）
             if names:
                 existing = [n for n in names if n in _state.get("bu_pages", {})]
@@ -814,19 +807,17 @@ def create_app(cfg, root=None) -> FastAPI:
                     return HTMLResponse(_view_login_page(
                         "你绑定的 BU 已被管理员移除，请重新登录或联系管理员"))
                 # BU 账号：仍直接出 BU HTML（隔离铁律；壳只服务整体页 API）
-                return HTMLResponse(_bu_view_html(existing[0], names,
-                                                  profile=accounts.view_profile(acc)))
+                return HTMLResponse(_bu_view_html(existing[0], names))
             # 管理员账号误走查看 cookie：引导去 /admin
             if accounts.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
         return HTMLResponse(_view_login_page())
 
-    def _main_with_nav(hide_pw: bool = False, profile: str = accounts.VIEW_FULL) -> str:
+    def _main_with_nav(hide_pw: bool = False) -> str:
         """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
         看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
         hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
-        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。
-        profile：历史参数（精简视图已下线，_apply_profile 恒 full）。"""
+        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
         html = _state["user_html"]
         if not html:
             return html
@@ -845,7 +836,7 @@ def create_app(cfg, root=None) -> FastAPI:
                          '<span class="bu-nav-links">' + links + '</span></div>')
         if parts:
             html = html.replace('<div class="wrap">', "".join(parts) + '<div class="wrap">', 1)
-        return _apply_profile(html, profile)
+        return html
 
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):
@@ -874,7 +865,7 @@ def create_app(cfg, root=None) -> FastAPI:
         # 多 BU 账号：注入「我的 BU」切换条（只列其绑定的 BU）；整体账号 bu_names_of=[] 不注入
         vacc = _vacc_row(request)
         my = accounts.bu_names_of(vacc)
-        return HTMLResponse(_bu_view_html(name, my, profile=accounts.view_profile(vacc)))
+        return HTMLResponse(_bu_view_html(name, my))
 
     # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
     @app.get("/api/v1/session")
@@ -956,11 +947,10 @@ def create_app(cfg, root=None) -> FastAPI:
         html = _state.get("user_html") or ""
         if not html:
             raise HTTPException(status_code=503, detail="数据尚未生成")
-        # 与 / 整体页一致：注入 BU 条与 profile
+        # 与 / 整体页一致：注入 BU 入口条
         if _user(request):
             return HTMLResponse(_main_with_nav(hide_pw=True) or html)
-        acc = _vacc_row(request)
-        return HTMLResponse(_main_with_nav(profile=accounts.view_profile(acc)) or html)
+        return HTMLResponse(_main_with_nav() or html)
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):

@@ -975,7 +975,7 @@ def render_dashboard(summary, cfg, logo_b64):
 <script src="/static/js/cockpit.js"></script>
 """
     # v1.4：CSS/JS 外置到 static/（内容与基准版 theme.get_css / JS* 常量一致），HTML 结构不变
-    return (f'<!DOCTYPE html><html lang="zh-CN" data-profile="full"><head><meta charset="utf-8">'
+    return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>甲骨易智能经营罗盘</title>'
             f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'
@@ -1150,7 +1150,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 <div id="tip"></div>
 <script src="/static/js/cockpit-bu.js"></script>
 """
-    return (f'<!DOCTYPE html><html lang="zh-CN" data-profile="full"><head><meta charset="utf-8">'
+    return (f'<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>甲骨易智能经营罗盘 · {name}</title>'
             f'<script>try{{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}}catch(e){{}}</script>'

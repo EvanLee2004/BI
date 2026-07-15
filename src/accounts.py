@@ -27,8 +27,6 @@ CONFIG_NAME = "看板账号.json"
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
 
-# 视图：统一完整显示（精简视图已下线）。
-VIEW_FULL = "full"
 PERM_BU = "BU"      # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
 
 
@@ -284,11 +282,6 @@ def is_admin(acc: dict | None) -> bool:
 
 def is_main(acc: dict | None) -> bool:
     return role_of(acc) == PERM_MAIN
-
-
-def view_profile(acc: dict | None) -> str:
-    """视图档案：统一完整显示（full）。精简视图功能已下线，忽略账号「视图」字段与角色差异。"""
-    return VIEW_FULL
 
 
 def bu_names_of(acc: dict | None) -> list[str]:

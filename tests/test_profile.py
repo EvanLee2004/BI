@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""视图：统一 full（精简视图已下线）。"""
+"""精简视图已下线守卫：响应中不得出现 executive / data-profile。"""
 from __future__ import annotations
 
 import json
@@ -13,9 +13,9 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import accounts, bu, loaders, render, server  # noqa: E402
+import accounts, bu, loaders, server  # noqa: E402
 
-_SHELL = '<html lang="zh-CN" data-profile="full"><body><div class="wrap">{}</div></body></html>'
+_SHELL = '<html lang="zh-CN"><body><div class="wrap">{}</div></body></html>'
 
 
 def _write_bucfg(cfg, root, bus):
@@ -24,24 +24,9 @@ def _write_bucfg(cfg, root, bus):
     p.write_text(json.dumps({"bus": bus}, ensure_ascii=False), encoding="utf-8")
 
 
-class TestViewProfileAlwaysFull(unittest.TestCase):
-    def test_always_full(self):
-        self.assertEqual(accounts.view_profile({"权限": "管理员"}), "full")
-        self.assertEqual(accounts.view_profile({"权限": "整体"}), "full")
-        self.assertEqual(accounts.view_profile({"权限": "BU", "可见BU": ["甲"]}), "full")
-        self.assertEqual(accounts.view_profile({"权限": "整体", "视图": "executive"}), "full")
-        self.assertEqual(accounts.view_profile(None), "full")
+class TestNoProfileResidue(unittest.TestCase):
+    """守卫：页面与管理端静态中无精简视图 / data-profile 残留。"""
 
-
-class TestApplyProfileNoop(unittest.TestCase):
-    def test_noop(self):
-        html = _SHELL.format("X")
-        self.assertEqual(server._apply_profile(html, "executive"), html)
-        self.assertEqual(server._apply_profile(html, "full"), html)
-        self.assertEqual(server._apply_profile("", "x"), "")
-
-
-class TestProfileServing(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
@@ -60,38 +45,28 @@ class TestProfileServing(unittest.TestCase):
         from fastapi.testclient import TestClient
         return TestClient(self.app, follow_redirects=False)
 
-    def _login(self, account, pw):
-        c = self._client()
-        c.post("/login", data={"account": account, "password": pw})
-        return c
+    def _assert_no_profile(self, text: str):
+        self.assertNotIn("executive", text)
+        self.assertNotIn("data-profile", text)
 
-    def test_overall_full(self):
-        c = self._login("overall", server.DEFAULT_VIEW_PW)
+    def test_overall_and_bu_pages_have_no_profile(self):
+        c = self._client()
+        c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         r = c.get("/")
         self.assertEqual(r.status_code, 200)
-        self.assertIn('data-profile="full"', r.text)
-        self.assertNotIn('data-profile="executive"', r.text)
+        self._assert_no_profile(r.text)
 
-    def test_admin_full(self):
-        c = self._client()
-        c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        r = c.get("/")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn('data-profile="full"', r.text)
+        c2 = self._client()
+        c2.post("/login", data={"account": "user_a", "password": server.DEFAULT_VIEW_PW})
+        r2 = c2.get("/bu/" + quote("BU甲"))
+        self.assertEqual(r2.status_code, 200)
+        self._assert_no_profile(r2.text)
 
-    def test_bu_full(self):
-        c = self._login("user_a", server.DEFAULT_VIEW_PW)
-        r = c.get("/bu/" + quote("BU甲"))
-        self.assertEqual(r.status_code, 200)
-        self.assertIn('data-profile="full"', r.text)
-
-
-class TestAdminStaticNoProfileToggle(unittest.TestCase):
-    def test_no_preview_toggle(self):
+    def test_admin_static_no_profile_toggle(self):
         page = server.admin_ui_source()
         self.assertNotIn('id="profBtn"', page)
         self.assertNotIn("精简视图", page)
-        self.assertIn('id="chrome"', page)
+        self._assert_no_profile(page)
 
 
 if __name__ == "__main__":
