@@ -871,20 +871,8 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
         return api_v1.cockpit_payload(summary, scope="BU", bu_name=name)
 
-    @app.get("/api/v1/cockpit/view", response_class=HTMLResponse)
-    def api_v1_cockpit_view(request: Request):
-        """像素级同源：返回与 / 完全同一套 render_dashboard HTML（只读缓存/现算展示层）。"""
-        if not (_vacct(request) or _user(request)):
-            raise HTTPException(status_code=401, detail="未登录")
-        if not _can_view_main(request):
-            raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
-        html = _state.get("user_html") or ""
-        if not html:
-            raise HTTPException(status_code=503, detail="数据尚未生成")
-        # 与 / 整体页一致：注入 BU 入口条
-        if _user(request):
-            return HTMLResponse(_main_with_nav(hide_pw=True) or html)
-        return HTMLResponse(_main_with_nav() or html)
+    # B-P5：真删旧路径 GET /api/v1/cockpit/view（整页 SSR HTML）。
+    # 整体页仅 shell → fragments → page.js；回退靠 git。user_html 仍缓存供导出/测试 SERVE_SHELL=False。
 
     def _main_chrome_prefix(hide_pw: bool = False) -> str:
         """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前，与 _main_with_nav 同源。"""

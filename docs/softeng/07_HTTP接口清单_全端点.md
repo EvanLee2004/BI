@@ -29,7 +29,8 @@
 | POST | `/api/v1/logout` | 清 cookie | ok | 同上 |
 | GET | `/api/v1/cockpit` | 整体/管理员 | 整体 summary JSON + `numbers` | 外部/调试 |
 | GET | `/api/v1/cockpit/bu/{name}` | 可看该 BU | BU summary JSON | 外部/调试 |
-| GET | `/api/v1/cockpit/view` | 整体/管理员 | 像素级 HTML（render 缓存） | shell.html |
+| GET | `/api/v1/cockpit/fragments` | 整体/管理员 | 渲染就绪碎片 JSON（B-P5；view 已删） | shell.html + page.js |
+| ~~GET `/api/v1/cockpit/view`~~ | — | **B-P5 真删** | 回退靠 git |
 
 ## 三、只读动态查询（看端）
 

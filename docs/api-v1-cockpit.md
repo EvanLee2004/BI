@@ -17,7 +17,8 @@
 |---|---|---|
 | GET | `/api/v1/cockpit` | 整体 JSON（含 `numbers` 快照）；需整体/管理员；BU 账号 403 |
 | GET | `/api/v1/cockpit/bu/{name}` | 单 BU JSON；会话闸 |
-| GET | `/api/v1/cockpit/view` | **像素级** HTML：与 `/` 同源 `render_dashboard` 输出（外置 CSS/JS） |
+| GET | `/api/v1/cockpit/fragments` | **B-P5 默认**：渲染就绪碎片 JSON + `chrome_prefix`；shell 用 page.js 组装 |
+| ~~GET `/api/v1/cockpit/view`~~ | **已删（B-P5）** | 旧整页 SSR HTML；回退靠 git |
 
 ## 静态资源
 
@@ -26,7 +27,8 @@
 | `/static/css/theme.css` | 原 `theme.get_css()` 全文 |
 | `/static/js/cockpit.js` | 整体页 JS（周期/主题/导出/排名等） |
 | `/static/js/cockpit-bu.js` | BU 页 JS |
-| `/static/shell.html` | 登录后轻量壳 → fetch `cockpit/view` 再 document.write |
+| `/static/js/assemble/page.js` | 整页碎片组装（零金额运算） |
+| `/static/shell.html` | 登录后轻量壳 → fetch `cockpit/fragments` → assemblePage → document.write |
 
 v1.5+：生产固定 shell；unittest 直出 HTML 便于断言（不再用 `KANBAN_LEGACY_INLINE`）。
 
