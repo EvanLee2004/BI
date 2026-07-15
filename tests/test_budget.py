@@ -46,8 +46,8 @@ class TestBudgetDb(unittest.TestCase):
         conn = mem_conn()
         db.set_budget(conn, "2026", "回款年预算", 100.0, "明昊")
         db.set_budget(conn, "2026", "回款年预算", 999.0, "明昊", 范围="语言")  # BU 目标
-        self.assertEqual(db.load_budget(conn), {"2026": {"回款年预算": 100.0}})
-        self.assertEqual(db.load_budget(conn, scope="语言"), {"2026": {"回款年预算": 999.0}})
+        self.assertEqual(db.load_budget(conn), {"2026": {"回款年预算": 10000}})  # 分
+        self.assertEqual(db.load_budget(conn, scope="语言"), {"2026": {"回款年预算": 99900}})
 
     def test_empty(self):
         conn = mem_conn()
