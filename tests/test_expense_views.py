@@ -58,24 +58,24 @@ class TestGroupAggregation(unittest.TestCase):
         fine_k = compute_expenses_by_fine_type(ROWS, 2026, START, END, CFG, self._l())
         rows = render._fine_to_rows(fine_k)
         d = {g: v for g, v, _ in rows}
-        self.assertEqual(d["办公用品"], 100.0)
-        self.assertEqual(d["差旅费"], 50.0)
-        self.assertEqual(d[CFG["unclassified_label_fine_type"]], 30.0)  # 空细类
-        self.assertNotIn(999.0, d.values())  # 生产成本-译费白名单外
+        self.assertEqual(d["办公用品"], 10000.0)
+        self.assertEqual(d["差旅费"], 5000.0)
+        self.assertEqual(d[CFG["unclassified_label_fine_type"]], 3000.0)  # 空细类
+        self.assertNotIn(99900.0, d.values())  # 生产成本-译费白名单外
         # 抽屉明细：办公用品只来自管理费用
         office = next(r for r in rows if r[0] == "办公用品")
-        self.assertEqual(dict(office[2]), {"管理费用": 100.0})
+        self.assertEqual(dict(office[2]), {"管理费用": 10000.0})
 
     def test_groups_and_unfilled(self):
         rows = compute_expenses_by_group(ROWS, 2026, START, END, CFG, self._l(), "预算归属部门")
         d = {g: v for g, v, _ in rows}
-        self.assertEqual(d, {"运保": 100.0, "项目中心": 50.0, "未分类": 30.0})
+        self.assertEqual(d, {"运保": 10000.0, "项目中心": 5000.0, "未分类": 3000.0})
         fine = dict(rows[0][2])  # 运保 的细类
-        self.assertEqual(fine, {"办公用品": 100.0})
+        self.assertEqual(fine, {"办公用品": 10000.0})
 
     def test_whitelist_excluded(self):
         rows = compute_expenses_by_group(ROWS, 2026, START, END, CFG, self._l(), "预算归属部门")
-        self.assertNotIn(999.0, [v for _, v, _ in rows])  # 白名单外的生产成本不进视角
+        self.assertNotIn(99900.0, [v for _, v, _ in rows])  # 白名单外的生产成本不进视角
 
     def test_soft_column_missing_returns_none(self):
         """老台账没「预算归属部门」列：resolve 不报错、分组返回 None（前端降级）。"""

@@ -73,9 +73,9 @@ class TestComputeDaily(unittest.TestCase):
         d = self._daily()
         self.assertEqual([r["day"] for r in d["days"]], ["2026-03-01", "2026-03-05", "2026-03-31"])
         d0 = d["days"][0]
-        self.assertEqual((d0["orders"], d0["orders_count"], d0["receipts_count"]), (3000.0, 2, 0))
+        self.assertEqual((d0["orders"], d0["orders_count"], d0["receipts_count"]), (300000.0, 2, 0))
         d1 = d["days"][1]
-        self.assertEqual((d1["orders"], d1["receipts"]), (300.0, 500.0))
+        self.assertEqual((d1["orders"], d1["receipts"]), (30000.0, 50000.0))
 
     def test_conservation_sum_days_eq_period_total(self):
         """守恒红线：∑按天 == 同区间 compute_orders / compute_receipts。"""
@@ -86,13 +86,13 @@ class TestComputeDaily(unittest.TestCase):
         self.assertAlmostEqual(
             sum(r["receipts"] for r in d["days"]), profit.compute_receipts(self.receipts, self.cols, D1, D31), places=2
         )
-        self.assertAlmostEqual(d["totals"]["orders"], 3300.0, places=2)
-        self.assertAlmostEqual(d["totals"]["receipts"], 1200.0, places=2)
+        self.assertAlmostEqual(d["totals"]["orders"], 330000.0, places=2)
+        self.assertAlmostEqual(d["totals"]["receipts"], 120000.0, places=2)
 
     def test_single_day_boundary(self):
         d = self._daily(datetime.date(2026, 3, 31), datetime.date(2026, 3, 31))
         self.assertEqual(len(d["days"]), 1)
-        self.assertEqual(d["days"][0]["receipts"], 700.0)
+        self.assertEqual(d["days"][0]["receipts"], 70000.0)
         self.assertEqual(d["totals"]["orders_count"], 0)
 
     def test_empty_range(self):
@@ -126,8 +126,8 @@ class TestComputeDaily(unittest.TestCase):
         self.assertIn("orders_by_bu", d["rankings"])
         bu = d["rankings"]["orders_by_bu"]
         self.assertEqual(bu["items"][0]["name"], "游戏")
-        self.assertEqual(bu["items"][0]["amount"], 3000.0)
-        self.assertEqual(bu["unfilled"]["amount"], 300.0)
+        self.assertEqual(bu["items"][0]["amount"], 300000.0)
+        self.assertEqual(bu["unfilled"]["amount"], 30000.0)
         # 无映射时不挂该键（前端回退按部门）
         d0 = profit.compute_daily(orders, receipts, cols, D1, D31)
         self.assertNotIn("orders_by_bu", d0["rankings"])

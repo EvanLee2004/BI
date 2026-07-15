@@ -241,11 +241,11 @@ class TestBuConservation(_Base):
         self.assertAlmostEqual(totals["revenue_net"], full["revenue_net"], places=2)
         self.assertAlmostEqual(totals["orders"], full["orders"], places=2)
         # 回款：R3 销售为空（100 元）→ 差额恰等于空名行金额（未归属·不进任何 BU 页）
-        self.assertAlmostEqual(full["receipts"] - totals["receipts"], 100.0, places=2)
+        self.assertAlmostEqual(full["receipts"] - totals["receipts"], 10000, places=2)
         # 数值抽查：BU甲 全年下单 1000、回款 800
         pa = profit.build_bu_summary(self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A"})["periods"][yk]
-        self.assertAlmostEqual(pa["orders"], 1000.0, places=2)
-        self.assertAlmostEqual(pa["receipts"], 800.0, places=2)
+        self.assertAlmostEqual(pa["orders"], 100000, places=2)
+        self.assertAlmostEqual(pa["receipts"], 80000, places=2)
 
     def test_common_expense_zero_and_pretax_formula(self):
         """分摊关：公共费用恒 0；BU 税前利润 = 毛利 − 附加税费（手填/台账项都不混入）。"""
@@ -257,7 +257,7 @@ class TestBuConservation(_Base):
         self.assertEqual(p["other_pl"], 0.0)
         self.assertAlmostEqual(p["pretax_profit"], round(p["gross_profit"] - p["surtax"], 2), places=2)
         # 生产成本只含系统项：直接成本 300 − 内部译员 50（手填 6 项恒 0）
-        self.assertAlmostEqual(p["production_cost"], 250.0, places=2)
+        self.assertAlmostEqual(p["production_cost"], 25000, places=2)
 
     def test_alloc_conservation_and_pretax(self):
         """分摊开：ΣBU 公共费用 == 全公司台账公共；税前=毛利−分摊公共−附加税（真实 build_bu_summary）。"""
@@ -320,8 +320,8 @@ class TestBuConservation(_Base):
         p2 = profit.build_bu_summary(self.cfg, proj, orders, receipts, inhouse, TODAY, {"销售A", "销售B"})["periods"][
             "2026年"
         ]
-        self.assertAlmostEqual(p2["orders"] - p1["orders"], 2000.0, places=2)
-        self.assertAlmostEqual(p2["receipts"] - p1["receipts"], 900.0, places=2)
+        self.assertAlmostEqual(p2["orders"] - p1["orders"], 200000, places=2)
+        self.assertAlmostEqual(p2["receipts"] - p1["receipts"], 90000, places=2)
 
 
 class TestBuPages(_Base):

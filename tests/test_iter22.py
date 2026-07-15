@@ -192,9 +192,9 @@ class TestOrdersByBU(unittest.TestCase):
             empty_label="（未归属）",
             name_of=lambda r: m.get(str(r.get("销售") or "").strip(), ""),
         )
-        self.assertEqual(rk["items"][0], {"name": "游戏", "amount": 150.0, "count": 2})
-        self.assertEqual(rk["unfilled"], {"amount": 30.0, "count": 1})  # 未归属置底
-        self.assertEqual(rk["total"], 180.0)  # 守恒
+        self.assertEqual(rk["items"][0], {"name": "游戏", "amount": 15000.0, "count": 2})
+        self.assertEqual(rk["unfilled"], {"amount": 3000.0, "count": 1})  # 未归属置底
+        self.assertEqual(rk["total"], 18000.0)  # 守恒
 
     def test_rank_card_swaps_to_bu(self):
         # A6：双血条两卡按销售/按客户；不再按部门/按BU 首卡切换
@@ -370,8 +370,8 @@ class TestCostVatManual(unittest.TestCase):
         s = self._summary({"2026-01": {"直接成本增值税": 100.0, "PM人力成本": 300.0}})
         p = s["periods"]["2026年"]
         # 生产成本 = 系统直接成本0 − 内译0 + 手填300 − 增值税100 = 200
-        self.assertEqual(p["production_cost"], 200.0)
-        self.assertEqual(p["gross_profit"], -200.0)
+        self.assertEqual(p["production_cost"], 20000)
+        self.assertEqual(p["gross_profit"], -20000)
 
     def test_row_in_pl_drawers(self):
         s = self._summary({"2026-01": {"直接成本增值税": 100.0}})
@@ -405,10 +405,10 @@ class TestManualItemsInjected(unittest.TestCase):
 class TestReceiptDeliveredUnpaid(unittest.TestCase):
     """A3 回款侧栏：总下单/总回款首行；已交付未回款默认隐藏、可开关恢复。"""
 
-    SERIES = [("1月", 200_000.0, 500_000.0, 40.0), ("2月", 200_000.0, 500_000.0, 40.0)]  # 累计回款 40 万、下单 100 万
+    SERIES = [("1月", 20_000_000.0, 50_000_000.0, 40.0), ("2月", 20_000_000.0, 50_000_000.0, 40.0)]  # 分：累计回款40万、下单100万
 
     def test_totals_first_line_and_default_hide_ar(self):
-        html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0)
+        html = render.render_receipts(self.SERIES, delivered_gross=100_000_000.0)
         self.assertIn("总下单", html)
         self.assertIn("总回款", html)
         self.assertIn("下单未回款", html)
@@ -417,14 +417,14 @@ class TestReceiptDeliveredUnpaid(unittest.TestCase):
         self.assertNotIn("缺口（下单 − 回款）", html)
 
     def test_show_delivered_unpaid_switch(self):
-        html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0, show_delivered_unpaid=True)
+        html = render.render_receipts(self.SERIES, delivered_gross=100_000_000.0, show_delivered_unpaid=True)
         self.assertIn("已交付未回款", html)
         self.assertIn("rc-recv", html)
         self.assertIn("60.0万", html)
 
     def test_amount_string_when_shown(self):
         html_neg = render.render_receipts(
-            [("1月", 1_500_000.0, 100_000.0, None)], delivered_gross=1_000_000.0, show_delivered_unpaid=True
+            [("1月", 150_000_000.0, 10_000_000.0, None)], delivered_gross=100_000_000.0, show_delivered_unpaid=True
         )
         self.assertIn("−50.0万", html_neg)
 

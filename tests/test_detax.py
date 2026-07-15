@@ -136,14 +136,14 @@ class TestDetaxComputeIntegration(unittest.TestCase):
     def test_detax_shrinks_and_conserves(self):
         lcols = self._l()
         base_fine = profit.compute_expenses_by_fine_type(ROWS, 2026, START, END, CFG, lcols)
-        self.assertAlmostEqual(dict(base_fine["固定运营费用"])["房租"], 109.0, places=2)
+        self.assertAlmostEqual(dict(base_fine["固定运营费用"])["房租"], 10900, places=2)
 
         dtx = profit.detax_ledger_rows(HDR, ROWS, {"房租": 9})
         by_cat, _ = profit.compute_ledger_expenses(dtx, 2026, START, END, CFG, lcols)
         fine = profit.compute_expenses_by_fine_type(dtx, 2026, START, END, CFG, lcols)
         # 房租去税后 100；办公用品不动 100（compute_*_fine_type 返回 {大类:[(细类,金额),...]}）
-        self.assertAlmostEqual(dict(fine["固定运营费用"])["房租"], 100.0, places=2)
-        self.assertAlmostEqual(dict(fine["管理费用"])["办公用品"], 100.0, places=2)
+        self.assertAlmostEqual(dict(fine["固定运营费用"])["房租"], 10000, places=2)
+        self.assertAlmostEqual(dict(fine["管理费用"])["办公用品"], 10000, places=2)
         # 守恒：每个大类合计 == 该大类下细类合计（源头统一去税、无两处真相）
         for cat, fines in fine.items():
             self.assertAlmostEqual(by_cat.get(cat, 0.0), sum(v for _, v in fines), places=2, msg=cat)
