@@ -226,12 +226,13 @@ class TestOrdersByBU(unittest.TestCase):
             {"name": "游戏", "amount": 500000.0, "year_amount": 1200000.0, "target": 2000000.0, "pct": 60.0},
             {"name": "数据", "amount": 0.0, "year_amount": 0.0, "target": None, "pct": None},
         ]
-        html = render._bu_orders_block(lst)
+        import render_widgets
+        html = render_widgets._bu_orders_block(lst)
         self.assertIn("kpi-bus", html)
         self.assertIn("游戏", html)
         self.assertIn("60%", html)
         self.assertIn("未设目标", html)
-        self.assertEqual(render._bu_orders_block(None), "")  # BU 页不传 → 空（铁律12）
+        self.assertEqual(render_widgets._bu_orders_block(None), "")  # BU 页不传 → 空（铁律12）
 
     def test_render_basic_only_orders_card_gets_block(self):
         # bu_orders 只挂下单卡；其他卡不出现；无迷你折线、有峰值/已交付未回款脚

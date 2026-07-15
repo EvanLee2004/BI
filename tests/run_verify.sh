@@ -47,6 +47,9 @@ tests/test_b_bu_shipped_assemble.py
 tests/test_login_cache_p0.py
 tests/test_ranking_monthly_a8.py
 tests/test_publish_once.py
+tests/test_b_p0_shipped_path.py
+tests/test_b_shipped_cards.py
+tests/test_b_http_shipped.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
@@ -62,9 +65,6 @@ tests/test_profile.py
 tests/test_admin_static.py
 tests/test_no_html_in_py.py
 tests/test_b_p0_rankings_assemble.py
-tests/test_b_p0_shipped_path.py
-tests/test_b_shipped_cards.py
-tests/test_b_http_shipped.py
 tests/test_b_p1_contract.py
 "
 run_one() {
