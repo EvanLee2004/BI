@@ -28,6 +28,8 @@ D1, D31 = datetime.date(2026, 3, 1), datetime.date(2026, 3, 31)
 
 
 def _seed(cfg, root):
+    import money
+
     conn = db.connect(cfg, root)
     orders = [
         ("O1", "SO1", "2026-03-01", 1000.0, "部门B", "张三"),
@@ -39,14 +41,14 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, o, d, a, dep, sal, d[:7], d[:7]),
+            (k, o, d, money.yuan_to_fen(a), dep, sal, d[:7], d[:7]),
         )
     receipts = [("R1", "HK1", "2026-03-05", 500.0, "客户甲"), ("R2", "HK2", "2026-03-31", 700.0, "客户乙")]
     for k, rid, d, a, cu in receipts:
         conn.execute(
             "INSERT INTO std_回款(定位键,回款ID,到账日期,到账金额,客户,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,0)",
-            (k, rid, d, a, cu, d[:7], d[:7]),
+            (k, rid, d, money.yuan_to_fen(a), cu, d[:7], d[:7]),
         )
     conn.commit()
     conn.close()

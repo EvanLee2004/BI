@@ -159,7 +159,9 @@ class TestRenderProfitRankings(unittest.TestCase):
 
 
 def _seed_project(cfg, root):
-    """种入 std_收入明细（供 /api/profit_ranking 端到端）。"""
+    """种入 std_收入明细（供 /api/profit_ranking 端到端）。金额元→分。"""
+    import money
+
     conn = db.connect(cfg, root)
     rows = [
         ("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060.0, 300.0),
@@ -171,7 +173,7 @@ def _seed_project(cfg, root):
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,销售,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)",
-            (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]),
+            (k, so, cu, ln, sal, d, money.yuan_to_fen(rev), money.yuan_to_fen(cost), d[:7], d, d[:7]),
         )
     conn.commit()
     conn.close()

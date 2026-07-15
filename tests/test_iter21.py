@@ -126,7 +126,7 @@ class TestUnknownProfitCenter(unittest.TestCase):
             conn.execute(
                 "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,"
                 "预算明细费用类型,预算归属部门,归属月,已删除) VALUES (?,?,?,?,?,?,?,?,?,0)",
-                ("k1", 3, "2026-03-10", 15000, "语言部", "管理费用", "差旅费", "", "2026-03"),
+                ("k1", 3, "2026-03-10", 1500000, "语言部", "管理费用", "差旅费", "", "2026-03"),  # 15000 元
             )
             conn.commit()
             summary = {"meta": {"health": {"warnings": [], "sources": [], "ok": True}}}

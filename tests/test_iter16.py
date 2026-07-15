@@ -32,7 +32,9 @@ TODAY = datetime.date(2026, 7, 11)
 
 
 def _seed(cfg, root):
-    """四源合成数据。下单：A=100万(03)、B=200万(03)、C=40万(04)、销售空=10万(05)。"""
+    """四源合成数据。下单：A=100万(03)、B=200万(03)、C=40万(04)、销售空=10万(05)。金额元→分。"""
+    import money
+
     conn = db.connect(cfg, root)
     proj = [
         ("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060000.0, 300000.0),
@@ -43,7 +45,7 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,销售,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)",
-            (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]),
+            (k, so, cu, ln, sal, d, money.yuan_to_fen(rev), money.yuan_to_fen(cost), d[:7], d, d[:7]),
         )
     orders = [
         ("O1", "SO1", "2026-03-01", 1000000.0, "部门X", "销售A"),
@@ -55,7 +57,7 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, so, d, a, dep, sal, d[:7], d[:7]),
+            (k, so, d, money.yuan_to_fen(a), dep, sal, d[:7], d[:7]),
         )
     receipts = [
         ("R1", "HK1", "2026-03-15", 800000.0, "客户甲", "销售A"),
@@ -65,14 +67,14 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_回款(定位键,回款ID,到账日期,到账金额,客户,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, rid, d, a, cu, sal, d[:7], d[:7]),
+            (k, rid, d, money.yuan_to_fen(a), cu, sal, d[:7], d[:7]),
         )
     inhouse = [("T1", "2026-03-12", 50000.0, "IN-HOUSE", "销售A")]
     for k, d, a, t, sal in inhouse:
         conn.execute(
             "INSERT INTO std_内部译员(定位键,任务ID,任务提交日期,结算金额,译员类型,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, k, d, a, t, sal, d[:7], d[:7]),
+            (k, k, d, money.yuan_to_fen(a), t, sal, d[:7], d[:7]),
         )
     conn.commit()
     conn.close()

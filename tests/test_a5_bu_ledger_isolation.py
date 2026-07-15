@@ -53,6 +53,8 @@ class TestBuLedgerIsolation(unittest.TestCase):
             ],
         )
         conn = dbmod.connect(cls.cfg, cls.root)
+        import money
+
         for i, (bu, amt) in enumerate([("甲BU", 100.0), ("乙BU", 200.0), ("甲BU", 50.0)]):
             conn.execute(
                 "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,"
@@ -62,7 +64,7 @@ class TestBuLedgerIsolation(unittest.TestCase):
                     f"k{i}",
                     "1月",
                     "2026-01-0%d" % (i + 1),
-                    amt,
+                    money.yuan_to_fen(amt),
                     bu,
                     "管理费用",
                     "办公",

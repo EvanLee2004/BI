@@ -35,9 +35,11 @@ TODAY = datetime.date(2026, 7, 11)
 
 
 def _seed(cfg, root):
-    """四源合成数据：销售A/销售B 各归一个 BU，销售C 未归属。金额都取整好核对。"""
+    """四源合成数据：销售A/销售B 各归一个 BU，销售C 未归属。金额入参元、落库分。"""
+    import money
+
     conn = db.connect(cfg, root)
-    proj = [  # (键, 订单号, 客户, 业务线, 销售, 交付日期, 交付额, 项目成本)
+    proj = [  # (键, 订单号, 客户, 业务线, 销售, 交付日期, 交付额元, 项目成本元)
         ("P1", "SO1", "客户甲", "线1", "销售A", "2026-03-10", 1060.0, 300.0),
         ("P2", "SO2", "客户乙", "线1", "销售B", "2026-03-20", 2120.0, 500.0),
         ("P3", "SO3", "客户丙", "线2", "销售C", "2026-04-05", 530.0, 100.0),
@@ -46,7 +48,7 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,销售,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?,0)",
-            (k, so, cu, ln, sal, d, rev, cost, d[:7], d, d[:7]),
+            (k, so, cu, ln, sal, d, money.yuan_to_fen(rev), money.yuan_to_fen(cost), d[:7], d, d[:7]),
         )
     orders = [
         ("O1", "SO1", "2026-03-01", 1000.0, "部门X", "销售A"),
@@ -57,7 +59,7 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, so, d, a, dep, sal, d[:7], d[:7]),
+            (k, so, d, money.yuan_to_fen(a), dep, sal, d[:7], d[:7]),
         )
     receipts = [
         ("R1", "HK1", "2026-03-15", 800.0, "客户甲", "销售A"),
@@ -68,14 +70,14 @@ def _seed(cfg, root):
         conn.execute(
             "INSERT INTO std_回款(定位键,回款ID,到账日期,到账金额,客户,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, rid, d, a, cu, sal, d[:7], d[:7]),
+            (k, rid, d, money.yuan_to_fen(a), cu, sal, d[:7], d[:7]),
         )
     inhouse = [("T1", "2026-03-12", 50.0, "IN-HOUSE", "销售A"), ("T2", "2026-03-18", 70.0, "IN-HOUSE", "销售B")]
     for k, d, a, t, sal in inhouse:
         conn.execute(
             "INSERT INTO std_内部译员(定位键,任务ID,任务提交日期,结算金额,译员类型,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,0)",
-            (k, k, d, a, t, sal, d[:7], d[:7]),
+            (k, k, d, money.yuan_to_fen(a), t, sal, d[:7], d[:7]),
         )
     conn.commit()
     conn.close()
@@ -364,7 +366,7 @@ class TestBuPages(_Base):
             "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,"
             "预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,0)",
-            ("E1", 3, "2026-03-05", 50000.0, "BU甲", "市场费用", "推广", "测试部", "2026-03", "2026-03"),
+            ("E1", 3, "2026-03-05", 5000000, "BU甲", "市场费用", "推广", "测试部", "2026-03", "2026-03"),  # 5万=50000元
         )
         conn.commit()
         conn.close()

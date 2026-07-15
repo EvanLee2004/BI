@@ -31,14 +31,19 @@ def migrate_manual(
     if not raw:
         return {"status": "empty_source", "imported": 0, "detail": "手填与调整.xlsx 为空或不存在，无可迁移"}
 
+    import money
+
     stamp = 时间 or _now()
     n = 0
     cur = conn.cursor()
     for 归属月, items in raw.items():
         for 项目, 金额 in items.items():
+            fen = money.yuan_to_fen(金额)
+            if fen is None:
+                fen = 0
             cur.execute(
                 "INSERT OR REPLACE INTO manual_手填(归属月,项目,金额,填写时间,经手人) VALUES(?,?,?,?,?)",
-                (归属月, 项目, float(金额), stamp, 经手人),
+                (归属月, 项目, fen, stamp, 经手人),
             )
             n += 1
     conn.commit()

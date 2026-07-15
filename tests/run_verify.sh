@@ -51,6 +51,7 @@ tests/test_b_p0_shipped_path.py
 tests/test_b_shipped_cards.py
 tests/test_b_http_shipped.py
 tests/test_db_atomic_rebuild.py
+tests/test_money_fen.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="

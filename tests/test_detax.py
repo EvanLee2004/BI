@@ -76,14 +76,17 @@ class TestDbDetax(unittest.TestCase):
         self.assertEqual(db.load_detax_rates(self.conn), {})
 
     def test_list_categories(self):
+        import money
+
         for r in ROWS:
             self.conn.execute(
                 "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(?,?,?,0)",
-                (r[2], r[4], r[5]),
+                (money.yuan_to_fen(r[2]), r[4], r[5]),
             )
         # 空细类行（白名单大类但细类空）不应出现在清单里
         self.conn.execute(
-            "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(50,'管理费用','',0)"
+            "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(?,?,?,0)",
+            (money.yuan_to_fen(50), "管理费用", ""),
         )
         self.conn.commit()
         cats = db.list_detax_categories(self.conn, CFG)
@@ -163,14 +166,16 @@ class TestDetaxApi(unittest.TestCase):
         # 空库 categories=[] 会漏掉 fmt_wan（曾漏 server.py 缺 import charts 的 500，见 test_get_categories_populated）
         conn = db.connect(cls.cfg, cls.root)
         try:
+            import money
+
             for big, fine, amt in [
                 ("固定运营费用", "房租", 1090000.0),
                 ("管理费用", "办公用品", 100000.0),
                 ("生产成本-译费", "译费", 999.0),
-            ]:  # 白名单外
+            ]:  # 白名单外；amt 元 → 分
                 conn.execute(
                     "INSERT INTO std_费用明细(含税金额,对应报表大类,预算明细费用类型,已删除) VALUES(?,?,?,0)",
-                    (amt, big, fine),
+                    (money.yuan_to_fen(amt), big, fine),
                 )
             conn.commit()
         finally:

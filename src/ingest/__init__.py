@@ -63,9 +63,16 @@ _STD_INSERT = {
 
 
 def _insert(conn, table: str, records: list[dict]) -> None:
+    """写入 std；金额列在入库前元→分（定位键已在 normalize 用元算好）。"""
+    import money
+
     cols = _STD_INSERT[table]
     sql = f"INSERT INTO {table}({','.join(cols)}) VALUES({','.join('?' * len(cols))})"
-    conn.executemany(sql, [tuple(r.get(c) for c in cols) for r in records])
+    rows = []
+    for r in records:
+        rf = money.record_amounts_to_fen(table, r)
+        rows.append(tuple(rf.get(c) for c in cols))
+    conn.executemany(sql, rows)
 
 
 def build_std_db(

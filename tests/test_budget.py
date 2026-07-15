@@ -39,7 +39,8 @@ class TestBudgetDb(unittest.TestCase):
         self.assertEqual(rows[0]["金额"], 9000_0000)
         self.assertEqual(rows[0]["经手人"], "陆总")
         hist = conn.execute("SELECT 旧值,新值 FROM manual_预算历史 ORDER BY id").fetchall()
-        self.assertEqual(hist, [(None, 8000_0000), (8000_0000, 9000_0000)])
+        # 库内整数分：8000_0000 元 → 8000_0000_00 分
+        self.assertEqual(hist, [(None, 8000_0000 * 100), (8000_0000 * 100, 9000_0000 * 100)])
 
     def test_load_budget_shape_and_scope(self):
         conn = mem_conn()

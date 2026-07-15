@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import schema
 import db
+import money
 import profit
 import loaders  # noqa: E402
 from ingest import adjust  # noqa: E402
@@ -28,11 +29,13 @@ def _conn():
 
 
 def _ins_income(conn, 定位键, 交付日期, 交付额=1000.0, 归属月=None, 原值月=None):
+    """交付额入参为元，落库为分。"""
     ym = 归属月 or (交付日期[:7] if 交付日期 else None)
+    fen = money.yuan_to_fen(交付额) or 0
     conn.execute(
         "INSERT INTO std_收入明细(定位键,订单号,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
         " VALUES(?,?,?,?,?,?,?,?,0)",
-        (定位键, 定位键, 交付日期, 交付额, 0.0, ym, 交付日期, 原值月 or ym),
+        (定位键, 定位键, 交付日期, fen, 0, ym, 交付日期, 原值月 or ym),
     )
     conn.commit()
 
@@ -98,14 +101,17 @@ class TestReplay(unittest.TestCase):
         _add_adj(conn, "std_收入明细", "SOD_D", "交付额", "1000", "1500")
         adjust.apply_adjustments(conn, NOW)
         v = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='SOD_D'").fetchone()[0]
-        self.assertAlmostEqual(v, 1500.0)
+        self.assertEqual(int(v), 150000)  # 1500 元 = 150000 分
+        self.assertAlmostEqual(money.fen_to_yuan(v), 1500.0)
 
 
 def _ins_expense(conn, 定位键, 含税金额=100.0, 预算归属部门="市场部", 归属月="2026-06"):
+    """含税金额入参为元，落库为分。"""
+    fen = money.yuan_to_fen(含税金额) or 0
     conn.execute(
         "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
         " VALUES(?,?,?,?,?,?,?,?,?,?,0)",
-        (定位键, 归属月, f"{归属月}-15", 含税金额, "语言", "管理费用", "办公费", 预算归属部门, 归属月, 归属月),
+        (定位键, 归属月, f"{归属月}-15", fen, "语言", "管理费用", "办公费", 预算归属部门, 归属月, 归属月),
     )
     conn.commit()
 
@@ -193,7 +199,7 @@ class TestLedgerPeriodRecompute(unittest.TestCase):
         conn = _conn()
         conn.execute(
             "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
-            " VALUES('LED_E','06',NULL,100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)"
+            " VALUES('LED_E','06',NULL,10000,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)"
         )
         conn.commit()
         db.add_adjustment(conn, "明昊", "std_费用明细", "LED_E", "收单月份", "03", "改月", "改值")
@@ -225,8 +231,8 @@ class TestLocatorCollisionGuard(unittest.TestCase):
         r = adjust.apply_adjustments(conn, NOW)
         self.assertEqual(r["expired"], 1)
         self.assertEqual(r["applied"], 0)
-        vals = [v[0] for v in conn.execute("SELECT 含税金额 FROM std_费用明细 WHERE 定位键='LED_F'")]
-        self.assertEqual(vals, [100.0, 100.0])  # 一行都没被改
+        vals = [int(v[0]) for v in conn.execute("SELECT 含税金额 FROM std_费用明细 WHERE 定位键='LED_F'")]
+        self.assertEqual(vals, [10000, 10000])  # 100 元=10000 分；一行都没被改
         st = conn.execute("SELECT 状态 FROM adj_调整记录 WHERE 定位键='LED_F'").fetchone()[0]
         self.assertEqual(st, "过期疑似")
 

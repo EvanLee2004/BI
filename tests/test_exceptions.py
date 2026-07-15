@@ -28,9 +28,11 @@ import server  # noqa: E402
 
 
 def _seed_orders(cfg, root):
+    import money
+
     conn = db.connect(cfg, root)
     rows = [
-        # 定位键, 订单号, 日期, 金额, 部门, 销售, 已删除
+        # 定位键, 订单号, 日期, 金额元, 部门, 销售, 已删除
         ("O1", "SO1", "2026-03-01", 1000.0, "部门B", "张三", 0),
         ("O2", "SO2", "2026-03-05", 2000.0, "", "李四", 0),  # 未填部门
         ("O3", "SO3", "2026-04-02", 3000.0, None, "王五", 0),  # 未填部门(NULL)
@@ -40,10 +42,11 @@ def _seed_orders(cfg, root):
         ("O7", "SO7", "2026-05-06", 4000.0, "部门A", "周九", 0),
     ]
     for k, o, d, a, dep, sal, rm in rows:
+        fen = money.yuan_to_fen(a) or 0
         conn.execute(
             "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
             " VALUES(?,?,?,?,?,?,?,?,?)",
-            (k, o, d, a, dep, sal, d[:7], d[:7], rm),
+            (k, o, d, fen, dep, sal, d[:7], d[:7], rm),
         )
     conn.commit()
     return conn

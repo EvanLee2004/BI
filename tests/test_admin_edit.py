@@ -18,21 +18,22 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import loaders
+import money
 import server
 import db  # noqa: E402
 from ingest import archive  # noqa: E402
 
 
 def _seed(cfg, root):
-    """在 endpoints 用的同一个库里种一行收入明细 + 一行费用明细（R1 新开放字段用）。"""
+    """在 endpoints 用的同一个库里种一行收入明细 + 一行费用明细（R1 新开放字段用）。金额单位：分。"""
     conn = db.connect(cfg, root)
     conn.execute(
         "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
-        " VALUES('K1','SO1','客A','传统营销','2026-07-15',1000,300,'2026-07','2026-07-15','2026-07',0)"
+        " VALUES('K1','SO1','客A','传统营销','2026-07-15',100000,30000,'2026-07','2026-07-15','2026-07',0)"
     )
     conn.execute(
         "INSERT INTO std_费用明细(定位键,收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门,归属月,原值_归属月,已删除)"
-        " VALUES('L1','2026-06','2026-06-15',100,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)"
+        " VALUES('L1','2026-06','2026-06-15',10000,'语言','管理费用','办公费','市场部','2026-06','2026-06',0)"
     )
     conn.commit()
     conn.close()
@@ -100,11 +101,11 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertIn("adj_id", r.json())
         self.assertEqual(server._state["built_at"], "RECOMPUTED")  # 触发了秒级重算
-        # 台账里能查到，且原值=服务端从库读的 1000.0（不是前端传的）
+        # 台账里能查到，且原值=服务端从库读的元文本（1000 元=100000 分；不是前端传的）
         adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
         mine = [a for a in adjs if a["字段"] == "交付额" and a["定位键"] == "K1"]
         self.assertTrue(mine)
-        self.assertEqual(str(mine[0]["原值"]), "1000.0")
+        self.assertEqual(str(mine[0]["原值"]), "1000")
         self.assertEqual(mine[0]["新值"], "2000")
         self.assertEqual(mine[0]["类型"], "改值")
 
@@ -158,7 +159,7 @@ class TestAdminWrite(unittest.TestCase):
         cur = conn.execute("SELECT 金额 FROM manual_手填 WHERE 归属月='2026-07' AND 项目='营销人力成本'").fetchone()
         hist = conn.execute("SELECT COUNT(*) FROM manual_历史 WHERE 项目='营销人力成本'").fetchone()[0]
         conn.close()
-        self.assertEqual(cur[0], 6000.0)  # 当月覆盖
+        self.assertEqual(int(cur[0]), 600000)  # 6000 元 = 600000 分
         self.assertGreaterEqual(hist, 2)  # 两次都留痕
 
     def test_manual_unknown_item_400(self):
@@ -544,7 +545,7 @@ class TestExpiredBatch(unittest.TestCase):
         conn = db.connect(cls.cfg, cls.root)
         conn.execute(
             "INSERT INTO std_收入明细(定位键,订单号,客户,业务线,整单交付日期,交付额,项目成本,归属月,原值_交付日期,原值_归属月,已删除)"
-            " VALUES('E1','SO9','客B','传统营销','2026-07-01',2000,500,'2026-07','2026-07-01','2026-07',0)"
+            " VALUES('E1','SO9','客B','传统营销','2026-07-01',200000,50000,'2026-07','2026-07-01','2026-07',0)"
         )
         conn.commit()
         conn.close()
@@ -600,24 +601,24 @@ class TestExpiredBatch(unittest.TestCase):
 
     def test_rearm_refreshes_origin_and_reapplies(self):
         conn = self._conn()
-        aid = self._add_adj(conn, "过期疑似", 原值="1888", 新值="2333")  # 原值1888已过期（源头现值2000）
+        aid = self._add_adj(conn, "过期疑似", 原值="1888", 新值="2333")  # 原值1888已过期（源头现值2000元=200000分）
         conn.close()
         r = self.client.post(f"/api/adjust/{aid}/rearm", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         conn = self._conn()
         原值, 状态 = conn.execute("SELECT 原值,状态 FROM adj_调整记录 WHERE id=?", (aid,)).fetchone()
         self.assertEqual(状态, "生效")
-        self.assertEqual(float(原值), 2000.0)  # 原值刷成源头现值（REAL列str后带.0）→ 下轮重放不再判过期
+        self.assertEqual(float(原值), 2000.0)  # 原值刷成源头现值（元文本）→ 下轮重放不再判过期
         from ingest import adjust as adj_mod
 
         rep = adj_mod.apply_adjustments(conn, "2026-07-11 10:00:00")
         self.assertEqual(rep["expired"], 0)
         val = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='E1'").fetchone()[0]
         conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=?", (aid,))  # 清场防影响他例
-        conn.execute("UPDATE std_收入明细 SET 交付额=2000 WHERE 定位键='E1'")
+        conn.execute("UPDATE std_收入明细 SET 交付额=200000 WHERE 定位键='E1'")  # 恢复 2000 元
         conn.commit()
         conn.close()
-        self.assertEqual(float(val), 2333.0)  # 我的值重新套上
+        self.assertEqual(int(val), 233300)  # 2333 元 = 233300 分
 
     def test_rearm_rejects_wrong_states(self):
         conn = self._conn()

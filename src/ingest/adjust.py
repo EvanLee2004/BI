@@ -17,9 +17,10 @@ from __future__ import annotations
 import sqlite3
 
 import loaders
+import money
 import schema
 
-_AMOUNT_FIELDS = {"交付额", "项目成本", "下单预估额", "到账金额", "结算金额", "含税金额"}
+_AMOUNT_FIELDS = money.AMOUNT_FIELD_NAMES
 
 # 费用明细的归属月由 收单日期(优先)/收单月份(退回·配账年) 派生（口径=periods.ledger_row_date）；
 # 改这两个字段要连带重算归属月（R1 开放全字段后补上，与智云四源的 PERIOD_DATE_FIELD 机制对应）
@@ -39,13 +40,23 @@ def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
     return None
 
 
-def _values_match(current, 原值: str) -> bool:
-    """库中现值 与 调整记录的原值 是否一致（金额按数值容差、其余按去空白文本）。"""
+def _values_match(current, 原值: str, 字段: str = "") -> bool:
+    """库中现值 与 调整记录的原值 是否一致。
+
+    金额列：库内 INTEGER 分，原值/新值按元 TEXT 存 → 分转元后再比。
+    其余：数值容差或去空白文本。
+    """
     if 原值 is None:
         原值 = ""
-    cs = "" if current is None else str(current).strip()
     os_ = str(原值).strip()
-    # 数值型（现值可能是 REAL）：按容差比
+    if 字段 in _AMOUNT_FIELDS:
+        if current is None:
+            return os_ == ""
+        try:
+            return abs(money.fen_to_yuan(current) - float(os_)) < 1e-6
+        except (ValueError, TypeError):
+            return False
+    cs = "" if current is None else str(current).strip()
     try:
         return abs(float(cs) - float(os_)) < 1e-6
     except (ValueError, TypeError):
@@ -53,8 +64,11 @@ def _values_match(current, 原值: str) -> bool:
 
 
 def _cast(字段: str, 新值: str):
+    """新值写入 std：金额元文本 → 分；其余原样。"""
     if 字段 in _AMOUNT_FIELDS:
-        return loaders.parse_amount(新值)
+        # parse_amount 空/坏 → 0.0；再转分（禁止 float×100 以外的路径）
+        fen = money.yuan_to_fen(loaders.parse_amount(新值))
+        return 0 if fen is None else fen
     return 新值
 
 
@@ -91,11 +105,11 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             continue
         # 现值取第一条匹配行（重放当刻=原始值）
         current = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
-        if not _values_match(current, 原值):
+        if not _values_match(current, 原值, 字段):
             conn.execute("UPDATE adj_调整记录 SET 状态='过期疑似' WHERE id=?", (aid,))
             expired += 1
             continue
-        # 套用新值到所有匹配行
+        # 套用新值到所有匹配行（金额写分）
         conn.execute(f"UPDATE {目标表} SET {字段}=? WHERE 定位键=? AND 已删除=0", (_cast(字段, 新值), 定位键))
         # 若改的是驱动归属月的日期字段，连带重算归属月
         if schema.PERIOD_DATE_FIELD.get(目标表) == 字段:

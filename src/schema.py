@@ -2,34 +2,30 @@
 # -*- coding: utf-8 -*-
 """看板.db 唯一表定义（建表 SQL + 字段常量都从这里出，杜绝三处各自解析的旧病）。
 
-约定（03 详细设计 一）：
-- 金额一律 REAL（元）；日期一律 TEXT，能解析的存 ISO `YYYY-MM-DD`，解析不出的存原文（归属月留空）；
-  归属月 TEXT `YYYY-MM`。
-- **标准表（std_*）每次更新全量重建、永不手改**；用自增 id 做主键（保证每源行一条、绝不塌行，
-  守刀1回归红线）；`定位键`=内容哈希，仅作刀2调整匹配用的索引，不当主键（造数把同 ID 复制成 7 个
-  月度变体、金额/日期各异，故 ID 不唯一——2026-07-08 首日核实结论，退行哈希）。
-- **人工表（adj_/manual_/meta_）重建时永不清空**。
+约定（03 详细设计 一 · 任务书33·A3 修订）：
+- **金额一律 INTEGER 分**（进料口元→Decimal 四舍五入；读回转元 float 供 profit/显示）。
+- 日期一律 TEXT，能解析的存 ISO `YYYY-MM-DD`，解析不出的存原文（归属月留空）；归属月 TEXT `YYYY-MM`。
+- **标准表（std_*）每次更新全量重建、永不手改**；用自增 id 做主键；`定位键` 仅作调整匹配索引
+  （自然键优先；台账行哈希含金额字符串——定位键在 normalize 用**元**算出后再转分入库，避免哈希漂移）。
+- **人工表（adj_/manual_/meta_）重建时永不清空**；金额列同为分。
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 1→2：金额 REAL 元 → INTEGER 分
 
 # ---- 标准数据表（程序生成·每次全量重建·永不手改） ----
-# 说明：金额列用干净内部名（去掉源表头里的 "/"，否则做不了 SQL 列名）；db.py 读回时映射回
-# config.columns 里的源列名，交给 profit 原样计算（回归红线：改读库后数字与 v6-final 一分不差）。
-# 公共尾列（所有标准表都带）：
-#   原值_归属月 = 本次重抓的原始归属月（规范化即写、重放永不改）——供 diff 分级比对"周期是否变"。
-#   已删除 = 剔除调整的软删标记（1=剔除，不物理删）；db 读回层按 已删除=0 过滤。
+# 金额列 INTEGER 分；db.py 读回映射为元 float 交给 profit。
+# 公共尾列：原值_归属月 / 已删除
 STD_TABLES: dict[str, str] = {
     "std_收入明细": """
         CREATE TABLE IF NOT EXISTS std_收入明细 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,                 -- SOD（明细行级）；见 04_设计变更_定位键策略
             订单号 TEXT, 客户 TEXT, 业务线 TEXT, 销售 TEXT,
-            整单交付日期 TEXT, 交付额 REAL, 项目成本 REAL,
+            整单交付日期 TEXT, 交付额 INTEGER, 项目成本 INTEGER,
             归属月 TEXT,
             原值_交付日期 TEXT,          -- 规范化前的原始交付日期（重放不改）
             原值_归属月 TEXT,
@@ -39,21 +35,21 @@ STD_TABLES: dict[str, str] = {
         CREATE TABLE IF NOT EXISTS std_下单 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            订单号 TEXT, 下单日期 TEXT, 下单预估额 REAL, 部门 TEXT, 销售 TEXT, 客户 TEXT,
+            订单号 TEXT, 下单日期 TEXT, 下单预估额 INTEGER, 部门 TEXT, 销售 TEXT, 客户 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
     "std_回款": """
         CREATE TABLE IF NOT EXISTS std_回款 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            回款ID TEXT, 到账日期 TEXT, 到账金额 REAL, 客户 TEXT, 销售 TEXT,
+            回款ID TEXT, 到账日期 TEXT, 到账金额 INTEGER, 客户 TEXT, 销售 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
     "std_内部译员": """
         CREATE TABLE IF NOT EXISTS std_内部译员 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            任务ID TEXT, 任务提交日期 TEXT, 结算金额 REAL, 译员类型 TEXT,
+            任务ID TEXT, 任务提交日期 TEXT, 结算金额 INTEGER, 译员类型 TEXT,
             译员姓名 TEXT, 销售 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
@@ -61,7 +57,7 @@ STD_TABLES: dict[str, str] = {
         CREATE TABLE IF NOT EXISTS std_费用明细 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            收单月份 TEXT, 收单日期 TEXT, 含税金额 REAL,
+            收单月份 TEXT, 收单日期 TEXT, 含税金额 INTEGER,
             业务BU TEXT, 对应报表大类 TEXT, 预算明细费用类型 TEXT,
             预算归属部门 TEXT,
             事项 TEXT, 提单人 TEXT, 提单人部门 TEXT, 业务员 TEXT, 配音费合同号 TEXT,
@@ -114,13 +110,13 @@ HUMAN_TABLES: dict[str, str] = {
         )""",
     "manual_手填": """
         CREATE TABLE IF NOT EXISTS manual_手填 (
-            归属月 TEXT, 项目 TEXT, 金额 REAL, 填写时间 TEXT, 经手人 TEXT,
+            归属月 TEXT, 项目 TEXT, 金额 INTEGER, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, 项目)
         )""",
     # 按 BU 范围手填（与全公司 manual_手填 并存；公司页仍用全公司表）
     "manual_手填BU": """
         CREATE TABLE IF NOT EXISTS manual_手填BU (
-            归属月 TEXT, 范围 TEXT, 项目 TEXT, 金额 REAL, 填写时间 TEXT, 经手人 TEXT,
+            归属月 TEXT, 范围 TEXT, 项目 TEXT, 金额 INTEGER, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, 范围, 项目)
         )""",
     # 公共费用分摊比例（迭代20·按月）：每月每 BU 一行 0~100 百分数；无行=该月该 BU 不分摊
@@ -137,19 +133,23 @@ HUMAN_TABLES: dict[str, str] = {
         CREATE TABLE IF NOT EXISTS manual_历史 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             时间 TEXT, 经手人 TEXT,
-            归属月 TEXT, 项目 TEXT, 旧值 REAL, 新值 REAL
+            归属月 TEXT, 项目 TEXT, 旧值 INTEGER, 新值 INTEGER
         )""",
     "manual_预算": """
         CREATE TABLE IF NOT EXISTS manual_预算 (
             年份 TEXT, 指标 TEXT, 范围 TEXT DEFAULT '全公司',
-            金额 REAL, 填写时间 TEXT, 经手人 TEXT,
+            金额 INTEGER, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (年份, 指标, 范围)
         )""",
     "manual_预算历史": """
         CREATE TABLE IF NOT EXISTS manual_预算历史 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             时间 TEXT, 经手人 TEXT,
-            年份 TEXT, 指标 TEXT, 范围 TEXT, 旧值 REAL, 新值 REAL
+            年份 TEXT, 指标 TEXT, 范围 TEXT, 旧值 INTEGER, 新值 INTEGER
+        )""",
+    "meta_schema": """
+        CREATE TABLE IF NOT EXISTS meta_schema (
+            key TEXT PRIMARY KEY, value TEXT
         )""",
     "meta_运行日志": """
         CREATE TABLE IF NOT EXISTS meta_运行日志 (
@@ -207,13 +207,163 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
 
 
 def create_all(conn: sqlite3.Connection) -> None:
-    """建齐所有表（幂等）+ 给存量库补后加的列 + 清掉已废弃表。"""
+    """建齐所有表（幂等）+ 给存量库补后加的列 + 金额分迁移 + 清掉已废弃表。"""
     cur = conn.cursor()
     for ddl in {**STD_TABLES, **HUMAN_TABLES}.values():
         cur.execute(ddl)
     _ensure_columns(conn)
     cur.execute("DROP TABLE IF EXISTS suspect_待确认")  # R0：可疑单机制整套删除，存量库顺手清表
+    migrate_money_to_fen_if_needed(conn)
     conn.commit()
+
+
+def _schema_version(conn: sqlite3.Connection) -> int:
+    try:
+        row = conn.execute("SELECT value FROM meta_schema WHERE key='version'").fetchone()
+        if row and str(row[0]).strip().isdigit():
+            return int(row[0])
+    except sqlite3.OperationalError:
+        pass
+    return 0
+
+
+def _set_schema_version(conn: sqlite3.Connection, ver: int) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO meta_schema(key, value) VALUES('version', ?)",
+        (str(ver),),
+    )
+
+
+def _db_file_path(conn: sqlite3.Connection):
+    """主库文件路径；:memory: 或无文件 → None。"""
+    from pathlib import Path
+
+    for _seq, name, file in conn.execute("PRAGMA database_list"):
+        if name == "main" and file:
+            p = Path(file)
+            if p.exists() and str(p) != ":memory:":
+                return p
+    return None
+
+
+def _backup_db_before_migrate(conn: sqlite3.Connection) -> str | None:
+    """迁移前多一份备份（同目录 看板.db.bak-fen-YYYYMMDDHHMMSS）。返回路径或 None。"""
+    import datetime
+    import shutil
+    from pathlib import Path
+
+    path = _db_file_path(conn)
+    if path is None:
+        return None
+    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    bak = path.with_name(f"{path.name}.bak-fen-{stamp}")
+    try:
+        # WAL 下尽量 checkpoint 再拷，避免丢尾部
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.Error:
+            pass
+        shutil.copy2(path, bak)
+        for suffix in ("-wal", "-shm"):
+            side = Path(str(path) + suffix)
+            if side.exists():
+                shutil.copy2(side, Path(str(bak) + suffix))
+        return str(bak)
+    except OSError:
+        return None
+
+
+def _has_money_data(conn: sqlite3.Connection) -> bool:
+    """是否已有金额类数据（无版本号时用于判定是否需按元→分迁移）。"""
+    checks = [
+        "SELECT 1 FROM std_收入明细 WHERE 交付额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM std_下单 WHERE 下单预估额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM std_回款 WHERE 到账金额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM std_内部译员 WHERE 结算金额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM std_费用明细 WHERE 含税金额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM manual_手填 WHERE 金额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM manual_手填BU WHERE 金额 IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM manual_预算 WHERE 金额 IS NOT NULL LIMIT 1",
+    ]
+    for sql in checks:
+        try:
+            if conn.execute(sql).fetchone():
+                return True
+        except sqlite3.OperationalError:
+            continue
+    return False
+
+
+def _yuan_cell_to_fen(val) -> int | None:
+    """存量 REAL 元 → 分（Decimal；已是极大整数且像分的不二次放大——仅迁移路径）。"""
+    import money
+
+    if val is None:
+        return None
+    # 已是 int 且无小数：生产库迁移前金额多为 float 元；若误已是分则不应再 *100。
+    # 版本门控保证只跑一次，按元处理。
+    return money.yuan_to_fen(val)
+
+
+# 表 → 需元→分 的列
+_MIGRATE_MONEY_COLS: dict[str, tuple[str, ...]] = {
+    "std_收入明细": ("交付额", "项目成本"),
+    "std_下单": ("下单预估额",),
+    "std_回款": ("到账金额",),
+    "std_内部译员": ("结算金额",),
+    "std_费用明细": ("含税金额",),
+    "manual_手填": ("金额",),
+    "manual_手填BU": ("金额",),
+    "manual_历史": ("旧值", "新值"),
+    "manual_预算": ("金额",),
+    "manual_预算历史": ("旧值", "新值"),
+}
+
+
+def _migrate_table_money_cols(conn: sqlite3.Connection, table: str, cols: tuple[str, ...]) -> int:
+    """逐行把金额列从元 REAL 写成整数分。返回更新行数。一律用 rowid 定位，避免复合主键麻烦。"""
+    try:
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    except sqlite3.OperationalError:
+        return 0
+    use = [c for c in cols if c in have]
+    if not use:
+        return 0
+    rows = conn.execute(f"SELECT rowid, {','.join(use)} FROM {table}").fetchall()
+    n = 0
+    for row in rows:
+        rid = row[0]
+        sets = []
+        args = []
+        for c, v in zip(use, row[1:]):
+            sets.append(f"{c}=?")
+            args.append(_yuan_cell_to_fen(v))
+        conn.execute(f"UPDATE {table} SET {','.join(sets)} WHERE rowid=?", args + [rid])
+        n += 1
+    return n
+
+
+def migrate_money_to_fen_if_needed(conn: sqlite3.Connection) -> dict:
+    """schema v1（元 REAL）→ v2（整数分）。幂等：已是 v2 直接跳过。迁移前自动备份。
+
+    adj_调整记录 的 原值/新值 保持元 TEXT（人类可读 + 与管理端录入一致）；
+    定位键在 normalize 用元算出后再转分入库，哈希不因分存储而漂移。
+    """
+    ver = _schema_version(conn)
+    if ver >= SCHEMA_VERSION:
+        return {"status": "skip", "version": ver, "backup": None}
+
+    # 无版本标记且无金额数据 = 新建空库，直接标 v2
+    if ver == 0 and not _has_money_data(conn):
+        _set_schema_version(conn, SCHEMA_VERSION)
+        return {"status": "init", "version": SCHEMA_VERSION, "backup": None}
+
+    bak = _backup_db_before_migrate(conn)
+    updated = {}
+    for table, cols in _MIGRATE_MONEY_COLS.items():
+        updated[table] = _migrate_table_money_cols(conn, table, cols)
+    _set_schema_version(conn, SCHEMA_VERSION)
+    return {"status": "migrated", "version": SCHEMA_VERSION, "backup": bak, "updated": updated}
 
 
 def reset_std_tables(conn: sqlite3.Connection, *, commit: bool = False) -> None:

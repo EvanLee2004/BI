@@ -75,7 +75,12 @@ def _strip_ts(s):
 
 
 def diff(a, b, path=""):
-    """返回不一致点列表 [(路径, 旧, 新)]。数字按精确相等比（都已 round 过）。"""
+    """返回不一致点列表 [(路径, 旧, 新)]。
+
+    金额「一分不差」= 绝对差 < 0.005 元（半分）。
+    任务书33·A3 后库内整数分读回更干净，文件路径 float 累加会有 1e-15 级噪声；
+    嵌套 tuple（expense_by_* 行）也要递归比，不能整段 !=。
+    """
     out = []
     if isinstance(a, dict) and isinstance(b, dict):
         for k in sorted(set(a) | set(b)):
@@ -85,15 +90,19 @@ def diff(a, b, path=""):
                 out.append((f"{path}.{k}", a[k], "<缺>"))
             else:
                 out += diff(a[k], b[k], f"{path}.{k}")
-    elif isinstance(a, list) and isinstance(b, list):
+    elif isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
         if len(a) != len(b):
             out.append((f"{path}[len]", len(a), len(b)))
         for i, (x, y) in enumerate(zip(a, b)):
             out += diff(x, y, f"{path}[{i}]")
     else:
-        if isinstance(a, float) or isinstance(b, float):
-            if abs((a or 0) - (b or 0)) > 1e-9:
-                out.append((path, a, b))
+        if isinstance(a, (int, float)) or isinstance(b, (int, float)):
+            try:
+                if abs(float(a or 0) - float(b or 0)) >= 0.005:  # 半分=0.5 分
+                    out.append((path, a, b))
+            except (TypeError, ValueError):
+                if a != b:
+                    out.append((path, a, b))
         elif a != b:
             out.append((path, a, b))
     return out
