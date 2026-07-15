@@ -137,20 +137,44 @@ def build_std_db(
 
 
 def _rebuild_std(conn, records: dict) -> None:
-    """全量重建标准表（人工表不动）。records: {表名: [规范化记录]}。"""
-    schema.reset_std_tables(conn)
-    for t in _STD_ORDER:
-        _insert(conn, t, records[t])
-    conn.commit()
+    """全量重建标准表（人工表不动）。records: {表名: [规范化记录]}。
+
+    任务书33·A1：清表+插入单事务（BEGIN IMMEDIATE → DELETE+INSERT → COMMIT）。
+    任一张表插入失败 → 回滚，旧 std 数据完整保留。
+    """
+    # 收束调用方可能未提交的残留事务，再开 IMMEDIATE（WAL 下读方仍见旧快照）
+    try:
+        conn.commit()
+    except Exception:
+        pass
+    prev_iso = conn.isolation_level
+    conn.isolation_level = None  # 手动事务
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        schema.reset_std_tables(conn, commit=False)
+        for t in _STD_ORDER:
+            _insert(conn, t, records.get(t) or [])
+        conn.execute("COMMIT")
+    except Exception:
+        try:
+            conn.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        conn.isolation_level = prev_iso
 
 
 def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     """**轻量重算**（管理员保存后秒级重算用）：用缓存的原始记录重置标准表 → 重放全部生效调整。
-    不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。"""
+    不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。
+
+    重建走 _rebuild_std 单事务；调整重放单独提交（apply_adjustments 内 commit）。
+    """
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     _rebuild_std(conn, records)
     rep = adjust.apply_adjustments(conn, now)
-    conn.commit()
+    # apply_adjustments 已 commit；此处不再二次 commit
     return rep
 
 

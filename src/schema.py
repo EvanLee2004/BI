@@ -216,8 +216,13 @@ def create_all(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def reset_std_tables(conn: sqlite3.Connection) -> None:
-    """清空标准表（每次更新全量重建前调用）；人工表绝不动。"""
+def reset_std_tables(conn: sqlite3.Connection, *, commit: bool = False) -> None:
+    """清空标准表（全量重建前）；人工表绝不动。
+
+    默认**不 commit**（任务书33·A1）：清表+插入必须与 _rebuild_std 同事务，
+    中途崩溃不得留下空 std。调用方在整批成功后一次 COMMIT。
+    commit=True 仅兼容极少数「只要空表」的调用。
+    """
     cur = conn.cursor()
     for name in STD_TABLE_NAMES:
         cur.execute(f"DELETE FROM {name}")
@@ -228,4 +233,5 @@ def reset_std_tables(conn: sqlite3.Connection) -> None:
         )
     except sqlite3.OperationalError:
         pass
-    conn.commit()
+    if commit:
+        conn.commit()

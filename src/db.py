@@ -31,11 +31,19 @@ def db_path(cfg: dict, root: Path | None = None) -> Path:
     return loaders.data_dir(cfg, root) / rel
 
 
+# SQLite 生产标配（任务书33·A2）：WAL 写不挡读；busy 等锁；NORMAL 平衡安全/速度
+_BUSY_TIMEOUT_MS = 5000
+
+
 def connect(cfg: dict, root: Path | None = None) -> sqlite3.Connection:
     path = db_path(cfg, root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    # check_same_thread=False：更新线程与请求线程可共用连接模式（各自仍应独立 connect）
+    conn = sqlite3.connect(str(path), timeout=_BUSY_TIMEOUT_MS / 1000.0)
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
+    conn.execute("PRAGMA synchronous=NORMAL")
     schema.create_all(conn)
     return conn
 
