@@ -123,7 +123,7 @@ class TestProfileServing(unittest.TestCase):
 
 class TestProfileStatics(unittest.TestCase):
     def test_admin_console_no_preview_toggle(self):
-        page = server._admin_page('<html data-profile="full"><div class="wrap">D</div></html>', {})
+        page = server.admin_ui_source()  # static/admin 拼接
         self.assertNotIn('id="profBtn"', page)
         self.assertNotIn("精简视图", page)
         self.assertIn('id="chrome"', page)  # 顶栏冻结容器

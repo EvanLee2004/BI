@@ -45,17 +45,15 @@ class TestAdminStaticFiles(unittest.TestCase):
         for bad in ("toFixed(", "parseFloat("):
             self.assertNotIn(bad, js, bad)
 
-    def test_css_js_match_console_constants(self):
-        """磁盘文件与 server._ADMIN_CONSOLE 内嵌 style/script 内容一致。"""
-        import re as _re
-        src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
-        m = _re.search(r'^_ADMIN_CONSOLE = r"""', src, _re.M)
-        self.assertIsNotNone(m)
-        admin = src[m.end(): src.find('"""', m.end())]
-        css_m = _re.search(r"<style>\n?(.*?)</style>", admin, _re.S)
-        scripts = _re.findall(r"<script>(.*?)</script>", admin, _re.S)
-        self.assertEqual((ADMIN_DIR / "admin.css").read_text(encoding="utf-8"), css_m.group(1))
-        self.assertEqual((ADMIN_DIR / "admin.js").read_text(encoding="utf-8"), "\n".join(scripts[1:]))
+    def test_static_admin_complete(self):
+        """static/admin 四件齐全且 app 入口引用正确（已无 server 内嵌副本）。"""
+        for name in ("admin.html", "admin.css", "admin.js", "bootstrap.html"):
+            self.assertTrue((ADMIN_DIR / name).is_file(), name)
+        html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("/static/admin/admin.css", html)
+        self.assertIn("/admin/app.js", html)
+        js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
+        self.assertIn("__MANUAL_ITEMS__", js)
 
     def test_external_html_links(self):
         html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
@@ -76,8 +74,8 @@ class TestAdminStaticHttp(unittest.TestCase):
         accounts.save_accounts(cls.cfg, cls.tmp, [
             {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
         ])
-        # 内嵌缓存（LEGACY/unittest 路径）
-        server._state["admin_html"] = server._admin_page("<html></html>", {}, cls.cfg)
+        # 标记「已取数成功」即可进完整台（页面读 static）
+        server._state["admin_html"] = server._admin_page("", {}, cls.cfg)
         server._state["user_html"] = "<html>u</html>"
         server._state["summary"] = {"meta": {}, "periods": {}}
         cls.app = server.create_app(cls.cfg, root=cls.tmp)
@@ -109,15 +107,17 @@ class TestAdminStaticHttp(unittest.TestCase):
         self.assertNotIn("__MANUAL_ITEMS__", r.text)
         self.assertIn("营销人力成本", r.text)
 
-    def test_unittest_path_serves_inline_admin(self):
-        """unittest 在 sys.modules → 内嵌 _state admin_html（含注入后的 MANUAL_ITEMS）。"""
+    def test_logged_in_serves_static_admin(self):
+        """登录后 /admin 只走 static 骨架（外链 css/js，不再内嵌整页）。"""
         c = self._client()
         c.post("/admin/login", data={"account": "lushasha", "password": self.server.DEFAULT_PW})
         r = c.get("/admin")
         self.assertEqual(r.status_code, 200)
-        # 内嵌版含 style 或至少完整控制台结构
         self.assertIn("管理员控制台", r.text)
-        self.assertIn("showGroup", r.text)
+        self.assertIn("/static/admin/admin.css", r.text)
+        self.assertIn("/admin/app.js", r.text)
+        self.assertNotIn("<style>", r.text)
+        self.assertNotIn("function showGroup", r.text)
 
 
 class TestAdminGoldenSkeleton(unittest.TestCase):

@@ -62,7 +62,7 @@ PRODUCT_CHANGELOG: list[dict] = [
         "items": [
             "管理端控制台的页面样式与交互脚本也外置到 static/admin/，和看端一样不靠改 Python 大文件就能维护界面。",
             "看端 + 管理端现已全部前后端分离；算账、口径、一键更新流程不变，部署仍是一条命令、无需 Node。",
-            "应急可开 KANBAN_LEGACY_INLINE=1 回退管理端整页内嵌（与 v1.4 看端回退同一开关语义）。",
+            "管理端仅 static/admin（已去掉 server 内嵌整页副本）；看端仍可用 KANBAN_LEGACY_INLINE=1 回退 shell。",
         ],
     },
     {

@@ -302,13 +302,16 @@ class TestManualItemsInjected(unittest.TestCase):
     def test_admin_page_contains_new_item(self):
         import server
         cfg = loaders.load_config()
-        html = server._admin_page("", {}, cfg)
-        self.assertIn("直接成本增值税", html)               # 新项出现在填写页 JS 清单
-        self.assertNotIn("__MANUAL_ITEMS__", html)          # 占位符已替换
+        # 手填清单由 /admin/app.js 注入；此处模拟注入结果
+        js = server.admin_ui_source()
+        self.assertIn("__MANUAL_ITEMS__", js)  # 磁盘模板占位
+        injected = js.replace("__MANUAL_ITEMS__", server._manual_items_json(cfg))
+        self.assertIn("直接成本增值税", injected)
+        self.assertNotIn("__MANUAL_ITEMS__", injected)
 
     def test_placeholder_exists_in_template(self):
         import server
-        self.assertIn("__MANUAL_ITEMS__", server._ADMIN_CONSOLE)
+        self.assertIn("__MANUAL_ITEMS__", server._ADMIN_CONSOLE)  # 别名→static/admin
 
 
 class TestReceiptDeliveredUnpaid(unittest.TestCase):
