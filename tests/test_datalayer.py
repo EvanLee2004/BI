@@ -49,15 +49,16 @@ class TestIngestRoundtrip(unittest.TestCase):
         self.assertEqual(c["std_费用明细"], len(lr_old))
 
     def test_revenue_sum_lossless(self):
-        # 从库读回的收入合计 == 从文件读的收入合计（金额 REAL 存取数值等价）
+        # 从库读回的收入合计（分）== 从文件读的收入合计元→分
+        import money as _money
+
         cc = self.cfg["columns"]
-        from_db = sum(
-            loaders.parse_amount(r.get(cc["project_revenue"])) for r in db.load_project_detail(self.cfg, self.conn)
-        )
+        from_db = sum(int(r.get(cc["project_revenue"]) or 0) for r in db.load_project_detail(self.cfg, self.conn))
         from_file = sum(
-            loaders.parse_amount(r.get(cc["project_revenue"])) for r in loaders.load_project_detail(self.cfg)
+            _money.yuan_to_fen(loaders.parse_amount(r.get(cc["project_revenue"]))) or 0
+            for r in loaders.load_project_detail(self.cfg)
         )
-        self.assertAlmostEqual(from_db, from_file, places=2)
+        self.assertEqual(from_db, from_file)
 
     def test_locator_key_present(self):
         n_empty = self.conn.execute("SELECT COUNT(*) FROM std_收入明细 WHERE 定位键 IS NULL OR 定位键=''").fetchone()[0]
@@ -69,9 +70,15 @@ class TestManualMigration(unittest.TestCase):
         cfg = loaders.load_config()
         conn = _tmp_conn()
         ingest.build_std_db(cfg, loaders.pinned_today(cfg).year, conn=conn)
+        import money as _money
+
         from_db = db.load_manual(cfg, conn)
         from_file = loaders.load_manual(cfg)
-        self.assertEqual(from_db, from_file)  # 逐月逐项一致
+        # 库=分；xlsx=元 → 对齐后再比
+        from_file_fen = {
+            m: {k: (_money.yuan_to_fen(v) or 0) for k, v in items.items()} for m, items in from_file.items()
+        }
+        self.assertEqual(from_db, from_file_fen)
 
     def test_migration_idempotent(self):
         cfg = loaders.load_config()
