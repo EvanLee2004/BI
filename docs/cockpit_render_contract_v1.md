@@ -11,6 +11,9 @@
 | fragments | 整页显示串/HTML 段字典（见下） |
 | chrome_prefix | BU 导航条 / 隐藏改密样式（服务端按会话算好，shell 注入 wrap 前） |
 | data_assembled | "1"（导出截图等待 body[data-assembled=1]） |
+| views.rankings_view | **P0 shipped** 各周期双血条显示串；shell 用 rankings.js 组装 |
+| views.year_key / period_keys | 默认周期与 .pv 顺序 |
+| fragments.rank_views | **客户端路径为空**（由 page.js+rankings.js 填）；Python 导出路径可预渲染 |
 
 ## fragments 字段（与 `render.build_dashboard_fragments` 一致）
 | 字段 | 对应模板/卡 |

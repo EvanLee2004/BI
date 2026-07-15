@@ -68,8 +68,9 @@ class TestP0RankingsAssemble(unittest.TestCase):
     def test_js_loaded_by_shell_or_runner(self):
         self.assertTrue(JS.is_file())
         self.assertTrue(RUNNER.is_file())
-        # shell uses page.js; rankings is unit-tested via node (P0 pilot)
+        # B-P0 shipped：shell 必须加载 rankings.js + page.js
         shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")
+        self.assertIn("assemble/rankings.js", shell)
         self.assertIn("assemble/page.js", shell)
 
 

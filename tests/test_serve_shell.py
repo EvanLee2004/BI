@@ -33,6 +33,17 @@ class TestServeShellProductionPath(unittest.TestCase):
         ])
         server._state["user_html"] = '<html><body><div class="wrap">USER-MAIN</div></body></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
+        server._state["summary"] = {
+            "meta": {"year": 2026, "year_key": "2026年", "tab_groups": {"季度": [], "月": []}},
+            "periods": {"2026年": {"range": ("2026-01-01", "2026-12-31"), "rankings": {}}},
+        }
+        server._state["views"] = {
+            "year_key": "2026年",
+            "period_keys": ["2026年"],
+            "rankings_view": {"2026年": {"visible": True, "start": "", "end": "",
+                                        "sales": {"title": "", "dim": "sales", "items": [], "others": None, "empty": True},
+                                        "customer": {"title": "", "dim": "customer", "items": [], "others": None, "empty": True}}},
+        }
         server._state["bu_pages"] = {}
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)

@@ -58,6 +58,8 @@ class TestP5NoViewPath(unittest.TestCase):
         self.assertEqual(body.get("mode"), "fragments")
         self.assertIn("fragments", body)
         self.assertIn("chrome_prefix", body)
+        self.assertIn("views", body)
+        self.assertEqual(body["fragments"].get("rank_views"), "")  # P0 shipped：JS 组装
 
     def test_shell_has_no_view_string(self):
         shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")

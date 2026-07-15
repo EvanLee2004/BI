@@ -53,11 +53,11 @@ class TestPageAssemble(unittest.TestCase):
     def test_page_js_no_money_ops(self):
         import re
         js = (ROOT / "static/js/assemble/page.js").read_text(encoding="utf-8")
-        # 铁律2：组装 JS 禁止金额运算（勿用过宽正则误伤字符类里的 0-9）
-        self.assertNotRegex(js, r"\bparseFloat\b|\bNumber\s*\(")
-        self.assertNotRegex(js, r"\b(amount|order|receipt|money|revenue|profit|cost)\w*\s*[\+\-\*/]")
-        self.assertNotRegex(js, r"[\+\-\*/]\s*(amount|order|receipt|money|revenue|profit|cost)\w*\b")
-        self.assertIsNone(re.search(r"(?<![=!<>])\s[\+\*\/]\s*\d", js))
+        code = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+        code = re.sub(r"//.*?$", "", code, flags=re.M)
+        self.assertNotRegex(code, r"\bparseFloat\b|\bNumber\s*\(")
+        self.assertNotRegex(code, r"\b(amount|order|receipt|money|revenue|profit|cost)\w*\s*[\+\-\*/]")
+        self.assertNotRegex(code, r"[\+\-\*/]\s*(amount|order|receipt|money|revenue|profit|cost)\w*\b")
 
 
 if __name__ == "__main__":

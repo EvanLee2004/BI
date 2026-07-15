@@ -167,8 +167,51 @@ def rankings_view_for_period(period: dict) -> dict:
     }
 
 
-def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None) -> dict:
-    """整页碎片（B-P2+）：供 shell JS assemblePage。"""
+def build_cockpit_views(summary: dict) -> dict:
+    """B-P0 shipped：渲染就绪「视图」JSON（显示串已算好，前端只拼 DOM）。
+    rankings_view 与 cockpit_payload 同源，供 rankings.js assembleRankings。"""
+    meta = summary.get("meta") or {}
+    periods = summary.get("periods") or {}
+    yk = meta.get("year_key") or ""
+    # 周期键顺序与 build_dashboard_fragments 一致
+    tab = meta.get("tab_groups") or {}
+    period_keys = ([yk] if yk else []) + list(tab.get("季度") or []) + list(tab.get("月") or []) + list(tab.get("区间") or [])
+    # 去重保序
+    seen, ordered = set(), []
+    for k in period_keys:
+        if k and k not in seen and k in periods:
+            seen.add(k)
+            ordered.append(k)
+    for k in periods:
+        if k not in seen:
+            ordered.append(k)
+    return {
+        "year_key": yk,
+        "period_keys": ordered,
+        "rankings_view": {
+            pk: rankings_view_for_period(pv)
+            for pk, pv in periods.items()
+            if isinstance(pv, dict)
+        },
+    }
+
+
+def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None,
+                      *, client: bool = True) -> dict:
+    """整页碎片 + views（B-P0 shipped）。
+
+    client=True（shell 默认）：fragments.rank_views 置空，由 page.js + rankings.js 组装。
+    client=False：保留 Python 预渲染 rank_views（导出/快照兼容）。
+    """
     import render
     fr = render.build_dashboard_fragments(summary, cfg, logo_b64 or "")
-    return {"api_version": "v1", "mode": "fragments", "fragments": fr}
+    views = build_cockpit_views(summary)
+    if client:
+        fr = dict(fr)
+        fr["rank_views"] = ""  # 生产路径：禁止依赖服务端拼好的排名 HTML
+    return {
+        "api_version": "v1",
+        "mode": "fragments",
+        "fragments": fr,
+        "views": views,
+    }

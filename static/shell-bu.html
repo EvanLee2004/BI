@@ -9,6 +9,7 @@
 </head>
 <body data-assembled="0">
 <div id="boot">加载 BU 驾驶舱…</div>
+<script src="/static/js/assemble/rankings.js"></script>
 <script src="/static/js/assemble/page.js"></script>
 <script>
 (function(){
@@ -28,7 +29,13 @@
     if(fr.status===404){ fail('BU 不存在'); return null; }
     if(!fr.ok){ fail('加载失败 HTTP '+fr.status); return null; }
     return Promise.all([fr.json(), rs[1].text(), rs[2].text()]).then(function(x){
-      return {frags:x[0].fragments, chrome:x[0].chrome_prefix||'', bodyTpl:x[1], shellTpl:x[2]};
+      return {
+        frags: x[0].fragments,
+        views: x[0].views || null,
+        chrome: x[0].chrome_prefix || '',
+        bodyTpl: x[1],
+        shellTpl: x[2]
+      };
     });
   }).then(function(pack){
     if(!pack) return;
@@ -37,7 +44,7 @@
     var html = assemblePage(pack.frags, {
       dashboard_body: pack.bodyTpl,
       page_shell: unbrace(pack.shellTpl)
-    });
+    }, pack.views);
     if(pack.chrome){
       html = html.replace('<div class="wrap">', pack.chrome + '<div class="wrap">');
     }

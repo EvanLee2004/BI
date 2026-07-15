@@ -819,9 +819,10 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_main(request) and not _user(request):
             raise HTTPException(status_code=403, detail="无权限")
+        summary = _state.get("summary")
         fr = _state.get("fragments")
+        views = _state.get("views")
         if not fr:
-            summary = _state.get("summary")
             if not summary:
                 raise HTTPException(status_code=503, detail="数据尚未生成")
             logo = ""
@@ -829,20 +830,34 @@ def create_app(cfg, root=None) -> FastAPI:
                 logo = assets.load_logo_base64(cfg) or ""
             except Exception:
                 logo = ""
-            pack = api_v1.cockpit_fragments(summary, cfg, logo)
+            pack = api_v1.cockpit_fragments(summary, cfg, logo, client=True)
             fr = pack["fragments"]
+            views = pack["views"]
+        else:
+            # 缓存 fragments 可能含 Python 预渲染 rank_views——客户端路径必须清空
+            fr = dict(fr)
+            fr["rank_views"] = ""
+            if not views:
+                if summary and (summary.get("meta") or {}).get("year_key"):
+                    try:
+                        views = api_v1.build_cockpit_views(summary)
+                    except Exception:
+                        views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+                else:
+                    views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         hide_pw = bool(_user(request))
         return JSONResponse({
             "api_version": "v1",
             "mode": "fragments",
             "fragments": fr,
+            "views": views,
             "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
             "data_assembled": "1",
         })
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
     def api_v1_cockpit_bu_fragments(name: str, request: Request):
-        """B-P4：BU 页碎片（shell-bu + page.js；鉴权与 JSON bu 同源）。"""
+        """B-P4：BU 页碎片 + views.rankings_view（shell-bu + rankings.js + page.js）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_bu(request, name):
@@ -850,9 +865,9 @@ def create_app(cfg, root=None) -> FastAPI:
         page = (_state.get("bu_pages") or {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+        summary = page.get("summary")
         fr = page.get("fragments")
         if not fr:
-            summary = page.get("summary")
             if not summary:
                 raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
             logo = ""
@@ -861,12 +876,18 @@ def create_app(cfg, root=None) -> FastAPI:
             except Exception:
                 logo = ""
             fr = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
+        fr = dict(fr)
+        fr["rank_views"] = ""  # client path：rankings.js 组装
+        views = page.get("views")
+        if not views and summary:
+            views = api_v1.build_cockpit_views(summary)
         return JSONResponse({
             "api_version": "v1",
             "mode": "fragments",
             "scope": "BU",
             "bu_name": name,
             "fragments": fr,
+            "views": views or {},
             "chrome_prefix": _bu_chrome_prefix(name, request),
             "data_assembled": "1",
         })
