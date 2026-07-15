@@ -20,6 +20,7 @@ VCOOKIE = "kanban_view"
 SESSION_TTL = 24 * 3600
 
 # 服务内存态：汇总 + 渲染页 + 碎片 + 原始记录（秒级重算）+ 刷新状态
+# publish-once：fragments=已 strip 的 client 碎片；views=client-ready（HTTP 直接取，不再 rebuild）
 _state: dict = {
     "summary": None,
     "user_html": "",
@@ -30,6 +31,7 @@ _state: dict = {
     "last_refresh": None,
     "bu_pages": {},
     "fragments": None,
+    "views": None,
 }
 _LOCK = threading.Lock()
 _EXPORT_LOCK = threading.Lock()

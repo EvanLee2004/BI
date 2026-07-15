@@ -28,11 +28,14 @@ def set_admin_page_builder(fn: Callable) -> None:
     _admin_page_fn = fn
 
 
-def publish(cfg, summary, html, bu_pages=None, fragments=None):
+def publish(cfg, summary, html, bu_pages=None, fragments=None, views=None):
+    """写入进程缓存。fragments/views 应为 client-ready（fragments 已 strip）。"""
     _state["summary"] = summary
     _state["user_html"] = html
     if fragments is not None:
         _state["fragments"] = fragments
+    if views is not None:
+        _state["views"] = views
     if _admin_page_fn is not None:
         _state["admin_html"] = _admin_page_fn(html, summary, cfg)
     else:
@@ -46,8 +49,11 @@ def do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
     _state["records"] = ing.get("records")
-    publish(cfg, summary, html, bu_pages,
-            fragments=summary.pop("_fragments", None) or _state.get("fragments"))
+    publish(
+        cfg, summary, html, bu_pages,
+        fragments=summary.pop("_fragments", None) or _state.get("fragments"),
+        views=summary.pop("_views", None) or _state.get("views"),
+    )
     return ing
 
 
@@ -55,6 +61,7 @@ def do_recompute(cfg, root) -> None:
     if not _state.get("records"):
         do_full(cfg, root, "manual")
         return
+    import api_v1
     today = loaders.pinned_today(cfg)
     logo = assets.load_logo_base64(cfg)
     conn = db.connect(cfg, root)
@@ -65,9 +72,14 @@ def do_recompute(cfg, root) -> None:
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    frags = render.build_dashboard_fragments(summary, cfg, logo)
-    html = render.assemble_dashboard_html(frags)
-    publish(cfg, summary, html, bu_pages, fragments=frags)
+    frags_full = render.build_dashboard_fragments(summary, cfg, logo)
+    html = render.assemble_dashboard_html(frags_full)
+    views = api_v1.build_cockpit_views(summary, cfg)
+    publish(
+        cfg, summary, html, bu_pages,
+        fragments=api_v1.client_strip_fragments(frags_full),
+        views=views,
+    )
 
 
 def refresh(cfg, root=None, trigger="manual") -> dict:

@@ -405,13 +405,30 @@ _CLIENT_ASSEMBLE_FIELDS = (
 )
 
 
-def client_strip_fragments(fr: dict) -> dict:
-    """HTTP client 路径：清空所有须 JS 组装的卡字段（publish 缓存不得原样下发）。"""
+def client_strip_fragments(fr: dict, *, assert_clean: bool = False) -> dict:
+    """HTTP client 路径：清空所有须 JS 组装的卡字段。
+
+    publish-once 后缓存已是 strip 态，本函数为幂等 no-op（再 strip 仍空）。
+    assert_clean=True 时若发现非空卡字段则抛 AssertionError（测试守卫双渲染回潮）。
+    """
     out = dict(fr or {})
+    dirty = []
     for f in _CLIENT_ASSEMBLE_FIELDS:
-        if f in out:
+        if out.get(f):
+            dirty.append(f)
             out[f] = ""
+        elif f in out:
+            out[f] = ""
+    if assert_clean and dirty:
+        raise AssertionError(
+            f"publish-once 期望 fragments 已 strip，仍非空: {dirty}")
     return out
+
+
+def fragments_client_fields_empty(fr: dict) -> bool:
+    """True = 所有 client 组装字段为空（publish-once 缓存合格）。"""
+    fr = fr or {}
+    return all(not fr.get(f) for f in _CLIENT_ASSEMBLE_FIELDS)
 
 
 def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None,

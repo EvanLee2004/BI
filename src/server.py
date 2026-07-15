@@ -839,6 +839,7 @@ def create_app(cfg, root=None) -> FastAPI:
         fr = _state.get("fragments")
         views = _state.get("views")
         if not fr:
+            # 冷启动：无 fragments 时一次性建 client-ready
             if not summary:
                 raise HTTPException(status_code=503, detail="数据尚未生成")
             logo = ""
@@ -849,20 +850,20 @@ def create_app(cfg, root=None) -> FastAPI:
             pack = api_v1.cockpit_fragments(summary, cfg, logo, client=True)
             fr = pack["fragments"]
             views = pack["views"]
+            _state["fragments"] = fr
+            _state["views"] = views
         else:
-            # publish 缓存含 Python 预拼卡 HTML——HTTP client 路径必须全部清空
+            # publish-once / 测试桩：有 fragments 则 strip 幂等；views 优先缓存
             fr = api_v1.client_strip_fragments(fr)
-            # views 优先带 cfg 从 summary 重建；失败则用缓存 views
-            rebuilt = None
-            if summary and (summary.get("meta") or {}).get("year_key"):
-                try:
-                    rebuilt = api_v1.build_cockpit_views(summary, cfg)
-                except Exception:
-                    rebuilt = None
-            if rebuilt and (rebuilt.get("kpi_body") or rebuilt.get("rankings_view") or rebuilt.get("period_keys")):
-                views = rebuilt
-            elif not views:
-                views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+            if not views:
+                if summary and (summary.get("meta") or {}).get("year_key"):
+                    try:
+                        views = api_v1.build_cockpit_views(summary, cfg)
+                        _state["views"] = views
+                    except Exception:
+                        views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+                else:
+                    views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         hide_pw = bool(_user(request))
         return JSONResponse({
             "api_version": "v1",
@@ -885,7 +886,9 @@ def create_app(cfg, root=None) -> FastAPI:
             raise HTTPException(status_code=404, detail="BU 不存在或未配置")
         summary = page.get("summary")
         fr = page.get("fragments")
+        views = page.get("views")
         if not fr:
+            # 冷启动：BU 专属 views（禁止整体页构建器）
             if not summary:
                 raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
             logo = ""
@@ -893,19 +896,22 @@ def create_app(cfg, root=None) -> FastAPI:
                 logo = assets.load_logo_base64(cfg) or ""
             except Exception:
                 logo = ""
-            fr = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
-        # 缓存/现建均 strip：禁止 Python 预拼卡 HTML 下发
-        fr = api_v1.client_strip_fragments(fr)
-        cached_views = page.get("views")
-        views = cached_views
-        # 必须用 BU 专属 views 构建器（禁止 build_cockpit_views 整体页链路）
-        if summary and (summary.get("meta") or {}).get("year_key"):
-            try:
-                rebuilt = api_v1.build_bu_cockpit_views(name, summary, cfg)
-                if rebuilt.get("kpi_body") or rebuilt.get("rankings_view") or rebuilt.get("period_keys"):
-                    views = rebuilt
-            except Exception:
-                pass
+            fr_full = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
+            fr = api_v1.client_strip_fragments(fr_full)
+            views = api_v1.build_bu_cockpit_views(name, summary, cfg)
+            page["fragments"] = fr
+            page["views"] = views
+        else:
+            fr = api_v1.client_strip_fragments(fr)
+            if not views:
+                if summary and (summary.get("meta") or {}).get("year_key"):
+                    try:
+                        views = api_v1.build_bu_cockpit_views(name, summary, cfg)
+                        page["views"] = views
+                    except Exception:
+                        views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
+                else:
+                    views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
         if not views:
             views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
         return JSONResponse({

@@ -242,12 +242,16 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         if ctx:
             profit.apply_public_expense_allocation_monthly(
                 s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
-        # summary + fragments：v1.4 JSON / B 组装；html 仍缓存供导出与快照
-        fr = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
+        # summary + fragments + views：publish-once（HTTP 直接取 client-ready，不再请求时 rebuild）
+        # html 仍用全量 fr 组装，供导出/快照
+        import api_v1
+        fr_full = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
+        views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
         pages[b["name"]] = {
             "name": b["name"],
-            "html": render.assemble_bu_dashboard_html(fr),
-            "fragments": fr,
+            "html": render.assemble_bu_dashboard_html(fr_full),
+            "fragments": api_v1.client_strip_fragments(fr_full),
+            "views": views,
             "summary": s,
         }
     return pages
@@ -255,7 +259,12 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
 
 def generate(cfg, today, trigger="manual"):
     """跑一次更新管道 → 算 summary → 渲染 HTML（主页 + BU 分页）→ 存当日页面快照（历史回看用）。
-    返回 (summary, html, ing报告, bu_pages)。"""
+    返回 (summary, html, ing报告, bu_pages)。
+
+    publish-once：同时产出 client-ready fragments（已 strip）+ views，挂 summary._fragments/_views，
+    HTTP 路径直接取缓存，不再 build-full→strip→rebuild。
+    """
+    import api_v1
     conn = db.connect(cfg)
     ing = ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger=trigger,
                               archive_backups=True)
@@ -264,10 +273,12 @@ def generate(cfg, today, trigger="manual"):
     bu_pages = build_bu_pages(cfg, conn, today, logo)
     attach_unassigned(cfg, conn, today, summary)
     conn.close()
-    frags = render.build_dashboard_fragments(summary, cfg, logo)
-    html = render.assemble_dashboard_html(frags)
-    # attach for server publish
-    summary.setdefault("_fragments", frags)
+    frags_full = render.build_dashboard_fragments(summary, cfg, logo)
+    html = render.assemble_dashboard_html(frags_full)
+    views = api_v1.build_cockpit_views(summary, cfg)
+    # attach for server publish（client-ready，已 strip）
+    summary["_fragments"] = api_v1.client_strip_fragments(frags_full)
+    summary["_views"] = views
     try:  # 页面快照失败（磁盘满等）不影响出页面
         ing["page_snapshot"] = ingest.archive.snapshot_page(cfg, html, today)
     except OSError as e:
