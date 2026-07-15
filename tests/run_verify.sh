@@ -51,4 +51,5 @@ run_t tests/test_b_p0_rankings_assemble.py
 run_t tests/test_b_p1_contract.py
 run_t tests/test_b_page_assemble.py
 run_t tests/test_b_p3_cards.py
+run_t tests/test_b_p4_remainder.py
 echo "✓ 全部通过"
