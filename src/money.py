@@ -42,13 +42,16 @@ AMOUNT_FIELD_NAMES = frozenset(
 
 
 def yuan_to_fen(val: Any) -> int | None:
-    """元 → 分。None/空串 → None；非法/空解析 → 0（与 parse_amount 空按 0 一致的写入侧）。"""
+    """元 → 分。None/空串 → None；非法/空解析 → 0（与 parse_amount 空按 0 一致的写入侧）。
+
+    注意：入参必须是**元**。库内已是分的 int 请用 as_fen / 直接用，勿再 yuan_to_fen。
+    """
     if val is None:
         return None
     if isinstance(val, bool):
         return int(val) * 100
     if isinstance(val, int) and not isinstance(val, bool):
-        # 已是分？调用方应只传元。int 元（如 100）→ 10000 分
+        # 元整数（管理端/API 常传 100 表示 100 元）
         return val * 100
     s = str(val).strip()
     if s == "" or s == "-":
@@ -60,6 +63,36 @@ def yuan_to_fen(val: Any) -> int | None:
         return 0
     fen = (d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return int(fen)
+
+
+def as_fen(val: Any) -> int:
+    """算账层统一入分。
+
+    - **int**（非 bool）= 已是分（db.load_* 必须 int() 后再传入，避免 SQLite float 分被当元）
+    - **float / 带小数点的 str** = 元（xlsx 进料）
+    - **纯整数字符串** = 分（adj 原值等）
+    - None/空 → 0
+    """
+    if val is None:
+        return 0
+    if isinstance(val, bool):
+        return int(val) * 100
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        # 仅当确为「元」浮点（xlsx）；库读路径不得传 float
+        f = yuan_to_fen(val)
+        return 0 if f is None else f
+    s = str(val).strip()
+    if s == "" or s == "-":
+        return 0
+    if s.lstrip("-").isdigit() and "." not in s and "e" not in s.lower():
+        try:
+            return int(s)
+        except ValueError:
+            return 0
+    f = yuan_to_fen(s)
+    return 0 if f is None else f
 
 
 def fen_to_yuan(fen: Any) -> float:

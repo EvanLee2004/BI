@@ -98,7 +98,7 @@ class TestReplay(unittest.TestCase):
     def test_amount_adjust_applies(self):
         conn = _conn()
         _ins_income(conn, "SOD_D", "2026-06-10", 交付额=1000.0)
-        _add_adj(conn, "std_收入明细", "SOD_D", "交付额", "1000", "1500")
+        _add_adj(conn, "std_收入明细", "SOD_D", "交付额", "100000", "1500")  # 原值分；新值元
         adjust.apply_adjustments(conn, NOW)
         v = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='SOD_D'").fetchone()[0]
         self.assertEqual(int(v), 150000)  # 1500 元 = 150000 分
@@ -259,16 +259,16 @@ class TestReplayEndToEnd(unittest.TestCase):
         cfg = loaders.load_config()
         today = datetime.date(2026, 7, 8)
         conn = _conn()
-        _ins_income(conn, "SOD_Z", "2026-07-01", 交付额=1060000.0)  # 含税106万→不含税100万
+        _ins_income(conn, "SOD_Z", "2026-07-01", 交付额=1060000.0)  # 含税106万→不含税100万=1e8 分
         S0 = self._summary(conn, cfg, today)
-        self.assertAlmostEqual(S0["periods"]["2026年7月"]["revenue_net"], 1000000.0, places=0)
-        self.assertAlmostEqual(S0["periods"]["2026年6月"]["revenue_net"], 0.0, places=0)
+        self.assertEqual(int(S0["periods"]["2026年7月"]["revenue_net"]), 100_000_000)
+        self.assertEqual(int(S0["periods"]["2026年6月"]["revenue_net"]), 0)
         # 挪月：0701→0630，套用
         _add_adj(conn, "std_收入明细", "SOD_Z", "整单交付日期", "2026-07-01", "2026-06-30")
         adjust.apply_adjustments(conn, NOW)
         S1 = self._summary(conn, cfg, today)
-        self.assertAlmostEqual(S1["periods"]["2026年6月"]["revenue_net"], 1000000.0, places=0)  # 到6月
-        self.assertAlmostEqual(S1["periods"]["2026年7月"]["revenue_net"], 0.0, places=0)  # 离开7月
+        self.assertEqual(int(S1["periods"]["2026年6月"]["revenue_net"]), 100_000_000)  # 到6月
+        self.assertEqual(int(S1["periods"]["2026年7月"]["revenue_net"]), 0)  # 离开7月
 
 
 if __name__ == "__main__":

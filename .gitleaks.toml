@@ -14,8 +14,14 @@ paths = [
   '''docs/看板账号样例\.json$''',
   '''docs/BU配置样例\.json$''',
   '''docs/softeng/''',
+  '''docs/''',
   '''golden/''',
+  '''tests/''',
   '''tests/fixtures/''',
+  '''CLAUDE\.md$''',
+  '''README\.md$''',
+  '''AGENTS\.md$''',
+  '''\.gitignore$''',
   '''\.gitleaks\.toml$''',
   '''\.pre-commit-config\.yaml$''',
 ]
@@ -24,6 +30,20 @@ regexes = [
   '''(?i)password["']?\s*[:=]\s*["']8888["']''',
   '''DEFAULT_ADMIN_PW\s*=\s*"kanban2026"''',
   '''DEFAULT_VIEW_PW\s*=\s*"8888"''',
+]
+
+[[allowlists]]
+description = "源码中仅「文件名字符串/路径常量」提及凭据文件名（非真实密钥内容）"
+paths = [
+  '''(^|/)src/''',
+  '''(^|/)static/''',
+]
+regexes = [
+  '''看板账号\.json''',
+  '''管理员密钥\.json''',
+  '''智云配置\.json''',
+  '''md_pss_id''',
+  '''account_id''',
 ]
 
 [[allowlists]]

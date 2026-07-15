@@ -1,22 +1,16 @@
 {
   "n_income": 100000,
-  "tmp": "/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/kanban_bench_qnpxj8_6",
-  "seed_seconds": 0.352,
-  "peak_rss_mb_after_seed": 37.9,
-  "query_detail_page1": {
-    "total": 100000,
-    "rows": 50,
-    "seconds": 0.0041
-  },
-  "query_detail_search": {
-    "total": 22200,
-    "seconds": 0.0317
-  },
-  "db_size_mb": 10.22,
+  "rebuild_seconds": 0.434,
+  "query_detail_page1_seconds": 0.0039,
+  "query_total": 100000,
+  "page_generate_seconds": 2.731,
+  "html_kb": 693.8,
+  "page_generate_error": null,
+  "db_size_mb": 9.18,
+  "peak_rss_mb": 197.2,
   "db_check": {
     "ok": true,
     "detail": "ok"
   },
-  "peak_rss_mb": 37.9,
-  "note": "合成 std 直接插入（非 xlsx 进料）；query_detail 翻页/搜索 + 库体积 + RSS。完整 generate 需真实数据目录，见交付报告。"
+  "note": "A5 合成 records→_rebuild_std 单事务 + query_detail + summary/render 页面生成"
 }

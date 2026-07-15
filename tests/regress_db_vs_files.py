@@ -23,20 +23,60 @@ import db
 import ingest  # noqa: E402
 
 
+def _rows_yuan_to_fen(rows: list, amount_keys: list[str]) -> list:
+    """xlsx 读出的金额（元 float/int/str）→ 分 int，与 db.load_* 同单位。"""
+    import money as _money
+
+    out = []
+    for r in rows:
+        d = dict(r)
+        for k in amount_keys:
+            if k in d:
+                d[k] = _money.yuan_to_fen(loaders.parse_amount(d.get(k))) or 0
+        out.append(d)
+    return out
+
+
+def _ledger_yuan_to_fen(header, rows, ledger_year):
+    """台账行含税金额 元→分 int（空单元格保持 None）。"""
+    import money as _money
+    import columns as _columns
+
+    lcols = _columns.resolve_ledger_columns(header)
+    ca = lcols["含税金额"]
+    out = []
+    for row in rows:
+        lst = list(row)
+        if len(lst) > ca:
+            raw = lst[ca]
+            if raw is None or (isinstance(raw, str) and not str(raw).strip()):
+                lst[ca] = None
+            else:
+                lst[ca] = _money.yuan_to_fen(loaders.parse_amount(raw)) or 0
+        out.append(tuple(lst))
+    return out
+
+
 def summary_from_files(cfg, today, ledger_year):
     # 手填自 v7 起以库为唯一可信源（管理端写库，手填与调整表.xlsx 不再回写）——
     # 两条路径共用库里的 manual，红线只守护"5 个文件源入库==直读文件"这件事；
     # 否则管理端一改手填，旧 xlsx 立即过时、红线永久假红（2026-07-13 实际踩到）。
+    # 任务书33：算账单位=分；文件路径在此统一元→分，与 db.load_* 对齐。
     conn = db.connect(cfg)
     manual = db.load_manual(cfg, conn)
     conn.close()
+    c = cfg["columns"]
     lh, lr = loaders.load_ledger(cfg, str(ledger_year))
+    lr = _ledger_yuan_to_fen(lh, lr, ledger_year)
     return profit.build_summary(
         cfg,
-        loaders.load_project_detail(cfg),
-        loaders.load_orders(cfg),
-        loaders.load_receipts(cfg),
-        loaders.load_inhouse(cfg),
+        _rows_yuan_to_fen(
+            loaders.load_project_detail(cfg),
+            [c["project_revenue"], c["project_cost"]],
+        ),
+        _rows_yuan_to_fen(loaders.load_orders(cfg), [c["order_amount"]]),
+        _rows_yuan_to_fen(loaders.load_receipts(cfg), [c["receipt_amount"]]),
+        _rows_yuan_to_fen(loaders.load_inhouse(cfg), [c["inhouse_amount"]]),
         lh,
         lr,
         ledger_year,
@@ -77,9 +117,7 @@ def _strip_ts(s):
 def diff(a, b, path=""):
     """返回不一致点列表 [(路径, 旧, 新)]。
 
-    金额「一分不差」= 绝对差 < 0.005 元（半分）。
-    任务书33·A3 后库内整数分读回更干净，文件路径 float 累加会有 1e-15 级噪声；
-    嵌套 tuple（expense_by_* 行）也要递归比，不能整段 !=。
+    数字「一分不差」= 绝对差 ≤ 1e-9（金额已统一为分整数后应全等；嵌套 tuple 递归比）。
     """
     out = []
     if isinstance(a, dict) and isinstance(b, dict):
@@ -98,7 +136,7 @@ def diff(a, b, path=""):
     else:
         if isinstance(a, (int, float)) or isinstance(b, (int, float)):
             try:
-                if abs(float(a or 0) - float(b or 0)) >= 0.005:  # 半分=0.5 分
+                if abs(float(a or 0) - float(b or 0)) > 1e-9:
                     out.append((path, a, b))
             except (TypeError, ValueError):
                 if a != b:

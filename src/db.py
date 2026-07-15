@@ -64,11 +64,19 @@ def load_project_detail(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, s
                 "业务线": _s(业务线),
                 "销售": _s(销售),
                 c["project_delivery_date"]: _s(交付日期),
-                c["project_revenue"]: money.fen_to_yuan(交付额),
-                c["project_cost"]: money.fen_to_yuan(项目成本),
+                # 金额：库内分；强制 int（SQLite 常返回 float，as_fen(float) 会误当元再×100）
+                c["project_revenue"]: _fen(交付额),
+                c["project_cost"]: _fen(项目成本),
             }
         )
     return out
+
+
+def _fen(v: Any) -> int:
+    """库内金额读出为 int 分；None → 0。"""
+    if v is None:
+        return 0
+    return int(v)
 
 
 def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -80,7 +88,7 @@ def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
         return [
             {
                 c["order_date"]: _s(d),
-                c["order_amount"]: money.fen_to_yuan(a),
+                c["order_amount"]: _fen(a),
                 "订单号": _s(o),
                 "部门": _s(dep),
                 "销售": _s(sal),
@@ -96,7 +104,7 @@ def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
         return [
             {
                 c["order_date"]: _s(d),
-                c["order_amount"]: money.fen_to_yuan(a),
+                c["order_amount"]: _fen(a),
                 "订单号": _s(o),
                 "部门": _s(dep),
                 "销售": _s(sal),
@@ -111,7 +119,7 @@ def load_receipts(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return [
         {
             c["receipt_date"]: _s(d),
-            c["receipt_amount"]: money.fen_to_yuan(a),
+            c["receipt_amount"]: _fen(a),
             "回款记录ID": _s(rid),
             "客户": _s(cu),
             "销售": _s(sal),
@@ -130,7 +138,7 @@ def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
         return [
             {
                 c["inhouse_date"]: _s(d),
-                c["inhouse_amount"]: money.fen_to_yuan(a),
+                c["inhouse_amount"]: _fen(a),
                 c["inhouse_type"]: _s(t),
                 "任务明细ID": _s(tid),
                 "译员姓名": _s(nm),
@@ -145,7 +153,7 @@ def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
         return [
             {
                 c["inhouse_date"]: _s(d),
-                c["inhouse_amount"]: money.fen_to_yuan(a),
+                c["inhouse_amount"]: _fen(a),
                 c["inhouse_type"]: _s(t),
                 "任务明细ID": _s(tid),
                 "销售": _s(sal),
@@ -165,21 +173,23 @@ def load_ledger(cfg: dict, conn: sqlite3.Connection) -> tuple[list, list[tuple]]
     rows = conn.execute(
         "SELECT 收单月份,收单日期,含税金额,业务BU,对应报表大类,预算明细费用类型,预算归属部门 FROM std_费用明细 WHERE 已删除=0 ORDER BY id"
     ).fetchall()
-    # 文本列原样；金额列分→元（None 保持 None，空行语义）
+    # 文本列原样；金额列强制 int 分（None 保持 None，空行语义）
     body: list[tuple] = []
     for r in rows:
-        amt = money.fen_to_yuan_or_none(r[2])
+        amt = r[2]
+        if amt is not None:
+            amt = int(amt)
         body.append((r[0], r[1], amt, r[3], r[4], r[5], r[6]))
     return header, body
 
 
-# ---------------- 读手填表 → loaders.load_manual 同构 ----------------
-def load_manual(cfg: dict, conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
-    out: dict[str, dict[str, float]] = {}
+# ---------------- 读手填表 → 金额单位：分 ----------------
+def load_manual(cfg: dict, conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
+    out: dict[str, dict[str, int]] = {}
     for 归属月, 项目, 金额 in conn.execute("SELECT 归属月,项目,金额 FROM manual_手填").fetchall():
         if 归属月 is None or 项目 is None or 金额 is None:
             continue
-        out.setdefault(str(归属月), {})[str(项目)] = money.fen_to_yuan(金额)
+        out.setdefault(str(归属月), {})[str(项目)] = int(金额)
     return out
 
 
@@ -311,6 +321,7 @@ def query_detail(
     rows = conn.execute(
         f"SELECT {coln} FROM {table} WHERE {wsql} ORDER BY id LIMIT ? OFFSET ?", args + [page_size, offset]
     ).fetchall()
+    # 管理端明细：金额列转元 float 展示（录入/阅读习惯=元；库内仍是分）
     money_cols = set(money.STD_MONEY_COLS.get(table) or ())
     out_rows = []
     for r in rows:
@@ -375,6 +386,7 @@ def order_stats_by_sales(conn: sqlite3.Connection, year: int | str) -> dict[str,
         ).fetchall()
     except sqlite3.OperationalError:
         return {}
+    # 管理端参考串：金额元
     return {r[0]: {"count": int(r[1]), "amount": money.fen_to_yuan(r[2] or 0)} for r in rows if r[0]}
 
 
@@ -496,9 +508,9 @@ def add_adjustment(
         if 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
             raise ValueError(f"字段不可调整：{目标表}.{字段}")
         原值_raw = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
-        # 金额列库内是分：原值按元文本存（与管理端录入/过期校验一致）
+        # 金额列：原值存**分**整数字符串（任务书33·A3；管理端展示时再转元）
         if money.is_amount_field(字段):
-            原值 = money.fen_to_yuan_str(原值_raw)
+            原值 = "" if 原值_raw is None else str(int(原值_raw))
         else:
             原值 = "" if 原值_raw is None else str(原值_raw)
     cur = conn.execute(
@@ -543,7 +555,7 @@ def rearm_adjustment(conn: sqlite3.Connection, adj_id: int) -> None:
     if cur is None:
         raise ValueError("源头行已不存在，无法坚持——只能撤销该调整")
     if money.is_amount_field(字段):
-        源头现值 = money.fen_to_yuan_str(cur[0])
+        源头现值 = "" if cur[0] is None else str(int(cur[0]))  # 分
     else:
         源头现值 = "" if cur[0] is None else str(cur[0])
     conn.execute("UPDATE adj_调整记录 SET 原值=?, 状态='生效' WHERE id=?", (源头现值, adj_id))
@@ -606,7 +618,7 @@ def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[s
     for 归属月, 项目, 金额 in rows:
         if 归属月 is None or 项目 is None or 金额 is None:
             continue
-        out.setdefault(str(归属月), {})[str(项目)] = money.fen_to_yuan(金额)
+        out.setdefault(str(归属月), {})[str(项目)] = int(金额)
     return out
 
 
@@ -699,10 +711,11 @@ def list_detax_categories(conn: sqlite3.Connection, cfg: dict) -> list[dict]:
         if not fine:
             continue
         try:
-            agg[fine] = agg.get(fine, 0.0) + money.fen_to_yuan(amt or 0)
+            agg[fine] = agg.get(fine, 0) + int(amt or 0)
         except (TypeError, ValueError):
-            agg.setdefault(fine, 0.0)
-    out = [{"category": k, "amount": round(v, 2)} for k, v in agg.items()]
+            agg.setdefault(fine, 0)
+    # 管理端去税页参考金额：元
+    out = [{"category": k, "amount": round(money.fen_to_yuan(v), 2)} for k, v in agg.items()]
     out.sort(key=lambda d: (-d["amount"], d["category"]))
     return out
 
@@ -793,27 +806,27 @@ BUDGET_METRICS = (
 )
 
 
-def load_budget(conn: sqlite3.Connection, scope: str = "全公司") -> dict[str, dict[str, float]]:
-    """{年份: {指标: 金额元或比率数值}}。scope=全公司 或 BU 名。费用年预算按部门范围走 load_dept_budget。"""
-    out: dict[str, dict[str, float]] = {}
+def load_budget(conn: sqlite3.Connection, scope: str = "全公司") -> dict[str, dict[str, int]]:
+    """{年份: {指标: 金额分}}。scope=全公司 或 BU 名。费用年预算按部门范围走 load_dept_budget。"""
+    out: dict[str, dict[str, int]] = {}
     for 年份, 指标, 金额 in conn.execute(
         "SELECT 年份,指标,金额 FROM manual_预算 WHERE 范围=? AND 指标<>'费用年预算'", (scope,)
     ).fetchall():
         if 年份 is None or 指标 is None or 金额 is None:
             continue
-        out.setdefault(str(年份), {})[str(指标)] = money.fen_to_yuan(金额)
+        out.setdefault(str(年份), {})[str(指标)] = int(金额)
     return out
 
 
-def load_dept_budget(conn: sqlite3.Connection) -> dict[str, dict[str, float]]:
-    """{年份: {部门: 金额元}}，取 指标='费用年预算' 且 范围≠全公司 的行（部门费用预算执行卡用）。"""
-    out: dict[str, dict[str, float]] = {}
+def load_dept_budget(conn: sqlite3.Connection) -> dict[str, dict[str, int]]:
+    """{年份: {部门: 金额分}}，取 指标='费用年预算' 且 范围≠全公司 的行。"""
+    out: dict[str, dict[str, int]] = {}
     for 年份, 范围, 金额 in conn.execute(
         "SELECT 年份,范围,金额 FROM manual_预算 WHERE 指标='费用年预算' AND 范围<>'全公司'"
     ).fetchall():
         if 年份 is None or 范围 is None or 金额 is None:
             continue
-        out.setdefault(str(年份), {})[str(范围)] = money.fen_to_yuan(金额)
+        out.setdefault(str(年份), {})[str(范围)] = int(金额)
     return out
 
 

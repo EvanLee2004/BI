@@ -95,8 +95,8 @@ class TestMigrateAndAdjust(unittest.TestCase):
         raw2 = conn.execute("SELECT 金额 FROM manual_手填 WHERE 项目='直接成本增值税'").fetchone()[0]
         self.assertEqual(int(raw2), 1)  # 0.005 元 → 1 分
         loaded = db.load_manual(self.cfg, conn)
-        self.assertAlmostEqual(loaded["2026-01"]["闲置人力"], 1234.56, places=2)
-        self.assertAlmostEqual(loaded["2026-01"]["直接成本增值税"], 0.01, places=2)
+        self.assertEqual(loaded["2026-01"]["闲置人力"], 123456)  # 分
+        self.assertEqual(loaded["2026-01"]["直接成本增值税"], 1)
         self.assertEqual(schema._schema_version(conn), 2)
         # 幂等再迁
         r2 = schema.migrate_money_to_fen_if_needed(conn)
@@ -116,7 +116,8 @@ class TestMigrateAndAdjust(unittest.TestCase):
         conn.execute(
             "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态) "
             "VALUES(?,?,?,?,?,?,?,?,?,?)",
-            ("2026-01-01", "t", "std_下单", "SO-A", "下单预估额", "100", "250.5", "测", "改值", "生效"),
+            # 原值存分 10000=100元；新值管理端仍按元录入 "250.5"
+            ("2026-01-01", "t", "std_下单", "SO-A", "下单预估额", "10000", "250.5", "测", "改值", "生效"),
         )
         conn.commit()
         rep = adjust.apply_adjustments(conn, "2026-07-16 00:00:00")
@@ -124,11 +125,11 @@ class TestMigrateAndAdjust(unittest.TestCase):
         self.assertEqual(rep["expired"], 0)
         fen = conn.execute("SELECT 下单预估额 FROM std_下单 WHERE 定位键='SO-A'").fetchone()[0]
         self.assertEqual(int(fen), 25050)
-        # 读回元
+        # load 返回分
         orders = db.load_orders(self.cfg, conn)
         amt_key = self.cfg["columns"]["order_amount"]
         hit = [o for o in orders if o.get("订单号") == "SO-A"][0]
-        self.assertAlmostEqual(hit[amt_key], 250.5, places=2)
+        self.assertEqual(int(hit[amt_key]), 25050)
         conn.close()
 
     def test_adjust_expired_when_source_changed(self):
@@ -141,7 +142,7 @@ class TestMigrateAndAdjust(unittest.TestCase):
         conn.execute(
             "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态) "
             "VALUES(?,?,?,?,?,?,?,?,?,?)",
-            ("2026-01-01", "t", "std_下单", "SO-B", "下单预估额", "100", "300", "测", "改值", "生效"),
+            ("2026-01-01", "t", "std_下单", "SO-B", "下单预估额", "10000", "300", "测", "改值", "生效"),  # 原值分≠现值
         )
         conn.commit()
         rep = adjust.apply_adjustments(conn, "2026-07-16 00:00:00")
@@ -156,7 +157,7 @@ class TestMigrateAndAdjust(unittest.TestCase):
         raw = conn.execute("SELECT 金额 FROM manual_手填 WHERE 归属月='2026-06'").fetchone()[0]
         self.assertEqual(int(raw), 8888)
         m = db.load_manual(self.cfg, conn)
-        self.assertAlmostEqual(m["2026-06"]["闲置人力"], 88.88, places=2)
+        self.assertEqual(m["2026-06"]["闲置人力"], 8888)
         conn.close()
 
 

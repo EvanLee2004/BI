@@ -29,9 +29,20 @@ def value_color(val: float) -> str:
 
 
 def fmt_wan(v: float) -> str:
-    if v == 0:
-        v = 0.0
-    return f"{v / 10000:,.1f}"
+    """金额 → 万元显示串。任务书33·A3 起入参为**分**（INTEGER）；÷100 得元再 ÷10000。
+
+    与改造前「元 ÷10000」在合法分金额上逐位一致（分=元×100）。
+    """
+    if v is None:
+        v = 0
+    try:
+        fen = int(v)
+    except (TypeError, ValueError):
+        fen = 0
+    if fen == 0:
+        return f"{0.0:,.1f}"
+    yuan = fen / 100.0
+    return f"{yuan / 10000:,.1f}"
 
 
 def esc(s) -> str:

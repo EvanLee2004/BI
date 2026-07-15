@@ -26,31 +26,44 @@ from typing import Any
 import loaders
 import columns
 import periods
+import money
 
 
-def split_tax(gross: float, vat_rate: float) -> dict[str, float]:
-    net = gross / (1 + vat_rate) if gross else 0.0
-    return {"revenue_gross": round(gross, 2), "revenue_net": round(net, 2), "vat": round(gross - net, 2)}
+def split_tax(gross_fen: int, vat_rate: float) -> dict[str, int]:
+    """增值税拆分。入参/出参均为**分**。
+
+    舍入与旧「元 float + round(…,2)」对齐：先 fen→元 算 net，再元→分，保证 golden 显示串一致。
+    """
+    if not gross_fen:
+        return {"revenue_gross": 0, "revenue_net": 0, "vat": 0}
+    gy = money.fen_to_yuan(gross_fen)
+    net_y = round(gy / (1 + vat_rate), 2) if gy else 0.0
+    vat_y = round(gy - net_y, 2)
+    return {
+        "revenue_gross": int(gross_fen),
+        "revenue_net": money.yuan_to_fen(net_y) or 0,
+        "vat": money.yuan_to_fen(vat_y) or 0,
+    }
 
 
-# ---------- 收入 / 成本 ----------
+# ---------- 收入 / 成本（金额单位：分） ----------
 def compute_revenue_cost(project_rows, cols_cfg, start, end, vat_rate):
     dcol, rcol, ccol = cols_cfg["project_delivery_date"], cols_cfg["project_revenue"], cols_cfg["project_cost"]
     matched = [r for r in project_rows if periods.date_in_range(loaders.parse_date_parts(r.get(dcol)), start, end)]
-    gross = sum(loaders.parse_amount(r.get(rcol)) for r in matched)
-    cost = sum(loaders.parse_amount(r.get(ccol)) for r in matched)
+    gross = sum(money.as_fen(r.get(rcol)) for r in matched)
+    cost = sum(money.as_fen(r.get(ccol)) for r in matched)
     tax = split_tax(gross, vat_rate)
-    return {**tax, "delivery_count": len(matched), "system_direct_cost": round(cost, 2)}
+    return {**tax, "delivery_count": len(matched), "system_direct_cost": int(cost)}
 
 
 def _sum_amount_in_period(rows, amount_col, date_col, start, end, extra=None):
-    tot = 0.0
+    tot = 0
     for r in rows:
         if extra and not extra(r):
             continue
         if periods.date_in_range(loaders.parse_date_parts(r.get(date_col)), start, end):
-            tot += loaders.parse_amount(r.get(amount_col))
-    return round(tot, 2)
+            tot += money.as_fen(r.get(amount_col))
+    return int(tot)
 
 
 def compute_orders(order_rows, cols_cfg, start, end):
@@ -79,7 +92,7 @@ def compute_name_month_totals(rows, name_col, amount_col, date_col, year: int, n
         n = str(r.get(name_col) or "").strip()
         if n not in want:
             continue
-        acc[n][m - 1] += loaders.parse_amount(r.get(amount_col))
+        acc[n][m - 1] += money.as_fen(r.get(amount_col))
     return {n: [round(v, 2) for v in vals] for n, vals in acc.items()}
 
 
@@ -137,7 +150,7 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
         raw_name = name_of(r) if name_of else r.get(name_col)
         name = str(raw_name or "").strip() or empty_label
         a = agg.setdefault(name, [0.0, 0])
-        a[0] += loaders.parse_amount(r.get(amount_col))
+        a[0] += money.as_fen(r.get(amount_col))
         a[1] += 1
     total = round(sum(v[0] for v in agg.values()), 2)
     uf = agg.pop(empty_label, None)
@@ -165,24 +178,23 @@ def compute_profit_ranking(
           unfilled:{…}|None, total_revenue, total_profit, conc_k, conc_pct(前 conc_k 大占收入%)}。
     名字空→"（未填）"置底（不参与前 top 排位、计入 total=守恒）。纯函数、只吃行，前端零运算（铁律2 在 render 里成串）。"""
     dcol, rcol, ccol = cols_cfg["project_delivery_date"], cols_cfg["project_revenue"], cols_cfg["project_cost"]
-    div = 1.0 + vat_rate
-    agg: dict[str, list] = {}  # name -> [Σ含税交付额, Σ项目成本, 笔数]
+    agg: dict[str, list] = {}  # name -> [Σ含税交付额分, Σ项目成本分, 笔数]
     for r in project_rows:
         if not periods.date_in_range(loaders.parse_date_parts(r.get(dcol)), start, end):
             continue
         name = str(r.get(name_col) or "").strip() or empty_label
-        a = agg.setdefault(name, [0.0, 0.0, 0])
-        a[0] += loaders.parse_amount(r.get(rcol))
-        a[1] += loaders.parse_amount(r.get(ccol))
+        a = agg.setdefault(name, [0, 0, 0])
+        a[0] += money.as_fen(r.get(rcol))
+        a[1] += money.as_fen(r.get(ccol))
         a[2] += 1
 
     def _row(name, g):
-        rev = g[0] / div
-        prof = rev - g[1]
+        rev = split_tax(int(g[0]), vat_rate)["revenue_net"]  # 分
+        prof = int(rev - g[1])
         return {
             "name": name,
-            "revenue": round(rev, 2),
-            "profit": round(prof, 2),
+            "revenue": rev,
+            "profit": prof,
             "margin_pct": round(prof / rev * 100, 1) if rev else None,
             # 系统成本率=Σ项目成本÷收入（陆总0714：业务侧习惯看成本率，展示层用它替代"项目毛利率"）
             "cost_pct": round(g[1] / rev * 100, 1) if rev else None,
@@ -193,8 +205,8 @@ def compute_profit_ranking(
         tot = [sum(x[0] for x in gs), sum(x[1] for x in gs), sum(x[2] for x in gs)]
         return _row(name, tot)
 
-    total_rev = round(sum(g[0] for g in agg.values()) / div, 2)
-    total_prof = round(sum(g[0] / div - g[1] for g in agg.values()), 2)
+    total_rev = split_tax(int(sum(g[0] for g in agg.values())), vat_rate)["revenue_net"]
+    total_prof = int(sum(split_tax(int(g[0]), vat_rate)["revenue_net"] - g[1] for g in agg.values()))
     uf = agg.pop(empty_label, None)
     unfilled = _row(empty_label, uf) if uf else None
     ranked = sorted(agg.items(), key=lambda kv: -kv[1][0])  # 按含税交付额降序＝按收入降序（div 恒正）
@@ -204,8 +216,8 @@ def compute_profit_ranking(
     others = _agg_row(f"其余 {len(rest)} 个", rest) if rest else None
     if others:
         others["names"] = len(rest)
-    # 集中度=前 conc_k 大（按含税交付额=收入）占总收入；从完整排序列取，稳健于 top<conc_k
-    conc_rev = sum(g[0] for _, g in ranked[:conc_k]) / div
+    # 集中度=前 conc_k 大不含税收入 / 总不含税收入（分/分）
+    conc_rev = sum(split_tax(int(g[0]), vat_rate)["revenue_net"] for _, g in ranked[:conc_k])
     conc_pct = round(conc_rev / total_rev * 100, 1) if total_rev else None
     # full_items：完整排序（供 BU 页「其余」本地展开，不调 /api/profit_ranking·铁律12）
     return {
@@ -233,7 +245,7 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
             if not periods.date_in_range(d, start, end):
                 continue
             slot = days.setdefault(f"{d[0]:04d}-{d[1]:02d}-{d[2]:02d}", [0.0, 0, 0.0, 0])
-            slot[ai] += loaders.parse_amount(r.get(amount_col))
+            slot[ai] += money.as_fen(r.get(amount_col))
             slot[ci] += 1
 
     _acc(order_rows, cols_cfg["order_amount"], cols_cfg["order_date"], 0, 1)
@@ -313,10 +325,11 @@ def detax_ledger_rows(ledger_header, ledger_rows, detax_rates):
         fine = str(fine_raw).strip() if fine_raw not in (None, "") else ""
         r = detax_rates.get(fine)
         if r and float(r) > 0 and len(row) > c_amt:
-            amt = loaders.parse_amount(row[c_amt])
-            if amt:
+            amt_fen = money.as_fen(row[c_amt])
+            if amt_fen:
                 lst = list(row)
-                lst[c_amt] = amt / (1.0 + float(r) / 100.0)  # 不逐行 round，末端再统一 round，避免累积误差
+                # 去税在元上除，结果仍以元 float 写回行（下游 as_fen 再入分）——与旧「元路径」舍入一致
+                lst[c_amt] = money.fen_to_yuan(amt_fen) / (1.0 + float(r) / 100.0)
                 row = tuple(lst)
         out.append(row)
     return out
@@ -329,7 +342,7 @@ def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
     count = 0
     c_amt = lcols["含税金额"]
     for row in ledger_rows:
-        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
@@ -349,7 +362,7 @@ def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lco
     c_amt, c_fine = lcols["含税金额"], lcols["预算明细费用类型"]
     out: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in ledger_rows:
-        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
@@ -380,7 +393,7 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
     agg: dict[str, float] = defaultdict(float)
     fine: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in ledger_rows:
-        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
@@ -454,13 +467,18 @@ def manual_missing_months(cfg, manual_raw: dict, year: int, cur_month: int) -> l
     return miss
 
 
-def manual_for_period(cfg, filled, start, end, cur_date) -> dict[str, float]:
+def manual_for_period(cfg, filled, start, end, cur_date) -> dict[str, int]:
+    """手填期间合计，单位：分。filled 值可以是元 float（旧）或分 int（库）。"""
     ms = periods.months_in(start, end, cur_date)
-    out = {it["name"]: 0.0 for it in cfg["manual_items"]}
+    out = {it["name"]: 0 for it in cfg["manual_items"]}
     for ym in ms:
         for k, v in filled.get(ym, {}).items():
-            out[k] += v
-    return {k: round(v, 2) for k, v in out.items()}
+            if k in out:
+                out[k] += money.as_fen(v)
+            else:
+                # 配置外项目也累加（兼容后加项）
+                out[k] = out.get(k, 0) + money.as_fen(v)
+    return {k: int(v) for k, v in out.items()}
 
 
 # ---------- 组装单周期利润表 ----------
@@ -497,20 +515,21 @@ def build_period(
     )
     # 陆总0714·E1：直接成本增值税（手填·默认0）——从生产成本里减掉，得不含税成本；
     # "给未来留缺口"：现阶段她不填=0，业务系统能统计后再启用（旧 config 缺该项按 0，兼容旧测试）
-    cost_vat = man.get("直接成本增值税", 0.0)
-    production_cost = round(rc["system_direct_cost"] - inhouse + prod_manual - cost_vat, 2)
-    gross_profit = round(net - production_cost, 2)
+    cost_vat = man.get("直接成本增值税", 0)
+    production_cost = int(rc["system_direct_cost"] - inhouse + prod_manual - cost_vat)
+    gross_profit = int(net - production_cost)
 
     led, led_count = compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols)
-    sales_exp = round(man["营销人力成本"] + led["市场费用"], 2)
-    admin_exp = round(man["管理人力成本"] + led["管理费用"], 2)
-    fixed_exp = round(led["固定运营费用"], 2)
-    rd_exp = round(man["研发人力成本"] + led["技术服务费"], 2)
-    fin_exp = round(led["财务费用"] + man["财务费用补充"], 2)
-    surtax = round(net * vat * surtax_rate, 2)
-    other_pl = round(man["其他损益"], 2)
-    period_expense = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
-    pretax = round(gross_profit - period_expense - surtax + other_pl, 2)
+    sales_exp = int(man["营销人力成本"] + led["市场费用"])
+    admin_exp = int(man["管理人力成本"] + led["管理费用"])
+    fixed_exp = int(led["固定运营费用"])
+    rd_exp = int(man["研发人力成本"] + led["技术服务费"])
+    fin_exp = int(led["财务费用"] + man["财务费用补充"])
+    # 附加税费=不含税收入×增值税率×附加率；在元上 round(2) 再回分（与旧 float 口径一致）
+    surtax = money.yuan_to_fen(round(money.fen_to_yuan(net) * vat * surtax_rate, 2)) or 0
+    other_pl = int(man["其他损益"])
+    period_expense = int(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp)
+    pretax = int(gross_profit - period_expense - surtax + other_pl)
 
     orders_amt = compute_orders(order_rows, cols_cfg, start, end)
     receipts_amt = compute_receipts(receipt_rows, cols_cfg, start, end)
@@ -859,7 +878,7 @@ def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names, 
     for row in ledger_rows:
         if not row:
             continue
-        amt = loaders.parse_amount(row[c_amt] if len(row) > c_amt else None)
+        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):

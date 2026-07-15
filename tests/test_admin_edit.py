@@ -105,8 +105,8 @@ class TestAdminWrite(unittest.TestCase):
         adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
         mine = [a for a in adjs if a["字段"] == "交付额" and a["定位键"] == "K1"]
         self.assertTrue(mine)
-        self.assertEqual(str(mine[0]["原值"]), "1000")
-        self.assertEqual(mine[0]["新值"], "2000")
+        self.assertEqual(str(mine[0]["原值"]), "100000")  # 分
+        self.assertEqual(mine[0]["新值"], "2000")  # 管理端按元录入
         self.assertEqual(mine[0]["类型"], "改值")
 
     def test_adjust_bad_field_400(self):
@@ -608,7 +608,7 @@ class TestExpiredBatch(unittest.TestCase):
         conn = self._conn()
         原值, 状态 = conn.execute("SELECT 原值,状态 FROM adj_调整记录 WHERE id=?", (aid,)).fetchone()
         self.assertEqual(状态, "生效")
-        self.assertEqual(float(原值), 2000.0)  # 原值刷成源头现值（元文本）→ 下轮重放不再判过期
+        self.assertEqual(str(原值), "200000")  # 原值刷成源头现值（分）
         from ingest import adjust as adj_mod
 
         rep = adj_mod.apply_adjustments(conn, "2026-07-11 10:00:00")

@@ -43,8 +43,7 @@ def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
 def _values_match(current, 原值: str, 字段: str = "") -> bool:
     """库中现值 与 调整记录的原值 是否一致。
 
-    金额列：库内 INTEGER 分，原值/新值按元 TEXT 存 → 分转元后再比。
-    其余：数值容差或去空白文本。
+    金额列：库内分、原值/新值存分文本（或旧数据元文本兼容：有小数点当元）。
     """
     if 原值 is None:
         原值 = ""
@@ -53,7 +52,13 @@ def _values_match(current, 原值: str, 字段: str = "") -> bool:
         if current is None:
             return os_ == ""
         try:
-            return abs(money.fen_to_yuan(current) - float(os_)) < 1e-6
+            cur_fen = int(current)
+            # 兼容迁移前元文本（含小数或明显按元写的小整数难区分——有小数点/有小数部分当元）
+            if "." in os_ or "e" in os_.lower():
+                old_fen = money.yuan_to_fen(os_) or 0
+            else:
+                old_fen = int(float(os_))  # 分整数字符串
+            return cur_fen == old_fen
         except (ValueError, TypeError):
             return False
     cs = "" if current is None else str(current).strip()
@@ -64,9 +69,8 @@ def _values_match(current, 原值: str, 字段: str = "") -> bool:
 
 
 def _cast(字段: str, 新值: str):
-    """新值写入 std：金额元文本 → 分；其余原样。"""
+    """新值写入 std：金额 → 分（管理端仍按**元**录入，此处 yuan_to_fen）；其余原样。"""
     if 字段 in _AMOUNT_FIELDS:
-        # parse_amount 空/坏 → 0.0；再转分（禁止 float×100 以外的路径）
         fen = money.yuan_to_fen(loaders.parse_amount(新值))
         return 0 if fen is None else fen
     return 新值
