@@ -19,14 +19,16 @@
   font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.2px;
 }
 .theme-light{
-  --bg:#eef1f5; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
-  --line:#e3e8ef; --line-2:#d5dde8;
-  /* 陆总0714：浅色字太浅难读 → 灰阶整体加深一档，层级关系不变（mut2<mut<note<ink） */
-  --ink:#1d2836; --mut:#525c68; --mut2:#76808d; --note:#3d4756;
-  --blue:#2E6FAD; --cost:#9aa6b8; --pos:#12805c; --neg:#d1503f; --orange:#d98a2b;
-  --purple:#7a5ba8; --teal:#1a9e8f; --track:#eef1f4;
-  --kind-system:#2E6FAD; --kind-ledger:#7a5ba8; --kind-manual:#c47d1f;
-  --accent:#2E6FAD; --tb:rgba(255,255,255,.85); --glow:0 1px 3px rgba(31,58,95,.08);
+  /* 冷调科技白：冷灰蓝底 + 青蓝主色（与暗色 --blue #22d3ee 同色相） */
+  --bg:#f4f7fb; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
+  --line:rgba(8,145,178,.14); --line-2:rgba(8,145,178,.28);
+  /* 正文对比度 ≥4.5:1：灰阶略深 */
+  --ink:#15202b; --mut:#3d4a5c; --mut2:#5a6a7d; --note:#2c3a4d;
+  --blue:#0891b2; --cost:#8b9aab; --pos:#0f766e; --neg:#c2410c; --orange:#c2410c;
+  --purple:#6d28d9; --teal:#0d9488; --track:rgba(8,145,178,.08);
+  --kind-system:#0891b2; --kind-ledger:#6d28d9; --kind-manual:#c2410c;
+  --accent:#0891b2; --tb:rgba(255,255,255,.92);
+  --glow:0 1px 3px rgba(8,145,178,.06),0 4px 16px rgba(15,42,70,.06);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -62,7 +64,7 @@ body{
 .tb-ver{margin-left:10px;font-size:11.5px;font-weight:600;color:var(--accent);letter-spacing:.2px;
   border:1px solid var(--line-2);border-radius:999px;padding:3px 11px;
   background:rgba(34,211,238,.10);white-space:nowrap;vertical-align:middle}
-.theme-light .tb-ver{background:rgba(46,111,173,.08);color:var(--blue)}
+.theme-light .tb-ver{background:rgba(8,145,178,.10);color:var(--blue)}
 .tb-sub{font-size:11.5px;color:var(--mut2);margin-left:2px}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:12px}
 .tb-time{font-size:11.5px;color:var(--mut2)}
@@ -118,7 +120,8 @@ body{
   display:flex;flex-direction:column;transition:transform .2s ease,border-color .2s,box-shadow .2s}
 .kpi:hover{transform:translateY(-2px);border-color:var(--accent);
   box-shadow:0 0 0 1px rgba(34,211,238,.18),0 8px 28px rgba(0,0,0,.35),var(--glow)}
-.theme-light .kpi:hover{box-shadow:0 4px 14px rgba(31,58,95,.1);transform:none}
+.theme-light .kpi:hover{border-color:rgba(8,145,178,.45);
+  box-shadow:0 2px 8px rgba(8,145,178,.12),0 6px 18px rgba(15,42,70,.08);transform:none}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
 .kpi-l{font-size:13px;color:var(--mut);margin-bottom:7px;letter-spacing:.4px;font-weight:600;
   display:flex;align-items:baseline;justify-content:space-between;gap:8px}
@@ -209,7 +212,7 @@ body{
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
   display:flex;flex-direction:column;min-height:0}
-.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(31,58,95,.08)}
+.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
 .rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
   padding:0 2px 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
 .rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:column;gap:14px}
@@ -642,7 +645,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(34,211,238,.16),0 0 32px rgba(34,211,238,.08),var(--glow)}
 .card:hover::before,.card:hover::after{opacity:1}
 .theme-light .card::before,.theme-light .card::after{opacity:.25;filter:none}
-.theme-light .card:hover{box-shadow:0 2px 10px rgba(31,58,95,.08)}
+.theme-light .card:hover{border-color:rgba(8,145,178,.45);
+  box-shadow:0 2px 8px rgba(8,145,178,.10),0 6px 18px rgba(15,42,70,.08)}
 .kpi::after{content:"";position:absolute;top:7px;right:7px;width:12px;height:12px;pointer-events:none;
   border-top:2px solid var(--accent);border-right:2px solid var(--accent);opacity:.55;
   filter:drop-shadow(0 0 4px var(--accent))}
