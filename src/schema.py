@@ -3,21 +3,23 @@
 """看板.db 唯一表定义（建表 SQL + 字段常量都从这里出，杜绝三处各自解析的旧病）。
 
 约定（03 详细设计 一 · 任务书33·A3 修订）：
-- **金额一律 INTEGER 分**（进料口元→Decimal 四舍五入；读回转元 float 供 profit/显示）。
-- 日期一律 TEXT，能解析的存 ISO `YYYY-MM-DD`，解析不出的存原文（归属月留空）；归属月 TEXT `YYYY-MM`。
-- **标准表（std_*）每次更新全量重建、永不手改**；用自增 id 做主键；`定位键` 仅作调整匹配索引
-  （自然键优先；台账行哈希含金额字符串——定位键在 normalize 用**元**算出后再转分入库，避免哈希漂移）。
-- **人工表（adj_/manual_/meta_）重建时永不清空**；金额列同为分。
+- **金额一律 INTEGER 分**（进料口元→Decimal 四舍五入）。
+- **算账层 profit 全程 int 分**；显示层（fmt_wan 等）最后一步转万元串。
+- 日期一律 TEXT ISO；归属月 TEXT `YYYY-MM`。
+- **标准表（std_*）每次更新全量重建**；定位键在 normalize 用**元**算出后再转分入库。
+- **人工表重建时永不清空**；金额列同为分。
+- **adj 金额 原值/新值 TEXT 存分字符串**（v3 起；管理端列表转元展示）。
+- **预算比率指标**（毛利率/税前利润率）存百分位点，不用 yuan_to_fen。
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 2  # 1→2：金额 REAL 元 → INTEGER 分
+SCHEMA_VERSION = 3  # 1→2：金额列元→分；2→3：adj 金额 原值/新值 元文本→分文本
 
 # ---- 标准数据表（程序生成·每次全量重建·永不手改） ----
-# 金额列 INTEGER 分；db.py 读回映射为元 float 交给 profit。
+# 金额列 INTEGER 分；db.load 返回 int 分给 profit。
 # 公共尾列：原值_归属月 / 已删除
 STD_TABLES: dict[str, str] = {
     "std_收入明细": """
@@ -343,25 +345,93 @@ def _migrate_table_money_cols(conn: sqlite3.Connection, table: str, cols: tuple[
     return n
 
 
-def migrate_money_to_fen_if_needed(conn: sqlite3.Connection) -> dict:
-    """schema v1（元 REAL）→ v2（整数分）。幂等：已是 v2 直接跳过。迁移前自动备份。
+def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:
+    """adj 金额字段 原值/新值：元文本 → 分文本。幂等：已是分（与 std 现值一致）则跳过该侧。
 
-    adj_调整记录 的 原值/新值 保持元 TEXT（人类可读 + 与管理端录入一致）；
-    定位键在 normalize 用元算出后再转分入库，哈希不因分存储而漂移。
+    判定：字段∈金额名；有小数点 → 必为元；纯整数则 yuan_to_fen 与 as-fen 双解，
+    若按元×100 后与同定位键 std 现值一致则按元迁移，否则视为已是分。
+    """
+    import money
+
+    try:
+        rows = conn.execute(
+            "SELECT id,目标表,定位键,字段,原值,新值 FROM adj_调整记录"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return 0
+    n = 0
+    for aid, 目标表, 定位键, 字段, 原值, 新值 in rows:
+        if 字段 not in money.AMOUNT_FIELD_NAMES:
+            continue
+        # 取 std 现值作锚（有则用于判定纯整数是元还是分）
+        cur_fen = None
+        if 目标表 and 定位键 and 字段:
+            try:
+                r = conn.execute(
+                    f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0 LIMIT 1",
+                    (定位键,),
+                ).fetchone()
+                if r is not None and r[0] is not None:
+                    cur_fen = int(r[0])
+            except sqlite3.OperationalError:
+                pass
+
+        def _side(text):
+            if text is None:
+                return None, False
+            s = str(text).strip()
+            if s == "":
+                return "", False
+            # 有小数 → 元
+            if "." in s or "e" in s.lower():
+                return money.yuan_text_to_fen_text(s), True
+            try:
+                iv = int(float(s))
+            except (ValueError, TypeError):
+                return s, False
+            # 纯整数：若 iv*100 == cur_fen → 元；若 iv == cur_fen → 已是分
+            if cur_fen is not None:
+                if iv == cur_fen:
+                    return s, False  # already fen
+                if iv * 100 == cur_fen:
+                    return str(iv * 100), True
+            # 无锚：按元转分（存量部署机 adj 均为元）
+            return money.yuan_text_to_fen_text(s), True
+
+        new_o, ch_o = _side(原值)
+        new_n, ch_n = _side(新值)
+        if ch_o or ch_n:
+            conn.execute(
+                "UPDATE adj_调整记录 SET 原值=?, 新值=? WHERE id=?",
+                (new_o if new_o is not None else 原值, new_n if new_n is not None else 新值, aid),
+            )
+            n += 1
+    return n
+
+
+def migrate_money_to_fen_if_needed(conn: sqlite3.Connection) -> dict:
+    """schema 升级到 v3：金额列分 + adj 金额文本分。幂等；迁移前备份。
+
+    v1→v2：std/manual 金额列 元 REAL → 分 INTEGER
+    v2→v3：adj 金额 原值/新值 元 TEXT → 分 TEXT（修复存量调整失配）
+    定位键仍在 normalize 用元计算，哈希不因分存储漂移。
     """
     ver = _schema_version(conn)
     if ver >= SCHEMA_VERSION:
         return {"status": "skip", "version": ver, "backup": None}
 
-    # 无版本标记且无金额数据 = 新建空库，直接标 v2
+    # 无版本标记且无金额数据 = 新建空库
     if ver == 0 and not _has_money_data(conn):
         _set_schema_version(conn, SCHEMA_VERSION)
         return {"status": "init", "version": SCHEMA_VERSION, "backup": None}
 
     bak = _backup_db_before_migrate(conn)
     updated = {}
-    for table, cols in _MIGRATE_MONEY_COLS.items():
-        updated[table] = _migrate_table_money_cols(conn, table, cols)
+    if ver < 2:
+        for table, cols in _MIGRATE_MONEY_COLS.items():
+            updated[table] = _migrate_table_money_cols(conn, table, cols)
+    # v2 或从 v1 上来：都要做 adj 文本迁移
+    updated["adj_调整记录"] = _migrate_adj_amount_texts(conn)
     _set_schema_version(conn, SCHEMA_VERSION)
     return {"status": "migrated", "version": SCHEMA_VERSION, "backup": bak, "updated": updated}
 

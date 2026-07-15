@@ -3,7 +3,14 @@
 """金额整数分（任务书33·A3）。
 
 进料口元值 → Decimal 四舍五入到分（ROUND_HALF_UP）→ 库内 INTEGER 分。
-算账/展示读回：分 → 元（float，供既有 profit/fmt 路径）；禁止 float×100。
+算账层（profit）全程 int 分；显示层 fmt_wan 等最后一步分→万元串。
+禁止 float×100 直乘。
+
+约定：
+- std/manual 金额列 = INTEGER 分
+- adj 金额字段的 原值/新值 TEXT = 分整数字符串（管理端列表再转元展示）
+- 预算里「毛利率/税前利润率」等**比率**指标 ≠ 钱：库内存百分数×100（百分位点），
+  绝不用 yuan_to_fen（35%→3500 分会把完成率算歪）
 """
 from __future__ import annotations
 
@@ -19,16 +26,16 @@ STD_MONEY_COLS: dict[str, tuple[str, ...]] = {
     "std_费用明细": ("含税金额",),
 }
 
-# 人工表金额列（存分；比例/税率仍是百分数 REAL 不动）
+# 人工表金额列（存分；分摊比例/去税率仍是 REAL 百分数不动）
 MANUAL_MONEY_TABLES: dict[str, tuple[str, ...]] = {
     "manual_手填": ("金额",),
     "manual_手填BU": ("金额",),
     "manual_历史": ("旧值", "新值"),
-    "manual_预算": ("金额",),
+    "manual_预算": ("金额",),  # 比率指标走 budget_rate_*，见 BUDGET_RATE_METRICS
     "manual_预算历史": ("旧值", "新值"),
 }
 
-# 调整记录改值：字段名属于金额时 原值/新值 按元文本存，套用时转分
+# 调整记录：这些字段的 原值/新值 TEXT 存**分**字符串
 AMOUNT_FIELD_NAMES = frozenset(
     {
         "交付额",
@@ -39,6 +46,49 @@ AMOUNT_FIELD_NAMES = frozenset(
         "含税金额",
     }
 )
+
+# 预算比率指标（百分数，如 35=35%）；存百分位点 = 百分数×100（35.5→3550）
+BUDGET_RATE_METRICS = frozenset(
+    {
+        "毛利率年目标",
+        "毛利率H1目标",
+        "税前利润率年目标",
+        "税前利润率H1目标",
+    }
+)
+
+
+def budget_value_to_store(metric: str, val: Any) -> int:
+    """预算入参 → 库内 INTEGER。金额=分；比率=百分位点（×100），不用 yuan_to_fen。"""
+    if metric in BUDGET_RATE_METRICS:
+        if val is None or val == "":
+            return 0
+        try:
+            return int(round(float(val) * 100))
+        except (TypeError, ValueError):
+            return 0
+    fen = yuan_to_fen(val)
+    return 0 if fen is None else fen
+
+
+def budget_value_from_store(metric: str, raw: Any) -> float | int:
+    """库内 INTEGER → 算账/展示：金额仍为分 int；比率为百分数 float（3550→35.5）。"""
+    if raw is None:
+        return 0 if metric not in BUDGET_RATE_METRICS else 0.0
+    if metric in BUDGET_RATE_METRICS:
+        return float(raw) / 100.0
+    return int(raw)
+
+
+def yuan_text_to_fen_text(s: Any) -> str:
+    """存量 adj 元文本 → 分文本；空保持空。"""
+    if s is None:
+        return ""
+    t = str(s).strip()
+    if t == "":
+        return ""
+    fen = yuan_to_fen(t)
+    return "" if fen is None else str(int(fen))
 
 
 def yuan_to_fen(val: Any) -> int | None:

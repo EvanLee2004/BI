@@ -98,7 +98,7 @@ class TestReplay(unittest.TestCase):
     def test_amount_adjust_applies(self):
         conn = _conn()
         _ins_income(conn, "SOD_D", "2026-06-10", 交付额=1000.0)
-        _add_adj(conn, "std_收入明细", "SOD_D", "交付额", "100000", "1500")  # 原值分；新值元
+        _add_adj(conn, "std_收入明细", "SOD_D", "交付额", "100000", "150000")  # 原值/新值均分
         adjust.apply_adjustments(conn, NOW)
         v = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='SOD_D'").fetchone()[0]
         self.assertEqual(int(v), 150000)  # 1500 元 = 150000 分

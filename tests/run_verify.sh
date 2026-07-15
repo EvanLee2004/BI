@@ -54,6 +54,7 @@ tests/test_db_atomic_rebuild.py
 tests/test_money_fen.py
 tests/test_db_a4a7.py
 tests/test_hygiene_b.py
+tests/test_budget_rates_adj_migrate.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="

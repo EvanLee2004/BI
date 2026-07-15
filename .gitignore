@@ -23,6 +23,8 @@ venv/
 数据/*.db-journal
 数据/*.db-wal
 数据/*.db-shm
+# 金额分迁移前自动备份（SCHEMA 升级）
+数据/*.db.bak-fen-*
 数据/备份/
 数据/快照存档/
 数据/1_原始下载/

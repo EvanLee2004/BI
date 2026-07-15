@@ -105,8 +105,9 @@ class TestAdminWrite(unittest.TestCase):
         adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
         mine = [a for a in adjs if a["字段"] == "交付额" and a["定位键"] == "K1"]
         self.assertTrue(mine)
-        self.assertEqual(str(mine[0]["原值"]), "100000")  # 分
-        self.assertEqual(mine[0]["新值"], "2000")  # 管理端按元录入
+        # list_adjustments 展示元/元（库内分）
+        self.assertEqual(str(mine[0]["原值"]), "1000")
+        self.assertEqual(str(mine[0]["新值"]), "2000")
         self.assertEqual(mine[0]["类型"], "改值")
 
     def test_adjust_bad_field_400(self):
@@ -611,6 +612,9 @@ class TestExpiredBatch(unittest.TestCase):
         self.assertEqual(str(原值), "200000")  # 原值刷成源头现值（分）
         from ingest import adjust as adj_mod
 
+        # rearm 后库内 新值 仍是元文本 "2333"（旧测试手插）；_cast 纯整数当分类需写成 233300
+        conn.execute("UPDATE adj_调整记录 SET 新值='233300' WHERE id=?", (aid,))
+        conn.commit()
         rep = adj_mod.apply_adjustments(conn, "2026-07-11 10:00:00")
         self.assertEqual(rep["expired"], 0)
         val = conn.execute("SELECT 交付额 FROM std_收入明细 WHERE 定位键='E1'").fetchone()[0]

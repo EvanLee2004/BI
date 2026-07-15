@@ -43,7 +43,10 @@ def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
 def _values_match(current, 原值: str, 字段: str = "") -> bool:
     """库中现值 与 调整记录的原值 是否一致。
 
-    金额列：库内分、原值/新值存分文本（或旧数据元文本兼容：有小数点当元）。
+    金额列：库内 INTEGER 分；原值文本可能是：
+    - 新数据：分整数字符串（"10000"=100 元）
+    - 迁移前存量：元文本（"100" 或 "100.50"）
+    两种都尝试匹配，避免未迁移存量全体过期疑似。
     """
     if 原值 is None:
         原值 = ""
@@ -53,14 +56,22 @@ def _values_match(current, 原值: str, 字段: str = "") -> bool:
             return os_ == ""
         try:
             cur_fen = int(current)
-            # 兼容迁移前元文本（含小数或明显按元写的小整数难区分——有小数点/有小数部分当元）
-            if "." in os_ or "e" in os_.lower():
-                old_fen = money.yuan_to_fen(os_) or 0
-            else:
-                old_fen = int(float(os_))  # 分整数字符串
-            return cur_fen == old_fen
         except (ValueError, TypeError):
             return False
+        if os_ == "":
+            return False
+        try:
+            # 1) 按分：纯整数字符串
+            if "." not in os_ and "e" not in os_.lower():
+                if int(float(os_)) == cur_fen:
+                    return True
+            # 2) 按元：有小数或整元文本（存量）
+            yuan_fen = money.yuan_to_fen(os_)
+            if yuan_fen is not None and yuan_fen == cur_fen:
+                return True
+        except (ValueError, TypeError):
+            return False
+        return False
     cs = "" if current is None else str(current).strip()
     try:
         return abs(float(cs) - float(os_)) < 1e-6
@@ -69,8 +80,17 @@ def _values_match(current, 原值: str, 字段: str = "") -> bool:
 
 
 def _cast(字段: str, 新值: str):
-    """新值写入 std：金额 → 分（管理端仍按**元**录入，此处 yuan_to_fen）；其余原样。"""
+    """新值写入 std。金额：库内 adj 已存分文本则直接 int；否则按元 yuan_to_fen（兼容旧行）。"""
     if 字段 in _AMOUNT_FIELDS:
+        s = "" if 新值 is None else str(新值).strip()
+        if s == "":
+            return 0
+        # 纯整数：优先当**分**（add_adjustment 已写分）
+        if "." not in s and "e" not in s.lower():
+            try:
+                return int(float(s))
+            except (ValueError, TypeError):
+                pass
         fen = money.yuan_to_fen(loaders.parse_amount(新值))
         return 0 if fen is None else fen
     return 新值

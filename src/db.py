@@ -504,19 +504,22 @@ def add_adjustment(
             f"改一条会同时改动全部相同行。请先在源表里让这些行可区分（如备注加字），或等行级定位（R2）上线。"
         )
     原值 = ""
+    新值_store = str(新值)
     if 类型 == "改值":
         if 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
             raise ValueError(f"字段不可调整：{目标表}.{字段}")
         原值_raw = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
-        # 金额列：原值存**分**整数字符串（任务书33·A3；管理端展示时再转元）
+        # 金额列：原值/新值库内均存**分**文本（管理端录入元→此处转分）
         if money.is_amount_field(字段):
             原值 = "" if 原值_raw is None else str(int(原值_raw))
+            fen_new = money.yuan_to_fen(新值)
+            新值_store = "" if fen_new is None else str(int(fen_new))
         else:
             原值 = "" if 原值_raw is None else str(原值_raw)
     cur = conn.execute(
         "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
         " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
-        (_now(), 经手人, 目标表, 定位键, 字段 or "", 原值, str(新值), 原因, 类型),
+        (_now(), 经手人, 目标表, 定位键, 字段 or "", 原值, 新值_store, 原因, 类型),
     )
     conn.commit()
     return cur.lastrowid
@@ -563,9 +566,27 @@ def rearm_adjustment(conn: sqlite3.Connection, adj_id: int) -> None:
 
 
 def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
+    """调整列表。金额字段的 原值/新值 库内为分文本 → 返回**元**字符串（与改造前管理端元/元一致）。"""
     cols = ["id", "创建时间", "经手人", "目标表", "定位键", "字段", "原值", "新值", "原因", "类型", "状态"]
     rows = conn.execute(f"SELECT {','.join(cols)} FROM adj_调整记录 ORDER BY id DESC").fetchall()
-    return [dict(zip(cols, r)) for r in rows]
+    out = [dict(zip(cols, r)) for r in rows]
+    for d in out:
+        if not money.is_amount_field(str(d.get("字段") or "")):
+            continue
+        for k in ("原值", "新值"):
+            raw = d.get(k)
+            if raw is None or str(raw).strip() == "":
+                continue
+            s = str(raw).strip()
+            try:
+                if "." in s or "e" in s.lower():
+                    # 未迁移的元文本：原样（已是元）
+                    d[k] = s
+                else:
+                    d[k] = money.fen_to_yuan_str(int(s))
+            except (ValueError, TypeError):
+                pass
+    return out
 
 
 # ---------------- 手填（写：留痕 manual_历史；管理员端 /api/manual）----------------
@@ -804,17 +825,19 @@ BUDGET_METRICS = (
     "税前利润率H1目标",
     "费用年预算",
 )
+# 比率指标不得走 yuan_to_fen（见 money.BUDGET_RATE_METRICS）
+BUDGET_RATE_METRICS = money.BUDGET_RATE_METRICS
 
 
-def load_budget(conn: sqlite3.Connection, scope: str = "全公司") -> dict[str, dict[str, int]]:
-    """{年份: {指标: 金额分}}。scope=全公司 或 BU 名。费用年预算按部门范围走 load_dept_budget。"""
-    out: dict[str, dict[str, int]] = {}
+def load_budget(conn: sqlite3.Connection, scope: str = "全公司") -> dict[str, dict]:
+    """{年份: {指标: 金额分 或 比率百分数}}。比率≠钱，见 BUDGET_RATE_METRICS。"""
+    out: dict[str, dict] = {}
     for 年份, 指标, 金额 in conn.execute(
         "SELECT 年份,指标,金额 FROM manual_预算 WHERE 范围=? AND 指标<>'费用年预算'", (scope,)
     ).fetchall():
         if 年份 is None or 指标 is None or 金额 is None:
             continue
-        out.setdefault(str(年份), {})[str(指标)] = int(金额)
+        out.setdefault(str(年份), {})[str(指标)] = money.budget_value_from_store(str(指标), 金额)
     return out
 
 
@@ -855,25 +878,26 @@ def get_budget(conn: sqlite3.Connection, year: str | None = None) -> list[dict]:
     out = [dict(zip(cols, r)) for r in rows]
     for d in out:
         if d.get("金额") is not None:
-            d["金额"] = money.fen_to_yuan(d["金额"])
+            # 管理端：金额→元；比率→百分数
+            d["金额"] = money.budget_value_from_store(str(d.get("指标") or ""), d["金额"])
+            if str(d.get("指标") or "") not in BUDGET_RATE_METRICS:
+                d["金额"] = money.fen_to_yuan(d["金额"])
     return out
 
 
 def set_budget(conn: sqlite3.Connection, 年份: str, 指标: str, 金额: float, 经手人: str, 范围: str = "全公司") -> None:
-    """写年度预算：先记 manual_预算历史（旧值→新值），再 REPLACE 覆盖。入参元（或比率数值）→库内分。"""
+    """写年度预算。金额入参元→分；比率入参百分数→百分位点（绝不用 yuan_to_fen）。"""
     old = conn.execute("SELECT 金额 FROM manual_预算 WHERE 年份=? AND 指标=? AND 范围=?", (年份, 指标, 范围)).fetchone()
     旧值 = old[0] if old else None
     now = _now()
-    fen = money.yuan_to_fen(金额)
-    if fen is None:
-        fen = 0
+    stored = money.budget_value_to_store(str(指标), 金额)
     conn.execute(
         "INSERT INTO manual_预算历史(时间,经手人,年份,指标,范围,旧值,新值) VALUES(?,?,?,?,?,?,?)",
-        (now, 经手人, 年份, 指标, 范围, 旧值, fen),
+        (now, 经手人, 年份, 指标, 范围, 旧值, stored),
     )
     conn.execute(
         "INSERT OR REPLACE INTO manual_预算(年份,指标,范围,金额,填写时间,经手人) VALUES(?,?,?,?,?,?)",
-        (年份, 指标, 范围, fen, now, 经手人),
+        (年份, 指标, 范围, stored, now, 经手人),
     )
     conn.commit()
 
