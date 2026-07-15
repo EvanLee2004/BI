@@ -155,5 +155,5 @@
 <text x="36" y="692" class="s">实线 = 单向数据流　　绿点线 = 调度触发（定时 / 立即更新 / 一键更新）　　橙虚线 = 人工调整回路（改指令不改原始）</text>
 <text x="36" y="710" class="s">① 进料口是唯一接缝　　② 库只给后端碰，浏览器只经 HTTP　　③ 抓数失败永不中断管道（local_fallback + 体检黄）</text>
 <text x="36" y="728" class="s">④ 前端零金额运算（预渲染 .pv 块 + 显示串 *_disp）　　⑤ 主看端 static/ 外置；管理端 static/admin 已外置（v1.5）</text>
-<text x="36" y="746" class="done">● 已建　　◧ 半做/诚实边界　　—— 架构图 v1.6 · 对齐产品 v1.5.0-beta（2026-07-15）· 回退：KANBAN_LEGACY_INLINE=1 或 git reset --hard efacf8c</text>
+<text x="36" y="746" class="done">● 已建　　◧ 半做/诚实边界　　—— 架构图 v1.6 · 对齐产品 v1.5.0-beta（2026-07-15）· 回退：git checkout &lt;旧 commit&gt; · 展示层 render + render_shell + render_widgets</text>
 </svg>

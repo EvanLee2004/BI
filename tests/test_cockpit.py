@@ -205,9 +205,9 @@ class TestRenderGuards(unittest.TestCase):
             self.assertIn(token, self.html, token)
 
     def test_dark_default(self):
-        # v1.4：暗色变量在 static/css/theme.css（:root 暗色 · .theme-light 浅色）
-        from pathlib import Path
-        css = (Path(__file__).resolve().parents[1] / "static" / "css" / "theme.css").read_text(encoding="utf-8")
+        # v1.4：暗色变量唯一入口 theme.get_css() → static/css/theme.css
+        import theme
+        css = theme.get_css()
         self.assertIn(":root{", css)
         self.assertIn(".theme-light{", css)
         self.assertIn('href="/static/css/theme.css"', self.html)
@@ -232,10 +232,11 @@ class TestRenderGuards(unittest.TestCase):
         self.assertRegex(html, r'data-rm="\d{1,2}"')
         # 映射含年/月/季 key 形样（Python 预生成，前端不解析）；高亮逻辑在 static/js
         from pathlib import Path
+        import theme
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("_syncRmHighlight", js)
-        # 前端零金额：高亮只读写 class / 读 data 属性（class 名在 CSS）
-        css = (Path(__file__).resolve().parents[1] / "static" / "css" / "theme.css").read_text(encoding="utf-8")
+        # 前端零金额：高亮只读写 class / 读 data 属性（class 名在 CSS，唯一入口 get_css）
+        css = theme.get_css()
         self.assertIn("rm-dim", css)
         self.assertIn("rm-on", css)
         self.assertIn("rm-on", js)
