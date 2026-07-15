@@ -46,6 +46,22 @@ from app_state import (  # noqa: F401  # 测试/外部可读 server._state
 # B-P5：已登录整体/BU 页固定 static shell + fragments（无 SERVE_SHELL 化石开关）。
 # 测试断言 HTML 内容请用 _state["user_html"] / page["html"] / fragments 组装，勿依赖 / 直出 SSR。
 
+# 会话态文档页禁止浏览器缓存：未登录时同一 URL 是登录页，登录后是 shell/控制台；
+# 若缺 no-store，登录成功 location.replace 同 URL 会直接吃缓存登录页（P0·2026-07-16）。
+# 真正静态 css/js/图走 /static 不受影响；/admin/app.js 已有同类先例。
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
+def _html_doc(content: str, status_code: int = 200) -> HTMLResponse:
+    """HTML 文档响应：带 no-store，防会话态页面被缓存。"""
+    return HTMLResponse(content, status_code=status_code, headers=_NO_STORE)
+
+
+def _file_html_doc(path: Path) -> FileResponse:
+    """HTML 文件文档响应：带 no-store。"""
+    return FileResponse(path, media_type="text/html; charset=utf-8", headers=_NO_STORE)
+
+
 # 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
 # 模板缓存于模块载入（tpl.load 一次）；内容与迁前逐字节一致
 _HIDE_PW_STYLE = tpl.load("partials/hide_pw_style.html")
@@ -519,15 +535,15 @@ def _run_reasons(report: dict) -> list[str]:
 
 
 def _view_login_file():
-    """看板登录：纯 static（B-P4 增补；错误由前端按 API 渲染）。"""
+    """看板登录：纯 static（B-P4 增补；错误由前端按 API 渲染）。会话态文档 → no-store。"""
     p = STATIC_DIR / "view_login.html"
-    return FileResponse(p, media_type="text/html; charset=utf-8")
+    return _file_html_doc(p)
 
 
 def _admin_login_file():
-    """管理端登录：纯 static。"""
+    """管理端登录：纯 static。会话态文档 → no-store。"""
     p = STATIC_DIR / "admin_login.html"
-    return FileResponse(p, media_type="text/html; charset=utf-8")
+    return _file_html_doc(p)
 
 
 # ---------------- FastAPI 应用 ----------------
@@ -617,17 +633,17 @@ def create_app(cfg, root=None) -> FastAPI:
         return resp
 
     def _main_shell():
-        """整体页固定 shell → fragments（B-P5 无 SSR 回退开关）。"""
+        """整体页固定 shell → fragments（B-P5 无 SSR 回退开关）。会话态文档 → no-store。"""
         p = STATIC_DIR / "shell.html"
         if not p.is_file():
-            return HTMLResponse(_EMPTY_DATA_HTML, status_code=503)
-        return FileResponse(p, media_type="text/html; charset=utf-8")
+            return _html_doc(_EMPTY_DATA_HTML, status_code=503)
+        return _file_html_doc(p)
 
     def _bu_shell():
         p = STATIC_DIR / "shell-bu.html"
         if not p.is_file():
-            return HTMLResponse(_EMPTY_DATA_HTML, status_code=503)
-        return FileResponse(p, media_type="text/html; charset=utf-8")
+            return _html_doc(_EMPTY_DATA_HTML, status_code=503)
+        return _file_html_doc(p)
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
@@ -947,12 +963,13 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.get("/admin", response_class=HTMLResponse)
     def admin_page(request: Request):
         """管理员控制台：仅 static/admin（+ /admin/app.js）。
-        _state['admin_html'] 仅作「是否已首次取数成功」标记（truthy=完整台，空=引导页）。"""
+        _state['admin_html'] 仅作「是否已首次取数成功」标记（truthy=完整台，空=引导页）。
+        会话态文档 → 一律 no-store（防登录成功后仍吃缓存登录页）。"""
         if _user(request):
             # 数据未生成（空机器首次部署）→ 引导页：填智云账号→立即更新→自动进完整管理端（F-02）
             if not _state.get("admin_html"):
-                return HTMLResponse(_bootstrap_page())
-            return HTMLResponse(_admin_static_html())
+                return _html_doc(_bootstrap_page())
+            return _html_doc(_admin_static_html())
         return _admin_login_file()
 
     @app.get("/admin/app.js")
@@ -1331,7 +1348,7 @@ def create_app(cfg, root=None) -> FastAPI:
         p = loaders.data_dir(cfg, root) / "备份" / f"页面_{day}.html"
         if not p.exists():
             raise HTTPException(status_code=404, detail="该日无页面快照")
-        return HTMLResponse(p.read_text(encoding="utf-8"))
+        return _html_doc(p.read_text(encoding="utf-8"))
 
     @app.get("/api/bu_config")
     def api_bu_config_get(request: Request):
