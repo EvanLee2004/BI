@@ -71,7 +71,7 @@ class TestRankingUnfilled(unittest.TestCase):
         rk = self._rk()
         names = [it["name"] for it in rk["items"]]
         self.assertNotIn("（未填）", names)
-        self.assertEqual(rk["unfilled"], {"amount": 5000.0, "count": 2})
+        self.assertEqual(rk["unfilled"], {"amount": 500000.0, "count": 2})  # 分
 
     def test_conservation_items_others_unfilled_eq_total(self):
         rk = self._rk(top=1)  # 逼出 others
@@ -79,7 +79,7 @@ class TestRankingUnfilled(unittest.TestCase):
         s += (rk["others"] or {}).get("amount", 0)
         s += (rk["unfilled"] or {}).get("amount", 0)
         self.assertAlmostEqual(s, rk["total"], places=2)
-        self.assertEqual(rk["total"], 10000.0)
+        self.assertEqual(rk["total"], 1000000.0)  # 分
 
     def test_no_unfilled_is_none(self):
         rows = [r for r in self.ROWS if (r["部门"] or "").strip()]
@@ -147,8 +147,9 @@ class TestUnfilledDeptQueries(unittest.TestCase):
             datetime.date(2026, 12, 31),
         )
         d = db.query_detail(self.conn, "下单", unfilled_dept=True)
-        amt = sum(r["下单预估额"] for r in d["rows"])
-        self.assertAlmostEqual(amt, rk["unfilled"]["amount"], places=2)
+        # query_detail 金额为元；ranking 为分
+        amt_yuan = sum(r["下单预估额"] for r in d["rows"])
+        self.assertAlmostEqual(amt_yuan * 100, rk["unfilled"]["amount"], places=2)
 
     def test_fix_one_both_sides_drop(self):
         """处理一条（部门补上）→ 清单 total 与排名 unfilled 同步减。"""
@@ -165,7 +166,7 @@ class TestUnfilledDeptQueries(unittest.TestCase):
             datetime.date(2026, 12, 31),
         )
         self.assertEqual(rk["unfilled"]["count"], 3)  # O3/O5 + O4（0元也算1笔，金额守恒不受影响）
-        self.assertAlmostEqual(rk["unfilled"]["amount"], 3500.0, places=2)
+        self.assertAlmostEqual(rk["unfilled"]["amount"], 350000.0, places=2)
 
     def test_adjust_dept_field_allowed(self):
         """「部门」在可调字段白名单内（R1 黑名单制），异常处理归类走 /api/adjust 的前提。"""

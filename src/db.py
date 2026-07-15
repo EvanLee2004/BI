@@ -386,8 +386,8 @@ def order_stats_by_sales(conn: sqlite3.Connection, year: int | str) -> dict[str,
         ).fetchall()
     except sqlite3.OperationalError:
         return {}
-    # 管理端参考串：金额元
-    return {r[0]: {"count": int(r[1]), "amount": money.fen_to_yuan(r[2] or 0)} for r in rows if r[0]}
+    # 金额分（显示走 core._unassigned_wan / fmt_wan）
+    return {r[0]: {"count": int(r[1]), "amount": int(r[2] or 0)} for r in rows if r[0]}
 
 
 # ---------------- 配置变更留痕（C3·只追加·永不清空；不存密码等敏感值）----------------

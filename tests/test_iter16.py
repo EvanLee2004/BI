@@ -125,8 +125,8 @@ class TestSalesScanConsistency(_Base):
             st = db.order_stats_by_sales(conn, 2026)
         finally:
             conn.close()
-        self.assertEqual(st["销售A"], {"count": 1, "amount": 1000000.0})
-        self.assertEqual(st["销售B"]["amount"], 2000000.0)
+        self.assertEqual(st["销售A"], {"count": 1, "amount": 100000000})  # 100万=1e8 分
+        self.assertEqual(st["销售B"]["amount"], 200000000)
         self.assertNotIn("", st)  # 空销售不计
 
 

@@ -1255,6 +1255,6 @@ def _data_health(
         )
     if unclassified["expense"]["count"]:
         warnings.append(
-            f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount'] / 1e4:.1f}万），未计入费用"
+            f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount'] / 1e6:.1f}万），未计入费用"
         )
     return {"sources": sources, "warnings": warnings, "ok": len(warnings) == 0}
