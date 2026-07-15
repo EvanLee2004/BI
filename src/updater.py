@@ -77,7 +77,8 @@ def _run_pip(root) -> tuple[int, str, str]:
     req = base / "requirements.txt"
     cmd = [sys.executable, "-m", "pip", "install", "-r", str(req)]
     try:
-        mirror = str(loaders.load_config(base).get("pip_mirror") or "").strip()
+        # strict=False：临时仓库可能只有 data_dir+pip_mirror，不挡装依赖
+        mirror = str(loaders.load_config(base, strict=False).get("pip_mirror") or "").strip()
     except Exception:  # config 读不到不挡装依赖：退回 pip 默认源
         mirror = ""
     if mirror:

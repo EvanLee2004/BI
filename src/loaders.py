@@ -71,9 +71,12 @@ def validate_config(cfg: dict) -> None:
             raise ValueError(f"config.columns 缺少：{ck}")
 
 
-def load_config(root: Path | None = None) -> dict:
+def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
     """读 config.json（出厂默认），再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
-    覆盖只认非 None 值；坏文件/缺文件静默跳过。config.json 本身只读不写。"""
+    覆盖只认非 None 值；坏文件/缺文件静默跳过。config.json 本身只读不写。
+    strict=True（默认）：校验必需键，缺则 ValueError。
+    strict=False：仅读盘（updater 读 pip_mirror 等，不要求完整 schema）。
+    """
     base = root or ROOT
     path = base / "config.json"
     try:
@@ -83,7 +86,9 @@ def load_config(root: Path | None = None) -> dict:
         raise ValueError(f"找不到 config.json：{path}") from e
     except json.JSONDecodeError as e:
         raise ValueError(f"config.json JSON 无效：{e}") from e
-    ov = _local_config_path(base, cfg if isinstance(cfg, dict) else {})
+    if not isinstance(cfg, dict):
+        raise ValueError("config.json 必须是 JSON 对象")
+    ov = _local_config_path(base, cfg)
     if ov.exists():
         try:
             data = json.loads(ov.read_text(encoding="utf-8"))
@@ -93,7 +98,8 @@ def load_config(root: Path | None = None) -> dict:
                         cfg[k] = v
         except (OSError, ValueError):
             pass  # 覆盖文件坏了不致命：退回 config.json 默认，管理端重存即可
-    validate_config(cfg)
+    if strict:
+        validate_config(cfg)
     return cfg
 
 
