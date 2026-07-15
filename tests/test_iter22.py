@@ -126,13 +126,13 @@ class TestSalesProfitMarginRow(unittest.TestCase):
 
     def test_main_pl_has_row(self):
         html = render.render_pl_table(self._period(), {})
-        self.assertIn("销售利润率", html)
+        self.assertIn("税前利润率", html)
         self.assertIn("50.0%", html)
         self.assertIn("税前利润÷交付收入", html)
 
     def test_bu_pl_has_row(self):
         html, _note = render.render_bu_pl_table(self._period())
-        self.assertIn("销售利润率", html)
+        self.assertIn("税前利润率", html)
         self.assertIn("50.0%", html)
 
 

@@ -664,9 +664,11 @@ const BUDGET_METRICS=[
   {k:"下单年预算",label:"下单年目标",tip:"万元 · 全年下单",thou:true,pct:false,wan:true,sumBu:true},
   {k:"回款年预算",label:"回款年目标",tip:"万元 · 全年回款",thou:true,pct:false,wan:true,sumBu:true},
   {k:"毛利率年目标",label:"毛利率年目标",tip:"百分数 · 如 35=35%",thou:false,pct:true,wan:false,sumBu:false},
+  {k:"税前利润率年目标",label:"税前利润率年目标",tip:"百分数 · 税前利润÷收入",thou:false,pct:true,wan:false,sumBu:false},
   {k:"下单H1目标",label:"下单H1目标",tip:"万元 · 上半年下单",thou:true,pct:false,wan:true,sumBu:false},
   {k:"回款H1目标",label:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true,sumBu:false},
   {k:"毛利率H1目标",label:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false,sumBu:false},
+  {k:"税前利润率H1目标",label:"税前利润率H1目标",tip:"百分数 · 上半年税前利润率",thou:false,pct:true,wan:false,sumBu:false},
 ];
 function bScopesFromBus(bus){return ["全公司"].concat((bus||[]).map(b=>b.name).filter(Boolean));}
 function bCellHtml(it,scope,old){

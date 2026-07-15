@@ -15,7 +15,7 @@ KPI_CARDS = [
     ("下单", "orders", "智云·下单预估额", True, None, "var(--purple)", "order"),
     ("交付金额", "revenue_gross", "智云直接抓·含税 · 确认口径÷1.06见脚注", True, None, "var(--blue)", None),
     ("管理毛利", "gross_profit", "完整口径·交付收入−生产成本", True, "gross_margin_pct", "var(--orange)", "margin"),
-    ("税前利润", "pretax_profit", "毛利−各项费用−附加税±其他", True, "pretax_margin_pct", "var(--pos)", None),
+    ("税前利润", "pretax_profit", "毛利−各项费用−附加税±其他", True, "pretax_margin_pct", "var(--pos)", "pretax_margin"),
     ("回款", "receipts", "智云·回款(到账)", True, None, "var(--teal)", "receipt"),
 ]
 
@@ -65,7 +65,7 @@ def _amt(v, colored=False, muted=False):
     return tpl.fill("render/amt.html", cls=cls, s=s)
 
 def _target_bar(budget, tkey, pkey, year, p):
-    """KPI 下业务目标进度条。tkey=order/receipt/margin；无目标→空态小字。
+    """KPI 下业务目标进度条。tkey=order/receipt/margin/pretax_margin；无目标→空态小字。
     仅「1-6 月」区间用 H1 目标；Q1≠H1（勿把 Q1 当上半年）。年目标 done=全年累计。"""
     if not budget or not tkey:
         return ""
@@ -82,12 +82,12 @@ def _target_bar(budget, tkey, pkey, year, p):
     if not item:
         return tpl.load("render/kpi_tgt_empty.html")
     tgt, done, pct = item.get("target"), item.get("done"), item.get("pct")
-    if tkey == "margin":
-        # 「当前」必须与达成率同一口径：H1 用 item.done，否则用本周期毛利率
+    if tkey in ("margin", "pretax_margin"):
+        # 「当前」必须与达成率同一口径：H1 用 item.done，否则用本周期对应率
         if use_h1 and item.get("done") is not None:
             cur = item["done"]
         else:
-            cur = p.get("gross_margin_pct")
+            cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
         cur_s = f"{cur:.1f}%" if cur is not None else "—"
         pct_s = f"{pct:.0f}%" if pct is not None else "—"
         w = min(max(pct or 0, 0), 100)

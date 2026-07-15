@@ -565,6 +565,8 @@ def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str =
 BUDGET_METRICS = (
     "下单年预算", "回款年预算", "毛利率年目标",
     "下单H1目标", "回款H1目标", "毛利率H1目标",
+    # A4·陆总#3：新增税前利润率目标（勿改既有键名）
+    "税前利润率年目标", "税前利润率H1目标",
     "费用年预算",
 )
 

@@ -1766,8 +1766,8 @@ def create_app(cfg, root=None) -> FastAPI:
                 scope = str(it.get("范围", "全公司")).strip() or "全公司"
                 if metric == "费用年预算" and scope == "全公司":
                     raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
-                if "毛利率" in metric and (金额 < 0 or 金额 > 100):
-                    raise HTTPException(status_code=400, detail=f"毛利率须为 0~100：{metric}")
+                if ("毛利率" in metric or "利润率" in metric) and (金额 < 0 or 金额 > 100):
+                    raise HTTPException(status_code=400, detail=f"比率类目标须为 0~100：{metric}")
                 db.set_budget(conn, year, metric, 金额, user, 范围=scope)
                 n += 1
         finally:

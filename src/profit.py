@@ -443,15 +443,19 @@ def _month_num(period_key: str) -> int:
 
 
 def build_budget_block(budget_raw, year, year_period, h1_period=None) -> dict | None:
-    """业务目标完成块：{目标/累计/完成率}×下单+回款+毛利率（年 + 可选 H1）。
+    """业务目标完成块：{目标/累计/完成率}×下单+回款+毛利率+税前利润率（年 + 可选 H1）。
     没填任何目标 → None（KPI 下不显示进度条；部门费用预算卡与此无关）。
-    完成率分母=0 或指标没填 → 对应项为 None。"""
+    完成率分母=0 或指标没填 → 对应项为 None。
+    A4：新增 pretax_margin / pretax_margin_h1（存储键 税前利润率年目标/H1）。"""
     y = (budget_raw or {}).get(str(year)) or {}
     order_t, receipt_t = y.get("下单年预算"), y.get("回款年预算")
     margin_t = y.get("毛利率年目标")  # 百分数，如 35 表示 35%
+    pretax_t = y.get("税前利润率年目标")
     h1_order, h1_receipt = y.get("下单H1目标"), y.get("回款H1目标")
     h1_margin = y.get("毛利率H1目标")
-    if all(v is None for v in (order_t, receipt_t, margin_t, h1_order, h1_receipt, h1_margin)):
+    h1_pretax = y.get("税前利润率H1目标")
+    if all(v is None for v in (order_t, receipt_t, margin_t, pretax_t,
+                               h1_order, h1_receipt, h1_margin, h1_pretax)):
         return None
 
     def _item(target, done):
@@ -472,9 +476,11 @@ def build_budget_block(budget_raw, year, year_period, h1_period=None) -> dict | 
             "order": _item(order_t, year_period["orders"]),
             "receipt": _item(receipt_t, year_period["receipts"]),
             "margin": _margin_item(margin_t, year_period.get("gross_margin_pct") or 0.0),
+            "pretax_margin": _margin_item(pretax_t, year_period.get("pretax_margin_pct") or 0.0),
             "order_h1": _item(h1_order, h1.get("orders")),
             "receipt_h1": _item(h1_receipt, h1.get("receipts")),
-            "margin_h1": _margin_item(h1_margin, h1.get("gross_margin_pct"))}
+            "margin_h1": _margin_item(h1_margin, h1.get("gross_margin_pct")),
+            "pretax_margin_h1": _margin_item(h1_pretax, h1.get("pretax_margin_pct"))}
 
 
 def build_summary(cfg, project_rows, order_rows, receipt_rows, inhouse_rows,

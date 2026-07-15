@@ -146,7 +146,7 @@ def _row(name, impact, kind, src="", total=False, grand=False):
                     amt=_amt(impact, colored=(total or grand)))
 
 def _pct_row(name, pct, src=""):
-    """比率行（如销售利润率）：金额列显示百分数，不参与任何求和。pct=None → 灰显 —。"""
+    """比率行（如税前利润率）：金额列显示百分数，不参与任何求和。pct=None → 灰显 —。"""
     src_html = tpl.fill("render/src.html", src=src) if src else ""
     txt = f"{pct:.1f}%" if pct is not None else "—"
     return tpl.fill("render/pct_row.html", name=name, src_html=src_html, txt=txt)
@@ -199,8 +199,8 @@ def render_pl_table(p, fine, unclassified_amt=None):
         rows.append(_row("未计入费用（台账未填大类）", -unclassified_amt, "ledger", ""))
     rows.append(_row("税前利润", p["pretax_profit"], "",
                      "管理毛利−期间费用−附加税±其他", grand=True))
-    # 陆总0714：销售利润率（=税前利润÷交付收入）
-    rows.append(_pct_row("销售利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
+    # 陆总0714/A4#3：税前利润率（=税前利润÷交付收入；显示名原「税前利润率」）
+    rows.append(_pct_row("税前利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
 
     # 抽屉：只列名目+金额，不堆「手填·默认0」类运营旁注
     # 抽屉行名不带「加/减」：用户只看名目与金额
@@ -641,7 +641,7 @@ def render_bu_pl_table(p, alloc_meta=None, fine=None):
         rows.append(_bu_pending_row("其他损益"))
     pretax_src = "毛利−期间费用−附加税±其他"
     rows.append(_row("税前利润", p["pretax_profit"], "", pretax_src, grand=True))
-    rows.append(_pct_row("销售利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
+    rows.append(_pct_row("税前利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
 
     prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
     if has_manual:
