@@ -48,3 +48,4 @@ data/*.json
 # 重构 golden 用临时假数据目录（可重建）
 _golden_data/
 golden/_run_verify_raw.log
+.coverage

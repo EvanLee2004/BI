@@ -174,6 +174,19 @@ class TestLoginCacheP0(unittest.TestCase):
             "admin.js 须对 401 跳登录",
         )
 
+    def test_viewer_pages_have_logout_button(self):
+        """深检①：看端整体/BU 须有退出入口，调 /api/v1/logout。"""
+        for name in (
+            "static/templates/render/dashboard_body.html",
+            "static/templates/render/bu_body.html",
+        ):
+            t = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn("logoutBtn", t, name)
+        for name in ("static/js/cockpit.js", "static/js/cockpit-bu.js"):
+            t = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn("logoutBtn", t, name)
+            self.assertIn("/api/v1/logout", t, name)
+
 
 if __name__ == "__main__":
     unittest.main()
