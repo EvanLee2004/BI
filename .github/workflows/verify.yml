@@ -1,0 +1,75 @@
+# 看板正式程序 · push/PR 全量闸门
+# 对应落地包：KANBAN_OFFLINE=1 sh tests/run_verify.sh + pre-commit --all-files
+# 防假绿：必须用仓库内 tests/fixtures/ci_data 播种 数据/；缺 fixtures 显式失败
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pre-commit
+        run: pip install pre-commit==4.6.0
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
+  run-verify:
+    name: run_verify
+    runs-on: ubuntu-latest
+    env:
+      KANBAN_OFFLINE: "1"
+      KANBAN_CI: "1"
+      KANBAN_VERIFY_JOBS: "2"
+      PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install httpx==0.28.1
+
+      - name: Seed CI fake data into 数据/
+        run: |
+          set -e
+          mkdir -p 数据
+          if [ -d tests/fixtures/ci_data ]; then
+            cp -R tests/fixtures/ci_data/* 数据/ || true
+            # 只拷 xlsx（README 可有）
+            find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} 数据/ \;
+            mkdir -p _golden_data
+            find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} _golden_data/ \;
+            echo "Seeded from tests/fixtures/ci_data"
+            ls -la 数据/
+          else
+            echo "::error::缺少 tests/fixtures/ci_data/。请先提交 6 个合成 xlsx。"
+            exit 1
+          fi
+          # 防假绿：至少要有项目明细
+          test -f 数据/项目明细.xlsx
+
+      - name: Run full verify
+        run: |
+          # 铁律20：禁止 | tail 吞退出码；本步直接 sh，真实退出码即 job 结果
+          sh tests/run_verify.sh
