@@ -71,7 +71,11 @@ class TestReconcile(unittest.TestCase):
             self.assertAlmostEqual(p["expense"]["营销费用"], man["营销人力成本"] + led["市场费用"], places=1, msg=key)
             self.assertAlmostEqual(p["expense"]["研发费用"], man["研发人力成本"] + led["技术服务费"], places=1, msg=key)
             # 附加税费 = 收入 × 6% × 12%
-            self.assertAlmostEqual(p["surtax"], round(p["revenue_net"] * vat * sur, 2), places=1, msg=key)
+            # 附加税费：在元上 round(2) 再回分（与 profit.build_period 一致）
+            import money as _money
+
+            exp_sur = _money.yuan_to_fen(round(_money.fen_to_yuan(p["revenue_net"]) * vat * sur, 2)) or 0
+            self.assertEqual(int(p["surtax"]), int(exp_sur), msg=key)
             # 税前利润 = 毛利 − 期间费用 − 附加税费 + 其他损益
             self.assertAlmostEqual(
                 p["pretax_profit"],
@@ -114,7 +118,7 @@ class TestValueGuards(unittest.TestCase):
         led, _ = profit.compute_ledger_expenses(
             rows, 2024, datetime.date(2024, 7, 1), datetime.date(2024, 7, 31), cfg, lcols
         )
-        self.assertAlmostEqual(led["管理费用"], 1000.50)
+        self.assertEqual(int(led["管理费用"]), 100050)  # 1000.50 元 = 100050 分
         date_bad, amt_bad = profit._scan_ledger_issues(rows, 2024, lcols)
         self.assertEqual(date_bad, 1)
         self.assertEqual(amt_bad, 0)
