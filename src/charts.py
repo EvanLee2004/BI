@@ -74,12 +74,14 @@ def donut(segs: Sequence[tuple[str, float, str]], center_label: str, center_valu
         x1, y1 = _polar(cx, cy, ro, start); x2, y2 = _polar(cx, cy, ro, end)
         x3, y3 = _polar(cx, cy, ri, end); x4, y4 = _polar(cx, cy, ri, start)
         tip = ""
-        cls = ""
+        # donut-seg：CSS 用 stroke:var(--bg) 做分段缝；hit-seg 可悬浮
+        dcls = "donut-seg"
         if detail is not None:
             # 双层转义：getAttribute 解一层实体、innerHTML 再解析一层——_tip 里名称已转义（innerHTML层），
             # 这里整串再 esc 一次（属性层），<br> 经属性层解码后恢复、名称仍保持转义。
-            cls = ' class="hit-seg"'; tip = f' data-tip="{esc(_tip(name, v, detail.get(name)))}"'
-        paths.append(f'<path{cls} d="M{x1:.1f} {y1:.1f} A{ro:.1f} {ro:.1f} 0 {large} 1 {x2:.1f} {y2:.1f} '
+            dcls = "donut-seg hit-seg"
+            tip = f' data-tip="{esc(_tip(name, v, detail.get(name)))}"'
+        paths.append(f'<path class="{dcls}" d="M{x1:.1f} {y1:.1f} A{ro:.1f} {ro:.1f} 0 {large} 1 {x2:.1f} {y2:.1f} '
                      f'L{x3:.1f} {y3:.1f} A{ri:.1f} {ri:.1f} 0 {large} 0 {x4:.1f} {y4:.1f} Z" fill="{color}"{tip}/>')
         start = end
     body = "".join(paths) or f'<circle cx="{cx}" cy="{cy}" r="{ro}" fill="{TRACK}"/>'
@@ -126,6 +128,16 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     gw = plot_w / n
     bw = min(gw * 0.22, 18)
     parts, line_pts, hits = [], [], []
+    # 柱渐变：stop-color 走 CSS 变量，暗/亮主题自动跟随
+    parts.append(
+        f'<defs>'
+        f'<linearGradient id="barGradRev" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{BLUE}" stop-opacity=".95"/>'
+        f'<stop offset="1" stop-color="{BLUE}" stop-opacity=".25"/></linearGradient>'
+        f'<linearGradient id="barGradCost" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{COST}" stop-opacity=".9"/>'
+        f'<stop offset="1" stop-color="{COST}" stop-opacity=".3"/></linearGradient>'
+        f'</defs>')
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
@@ -139,10 +151,10 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
         chh = max(1.0, cost / mx * bar_h) if cost else 1.0
         is_hl = highlight_label is not None and label == highlight_label
         ry, cy = pt + plot_h - rh, pt + plot_h - chh
-        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {BLUE})" '
-                     f'x="{cx-bw-2:.1f}" y="{ry:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" fill="{BLUE}" opacity="0.92"/>')
-        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s" '
-                     f'x="{cx+2:.1f}" y="{cy:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" fill="{COST}" opacity="0.85"/>')
+        parts.append(f'<rect class="bar bar-rev" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {BLUE})" '
+                     f'x="{cx-bw-2:.1f}" y="{ry:.1f}" width="{bw:.1f}" height="{rh:.1f}" rx="3" fill="url(#barGradRev)" opacity="0.95"/>')
+        parts.append(f'<rect class="bar bar-cost" style="animation-delay:{i*0.05:.2f}s" '
+                     f'x="{cx+2:.1f}" y="{cy:.1f}" width="{bw:.1f}" height="{chh:.1f}" rx="3" fill="url(#barGradCost)" opacity="0.9"/>')
         # 金额始终在柱顶上方（不夹进柱内）
         parts.append(f'<text x="{cx-bw/2-1:.1f}" y="{ry-5:.1f}" text-anchor="middle" '
                      f'font-size="9.5" font-weight="700" fill="{BLUE}">{fmt_wan(rev)}</text>')
@@ -197,6 +209,10 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     gw = plot_w / n
     bw = min(gw * 0.38, 28)
     parts, hits, line_pts = [], [], []
+    parts.append(
+        f'<defs><linearGradient id="barGradRec" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{color}" stop-opacity=".95"/>'
+        f'<stop offset="1" stop-color="{color}" stop-opacity=".25"/></linearGradient></defs>')
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
@@ -216,9 +232,9 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         cx = pl + gw * i + gw / 2
         bh = max(1.0, rec / mx * bar_h) if rec else 0.0
         by = pt + plot_h - bh
-        parts.append(f'<rect class="bar" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
+        parts.append(f'<rect class="bar bar-rec" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
                      f'x="{cx-bw/2:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{max(bh, 1.0):.1f}" rx="3" '
-                     f'fill="{color}" opacity="0.9"{drm}/>')
+                     f'fill="url(#barGradRec)" opacity="0.95"{drm}/>')
         # 柱顶金额用蓝色，与交付收入图统一
         parts.append(f'<text x="{cx:.1f}" y="{by-5:.1f}" text-anchor="middle" font-size="10.5" '
                      f'font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rec)}</text>')

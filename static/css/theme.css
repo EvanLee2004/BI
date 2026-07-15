@@ -7,8 +7,16 @@
   --purple:#c084fc; --teal:#2dd4bf; --track:rgba(148,163,184,.14);
   --kind-system:#38bdf8; --kind-ledger:#c084fc; --kind-manual:#fbbf24;
   --accent:#22d3ee; --radius:12px;
-  --num-font:"DIN Alternate","SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  /* 金额等宽：系统 mono + PingFang 兜底，避免「万/元」汉字豆腐块 */
+  --mono:"SF Mono","JetBrains Mono","Cascadia Code",ui-monospace,Consolas,"PingFang SC",monospace;
+  --num-font:var(--mono);
   --tb:rgba(6,10,22,.78); --glow:0 0 26px rgba(34,211,238,.14);
+}
+/* 金额数字：等宽对齐千分位；仅金额列/KPI 大数，勿套正文 */
+.num,.kpi-cum,.kpi-foot-v,.kpi-bu-a,.kpi-bu-p,.kpi-tgt-n,.kpi-tgt-h b,
+.pl-amt,.pl-drow .pl-amt,.ev-amt,.rc-hero-num,.rc-bud-t,.rc-pill b,
+.legend,.hbar-v{
+  font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.2px;
 }
 .theme-light{
   --bg:#eef1f5; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
@@ -528,6 +536,9 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 .donut-sweep{opacity:.16;mix-blend-mode:screen;filter:blur(1px)}
 .theme-light .donut-sweep{display:none}
 
+/* 环形图分段缝：背景色描边，暗/亮自适应 */
+svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
+
 /* —— 费用构成四态切换 + 横条视角（按类别/按业务BU/按部门）—— */
 .ev-tabs{margin-left:auto;display:inline-flex;gap:4px}
 .ev-tab{background:none;border:1px solid var(--line);color:var(--mut);font-size:11.5px;
@@ -617,7 +628,6 @@ body{animation:auroraDrift 30s ease-in-out infinite}
 
 /* ==================== FUI 科技大屏层（框线/角标/网格/扫描·纯装饰不碰数据）==================== */
 /* 数字用等宽数码字体 + 辉光（暗色更强科技感；浅色关闭辉光保持简洁） */
-.kpi-cum,.pl-amt,.pl-drow .pl-amt,.hbar-v{font-family:var(--num-font)}
 .kpi-cum{font-size:28px;text-shadow:0 0 20px rgba(34,211,238,.38),0 0 2px rgba(34,211,238,.2)}
 .theme-light .kpi-cum{text-shadow:none;font-size:26px}
 .pl-row.grand .pl-amt{text-shadow:0 0 14px rgba(52,211,153,.35)}
