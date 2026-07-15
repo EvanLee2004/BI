@@ -193,7 +193,11 @@ class TestOrdersByBU(unittest.TestCase):
         self.assertNotIn("kpi-spark", html)
         self.assertNotIn("class=\"spark\"", html)
         self.assertIn("全年峰值", html)
-        self.assertIn("已交付未回款", html)
+        # A3：默认隐藏「已交付未回款」；显式打开才出现
+        self.assertNotIn("已交付未回款", html)
+        html_ar = render.render_basic("2026年", P, 2026, months, None, bu_orders=lst,
+                                      show_delivered_unpaid=True)
+        self.assertIn("已交付未回款", html_ar)
         self.assertIn("交付占下单", html)
         html2 = render.render_basic("2026年", P, 2026, months, None)   # 不传=不渲染
         self.assertNotIn("kpi-bus", html2)
@@ -315,32 +319,38 @@ class TestManualItemsInjected(unittest.TestCase):
 
 
 class TestReceiptDeliveredUnpaid(unittest.TestCase):
-    """资金与回款右侧：下单未回款改名 + 已交付未回款（交付金额−回款·近似应收）。"""
+    """A3 回款侧栏：总下单/总回款首行；已交付未回款默认隐藏、可开关恢复。"""
 
     SERIES = [("1月", 200_000.0, 500_000.0, 40.0),
               ("2月", 200_000.0, 500_000.0, 40.0)]  # 累计回款 40 万、下单 100 万
 
-    def test_rename_and_delivered_row(self):
+    def test_totals_first_line_and_default_hide_ar(self):
         html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0)
+        self.assertIn("总下单", html)
+        self.assertIn("总回款", html)
         self.assertIn("下单未回款", html)
-        self.assertIn("已交付未回款", html)
-        self.assertNotIn("缺口（下单 − 回款）", html)
-        self.assertIn("含未交付订单，非应收", html)
-
-    def test_no_delivered_gross_hides_row(self):
-        html = render.render_receipts(self.SERIES)  # 不传 delivered_gross
-        self.assertIn("下单未回款", html)
-        self.assertNotIn("已交付未回款", html)   # 行与脚注均不提
+        self.assertNotIn("已交付未回款", html)  # A3 默认隐藏
         self.assertNotIn("rc-recv", html)
+        self.assertNotIn("缺口（下单 − 回款）", html)
 
-    def test_amount_string(self):
-        # 交付 100 万 − 回款 40 万 = 60.0万（后端算好串）
-        html = render.render_receipts(self.SERIES, delivered_gross=1_000_000.0)
+    def test_show_delivered_unpaid_switch(self):
+        html = render.render_receipts(
+            self.SERIES, delivered_gross=1_000_000.0, show_delivered_unpaid=True)
+        self.assertIn("已交付未回款", html)
+        self.assertIn("rc-recv", html)
         self.assertIn("60.0万", html)
-        # 回款超交付 → 全角负号，不 clamp
+
+    def test_amount_string_when_shown(self):
         html_neg = render.render_receipts(
-            [("1月", 1_500_000.0, 100_000.0, None)], delivered_gross=1_000_000.0)
+            [("1月", 1_500_000.0, 100_000.0, None)], delivered_gross=1_000_000.0,
+            show_delivered_unpaid=True)
         self.assertIn("−50.0万", html_neg)
+
+    def test_chart_has_order_bars(self):
+        import charts
+        svg = charts.receipt_order_chart(self.SERIES)
+        self.assertIn("bar-ord", svg)
+        self.assertIn("下单额", svg)
 
 
 class TestBuExportGate(unittest.TestCase):

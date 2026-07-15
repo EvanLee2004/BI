@@ -162,8 +162,10 @@ def _kpi_period_label(pkey, year):
         return rest or yk
     return str(pkey or yk)
 
-def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
-    """基本情况 KPI。month_keys=全年月周期列表（算峰值用）；不再画迷你折线。"""
+def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None,
+                 show_delivered_unpaid=False):
+    """基本情况 KPI。month_keys=全年月周期列表（算峰值用）；不再画迷你折线。
+    show_delivered_unpaid：陆总#1 默认 False，回款卡脚注「已交付未回款」隐藏。"""
     p = P[pkey]
     prev = _prev_period_key(pkey, year)
     period_tag = _esc(_kpi_period_label(pkey, year))
@@ -202,9 +204,9 @@ def render_basic(pkey, P, year, month_keys, budget=None, bu_orders=None):
             sub = tpl.fill("render/kpi_sub.html", label="总回款/下单比", val=rtxt)
         tgt = _target_bar(budget, tkey, pkey, year, p)
         bus_html = _bu_orders_block(bu_orders) if key == "orders" else ""
-        # 卡底有用信息：全年峰值；回款卡再加本期「已交付未回款」
+        # 卡底有用信息：全年峰值；回款卡「已交付未回款」受 show_delivered_unpaid 开关
         foot_rows = _kpi_peak_row(month_keys, P, key, year)
-        if key == "receipts":
+        if key == "receipts" and show_delivered_unpaid:
             ar = float(p.get("revenue_gross") or 0.0) - val  # 交付金额(含税)−回款，近似应收
             ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
             foot_rows += tpl.fill("render/kpi_foot_ar.html", ar_s=ar_s)

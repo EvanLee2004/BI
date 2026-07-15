@@ -199,15 +199,15 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
 
 def receipt_order_chart(series: list[tuple[str, float, float, float | None]], color: str = BLUE,
                         budget_month: float | None = None) -> str:
-    """回款柱 + 回款/下单比折线。
-    柱顶=回款万（蓝色，与交付收入柱顶统一）；率%标在折线点旁；flowline+comet；柱高留顶空。"""
-    w, h = 640, 352   # v1.0.5.1 拉高：左图放大后与右侧「累计与缺口」等高对称，不再下方留白
+    """下单柱 + 回款柱 + 回款/下单比折线（A3·陆总#2：同图逐月下单与回款）。
+    series=[(label, 回款, 下单, 比率%), ...]；柱顶万；率%在折线点旁。"""
+    w, h = 640, 352
     pl, pr, pt, pb = 52, 40, 34, 50
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)
     if n == 0:
         return tpl.fill("charts/empty.html", color=MUT2)
-    mx = max((v for _, v, _, _ in series), default=0) or 1
+    mx = max((max(rec or 0, order or 0) for _, rec, order, _ in series), default=0) or 1
     if budget_month:
         mx = max(mx, budget_month * 1.15)
     ratios = [r for _, _, _, r in series if r is not None]
@@ -215,12 +215,17 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
     rmx_axis = max(rmx, 100.0) if ratios else 100.0
     bar_h = plot_h * 0.88
     gw = plot_w / n
-    bw = min(gw * 0.38, 28)
+    bw = min(gw * 0.22, 18)
     parts, hits, line_pts = [], [], []
     parts.append(
-        f'<defs><linearGradient id="barGradRec" x1="0" y1="0" x2="0" y2="1">'
+        f'<defs>'
+        f'<linearGradient id="barGradOrd" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{PURPLE}" stop-opacity=".95"/>'
+        f'<stop offset="1" stop-color="{PURPLE}" stop-opacity=".25"/></linearGradient>'
+        f'<linearGradient id="barGradRec" x1="0" y1="0" x2="0" y2="1">'
         f'<stop offset="0" stop-color="{color}" stop-opacity=".95"/>'
-        f'<stop offset="1" stop-color="{color}" stop-opacity=".25"/></linearGradient></defs>')
+        f'<stop offset="1" stop-color="{color}" stop-opacity=".25"/></linearGradient>'
+        f'</defs>')
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w-pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
@@ -229,8 +234,7 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         if ratios:
             parts.append(f'<text x="{w-pr+6}" y="{y+3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
                          f'{rmx_axis*frac:.0f}%</text>')
-    for i, (label, rec, _order, ratio) in enumerate(series):
-        # 月份号：标签形如「1月」/「10月」；供周期高亮 data-rm（纯展示，不参与金额）
+    for i, (label, rec, order, ratio) in enumerate(series):
         rm = str(i + 1)
         if isinstance(label, str) and label.endswith("月"):
             head = label[:-1]
@@ -238,25 +242,29 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
                 rm = str(int(head))
         drm = f' data-rm="{rm}"'
         cx = pl + gw * i + gw / 2
-        bh = max(1.0, rec / mx * bar_h) if rec else 0.0
-        by = pt + plot_h - bh
+        oh = max(1.0, (order or 0) / mx * bar_h) if order else 0.0
+        rh = max(1.0, (rec or 0) / mx * bar_h) if rec else 0.0
+        oy, ry0 = pt + plot_h - oh, pt + plot_h - rh
+        # 左=下单 右=回款
+        parts.append(f'<rect class="bar bar-ord" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {PURPLE})" '
+                     f'x="{cx-bw-2:.1f}" y="{oy:.1f}" width="{bw:.1f}" height="{max(oh, 1.0):.1f}" rx="3" '
+                     f'fill="url(#barGradOrd)" opacity="0.95"{drm}/>')
         parts.append(f'<rect class="bar bar-rec" style="animation-delay:{i*0.05:.2f}s;filter:drop-shadow(0 0 5px {color})" '
-                     f'x="{cx-bw/2:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{max(bh, 1.0):.1f}" rx="3" '
+                     f'x="{cx+2:.1f}" y="{ry0:.1f}" width="{bw:.1f}" height="{max(rh, 1.0):.1f}" rx="3" '
                      f'fill="url(#barGradRec)" opacity="0.95"{drm}/>')
-        # 柱顶金额用蓝色，与交付收入图统一
-        parts.append(f'<text x="{cx:.1f}" y="{by-5:.1f}" text-anchor="middle" font-size="10.5" '
-                     f'font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rec)}</text>')
+        parts.append(f'<text x="{cx-bw/2-1:.1f}" y="{oy-5:.1f}" text-anchor="middle" font-size="9" '
+                     f'font-weight="700" fill="{PURPLE}"{drm}>{fmt_wan(order or 0)}</text>')
+        parts.append(f'<text x="{cx+bw/2+3:.1f}" y="{ry0-5:.1f}" text-anchor="middle" font-size="9.5" '
+                     f'font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rec or 0)}</text>')
         parts.append(f'<text x="{cx:.1f}" y="{h-pb+15:.1f}" text-anchor="middle" font-size="11.5" '
                      f'fill="{MUT}"{drm}>{label}</text>')
         if ratio is not None:
             ly = pt + plot_h * (1 - max(0.0, min(ratio / rmx_axis, 1.0)))
-            # 陆总 0714：率%从柱底行挪到折线数据点旁（符合看图习惯）。
-            # 点太靠顶（可能与柱顶金额重叠）→ 标点下方，否则标点上方
             ry = ly + 15 if ly < pt + 20 else ly - 8
             parts.append(f'<text class="rl" x="{cx:.1f}" y="{ry:.1f}" text-anchor="middle" font-size="10.5" font-weight="700" '
                          f'fill="{ORANGE}"{drm}>{ratio:.0f}%</text>')
             line_pts.append((cx, ly, rm))
-        tip = (f"{label}<br>回款&nbsp;{fmt_wan(rec)}万&nbsp;·&nbsp;下单&nbsp;{fmt_wan(_order)}万"
+        tip = (f"{label}<br>下单&nbsp;{fmt_wan(order or 0)}万&nbsp;·&nbsp;回款&nbsp;{fmt_wan(rec or 0)}万"
                f"{('<br>回款/下单比&nbsp;'+format(ratio,'.1f')+'%') if ratio is not None else ''}")
         hits.append(f'<rect class="hit" data-tip="{tip}" x="{pl+gw*i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
                     f'height="{plot_h:.1f}" fill="transparent"/>')
@@ -279,7 +287,8 @@ def receipt_order_chart(series: list[tuple[str, float, float, float | None]], co
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
                      f'stroke-width="1.2" data-rm="{rm}"/>')
     budget_span = tpl.fill("charts/legend_budget_span.html", teal=TEAL) if budget_month else ""
-    legend = tpl.fill("charts/legend_receipt.html", color=color, orange=ORANGE, budget_span=budget_span)
+    legend = tpl.fill("charts/legend_receipt.html", color=color, orange=ORANGE, purple=PURPLE,
+                      budget_span=budget_span)
     return (f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:300px;display:block">'
             f'{"".join(parts)}{"".join(hits)}</svg>{legend}')
 

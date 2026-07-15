@@ -249,23 +249,24 @@ def _budget_tag(budget):
                                   name=name, target=charts.fmt_wan(b["target"]), pct=pct))
     return tpl.fill("render/budget_tag.html", parts="　".join(parts)) if parts else ""
 
-def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None):
-    """回款右侧驾驶舱（纯展示）：下单未回款 + 已交付未回款 + 回款占下单 + 可选年预算条。
-    金额均由调用方传入（已是本期合计），本函数只拼 HTML、零运算。"""
+def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None,
+                            show_delivered_unpaid=False):
+    """回款右侧驾驶舱（A3·陆总#2）：①总下单/总回款首行 ②已交付未回款可隐藏
+    ③回款占下单 ④年目标进度。金额由调用方传入，本函数只拼 HTML、零运算。"""
     tot_o = float(tot_o or 0.0)
     tot_r = float(tot_r or 0.0)
     gap = tot_o - tot_r  # 下单 − 回款：>0 表示尚待回款（含未交付）
     ytd_pct = (tot_r / tot_o * 100.0) if tot_o else None
     ytd_txt = f"{ytd_pct:.1f}%" if ytd_pct is not None else "—"
     bar_w = max(0.0, min(float(ytd_pct or 0), 100.0))
-    gap_mod = "warn" if gap > 0 else ("good" if gap < 0 else "flat")
     gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
     gap_num = charts.fmt_wan(abs(gap))
 
-    hero = tpl.fill("render/rc_hero.html",
-                    gap_mod=gap_mod, gap_hint=gap_hint, gap_num=gap_num)
+    hero = tpl.fill("render/rc_totals.html",
+                    gap_hint=gap_hint, gap_num=gap_num,
+                    tot_o=charts.fmt_wan(tot_o), tot_r=charts.fmt_wan(tot_r))
     recv = ""
-    if delivered_gross is not None:
+    if show_delivered_unpaid and delivered_gross is not None:
         ar = float(delivered_gross) - tot_r
         ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar)) + "万"
         recv = tpl.fill("render/rc_recv.html", ar_s=ar_s)
@@ -292,7 +293,8 @@ def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None):
                         target=charts.fmt_wan(b["target"]))
     return tpl.fill("render/rc_side.html", content=f"{hero}{recv}{rate}{pills}{bud}")
 
-def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=None):
+def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=None,
+                           show_delivered_unpaid=False):
     """回款右侧驾驶舱（全年按月加总版，兼容旧调用）。"""
     if not receipt_order_monthly:
         return tpl.load("render/rc_side_empty.html")
@@ -300,13 +302,16 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
     for _label, rec, order, _ratio in receipt_order_monthly:
         tot_r += rec or 0.0
         tot_o += order or 0.0
-    return _receipt_insight_totals(tot_o, tot_r, delivered_gross=delivered_gross, budget=budget)
+    return _receipt_insight_totals(
+        tot_o, tot_r, delivered_gross=delivered_gross, budget=budget,
+        show_delivered_unpaid=show_delivered_unpaid)
 
-def _receipt_insight_from_period(p, budget=None):
+def _receipt_insight_from_period(p, budget=None, show_delivered_unpaid=False):
     """单周期回款侧栏：用该周期已算好的 orders/receipts/revenue_gross（随 .pv 切，零运算）。"""
     return _receipt_insight_totals(
         p.get("orders"), p.get("receipts"),
-        delivered_gross=p.get("revenue_gross"), budget=budget)
+        delivered_gross=p.get("revenue_gross"), budget=budget,
+        show_delivered_unpaid=show_delivered_unpaid)
 
 def _months_for_period_key(key: str, year_key: str) -> list[int]:
     """单个周期 key → 月份列表（与顶部选择器 key 形如 2026年 / 2026年Q1 / 2026年3月 / 2026年1-3月 对齐）。"""
@@ -344,11 +349,13 @@ def _period_months_map(summary) -> dict[str, list[int]]:
     return {k: _months_for_period_key(k, yk) for k in ordered}
 
 def render_receipts(receipt_order_monthly, budget=None, *, period_months_map=None,
-                    year_key=None, delivered_gross=None, periods=None, default_key=None):
-    """回款图（柱顶万 + 线上率%）+ 右侧驾驶舱（下单未回款 / 已交付未回款 / 回款占下单）。
+                    year_key=None, delivered_gross=None, periods=None, default_key=None,
+                    show_delivered_unpaid=False):
+    """回款图（下单+回款双柱 + 线上率%）+ 右侧驾驶舱（A3：总下单/总回款首行）。
     迭代21：卡根挂 data-rm-map（周期→月份）供前端只切高亮，柱图全年视角不变。
     periods=各周期 dict 时：侧栏按 .pv 预渲染随「看哪段」切（数字跟周期，铁律2 前端零运算）；
-    年目标条只挂在全年块。delivered_gross 仅兼容旧调用（无 periods 时用）。"""
+    年目标条只挂在全年块。delivered_gross 仅兼容旧调用（无 periods 时用）。
+    show_delivered_unpaid：陆总#1 默认 False，隐藏「已交付未回款」。"""
     import json
     rb = (budget or {}).get("receipt") if budget else None
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
@@ -358,10 +365,13 @@ def render_receipts(receipt_order_monthly, budget=None, *, period_months_map=Non
         # 侧栏随周期切：本期下单/回款/交付；预算条只在全年显示（年目标 vs 年完成）
         side = "".join(
             _pv(k, dk, _receipt_insight_from_period(
-                periods[k], budget if k == yk else None))
+                periods[k], budget if k == yk else None,
+                show_delivered_unpaid=show_delivered_unpaid))
             for k in periods)
     else:
-        side = _receipt_insight_panel(receipt_order_monthly, budget, delivered_gross=delivered_gross)
+        side = _receipt_insight_panel(
+            receipt_order_monthly, budget, delivered_gross=delivered_gross,
+            show_delivered_unpaid=show_delivered_unpaid)
     rm_map = period_months_map or {}
     map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
     return tpl.fill("render/rc_card.html",
@@ -521,8 +531,10 @@ def render_dashboard(summary, cfg, logo_b64):
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")
     BUO = meta.get("bu_orders") or {}
+    show_ar = bool(cfg.get("show_delivered_unpaid", False))
     kpi_views = "".join(
-        _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget, bu_orders=BUO.get(k)))
+        _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget,
+                                bu_orders=BUO.get(k), show_delivered_unpaid=show_ar))
         for k in all_keys)
     # 费用构成：按大类 | 按类别 | 按业务BU | 按部门（预算归属部门，与 BP 同链路下发）
     BP = summary.get("expense_by_profit_center", {})
@@ -547,7 +559,7 @@ def render_dashboard(summary, cfg, logo_b64):
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], summary['meta'].get('budget'),
         period_months_map=rm_map, year_key=yk,
-        periods=P, default_key=yk)
+        periods=P, default_key=yk, show_delivered_unpaid=show_ar)
     receipts_budget = tpl.fill("render/period_receipts.html", html=receipts_html)
     trend_html = render_trend(summary['trend'], hl, period_months_map=rm_map, year_key=yk)
 
@@ -671,7 +683,11 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
 
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")
-    kpi_views = "".join(_pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget)) for k in all_keys)
+    show_ar = bool(cfg.get("show_delivered_unpaid", False))
+    kpi_views = "".join(
+        _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget,
+                                show_delivered_unpaid=show_ar))
+        for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
     # 周期→月份映射一处生成，回款卡 + 趋势图共用
     rm_map = _period_months_map(summary)
@@ -679,7 +695,7 @@ def render_bu_page(bu_name, summary, cfg, logo_b64):
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], budget,
         period_months_map=rm_map, year_key=yk,
-        periods=P, default_key=yk)
+        periods=P, default_key=yk, show_delivered_unpaid=show_ar)
     trend_html = render_trend(summary['trend'], hl, period_months_map=rm_map, year_key=yk)
     from urllib.parse import quote as _q
     export_url = f"/bu/{_q(bu_name)}/export.png"
