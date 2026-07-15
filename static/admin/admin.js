@@ -47,18 +47,30 @@ async function jget(p){const r=await api(p);return r.json();}
 async function jpost(p,body){const r=await api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("HTTP "+r.status));return d;}
 function showSec(id){document.querySelectorAll(".sec").forEach(e=>e.classList.toggle("on",e.id===id));}
-// 未保存离开保护（人工填写 / 业绩目标批量编辑）
-let _formDirty=0;
-function confirmLeave(){if(!_formDirty)return true;return confirm("有 "+_formDirty+" 项未保存的修改，确定离开？未保存将丢失。");}
+// 未保存离开保护（人工填写 / 业绩目标矩阵）
+let _formDirty=0,_budgetDirty=0;
+function confirmLeave(){const n=(_formDirty||0)+(_budgetDirty||0);if(!n)return true;return confirm("有 "+n+" 项未保存的修改，确定离开？未保存将丢失。");}
 function setDirtyCount(n){_formDirty=n||0;const bar=document.getElementById("saveBar"),c=document.getElementById("dirtyCount");
   if(bar)bar.classList.toggle("on",_formDirty>0);if(c)c.textContent=String(_formDirty);}
+function setBudgetDirtyCount(n){_budgetDirty=n||0;const bar=document.getElementById("bSaveBar"),c=document.getElementById("bDirtyCount");
+  if(bar)bar.classList.toggle("on",_budgetDirty>0);if(c)c.textContent=String(_budgetDirty);}
 function refreshDirtyUI(){let n=0;
-  document.querySelectorAll("#mTbl input[data-orig],#bTbl input[data-orig],#aTbl input[data-orig],#dxTbl input[data-orig]").forEach(el=>{
+  document.querySelectorAll("#mTbl input[data-orig],#aTbl input[data-orig],#dxTbl input[data-orig]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim();
     const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
     const dirty=cur!==orig;el.closest("tr")&&el.closest("tr").classList.toggle("dirty",dirty);if(dirty)n++;});
-  setDirtyCount(n);}
-window.addEventListener("beforeunload",e=>{if(_formDirty>0){e.preventDefault();e.returnValue="";}});
+  setDirtyCount(n);
+  refreshBudgetDirtyUI();}
+function refreshBudgetDirtyUI(){let n=0;
+  document.querySelectorAll("#bMatrix input[data-orig]").forEach(el=>{
+    const cur=String(el.value).replace(/,/g,"").trim();
+    const orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
+    const dirty=cur!==orig;
+    const cell=el.closest("td");if(cell)cell.classList.toggle("dirty",dirty);
+    if(dirty)n++;});
+  setBudgetDirtyCount(n);
+  bUpdateSumTips();}
+window.addEventListener("beforeunload",e=>{if((_formDirty||0)+(_budgetDirty||0)>0){e.preventDefault();e.returnValue="";}});
 // 顶层四区：看 / 数据调整 / 异常处理 / 设置
 function showGroup(g){
   if(!confirmLeave())return;
@@ -477,10 +489,14 @@ function pickTable(t){if(!confirmLeave())return;curTable=t;
   document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
 function showManual(){
   if(document.getElementById("manual")&&!document.getElementById("manual").classList.contains("on")&&!confirmLeave())return;
-  document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",
-  b.dataset.t==="人工填写"||b.dataset.t==="数据调整"||b.dataset.t==="手填"));
+  document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on", b.dataset.t==="人工填写"));
   showSec("manual");mLoad();}
+function showBudget(){
+  if(document.getElementById("budget")&&!document.getElementById("budget").classList.contains("on")&&!confirmLeave())return;
+  document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on", b.dataset.t==="业绩目标"));
+  showSec("budget");bLoad();}
 function mLoadSafe(){if(!confirmLeave())return;mLoad();}
+function bLoadSafe(){if(!confirmLeave())return;bLoad();}
 // 千分位：输入过程中即显示 1,234,567；提交时 parseAmount 去逗号
 function fmtThousands(v){if(v==null||v==="")return"";const n=String(v).replace(/,/g,"");
   if(n===""||isNaN(Number(n)))return String(v);const parts=n.split(".");
@@ -584,7 +600,7 @@ async function mLoad(){const m=ymVal("mY","mM");if(!m){return;}
     "<td><input id='"+id+"' class='amt' data-kind='manual' data-item='"+esc(it)+"' data-orig='"+esc(orig)+"' size='16' value='"+esc(disp)+"' placeholder='如 1,000,000'></td></tr>";});
   document.getElementById("mTbl").innerHTML=h;
   document.querySelectorAll("#mTbl input.amt").forEach(el=>{bindThousands(el);el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});
-  await bLoad();await aLoad();await dLoad();refreshDirtyUI();}
+  await aLoad();await dLoad();refreshDirtyUI();}
 // 公共费用分摊比例（按月·迭代20）：范围=全公司才显示；比例%纯前端加总（非金额运算），金额串后端下发
 let ALLOC_DATA=null;
 async function aLoad(){const blk=document.getElementById("allocBlock");if(!blk)return;
@@ -642,48 +658,115 @@ async function dLoad(){const blk=document.getElementById("detaxBlock");if(!blk)r
   document.getElementById("dxTbl").innerHTML=h;
   document.querySelectorAll("#dxTbl input.amt").forEach(el=>{
     el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});}
-// 业绩目标（金额界面=万元 / 毛利率=百分数）
+// 业绩目标矩阵（金额界面=万元 / 毛利率=百分数；存储键 下单年预算/回款年预算 不变，界面显示「年目标」）
+// 矩阵渲染逻辑：bLoad() 写 #bMatrix；列=全公司+ /api/bu_config 业务 BU
 const BUDGET_METRICS=[
-  {k:"下单年预算",tip:"万元 · 全年下单目标",thou:true,pct:false,wan:true},
-  {k:"回款年预算",tip:"万元 · 全年回款目标",thou:true,pct:false,wan:true},
-  {k:"毛利率年目标",tip:"百分数 · 如 35 表示 35%",thou:false,pct:true,wan:false},
-  {k:"下单H1目标",tip:"万元 · 上半年下单",thou:true,pct:false,wan:true},
-  {k:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true},
-  {k:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false},
+  {k:"下单年预算",label:"下单年目标",tip:"万元 · 全年下单",thou:true,pct:false,wan:true,sumBu:true},
+  {k:"回款年预算",label:"回款年目标",tip:"万元 · 全年回款",thou:true,pct:false,wan:true,sumBu:true},
+  {k:"毛利率年目标",label:"毛利率年目标",tip:"百分数 · 如 35=35%",thou:false,pct:true,wan:false,sumBu:false},
+  {k:"下单H1目标",label:"下单H1目标",tip:"万元 · 上半年下单",thou:true,pct:false,wan:true,sumBu:false},
+  {k:"回款H1目标",label:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true,sumBu:false},
+  {k:"毛利率H1目标",label:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false,sumBu:false},
 ];
+function bScopesFromBus(bus){return ["全公司"].concat((bus||[]).map(b=>b.name).filter(Boolean));}
+function bCellHtml(it,scope,old){
+  let curDisp="（未填）",inpDisp="",orig="";
+  if(old!=null&&old!==""){
+    if(it.pct){curDisp=String(old)+"%";inpDisp=String(old);orig=String(old);}
+    else if(it.wan){const w=yuanToWan(old);curDisp=fmtThousands(w)+" 万";inpDisp=fmtThousands(w);orig=String(w);}
+    else{curDisp=fmtThousands(old);inpDisp=fmtThousands(old);orig=String(old);}
+  }
+  const suffix=it.pct?'<span class="pct-suffix">%</span>':(it.wan?'<span class="pct-suffix">万</span>':"");
+  return '<div class="b-cur muted">'+esc(curDisp)+'</div>'+
+    '<div class="b-edit"><input class="'+(it.thou?"amt":"")+'" data-kind="budget" data-item="'+esc(it.k)+
+    '" data-scope="'+esc(scope)+'" data-orig="'+esc(orig)+'" data-pct="'+(it.pct?1:0)+'" data-wan="'+(it.wan?1:0)+
+    '" size="10" value="'+esc(inpDisp)+'" placeholder="'+(it.wan?"如 8,000":"如 35")+'">'+suffix+'</div>';
+}
 async function bLoad(){
-  // 业绩目标改跟顶部统一筛选（明昊 2026-07-14）：年份取顶部「月份」的年、范围取顶部「范围」，无独立下拉
-  const y=(document.getElementById("mY")||{}).value;
-  const scope=(document.getElementById("mScope")||{}).value||"全公司";
-  if(!y){return;}
+  const yEl=document.getElementById("tgY");if(!yEl)return;
+  const y=yEl.value;if(!y)return;
+  let bus=[];try{const d=await jget("/api/bu_config");bus=d.bus||[];}catch(e){}
+  const scopes=bScopesFromBus(bus);
   const cur=await jget("/api/budget?year="+encodeURIComponent(y));
-  const map={};cur.filter(x=>(x["范围"]||"全公司")===scope&&x["指标"]!=="费用年预算").forEach(x=>map[x["指标"]]=x["金额"]);
-  let h="<tr><th>指标</th><th>说明</th><th>当前</th><th>新值</th></tr>";
-  BUDGET_METRICS.forEach((it,ix)=>{const id="bi_"+ix;
-    const old=map[it.k]!=null?map[it.k]:null;
-    // 金额类：库内元 → 界面万
-    let curDisp="（未填）",inpDisp="",orig="";
-    if(old!=null){
-      if(it.pct){curDisp=String(old)+"%";inpDisp=String(old);orig=String(old);}
-      else if(it.wan){const w=yuanToWan(old);curDisp=fmtThousands(w)+" 万";inpDisp=fmtThousands(w);orig=String(w);}
-      else{curDisp=fmtThousands(old);inpDisp=fmtThousands(old);orig=String(old);}
-    }
-    const suffix=it.pct?'<span class="pct-suffix">%</span>':(it.wan?'<span class="pct-suffix">万</span>':"");
-    h+="<tr><td>"+esc(it.k)+"</td><td class='muted'>"+esc(it.tip)+"</td>"+
-    "<td>"+esc(curDisp)+"</td>"+
-    "<td><input id='"+id+"' class='"+(it.thou?"amt":"")+"' data-kind='budget' data-item='"+esc(it.k)+"' data-orig='"+esc(orig)+"' data-pct='"+(it.pct?1:0)+"' data-wan='"+(it.wan?1:0)+"' size='14' value='"+esc(inpDisp)+"' placeholder='"+(it.wan?"如 8,000":"如 35")+"'>"+suffix+"</td></tr>";});
-  document.getElementById("bTbl").innerHTML=h;
-  document.querySelectorAll("#bTbl input").forEach(el=>{
-    if(el.classList.contains("amt"))bindThousands(el);
-    el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);
+  const map={};
+  (cur||[]).forEach(x=>{
+    const k=x["指标"];if(!k||k==="费用年预算")return;
+    const sc=x["范围"]||"全公司";
+    if(!map[k])map[k]={};map[k][sc]=x["金额"];
   });
-  refreshDirtyUI();}
+  let h="<tr><th class='b-metric'>指标</th>";
+  scopes.forEach(sc=>{h+="<th>"+esc(sc==="全公司"?"全公司":("BU · "+sc))+"</th>";});
+  h+="</tr>";
+  BUDGET_METRICS.forEach(it=>{
+    h+="<tr data-metric='"+esc(it.k)+"' data-sumbu='"+(it.sumBu?1:0)+"'>";
+    h+="<td class='b-metric'><div class='b-lab'>"+esc(it.label)+"</div><div class='muted b-tip'>"+esc(it.tip)+"</div></td>";
+    scopes.forEach(sc=>{
+      const old=(map[it.k]||{})[sc];
+      const sumTip=(it.sumBu&&sc==="全公司")?'<div class="b-sum-tip muted" data-metric="'+esc(it.k)+'"></div>':"";
+      h+="<td data-scope='"+esc(sc)+"'>"+bCellHtml(it,sc,old)+sumTip+"</td>";
+    });
+    h+="</tr>";
+  });
+  document.getElementById("bMatrix").innerHTML=h;
+  document.querySelectorAll("#bMatrix input").forEach(el=>{
+    if(el.classList.contains("amt"))bindThousands(el);
+    el.addEventListener("input",()=>{refreshBudgetDirtyUI();});
+    el.addEventListener("blur",()=>{refreshBudgetDirtyUI();});
+  });
+  refreshBudgetDirtyUI();}
+function bUpdateSumTips(){
+  document.querySelectorAll("#bMatrix tr[data-sumbu='1']").forEach(tr=>{
+    let buSum=0,has=false;
+    tr.querySelectorAll("input[data-kind=budget]").forEach(inp=>{
+      if(inp.dataset.scope==="全公司")return;
+      const cur=String(inp.value).replace(/,/g,"").trim();
+      if(cur==="")return;
+      const n=Number(cur);if(isNaN(n))return;
+      buSum+=n;has=true;
+    });
+    const tip=tr.querySelector(".b-sum-tip");if(!tip)return;
+    if(!has){tip.textContent="";tip.classList.remove("warn");return;}
+    const coInp=tr.querySelector('input[data-scope="全公司"]');
+    const coRaw=coInp?String(coInp.value).replace(/,/g,"").trim():"";
+    const co=coRaw===""?null:Number(coRaw);
+    tip.textContent="各 BU 合计 "+fmtThousands(Math.round(buSum*100)/100)+" 万";
+    const over=co!=null&&!isNaN(co)&&buSum>co+1e-9;
+    tip.classList.toggle("warn",!!over);
+  });}
 function discardDirty(){if(!_formDirty)return;if(!confirm("放弃全部未保存修改？"))return;mLoad();}
+function bDiscardDirty(){if(!_budgetDirty)return;if(!confirm("放弃业绩目标未保存修改？"))return;bLoad();}
+async function budgetSave(){
+  const y=(document.getElementById("tgY")||{}).value;
+  if(!y){alert("请先选年份");return;}
+  const budgets=[];
+  document.querySelectorAll("#bMatrix input[data-kind=budget]").forEach(el=>{
+    const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
+    if(cur===orig)return;
+    if(cur==="")return;
+    let n=parseAmount(el.value);if(isNaN(n)){alert("「"+el.dataset.item+" · "+el.dataset.scope+"」数值无效");throw new Error("bad");}
+    if(el.dataset.pct==="1"){if(n<0||n>100){alert("「"+el.dataset.item+" · "+el.dataset.scope+"」请填 0~100 的百分数");throw new Error("bad");}}
+    else if(n<0){alert("「"+el.dataset.item+" · "+el.dataset.scope+"」不能为负");throw new Error("bad");}
+    if(el.dataset.wan==="1"){
+      if(n>0&&n<10){if(!confirm("「"+el.dataset.item+" · "+el.dataset.scope+"」="+n+" 万，目标似乎过小（是否单位填错）？仍保存？"))throw new Error("bad");}
+      n=wanToYuan(n);
+    }
+    budgets.push({指标:el.dataset.item,金额:n,范围:el.dataset.scope||"全公司",年份:y});
+  });
+  if(!budgets.length){showToast("没有需要保存的更改");return;}
+  const btn=document.getElementById("btnBudgetSave");btn.disabled=true;btn.textContent="保存中…";
+  try{
+    await jpost("/api/budget_batch",{items:budgets});
+    setBudgetDirtyCount(0);
+    showToast("✓ 已保存 "+budgets.length+" 项业绩目标并重算");
+    msg("业绩目标已保存（留痕·看板已重算）");
+    reloadDash();loadHealth();await bLoad();
+  }catch(e){if(e.message!=="bad")alert("保存失败："+e.message);}
+  finally{btn.disabled=false;btn.textContent="保存业绩目标";}
+}
 async function batchSaveAll(){
-  const m=ymVal("mY","mM");const y=(document.getElementById("mY")||{}).value;
+  const m=ymVal("mY","mM");
   const mScope=(document.getElementById("mScope")||{}).value||"全公司";
-  const scope=mScope;   // 业绩目标改跟顶部统一范围（明昊 2026-07-14）
-  const manuals=[],budgets=[];
+  const manuals=[];
   document.querySelectorAll("#mTbl input[data-kind=manual]").forEach(el=>{
     const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
     if(cur===orig)return;
@@ -691,20 +774,6 @@ async function batchSaveAll(){
     const n=parseAmount(el.value);if(isNaN(n)){alert("「"+el.dataset.item+"」金额无效");throw new Error("bad");}
     if(n<0){alert("「"+el.dataset.item+"」不能为负");throw new Error("bad");}
     manuals.push({项目:el.dataset.item,金额:n,范围:mScope});
-  });
-  document.querySelectorAll("#bTbl input[data-kind=budget]").forEach(el=>{
-    const cur=String(el.value).replace(/,/g,"").trim(),orig=String(el.dataset.orig||"").replace(/,/g,"").trim();
-    if(cur===orig)return;
-    if(cur==="")return;
-    let n=parseAmount(el.value);if(isNaN(n)){alert("「"+el.dataset.item+"」数值无效");throw new Error("bad");}
-    if(el.dataset.pct==="1"){if(n<0||n>100){alert("「"+el.dataset.item+"」请填 0~100 的百分数");throw new Error("bad");}}
-    else if(n<0){alert("「"+el.dataset.item+"」不能为负");throw new Error("bad");}
-    // 万元 → 元入库
-    if(el.dataset.wan==="1"){
-      if(n>0&&n<10){if(!confirm("「"+el.dataset.item+"」="+n+" 万，目标似乎过小（是否单位填错）？仍保存？"))throw new Error("bad");}
-      n=wanToYuan(n);
-    }
-    budgets.push({指标:el.dataset.item,金额:n,范围:scope,年份:y});
   });
   const allocs={};let allocSum=0,allocChanged=0;
   document.querySelectorAll("#aTbl input[data-kind=alloc]").forEach(el=>{
@@ -722,15 +791,14 @@ async function batchSaveAll(){
       if(isNaN(n)||n<0||n>100){alert("费用类别「"+el.dataset.cat+"」去税率须为 0~100 的数字");throw new Error("bad");}}
     if(cur===orig)return;
     detax[el.dataset.cat]=cur===""?null:Number(cur);detaxChanged++;});
-  if(!manuals.length&&!budgets.length&&!allocChanged&&!detaxChanged){showToast("没有需要保存的更改");return;}
+  if(!manuals.length&&!allocChanged&&!detaxChanged){showToast("没有需要保存的更改");return;}
   const btn=document.getElementById("btnBatchSave");btn.disabled=true;btn.textContent="保存中…";
   try{
     if(manuals.length)await jpost("/api/manual_batch",{归属月:m,范围:mScope,items:manuals});
-    if(budgets.length)await jpost("/api/budget_batch",{items:budgets});
-    if(allocChanged)await jpost("/api/alloc_ratios",{归属月:m,ratios:allocs});
+    if(allocChanged)await jpost("/api/alloc_rates",{归属月:m,rates:allocs});
     if(detaxChanged)await jpost("/api/detax_rates",{rates:detax});
     setDirtyCount(0);
-    showToast("✓ 已保存 "+(manuals.length+budgets.length+allocChanged+detaxChanged)+" 项并重算");
+    showToast("✓ 已保存 "+(manuals.length+allocChanged+detaxChanged)+" 项并重算");
     msg("批量保存完成（留痕·看板已重算）");
     reloadDash();loadHealth();await mLoad();
   }catch(e){if(e.message!=="bad")alert("保存失败："+e.message);}
@@ -925,7 +993,12 @@ function fillM(sel,withAll){let h=withAll?'<option value="">全部月</option>':
 function initYM(){const d=new Date();
   fillY("mY",false);fillM("mM",false);                                  // 手填：必选、默认当前年月
   document.getElementById("mY").value=String(Math.max(d.getFullYear(),2026));document.getElementById("mM").value=d.getMonth()+1;
-  fillY("dY",true);fillM("dM",true);}                                   // 明细筛选：可选、默认全部
+  fillY("dY",true);fillM("dM",true);                                    // 明细筛选：可选、默认全部
+  // 业绩目标独立年份（默认当前年；与人工填写月份/范围互不联动）
+  if(document.getElementById("tgY")){
+    fillY("tgY",false);
+    document.getElementById("tgY").value=String(Math.max(d.getFullYear(),2026));
+  }}
 initYM();
 document.getElementById("dWrap").addEventListener("scroll",function(){
   if(this.scrollTop+this.clientHeight>=this.scrollHeight-80)detail.next();});

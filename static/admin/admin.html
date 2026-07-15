@@ -30,6 +30,7 @@
     <button class="stab" data-t="费用明细" onclick="pickTable('费用明细')">费用明细</button>
     <span class="subsep"></span>
     <button class="stab" data-t="人工填写" onclick="showManual()">人工填写</button>
+    <button class="stab" data-t="业绩目标" onclick="showBudget()">业绩目标</button>
   </span>
   <span class="subgrp" id="sub-review" data-g="review">
     <button class="stab on" data-t="overview" onclick="showReview('overview')">总览</button>
@@ -66,7 +67,7 @@
     <button onclick="mLoadSafe()">查询</button>
     <span class="muted grow">可改多格后底部一键保存。金额填<strong>元</strong>（千分位）；当月未填=0（不再沿用上月）。全公司与各 BU 手填分开存。</span>
   </div>
-  <div class="note info">人工填写：人力/补充等。选「范围」可按全公司或某个业务 BU 填。可批量改数，离开会提醒。业绩目标金额请填<strong>万元</strong>。</div>
+  <div class="note info">人工填写：人力/补充等。选「范围」可按全公司或某个业务 BU 填。可批量改数，离开会提醒。金额填<strong>元</strong>。</div>
   <div class="tbl-box no-scroll"><table id="mTbl"></table></div>
   <div class="sec-block" id="allocBlock" style="display:none">
     <div class="blk-h">🏦 公共费用分摊比例（按月）</div>
@@ -85,15 +86,26 @@
       <b>默认全空 = 不去税，页面数字一分不变</b>；类别按全年金额从大到小排（大头在前，按重要性挑填）。全公司一套、常年沿用。与上方共用底部「保存全部」。</div>
     <div class="tbl-box no-scroll"><table id="dxTbl"></table></div>
   </div>
-  <div class="sec-block">
-    <div class="blk-h">🎯 业绩目标（优先）</div>
-    <div class="note info">下单 / 回款目标填<strong>万元</strong>（如 8000 = 8000 万）；毛利率填百分数（35 = 35%）。<b>跟随顶部「月份」的年份与「范围」</b>（全公司 / 某 BU）。与上方共用底部「保存全部」。</div>
-    <div class="tbl-box no-scroll"><table id="bTbl"></table></div>
-  </div>
   <div id="saveBar" class="save-bar">
     <span class="sb-n">有 <b id="dirtyCount">0</b> 项未保存</span>
     <button type="button" class="ghost" onclick="discardDirty()">放弃更改</button>
     <button type="button" class="primary" id="btnBatchSave" onclick="batchSaveAll()">保存全部更改</button>
+  </div>
+</div>
+
+<div id="budget" class="sec">
+  <div class="toolbar">
+    <span class="field-inline">年份 <select id="tgY"></select></span>
+    <button type="button" onclick="bLoadSafe()">查询</button>
+    <span class="muted grow">矩阵：行=指标、列=全公司+各业务 BU。金额填<strong>万元</strong>、毛利率填百分数；存储键名不变。与人工填写筛选互不联动。</span>
+  </div>
+  <div class="note info">🎯 业绩目标 · 下单/回款填<strong>万元</strong>（如 20,000 = 2 亿），毛利率填百分数（35 = 35%）。
+    下单年目标、回款年目标两行会在全公司列旁显示「各 BU 合计」；合计超过全公司时标黄（仅提示，不拦保存）。本页独立保存。</div>
+  <div class="tbl-box no-scroll b-matrix-wrap"><table id="bMatrix" class="b-matrix"></table></div>
+  <div id="bSaveBar" class="save-bar">
+    <span class="sb-n">有 <b id="bDirtyCount">0</b> 项未保存</span>
+    <button type="button" class="ghost" onclick="bDiscardDirty()">放弃更改</button>
+    <button type="button" class="primary" id="btnBudgetSave" onclick="budgetSave()">保存业绩目标</button>
   </div>
 </div>
 

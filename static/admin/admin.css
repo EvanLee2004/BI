@@ -97,6 +97,20 @@ background:var(--subnav-bg)}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;margin-bottom:12px;
 border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px var(--shadow)}
 .toolbar .grow{flex:1;min-width:8px}
+/* 业绩目标矩阵：行=指标、列=全公司+BU */
+.b-matrix-wrap{overflow-x:auto}
+table.b-matrix th,table.b-matrix td{vertical-align:top;min-width:132px}
+table.b-matrix th.b-metric,table.b-matrix td.b-metric{position:sticky;left:0;z-index:2;background:var(--th-bg);min-width:148px;max-width:180px;white-space:normal}
+table.b-matrix td.b-metric{background:var(--tbl-bg)}
+table.b-matrix .b-lab{font-weight:700;font-size:13px}
+table.b-matrix .b-tip{font-size:11.5px;margin-top:2px;line-height:1.35}
+table.b-matrix .b-cur{font-size:12px;margin-bottom:4px}
+table.b-matrix .b-edit{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+table.b-matrix td.dirty{background:rgba(139,92,246,.1)}
+table.b-matrix .b-sum-tip{font-size:11.5px;margin-top:6px;line-height:1.35}
+table.b-matrix .b-sum-tip.warn{color:#fbbf24;font-weight:600}
+html.theme-light table.b-matrix .b-sum-tip.warn{color:#b45309}
+html.theme-light table.b-matrix td.dirty{background:rgba(124,92,191,.08)}
 .sec-block{margin-top:18px}
 .sec-block .blk-h{font-size:14px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px}
 .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;width:100%;max-width:none}
