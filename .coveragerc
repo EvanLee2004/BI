@@ -1,0 +1,15 @@
+# coverage.py · 找模块盲区，不设百分比 KPI
+# 工具：https://coverage.readthedocs.io · Apache-2.0 · 7.15.1
+[run]
+branch = False
+source = src
+omit =
+    src/export_png.py
+    */__pycache__/*
+
+[report]
+skip_empty = True
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
