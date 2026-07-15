@@ -141,13 +141,13 @@
  var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE'),sum=document.getElementById('dailySum');
  var rkGlobal=document.getElementById('rankViews'),rkCustom=document.getElementById('rkCustom');
  var range=null;   // {s,e}=当前生效的自定义日段；null=跟顶部预渲染排名
- var KIND_TITLE={orders_by_dept:'下单 · 按部门',orders_by_bu:'下单 · 按BU',orders_by_sales:'下单 · 按销售',receipts_by_customer:'回款 · 按客户'};
+ var KIND_TITLE={orders_by_sales:'下单 · 按销售',orders_by_customer:'下单 · 按客户',receipts_by_sales:'回款 · 按销售',receipts_by_customer:'回款 · 按客户',orders_by_bu:'下单 · 按BU'};
  function yearStr(){var b=document.getElementById('periodBtn');return b?b.getAttribute('data-year'):'';}
  function yearKey(){return yearStr()+'年';}
  function yearRange(){var y=yearStr();return {s:y+'-01-01',e:y+'-12-31'};}
  /** 从预渲染排名块读该周期起止日（后端已写 data-start/end）；无则回退全年。纯字符串，零金额运算。 */
  function datesForKey(key){
-  var el=document.querySelector('#rankViews .pv[data-blk="'+key+'"] .rk-grid[data-start]');
+  var el=document.querySelector('#rankViews .pv[data-blk="'+key+'"] [data-start]');
   if(el){var s=el.getAttribute('data-start')||'',e=el.getAttribute('data-end')||'';
     if(s&&e)return {s:s,e:e};}
   return yearRange();}
@@ -202,12 +202,11 @@
     sum.innerHTML='这段合计：下单 <b>'+esc(d.totals.orders_disp)+'</b>·'+d.totals.orders_count+
       '笔 ｜ 回款 <b>'+esc(d.totals.receipts_disp)+'</b>·'+d.totals.receipts_count+'笔';
     var tag=(s===e)?('只看 '+s):(s+' ~ '+e);
-    // 与全年预渲染一致：有 orders_by_bu 则首卡按 BU，否则回退按部门
-    var firstKind=d.rankings.orders_by_bu?'orders_by_bu':'orders_by_dept';
-    var firstRk=d.rankings[firstKind]||d.rankings.orders_by_dept;
-    rkCustom.innerHTML='<div class="grid-3 rk-grid" data-start="'+esc(s)+'" data-end="'+esc(e)+'">'+
-      rkHtml(firstKind,firstRk,tag)+
+    // A6：时间段查询出四维；自定义区仍用单卡列表（双血条预渲染在 rankViews）
+    rkCustom.innerHTML='<div class="grid-2e dual-grid" data-start="'+esc(s)+'" data-end="'+esc(e)+'">'+
       rkHtml('orders_by_sales',d.rankings.orders_by_sales,tag)+
+      rkHtml('receipts_by_sales',d.rankings.receipts_by_sales,tag)+
+      rkHtml('orders_by_customer',d.rankings.orders_by_customer,tag)+
       rkHtml('receipts_by_customer',d.rankings.receipts_by_customer,tag)+'</div>';
     rkGlobal.style.display='none';rkCustom.style.display='';
   }).catch(function(err){sum.textContent='查询失败：'+err.message+

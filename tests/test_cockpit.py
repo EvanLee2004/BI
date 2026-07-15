@@ -368,12 +368,12 @@ class TestRankingsAndRanges(unittest.TestCase):
     def test_rendered_rankings_and_picker(self):
         cfg, S = _summary()
         html = render.render_dashboard(S, cfg, assets.load_logo_base64(cfg))
-        for token in ("资金与回款", "下单 · 按部门", "下单 · 按销售", "回款 · 按客户",
+        for token in ("下单与回款", "下单/回款 · 按销售", "下单/回款 · 按客户",
                       "periodBtn", "ppanel", "pp-grid"):
             self.assertIn(token, html, token)
-        # 迭代20-A2：回款情况卡并入板块④「资金与回款」（在③收入与毛利结构之后）
+        # 迭代20-A2：回款情况卡并入板块④「下单与回款」（在③收入与毛利结构之后）
         self.assertLess(html.index("收入与毛利结构"), html.index('class="period-receipts"'))
-        self.assertLess(html.index("资金与回款"), html.index('class="period-receipts"'))
+        self.assertLess(html.index("下单与回款"), html.index('class="period-receipts"'))
         # 区间周期块已预渲染（前端只切显示、不算数）
         yr = S["meta"]["year"]
         if S["meta"]["tab_groups"]["区间"]:
@@ -382,9 +382,9 @@ class TestRankingsAndRanges(unittest.TestCase):
         k12, k1, k2 = f"{yr}年1-2月", f"{yr}年1月", f"{yr}年2月"
         P = S["periods"]
         if k12 in P:
-            self.assertAlmostEqual(P[k12]["rankings"]["orders_by_dept"]["total"],
-                                   round(P[k1]["rankings"]["orders_by_dept"]["total"]
-                                         + P[k2]["rankings"]["orders_by_dept"]["total"], 2), places=1)
+            self.assertAlmostEqual(P[k12]["rankings"]["orders_by_sales"]["total"],
+                                   round(P[k1]["rankings"]["orders_by_sales"]["total"]
+                                         + P[k2]["rankings"]["orders_by_sales"]["total"], 2), places=1)
 
 
 if __name__ == "__main__":

@@ -57,9 +57,15 @@ def load_project_detail(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, s
 
 def load_orders(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
-    rows = conn.execute("SELECT 下单日期,下单预估额,订单号,部门,销售 FROM std_下单 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["order_date"]: _s(d), c["order_amount"]: a, "订单号": _s(o), "部门": _s(dep), "销售": _s(sal)}
-            for d, a, o, dep, sal in rows]
+    try:
+        rows = conn.execute("SELECT 下单日期,下单预估额,订单号,部门,销售,客户 FROM std_下单 WHERE 已删除=0 ORDER BY id").fetchall()
+        return [{c["order_date"]: _s(d), c["order_amount"]: a, "订单号": _s(o), "部门": _s(dep),
+                 "销售": _s(sal), "客户": _s(cu)}
+                for d, a, o, dep, sal, cu in rows]
+    except Exception:
+        rows = conn.execute("SELECT 下单日期,下单预估额,订单号,部门,销售 FROM std_下单 WHERE 已删除=0 ORDER BY id").fetchall()
+        return [{c["order_date"]: _s(d), c["order_amount"]: a, "订单号": _s(o), "部门": _s(dep), "销售": _s(sal)}
+                for d, a, o, dep, sal in rows]
 
 
 def load_receipts(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:

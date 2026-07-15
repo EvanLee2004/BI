@@ -167,10 +167,12 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
               "receipts": round(sum(v[2] for v in days.values()), 2),
               "receipts_count": sum(v[3] for v in days.values())}
     rankings = {
-        "orders_by_dept": compute_ranking(order_rows, "部门", cols_cfg["order_amount"],
-                                          cols_cfg["order_date"], start, end, top),
         "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
                                            cols_cfg["order_date"], start, end, top),
+        "orders_by_customer": compute_ranking(order_rows, "客户", cols_cfg["order_amount"],
+                                              cols_cfg["order_date"], start, end, top),
+        "receipts_by_sales": compute_ranking(receipt_rows, "销售", cols_cfg["receipt_amount"],
+                                             cols_cfg["receipt_date"], start, end, top),
         "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
                                                 cols_cfg["receipt_date"], start, end, top),
     }
@@ -413,12 +415,14 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
         "orders": orders_amt,
         "receipts": receipts_amt,
         "receipt_order_ratio_pct": receipt_order_ratio,
-        # 板块④ 下单与回款排名：下单按部门/按销售，回款按客户（期内汇总降序，前10+其余合计）
+        # 板块④ 下单与回款（A6）：四维度=销售/客户 × 下单/回款；双血条同主体对比
         "rankings": {
-            "orders_by_dept": compute_ranking(order_rows, "部门", cols_cfg["order_amount"],
-                                              cols_cfg["order_date"], start, end),
             "orders_by_sales": compute_ranking(order_rows, "销售", cols_cfg["order_amount"],
                                                cols_cfg["order_date"], start, end),
+            "orders_by_customer": compute_ranking(order_rows, "客户", cols_cfg["order_amount"],
+                                                  cols_cfg["order_date"], start, end),
+            "receipts_by_sales": compute_ranking(receipt_rows, "销售", cols_cfg["receipt_amount"],
+                                                 cols_cfg["receipt_date"], start, end),
             "receipts_by_customer": compute_ranking(receipt_rows, "客户", cols_cfg["receipt_amount"],
                                                     cols_cfg["receipt_date"], start, end),
         },

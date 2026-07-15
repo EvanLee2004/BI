@@ -83,15 +83,20 @@
         "财务费用": 387850.53
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 459431137.73,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 459431137.73,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 459431137.73,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 249165563.24,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 249165563.24,
@@ -161,15 +166,20 @@
         "财务费用": 135064.79
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 220997541.75,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 220997541.75,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 220997541.75,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 106661899.48,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 106661899.48,
@@ -239,15 +249,20 @@
         "财务费用": 170621.54
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 216114269.75,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 216114269.75,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 216114269.75,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 107141255.81,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 107141255.81,
@@ -317,15 +332,20 @@
         "财务费用": 82164.2
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 22319326.23,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 22319326.23,
           "n_items": 10,
           "n_full": 19
+        },
+        "orders_by_customer": {
+          "total": 22319326.23,
+          "n_items": 10,
+          "n_full": 111
+        },
+        "receipts_by_sales": {
+          "total": 35362407.95,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 35362407.95,
@@ -395,15 +415,20 @@
         "财务费用": 27955.98
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 78716468.59,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 78716468.59,
           "n_items": 10,
           "n_full": 21
+        },
+        "orders_by_customer": {
+          "total": 78716468.59,
+          "n_items": 10,
+          "n_full": 168
+        },
+        "receipts_by_sales": {
+          "total": 36270471.48,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 36270471.48,
@@ -473,15 +498,20 @@
         "财务费用": 92093.2
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 67837394.05,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 67837394.05,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 67837394.05,
+          "n_items": 10,
+          "n_full": 172
+        },
+        "receipts_by_sales": {
+          "total": 35676014.82,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 35676014.82,
@@ -551,15 +581,20 @@
         "财务费用": 15015.61
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 74443679.11,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 74443679.11,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 74443679.11,
+          "n_items": 10,
+          "n_full": 165
+        },
+        "receipts_by_sales": {
+          "total": 34715413.18,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 34715413.18,
@@ -629,15 +664,20 @@
         "财务费用": 88437.33
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 73349143.78,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 73349143.78,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 73349143.78,
+          "n_items": 10,
+          "n_full": 177
+        },
+        "receipts_by_sales": {
+          "total": 36915044.33,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 36915044.33,
@@ -707,15 +747,20 @@
         "财务费用": 18201.64
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 73590099.13,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 73590099.13,
           "n_items": 10,
           "n_full": 21
+        },
+        "orders_by_customer": {
+          "total": 73590099.13,
+          "n_items": 10,
+          "n_full": 166
+        },
+        "receipts_by_sales": {
+          "total": 35674846.41,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 35674846.41,
@@ -785,15 +830,20 @@
         "财务费用": 63982.57
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 69175026.84,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 69175026.84,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 69175026.84,
+          "n_items": 10,
+          "n_full": 171
+        },
+        "receipts_by_sales": {
+          "total": 34551365.07,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 34551365.07,
@@ -863,15 +913,20 @@
         "财务费用": 82164.2
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 22319326.23,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 22319326.23,
           "n_items": 10,
           "n_full": 19
+        },
+        "orders_by_customer": {
+          "total": 22319326.23,
+          "n_items": 10,
+          "n_full": 111
+        },
+        "receipts_by_sales": {
+          "total": 35362407.95,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 35362407.95,
@@ -941,15 +996,20 @@
         "财务费用": 120049.18
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 146553862.64,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 146553862.64,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 146553862.64,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 71946486.3,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 71946486.3,
@@ -1019,15 +1079,20 @@
         "财务费用": 135064.79
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 220997541.75,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 220997541.75,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 220997541.75,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 106661899.48,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 106661899.48,
@@ -1097,15 +1162,20 @@
         "财务费用": 223502.12
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 294346685.53,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 294346685.53,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 294346685.53,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 143576943.81,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 143576943.81,
@@ -1175,15 +1245,20 @@
         "财务费用": 241703.76
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 367936784.66,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 367936784.66,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 367936784.66,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 179251790.22,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 179251790.22,
@@ -1253,15 +1328,20 @@
         "财务费用": 305686.33
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 437111811.5,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 437111811.5,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 437111811.5,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 213803155.29,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 213803155.29,
@@ -1331,15 +1411,20 @@
         "财务费用": 387850.53
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 459431137.73,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 459431137.73,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 459431137.73,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 249165563.24,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 249165563.24,
@@ -1409,15 +1494,20 @@
         "财务费用": 107108.81
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 142281073.16,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 142281073.16,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 142281073.16,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 70391428.0,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 70391428.0,
@@ -1487,15 +1577,20 @@
         "财务费用": 195546.14
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 215630216.94,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 215630216.94,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 215630216.94,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 107306472.33,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 107306472.33,
@@ -1565,15 +1660,20 @@
         "财务费用": 213747.78
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 289220316.07,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 289220316.07,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 289220316.07,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 142981318.74,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 142981318.74,
@@ -1643,15 +1743,20 @@
         "财务费用": 277730.35
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 358395342.91,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 358395342.91,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 358395342.91,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 177532683.81,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 177532683.81,
@@ -1721,15 +1826,20 @@
         "财务费用": 359894.55
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 380714669.14,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 380714669.14,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 380714669.14,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 212895091.76,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 212895091.76,
@@ -1799,15 +1909,20 @@
         "财务费用": 103452.94
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 147792822.89,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 147792822.89,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 147792822.89,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 71630457.51,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 71630457.51,
@@ -1877,15 +1992,20 @@
         "财务费用": 121654.58
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 221382922.02,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 221382922.02,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 221382922.02,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 107305303.92,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 107305303.92,
@@ -1955,15 +2075,20 @@
         "财务费用": 185637.15
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 290557948.86,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 290557948.86,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 290557948.86,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 141856668.99,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 141856668.99,
@@ -2033,15 +2158,20 @@
         "财务费用": 267801.35
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 312877275.09,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 312877275.09,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 312877275.09,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 177219076.94,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 177219076.94,
@@ -2111,15 +2241,20 @@
         "财务费用": 106638.97
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 146939242.91,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 146939242.91,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 146939242.91,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 72589890.74,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 72589890.74,
@@ -2189,15 +2324,20 @@
         "财务费用": 170621.54
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 216114269.75,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 216114269.75,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 216114269.75,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 107141255.81,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 107141255.81,
@@ -2267,15 +2407,20 @@
         "财务费用": 252785.74
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 238433595.98,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 238433595.98,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 238433595.98,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 142503663.76,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 142503663.76,
@@ -2345,15 +2490,20 @@
         "财务费用": 82184.21
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 142765125.97,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 142765125.97,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 142765125.97,
+          "n_items": 10,
+          "n_full": 187
+        },
+        "receipts_by_sales": {
+          "total": 70226211.48,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 70226211.48,
@@ -2423,15 +2573,20 @@
         "财务费用": 164348.41
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 165084452.2,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 165084452.2,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 165084452.2,
+          "n_items": 10,
+          "n_full": 190
+        },
+        "receipts_by_sales": {
+          "total": 105588619.43,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 105588619.43,
@@ -2501,15 +2656,20 @@
         "财务费用": 146146.77
       },
       "rankings_totals": {
-        "orders_by_dept": {
-          "total": 91494353.07,
-          "n_items": 0,
-          "n_full": 0
-        },
         "orders_by_sales": {
           "total": 91494353.07,
           "n_items": 10,
           "n_full": 22
+        },
+        "orders_by_customer": {
+          "total": 91494353.07,
+          "n_items": 10,
+          "n_full": 186
+        },
+        "receipts_by_sales": {
+          "total": 69913773.02,
+          "n_items": 10,
+          "n_full": 20
         },
         "receipts_by_customer": {
           "total": 69913773.02,

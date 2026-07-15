@@ -152,19 +152,20 @@ class TestOrdersByBU(unittest.TestCase):
         self.assertEqual(rk["total"], 180.0)                             # 守恒
 
     def test_rank_card_swaps_to_bu(self):
+        # A6：双血条两卡按销售/按客户；不再按部门/按BU 首卡切换
         p = {"range": ("2026-01-01", "2026-12-31"), "rankings": {
-            "orders_by_bu": {"items": [{"name": "游戏", "amount": 150.0, "count": 2}],
-                             "others": None, "unfilled": None, "total": 150.0},
-            "orders_by_dept": {"items": [], "others": None, "unfilled": None, "total": 0.0},
-            "orders_by_sales": {"items": [], "others": None, "unfilled": None, "total": 0.0},
-            "receipts_by_customer": {"items": [], "others": None, "unfilled": None, "total": 0.0}}}
+            "orders_by_sales": {"items": [{"name": "甲", "amount": 1, "count": 1}],
+                                "full_items": [{"name": "甲", "amount": 1, "count": 1}], "total": 1},
+            "receipts_by_sales": {"items": [{"name": "甲", "amount": 1, "count": 1}],
+                                  "full_items": [{"name": "甲", "amount": 1, "count": 1}], "total": 1},
+            "orders_by_customer": {"items": [], "total": 0},
+            "receipts_by_customer": {"items": [], "total": 0},
+        }}
         html = render.render_rankings(p)
-        self.assertIn("下单 · 按BU", html)
-        self.assertNotIn("下单 · 按部门", html)     # 有 BU 归属时部门卡退场
-        # 没配 BU（无 orders_by_bu 键）→ 回退按部门
-        del p["rankings"]["orders_by_bu"]
-        html2 = render.render_rankings(p)
-        self.assertIn("下单 · 按部门", html2)
+        self.assertIn("下单/回款 · 按销售", html)
+        self.assertIn("下单/回款 · 按客户", html)
+        self.assertIn("dual-bar", html)
+        self.assertNotIn("按部门", html)
 
     def test_bu_orders_block(self):
         lst = [{"name": "游戏", "amount": 500000.0, "year_amount": 1200000.0,

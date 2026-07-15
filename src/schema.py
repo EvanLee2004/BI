@@ -38,7 +38,7 @@ STD_TABLES: dict[str, str] = {
         CREATE TABLE IF NOT EXISTS std_下单 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            订单号 TEXT, 下单日期 TEXT, 下单预估额 REAL, 部门 TEXT, 销售 TEXT,
+            订单号 TEXT, 下单日期 TEXT, 下单预估额 REAL, 部门 TEXT, 销售 TEXT, 客户 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
     "std_回款": """
@@ -173,7 +173,7 @@ HUMAN_TABLE_NAMES = tuple(HUMAN_TABLES.keys())
 # 版本升级时给存量库补列（不丢人工表）：表 → [(列名, 列定义)]
 _ADD_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "std_收入明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT")],
-    "std_下单": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("部门", "TEXT"), ("销售", "TEXT")],
+    "std_下单": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("部门", "TEXT"), ("销售", "TEXT"), ("客户", "TEXT")],
     "std_回款": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("客户", "TEXT"), ("销售", "TEXT")],
     "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"),
                   ("销售", "TEXT"), ("译员姓名", "TEXT")],

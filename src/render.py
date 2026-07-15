@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""组装经营驾驶舱 HTML（科技风暗色默认 + 浅色切换）。四段骨架：基本情况/经营利润/收入与毛利结构/资金与回款（回款情况+下单回款排名）。
+"""组装经营驾驶舱 HTML（科技风暗色默认 + 浅色切换）。四段骨架：基本情况/经营利润/收入与毛利结构/下单与回款（回款情况+下单回款排名）。
 全局时间选择器（月/季/年，默认年）驱动 基本情况+利润表+费用构成 一起切；趋势图/回款图是整年时间线。
 所有金额 Python 算好，JS 只做主题切换/周期切换/展开折叠/提示定位，不做任何金额运算。
 HTML 外置 static/templates/render/，本模块只算值与 format 填充。"""
@@ -427,20 +427,99 @@ def _rank_card(title, tag, rk, kind="", embed_full=False):
     return tpl.fill("render/rank_card.html",
                     kind=_esc(kind), title=title, tag_html=tag_html, body=body)
 
+def _merge_dual_rank(o_rk, r_rk, top=10):
+    """合并下单/回款排名为双血条主体列表。金额与宽度后端算好。"""
+    o_map = {it["name"]: it for it in (o_rk or {}).get("full_items") or (o_rk or {}).get("items") or []}
+    r_map = {it["name"]: it for it in (r_rk or {}).get("full_items") or (r_rk or {}).get("items") or []}
+    # 主体 = 下单或回款有名（排除未填）
+    names = []
+    seen = set()
+    for src in (o_rk or {}).get("full_items") or (o_rk or {}).get("items") or []:
+        n = src["name"]
+        if n and n not in seen and n != "（未填）":
+            seen.add(n); names.append(n)
+    for src in (r_rk or {}).get("full_items") or (r_rk or {}).get("items") or []:
+        n = src["name"]
+        if n and n not in seen and n != "（未填）":
+            seen.add(n); names.append(n)
+    # 排序：按 max(下单,回款) 降序
+    def score(n):
+        return max(float((o_map.get(n) or {}).get("amount") or 0),
+                   float((r_map.get(n) or {}).get("amount") or 0))
+    names.sort(key=score, reverse=True)
+    full = []
+    for n in names:
+        oa = float((o_map.get(n) or {}).get("amount") or 0)
+        ra = float((r_map.get(n) or {}).get("amount") or 0)
+        full.append({"name": n, "order": oa, "receipt": ra,
+                     "order_disp": _rank_amt(oa), "receipt_disp": _rank_amt(ra)})
+    items = full[:top]
+    rest = full[top:]
+    others = None
+    if rest:
+        others = {"names": len(rest), "order": round(sum(x["order"] for x in rest), 2),
+                  "receipt": round(sum(x["receipt"] for x in rest), 2),
+                  "order_disp": _rank_amt(sum(x["order"] for x in rest)),
+                  "receipt_disp": _rank_amt(sum(x["receipt"] for x in rest))}
+    mx = max((max(x["order"], x["receipt"]) for x in full), default=0) or 1
+    for x in items:
+        x["wo"] = max(x["order"] / mx * 100, 0)
+        x["wr"] = max(x["receipt"] / mx * 100, 0)
+    return {"items": items, "others": others, "full_items": full, "mx": mx}
+
+
+def _dual_rows_html(items):
+    if not items:
+        return tpl.load("render/ev_empty.html")
+    out = []
+    for i, it in enumerate(items, 1):
+        out.append(tpl.fill("render/dual_row.html",
+                            i=i, title=_esc(it["name"]), name=_esc(it["name"]),
+                            wo=it.get("wo") or 0, wr=it.get("wr") or 0,
+                            o_amt=it.get("order_disp") or _rank_amt(it.get("order") or 0),
+                            r_amt=it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0)))
+    return "".join(out)
+
+
+def _dual_card(title, dual, dim="", embed_full=False):
+    items = (dual or {}).get("items") or []
+    if not items:
+        body = tpl.load("render/ev_empty.html")
+    else:
+        rows_html = _dual_rows_html(items)
+        others = dual.get("others")
+        more = ""
+        if others:
+            more = tpl.fill("render/rank_more.html",
+                            names=others["names"],
+                            amt=f'下单{others.get("order_disp") or _rank_amt(others.get("order") or 0)} / 回款{others.get("receipt_disp") or _rank_amt(others.get("receipt") or 0)}',
+                            count=others["names"])
+        full = ""
+        if embed_full and others:
+            full_items = dual.get("full_items") or items
+            # recompute widths for full
+            mx = dual.get("mx") or max((max(x["order"], x["receipt"]) for x in full_items), default=1) or 1
+            for x in full_items:
+                x["wo"] = max(x["order"] / mx * 100, 0)
+                x["wr"] = max(x["receipt"] / mx * 100, 0)
+                x.setdefault("order_disp", _rank_amt(x["order"]))
+                x.setdefault("receipt_disp", _rank_amt(x["receipt"]))
+            full = tpl.fill("render/rank_full.html", rows=_dual_rows_html(full_items))
+        body = tpl.fill("render/rank_body.html", rows=rows_html, more=more, full=full)
+    return tpl.fill("render/dual_card.html", dim=_esc(dim), title=title, body=body)
+
+
 def render_rankings(p, embed_full=False):
+    """A6：下单与回款双血条两卡（按销售 / 按客户）；去掉按部门。"""
     rk = p.get("rankings") or {}
     s, e = p.get("range", ("", ""))
-    # 陆总0714·C2：配了 BU 归属 → 首卡"按部门"换"按BU"（按销售→BU 映射聚合；未配 BU 时回退按部门）
-    by_bu = rk.get("orders_by_bu")
-    if by_bu is not None:
-        first = _rank_card("下单 · 按BU", "", by_bu, "orders_by_bu", embed_full=embed_full)
-    else:
-        first = _rank_card("下单 · 按部门", "", rk.get("orders_by_dept"), "orders_by_dept",
-                           embed_full=embed_full)
-    return tpl.fill("render/rankings_grid.html",
-                    s=_esc(s), e=_esc(e), first=first,
-                    second=_rank_card("下单 · 按销售", "", rk.get("orders_by_sales"), "orders_by_sales", embed_full=embed_full),
-                    third=_rank_card("回款 · 按客户", "", rk.get("receipts_by_customer"), "receipts_by_customer", embed_full=embed_full))
+    dual_s = _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
+    dual_c = _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
+    return tpl.fill("render/dual_grid.html",
+                    s=_esc(s), e=_esc(e),
+                    sales=_dual_card("下单/回款 · 按销售", dual_s, "sales", embed_full=embed_full),
+                    cust=_dual_card("下单/回款 · 按客户", dual_c, "customer", embed_full=embed_full))
+
 
 # ---------- 板块③ 收入与毛利结构（确认口径，按客户/销售，随周期切）----------
 def _margin_meta(mp):

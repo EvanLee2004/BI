@@ -90,9 +90,10 @@ class TestComputeDaily(unittest.TestCase):
 
     def test_rankings_present_with_unfilled(self):
         d = self._daily()
-        rk = d["rankings"]["orders_by_dept"]
-        self.assertEqual(rk["unfilled"], {"amount": 2000.0, "count": 1})
-        self.assertEqual({i["name"] for i in rk["items"]}, {"部门A", "部门B"})
+        rk = d["rankings"]["orders_by_sales"]
+        # 空销售归 unfilled；有名销售=张三/李四/王五
+        self.assertIsNone(rk.get("unfilled"))  # seed 销售均有值
+        self.assertEqual({i["name"] for i in rk["items"]}, {"张三", "李四", "王五"})
 
     def test_orders_by_bu_when_sales_map(self):
         """配了销售→BU 映射时，时间段查询也应出 orders_by_bu（与全年预渲染同口径）。"""
@@ -147,11 +148,13 @@ class TestDailyEndpoint(unittest.TestCase):
         self.assertIn("万", row["orders_disp"])
         self.assertNotIn("orders", [k for k in row if k not in ("orders_disp", "orders_count")])
         self.assertIn("万", d["totals"]["orders_disp"])
-        rk = d["rankings"]["orders_by_dept"]
+        rk = d["rankings"]["orders_by_sales"]
         self.assertIn("disp", rk["items"][0])
         self.assertNotIn("amount", rk["items"][0])
         self.assertNotIn("total", rk)          # 原始数值不下发，前端无从运算
-        self.assertIn("disp", rk["unfilled"])
+        # A6 按销售排名：seed 销售均有名 → unfilled 可为空
+        if rk.get("unfilled"):
+            self.assertIn("disp", rk["unfilled"])
 
     def test_bad_inputs_400(self):
         for q in ({"start": "2026/03/01", "end": "2026-03-31"},
@@ -168,13 +171,13 @@ class TestDailyEndpoint(unittest.TestCase):
         """top=2000 拿全量（「其余点开看明细」用）：items 含全部名字、others 消失；top 越界被钳制不报错。"""
         r = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "2000"})
         d = r.json()
-        rk = d["rankings"]["orders_by_dept"]
+        rk = d["rankings"]["orders_by_sales"]
         self.assertIsNone(rk["others"])
-        self.assertEqual({i["name"] for i in rk["items"]}, {"部门A", "部门B"})
+        self.assertEqual({i["name"] for i in rk["items"]}, {"张三", "李四", "王五"})
         r2 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "999999"})
         self.assertEqual(r2.status_code, 200)
         r3 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "1"})
-        self.assertIsNotNone(r3.json()["rankings"]["orders_by_dept"]["others"])
+        self.assertIsNotNone(r3.json()["rankings"]["orders_by_sales"]["others"])
 
 
 class TestDailyFrontend(unittest.TestCase):
@@ -193,14 +196,14 @@ class TestDailyFrontend(unittest.TestCase):
                       "本年", "rkModal", "rk-more", "data-start="):
             self.assertIn(token, html, token)
         self.assertTrue(
-            'data-kind="orders_by_dept"' in html or 'data-kind="orders_by_bu"' in html,
-            "排名首卡应有按部门或按BU")
+            'dual-grid' in html or 'dual-bar' in html or '下单/回款 · 按销售' in html,
+            "排名应有双血条网格")
         self.assertIn('src="/static/js/cockpit.js"', html)
         # 交互与 API 入口在 static/js（v1.4 外置，内容与基准版常量一致）
         from pathlib import Path
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         for token in ("/api/daily", "_syncDailyDates", "restoreYear", "yearRange",
-                      "window.applyPeriod", "orders_by_bu", "下单 · 按BU"):
+                      "window.applyPeriod", "orders_by_sales", "orders_by_customer"):
             self.assertIn(token, js, token)
         # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
         self.assertIn('id="dailyMonth"', html)

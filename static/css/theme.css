@@ -706,3 +706,11 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .rc-gap-note b{color:var(--orange);font-family:var(--num-font);font-size:14px}
 .theme-light .rc-tot em,.theme-light .rc-gap-note{color:var(--note)}
 .theme-light .rc-gap-note b{color:#c2410c}
+/* A6 双血条：上=下单 下=回款 */
+.dual-row{align-items:flex-start}
+.dual-bars{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;margin:0 8px}
+.dual-bar{display:flex;align-items:center;gap:6px;font-size:11px}
+.dual-bar i{display:block;height:8px;border-radius:4px;background:var(--purple);min-width:2px;flex:0 0 auto;max-width:70%}
+.dual-bar.dual-r i{background:var(--blue)}
+.dual-bar em{font-style:normal;font-family:var(--num-font);font-weight:700;color:var(--ink);white-space:nowrap}
+.dual-o em{color:var(--purple)}.dual-r em{color:var(--blue)}

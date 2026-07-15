@@ -76,6 +76,7 @@ def norm_orders(rows: list[dict[str, str]], c: dict) -> list[dict]:
         so = str(r.get("订单号") or r.get("SO") or "").strip()
         out.append({"订单号": so, "下单日期": iso, "下单预估额": amt,
                     "部门": str(r.get("部门") or "").strip(), "销售": str(r.get("销售") or "").strip(),
+                    "客户": str(r.get("客户") or r.get("客户名称") or "").strip(),
                     "归属月": ym, "原值_归属月": ym, "定位键": _locator(so, so, iso, amt)})
     return out
 
