@@ -217,24 +217,42 @@
  // 弹窗须挂 body 直下：否则被 #periodSync 的 will-change:transform 祖先困住，
  // position:fixed 变成相对该祖先（高达整页）定位 → 弹窗跑到页面中部而非视口居中。
  if(modal&&modal.parentElement!==document.body)document.body.appendChild(modal);
+ function openRkModal(title,tag,html){
+  document.getElementById('rkmTitle').textContent=title||'';
+  document.getElementById('rkmTag').textContent=tag||'';
+  document.getElementById('rkmList').innerHTML=html||'<div class="ev-empty">本期无数据</div>';
+  modal.style.display='';}
  document.addEventListener('click',function(ev){
+  // 陆总#8：双血条主体行 → data-monthly 显示串拼 1~12 月（零 API/零金额运算）
+  var ent=ev.target.closest?ev.target.closest('.rk-entity'):null;
+  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-monthly')){
+   var nm=(ent.querySelector('.ev-name')||{}).textContent||'';
+   var html=typeof paintRankingMonthly==='function'
+     ? paintRankingMonthly(ent)
+     : '<div class="ev-empty">月度组装器未加载</div>';
+   openRkModal(nm+' · 1~12 月下单/回款','',html); return;}
   var row=ev.target.closest?ev.target.closest('.rk-more'):null;
   if(!row)return;
   var card=row.closest('.card'),grid=row.closest('[data-start]');
   if(!card||!grid)return;
+  // 双血条卡：本地 .rk-full（views 预挂 full_items）
+  var localFull=card.querySelector('.rk-full');
+  if(localFull){
+   var h=card.querySelector('.card-h');
+   var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
+   openRkModal(title+' · 完整排名','',localFull.innerHTML); return;}
   var kind=card.dataset.kind,s=grid.dataset.start,e=grid.dataset.end;
   if(!kind||!s||!e)return;
-  document.getElementById('rkmTitle').textContent=(KIND_TITLE[kind]||'')+' · 完整排名';
-  document.getElementById('rkmTag').textContent=(s===e)?s:(s+' ~ '+e);
-  var list=document.getElementById('rkmList');
-  list.innerHTML='<div class="ev-empty">加载中…</div>';modal.style.display='';
+  openRkModal((KIND_TITLE[kind]||'')+' · 完整排名',(s===e)?s:(s+' ~ '+e),
+    '<div class="ev-empty">加载中…</div>');
   fetch('/api/daily?start='+s+'&end='+e+'&top=2000').then(function(r){
     if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
     return r.json();
   }).then(function(d){
     var rk=d.rankings[kind]||{};
-    list.innerHTML='<div class="ev-list">'+rowsHtml(rk)+'</div>';
-  }).catch(function(err){list.innerHTML='<div class="ev-empty">加载失败：'+esc(err.message)+
+    document.getElementById('rkmList').innerHTML='<div class="ev-list">'+rowsHtml(rk)+'</div>';
+  }).catch(function(err){document.getElementById('rkmList').innerHTML=
+    '<div class="ev-empty">加载失败：'+esc(err.message)+
     '（要在服务器版页面用；file:// 快照不支持）</div>';});
  });
  document.getElementById('rkmClose').addEventListener('click',function(){modal.style.display='none';});

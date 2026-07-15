@@ -133,12 +133,32 @@ def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
 
     embed_full=True（BU）：附带 full_items 显示串，rankings.js 预拼 .rk-full 本地展开，
     不调全公司排名 API（铁律12）。宽度/金额均在本函数算完，JS 只 toFixed 拼 CSS。
+    陆总#8：items/full_items 挂 monthly[1~12] 显示串（来自 period.rankings_monthly）。
     """
     import render
     rk = period.get("rankings") or {}
     s, e = period.get("range", ("", ""))
-    dual_s = render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
-    dual_c = render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
+    rm = period.get("rankings_monthly") or {}
+    dual_s = render.attach_monthly_to_dual(
+        render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
+        rm.get("sales"))
+    dual_c = render.attach_monthly_to_dual(
+        render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
+        rm.get("customer"))
+
+    def _month_rows(monthly):
+        out = []
+        for m in monthly or []:
+            out.append({
+                "i": m.get("i"),
+                "name": m.get("name"),
+                "name_esc": render._esc(m.get("name") or ""),
+                "wo": round(float(m.get("wo") or 0), 1),
+                "wr": round(float(m.get("wr") or 0), 1),
+                "order_disp": m.get("order_disp") or render._rank_amt(m.get("order") or 0),
+                "receipt_disp": m.get("receipt_disp") or render._rank_amt(m.get("receipt") or 0),
+            })
+        return out
 
     def _item_row(i, it, *, wo=None, wr=None):
         return {
@@ -149,6 +169,7 @@ def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
             "wr": round(wr if wr is not None else (it.get("wr") or 0), 1),
             "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
             "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
+            "monthly": _month_rows(it.get("monthly")),
         }
 
     def pack(dual, title, dim):
@@ -272,8 +293,9 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     return {
         "year_key": yk,
         "period_keys": ordered,
+        # 陆总#8 + 其余本地展开：整体页也 embed_full（月度+完整名单预挂 views，零新 API）
         "rankings_view": {
-            pk: rankings_view_for_period(pv)
+            pk: rankings_view_for_period(pv, embed_full=True)
             for pk, pv in P.items() if isinstance(pv, dict)
         },
         # 周期卡正文显示串（JS wrap .pv）

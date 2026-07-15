@@ -178,6 +178,14 @@
    var h=card.querySelector('.card-h');
    var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
    openFull(title+' · 完整排名','',full.innerHTML); return;}
+  // 陆总#8：排名主体行 → data-monthly 显示串拼 1~12 月（零金额运算）
+  var ent=ev.target.closest?ev.target.closest('.rk-entity'):null;
+  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-monthly')){
+   var nm=(ent.querySelector('.ev-name')||{}).textContent||'';
+   var html=typeof paintRankingMonthly==='function'
+     ? paintRankingMonthly(ent)
+     : '<div class="ev-empty">月度组装器未加载</div>';
+   openFull(nm+' · 1~12 月下单/回款','',html); return;}
   row=ev.target.closest?ev.target.closest('.pr-more'):null;
   if(row){
    var card=row.closest('[data-dim]'); if(!card)return;

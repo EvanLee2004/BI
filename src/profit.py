@@ -60,6 +60,70 @@ def compute_receipts(receipt_rows, cols_cfg, start, end):
     return _sum_amount_in_period(receipt_rows, cols_cfg["receipt_amount"], cols_cfg["receipt_date"], start, end)
 
 
+def compute_name_month_totals(rows, name_col, amount_col, date_col, year: int, names) -> dict[str, list[float]]:
+    """主体 × 1~12 月金额矩阵（纯数）。只汇总 names 内主体、且日期年=year 的行。
+    返回 {name: [m1..m12]}，缺月为 0.0；amount 已 round(2)。
+    陆总#8：排名行点开看各月下单/回款——在 build_period 预算，views 挂显示串。"""
+    want = {str(n) for n in (names or []) if n}
+    if not want:
+        return {}
+    acc: dict[str, list[float]] = {n: [0.0] * 12 for n in want}
+    for r in rows or []:
+        d = loaders.parse_date_parts(r.get(date_col))
+        if not d or int(d[0]) != int(year):
+            continue
+        m = int(d[1])
+        if m < 1 or m > 12:
+            continue
+        n = str(r.get(name_col) or "").strip()
+        if n not in want:
+            continue
+        acc[n][m - 1] += loaders.parse_amount(r.get(amount_col))
+    return {n: [round(v, 2) for v in vals] for n, vals in acc.items()}
+
+
+def _ranking_entity_names(*rks) -> list[str]:
+    """从若干 ranking 结果取主体名单（full_items 优先；排除未填）。保序去重。"""
+    names: list[str] = []
+    seen: set[str] = set()
+    for rk in rks:
+        for it in (rk or {}).get("full_items") or (rk or {}).get("items") or []:
+            n = str(it.get("name") or "").strip()
+            if not n or n == "（未填）" or n in seen:
+                continue
+            seen.add(n)
+            names.append(n)
+    return names
+
+
+def build_rankings_monthly(order_rows, receipt_rows, cols_cfg, year: int, rankings: dict) -> dict:
+    """排名主体（销售/客户）全年 1~12 月下单+回款矩阵。只挂出现在排名里的名字（top+其余全量）。"""
+    rk = rankings or {}
+    sales_names = _ranking_entity_names(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
+    cust_names = _ranking_entity_names(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
+    o_col, o_date = cols_cfg["order_amount"], cols_cfg["order_date"]
+    r_col, r_date = cols_cfg["receipt_amount"], cols_cfg["receipt_date"]
+    so = compute_name_month_totals(order_rows, "销售", o_col, o_date, year, sales_names)
+    sr = compute_name_month_totals(receipt_rows, "销售", r_col, r_date, year, sales_names)
+    co = compute_name_month_totals(order_rows, "客户", o_col, o_date, year, cust_names)
+    cr = compute_name_month_totals(receipt_rows, "客户", r_col, r_date, year, cust_names)
+
+    def pack(names, o_map, r_map):
+        out = {}
+        for n in names:
+            out[n] = {
+                "order": o_map.get(n) or [0.0] * 12,
+                "receipt": r_map.get(n) or [0.0] * 12,
+            }
+        return out
+
+    return {
+        "year": int(year),
+        "sales": pack(sales_names, so, sr),
+        "customer": pack(cust_names, co, cr),
+    }
+
+
 def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, empty_label="（未填）",
                     name_of=None):
     """按 name_col 汇总期内金额并降序排名。返回 {items:[{name,amount,count}…前top], others:{names,amount,count}|None,
@@ -395,7 +459,7 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
     # 回款/下单比 = 本期回款 ÷ 本期下单（资金回笼节奏，非当月回收率）；无下单 → None
     receipt_order_ratio = round(receipts_amt / orders_amt * 100, 2) if orders_amt else None
 
-    return {
+    out = {
         "label": label,
         "delivery_count": rc["delivery_count"],
         "revenue_gross": rc["revenue_gross"], "revenue_net": net, "vat": rc["vat"],
@@ -432,6 +496,17 @@ def build_period(cfg, cols_cfg, project_rows, order_rows, receipt_rows, inhouse_
             "revenue_by_sales": compute_profit_ranking(project_rows, "销售", cols_cfg, start, end, vat),
         },
     }
+    # 陆总#8：排名主体 1~12 月下单/回款（只挂排名出现的名字；年取期间起算年）
+    try:
+        y = int(str(start)[:4])
+    except (TypeError, ValueError):
+        y = 0
+    if y:
+        out["rankings_monthly"] = build_rankings_monthly(
+            order_rows, receipt_rows, cols_cfg, y, out["rankings"])
+    else:
+        out["rankings_monthly"] = {"year": 0, "sales": {}, "customer": {}}
+    return out
 
 
 # ---------- 顶层 ----------

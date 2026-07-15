@@ -45,6 +45,7 @@ tests/test_b_p5_no_view.py
 tests/test_b_p4_login_static.py
 tests/test_b_bu_shipped_assemble.py
 tests/test_login_cache_p0.py
+tests/test_ranking_monthly_a8.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="

@@ -468,16 +468,85 @@ def _merge_dual_rank(o_rk, r_rk, top=10):
     return {"items": items, "others": others, "full_items": full, "mx": mx}
 
 
+def _monthly_dual_rows(name: str, series: dict | None) -> list[dict]:
+    """陆总#8：主体 1~12 月双血条显示串（金额/宽度已算好，JS 只拼 DOM）。"""
+    series = series or {}
+    o = list(series.get("order") or [0.0] * 12)
+    r = list(series.get("receipt") or [0.0] * 12)
+    while len(o) < 12:
+        o.append(0.0)
+    while len(r) < 12:
+        r.append(0.0)
+    o, r = o[:12], r[:12]
+    mx = max([max(float(o[i]), float(r[i])) for i in range(12)] + [0.0]) or 1.0
+    out = []
+    for i in range(12):
+        oa, ra = float(o[i] or 0), float(r[i] or 0)
+        out.append({
+            "i": i + 1,
+            "name": f"{i + 1}月",
+            "order": oa,
+            "receipt": ra,
+            "order_disp": _rank_amt(oa),
+            "receipt_disp": _rank_amt(ra),
+            "wo": round(max(oa / mx * 100, 0), 1),
+            "wr": round(max(ra / mx * 100, 0), 1),
+        })
+    return out
+
+
+def attach_monthly_to_dual(dual: dict, monthly_dim: dict | None) -> dict:
+    """把 rankings_monthly 某维挂到 dual items/full_items 的 monthly 叶子。"""
+    monthly_dim = monthly_dim or {}
+    for it in (dual.get("items") or []):
+        it["monthly"] = _monthly_dual_rows(it["name"], monthly_dim.get(it["name"]))
+    for it in (dual.get("full_items") or []):
+        it["monthly"] = _monthly_dual_rows(it["name"], monthly_dim.get(it["name"]))
+    return dual
+
+
+def _json_num(v) -> float | int:
+    """JSON 数：整值出 int，与 JS JSON.stringify 一致（避免 100.0 vs 100）。"""
+    try:
+        f = float(v or 0)
+    except (TypeError, ValueError):
+        return 0
+    if f == int(f):
+        return int(f)
+    return round(f, 1)
+
+
+def _monthly_json_attr(monthly) -> str:
+    """陆总#8：月度显示串压成 JSON 属性（紧凑；点击时 JS 只拼 DOM，零金额运算）。"""
+    if not monthly:
+        return ""
+    import json
+    rows = []
+    for m in monthly:
+        rows.append({
+            "i": _json_num(m.get("i")),
+            "name": m.get("name"),
+            "wo": _json_num(m.get("wo")),
+            "wr": _json_num(m.get("wr")),
+            "order_disp": m.get("order_disp") or _rank_amt(m.get("order") or 0),
+            "receipt_disp": m.get("receipt_disp") or _rank_amt(m.get("receipt") or 0),
+        })
+    # 属性内双引号 → &quot;，与 _esc 一致；JS 取 getAttribute 自动解码
+    return _esc(json.dumps(rows, ensure_ascii=False, separators=(",", ":")))
+
+
 def _dual_rows_html(items):
     if not items:
         return tpl.load("render/ev_empty.html")
     out = []
     for i, it in enumerate(items, 1):
+        mon_attr = _monthly_json_attr(it.get("monthly"))
         out.append(tpl.fill("render/dual_row.html",
                             i=i, title=_esc(it["name"]), name=_esc(it["name"]),
                             wo=it.get("wo") or 0, wr=it.get("wr") or 0,
                             o_amt=it.get("order_disp") or _rank_amt(it.get("order") or 0),
-                            r_amt=it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0)))
+                            r_amt=it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0),
+                            monthly_json=mon_attr))
     return "".join(out)
 
 
@@ -510,11 +579,17 @@ def _dual_card(title, dual, dim="", embed_full=False):
 
 
 def render_rankings(p, embed_full=False):
-    """A6：下单与回款双血条两卡（按销售 / 按客户）；去掉按部门。"""
+    """A6：下单与回款双血条两卡（按销售 / 按客户）；去掉按部门。
+    陆总#8：各主体挂 1~12 月双血条（rankings_monthly → dual.monthly 显示串）。"""
     rk = p.get("rankings") or {}
     s, e = p.get("range", ("", ""))
-    dual_s = _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
-    dual_c = _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
+    rm = p.get("rankings_monthly") or {}
+    dual_s = attach_monthly_to_dual(
+        _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
+        rm.get("sales"))
+    dual_c = attach_monthly_to_dual(
+        _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
+        rm.get("customer"))
     return tpl.fill("render/dual_grid.html",
                     s=_esc(s), e=_esc(e),
                     sales=_dual_card("下单/回款 · 按销售", dual_s, "sales", embed_full=embed_full),
@@ -625,7 +700,8 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
         _pv(k, yk, render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None))
         for k in all_keys)
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
-    rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
+    # 陆总#8：整体页也 embed_full（其余+月度本地展开，与 views.rankings_view 一致）
+    rank_views = "".join(_pv(k, yk, render_rankings(P[k], embed_full=True)) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
     rm_map = _period_months_map(summary)
     receipts_html = render_receipts(

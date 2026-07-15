@@ -89,7 +89,8 @@ class TestP0ShippedPath(unittest.TestCase):
         P = self.summary["periods"]
         all_keys = self.pack["views"]["period_keys"]
         py_rank = "".join(
-            render._pv(k, yk, render.render_rankings(P[k])) for k in all_keys if k in P
+            render._pv(k, yk, render.render_rankings(P[k], embed_full=True))
+            for k in all_keys if k in P
         )
         # node assemble full page with client pack
         fr = dict(self.pack["fragments"])
