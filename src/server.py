@@ -66,7 +66,7 @@ DEFAULT_ADMIN_ACCOUNT = "lushasha"
 # 服务内存态：当前汇总 + 渲染好的两端页面 + 上次规范化的原始记录（供秒级重算）
 # refreshing/last_refresh：后台「立即更新」的进行中标记与最近一次结果（/api/refresh_status 用）
 _state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None,
-                "refreshing": None, "last_refresh": None, "bu_pages": {}}
+                "refreshing": None, "last_refresh": None, "bu_pages": {}, "fragments": None}
 _LOCK = threading.Lock()  # 写库/重算全局互斥（03：写库一把锁，运行中排队）
 _EXPORT_LOCK = threading.Lock()  # 导出截图互斥：Playwright 整页截图是重活，同一时刻只跑一张，连发返回 429
 
@@ -138,9 +138,11 @@ def _check_vsubject(sec: dict, token: str, now: float | None = None) -> str | No
     return _check_token_raw(sec, token, now)
 
 # ---------------- 渲染缓存 ----------------
-def _publish(cfg, summary, html, bu_pages=None):
+def _publish(cfg, summary, html, bu_pages=None, fragments=None):
     _state["summary"] = summary
     _state["user_html"] = html
+    if fragments is not None:
+        _state["fragments"] = fragments
     _state["admin_html"] = _admin_page(html, summary, cfg)
     if bu_pages is not None:
         _state["bu_pages"] = bu_pages
@@ -151,7 +153,7 @@ def _do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
     _state["records"] = ing.get("records")  # 缓存原始记录供秒级重算
-    _publish(cfg, summary, html, bu_pages)
+    _publish(cfg, summary, html, bu_pages, fragments=summary.pop("_fragments", None) or _state.get("fragments"))
     return ing
 
 
@@ -169,8 +171,9 @@ def _do_recompute(cfg, root) -> None:
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    html = render.render_dashboard(summary, cfg, logo)
-    _publish(cfg, summary, html, bu_pages)
+    frags = render.build_dashboard_fragments(summary, cfg, logo)
+    html = render.assemble_dashboard_html(frags)
+    _publish(cfg, summary, html, bu_pages, fragments=frags)
 
 
 def refresh(cfg, root=None, trigger="manual") -> dict:
@@ -882,6 +885,54 @@ def create_app(cfg, root=None) -> FastAPI:
         if _user(request):
             return HTMLResponse(_main_with_nav(hide_pw=True) or html)
         return HTMLResponse(_main_with_nav() or html)
+
+    def _main_chrome_prefix(hide_pw: bool = False) -> str:
+        """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前，与 _main_with_nav 同源。"""
+        from urllib.parse import quote
+
+        def _esc(s):
+            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+        parts = []
+        if hide_pw:
+            parts.append(_HIDE_PW_STYLE)
+        names = list(_state.get("bu_pages", {}))
+        if names:
+            links = "".join(
+                _BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n))
+                for n in names)
+            parts.append(_BU_NAV_TPL.format(
+                aria_label="BU 分页", label="业务 BU 分页", links=links))
+        return "".join(parts)
+
+    @app.get("/api/v1/cockpit/fragments")
+    def api_v1_cockpit_fragments(request: Request):
+        """B：渲染就绪碎片 JSON（shell 组装用）。与 /api/v1/cockpit 同鉴权（整体/管理员）。"""
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        if not _can_view_main(request) and not _user(request):
+            raise HTTPException(status_code=403, detail="无权限")
+        summary = _state.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="数据尚未生成")
+        fr = _state.get("fragments")
+        if not fr:
+            logo = ""
+            try:
+                logo = assets.load_logo_base64(cfg) or ""
+            except Exception:
+                logo = ""
+            pack = api_v1.cockpit_fragments(summary, cfg, logo)
+            fr = pack["fragments"]
+        hide_pw = bool(_user(request))
+        return JSONResponse({
+            "api_version": "v1",
+            "mode": "fragments",
+            "fragments": fr,
+            "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
+            "data_assembled": "1",
+        })
+
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):

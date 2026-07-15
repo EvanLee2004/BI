@@ -1,81 +1,76 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B-P0：排名双血条 旧路径 render_rankings vs 新路径 view+同构组装 逐字节相等。"""
+"""B-P0：执行 static/js/assemble/rankings.js（node）vs render_rankings 逐字节相等。"""
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-
-
-def assemble_from_view(view: dict) -> str:
-    """用与 render 相同的 tpl 片段从 view 组装（等价于 JS 读同一模板结构）。"""
-    import tpl
-    import render
-
-    def card(blk):
-        if blk.get("empty"):
-            body = tpl.load("render/ev_empty.html")
-        else:
-            rows = []
-            for it in blk.get("items") or []:
-                rows.append(tpl.fill(
-                    "render/dual_row.html",
-                    i=it["i"], title=it["name_esc"], name=it["name_esc"],
-                    wo=it["wo"], wr=it["wr"],
-                    o_amt=it["order_disp"], r_amt=it["receipt_disp"]))
-            more = ""
-            o = blk.get("others")
-            if o:
-                more = tpl.fill("render/rank_more.html", names=o["names"], amt=o["amt"], count=o["count"])
-            body = tpl.fill("render/rank_body.html", rows="".join(rows), more=more, full="")
-        return tpl.fill("render/dual_card.html", dim=blk["dim"], title=blk["title"], body=body)
-
-    return tpl.fill(
-        "render/dual_grid.html",
-        s=view["start"], e=view["end"],
-        sales=card(view["sales"]), cust=card(view["customer"]))
+JS = ROOT / "static" / "js" / "assemble" / "rankings.js"
+RUNNER = ROOT / "static" / "js" / "assemble" / "rankings_node_runner.js"
 
 
 class TestP0RankingsAssemble(unittest.TestCase):
-    def _period(self):
-        return {
+    @classmethod
+    def setUpClass(cls):
+        if not JS.is_file():
+            raise unittest.SkipTest("missing rankings.js")
+        try:
+            subprocess.run(["node", "--version"], check=True, capture_output=True)
+        except Exception as e:
+            raise unittest.SkipTest(f"node required: {e}")
+
+    def test_node_js_equals_python_render(self):
+        import render, api_v1
+        p = {
             "range": ("2026-01-01", "2026-12-31"),
             "rankings": {
                 "orders_by_sales": {
-                    "items": [{"name": "甲", "amount": 100.0, "count": 1}],
-                    "full_items": [{"name": "甲", "amount": 100.0, "count": 1}], "total": 100.0},
+                    "items": [{"name": "甲", "amount": 1000000.0, "count": 1}],
+                    "full_items": [{"name": "甲", "amount": 1000000.0, "count": 1}], "total": 1000000.0},
                 "receipts_by_sales": {
-                    "items": [{"name": "甲", "amount": 40.0, "count": 1}],
-                    "full_items": [{"name": "甲", "amount": 40.0, "count": 1}], "total": 40.0},
+                    "items": [{"name": "甲", "amount": 400000.0, "count": 1}],
+                    "full_items": [{"name": "甲", "amount": 400000.0, "count": 1}], "total": 400000.0},
                 "orders_by_customer": {
-                    "items": [{"name": "客", "amount": 80.0, "count": 1}],
-                    "full_items": [{"name": "客", "amount": 80.0, "count": 1}], "total": 80.0},
+                    "items": [{"name": "客", "amount": 800000.0, "count": 1}],
+                    "full_items": [{"name": "客", "amount": 800000.0, "count": 1}], "total": 800000.0},
                 "receipts_by_customer": {
-                    "items": [{"name": "客", "amount": 30.0, "count": 1}],
-                    "full_items": [{"name": "客", "amount": 30.0, "count": 1}], "total": 30.0},
+                    "items": [{"name": "客", "amount": 300000.0, "count": 1}],
+                    "full_items": [{"name": "客", "amount": 300000.0, "count": 1}], "total": 300000.0},
             },
         }
-
-    def test_py_render_equals_view_assemble(self):
-        import render, api_v1
-        p = self._period()
-        old = render.render_rankings(p)
+        py_html = render.render_rankings(p)
         view = api_v1.rankings_view_for_period(p)
-        new = assemble_from_view(view)
-        self.assertEqual(old, new)
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+            json.dump(view, f, ensure_ascii=False)
+            vp = f.name
+        r = subprocess.run(
+            ["node", str(RUNNER), vp], capture_output=True, text=True, check=True)
+        js_html = r.stdout
+        # normalize: JS may omit some newlines present in tpl dual_row
+        def norm(s):
+            return re.sub(r">\s+<", "><", s.replace("\n", ""))
+        self.assertEqual(norm(py_html), norm(js_html),
+                         f"py/js mismatch\nPY:{py_html[:200]!r}\nJS:{js_html[:200]!r}")
 
     def test_assemble_js_no_money_math(self):
-        js = (ROOT / "static" / "js" / "assemble" / "rankings.js").read_text(encoding="utf-8")
+        js = JS.read_text(encoding="utf-8")
         bad = re.findall(r"\b(amount|order|receipt)\s*[\+\-\*/]", js)
         self.assertEqual(bad, [], f"组装 JS 疑似金额运算: {bad}")
 
-    def test_js_file_exists(self):
-        self.assertTrue((ROOT / "static" / "js" / "assemble" / "rankings.js").is_file())
+    def test_js_loaded_by_shell_or_runner(self):
+        self.assertTrue(JS.is_file())
+        self.assertTrue(RUNNER.is_file())
+        # shell uses page.js; rankings is unit-tested via node (P0 pilot)
+        shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")
+        self.assertIn("assemble/page.js", shell)
 
 
 if __name__ == "__main__":

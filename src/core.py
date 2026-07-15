@@ -260,7 +260,10 @@ def generate(cfg, today, trigger="manual"):
     bu_pages = build_bu_pages(cfg, conn, today, logo)
     attach_unassigned(cfg, conn, today, summary)
     conn.close()
-    html = render.render_dashboard(summary, cfg, logo)
+    frags = render.build_dashboard_fragments(summary, cfg, logo)
+    html = render.assemble_dashboard_html(frags)
+    # attach for server publish
+    summary.setdefault("_fragments", frags)
     try:  # 页面快照失败（磁盘满等）不影响出页面
         ing["page_snapshot"] = ingest.archive.snapshot_page(cfg, html, today)
     except OSError as e:

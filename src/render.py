@@ -598,15 +598,14 @@ def render_profit_rankings(p, embed_full=False):
                     cust=_profit_rank_card("收入 · 按客户", _conc_tag(cust), cust, "customer", embed_full=embed_full),
                     sale=_profit_rank_card("收入 · 按销售", _conc_tag(sale), sale, "sales", show_meta=False, embed_full=embed_full))
 
-def render_dashboard(summary, cfg, logo_b64):
+def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
+    """B：整页渲染就绪碎片（全部显示串/HTML 段后端算好）。JS 只拼接，零金额运算。"""
     meta = summary["meta"]; P = summary["periods"]; FT = summary["expense_fine_type"]
     yk = meta["year_key"]
     all_keys = ([yk] + meta["tab_groups"]["季度"] + meta["tab_groups"]["月"]
                 + meta["tab_groups"].get("区间", []))
     logo = tpl.fill("render/logo.html", src=logo_b64) if logo_b64 else ""
     unc = meta["unclassified"]["expense"]
-    # 看端不再展示底部「口径提示」淡字（未分类仍进利润表全年行 + 管理端体检/异常处理）
-
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")
     BUO = meta.get("bu_orders") or {}
@@ -615,42 +614,62 @@ def render_dashboard(summary, cfg, logo_b64):
         _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget,
                                 bu_orders=BUO.get(k), show_delivered_unpaid=show_ar))
         for k in all_keys)
-    # 费用构成：按大类 | 按类别 | 按业务BU | 按部门（预算归属部门，与 BP 同链路下发）
     BP = summary.get("expense_by_profit_center", {})
     BD = summary.get("expense_by_department", {})
     donut_views = "".join(
         _pv(k, yk, render_expense_views(
             P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k)))
         for k in all_keys)
-
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
-    # 未分类金额行只挂全年利润表（分周期拆分未做，避免假精确）
     pl_views = "".join(
         _pv(k, yk, render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None))
         for k in all_keys)
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
     rank_views = "".join(_pv(k, yk, render_rankings(P[k])) for k in all_keys)
     hl = meta["current_month_label"].split("年")[1]
-
-    # 周期→月份映射一处生成，回款卡 + 趋势图共用（前端只切 class）
     rm_map = _period_months_map(summary)
-    # 回款情况：柱图全年视角 + 周期高亮；侧栏 .pv 随「看哪段」切本期数（迭代21+周期侧栏）
     receipts_html = render_receipts(
         summary['receipt_order_monthly'], summary['meta'].get('budget'),
         period_months_map=rm_map, year_key=yk,
         periods=P, default_key=yk, show_delivered_unpaid=show_ar)
     receipts_budget = tpl.fill("render/period_receipts.html", html=receipts_html)
     trend_html = render_trend(summary['trend'], hl, period_months_map=rm_map, year_key=yk)
+    return {
+        "title": "甲骨易智能经营罗盘",
+        "particles": PARTICLES_HTML,
+        "logo": logo,
+        "version": _title_version_html(),
+        "generated_at": meta["generated_at"],
+        "pw_modal": PW_MODAL_HTML,
+        "period_bar": render_period_bar(summary),
+        "kpi_views": kpi_views,
+        "trend_html": trend_html,
+        "donut_views": donut_views,
+        "pl_views": pl_views,
+        "profit_rank_views": profit_rank_views,
+        "receipts_budget": receipts_budget,
+        "daily_html": DAILY_HTML,
+        "rank_views": rank_views,
+        "drawer": DRAWER_HTML,
+    }
 
+
+def assemble_dashboard_html(frags: dict) -> str:
+    """用碎片填充模板 → 完整 HTML（与历史 render_dashboard 逐字节一致）。"""
     body = tpl.fill("render/dashboard_body.html",
-                    particles=PARTICLES_HTML, logo=logo, version=_title_version_html(),
-                    generated_at=meta['generated_at'], pw_modal=PW_MODAL_HTML,
-                    period_bar=render_period_bar(summary), kpi_views=kpi_views,
-                    trend_html=trend_html, donut_views=donut_views, pl_views=pl_views,
-                    profit_rank_views=profit_rank_views, receipts_budget=receipts_budget,
-                    daily_html=DAILY_HTML, rank_views=rank_views, drawer=DRAWER_HTML)
-    # v1.4：CSS/JS 外置到 static/（内容与基准版 theme.get_css / JS* 常量一致），HTML 结构不变
-    return tpl.fill("render/page_shell.html", title="甲骨易智能经营罗盘", body=body)
+                    particles=frags["particles"], logo=frags["logo"], version=frags["version"],
+                    generated_at=frags["generated_at"], pw_modal=frags["pw_modal"],
+                    period_bar=frags["period_bar"], kpi_views=frags["kpi_views"],
+                    trend_html=frags["trend_html"], donut_views=frags["donut_views"],
+                    pl_views=frags["pl_views"], profit_rank_views=frags["profit_rank_views"],
+                    receipts_budget=frags["receipts_budget"], daily_html=frags["daily_html"],
+                    rank_views=frags["rank_views"], drawer=frags["drawer"])
+    return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易智能经营罗盘", body=body)
+
+
+def render_dashboard(summary, cfg, logo_b64):
+    """兼容入口：碎片 → 组装（B 阶段后与 JS assemble 同源）。"""
+    return assemble_dashboard_html(build_dashboard_fragments(summary, cfg, logo_b64))
 
 # ---------- BU 分页（迭代 14 → 费用直记）：完整利润表 ----------
 # 收入/成本：智云按销售过滤；费用：台账「利润归属中心」=本 BU 直记 + 可选公共池×比例；

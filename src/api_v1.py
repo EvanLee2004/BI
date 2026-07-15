@@ -165,3 +165,10 @@ def rankings_view_for_period(period: dict) -> dict:
         "sales": pack(dual_s, "下单/回款 · 按销售", "sales"),
         "customer": pack(dual_c, "下单/回款 · 按客户", "customer"),
     }
+
+
+def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None) -> dict:
+    """整页碎片（B-P2+）：供 shell JS assemblePage。"""
+    import render
+    fr = render.build_dashboard_fragments(summary, cfg, logo_b64 or "")
+    return {"api_version": "v1", "mode": "fragments", "fragments": fr}

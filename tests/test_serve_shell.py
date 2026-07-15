@@ -32,11 +32,12 @@ class TestServeShellProductionPath(unittest.TestCase):
             {"账号": "lushasha", "显示名": "管理员甲", "权限": "管理员", "密码": server.DEFAULT_PW},
             {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
         ])
-        # 标记：若误直出整页会带上 USER-MAIN；壳只含加载文案与 fetch view
+        # 标记：若误直出整页会带上 USER-MAIN；壳只含加载文案与 fetch fragments
         server._state["user_html"] = (
             '<html lang="zh-CN"><body><div class="wrap">USER-MAIN</div></body></html>'
         )
         server._state["bu_pages"] = {}
+        server._state["fragments"] = None
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
         self.assertTrue((server.STATIC_DIR / "shell.html").is_file())
@@ -54,12 +55,14 @@ class TestServeShellProductionPath(unittest.TestCase):
         r = c.get("/")
         self.assertEqual(r.status_code, 200)
         body = r.text
-        # shell 特征
+        # shell 特征：B 阶段走碎片组装，不再 fetch 整页 view
         self.assertIn("加载驾驶舱", body)
-        self.assertIn("/api/v1/cockpit/view", body)
-        # 不得直出整页缓存
+        self.assertIn("/api/v1/cockpit/fragments", body)
+        self.assertIn("assemble/page.js", body)
+        self.assertIn('data-assembled="0"', body)
+        # 不得直出整页缓存（壳内脚本可含 wrap 选择器字符串，但不得含缓存正文）
         self.assertNotIn("USER-MAIN", body)
-        self.assertNotIn('class="wrap"', body)
+        self.assertNotIn("基本情况", body)
 
     def test_serve_shell_false_still_inline(self):
         """对照：关开关后仍直出 HTML（与测试默认一致）。"""

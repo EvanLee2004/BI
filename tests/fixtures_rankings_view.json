@@ -1,0 +1,23 @@
+{
+  "visible": true,
+  "start": "2026-01-01",
+  "end": "2026-12-31",
+  "sales": {
+    "title": "下单/回款 · 按销售",
+    "dim": "sales",
+    "empty": false,
+    "items": [
+      {"i": 1, "name": "甲", "name_esc": "甲", "wo": 100.0, "wr": 40.0, "order_disp": "0.0万", "receipt_disp": "0.0万"}
+    ],
+    "others": null
+  },
+  "customer": {
+    "title": "下单/回款 · 按客户",
+    "dim": "customer",
+    "empty": false,
+    "items": [
+      {"i": 1, "name": "客", "name_esc": "客", "wo": 100.0, "wr": 37.5, "order_disp": "0.0万", "receipt_disp": "0.0万"}
+    ],
+    "others": null
+  }
+}

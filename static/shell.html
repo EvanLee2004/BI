@@ -7,25 +7,49 @@
 <script>try{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}catch(e){}</script>
 <style>body{margin:0;background:#0f172a;color:#94a3b8;font:14px/1.5 -apple-system,system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}</style>
 </head>
-<body>
+<body data-assembled="0">
 <div id="boot">加载驾驶舱…</div>
+<script src="/static/js/assemble/page.js"></script>
 <script>
 (function(){
-  var q = new URLSearchParams(location.search);
-  var path = '/api/v1/cockpit/view';
-  // BU 页：壳带 ?bu=名称 时拉对应 HTML（与 /bu/ 等价数据）
-  fetch(path, {credentials:'include', headers:{'Accept':'text/html'}}).then(function(r){
-    if(r.status===401){ location.replace('/login'); return null; }
-    if(r.status===403){ document.getElementById('boot').textContent='无权限'; return null; }
-    if(!r.ok){ document.getElementById('boot').textContent='加载失败 HTTP '+r.status; return null; }
-    return r.text();
-  }).then(function(html){
-    if(!html) return;
+  var boot = document.getElementById('boot');
+  function fail(m){ boot.textContent = m; }
+  // B：碎片 JSON + 模板 → page.js 组装；chrome_prefix 注入 BU 导航（与旧 _main_with_nav 同源）
+  Promise.all([
+    fetch('/api/v1/cockpit/fragments', {credentials:'include', headers:{'Accept':'application/json'}}),
+    fetch('/static/templates/render/dashboard_body.html', {credentials:'include'}),
+    fetch('/static/templates/render/page_shell.html', {credentials:'include'})
+  ]).then(function(rs){
+    var fr = rs[0];
+    if(fr.status===401){ location.replace('/login'); return null; }
+    if(fr.status===403){ fail('无权限'); return null; }
+    if(!fr.ok){ fail('加载失败 HTTP '+fr.status); return null; }
+    return Promise.all([fr.json(), rs[1].text(), rs[2].text()]).then(function(x){
+      return {frags:x[0].fragments, chrome:x[0].chrome_prefix||'', bodyTpl:x[1], shellTpl:x[2]};
+    });
+  }).then(function(pack){
+    if(!pack) return;
+    if(typeof assemblePage !== 'function'){ fail('组装器未加载'); return; }
+    // page_shell 模板 {{ → 字面 {（与服务端 tpl 一致）
+    function unbrace(s){ return s.replace(/\{\{/g,'{').replace(/\}\}/g,'}'); }
+    var html = assemblePage(pack.frags, {
+      dashboard_body: pack.bodyTpl,
+      page_shell: unbrace(pack.shellTpl)
+    });
+    if(pack.chrome){
+      html = html.replace('<div class="wrap">', pack.chrome + '<div class="wrap">');
+    }
+    // 确保截图/导出可等 data-assembled=1
+    if(html.indexOf('data-assembled=') < 0){
+      html = html.replace('<body', '<body data-assembled="1"');
+    } else {
+      html = html.replace(/data-assembled="0"/, 'data-assembled="1"');
+    }
     document.open();
     document.write(html);
     document.close();
   }).catch(function(e){
-    document.getElementById('boot').textContent='网络错误：'+(e&&e.message||e);
+    fail('网络错误：'+(e&&e.message||e));
   });
 })();
 </script>
