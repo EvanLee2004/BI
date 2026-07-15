@@ -94,9 +94,13 @@ background:var(--subnav-bg)}
 .save-bar .sb-n b{color:var(--vio2)}
 .save-bar button.primary{background:var(--vio);color:#fff;font-weight:700;padding:9px 18px;font-size:14px}
 .save-bar button.ghost{opacity:.9}
+/* 工具栏吸顶：#chrome 已 sticky，toolbar 贴在 chrome 下方（约 bar+页签+子导航高度） */
+:root{--admin-chrome-sticky:128px}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;margin-bottom:12px;
-border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px var(--shadow)}
+border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px var(--shadow);
+position:sticky;top:var(--admin-chrome-sticky);z-index:25}
 .toolbar .grow{flex:1;min-width:8px}
+html.theme-light .toolbar{background:var(--panel);box-shadow:0 4px 16px var(--shadow),0 1px 0 var(--line)}
 /* 业绩目标矩阵：行=指标、列=全公司+BU */
 .b-matrix-wrap{overflow-x:auto}
 table.b-matrix th,table.b-matrix td{vertical-align:top;min-width:132px}

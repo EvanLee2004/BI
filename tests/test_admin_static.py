@@ -140,5 +140,18 @@ class TestAdminGoldenSkeleton(unittest.TestCase):
         self.assertEqual(g, e, "admin body skeleton differs from golden after asset strip")
 
 
+class TestAdminToolbarSticky(unittest.TestCase):
+    """人工填写等子页工具栏 sticky 吸顶（贴在 #chrome 下方，实色底）。"""
+
+    def test_toolbar_sticky_css(self):
+        css = (ADMIN_DIR / "admin.css").read_text(encoding="utf-8")
+        self.assertIn("--admin-chrome-sticky", css)
+        self.assertIn("position:sticky", css)
+        self.assertIn("top:var(--admin-chrome-sticky)", css)
+        # 浅色主题同样实色背景
+        self.assertIn("html.theme-light .toolbar", css)
+        self.assertIn("background:var(--panel)", css)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
