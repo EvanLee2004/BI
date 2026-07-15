@@ -264,7 +264,7 @@ class TestUpdateApi(unittest.TestCase):
         self.assertFalse(self.restarted)
 
     def test_console_has_update_ui(self):
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         for anchor in ("checkUpdate", "applyUpdate", "vuAvail", "检查更新"):
             self.assertIn(anchor, html)
 

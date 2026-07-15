@@ -11,8 +11,6 @@
  window.addEventListener('message',function(e){
    if(e.origin!==location.origin)return;
    if(e.data&&e.data.type==='cockpit-theme')setL(e.data.theme==='light');
-   // 视图档案预览（管理端「详细/精简」开关 postMessage 切内嵌看板；纯 CSS 显隐，零金额运算）
-   if(e.data&&e.data.type==='cockpit-profile')root.setAttribute('data-profile',e.data.profile==='executive'?'executive':'full');
  });
  // 周期选择：日历面板。所有周期块已预渲染，这里只切显示、不算任何数。
  var pbtn=document.getElementById('periodBtn'),ppanel=document.getElementById('ppanel');

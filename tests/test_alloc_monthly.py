@@ -222,7 +222,7 @@ class TestAllocApi(unittest.TestCase):
         self.assertTrue(any("2026-05" in r[0] for r in rows))
 
     def test_ui_anchors(self):
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         self.assertIn("allocBlock", html)                 # 人工填写页分摊区块
         self.assertIn("公共费用分摊比例（按月）", html)
         self.assertIn("allocTotal", html)                 # 本月公共费用总额

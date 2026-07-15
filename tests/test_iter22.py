@@ -311,7 +311,7 @@ class TestManualItemsInjected(unittest.TestCase):
 
     def test_placeholder_exists_in_template(self):
         import server
-        self.assertIn("__MANUAL_ITEMS__", server._ADMIN_CONSOLE)  # 别名→static/admin
+        self.assertIn("__MANUAL_ITEMS__", server.admin_ui_source())  # 别名→static/admin
 
 
 class TestReceiptDeliveredUnpaid(unittest.TestCase):

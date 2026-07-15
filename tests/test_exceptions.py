@@ -165,7 +165,7 @@ class TestExceptionEndpoints(unittest.TestCase):
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>USER</html>"
-        server._state["admin_html"] = server._ADMIN_CONSOLE
+        server._state["admin_html"] = "ready"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)

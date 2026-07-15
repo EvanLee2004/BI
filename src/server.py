@@ -136,12 +136,9 @@ def _publish(cfg, summary, html, bu_pages=None):
     _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _apply_profile(html: str, profile: str) -> str:
-    """视图档案注入（兼容保留）。线上 view_profile 恒 full，本函数对 full/空/非法不改；
-    若传入 executive 仍可换根节点属性一次（旧测试/回放兼容，非产品路径）。"""
-    if not html or profile == accounts.VIEW_FULL or profile not in accounts.VIEW_PROFILES:
-        return html
-    return html.replace('data-profile="full"', f'data-profile="{profile}"', 1)
+def _apply_profile(html: str, profile: str = "full") -> str:
+    """历史钩子：精简视图已下线，恒返回原 HTML（data-profile 保持 full）。"""
+    return html or ""
 
 
 def _do_full(cfg, root, trigger) -> dict:
@@ -584,11 +581,6 @@ def admin_ui_source() -> str:
     return "\n".join(parts)
 
 
-# 测试兼容别名：历史上断言搜 server._ADMIN_CONSOLE，现指向 static 拼接
-def __getattr__(name: str):
-    if name == "_ADMIN_CONSOLE":
-        return admin_ui_source()
-    raise AttributeError(name)
 
 
 
@@ -767,7 +759,7 @@ def create_app(cfg, root=None) -> FastAPI:
     def _bu_view_html(name: str, my_names=None, hide_pw: bool = False,
                       profile: str = accounts.VIEW_FULL) -> str:
         """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。
-        profile：视图档案，末尾注入根节点 data-profile（BU 账号看=executive 精简，管理员看=full）。"""
+        profile：历史参数（精简视图已下线，_apply_profile 恒 full）。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             return ""
@@ -792,10 +784,8 @@ def create_app(cfg, root=None) -> FastAPI:
         return resp
 
     def _use_fetch_shell() -> bool:
-        """v1.4：已登录用户端经 shell fetch /api/v1/cockpit/view 拿同源 HTML。
-        KANBAN_LEGACY_INLINE=1 或 unittest 运行时 → 直接吐 HTML（保旧测试与对照）。"""
-        if os.environ.get("KANBAN_LEGACY_INLINE", "0") == "1":
-            return False
+        """已登录整体页是否走 shell.html。
+        生产：有 shell 则走；unittest/pytest：直出 HTML 便于断言（不依赖环境变量）。"""
         import sys
         if "unittest" in sys.modules or "pytest" in sys.modules:
             return False
@@ -836,7 +826,7 @@ def create_app(cfg, root=None) -> FastAPI:
         看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
         hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
         避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。
-        profile：视图档案（full=管理员完整 / executive=整体·姜总精简），末尾按档案注入根节点 data-profile。"""
+        profile：历史参数（精简视图已下线，_apply_profile 恒 full）。"""
         html = _state["user_html"]
         if not html:
             return html

@@ -102,7 +102,7 @@ class TestVersionApi(unittest.TestCase):
 
     def test_console_has_version_ui(self):
         # 管理端：摘要卡 + 右侧日志抽屉（默认折叠）
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         for anchor in ("verPill", "verCard", "loadVersion", "版本与更新",
                        "verDrawer", "openVerDrawer", "更新日志"):
             self.assertIn(anchor, html, anchor)

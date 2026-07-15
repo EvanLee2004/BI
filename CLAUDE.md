@@ -17,7 +17,7 @@
                   └▶ ④ profit → summary
                        └▶ ⑤ 展示：看端 static/ + shell；管理端 static/admin/ + /admin/app.js
 ```
-- **当前状态（v1.5.0-beta · 2026-07-15）**：看端与**管理端**均已前后端分离（外置 static，无 React/npm）。`KANBAN_LEGACY_INLINE=1` 可回退内嵌。算账层未动。
+- **当前状态（v1.5.0-beta · 2026-07-15）**：看端与**管理端**均已前后端分离（外置 static，无 React/npm）。看端固定 shell+static；管理端仅 `static/admin`。算账层未动。
 - **现状边界**：①抓数层智云自动抓已建成（内部译员可能待专用账号）；②~⑤已实现。数据库是后端私有资产；浏览器只经 HTTP。
 - **契约（接缝=进料口）**：换数据源/抓取方式只动上游与 readers，进料口以下不动。
 

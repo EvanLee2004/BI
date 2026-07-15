@@ -28,7 +28,7 @@
 | `/static/js/cockpit-bu.js` | BU 页 JS |
 | `/static/shell.html` | 登录后轻量壳 → fetch `cockpit/view` 再 document.write |
 
-回退直出 HTML：`KANBAN_LEGACY_INLINE=1`。
+v1.5+：生产固定 shell；unittest 直出 HTML 便于断言（不再用 `KANBAN_LEGACY_INLINE`）。
 
 ## 外部复用（如飞书机器人）
 

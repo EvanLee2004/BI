@@ -27,11 +27,8 @@ CONFIG_NAME = "看板账号.json"
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
 
-# 视图档案：已统一为完整显示（2026-07-15 去掉「精简视图/姜总视角」分流）。
-# VIEW_EXEC 常量保留仅防旧配置/测试字面引用，view_profile 恒返回 full。
+# 视图：统一完整显示（精简视图已下线）。
 VIEW_FULL = "full"
-VIEW_EXEC = "executive"  # 已废弃，勿再按角色注入
-VIEW_PROFILES = (VIEW_FULL, VIEW_EXEC)
 PERM_BU = "BU"      # v8.6 多 BU 绑定：权限=BU 时，可见范围看 可见BU 列表（旧账号权限=单个 BU 名仍兼容）
 
 

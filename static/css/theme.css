@@ -368,15 +368,6 @@ body{
 
 .foot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut);line-height:1.7}
 
-/* 视图档案（Phase 1·2026-07-14）：executive=姜总精简版——隐藏公式与解释标注，数字/板块/图表全保留。
-   data-profile 挂在 <html> 根节点（服务端按账号注入 full/executive，管理端预览开关可切）。纯展示，回归红线中性。
-   .src=利润表行内公式 · .pr-formula=排名公式框 · .chart-note=图口径 · .foot=页脚口径 · .faint-note=淡口径 · .kinds=来源图例 */
-:root[data-profile="executive"] .src,
-:root[data-profile="executive"] .pr-formula,
-:root[data-profile="executive"] .chart-note,
-:root[data-profile="executive"] .foot,
-:root[data-profile="executive"] .faint-note,
-:root[data-profile="executive"] .kinds{display:none!important}
 
 /* 全局周期选择器 */
 .pbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:6px 0 2px;padding:9px 13px;

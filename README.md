@@ -160,7 +160,8 @@ GET /api/v1/cockpit/bu/{name}  单 BU JSON
 ```
 
 说明：[交付说明](docs/v1.4前后端分离交付说明.md) · [API 契约](docs/api-v1-cockpit.md)  
-回退：`KANBAN_LEGACY_INLINE=1 python run.py --serve`
+
+v1.5+ 看端固定 `static/shell.html` + `/static/*`（unittest 直出 HTML 便于断言）；已去掉 `KANBAN_LEGACY_INLINE` 环境变量。紧急回退请用 git tag/commit。
 
 ---
 

@@ -160,7 +160,7 @@ class TestSettingsApi(unittest.TestCase):
         self.assertIn("18:00", joined)
 
     def test_console_has_multi_time_ui(self):
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         for anchor in ("schedTimes", "schedAdd", "saveSchedule", "添加时间点"):
             self.assertIn(anchor, html)
 

@@ -176,7 +176,7 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_console_says_update_data_not_immediate(self):
         """顶栏按钮文案=「更新数据」；导航「数据调整 / 人工填写」。"""
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         self.assertIn(">更新数据</button>", html)
         self.assertNotIn(">立即更新</button>", html)
         self.assertIn('onclick="showGroup(\'edit\')">数据调整</div>', html)

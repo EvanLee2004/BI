@@ -252,10 +252,12 @@ class TestViewerAuth(unittest.TestCase):
         # 管理员 accounts 有明文
         rows = a.get("/api/accounts").json()["accounts"]
         self.assertTrue(any("密码" in r and r["密码"] for r in rows))
-        # 自改密码弹窗文案（用户端 render）
+        # 自改密码弹窗文案在 HTML 壳（JS 只绑事件，文案不在 static/js）
         import render
         self.assertIn("密码管理员可见，请勿使用你在其他地方用的密码", render.PW_MODAL_HTML)
-        self.assertIn("密码管理员可见，请勿使用你在其他地方用的密码", render.PW_JS and render.PW_MODAL_HTML)
+        _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        self.assertIn("pwBtn", _js)
+        self.assertIn("/api/my_passwd", _js)
 
     def test_initial_password_yellow_flag(self):
         a = self._admin()
@@ -270,7 +272,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertFalse(again["初始密码"])
 
     def test_admin_console_has_accounts_card_unified_save(self):
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         self.assertIn("账号与权限", html)
         self.assertIn("BU 数据归属", html)
         # 设置页统一底部保存条（各卡就近保存按钮已删，改为标脏+底部一键保存）
@@ -288,7 +290,7 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_admin_console_refresh_honesty(self):
         """v1.0.4：更新按钮诚实化——全绿才「更新成功」；有降级/体检问题报「更新完成，但有 N 个问题」可点击跳体检明细。"""
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         self.assertIn("refreshResultToast", html)
         self.assertIn("更新完成，但有", html)
         self.assertIn("更新成功", html)

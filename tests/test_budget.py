@@ -92,7 +92,7 @@ class TestBudgetFollowsTopFilter(unittest.TestCase):
     """业绩目标改跟顶部统一「范围/年份」（明昊 2026-07-14）：管理端控制台不再有独立的 bY/bScope 下拉。"""
     def test_console_has_no_own_budget_selectors(self):
         import server
-        tpl = server._ADMIN_CONSOLE
+        tpl = server.admin_ui_source()
         self.assertNotIn('id="bY"', tpl)
         self.assertNotIn('id="bScope"', tpl)
         self.assertNotIn("bFillScopes", tpl)

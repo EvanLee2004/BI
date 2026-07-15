@@ -145,7 +145,7 @@ class TestServerMultiBu(unittest.TestCase):
         self.assertNotIn("PAGE-", home)
 
     def test_console_has_multibu_ui(self):
-        html = server._ADMIN_CONSOLE
+        html = server.admin_ui_source()
         for anchor in ("acct-bus", "acctToggleBu", "acctSetType", "按 BU"):
             self.assertIn(anchor, html)
 
