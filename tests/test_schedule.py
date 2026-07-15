@@ -165,5 +165,46 @@ class TestSettingsApi(unittest.TestCase):
             self.assertIn(anchor, html)
 
 
+class TestRegisterBatReadsMergedConfig(unittest.TestCase):
+    """守卫 F-02（2026-07-15 部署机实锤）：注册每日更新.bat 的时间点必须来自合并配置。
+    管理端保存的 schedule_times 只写 数据/本地配置.json 覆盖层（铁律19），
+    .bat 若直读 config.json 会永远拿到出厂默认 09:30、只注册一个任务。"""
+
+    def _bat_oneliner_times(self, root):
+        """与 注册每日更新.bat 内联 python 同一取值逻辑（loaders.load_config 合并后）。"""
+        c = loaders.load_config(root=root)
+        return c.get("schedule_times") or [c.get("schedule_time") or "09:30"]
+
+    def test_overlay_times_win_over_factory(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            shutil.copy(ROOT / "config.json", tmp / "config.json")
+            cfg0 = json.loads((tmp / "config.json").read_text(encoding="utf-8"))
+            ov = loaders._local_config_path(tmp, cfg0)
+            ov.parent.mkdir(parents=True, exist_ok=True)
+            ov.write_text(json.dumps({"schedule_times": ["09:00", "12:00", "17:00"]},
+                                     ensure_ascii=False), encoding="utf-8")
+            self.assertEqual(self._bat_oneliner_times(tmp), ["09:00", "12:00", "17:00"])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_no_overlay_falls_back_to_factory(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            shutil.copy(ROOT / "config.json", tmp / "config.json")
+            ts = self._bat_oneliner_times(tmp)
+            self.assertTrue(ts, "至少兜底 09:30")
+            for t in ts:
+                self.assertRegex(t, r"^\d{2}:\d{2}$")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_bat_file_uses_loaders_not_raw_config(self):
+        """锁死 .bat 文本本身：必须经 loaders.load_config，不许再出现直读 config.json 的 json.load。"""
+        bat = (ROOT / "注册每日更新.bat").read_text(encoding="utf-8")
+        self.assertIn("loaders.load_config", bat)
+        self.assertNotIn("json.load(open('config.json'))", bat)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

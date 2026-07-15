@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-rem 注册 Windows 计划任务：每天在 config.json 的 schedule_times 每个时间点各跑一次 run.py --scheduled。
+rem 注册 Windows 计划任务：每天在「合并配置」(config.json + 数据/本地配置.json 覆盖层) 的 schedule_times 每个时间点各跑一次 run.py --scheduled。
 rem 多个时间点=多个任务：主任务名『经营驾驶舱每日更新』(最早时间点) + _2.._n(其余时间点)。
 rem 改/增删时间点后重跑本脚本即可覆盖注册（管理端「设置」保存也会尝试自动同步，失败再跑本脚本）。
 rem 需管理员权限运行（右键"以管理员身份运行"）。
@@ -16,9 +16,10 @@ set "TN=经营驾驶舱每日更新"
 rem 先清理旧的编号任务（_2.._6），避免删掉时间点后残留
 for %%i in (2 3 4 5 6) do schtasks /Delete /TN "%TN%_%%i" /F >nul 2>&1
 
-rem 读 config 里的 schedule_times（空格分隔）；缺失回退旧 schedule_time / 09:30
+rem 读「合并配置」的 schedule_times（空格分隔）；缺失回退旧 schedule_time / 09:30。
+rem 必须走 loaders.load_config（config.json + 数据/本地配置.json 覆盖层，铁律19）——管理端保存的时间点只存覆盖层，直接读 config.json 会永远拿到出厂默认。
 set "TIMES="
-for /f "delims=" %%t in ('"%PY%" -c "import json;c=json.load(open('config.json'));ts=c.get('schedule_times') or [c.get('schedule_time') or '09:30'];print(' '.join(ts))"') do set "TIMES=%%t"
+for /f "delims=" %%t in ('"%PY%" -c "import sys;sys.path.insert(0,'src');import loaders;c=loaders.load_config();ts=c.get('schedule_times') or [c.get('schedule_time') or '09:30'];print(' '.join(ts))"') do set "TIMES=%%t"
 if "%TIMES%"=="" set "TIMES=09:30"
 
 set /a IDX=0
