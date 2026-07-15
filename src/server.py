@@ -41,6 +41,8 @@ import api_v1
 
 # v1.4 静态资源（CSS/JS/壳）：与 run.py 同级 static/
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+# 已登录整体页是否走 shell.html（fetch 像素级 HTML）。生产默认 True；测试引导入口置 False 便于断言直出页。
+SERVE_SHELL: bool = True
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
@@ -777,12 +779,8 @@ def create_app(cfg, root=None) -> FastAPI:
         return resp
 
     def _use_fetch_shell() -> bool:
-        """已登录整体页是否走 shell.html。
-        生产：有 shell 则走；unittest/pytest：直出 HTML 便于断言（不依赖环境变量）。"""
-        import sys
-        if "unittest" in sys.modules or "pytest" in sys.modules:
-            return False
-        return (STATIC_DIR / "shell.html").is_file()
+        """已登录整体页是否走 shell.html（模块级 SERVE_SHELL 控制；测试引导入口置 False）。"""
+        return SERVE_SHELL and (STATIC_DIR / "shell.html").is_file()
 
     def _shell_or_html(html: str):
         if _use_fetch_shell() and html:
