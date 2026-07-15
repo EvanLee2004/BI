@@ -264,6 +264,90 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     }
 
 
+def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None) -> dict:
+    """BU 页渲染就绪 views（与 render.build_bu_dashboard_fragments 同源渲染函数）。
+
+    复用：render_basic / render_bu_pl_table / render_bu_expense_views /
+    render_profit_rankings(embed_full=True) / rankings_view_for_period /
+    render_trend / render_receipts / render_period_bar / bu_pl_tag 模板。
+    绝不走整体页 render_pl_table / render_expense_views / 无 embed_full 排名。
+    """
+    import render
+    cfg = cfg or {}
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    FT = summary.get("expense_fine_type") or {}
+    if not meta.get("year_key") and not P:
+        return {
+            "year_key": "", "period_keys": [], "rankings_view": {},
+            "kpi_body": {}, "pl_body": {}, "donut_body": {}, "profit_rank_body": {},
+            "trend_html": "", "receipts_html": "", "pl_tag": "", "period_bar": "",
+            "scope": "BU", "bu_name": bu_name or "",
+        }
+    yk, ordered = _period_keys(summary)
+    month_keys = (meta.get("tab_groups") or {}).get("月") or []
+    budget = meta.get("budget")
+    show_ar = bool(cfg.get("show_delivered_unpaid", False))
+    alloc = meta.get("public_allocation") or {"enabled": False}
+
+    kpi_body, pl_body, donut_body, profit_rank_body = {}, {}, {}, {}
+    tag_note = ""
+    for k in ordered:
+        if k not in P:
+            continue
+        # 与 build_bu_dashboard_fragments 一致：BU KPI 不传 bu_orders
+        kpi_body[k] = render.render_basic(
+            k, P, meta.get("year"), month_keys, budget,
+            show_delivered_unpaid=show_ar)
+        pl_html, tag_note = render.render_bu_pl_table(P[k], alloc, fine=FT.get(k))
+        pl_body[k] = pl_html
+        donut_body[k] = render.render_bu_expense_views(P[k], FT.get(k))
+        # 铁律12：收入排名「其余」预渲染 .pr-full，不调全公司 API
+        profit_rank_body[k] = render.render_profit_rankings(P[k], embed_full=True)
+
+    hl = ""
+    try:
+        hl = (meta.get("current_month_label") or "").split("年")[1]
+    except Exception:
+        hl = ""
+    rm_map = render._period_months_map(summary)
+    trend_html = render.render_trend(
+        summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
+    # BU 模板用 receipts_html（非整体页 period_receipts 包壳）
+    receipts_html = render.render_receipts(
+        summary.get("receipt_order_monthly") or [], budget,
+        period_months_map=rm_map, year_key=yk,
+        periods=P, default_key=yk, show_delivered_unpaid=show_ar)
+    try:
+        period_bar = render.render_period_bar(summary)
+    except Exception:
+        period_bar = ""
+    pl_tag = (
+        render.tpl.fill("render/bu_pl_tag.html", note=render._esc(tag_note))
+        if tag_note else ""
+    )
+
+    return {
+        "year_key": yk,
+        "period_keys": ordered,
+        "scope": "BU",
+        "bu_name": bu_name or "",
+        # 下单/回款双血条叶子（embed_full 由 rankings_view_for_period 参数控制；本批 commit3 接 True）
+        "rankings_view": {
+            pk: rankings_view_for_period(pv)
+            for pk, pv in P.items() if isinstance(pv, dict)
+        },
+        "kpi_body": kpi_body,
+        "pl_body": pl_body,
+        "donut_body": donut_body,
+        "profit_rank_body": profit_rank_body,
+        "trend_html": trend_html,
+        "receipts_html": receipts_html,
+        "pl_tag": pl_tag,
+        "period_bar": period_bar,
+    }
+
+
 # 客户端路径须由 JS 组装的 fragments 字段（禁止服务端预拼后 fill）
 # 整体页 + BU 页共有字段；BU 另有 pl_tag 等由 bu 模板填
 _CLIENT_ASSEMBLE_FIELDS = (

@@ -882,15 +882,16 @@ def create_app(cfg, root=None) -> FastAPI:
         fr = api_v1.client_strip_fragments(fr)
         cached_views = page.get("views")
         views = cached_views
+        # 必须用 BU 专属 views 构建器（禁止 build_cockpit_views 整体页链路）
         if summary and (summary.get("meta") or {}).get("year_key"):
             try:
-                rebuilt = api_v1.build_cockpit_views(summary, cfg)
+                rebuilt = api_v1.build_bu_cockpit_views(name, summary, cfg)
                 if rebuilt.get("kpi_body") or rebuilt.get("rankings_view") or rebuilt.get("period_keys"):
                     views = rebuilt
             except Exception:
                 pass
         if not views:
-            views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+            views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
         return JSONResponse({
             "api_version": "v1",
             "mode": "fragments",
