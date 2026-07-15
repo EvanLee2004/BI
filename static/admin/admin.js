@@ -447,7 +447,7 @@ function buRender(){const claimed=_claimedSales();
   if(acctList.length)acctRender();}
 function buAdd(){buList.push({name:"",负责人:[],销售:[],分摊比例:null});buRender();setMark("bu");}
 function buDel(i){if(!confirm("删除该 BU？对应权限账号将无法看到页面；销售回未归属池"))return;
-  buList.splice(i,1);buRender();}
+  buList.splice(i,1);buRender();setMark("bu");}
 async function loadBuCfg(){try{
   const [d,pool]=await Promise.all([jget("/api/bu_config"),jget("/api/sales_pool").catch(()=>({sales:[]}))]);
   buList=(d.bus||[]).map(b=>({name:b.name,负责人:b.负责人||[],销售:_salesArr(b.销售),

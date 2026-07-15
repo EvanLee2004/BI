@@ -152,6 +152,22 @@ class TestAdminToolbarSticky(unittest.TestCase):
         self.assertIn("html.theme-light .toolbar", css)
         self.assertIn("background:var(--panel)", css)
 
+class TestBuDelMarksDirty(unittest.TestCase):
+    """A1：删 BU 后必须标脏，底部出现「保存全部设置」（与 buAdd 一致）。"""
+
+    def test_bu_del_calls_set_mark(self):
+        js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
+        # 取 buDel 函数体到下一个顶层 function
+        m = re.search(r"function buDel\([^)]*\)\{([\s\S]*?)\nfunction ", js)
+        self.assertIsNotNone(m, "找不到 buDel 函数")
+        body = m.group(1)
+        self.assertIn("buList.splice", body)
+        self.assertIn('setMark("bu")', body,
+                      "buDel 删除后未 setMark('bu')——设置页不会出现保存键")
+        # 对照：buAdd 也必须标脏（防回归）
+        m2 = re.search(r"function buAdd\(\)\{([\s\S]*?)\nfunction ", js)
+        self.assertIsNotNone(m2)
+        self.assertIn('setMark("bu")', m2.group(1))
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
