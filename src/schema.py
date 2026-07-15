@@ -52,7 +52,8 @@ STD_TABLES: dict[str, str] = {
         CREATE TABLE IF NOT EXISTS std_内部译员 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,
-            任务ID TEXT, 任务提交日期 TEXT, 结算金额 REAL, 译员类型 TEXT, 销售 TEXT,
+            任务ID TEXT, 任务提交日期 TEXT, 结算金额 REAL, 译员类型 TEXT,
+            译员姓名 TEXT, 销售 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
     "std_费用明细": """
@@ -173,7 +174,8 @@ _ADD_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "std_收入明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT")],
     "std_下单": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("部门", "TEXT"), ("销售", "TEXT")],
     "std_回款": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("客户", "TEXT"), ("销售", "TEXT")],
-    "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT")],
+    "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"),
+                  ("销售", "TEXT"), ("译员姓名", "TEXT")],
     "std_费用明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("预算归属部门", "TEXT")],
 }
 

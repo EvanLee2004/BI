@@ -71,10 +71,20 @@ def load_receipts(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
     c = cfg["columns"]
-    rows = conn.execute(
-        "SELECT 任务提交日期,结算金额,译员类型,任务ID,销售 FROM std_内部译员 WHERE 已删除=0 ORDER BY id").fetchall()
-    return [{c["inhouse_date"]: _s(d), c["inhouse_amount"]: a, c["inhouse_type"]: _s(t), "任务明细ID": _s(tid), "销售": _s(sal)}
-            for d, a, t, tid, sal in rows]
+    # 译员姓名列存量库可能尚未补齐：缺列时降级不选（_ensure_columns 后应始终有）
+    try:
+        rows = conn.execute(
+            "SELECT 任务提交日期,结算金额,译员类型,任务ID,译员姓名,销售 "
+            "FROM std_内部译员 WHERE 已删除=0 ORDER BY id").fetchall()
+        return [{c["inhouse_date"]: _s(d), c["inhouse_amount"]: a, c["inhouse_type"]: _s(t),
+                 "任务明细ID": _s(tid), "译员姓名": _s(nm), "销售": _s(sal)}
+                for d, a, t, tid, nm, sal in rows]
+    except sqlite3.OperationalError:
+        rows = conn.execute(
+            "SELECT 任务提交日期,结算金额,译员类型,任务ID,销售 FROM std_内部译员 WHERE 已删除=0 ORDER BY id").fetchall()
+        return [{c["inhouse_date"]: _s(d), c["inhouse_amount"]: a, c["inhouse_type"]: _s(t),
+                 "任务明细ID": _s(tid), "销售": _s(sal)}
+                for d, a, t, tid, sal in rows]
 
 
 # 台账列在标准表里的固定顺序（读回时据此拼回 (表头, 数据行)）
@@ -119,8 +129,10 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     "回款": ("std_回款", ["定位键", "回款ID", "到账日期", "到账金额", "客户", "销售", "归属月"],
             ["定位键", "回款ID", "客户", "销售"]),
     # 列头「销售」实为项目关联销售（非费用归属），管理端表头旁见 note
-    "内部译员": ("std_内部译员", ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "销售", "归属月"],
-              ["定位键", "任务ID", "译员类型", "销售"]),
+    # A2：主列/筛选=译员姓名（供应商姓名）；销售列保留次要展示（任务关联销售不可信）
+    "内部译员": ("std_内部译员",
+              ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月"],
+              ["定位键", "任务ID", "译员类型", "译员姓名", "销售"]),
     "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月"],
                 ["定位键", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"]),
 }
@@ -189,8 +201,9 @@ def list_order_depts(conn: sqlite3.Connection) -> list[str]:
 
 
 def list_salespeople(conn: sqlite3.Connection) -> list[dict]:
-    """四源「销售」去重汇总（管理端 BU 拖拽归属池）。
-    返回 [{"name": 销售名, "rows": 四源合计行数}, …] 按行数降序、同名序。
+    """三源「销售」去重汇总（管理端 BU 拖拽归属池）。
+    A2：剔除 std_内部译员——该表「销售」按任务映射、语义不可信，不许污染 BU 归属候选池。
+    返回 [{"name": 销售名, "rows": 合计行数}, …] 按行数降序、同名序。
     空/纯空白不算；名字 trim 后聚合。"""
     sql = """
     SELECT TRIM(销售) AS n, COUNT(*) AS c FROM (
@@ -199,8 +212,6 @@ def list_salespeople(conn: sqlite3.Connection) -> list[dict]:
       SELECT 销售 FROM std_下单 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
       UNION ALL
       SELECT 销售 FROM std_回款 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
-      UNION ALL
-      SELECT 销售 FROM std_内部译员 WHERE 已删除=0 AND 销售 IS NOT NULL AND TRIM(销售)<>''
     ) GROUP BY TRIM(销售) ORDER BY c DESC, n COLLATE NOCASE
     """
     try:

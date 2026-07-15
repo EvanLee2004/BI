@@ -50,7 +50,9 @@
     "inhouse_amount": "本币结算/Amount",
     "inhouse_date": "任务提交日期/Submission Time",
     "inhouse_type": "译员类型",
-    "_inhouse_type_note": "只取 译员类型 含 IN-HOUSE 的行（内部专职译员）作系统内部译员成本"
+    "_inhouse_type_note": "只取 译员类型 含 IN-HOUSE 的行（内部专职译员）作系统内部译员成本",
+    "inhouse_name": "供应商姓名",
+    "_inhouse_name_note": "A2(陆总#4)：内部译员真名列=供应商姓名（一个译员服务多销售，任务上的「销售」不可信；利润仍只取金额/日期/类型）"
   },
   "inhouse_keyword": "IN-HOUSE",
   "expense_categories_included": [

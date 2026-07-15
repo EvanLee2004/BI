@@ -94,9 +94,11 @@ def norm_receipts(rows: list[dict[str, str]], c: dict) -> list[dict]:
 
 
 def norm_inhouse(rows: list[dict[str, str]], c: dict, cfg: dict) -> list[dict]:
-    """仅 IN-HOUSE 行（03 设计）；过滤逻辑与 profit.compute_inhouse_cost 一致。"""
+    """仅 IN-HOUSE 行（03 设计）；过滤逻辑与 profit.compute_inhouse_cost 一致。
+    A2：补「译员姓名」（供应商姓名）；「销售」列仍落库但不可信、不进销售名池。"""
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     tcol = c["inhouse_type"]
+    ncol = c.get("inhouse_name") or "供应商姓名"
     out = []
     for r in rows:
         typ = str(r.get(tcol, "")).strip()
@@ -105,8 +107,11 @@ def norm_inhouse(rows: list[dict[str, str]], c: dict, cfg: dict) -> list[dict]:
         iso, ym = _iso_and_month(r.get(c["inhouse_date"]))
         amt = _amt(r.get(c["inhouse_amount"]))
         tid = str(r.get("任务明细ID") or "").strip()
+        # 译员姓名：配置列优先；缺列时尝试常见别名（旧导出兼容）
+        name = str(r.get(ncol) or r.get("供应商姓名") or r.get("译员姓名") or "").strip()
         out.append({"任务ID": tid, "任务提交日期": iso, "结算金额": amt,
-                    "译员类型": typ, "销售": str(r.get("销售") or "").strip(),
+                    "译员类型": typ, "译员姓名": name,
+                    "销售": str(r.get("销售") or "").strip(),
                     "归属月": ym, "原值_归属月": ym,
                     "定位键": _locator(tid, tid, iso, amt)})
     return out
