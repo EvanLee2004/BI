@@ -12,9 +12,6 @@
 """
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import json
 import os
 import re
@@ -39,15 +36,16 @@ import version as product_version
 import updater
 import api_v1
 import tpl
+import auth_session
+import refresh_pipeline
+from app_state import (  # noqa: F401  # 测试/外部可读 server._state
+    COOKIE, VCOOKIE, SESSION_TTL, STATIC_DIR,
+    _state, _LOCK, _EXPORT_LOCK,
+)
 
-# v1.4 静态资源（CSS/JS/壳）：与 run.py 同级 static/
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
-# 已登录整体页是否走 shell.html（fetch 像素级 HTML）。生产默认 True；测试引导入口置 False 便于断言直出页。
+# 已登录整体页是否走 shell.html。测试写 server.SERVE_SHELL=False（support 入口）。
 SERVE_SHELL: bool = True
 
-COOKIE = "kanban_session"
-VCOOKIE = "kanban_view"   # 查看端会话：主体=登录账号名（v8.0）
-SESSION_TTL = 24 * 3600
 # 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
 # 模板缓存于模块载入（tpl.load 一次）；内容与迁前逐字节一致
 _HIDE_PW_STYLE = tpl.load("partials/hide_pw_style.html")
@@ -63,128 +61,32 @@ DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", accounts.DEFAULT_ADMIN_PW)
 DEFAULT_VIEW_PW = accounts.DEFAULT_VIEW_PW
 DEFAULT_ADMIN_ACCOUNT = "lushasha"
 
-# 服务内存态：当前汇总 + 渲染好的两端页面 + 上次规范化的原始记录（供秒级重算）
-# refreshing/last_refresh：后台「立即更新」的进行中标记与最近一次结果（/api/refresh_status 用）
-_state: dict = {"summary": None, "user_html": "", "admin_html": "", "built_at": None, "records": None,
-                "refreshing": None, "last_refresh": None, "bu_pages": {}, "fragments": None}
-_LOCK = threading.Lock()  # 写库/重算全局互斥（03：写库一把锁，运行中排队）
-_EXPORT_LOCK = threading.Lock()  # 导出截图互斥：Playwright 整页截图是重活，同一时刻只跑一张，连发返回 429
+# ---------------- 会话（auth_session）兼容别名 ----------------
+_secret_path = auth_session.secret_path
+_load_or_init_secret = auth_session.load_or_init_secret
+_save_secret = auth_session.save_secret
+_make_token = auth_session.make_token
+_check_token_raw = auth_session.check_token_raw
+_check_token = auth_session.check_token
+_check_vsubject = auth_session.check_vsubject
 
-
-# ---------------- 密钥文件（仅会话签名 cookie_key；口令改由 accounts 管） ----------------
-def _secret_path(cfg, root=None) -> Path:
-    return loaders.data_dir(cfg, root) / "管理员密钥.json"
-
-
-def _load_or_init_secret(cfg, root=None) -> dict:
-    """读/建会话签名密钥。旧文件可能还带 salt/pw_hash/viewer_*（v7.x），读时保留不删、不再使用。"""
-    p = _secret_path(cfg, root)
-    if p.exists():
-        try:
-            sec = json.loads(p.read_text(encoding="utf-8"))
-            if sec.get("cookie_key"):
-                return sec
-        except (OSError, ValueError):
-            pass
-    sec = {"cookie_key": os.urandom(32).hex()}
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(sec, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[server] 已生成会话密钥文件：{p}（账号口令见 数据/看板账号.json）")
-    return sec
-
-
-def _save_secret(cfg, root, sec: dict) -> None:
-    p = _secret_path(cfg, root)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(sec, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-# ---------------- 会话 token（HMAC 签名，含过期） ----------------
-def _make_token(sec: dict, user: str, now: float | None = None) -> str:
-    """签发会话。user=登录账号名（管理员 cookie 与查看 cookie 都存账号，权限运行时再查）。"""
-    now = time.time() if now is None else now
-    payload = f"{user}|{int(now + SESSION_TTL)}".encode()
-    b64 = base64.urlsafe_b64encode(payload)
-    sig = hmac.new(bytes.fromhex(sec["cookie_key"]), b64, hashlib.sha256).hexdigest()
-    return b64.decode() + "." + sig
-
-
-def _check_token_raw(sec: dict, token: str, now: float | None = None) -> str | None:
-    """校验 HMAC+过期，返回主体字符串（账号名）；无效 None。不查权限。"""
-    now = time.time() if now is None else now
-    if not token or "." not in token:
-        return None
-    b64, sig = token.rsplit(".", 1)
-    expect = hmac.new(bytes.fromhex(sec["cookie_key"]), b64.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expect, sig):
-        return None
-    try:
-        user, exp = base64.urlsafe_b64decode(b64.encode()).decode().split("|", 1)
-    except (ValueError, TypeError):
-        return None
-    if float(exp) < now:
-        return None
-    return user or None
-
-
-def _check_token(sec: dict, token: str, now: float | None = None) -> str | None:
-    """管理员会话 cookie → 账号名（是否仍是管理员由调用方再查账号表）。"""
-    return _check_token_raw(sec, token, now)
-
-
-def _check_vsubject(sec: dict, token: str, now: float | None = None) -> str | None:
-    """查看端会话（cookie kanban_view）：返回登录账号名；无效 None。
-    v8.0 起主体=账号（不再是 main/bu:xxx）；权限在请求时从账号表解析。"""
-    return _check_token_raw(sec, token, now)
-
-# ---------------- 渲染缓存 ----------------
-def _publish(cfg, summary, html, bu_pages=None, fragments=None):
-    _state["summary"] = summary
-    _state["user_html"] = html
-    if fragments is not None:
-        _state["fragments"] = fragments
-    _state["admin_html"] = _admin_page(html, summary, cfg)
-    if bu_pages is not None:
-        _state["bu_pages"] = bu_pages
-    _state["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _do_full(cfg, root, trigger) -> dict:
-    today = loaders.pinned_today(cfg)
-    summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
-    _state["records"] = ing.get("records")  # 缓存原始记录供秒级重算
-    _publish(cfg, summary, html, bu_pages, fragments=summary.pop("_fragments", None) or _state.get("fragments"))
-    return ing
-
-
-def _do_recompute(cfg, root) -> None:
-    if not _state.get("records"):
-        _do_full(cfg, root, "manual")
-        return
-    today = loaders.pinned_today(cfg)
-    logo = assets.load_logo_base64(cfg)
-    conn = db.connect(cfg, root)
-    try:
-        ingest.reapply(cfg, conn, _state["records"], today)
-        summary = core.summary_from_conn(cfg, conn, today)
-        bu_pages = core.build_bu_pages(cfg, conn, today, logo, root)
-        core.attach_unassigned(cfg, conn, today, summary, root)
-    finally:
-        conn.close()
-    frags = render.build_dashboard_fragments(summary, cfg, logo)
-    html = render.assemble_dashboard_html(frags)
-    _publish(cfg, summary, html, bu_pages, fragments=frags)
+# ---------------- 刷新管道（refresh_pipeline）兼容别名 ----------------
+# 注意：_do_full / start_refresh_async 必须挂在 server 模块上，
+# 以便 tests 打桩 server._do_full（见 test_admin_edit 刷新异步）。
+_publish = refresh_pipeline.publish
+_do_full = refresh_pipeline.do_full
+_do_recompute = refresh_pipeline.do_recompute
+recompute = refresh_pipeline.recompute
 
 
 def refresh(cfg, root=None, trigger="manual") -> dict:
-    """完整更新（fetch+重读xlsx+重建+重放）+ 渲染两端，刷新缓存。启动与 /api/refresh 用。"""
+    """完整更新；持锁调用本模块 _do_full（可被测试替换）。"""
     with _LOCK:
         return _do_full(cfg, root, trigger)
 
 
 def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
-    """后台线程跑完整更新（在线抓开着约80秒，不能同步阻塞按钮）。
-    拿到锁→起线程返回 True；拿不到（已在更新）返回 False。进度看 _state["refreshing"]/["last_refresh"]。"""
+    """后台完整更新。调用本模块 _do_full，便于测试打桩。"""
     if not _LOCK.acquire(blocking=False):
         return False
     _state["refreshing"] = {"started_at": time.strftime("%Y-%m-%d %H:%M:%S"), "trigger": trigger}
@@ -193,13 +95,17 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
         t0 = time.time()
         try:
             ing = _do_full(cfg, root, trigger)
-            _state["last_refresh"] = {"status": "ok", "result": ing.get("result"),
-                                      "seconds": round(time.time() - t0, 1),
-                                      "finished_at": time.strftime("%Y-%m-%d %H:%M:%S")}
-        except Exception as e:  # 失败也要落状态，前端能看到为啥
-            _state["last_refresh"] = {"status": "error", "detail": f"{type(e).__name__}: {e}",
-                                      "seconds": round(time.time() - t0, 1),
-                                      "finished_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+            _state["last_refresh"] = {
+                "status": "ok", "result": ing.get("result"),
+                "seconds": round(time.time() - t0, 1),
+                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        except Exception as e:
+            _state["last_refresh"] = {
+                "status": "error", "detail": f"{type(e).__name__}: {e}",
+                "seconds": round(time.time() - t0, 1),
+                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
         finally:
             _state["refreshing"] = None
             _LOCK.release()
@@ -458,10 +364,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
             "ledger_share_path": cfg.get("ledger_share_path", ""), "note": note}
 
 
-def recompute(cfg, root=None) -> None:
-    """**秒级重算**（保存调整/手填后）：缓存记录重置标准表→重放→重算→重渲染，不读 xlsx。"""
-    with _LOCK:
-        _do_recompute(cfg, root)
+# recompute 已由 refresh_pipeline 提供（秒级重算：缓存记录→重放→重算→重渲染）
 
 
 # ---------------- 配置变更留痕（C3）：写接口 diff → 人读摘要 → db.log_config_change ----------------
@@ -558,10 +461,14 @@ def _manual_items_json(cfg: dict | None = None) -> str:
     return _json.dumps(items, ensure_ascii=False, separators=(",", ":"))
 
 
-def _admin_page(dash_html: str, summary: dict, cfg: dict | None = None) -> str:
+def _admin_page(dash_html: str, summary: dict, cfg: dict | None = None) -> str:  # noqa: ARG001
     """管道跑通后标记「管理端可进完整台」（truthy 写入 _state['admin_html']）。
     页面本体只在 static/admin/，此处不再生成整页 HTML。"""
     return "ready"
+
+
+# refresh_pipeline.publish 拼 admin_html 时调用（避免 pipeline↔server 环依赖）
+refresh_pipeline.set_admin_page_builder(_admin_page)
 
 
 def _admin_static_html() -> str:
@@ -1852,33 +1759,8 @@ def create_app(cfg, root=None) -> FastAPI:
     return app
 
 
-def _screenshot_png(html: str, blk: str = "", width: int = 1440) -> bytes:
-    """把用户页 HTML 在无头浏览器里渲开并整页截图。blk 非空=先切到该周期视图。
-    reduced_motion 关掉全部动效（粒子/扫描线/生长动画），截出来是静止完整帧。"""
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        br = p.chromium.launch(headless=True)
-        try:
-            ctx = br.new_context(viewport={"width": width, "height": 900},
-                                 reduced_motion="reduce", device_scale_factor=2)
-            pg = ctx.new_page()
-            pg.set_content(html, wait_until="load")
-            try:
-                pg.wait_for_selector('body[data-assembled="1"]', timeout=15000)
-            except Exception:
-                pg.wait_for_timeout(400)  # 旧页无标记时兜底
-            if blk:
-                pg.evaluate(
-                    "k=>{document.querySelectorAll('.pv').forEach(x=>{"
-                    "x.style.display=x.getAttribute('data-blk')===k?'':'none';});"
-                    "var b=document.getElementById('periodBtn');"
-                    "if(b)b.childNodes[0].textContent=k+' ';}", blk)
-            # 截图里去掉纯装饰/交互件（粒子层、导出与主题按钮）
-            pg.add_style_tag(content=".particles,#exportBtn,#themeBtn{display:none!important}")
-            pg.wait_for_timeout(400)
-            return pg.screenshot(full_page=True, type="png")
-        finally:
-            br.close()
+import export_png as _export_png
+_screenshot_png = _export_png.screenshot_png
 
 
 def serve(cfg=None, root=None):
