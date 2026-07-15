@@ -5,6 +5,8 @@
 B-P5 后生产固定 shell+fragments，无 SERVE_SHELL 化石开关。
 HTTP 测试断言页面内容请走：
   - `/api/v1/cockpit/fragments` / `/api/v1/cockpit/bu/{name}/fragments`
+    · fragments 卡字段须为空（client strip）
+    · 内容在 views.kpi_body / views.rankings_view 等
   - 或直接读 `server._state["user_html"]` / `bu_pages[n]["html"]`
 由 tests/run_test.py 在加载任意测试脚本前 import。
 """
@@ -21,7 +23,31 @@ if _SRC not in sys.path:
 import server  # noqa: E402,F401
 
 
+def fake_views(mark: str = "USER-MAIN", year_key: str = "2026年") -> dict:
+    """测试用 views：标记放在 kpi_body（HTTP strip 后仍可在 views 读到）。"""
+    return {
+        "year_key": year_key,
+        "period_keys": [year_key],
+        "rankings_view": {
+            year_key: {
+                "visible": True, "start": "", "end": "",
+                "sales": {"title": "", "dim": "sales", "items": [], "others": None, "empty": True},
+                "customer": {"title": "", "dim": "customer", "items": [], "others": None, "empty": True},
+            }
+        },
+        "kpi_body": {year_key: mark},
+        "pl_body": {year_key: ""},
+        "donut_body": {year_key: ""},
+        "profit_rank_body": {year_key: ""},
+        "trend_html": "",
+        "receipts_budget": "",
+        "period_bar": "",
+        "daily_html": "",
+    }
+
+
 def fake_main_frags(mark: str = "USER-MAIN") -> dict:
+    """模拟 publish 缓存：卡字段有预拼串（HTTP 必须 strip 掉）。"""
     keys = (
         "title", "particles", "logo", "version", "generated_at", "pw_modal",
         "period_bar", "kpi_views", "trend_html", "donut_views", "pl_views",
@@ -29,7 +55,7 @@ def fake_main_frags(mark: str = "USER-MAIN") -> dict:
     )
     fr = {k: "" for k in keys}
     fr["title"] = "甲骨易智能经营罗盘"
-    fr["kpi_views"] = mark
+    fr["kpi_views"] = mark  # 预拼；HTTP 须清空
     return fr
 
 
@@ -47,5 +73,6 @@ def fake_bu_page(name: str, mark: str) -> dict:
         "name": name,
         "html": f'<html><div class="wrap">{mark}</div></html>',
         "fragments": fr,
+        "views": fake_views(mark),
         "summary": {"meta": {"year": 2026, "year_key": "2026年"}, "periods": {}},
     }

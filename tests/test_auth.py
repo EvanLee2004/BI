@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import accounts, bu, loaders, server
-from support import fake_main_frags, fake_bu_page  # noqa: E402
+from support import fake_main_frags, fake_bu_page, fake_views  # noqa: E402
 
 
 def _write_bucfg(cfg, root, bus):
@@ -92,6 +92,7 @@ class TestViewerAuth(unittest.TestCase):
         _write_accts(self.cfg, self.tmp, _std_accts())
         server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
+        server._state["views"] = fake_views("USER-MAIN")
         server._state["bu_pages"] = {
             "BU甲": fake_bu_page("BU甲", "PAGE-A"),
             "BU乙": fake_bu_page("BU乙", "PAGE-B"),
@@ -134,7 +135,8 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("加载驾驶舱", home)  # shell
         self.assertNotIn("USER-MAIN", home)
         fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertEqual(fr["fragments"].get("kpi_views"), "")
+        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertIn("BU甲", fr.get("chrome_prefix") or "")
 
     def test_admin_login_from_root_redirects_admin(self):
@@ -160,7 +162,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("加载 BU", rbu.text)  # shell-bu
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
         self.assertEqual(fr.status_code, 200)
-        self.assertIn("PAGE-A", fr.json()["fragments"]["kpi_views"])
+        j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
         self.assertIn("看板登录", c.get(f"/bu/{quote('BU乙')}").text)
 
@@ -174,13 +176,13 @@ class TestViewerAuth(unittest.TestCase):
             self.assertEqual(r.status_code, 303)
             fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
             self.assertEqual(fr.status_code, 200)
-            self.assertIn("PAGE-B", fr.json()["fragments"]["kpi_views"])
+            j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
 
     def test_main_and_admin_can_view_any_bu(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        self.assertIn("PAGE-A", c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()["fragments"]["kpi_views"])
+        j=c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         a = self._admin()
-        self.assertIn("PAGE-B", a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json()["fragments"]["kpi_views"])
+        j=a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
 
     def test_unknown_bu_404(self):
         self.assertEqual(self.raw.get(f"/bu/{quote('不存在BU')}").status_code, 404)
@@ -246,7 +248,7 @@ class TestViewerAuth(unittest.TestCase):
         if r0.status_code==303:
             fr=c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
             self.assertEqual(fr.status_code, 200)
-            self.assertIn("PAGE-B", fr.json()["fragments"]["kpi_views"])
+            j=fr.json(); self.assertEqual(j["fragments"].get("kpi_views"),""); self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         else:
             fr=c.get("/api/v1/cockpit/fragments")
             # 若仍整体则至少不崩溃
@@ -367,6 +369,7 @@ class TestHidePwForAdmin(unittest.TestCase):
             '<html><head></head><body><button id="pwBtn">🔑 密码</button>'
             '<div class="wrap">USER-MAIN</div></body></html>')
         server._state["fragments"] = fake_main_frags("USER-MAIN")
+        server._state["views"] = fake_views("USER-MAIN")
         page = fake_bu_page("BU甲", "PAGE-A")
         page["html"] = (
             '<html><body><button id="pwBtn">🔑 密码</button>'
@@ -390,13 +393,15 @@ class TestHidePwForAdmin(unittest.TestCase):
     def test_admin_root_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
         fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertEqual(fr["fragments"].get("kpi_views"), "")
+        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
 
     def test_viewer_root_keeps_pw(self):
         c = self._as("overall", server.DEFAULT_VIEW_PW)
         fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertIn("USER-MAIN", fr["fragments"]["kpi_views"])
+        self.assertEqual(fr["fragments"].get("kpi_views"), "")
+        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
         # 改密按钮在缓存 HTML 里
         self.assertIn('id="pwBtn"', server._state["user_html"])
@@ -404,13 +409,13 @@ class TestHidePwForAdmin(unittest.TestCase):
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertIn("PAGE-A", fr["fragments"]["kpi_views"])
+        self.assertEqual(fr["fragments"].get("kpi_views"), ""); self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
 
     def test_bu_viewer_keeps_pw(self):
         c = self._as("user_a", server.DEFAULT_VIEW_PW)
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertIn("PAGE-A", fr["fragments"]["kpi_views"])
+        self.assertEqual(fr["fragments"].get("kpi_views"), ""); self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
         self.assertIn('id="pwBtn"', server._state["bu_pages"]["BU甲"]["html"])
 

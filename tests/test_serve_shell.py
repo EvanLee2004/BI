@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import accounts, bu, loaders, server  # noqa: E402
-from support import fake_main_frags  # noqa: E402
+from support import fake_main_frags, fake_views  # noqa: E402
 
 
 def _write_bucfg(cfg, root, bus):
@@ -32,18 +32,13 @@ class TestServeShellProductionPath(unittest.TestCase):
             {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
         ])
         server._state["user_html"] = '<html><body><div class="wrap">USER-MAIN</div></body></html>'
+        # 模拟 publish 预拼缓存
         server._state["fragments"] = fake_main_frags("USER-MAIN")
         server._state["summary"] = {
             "meta": {"year": 2026, "year_key": "2026年", "tab_groups": {"季度": [], "月": []}},
-            "periods": {"2026年": {"range": ("2026-01-01", "2026-12-31"), "rankings": {}}},
+            "periods": {},
         }
-        server._state["views"] = {
-            "year_key": "2026年",
-            "period_keys": ["2026年"],
-            "rankings_view": {"2026年": {"visible": True, "start": "", "end": "",
-                                        "sales": {"title": "", "dim": "sales", "items": [], "others": None, "empty": True},
-                                        "customer": {"title": "", "dim": "customer", "items": [], "others": None, "empty": True}}},
-        }
+        server._state["views"] = fake_views("USER-MAIN")
         server._state["bu_pages"] = {}
         server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
         self.app = server.create_app(self.cfg, root=self.tmp)
@@ -62,10 +57,13 @@ class TestServeShellProductionPath(unittest.TestCase):
         self.assertIn("/api/v1/cockpit/fragments", body)
         self.assertIn("assemble/page.js", body)
         self.assertNotIn("USER-MAIN", body)
-        # 碎片 API 才有缓存内容
+        # 碎片 API：卡字段须 strip；内容在 views
         fr = c.get("/api/v1/cockpit/fragments")
         self.assertEqual(fr.status_code, 200)
-        self.assertIn("USER-MAIN", fr.json()["fragments"]["kpi_views"])
+        body = fr.json()
+        self.assertEqual(body["fragments"].get("kpi_views"), "")
+        kpi_body = (body.get("views") or {}).get("kpi_body") or {}
+        self.assertIn("USER-MAIN", " ".join(str(v) for v in kpi_body.values()))
 
     def test_no_serve_shell_attr_fossil(self):
         """P5：不存在 SERVE_SHELL 开关（或即使残留也不得再控制 / 直出）。"""

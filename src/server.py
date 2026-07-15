@@ -834,17 +834,19 @@ def create_app(cfg, root=None) -> FastAPI:
             fr = pack["fragments"]
             views = pack["views"]
         else:
-            # 缓存 fragments 可能含 Python 预渲染 rank_views——客户端路径必须清空
-            fr = dict(fr)
-            fr["rank_views"] = ""
-            if not views:
-                if summary and (summary.get("meta") or {}).get("year_key"):
-                    try:
-                        views = api_v1.build_cockpit_views(summary)
-                    except Exception:
-                        views = {"year_key": "", "period_keys": [], "rankings_view": {}}
-                else:
-                    views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+            # publish 缓存含 Python 预拼卡 HTML——HTTP client 路径必须全部清空
+            fr = api_v1.client_strip_fragments(fr)
+            # views 优先带 cfg 从 summary 重建；失败则用缓存 views
+            rebuilt = None
+            if summary and (summary.get("meta") or {}).get("year_key"):
+                try:
+                    rebuilt = api_v1.build_cockpit_views(summary, cfg)
+                except Exception:
+                    rebuilt = None
+            if rebuilt and (rebuilt.get("kpi_body") or rebuilt.get("rankings_view") or rebuilt.get("period_keys")):
+                views = rebuilt
+            elif not views:
+                views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         hide_pw = bool(_user(request))
         return JSONResponse({
             "api_version": "v1",
@@ -857,7 +859,7 @@ def create_app(cfg, root=None) -> FastAPI:
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
     def api_v1_cockpit_bu_fragments(name: str, request: Request):
-        """B-P4：BU 页碎片 + views.rankings_view（shell-bu + rankings.js + page.js）。"""
+        """B-P4：BU 页碎片 + views（shell-bu + rankings.js + page.js）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_bu(request, name):
@@ -876,21 +878,26 @@ def create_app(cfg, root=None) -> FastAPI:
             except Exception:
                 logo = ""
             fr = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
-        fr = dict(fr)
-        fr["rank_views"] = ""  # client path：rankings.js 组装
-        views = page.get("views")
-        if not views and summary:
+        # 缓存/现建均 strip：禁止 Python 预拼卡 HTML 下发
+        fr = api_v1.client_strip_fragments(fr)
+        cached_views = page.get("views")
+        views = cached_views
+        if summary and (summary.get("meta") or {}).get("year_key"):
             try:
-                views = api_v1.build_cockpit_views(summary, cfg)
+                rebuilt = api_v1.build_cockpit_views(summary, cfg)
+                if rebuilt.get("kpi_body") or rebuilt.get("rankings_view") or rebuilt.get("period_keys"):
+                    views = rebuilt
             except Exception:
-                views = {"year_key": "", "period_keys": [], "rankings_view": {}}
+                pass
+        if not views:
+            views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         return JSONResponse({
             "api_version": "v1",
             "mode": "fragments",
             "scope": "BU",
             "bu_name": name,
             "fragments": fr,
-            "views": views or {},
+            "views": views,
             "chrome_prefix": _bu_chrome_prefix(name, request),
             "data_assembled": "1",
         })

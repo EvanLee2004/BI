@@ -167,35 +167,6 @@ def rankings_view_for_period(period: dict) -> dict:
     }
 
 
-def build_cockpit_views(summary: dict) -> dict:
-    """B-P0 shipped：渲染就绪「视图」JSON（显示串已算好，前端只拼 DOM）。
-    rankings_view 与 cockpit_payload 同源，供 rankings.js assembleRankings。"""
-    meta = summary.get("meta") or {}
-    periods = summary.get("periods") or {}
-    yk = meta.get("year_key") or ""
-    # 周期键顺序与 build_dashboard_fragments 一致
-    tab = meta.get("tab_groups") or {}
-    period_keys = ([yk] if yk else []) + list(tab.get("季度") or []) + list(tab.get("月") or []) + list(tab.get("区间") or [])
-    # 去重保序
-    seen, ordered = set(), []
-    for k in period_keys:
-        if k and k not in seen and k in periods:
-            seen.add(k)
-            ordered.append(k)
-    for k in periods:
-        if k not in seen:
-            ordered.append(k)
-    return {
-        "year_key": yk,
-        "period_keys": ordered,
-        "rankings_view": {
-            pk: rankings_view_for_period(pv)
-            for pk, pv in periods.items()
-            if isinstance(pv, dict)
-        },
-    }
-
-
 def _period_keys(summary: dict) -> tuple[str, list[str]]:
     meta = summary.get("meta") or {}
     periods = summary.get("periods") or {}
@@ -294,10 +265,22 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
 
 
 # 客户端路径须由 JS 组装的 fragments 字段（禁止服务端预拼后 fill）
+# 整体页 + BU 页共有字段；BU 另有 pl_tag 等由 bu 模板填
 _CLIENT_ASSEMBLE_FIELDS = (
     "kpi_views", "pl_views", "donut_views", "profit_rank_views", "rank_views",
     "trend_html", "receipts_budget", "period_bar", "daily_html",
+    # BU 模板字段
+    "receipts_html", "pl_tag",
 )
+
+
+def client_strip_fragments(fr: dict) -> dict:
+    """HTTP client 路径：清空所有须 JS 组装的卡字段（publish 缓存不得原样下发）。"""
+    out = dict(fr or {})
+    for f in _CLIENT_ASSEMBLE_FIELDS:
+        if f in out:
+            out[f] = ""
+    return out
 
 
 def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None,
@@ -311,9 +294,7 @@ def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None,
     fr = render.build_dashboard_fragments(summary, cfg, logo_b64 or "")
     views = build_cockpit_views(summary, cfg)
     if client:
-        fr = dict(fr)
-        for f in _CLIENT_ASSEMBLE_FIELDS:
-            fr[f] = ""
+        fr = client_strip_fragments(fr)
     return {
         "api_version": "v1",
         "mode": "fragments",
