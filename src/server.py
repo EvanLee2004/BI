@@ -880,7 +880,10 @@ def create_app(cfg, root=None) -> FastAPI:
         fr["rank_views"] = ""  # client path：rankings.js 组装
         views = page.get("views")
         if not views and summary:
-            views = api_v1.build_cockpit_views(summary)
+            try:
+                views = api_v1.build_cockpit_views(summary, cfg)
+            except Exception:
+                views = {"year_key": "", "period_keys": [], "rankings_view": {}}
         return JSONResponse({
             "api_version": "v1",
             "mode": "fragments",

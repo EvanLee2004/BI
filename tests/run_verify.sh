@@ -59,6 +59,7 @@ tests/test_admin_static.py
 tests/test_no_html_in_py.py
 tests/test_b_p0_rankings_assemble.py
 tests/test_b_p0_shipped_path.py
+tests/test_b_shipped_cards.py
 tests/test_b_p1_contract.py
 "
 run_one() {

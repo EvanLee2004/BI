@@ -196,19 +196,124 @@ def build_cockpit_views(summary: dict) -> dict:
     }
 
 
+def _period_keys(summary: dict) -> tuple[str, list[str]]:
+    meta = summary.get("meta") or {}
+    periods = summary.get("periods") or {}
+    yk = meta.get("year_key") or ""
+    tab = meta.get("tab_groups") or {}
+    period_keys = ([yk] if yk else []) + list(tab.get("季度") or []) + list(tab.get("月") or []) + list(tab.get("区间") or [])
+    seen, ordered = set(), []
+    for k in period_keys:
+        if k and k not in seen and k in periods:
+            seen.add(k)
+            ordered.append(k)
+    for k in periods:
+        if k not in seen:
+            ordered.append(k)
+    return yk, ordered
+
+
+def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
+    """整页渲染就绪 views（B-P2~P4 shipped）。
+
+    - rankings_view：叶子显示串 → rankings.js 组装（无服务端拼排名 DOM）
+    - *_body：各周期卡正文的**显示串**（金额/条件已在 Python 算完；JS 只做 .pv 周期壳拼接）
+    - trend_html / receipts_budget / period_bar：非按周期 .pv 的显示串块
+    """
+    import render
+    cfg = cfg or {}
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    FT = summary.get("expense_fine_type") or {}
+    # 测试/残缺 summary：不硬崩，返回空 views
+    if not meta.get("year_key") and not P:
+        return {
+            "year_key": "", "period_keys": [], "rankings_view": {},
+            "kpi_body": {}, "pl_body": {}, "donut_body": {}, "profit_rank_body": {},
+            "trend_html": "", "receipts_budget": "", "period_bar": "", "daily_html": "",
+        }
+    yk, ordered = _period_keys(summary)
+    month_keys = (meta.get("tab_groups") or {}).get("月") or []
+    budget = meta.get("budget")
+    BUO = meta.get("bu_orders") or {}
+    show_ar = bool(cfg.get("show_delivered_unpaid", False))
+    BP = summary.get("expense_by_profit_center") or {}
+    BD = summary.get("expense_by_department") or {}
+    unc = (meta.get("unclassified") or {}).get("expense") or {}
+    unc_amt = float(unc.get("amount") or 0) if unc else 0.0
+
+    kpi_body, pl_body, donut_body, profit_rank_body = {}, {}, {}, {}
+    for k in ordered:
+        if k not in P:
+            continue
+        kpi_body[k] = render.render_basic(
+            k, P, meta.get("year"), month_keys, budget,
+            bu_orders=BUO.get(k), show_delivered_unpaid=show_ar)
+        pl_body[k] = render.render_pl_table(
+            P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None)
+        donut_body[k] = render.render_expense_views(
+            P[k], render._fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k))
+        profit_rank_body[k] = render.render_profit_rankings(P[k])
+
+    hl = ""
+    try:
+        hl = (meta.get("current_month_label") or "").split("年")[1]
+    except Exception:
+        hl = ""
+    rm_map = render._period_months_map(summary)
+    trend_html = render.render_trend(
+        summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
+    receipts_html = render.render_receipts(
+        summary.get("receipt_order_monthly") or [], budget,
+        period_months_map=rm_map, year_key=yk,
+        periods=P, default_key=yk, show_delivered_unpaid=show_ar)
+    receipts_budget = render.tpl.fill("render/period_receipts.html", html=receipts_html)
+    try:
+        period_bar = render.render_period_bar(summary)
+    except Exception:
+        period_bar = ""
+
+    return {
+        "year_key": yk,
+        "period_keys": ordered,
+        "rankings_view": {
+            pk: rankings_view_for_period(pv)
+            for pk, pv in P.items() if isinstance(pv, dict)
+        },
+        # 周期卡正文显示串（JS wrap .pv）
+        "kpi_body": kpi_body,
+        "pl_body": pl_body,
+        "donut_body": donut_body,
+        "profit_rank_body": profit_rank_body,
+        # 非 .pv 块显示串
+        "trend_html": trend_html,
+        "receipts_budget": receipts_budget,
+        "period_bar": period_bar,
+        "daily_html": render.DAILY_HTML,
+    }
+
+
+# 客户端路径须由 JS 组装的 fragments 字段（禁止服务端预拼后 fill）
+_CLIENT_ASSEMBLE_FIELDS = (
+    "kpi_views", "pl_views", "donut_views", "profit_rank_views", "rank_views",
+    "trend_html", "receipts_budget", "period_bar", "daily_html",
+)
+
+
 def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None,
                       *, client: bool = True) -> dict:
-    """整页碎片 + views（B-P0 shipped）。
+    """整页碎片 + views。
 
-    client=True（shell 默认）：fragments.rank_views 置空，由 page.js + rankings.js 组装。
-    client=False：保留 Python 预渲染 rank_views（导出/快照兼容）。
+    client=True：清空须由 JS 组装的卡字段，强制 shipped 路径。
+    client=False：保留 Python 全量预渲染（导出/快照）。
     """
     import render
     fr = render.build_dashboard_fragments(summary, cfg, logo_b64 or "")
-    views = build_cockpit_views(summary)
+    views = build_cockpit_views(summary, cfg)
     if client:
         fr = dict(fr)
-        fr["rank_views"] = ""  # 生产路径：禁止依赖服务端拼好的排名 HTML
+        for f in _CLIENT_ASSEMBLE_FIELDS:
+            fr[f] = ""
     return {
         "api_version": "v1",
         "mode": "fragments",
