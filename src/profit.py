@@ -910,7 +910,7 @@ def unknown_pc_warnings(items: list[dict]) -> list[str]:
             continue
         warns.append(
             f"台账 {n} 笔费用的利润归属中心『{name}』不在 BU 名单"
-            f"（¥{amt / 1e4:.1f} 万）——不进任何 BU 直记也不进公共池，请到设置核对 BU 名或修正台账"
+            f"（¥{amt / 1e6:.1f} 万）——不进任何 BU 直记也不进公共池，请到设置核对 BU 名或修正台账"
         )
     return warns
 
