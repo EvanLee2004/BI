@@ -128,26 +128,33 @@ def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
     }
 
 
-def rankings_view_for_period(period: dict) -> dict:
-    """P0：排名双血条渲染就绪 JSON（显示串已算好，前端只拼 DOM）。"""
+def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
+    """P0：排名双血条渲染就绪 JSON（显示串已算好，前端只拼 DOM）。
+
+    embed_full=True（BU）：附带 full_items 显示串，rankings.js 预拼 .rk-full 本地展开，
+    不调全公司排名 API（铁律12）。宽度/金额均在本函数算完，JS 只 toFixed 拼 CSS。
+    """
     import render
     rk = period.get("rankings") or {}
     s, e = period.get("range", ("", ""))
     dual_s = render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
     dual_c = render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
 
+    def _item_row(i, it, *, wo=None, wr=None):
+        return {
+            "i": i,
+            "name": it["name"],
+            "name_esc": render._esc(it["name"]),
+            "wo": round(wo if wo is not None else (it.get("wo") or 0), 1),
+            "wr": round(wr if wr is not None else (it.get("wr") or 0), 1),
+            "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
+            "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
+        }
+
     def pack(dual, title, dim):
         items = []
         for i, it in enumerate(dual.get("items") or [], 1):
-            items.append({
-                "i": i,
-                "name": it["name"],
-                "name_esc": render._esc(it["name"]),
-                "wo": round(it.get("wo") or 0, 1),
-                "wr": round(it.get("wr") or 0, 1),
-                "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
-                "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
-            })
+            items.append(_item_row(i, it))
         others = dual.get("others")
         others_out = None
         if others:
@@ -156,8 +163,26 @@ def rankings_view_for_period(period: dict) -> dict:
                 "amt": f'下单{others.get("order_disp") or render._rank_amt(others.get("order") or 0)} / 回款{others.get("receipt_disp") or render._rank_amt(others.get("receipt") or 0)}',
                 "count": others["names"],
             }
-        return {"title": title, "dim": dim, "items": items, "others": others_out,
-                "empty": not items}
+        out = {"title": title, "dim": dim, "items": items, "others": others_out,
+               "empty": not items, "embed_full": bool(embed_full and others)}
+        # 与 render._dual_card(embed_full=True) 同源：有「其余」才挂全量行
+        if embed_full and others:
+            full_src = dual.get("full_items") or dual.get("items") or []
+            mx = dual.get("mx") or 1
+            if not mx:
+                mx = 1
+            full_out = []
+            for i, it in enumerate(full_src, 1):
+                oa = float(it.get("order") or 0)
+                ra = float(it.get("receipt") or 0)
+                wo = max(oa / mx * 100, 0)
+                wr = max(ra / mx * 100, 0)
+                row = dict(it)
+                row.setdefault("order_disp", render._rank_amt(oa))
+                row.setdefault("receipt_disp", render._rank_amt(ra))
+                full_out.append(_item_row(i, row, wo=wo, wr=wr))
+            out["full_items"] = full_out
+        return out
 
     return {
         "visible": True,
@@ -332,9 +357,9 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         "period_keys": ordered,
         "scope": "BU",
         "bu_name": bu_name or "",
-        # 下单/回款双血条叶子（embed_full 由 rankings_view_for_period 参数控制；本批 commit3 接 True）
+        # 下单/回款双血条叶子：embed_full=True → rankings.js 拼 .rk-full（铁律12）
         "rankings_view": {
-            pk: rankings_view_for_period(pv)
+            pk: rankings_view_for_period(pv, embed_full=True)
             for pk, pv in P.items() if isinstance(pv, dict)
         },
         "kpi_body": kpi_body,
