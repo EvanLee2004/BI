@@ -1824,6 +1824,10 @@ def _screenshot_png(html: str, blk: str = "", width: int = 1440) -> bytes:
                                  reduced_motion="reduce", device_scale_factor=2)
             pg = ctx.new_page()
             pg.set_content(html, wait_until="load")
+            try:
+                pg.wait_for_selector('body[data-assembled="1"]', timeout=15000)
+            except Exception:
+                pg.wait_for_timeout(400)  # 旧页无标记时兜底
             if blk:
                 pg.evaluate(
                     "k=>{document.querySelectorAll('.pv').forEach(x=>{"

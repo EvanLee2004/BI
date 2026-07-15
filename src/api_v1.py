@@ -96,6 +96,12 @@ def cockpit_payload(summary: dict, *, scope: str = "整体", bu_name: str | None
         "expense_by_department": summary.get("expense_by_department"),
         "expense_by_profit_center": summary.get("expense_by_profit_center"),
         "numbers": extract_numbers(summary),
+        # B-P0/P1：各周期排名双血条渲染就绪视图
+        "rankings_view": {
+            pk: rankings_view_for_period(pv)
+            for pk, pv in (summary.get("periods") or {}).items()
+            if isinstance(pv, dict)
+        },
     }
 
 
@@ -119,4 +125,43 @@ def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
         "bus": accounts.bu_names_of(acc),
         "is_admin": accounts.is_admin(acc),
         "can_main": accounts.is_main(acc) or accounts.is_admin(acc),
+    }
+
+
+def rankings_view_for_period(period: dict) -> dict:
+    """P0：排名双血条渲染就绪 JSON（显示串已算好，前端只拼 DOM）。"""
+    import render
+    rk = period.get("rankings") or {}
+    s, e = period.get("range", ("", ""))
+    dual_s = render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales"))
+    dual_c = render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer"))
+
+    def pack(dual, title, dim):
+        items = []
+        for i, it in enumerate(dual.get("items") or [], 1):
+            items.append({
+                "i": i,
+                "name": it["name"],
+                "name_esc": render._esc(it["name"]),
+                "wo": round(it.get("wo") or 0, 1),
+                "wr": round(it.get("wr") or 0, 1),
+                "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
+                "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
+            })
+        others = dual.get("others")
+        others_out = None
+        if others:
+            others_out = {
+                "names": others["names"],
+                "amt": f'下单{others.get("order_disp") or render._rank_amt(others.get("order") or 0)} / 回款{others.get("receipt_disp") or render._rank_amt(others.get("receipt") or 0)}',
+                "count": others["names"],
+            }
+        return {"title": title, "dim": dim, "items": items, "others": others_out,
+                "empty": not items}
+
+    return {
+        "visible": True,
+        "start": s, "end": e,
+        "sales": pack(dual_s, "下单/回款 · 按销售", "sales"),
+        "customer": pack(dual_c, "下单/回款 · 按客户", "customer"),
     }
