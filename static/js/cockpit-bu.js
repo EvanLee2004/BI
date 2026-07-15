@@ -191,3 +191,40 @@
  modal.addEventListener('click',function(ev){if(ev.target===modal)modal.style.display='none';});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')modal.style.display='none';});
 })();
+
+
+/* A5：本 BU 费用明细（只读；后端强制 BU 隔离） */
+(function(){
+  var card=document.getElementById("buLedgerCard");
+  if(!card)return;
+  var bu=card.getAttribute("data-bu")||"";
+  var yEl=document.getElementById("blY"), mEl=document.getElementById("blM");
+  var qEl=document.getElementById("blQ"), info=document.getElementById("blInfo"), tbl=document.getElementById("blTbl");
+  var y0=new Date().getFullYear();
+  for(var y=y0;y>=2026;y--){var o=document.createElement("option");o.value=String(y);o.textContent=y+"年";yEl.appendChild(o);}
+  yEl.value=String(Math.max(y0,2026));
+  for(var m=1;m<=12;m++){var o=document.createElement("option");o.value=String(m);o.textContent=m+"月";mEl.appendChild(o);}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+  function load(){
+    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page=1&page_size=200&bu="+encodeURIComponent(bu);
+    if(yEl.value&&mEl.value){var mm=("0"+mEl.value).slice(-2);u+="&month="+encodeURIComponent(yEl.value+"-"+mm);}
+    else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
+    var q=(qEl.value||"").trim();if(q)u+="&q="+encodeURIComponent(q);
+    info.textContent="加载中…";
+    fetch(u,{credentials:"same-origin"}).then(function(r){
+      if(r.status===401||r.status===403){info.textContent="无权限";return null;}
+      return r.json();
+    }).then(function(d){
+      if(!d)return;
+      info.textContent="共 "+d.total+" 行（本页 "+(d.rows||[]).length+"）";
+      var cols=d.columns||[];
+      var h="<tr>"+cols.map(function(c){return "<th style='text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)'>"+esc(c)+"</th>";}).join("")+"</tr>";
+      (d.rows||[]).forEach(function(row){
+        h+="<tr>"+cols.map(function(c){return "<td style='padding:4px 6px;border-bottom:1px solid var(--line)'>"+esc(row[c])+"</td>";}).join("")+"</tr>";
+      });
+      tbl.innerHTML=h||"<tr><td class='muted'>无数据</td></tr>";
+    }).catch(function(e){info.textContent="失败："+e.message;});
+  }
+  document.getElementById("blGo").onclick=load;
+  load();
+})();

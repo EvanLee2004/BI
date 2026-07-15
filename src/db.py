@@ -133,8 +133,13 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     "内部译员": ("std_内部译员",
               ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月"],
               ["定位键", "任务ID", "译员类型", "译员姓名", "销售"]),
-    "费用明细": ("std_费用明细", ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "归属月"],
-                ["定位键", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"]),
+    # A5：费用明细全列（含事项≈摘要）；系统列归属月置末
+    "费用明细": ("std_费用明细",
+              ["定位键", "收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类",
+               "预算明细费用类型", "预算归属部门", "事项", "提单人", "提单人部门", "业务员",
+               "配音费合同号", "归属月"],
+              ["定位键", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门",
+               "事项", "提单人", "业务员"]),
 }
 
 
@@ -150,15 +155,19 @@ UNFILLED_DEPT_WHERE = "(部门 IS NULL OR TRIM(部门)='') AND 下单预估额 I
 
 def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = None,
                  q: str | None = None, page: int = 1, page_size: int = 50,
-                 unclassified: bool = False, unfilled_dept: bool = False) -> dict:
-    """明细分页查询（带按月 + 关键词筛选）。仅读未删除行。表键须在白名单内（防注入）。
-    unclassified=True 仅对「费用明细」有效：只返回「对应报表大类」为空且金额非零的行
-    （= 页面"费用未分类（台账）"只读清单所列那批，提示到源头收单台账补填；口径与 build_unclassified_summary 一致）。
-    unfilled_dept=True 仅对「下单」有效：只返回「部门」为空且金额非零的行
-    （= 异常处理「下单未填部门」清单；口径与排名「（未填）」组一致，测试守卫）。"""
+                 unclassified: bool = False, unfilled_dept: bool = False,
+                 year: str | None = None, bu: str | None = None) -> dict:
+    """明细分页查询（按年/月 + 关键词 + 可选 BU）。仅读未删除行。表键白名单防注入。
+    unclassified=True 仅「费用明细」：对应报表大类为空且金额非零。
+    unfilled_dept=True 仅「下单」：部门为空且金额非零。
+    year=YYYY → 归属月 LIKE 'YYYY-%'（A5 年维度）；month 仍为完整归属月 YYYY-MM。
+    bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
     table, cols, searchable = DETAIL_TABLES[table_key]
+    # 缺列兼容（旧库未补齐 A5 列时降级）
+    have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    cols = [c for c in cols if c in have or c in ("定位键", "归属月")]
     where = ["已删除=0"]
     args: list = []
     if unclassified:
@@ -169,14 +178,27 @@ def query_detail(conn: sqlite3.Connection, table_key: str, month: str | None = N
         if table_key != "下单":
             raise KeyError("unfilled_dept 仅支持 下单 表")
         where.append(UNFILLED_DEPT_WHERE)
+    if bu:
+        if table_key != "费用明细":
+            raise KeyError("bu 筛选仅支持 费用明细 表")
+        where.append("业务BU=?")
+        args.append(str(bu).strip())
     if month:
         where.append("归属月=?")
         args.append(month)
+    elif year:
+        y = str(year).strip()
+        if not (y.isdigit() and len(y) == 4):
+            raise KeyError("year 须为 4 位数字")
+        where.append("归属月 LIKE ?")
+        args.append(f"{y}-%")
     if q:
         like = "%" + q.strip() + "%"
-        ors = " OR ".join(f"{c} LIKE ?" for c in searchable)
-        where.append(f"({ors})")
-        args += [like] * len(searchable)
+        use_cols = [c for c in searchable if c in have]
+        if use_cols:
+            ors = " OR ".join(f"{c} LIKE ?" for c in use_cols)
+            where.append(f"({ors})")
+            args += [like] * len(use_cols)
     wsql = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
     page = max(1, int(page))

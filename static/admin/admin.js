@@ -471,7 +471,11 @@ let curTable="收入明细";
 const detail={page:0,pages:1,loading:false,loaded:0,
   url(p){let u="/api/detail?table="+encodeURIComponent(curTable)+"&page="+p+"&page_size=50";
     const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
-    if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);return u;},
+    const yEl=document.getElementById("dY"),mEl=document.getElementById("dM");
+    // A5：年月可独立——只选年则 year=；选到月则 month=YYYY-MM
+    if(m)u+="&month="+encodeURIComponent(m);
+    else if(yEl&&yEl.value)u+="&year="+encodeURIComponent(yEl.value);
+    if(q)u+="&q="+encodeURIComponent(q);return u;},
   reset(){this.page=0;this.pages=1;this.loaded=0;document.getElementById("dTbl").innerHTML="";
     document.getElementById("dWrap").scrollTop=0;this.next();},
   async next(){if(this.loading||this.page>=this.pages)return;this.loading=true;

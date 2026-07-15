@@ -116,7 +116,8 @@ class TestAdjustableFieldsBlacklist(unittest.TestCase):
         """全部业务列开放：以费用明细为例逐列核对（含新开放的 预算归属部门）。"""
         self.assertEqual(
             set(schema.ADJUSTABLE_FIELDS["std_费用明细"]),
-            {"收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"})
+            {"收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门",
+             "事项", "提单人", "提单人部门", "业务员", "配音费合同号"})
         self.assertIn("客户", schema.ADJUSTABLE_FIELDS["std_收入明细"])
         self.assertIn("订单号", schema.ADJUSTABLE_FIELDS["std_下单"])
 

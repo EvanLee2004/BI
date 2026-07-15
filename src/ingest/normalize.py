@@ -125,10 +125,21 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
     c_m, c_d, c_amt = lcols["收单月份"], lcols["收单日期"], lcols["含税金额"]
     c_bu, c_cat, c_fine = lcols["业务BU"], lcols["对应报表大类"], lcols["预算明细费用类型"]
     c_dept = lcols.get("预算归属部门")  # 软字段：老台账可能没有
+    # A5：台账原样列（事项≈摘要；列名按表头找，缺则空）
+    _hdr = None  # filled by caller? use row-relative via soft map below
 
     def _txt(row, i):
+        if i is None:
+            return None
         v = row[i] if len(row) > i else None
         return None if v is None else str(v)
+
+    # soft columns by Chinese header index if present in lcols soft keys
+    c_item = lcols.get("事项")
+    c_sub = lcols.get("提单人")
+    c_subd = lcols.get("提单人部门")
+    c_sales = lcols.get("业务员")
+    c_po = lcols.get("配音费合同号")
 
     out = []
     for row in rows:
@@ -143,6 +154,9 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
             "收单月份": 月份, "收单日期": 日期, "含税金额": 金额_store,
             "业务BU": bu, "对应报表大类": cat, "预算明细费用类型": fine,
             "预算归属部门": dept,
+            "事项": _txt(row, c_item), "提单人": _txt(row, c_sub),
+            "提单人部门": _txt(row, c_subd), "业务员": _txt(row, c_sales),
+            "配音费合同号": _txt(row, c_po),
             "归属月": ym, "原值_归属月": ym,
             "定位键": _hash(月份, 日期, 金额_store, bu, cat, fine),  # 台账无自然ID，行哈希
         })

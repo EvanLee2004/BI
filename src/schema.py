@@ -63,6 +63,7 @@ STD_TABLES: dict[str, str] = {
             收单月份 TEXT, 收单日期 TEXT, 含税金额 REAL,
             业务BU TEXT, 对应报表大类 TEXT, 预算明细费用类型 TEXT,
             预算归属部门 TEXT,
+            事项 TEXT, 提单人 TEXT, 提单人部门 TEXT, 业务员 TEXT, 配音费合同号 TEXT,
             归属月 TEXT, 原值_归属月 TEXT, 已删除 INTEGER DEFAULT 0
         )""",
 }
@@ -176,7 +177,7 @@ _ADD_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "std_回款": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("客户", "TEXT"), ("销售", "TEXT")],
     "std_内部译员": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"),
                   ("销售", "TEXT"), ("译员姓名", "TEXT")],
-    "std_费用明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("预算归属部门", "TEXT")],
+    "std_费用明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("预算归属部门", "TEXT"),("事项", "TEXT"), ("提单人", "TEXT"), ("提单人部门", "TEXT"), ("业务员", "TEXT"), ("配音费合同号", "TEXT")],
 }
 
 

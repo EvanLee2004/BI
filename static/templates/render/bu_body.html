@@ -26,6 +26,22 @@
  <div class="sec"><span class="sec-n">四</span><span class="sec-t">{name} · 资金与回款</span></div>
  <div class="period-receipts" style="margin-top:4px">{receipts_html}</div>
  <div id="rankViews">{rank_views}</div>
+
+ <div class="sec"><span class="sec-n">五</span><span class="sec-t">{name} · 费用明细</span></div>
+ <div class="card" id="buLedgerCard" data-bu="{name}">
+  <div class="card-h">本 BU 台账费用明细 <span class="tag">仅本 BU · 铁律隔离</span></div>
+  <div class="daily-bar" style="padding:8px 0 12px">
+    <select id="blY"></select> 年
+    <select id="blM"><option value="">全部月</option></select>
+    <input id="blQ" placeholder="关键词（事项/类型/部门…）" size="22">
+    <button class="toggle" type="button" id="blGo">查询</button>
+    <span id="blInfo" class="daily-note"></span>
+  </div>
+  <div style="overflow:auto;max-height:420px">
+    <table class="bu-ledger" id="blTbl" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+  </div>
+ </div>
+
  </div>
  <div class="foot">
   甲骨易智能经营罗盘 · {name} &nbsp;|&nbsp;

@@ -46,4 +46,5 @@ run_t tests/test_admin_static.py
 run_t tests/test_serve_shell.py
 run_t tests/test_no_html_in_py.py
 run_t tests/test_a2_inhouse_name.py
+run_t tests/test_a5_bu_ledger_isolation.py
 echo "✓ 全部通过"

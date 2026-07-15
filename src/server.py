@@ -1010,15 +1010,35 @@ def create_app(cfg, root=None) -> FastAPI:
     @app.get("/api/detail")
     def api_detail(request: Request, table: str = Query("收入明细"), month: str | None = None,
                    q: str | None = None, page: int = 1, page_size: int = 50,
-                   unclassified: bool = False, unfilled_dept: bool = False):
+                   unclassified: bool = False, unfilled_dept: bool = False,
+                   year: str | None = None, bu: str | None = None):
+        """明细查询。管理员：全表。A5：查看端会话仅可查「费用明细」且必须带本 BU 过滤（铁律隔离）。"""
         user = _user(request)
-        if not user:
-            raise HTTPException(status_code=401, detail="需要管理员登录")
+        vacc = _vacc_row(request)
+        force_bu = None
+        if user:
+            # 管理员：bu 可选过滤；其余参数原样
+            force_bu = (bu.strip() if bu else None)
+        elif vacc and table == "费用明细":
+            # BU / 整体：整体可看全部（不强制 bu）；BU 账号只能看绑定 BU
+            names = accounts.bu_names_of(vacc)
+            if accounts.is_main(vacc):
+                force_bu = (bu.strip() if bu else None)
+            else:
+                if not names:
+                    raise HTTPException(status_code=403, detail="无权查看费用明细")
+                want = (bu or "").strip() or (names[0] if len(names) == 1 else "")
+                if not want or not accounts.can_see_bu(vacc, want):
+                    raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
+                force_bu = want
+        else:
+            raise HTTPException(status_code=401, detail="需要登录")
         conn = db.connect(cfg, root)
         try:
             try:
-                return JSONResponse(db.query_detail(conn, table, month, q, page, page_size,
-                                                    unclassified, unfilled_dept))
+                return JSONResponse(db.query_detail(
+                    conn, table, month, q, page, page_size,
+                    unclassified, unfilled_dept, year=year, bu=force_bu))
             except KeyError as e:
                 raise HTTPException(status_code=400, detail=str(e))
         finally:
