@@ -129,8 +129,8 @@ class TestRenderSwitches(unittest.TestCase):
         html2 = render._hbar_rows(rows2, "fine")
         self.assertLess(html2.find("办公用品"), html2.find("未标注明细类型"))
 
-    def test_expense_views_tabs_are_cat_fine_pc(self):
-        """整体页三态：按大类｜按类别｜按业务BU；不再出现「按部门」。"""
+    def test_expense_views_tabs_are_cat_fine_pc_dept(self):
+        """整体页四态：按大类｜按类别｜按业务BU｜按部门。"""
         p = {"expense": {"total": 180.0, "营销费用": 0, "管理费用": 150, "固定运营费用": 0,
                          "研发费用": 0, "财务费用": 30},
              "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
@@ -140,14 +140,62 @@ class TestRenderSwitches(unittest.TestCase):
                      ("差旅费", 50.0, [("管理费用", 50.0)]),
                      ("未标注明细类型", 30.0, [("市场费用", 30.0)])]
         pc_rows = [("语言", 100.0, []), ("数据", 50.0, []), ("未分类", 30.0, [])]
-        html = render.render_expense_views(p, fine_rows, pc_rows)
+        dept_rows = [("运保", 100.0, [("办公用品", 100.0)]),
+                     ("项目中心", 50.0, [("差旅费", 50.0)]),
+                     ("未分类", 30.0, [("未标注明细类型", 30.0)])]
+        html = render.render_expense_views(p, fine_rows, pc_rows, dept_rows)
         self.assertIn("按大类", html)
         self.assertIn("按类别", html)
         self.assertIn("按业务BU", html)
-        self.assertNotIn("按部门", html)
+        self.assertIn("按部门", html)
         self.assertIn('data-ev="fine"', html)
+        self.assertIn('data-ev="dept"', html)
         self.assertIn("办公用品", html)
+        self.assertIn("运保", html)
         self.assertIn("台账小计", html)  # 看端精简脚注，不再堆口径长文
+        # 按部门各行合计（含未分类）== 台账白名单合计（与细类/BU 守恒同口径）
+        self.assertAlmostEqual(sum(v for _, v, _ in dept_rows), 180.0, places=2)
+        # 未分类沉底 + 可展开（与按类别同 _hbar_rows）
+        dept_html = render._hbar_rows(dept_rows, "dept")
+        self.assertLess(dept_html.find("运保"), dept_html.find("未分类"))
+        self.assertIn('data-cat="dept:运保"', html)
+        self.assertIn("构成 ›", html)
+        self.assertIn("运保", html)
+        self.assertIn("未分类", html)
+
+    def test_dept_rows_conservation_with_unfilled(self):
+        """合成台账：按部门合计（含未分类）== 白名单台账合计。"""
+        lcols = columns.resolve_ledger_columns(HDR)
+        led, _ = compute_ledger_expenses(ROWS, 2026, START, END, CFG, lcols)
+        total = sum(led.values())
+        dept_rows = compute_expenses_by_group(
+            ROWS, 2026, START, END, CFG, lcols, "预算归属部门")
+        self.assertAlmostEqual(sum(v for _, v, _ in dept_rows), total, places=2)
+        names = [g for g, _, _ in dept_rows]
+        self.assertIn("未分类", names)
+        # 渲染含未分类
+        p = {"expense": {"total": total + 0, "营销费用": 0, "管理费用": total, "固定运营费用": 0,
+                         "研发费用": 0, "财务费用": 0},
+             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+             "ledger_expenses": {"市场费用": 0, "管理费用": total, "固定运营费用": 0,
+                                 "技术服务费": 0, "财务费用": 0}}
+        html = render.render_expense_views(p, [], [], dept_rows)
+        self.assertIn("按部门", html)
+        self.assertIn("未分类", html)
+        self.assertIn('data-ev="dept"', html)
+
+    def test_bu_page_still_no_dept_tab(self):
+        """BU 页期间费用卡仍只有按大类｜按类别，不出按部门。"""
+        p = {"expense": {"total": 10.0, "营销费用": 0, "管理费用": 10, "固定运营费用": 0,
+                         "研发费用": 0, "财务费用": 0},
+             "manual": {"营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0},
+             "ledger_expenses": {"市场费用": 0, "管理费用": 10, "固定运营费用": 0,
+                                 "技术服务费": 0, "财务费用": 0}}
+        html = render.render_bu_expense_views(p, {"管理费用": [("办公", 10.0)]})
+        self.assertIn("按大类", html)
+        self.assertIn("按类别", html)
+        self.assertNotIn("按部门", html)
+        self.assertNotIn("按业务BU", html)
 
 
 class TestLedgerRowDateMonthGuard(unittest.TestCase):

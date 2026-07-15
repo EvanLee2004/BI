@@ -79,17 +79,20 @@ def _hbar_rows(rows, prefix):
 def _ledger_subtotal(rows):
     return charts.fmt_wan(sum(v for _, v, _ in rows)) + "万" if rows else "0万"
 
-def render_expense_views(p, fine_rows, pc_rows):
-    """期间费用构成卡：按大类（环形图）｜按类别（预算明细费用类型）｜按业务BU（利润中心）。
-    三态台账白名单含税口径同一；卡头合计含手填人力，横条小计仅为台账部分。"""
+def render_expense_views(p, fine_rows, pc_rows, dept_rows=None):
+    """期间费用构成卡：按大类｜按类别｜按业务BU（利润中心）｜按部门（预算归属部门）。
+    四态台账白名单含税口径同一；卡头合计含手填人力，横条小计仅为台账部分。
+    dept_rows=summary['expense_by_department'][周期]（与 pc 同形），金额全后端算好。"""
     e = p["expense"]
     tabs = ('<span class="ev-tabs">'
             '<button class="ev-tab on" data-ev="cat">按大类</button>'
             '<button class="ev-tab" data-ev="fine">按类别</button>'
-            '<button class="ev-tab" data-ev="pc">按业务BU（利润中心）</button></span>')
+            '<button class="ev-tab" data-ev="pc">按业务BU（利润中心）</button>'
+            '<button class="ev-tab" data-ev="dept">按部门</button></span>')
     # 看端：横条小计可扫读；长口径说明留给管理端数据/异常页，此处不堆字
     fine_note = f'台账小计 {_ledger_subtotal(fine_rows)}'
     pc_note = f'台账小计 {_ledger_subtotal(pc_rows)}'
+    dept_note = f'台账小计 {_ledger_subtotal(dept_rows)}'
     return (f'<div class="card"><div class="card-h">期间费用构成 <span class="tag">合计 {charts.fmt_wan(e["total"])}万</span>{tabs}</div>'
             f'<div class="ev-body">'
             f'<div class="ev-pane" data-ev="cat">{render_donut(p)}</div>'
@@ -97,6 +100,8 @@ def render_expense_views(p, fine_rows, pc_rows):
             f'<div class="chart-note">{fine_note}</div></div>'
             f'<div class="ev-pane" data-ev="pc" style="display:none">{_hbar_rows(pc_rows, "pc")}'
             f'<div class="chart-note">{pc_note}</div></div>'
+            f'<div class="ev-pane" data-ev="dept" style="display:none">{_hbar_rows(dept_rows, "dept")}'
+            f'<div class="chart-note">{dept_note}</div></div>'
             f'</div></div>')
 
 def _fine_to_rows(fine_k):
@@ -557,10 +562,12 @@ def render_dashboard(summary, cfg, logo_b64):
     kpi_views = "".join(
         _pv(k, yk, render_basic(k, P, meta["year"], month_keys, budget, bu_orders=BUO.get(k)))
         for k in all_keys)
-    # 费用构成：按大类 | 按类别（预算明细费用类型，与 FT 同源守恒）| 按业务BU
+    # 费用构成：按大类 | 按类别 | 按业务BU | 按部门（预算归属部门，与 BP 同链路下发）
     BP = summary.get("expense_by_profit_center", {})
+    BD = summary.get("expense_by_department", {})
     donut_views = "".join(
-        _pv(k, yk, render_expense_views(P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k)))
+        _pv(k, yk, render_expense_views(
+            P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k)))
         for k in all_keys)
 
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
