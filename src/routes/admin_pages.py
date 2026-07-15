@@ -32,7 +32,6 @@ def register(app, d):
     _can_view_main = d.can_view_main
     _can_view_bu = d.can_view_bu
     _bu_switcher_html = d.bu_switcher_html
-    _bu_view_html = d.bu_view_html
     _set_vcookie = d.set_vcookie
     _set_acookie = d.set_acookie
     _main_shell = d.main_shell

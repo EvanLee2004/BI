@@ -608,20 +608,6 @@ def create_app(cfg, root=None) -> FastAPI:
             ) for n in existing)
         return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
 
-    def _bu_view_html(name: str, my_names=None, hide_pw: bool = False) -> str:
-        """渲染某 BU 页 + 可选注入（管理员隐藏自改密码 / 多 BU 账号的切换条）。缺页返回空串。"""
-        page = _state.get("bu_pages", {}).get(name)
-        if not page:
-            return ""
-        parts = []
-        if hide_pw:
-            parts.append(_HIDE_PW_STYLE)
-        if my_names:
-            parts.append(_bu_switcher_html(my_names, name))
-        html = page["html"]
-        if any(parts):
-            html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
-        return html
 
     def _set_vcookie(resp, account: str):
         resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL,
@@ -660,7 +646,6 @@ def create_app(cfg, root=None) -> FastAPI:
         can_view_main=_can_view_main,
         can_view_bu=_can_view_bu,
         bu_switcher_html=_bu_switcher_html,
-        bu_view_html=_bu_view_html,
         set_vcookie=_set_vcookie,
         set_acookie=_set_acookie,
         main_shell=_main_shell,

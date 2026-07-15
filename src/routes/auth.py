@@ -32,7 +32,6 @@ def register(app, d):
     _can_view_main = d.can_view_main
     _can_view_bu = d.can_view_bu
     _bu_switcher_html = d.bu_switcher_html
-    _bu_view_html = d.bu_view_html
     _set_vcookie = d.set_vcookie
     _set_acookie = d.set_acookie
     _main_shell = d.main_shell
@@ -102,31 +101,6 @@ def register(app, d):
                 return RedirectResponse("/admin", status_code=303)
         return _view_login_file()
 
-    def _main_with_nav(hide_pw: bool = False) -> str:
-        """整体页 + BU 入口条（只有整体/管理员会话能拿到本页，无泄漏面）。
-        看端不展示「未归属 BU」文案（管理端设置页「BU 数据归属」仍提示待配置）。
-        hide_pw=True（管理员会话看）：隐藏右上「🔑密码」自改密码入口——管理员改密码走 /admin「设置→账号与权限」，
-        避免在内嵌看板里误改（管理员本无查看会话，点了也只会 401，属确认无用的入口）。"""
-        html = _state["user_html"]
-        if not html:
-            return html
-        from urllib.parse import quote
-
-        def _esc(s):
-            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        parts = []
-        if hide_pw:
-            parts.append(_HIDE_PW_STYLE)
-        names = list(_state.get("bu_pages", {}))
-        if names:
-            links = "".join(
-                _BU_NAV_LINK_TPL.format(href=quote(n), current_attrs="", name=_esc(n))
-                for n in names)
-            parts.append(_BU_NAV_TPL.format(
-                aria_label="BU 分页", label="业务 BU 分页", links=links))
-        if parts:
-            html = html.replace(_WRAP_OPEN, "".join(parts) + _WRAP_OPEN, 1)
-        return html
 
     @app.get("/login", response_class=HTMLResponse)
     def viewer_login_page():
