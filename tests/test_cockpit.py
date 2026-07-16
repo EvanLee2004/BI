@@ -366,21 +366,25 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         self.assertNotIn("暂无部门年预算", html)
         self.assertNotIn(self.GRID, html)
 
-    def test_receipt_split_symmetric_half_half(self):
-        """v1.0.4：回款卡左图/右驾驶舱各占一半（明昊拍板），右栏不再压 280px。"""
+    def test_receipt_full_width_stack(self):
+        """任务书39·A：回款图整行 + 下方横向摘要，不再左右挤图。"""
         import theme
 
         css = theme.get_css()
-        self.assertIn(".rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
+        self.assertIn(".rc-card .rc-stack{display:flex;flex-direction:column", css)
+        self.assertIn(".rc-summary-list", css)
         self.assertNotIn("minmax(200px,280px)", css)
         self.assertNotIn(".rc-side{max-width:280px}", css)
+        # 旧左右 split 不得再是主布局
+        self.assertNotIn(".rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
 
     def test_receipt_body_column_layout(self):
-        """迭代20-A1：图例必须在图下方（rc-body 纵向列），不得与 SVG 左右并排。"""
+        """迭代20-A1 + 39·A：图例在图下方（rc-body 纵向列）；摘要条在图下。"""
         import theme
 
         css = theme.get_css()
         self.assertIn("flex-direction:column", css.split(".rc-card .rc-body{")[1].split("}")[0])
+        self.assertIn("flex-direction:column", css.split(".rc-card .rc-stack{")[1].split("}")[0])
 
     def test_note_texts_enlarged(self):
         """v1.0.4：口径/公式小字统一放大提亮（--note 色，chart-note/pr-formula >=13px）。"""

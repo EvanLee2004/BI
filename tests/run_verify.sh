@@ -58,6 +58,7 @@ tests/test_budget_rates_adj_migrate.py
 tests/test_task37_filters.py
 tests/test_task37_expense_perm.py
 tests/test_task37_fetch_banner.py
+tests/test_task39.py
 tests/test_gzip_fragments.py
 "
 # 无共享进程态（或只读静态文件）

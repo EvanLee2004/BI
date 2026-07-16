@@ -244,8 +244,8 @@ class TestDailyFrontend(unittest.TestCase):
             "restoreYear",
             "yearRange",
             "window.applyPeriod",
-            "orders_by_sales",
-            "orders_by_customer",
+            "dual_rankings",
+            "dual-legend",
         ):
             self.assertIn(token, js, token)
         # 「本年」与「本月」同排在 daily-bar，不再挂在 card-h 右侧
@@ -266,9 +266,9 @@ class TestDailyFrontend(unittest.TestCase):
         for bad in ("toFixed(", "parseFloat("):
             self.assertNotIn(bad, js)
 
-    def test_bu_page_has_no_daily_outlet(self):
-        """铁律12：BU 页不得出现 /api/daily 与按时间段控件。
-        允许本地「其余」弹窗（rkModal + 预渲染 full，不调全公司 API）。"""
+    def test_bu_page_daily_is_bu_scoped(self):
+        """任务书39·B/C + 铁律12：BU 页可有「按时间段看」，但只走 /api/bu_daily，零 /api/daily 全公司。
+        允许本地「其余」弹窗（rkModal + 预渲染 full）。"""
         import assets
         import render
 
@@ -284,20 +284,27 @@ class TestDailyFrontend(unittest.TestCase):
             {"合成销售"},
         )
         h = render.render_bu_page("合成BU", s, cfg, assets.load_logo_base64(cfg))
-        for leak in ("dailyPanel", "dailyBtn", "dailyClose", "dailyGo"):
-            self.assertNotIn(leak, h, leak)
-        # API 泄漏检查：BU 页脚本不得含全公司动态口
+        self.assertIn("dailyPanel", h)
+        self.assertIn("按时间段看", h)
+        self.assertNotIn("dailyBtn", h)
         from pathlib import Path
 
         bu_js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit-bu.js").read_text(encoding="utf-8")
+        # 全公司动态口不得出现在 BU 页 HTML / 脚本
         for leak in ("/api/daily", "/api/profit_ranking"):
             self.assertNotIn(leak, h, leak)
-            self.assertNotIn(leak, bu_js, leak)
+            # 脚本里可用字面量拼 /api/bu_daily，但不得裸 /api/daily 字符串
+            if leak == "/api/daily":
+                self.assertNotIn('"/api/daily"', bu_js.replace("/api/bu_daily", ""))
+                self.assertNotIn("'/api/daily'", bu_js.replace("/api/bu_daily", ""))
+            else:
+                self.assertNotIn(leak, bu_js, leak)
+        self.assertIn("/api/bu_daily", bu_js)
         self.assertIn('src="/static/js/cockpit-bu.js"', h)
-        # 本地展开 + 回款侧栏随周期
         self.assertIn("rkModal", h)
-        self.assertIn("openFull", bu_js)  # openFull 在 BU 脚本
-        self.assertIn('class="rc-side"', h)
+        self.assertIn("openFull", bu_js)
+        # 任务书39·A：摘要条在图下
+        self.assertTrue("rc-summary" in h or "rc-kpi" in h)
 
 
 if __name__ == "__main__":

@@ -67,6 +67,7 @@ def fake_main_frags(mark: str = "USER-MAIN") -> dict:
         "receipts_budget",
         "daily_html",
         "rank_views",
+        "expense_trend_html",
         "drawer",
     )
     fr = {k: "" for k in keys}
@@ -93,7 +94,9 @@ def fake_bu_page(name: str, mark: str) -> dict:
         "pl_views": "",
         "profit_rank_views": "",
         "receipts_html": "",
+        "daily_html": "",
         "rank_views": "",
+        "expense_trend_html": "",
         "drawer": "",
         "rk_modal": "",
     }

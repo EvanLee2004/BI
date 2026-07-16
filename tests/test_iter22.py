@@ -411,7 +411,8 @@ class TestReceiptDeliveredUnpaid(unittest.TestCase):
         html = render.render_receipts(self.SERIES, delivered_gross=100_000_000.0)
         self.assertIn("总下单", html)
         self.assertIn("总回款", html)
-        self.assertIn("下单未回款", html)
+        # 任务书39·A：横向摘要「尚待回款」（旧文案「下单未回款」）
+        self.assertTrue("尚待回款" in html or "下单未回款" in html, html[:200])
         self.assertNotIn("已交付未回款", html)  # A3 默认隐藏
         self.assertNotIn("rc-recv", html)
         self.assertNotIn("缺口（下单 − 回款）", html)

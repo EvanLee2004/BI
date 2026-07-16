@@ -353,7 +353,7 @@ class TestBuPages(_Base):
         self.assertIn('data-export="/bu/', h)
         self.assertNotIn('data-export="/export.png"', h)
         self.assertNotIn("dailyBtn", h)
-        self.assertNotIn("dailyPanel", h)
+        # 任务书39·B：BU 可有 dailyPanel，但 HTML 零 /api/daily 全公司口
         self.assertNotIn("/api/daily", h)
         self.assertNotIn("按40%分摊", h)
         self.assertNotIn("按 40%", h)

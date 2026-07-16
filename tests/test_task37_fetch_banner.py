@@ -101,9 +101,15 @@ class TestFetchFallbackBanners(unittest.TestCase):
         self.assertGreaterEqual(len(d["fetch_banners"]), 1)
         self.assertTrue(any("今日未抓到" in (x.get("text") or "") for x in d["fetch_banners"]))
 
-    def test_ui_hooks(self):
-        self.assertIn("fetchBanner", (ROOT / "static/templates/render/dashboard_body.html").read_text(encoding="utf-8"))
-        self.assertIn("fetch_banners", (ROOT / "static/js/cockpit.js").read_text(encoding="utf-8"))
+    def test_ui_hooks_admin_only(self):
+        """任务书39·F：抓数黄横幅仅管理端；看端整体/BU 模板与 cockpit.js 一律不渲染。"""
+        dash = (ROOT / "static/templates/render/dashboard_body.html").read_text(encoding="utf-8")
+        bu = (ROOT / "static/templates/render/bu_body.html").read_text(encoding="utf-8")
+        js = (ROOT / "static/js/cockpit.js").read_text(encoding="utf-8")
+        self.assertNotIn("fetchBanner", dash)
+        self.assertNotIn("fetchBanner", bu)
+        self.assertNotIn("paintFetchBanners", js)
+        self.assertNotIn("fetch_banners", js)
         self.assertIn("paintFetchBanners", (ROOT / "static/admin/admin.js").read_text(encoding="utf-8"))
         self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html").read_text(encoding="utf-8"))
 
