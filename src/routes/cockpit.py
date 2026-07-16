@@ -78,6 +78,39 @@ def register(app, d):
             out.setdefault("meta", {})["built_at"] = _state["built_at"]
         return out
 
+    @app.get("/api/v1/vm/cockpit")
+    def api_v1_vm_cockpit(request: Request):
+        """任务书46·2：整体页 ViewModel（显示串+SVG；数字与 fragments 同源）。"""
+        import viewmodels
+
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        if not _can_view_main(request):
+            raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
+        summary = _state.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="数据尚未生成")
+        vm = viewmodels.build_cockpit_vm(summary, cfg)
+        return JSONResponse(vm.model_dump())
+
+    @app.get("/api/v1/vm/bu/{name}")
+    def api_v1_vm_bu(name: str, request: Request):
+        """任务书46·2：BU 页 ViewModel。"""
+        import viewmodels
+
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=403, detail="无权查看该 BU")
+        page = (_state.get("bu_pages") or {}).get(name)
+        if not page:
+            raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+        summary = page.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
+        vm = viewmodels.build_bu_vm(name, summary, cfg)
+        return JSONResponse(vm.model_dump())
+
     @app.get("/api/v1/cockpit/bu/{name}")
     def api_v1_cockpit_bu(name: str, request: Request):
         if not (_vacct(request) or _user(request)):

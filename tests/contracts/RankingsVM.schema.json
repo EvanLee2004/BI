@@ -1,0 +1,24 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "rankings_view": {
+      "additionalProperties": true,
+      "title": "Rankings View",
+      "type": "object"
+    },
+    "rankings_monthly_data": {
+      "additionalProperties": true,
+      "title": "Rankings Monthly Data",
+      "type": "object"
+    },
+    "profit_rank_body": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Profit Rank Body",
+      "type": "object"
+    }
+  },
+  "title": "RankingsVM",
+  "type": "object"
+}

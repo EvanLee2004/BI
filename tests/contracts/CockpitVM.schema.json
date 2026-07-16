@@ -1,0 +1,204 @@
+{
+  "$defs": {
+    "ExpenseVM": {
+      "additionalProperties": true,
+      "properties": {
+        "body_by_period": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Body By Period",
+          "type": "object"
+        },
+        "trend_html": {
+          "default": "",
+          "title": "Trend Html",
+          "type": "string"
+        }
+      },
+      "title": "ExpenseVM",
+      "type": "object"
+    },
+    "KpiCardsVM": {
+      "additionalProperties": true,
+      "properties": {
+        "year_key": {
+          "default": "",
+          "title": "Year Key",
+          "type": "string"
+        },
+        "period_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Period Keys",
+          "type": "array"
+        },
+        "body_by_period": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Body By Period",
+          "type": "object"
+        }
+      },
+      "title": "KpiCardsVM",
+      "type": "object"
+    },
+    "LedgerVM": {
+      "additionalProperties": true,
+      "description": "明细白名单元数据（行数据仍走 /api/detail）。",
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "note": {
+          "default": "行数据见 /api/detail?table=费用明细",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "title": "LedgerVM",
+      "type": "object"
+    },
+    "PLTableVM": {
+      "additionalProperties": true,
+      "properties": {
+        "body_by_period": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Body By Period",
+          "type": "object"
+        },
+        "pl_tag": {
+          "default": "",
+          "title": "Pl Tag",
+          "type": "string"
+        }
+      },
+      "title": "PLTableVM",
+      "type": "object"
+    },
+    "RankingsVM": {
+      "additionalProperties": true,
+      "properties": {
+        "rankings_view": {
+          "additionalProperties": true,
+          "title": "Rankings View",
+          "type": "object"
+        },
+        "rankings_monthly_data": {
+          "additionalProperties": true,
+          "title": "Rankings Monthly Data",
+          "type": "object"
+        },
+        "profit_rank_body": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Profit Rank Body",
+          "type": "object"
+        }
+      },
+      "title": "RankingsVM",
+      "type": "object"
+    },
+    "ReceiptsVM": {
+      "additionalProperties": true,
+      "properties": {
+        "receipts_html": {
+          "default": "",
+          "title": "Receipts Html",
+          "type": "string"
+        },
+        "receipts_budget": {
+          "default": "",
+          "title": "Receipts Budget",
+          "type": "string"
+        }
+      },
+      "title": "ReceiptsVM",
+      "type": "object"
+    },
+    "TrendVM": {
+      "additionalProperties": true,
+      "properties": {
+        "svg_html": {
+          "default": "",
+          "title": "Svg Html",
+          "type": "string"
+        }
+      },
+      "title": "TrendVM",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "api_version": {
+      "default": "v1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "scope": {
+      "default": "整体",
+      "title": "Scope",
+      "type": "string"
+    },
+    "year_key": {
+      "default": "",
+      "title": "Year Key",
+      "type": "string"
+    },
+    "period_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Period Keys",
+      "type": "array"
+    },
+    "kpi": {
+      "$ref": "#/$defs/KpiCardsVM"
+    },
+    "trend": {
+      "$ref": "#/$defs/TrendVM"
+    },
+    "pl": {
+      "$ref": "#/$defs/PLTableVM"
+    },
+    "expense": {
+      "$ref": "#/$defs/ExpenseVM"
+    },
+    "rankings": {
+      "$ref": "#/$defs/RankingsVM"
+    },
+    "receipts": {
+      "$ref": "#/$defs/ReceiptsVM"
+    },
+    "ledger": {
+      "$ref": "#/$defs/LedgerVM"
+    },
+    "period_bar": {
+      "default": "",
+      "title": "Period Bar",
+      "type": "string"
+    },
+    "daily_html": {
+      "default": "",
+      "title": "Daily Html",
+      "type": "string"
+    },
+    "numbers": {
+      "additionalProperties": true,
+      "title": "Numbers",
+      "type": "object"
+    }
+  },
+  "title": "CockpitVM",
+  "type": "object"
+}

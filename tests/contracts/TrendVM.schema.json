@@ -1,0 +1,12 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "svg_html": {
+      "default": "",
+      "title": "Svg Html",
+      "type": "string"
+    }
+  },
+  "title": "TrendVM",
+  "type": "object"
+}

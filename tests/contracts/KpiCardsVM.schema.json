@@ -1,0 +1,26 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "year_key": {
+      "default": "",
+      "title": "Year Key",
+      "type": "string"
+    },
+    "period_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Period Keys",
+      "type": "array"
+    },
+    "body_by_period": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Body By Period",
+      "type": "object"
+    }
+  },
+  "title": "KpiCardsVM",
+  "type": "object"
+}

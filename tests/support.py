@@ -21,6 +21,11 @@ _SRC = str(_ROOT / "src")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
+# 任务书46·3：回归默认锁 legacy 壳（断言「加载驾驶舱」等）；Vue 路径由 test_task46_* 显式 KANBAN_FRONTEND=vue
+import os as _os
+
+_os.environ.setdefault("KANBAN_FRONTEND", "legacy")
+
 import server  # noqa: E402,F401
 
 

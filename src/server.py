@@ -816,12 +816,31 @@ def create_app(cfg, root=None) -> FastAPI:
     # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。
     # 任务书43：nginx 模式也保留 GZipMiddleware（双模兼容；反代时可再由 nginx gzip）。
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)
+
+    # 任务书46·6：请求 ID 中间件
+    import uuid as _uuid
+
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class _RequestIdMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            rid = request.headers.get("X-Request-ID") or _uuid.uuid4().hex[:16]
+            request.state.request_id = rid
+            resp = await call_next(request)
+            resp.headers["X-Request-ID"] = rid
+            return resp
+
+    app.add_middleware(_RequestIdMiddleware)
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
     # 静态：直连模式挂载；nginx 模式由 nginx 伺服 /static/（serve_static=false）
     if resolve_serve_static(cfg) and STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    # 任务书46·3：Vue dist 静态资源 /app/
+    _fe_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+    if _fe_dist.is_dir():
+        app.mount("/app", StaticFiles(directory=str(_fe_dist), html=True), name="frontend")
 
     def _session_subject(cookie_val: str) -> str | None:
         """校验 cookie：签名/过期 + 密码版本与账号表一致（改密踢会话）。"""
@@ -906,14 +925,47 @@ def create_app(cfg, root=None) -> FastAPI:
         resp.set_cookie(COOKIE, tok, max_age=SESSION_TTL, httponly=True, samesite="lax")
         return resp
 
+    def _frontend_mode() -> str:
+        """KANBAN_FRONTEND=vue|legacy（env > config.frontend > 默认）。
+        任务书46·3：默认 vue（有 dist 时）；无 dist 回落 legacy。
+        回归测试可 export KANBAN_FRONTEND=legacy 锁定旧壳。"""
+        env = (os.environ.get("KANBAN_FRONTEND") or "").strip().lower()
+        if env in ("vue", "legacy"):
+            return env
+        cfg_fe = str(cfg.get("frontend") or "").strip().lower()
+        if cfg_fe in ("vue", "legacy"):
+            return cfg_fe
+        root_dir = Path(__file__).resolve().parents[1]
+        if (root_dir / "frontend" / "dist" / "index.html").is_file():
+            return "vue"
+        return "legacy"
+
+    def _vue_index():
+        """Vue SPA 入口（frontend/dist/index.html）。"""
+        # 相对 create_app 所在包：ROOT/frontend/dist
+        root_dir = Path(__file__).resolve().parents[1]
+        p = root_dir / "frontend" / "dist" / "index.html"
+        if not p.is_file():
+            return _html_doc(
+                "<!DOCTYPE html><html><body class='wrap' style='padding:40px'>"
+                "Vue 前端未构建：请运行 scripts/build_frontend.sh"
+                "</body></html>",
+                status_code=503,
+            )
+        return _file_html_doc(p)
+
     def _main_shell():
-        """整体页固定 shell → fragments（B-P5 无 SSR 回退开关）。会话态文档 → no-store。"""
+        """整体页：KANBAN_FRONTEND=vue 时走 Vue dist；legacy 走 shell+fragments。"""
+        if _frontend_mode() == "vue":
+            return _vue_index()
         p = STATIC_DIR / "shell.html"
         if not p.is_file():
             return _html_doc(_EMPTY_DATA_HTML, status_code=503)
         return _file_html_doc(p)
 
     def _bu_shell():
+        if _frontend_mode() == "vue":
+            return _vue_index()
         p = STATIC_DIR / "shell-bu.html"
         if not p.is_file():
             return _html_doc(_EMPTY_DATA_HTML, status_code=503)
@@ -968,6 +1020,27 @@ def create_app(cfg, root=None) -> FastAPI:
             EDITABLE_SETTINGS=EDITABLE_SETTINGS,
         ),
     )
+
+    # 任务书46·2：openapi 仅管理员会话可见
+    @app.get("/openapi.json", include_in_schema=False)
+    def openapi_admin_only(request: Request):
+        if not _user(request):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=401, detail="仅管理员可查看 OpenAPI")
+        return app.openapi()
+
+    @app.get("/docs", include_in_schema=False)
+    def docs_admin_only(request: Request):
+        if not _user(request):
+            from fastapi import HTTPException
+            from fastapi.responses import RedirectResponse
+
+            raise HTTPException(status_code=401, detail="仅管理员可查看 API 文档")
+        from fastapi.openapi.docs import get_swagger_ui_html
+
+        return get_swagger_ui_html(openapi_url="/openapi.json", title="看板 API")
+
     return app
 
 

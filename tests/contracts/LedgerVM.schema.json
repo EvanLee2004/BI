@@ -1,0 +1,20 @@
+{
+  "additionalProperties": true,
+  "description": "明细白名单元数据（行数据仍走 /api/detail）。",
+  "properties": {
+    "columns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "note": {
+      "default": "行数据见 /api/detail?table=费用明细",
+      "title": "Note",
+      "type": "string"
+    }
+  },
+  "title": "LedgerVM",
+  "type": "object"
+}

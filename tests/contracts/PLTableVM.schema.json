@@ -1,0 +1,19 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "body_by_period": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Body By Period",
+      "type": "object"
+    },
+    "pl_tag": {
+      "default": "",
+      "title": "Pl Tag",
+      "type": "string"
+    }
+  },
+  "title": "PLTableVM",
+  "type": "object"
+}

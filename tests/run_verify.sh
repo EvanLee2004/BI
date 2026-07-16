@@ -66,6 +66,10 @@ tests/test_task43_nginx_mode.py
 tests/test_task43_arch.py
 tests/test_task46_stage0.py
 tests/test_authz.py
+tests/test_vm_contract.py
+tests/test_config_engine.py
+tests/test_backup_restore.py
+tests/frontend/parity/test_parity_structure.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
