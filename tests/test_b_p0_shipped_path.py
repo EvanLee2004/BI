@@ -93,7 +93,18 @@ class TestP0ShippedPath(unittest.TestCase):
         yk = meta["year_key"]
         P = self.summary["periods"]
         all_keys = self.pack["views"]["period_keys"]
-        py_rank = "".join(render._pv(k, yk, render.render_rankings(P[k], embed_full=True)) for k in all_keys if k in P)
+        # 任务书34：与 build_dashboard_fragments / page.js 一致——共享月度字典、脚本只注入一次
+        store: dict = {}
+        parts = [
+            render._pv(
+                k,
+                yk,
+                render.render_rankings(P[k], embed_full=True, monthly_store=store, emit_monthly_script=False),
+            )
+            for k in all_keys
+            if k in P
+        ]
+        py_rank = render.monthly_data_script(store) + "".join(parts)
         # node assemble full page with client pack
         fr = dict(self.pack["fragments"])
         fr["rank_views"] = ""  # force JS path

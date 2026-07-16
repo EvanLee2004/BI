@@ -187,9 +187,9 @@
    var h=card.querySelector('.card-h');
    var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
    openFull(title+' · 完整排名','',full.innerHTML); return;}
-  // 陆总#8：排名主体行 → data-monthly 显示串拼 1~12 月（零金额运算）
+  // 陆总#8 / 任务书34：排名主体行 → data-mkey 查页面级月度字典（零金额运算）
   var ent=ev.target.closest?ev.target.closest('.rk-entity'):null;
-  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-monthly')){
+  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-mkey')){
    var nm=(ent.querySelector('.ev-name')||{}).textContent||'';
    var html=typeof paintRankingMonthly==='function'
      ? paintRankingMonthly(ent)

@@ -142,40 +142,39 @@ def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
     }
 
 
-def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
+def rankings_view_for_period(
+    period: dict, *, embed_full: bool = False, monthly_store: dict | None = None
+) -> dict:
     """P0：排名双血条渲染就绪 JSON（显示串已算好，前端只拼 DOM）。
 
     embed_full=True（BU）：附带 full_items 显示串，rankings.js 预拼 .rk-full 本地展开，
     不调全公司排名 API（铁律12）。宽度/金额均在本函数算完，JS 只 toFixed 拼 CSS。
-    陆总#8：items/full_items 挂 monthly[1~12] 显示串（来自 period.rankings_monthly）。
+    陆总#8 / 任务书34：12 月显示串进 monthly_store（或本 view.monthly_data）；
+    行上只带 mkey，禁止 items[].monthly 大数组。
     """
     import render
 
     rk = period.get("rankings") or {}
     s, e = period.get("range", ("", ""))
     rm = period.get("rankings_monthly") or {}
+    year = rm.get("year") or 0
+    # 外部 store=多周期去重；None=单周期自带 monthly_data
+    own_store = monthly_store is None
+    store: dict = {} if own_store else monthly_store  # type: ignore[assignment]
     dual_s = render.attach_monthly_to_dual(
-        render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")), rm.get("sales")
+        render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
+        rm.get("sales"),
+        year=year,
+        dim="sales",
+        store=store,
     )
     dual_c = render.attach_monthly_to_dual(
-        render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")), rm.get("customer")
+        render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
+        rm.get("customer"),
+        year=year,
+        dim="customer",
+        store=store,
     )
-
-    def _month_rows(monthly):
-        out = []
-        for m in monthly or []:
-            out.append(
-                {
-                    "i": m.get("i"),
-                    "name": m.get("name"),
-                    "name_esc": render._esc(m.get("name") or ""),
-                    "wo": round(float(m.get("wo") or 0), 1),
-                    "wr": round(float(m.get("wr") or 0), 1),
-                    "order_disp": m.get("order_disp") or render._rank_amt(m.get("order") or 0),
-                    "receipt_disp": m.get("receipt_disp") or render._rank_amt(m.get("receipt") or 0),
-                }
-            )
-        return out
 
     def _item_row(i, it, *, wo=None, wr=None):
         return {
@@ -186,7 +185,7 @@ def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
             "wr": round(wr if wr is not None else (it.get("wr") or 0), 1),
             "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
             "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
-            "monthly": _month_rows(it.get("monthly")),
+            "mkey": it.get("mkey") or "",
         }
 
     def pack(dual, title, dim):
@@ -228,13 +227,16 @@ def rankings_view_for_period(period: dict, *, embed_full: bool = False) -> dict:
             out["full_items"] = full_out
         return out
 
-    return {
+    result = {
         "visible": True,
         "start": s,
         "end": e,
         "sales": pack(dual_s, "下单/回款 · 按销售", "sales"),
         "customer": pack(dual_c, "下单/回款 · 按客户", "customer"),
     }
+    if own_store:
+        result["monthly_data"] = store
+    return result
 
 
 def _period_keys(summary: dict) -> tuple[str, list[str]]:
@@ -275,6 +277,7 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
             "year_key": "",
             "period_keys": [],
             "rankings_view": {},
+            "rankings_monthly_data": {},
             "kpi_body": {},
             "pl_body": {},
             "donut_body": {},
@@ -327,13 +330,19 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     except Exception:
         period_bar = ""
 
+    # 任务书34：全周期去重一份 rankings_monthly_data；各 period 行只带 mkey
+    monthly_store: dict = {}
+    rankings_view = {
+        pk: rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
+        for pk, pv in P.items()
+        if isinstance(pv, dict)
+    }
     return {
         "year_key": yk,
         "period_keys": ordered,
-        # 陆总#8 + 其余本地展开：整体页也 embed_full（月度+完整名单预挂 views，零新 API）
-        "rankings_view": {
-            pk: rankings_view_for_period(pv, embed_full=True) for pk, pv in P.items() if isinstance(pv, dict)
-        },
+        # 陆总#8 + 其余本地展开：整体页也 embed_full（完整名单预挂 views，零新 API）
+        "rankings_view": rankings_view,
+        "rankings_monthly_data": monthly_store,
         # 周期卡正文显示串（JS wrap .pv）
         "kpi_body": kpi_body,
         "pl_body": pl_body,
@@ -366,6 +375,7 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
             "year_key": "",
             "period_keys": [],
             "rankings_view": {},
+            "rankings_monthly_data": {},
             "kpi_body": {},
             "pl_body": {},
             "donut_body": {},
@@ -419,15 +429,20 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         period_bar = ""
     pl_tag = render.tpl.fill("render/bu_pl_tag.html", note=render._esc(tag_note)) if tag_note else ""
 
+    monthly_store: dict = {}
+    rankings_view = {
+        pk: rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
+        for pk, pv in P.items()
+        if isinstance(pv, dict)
+    }
     return {
         "year_key": yk,
         "period_keys": ordered,
         "scope": "BU",
         "bu_name": bu_name or "",
         # 下单/回款双血条叶子：embed_full=True → rankings.js 拼 .rk-full（铁律12）
-        "rankings_view": {
-            pk: rankings_view_for_period(pv, embed_full=True) for pk, pv in P.items() if isinstance(pv, dict)
-        },
+        "rankings_view": rankings_view,
+        "rankings_monthly_data": monthly_store,
         "kpi_body": kpi_body,
         "pl_body": pl_body,
         "donut_body": donut_body,

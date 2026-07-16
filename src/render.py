@@ -574,6 +574,16 @@ def _merge_dual_rank(o_rk, r_rk, top=10):
     return {"items": items, "others": others, "full_items": full, "mx": mx}
 
 
+def monthly_mkey(year, dim: str, name: str) -> str:
+    """页面级月度字典键：年|维|主体。维 sales→销售、customer→客户。"""
+    label = "销售" if dim == "sales" else "客户"
+    try:
+        y = int(year or 0)
+    except (TypeError, ValueError):
+        y = 0
+    return f"{y}|{label}|{name}"
+
+
 def _monthly_dual_rows(name: str, series: dict | None) -> list[dict]:
     """陆总#8：主体 1~12 月双血条显示串（金额/宽度已算好，JS 只拼 DOM）。"""
     series = series or {}
@@ -603,16 +613,6 @@ def _monthly_dual_rows(name: str, series: dict | None) -> list[dict]:
     return out
 
 
-def attach_monthly_to_dual(dual: dict, monthly_dim: dict | None) -> dict:
-    """把 rankings_monthly 某维挂到 dual items/full_items 的 monthly 叶子。"""
-    monthly_dim = monthly_dim or {}
-    for it in dual.get("items") or []:
-        it["monthly"] = _monthly_dual_rows(it["name"], monthly_dim.get(it["name"]))
-    for it in dual.get("full_items") or []:
-        it["monthly"] = _monthly_dual_rows(it["name"], monthly_dim.get(it["name"]))
-    return dual
-
-
 def _json_num(v) -> float | int:
     """JSON 数：整值出 int，与 JS JSON.stringify 一致（避免 100.0 vs 100）。"""
     try:
@@ -624,14 +624,10 @@ def _json_num(v) -> float | int:
     return round(f, 1)
 
 
-def _monthly_json_attr(monthly) -> str:
-    """陆总#8：月度显示串压成 JSON 属性（紧凑；点击时 JS 只拼 DOM，零金额运算）。"""
-    if not monthly:
-        return ""
-    import json
-
+def compact_monthly_display(monthly) -> list[dict]:
+    """任务书34：入库/页面级字典用紧凑显示串（无 raw 金额，JS 零运算）。"""
     rows = []
-    for m in monthly:
+    for m in monthly or []:
         rows.append(
             {
                 "i": _json_num(m.get("i")),
@@ -642,8 +638,52 @@ def _monthly_json_attr(monthly) -> str:
                 "receipt_disp": m.get("receipt_disp") or _rank_amt(m.get("receipt") or 0),
             }
         )
-    # 属性内双引号 → &quot;，与 _esc 一致；JS 取 getAttribute 自动解码
-    return _esc(json.dumps(rows, ensure_ascii=False, separators=(",", ":")))
+    return rows
+
+
+def attach_monthly_to_dual(
+    dual: dict,
+    monthly_dim: dict | None,
+    *,
+    year: int = 0,
+    dim: str = "sales",
+    store: dict | None = None,
+) -> dict:
+    """把 rankings_monthly 某维归一：items 只挂 mkey；完整 12 月显示串写入 store。
+
+    任务书34：禁止再把 12 月 JSON 嵌进每一行（payload 膨胀）。
+    """
+    monthly_dim = monthly_dim or {}
+    if store is None:
+        store = {}
+
+    def _one(it: dict) -> None:
+        name = it.get("name") or ""
+        mkey = monthly_mkey(year, dim, name)
+        it["mkey"] = mkey
+        # 行上不再带 monthly 大数组
+        it.pop("monthly", None)
+        if mkey not in store:
+            full = _monthly_dual_rows(name, monthly_dim.get(name))
+            store[mkey] = compact_monthly_display(full)
+
+    for it in dual.get("items") or []:
+        _one(it)
+    for it in dual.get("full_items") or []:
+        _one(it)
+    return dual
+
+
+def monthly_data_script(store: dict | None) -> str:
+    """页面级月度字典脚本（模板 render/rk_monthly_data.html，与 JS 同形）。"""
+    import json
+
+    if not store:
+        return ""
+    payload = json.dumps(store, ensure_ascii=False, separators=(",", ":"))
+    # 防 </script> 截断
+    payload = payload.replace("<", "\\u003c")
+    return tpl.fill("render/rk_monthly_data.html", payload=payload)
 
 
 def _dual_rows_html(items):
@@ -651,7 +691,7 @@ def _dual_rows_html(items):
         return tpl.load("render/ev_empty.html")
     out = []
     for i, it in enumerate(items, 1):
-        mon_attr = _monthly_json_attr(it.get("monthly"))
+        mkey = it.get("mkey") or ""
         out.append(
             tpl.fill(
                 "render/dual_row.html",
@@ -662,7 +702,7 @@ def _dual_rows_html(items):
                 wr=it.get("wr") or 0,
                 o_amt=it.get("order_disp") or _rank_amt(it.get("order") or 0),
                 r_amt=it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0),
-                monthly_json=mon_attr,
+                mkey=_esc(mkey),
             )
         )
     return "".join(out)
@@ -698,25 +738,42 @@ def _dual_card(title, dual, dim="", embed_full=False):
     return tpl.fill("render/dual_card.html", dim=_esc(dim), title=title, body=body)
 
 
-def render_rankings(p, embed_full=False):
+def render_rankings(p, embed_full=False, *, monthly_store: dict | None = None, emit_monthly_script: bool = True):
     """A6：下单与回款双血条两卡（按销售 / 按客户）；去掉按部门。
-    陆总#8：各主体挂 1~12 月双血条（rankings_monthly → dual.monthly 显示串）。"""
+    陆总#8 / 任务书34：页面级 monthly 字典 + 行 data-mkey（无行内 12 月 JSON）。
+
+    monthly_store：多周期共享字典（build_dashboard_fragments 注入一次脚本）。
+    emit_monthly_script=False：只出网格，由调用方拼 monthly_data_script(store)。
+    """
     rk = p.get("rankings") or {}
     s, e = p.get("range", ("", ""))
     rm = p.get("rankings_monthly") or {}
+    year = rm.get("year") or 0
+    store: dict = monthly_store if monthly_store is not None else {}
     dual_s = attach_monthly_to_dual(
-        _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")), rm.get("sales")
+        _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
+        rm.get("sales"),
+        year=year,
+        dim="sales",
+        store=store,
     )
     dual_c = attach_monthly_to_dual(
-        _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")), rm.get("customer")
+        _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
+        rm.get("customer"),
+        year=year,
+        dim="customer",
+        store=store,
     )
-    return tpl.fill(
+    grid = tpl.fill(
         "render/dual_grid.html",
         s=_esc(s),
         e=_esc(e),
         sales=_dual_card("下单/回款 · 按销售", dual_s, "sales", embed_full=embed_full),
         cust=_dual_card("下单/回款 · 按客户", dual_c, "customer", embed_full=embed_full),
     )
+    if emit_monthly_script:
+        return monthly_data_script(store) + grid
+    return grid
 
 
 # ---------- 板块③ 收入与毛利结构（确认口径，按客户/销售，随周期切）----------
@@ -842,8 +899,13 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
         for k in all_keys
     )
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k])) for k in all_keys)
-    # 陆总#8：整体页也 embed_full（其余+月度本地展开，与 views.rankings_view 一致）
-    rank_views = "".join(_pv(k, yk, render_rankings(P[k], embed_full=True)) for k in all_keys)
+    # 陆总#8 / 任务书34：整体页 embed_full；月度字典全周期共享，只注入一次脚本（≡ page.js）
+    _rk_store: dict = {}
+    _rk_parts = [
+        _pv(k, yk, render_rankings(P[k], embed_full=True, monthly_store=_rk_store, emit_monthly_script=False))
+        for k in all_keys
+    ]
+    rank_views = monthly_data_script(_rk_store) + "".join(_rk_parts)
     hl = meta["current_month_label"].split("年")[1]
     rm_map = _period_months_map(summary)
     receipts_html = render_receipts(
@@ -1021,7 +1083,12 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
     pl_views = "".join(pl_parts)
     donut_views = "".join(_pv(k, yk, render_bu_expense_views(P[k], FT.get(k))) for k in all_keys)
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k], embed_full=True)) for k in all_keys)
-    rank_views = "".join(_pv(k, yk, render_rankings(P[k], embed_full=True)) for k in all_keys)
+    _rk_store: dict = {}
+    _rk_parts = [
+        _pv(k, yk, render_rankings(P[k], embed_full=True, monthly_store=_rk_store, emit_monthly_script=False))
+        for k in all_keys
+    ]
+    rank_views = monthly_data_script(_rk_store) + "".join(_rk_parts)
     name = _esc(bu_name)
     month_keys = meta["tab_groups"]["月"]
     budget = meta.get("budget")

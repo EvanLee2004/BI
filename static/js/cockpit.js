@@ -223,9 +223,9 @@
   document.getElementById('rkmList').innerHTML=html||'<div class="ev-empty">本期无数据</div>';
   modal.style.display='';}
  document.addEventListener('click',function(ev){
-  // 陆总#8：双血条主体行 → data-monthly 显示串拼 1~12 月（零 API/零金额运算）
+  // 陆总#8 / 任务书34：双血条主体行 → data-mkey 查页面级月度字典拼 1~12 月（零 API/零金额运算）
   var ent=ev.target.closest?ev.target.closest('.rk-entity'):null;
-  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-monthly')){
+  if(ent && !ent.classList.contains('dual-month') && ent.getAttribute('data-mkey')){
    var nm=(ent.querySelector('.ev-name')||{}).textContent||'';
    var html=typeof paintRankingMonthly==='function'
      ? paintRankingMonthly(ent)

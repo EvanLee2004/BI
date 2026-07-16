@@ -23,7 +23,7 @@
     }
     return out;
   }
-  /** 排名：叶子显示串 → rankings.js */
+  /** 排名：叶子显示串 → rankings.js；月度字典只注入一次（任务书34）。 */
   function buildRankViewsHtml(views) {
     if (!views || !views.rankings_view) return "";
     if (typeof global.assembleRankings !== "function") return "";
@@ -32,13 +32,26 @@
     var keys = views.period_keys && views.period_keys.length
       ? views.period_keys
       : Object.keys(rv);
+    var store = views.rankings_monthly_data || {};
+    if (typeof global.setRankingsMonthlyStore === "function") {
+      global.setRankingsMonthlyStore(store);
+    } else {
+      global.__rkMonthlyData = store;
+    }
     var out = "";
+    if (typeof global.monthlyDataScript === "function") {
+      out += global.monthlyDataScript(store);
+    } else if (store && Object.keys(store).length) {
+      out += '<script type="application/json" id="rkMonthlyData">' +
+        JSON.stringify(store).replace(/</g, "\\u003c") + "</script>";
+    }
     for (var i = 0; i < keys.length; i++) {
       var k = keys[i];
       if (!rv[k]) continue;
       var style = k === yk ? "" : "display:none";
+      // 多周期共享页面级字典，勿再每周期 embed monthly_data 脚本
       out += '<div class="pv" data-blk="' + escAttr(k) + '" style="' + style + '">' +
-        global.assembleRankings(rv[k]) + "</div>";
+        global.assembleRankings(rv[k], { includeMonthlyScript: false }) + "</div>";
     }
     return out;
   }

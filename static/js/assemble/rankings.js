@@ -1,18 +1,18 @@
 /** P0 排名双血条组装：只拼 DOM，零金额运算。输入=rankings_view_for_period JSON。
  *  embed_full + full_items：预拼 .rk-full，BU 本地弹窗（cockpit-bu.js），零 API。
- *  陆总#8：主体行 data-monthly=1~12 月显示串 JSON；点击时拼双血条，零金额运算。 */
+ *  陆总#8 / 任务书34：页面级 monthly 字典 + 行 data-mkey；paint 按键查表，零金额运算。 */
 (function (global) {
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c];
     });
   }
-  function dualBarRow(it, extraClass, titleAttr, monthlyJson) {
+  function dualBarRow(it, extraClass, titleAttr, mkey) {
     var wo = (it.wo != null ? Number(it.wo) : 0).toFixed(1);
     var wr = (it.wr != null ? Number(it.wr) : 0).toFixed(1);
     var cls = "ev-row dual-row" + (extraClass ? " " + extraClass : "");
     var t = titleAttr ? ' title="' + esc(titleAttr) + '"' : "";
-    var dm = monthlyJson ? ' data-monthly="' + esc(monthlyJson) + '"' : "";
+    var dm = mkey ? ' data-mkey="' + esc(mkey) + '"' : "";
     return '<div class="' + cls + '"' + t + dm + '><span class="rk-no">' + it.i + '</span>' +
       '<span class="ev-name" title="' + esc(it.name) + '">' + esc(it.name) + '</span>' +
       '<div class="dual-bars">' +
@@ -20,33 +20,11 @@
       '<span class="dual-bar dual-r" title="回款"><i style="width:' + wr + '%"></i><em>' + esc(it.receipt_disp) + '</em></span>' +
       '</div></div>';
   }
-  function jsonNum(v) {
-    var f = Number(v == null ? 0 : v);
-    if (!isFinite(f)) f = 0;
-    // 与 Python _json_num：整值出 int，避免 100.0 vs 100 导致 golden 不等
-    return f === Math.floor(f) ? Math.floor(f) : Math.round(f * 10) / 10;
-  }
-  function monthlyJsonOf(it) {
-    var mon = it.monthly;
-    if (!mon || !mon.length) return "";
-    // 只保留显示串/宽度（与 Python _monthly_json_attr 同形）
-    var rows = mon.map(function (m) {
-      return {
-        i: jsonNum(m.i),
-        name: m.name,
-        wo: jsonNum(m.wo),
-        wr: jsonNum(m.wr),
-        order_disp: m.order_disp,
-        receipt_disp: m.receipt_disp
-      };
-    });
-    return JSON.stringify(rows);
-  }
   function dualRows(items, asEntity) {
     if (!items || !items.length) return '<div class="ev-empty">本期无数据</div>';
     return items.map(function (it) {
       if (asEntity) {
-        return dualBarRow(it, "rk-entity", "点开看 1~12 月下单/回款", monthlyJsonOf(it));
+        return dualBarRow(it, "rk-entity", "点开看 1~12 月下单/回款", it.mkey || "");
       }
       return dualBarRow(it, "", "", "");
     }).join('');
@@ -72,18 +50,57 @@
     return '<div class="card" data-dim="' + esc(blk.dim) + '"><div class="card-h">' + esc(blk.title) +
       '</div>' + body + '</div>';
   }
-  function assembleRankings(view) {
-    if (!view || view.visible === false) return '';
-    return '<div class="grid-2e dual-grid" data-start="' + esc(view.start) + '" data-end="' + esc(view.end) + '">\n' +
-      card(view.sales) + '\n\n' + card(view.customer) + '\n\n</div>\n';
+  /** 页面级月度 JSON 脚本（与 Python render.monthly_data_script 同形）。 */
+  function monthlyDataScript(store) {
+    if (!store || !Object.keys(store).length) return "";
+    var payload = JSON.stringify(store).replace(/</g, "\\u003c");
+    return '<script type="application/json" id="rkMonthlyData">' + payload + "</script>";
   }
-  /** 点击主体行：把 data-monthly 显示串拼成双血条列表（零金额运算）。 */
+  function setMonthlyStore(store) {
+    if (store && typeof store === "object") {
+      global.__rkMonthlyData = store;
+    }
+  }
+  function resolveMonthlyStore(el) {
+    if (global.__rkMonthlyData && typeof global.__rkMonthlyData === "object") {
+      return global.__rkMonthlyData;
+    }
+    try {
+      if (typeof document !== "undefined") {
+        var node = document.getElementById("rkMonthlyData");
+        if (node && node.textContent) {
+          var parsed = JSON.parse(node.textContent);
+          global.__rkMonthlyData = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+  /**
+   * @param {object} view rankings_view_for_period JSON
+   * @param {{includeMonthlyScript?: boolean}} opts 默认 true：单周期自带 monthly_data 时输出脚本
+   */
+  function assembleRankings(view, opts) {
+    if (!view || view.visible === false) return '';
+    opts = opts || {};
+    var includeScript = opts.includeMonthlyScript !== false;
+    var html = '<div class="grid-2e dual-grid" data-start="' + esc(view.start) + '" data-end="' + esc(view.end) + '">\n' +
+      card(view.sales) + '\n\n' + card(view.customer) + '\n\n</div>\n';
+    if (includeScript && view.monthly_data) {
+      setMonthlyStore(view.monthly_data);
+      return monthlyDataScript(view.monthly_data) + html;
+    }
+    return html;
+  }
+  /** 点击主体行：按 data-mkey 查页面级字典，拼双血条列表（零金额运算）。 */
   function paintMonthlyFromAttr(el) {
     if (!el) return '';
-    var raw = el.getAttribute('data-monthly');
-    if (!raw) return '<div class="ev-empty">无月度数据</div>';
-    var rows;
-    try { rows = JSON.parse(raw); } catch (e) { return '<div class="ev-empty">月度数据损坏</div>'; }
+    var key = el.getAttribute('data-mkey');
+    if (!key) return '<div class="ev-empty">无月度数据</div>';
+    var store = resolveMonthlyStore(el);
+    if (!store) return '<div class="ev-empty">无月度数据</div>';
+    var rows = store[key];
     if (!rows || !rows.length) return '<div class="ev-empty">无月度数据</div>';
     return '<div class="ev-list">' + rows.map(function (m) {
       return dualBarRow(m, "dual-month", "", "");
@@ -91,4 +108,6 @@
   }
   global.assembleRankings = assembleRankings;
   global.paintRankingMonthly = paintMonthlyFromAttr;
+  global.monthlyDataScript = monthlyDataScript;
+  global.setRankingsMonthlyStore = setMonthlyStore;
 })(typeof window !== 'undefined' ? window : globalThis);
