@@ -7,7 +7,6 @@
  <button class="toggle" id="exportBtn"><span>⬇</span> 导出</button>
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 {pw_modal}
-<div id="fetchBanner" class="banner fetch-banner" style="display:none" role="status" aria-live="polite"></div>
 <div class="wrap">
  {period_bar}
  <div id="periodSync">
@@ -31,26 +30,28 @@
  </div>
 
  <div class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款</span></div>
- {receipts_budget}
  {daily_html}
+ {receipts_budget}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
 
  <div class="sec" id="mainLedgerSec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></div>
+ {expense_trend_html}
  <div class="card" id="mainLedgerCard">
   <div class="card-h">全公司台账费用明细 <span class="tag">只读 · 含摘要/事项</span>
     <span class="tag" id="mlSalaryTag" title="整体账号默认隐藏工资大类；管理端设置可开">默认隐工资</span></div>
-  <div class="daily-bar" style="padding:8px 0 12px">
-    <select id="mlY"></select> 年
-    <select id="mlM"><option value="">全部月</option></select>
-    <input id="mlQ" placeholder="关键词（事项/类型/BU…）" size="22">
+  <div class="daily-bar cock-ctrl-bar" style="padding:8px 0 12px">
+    <select class="cock-ctrl" id="mlY"></select>
+    <select class="cock-ctrl" id="mlM"><option value="">全部月</option></select>
+    <input class="cock-ctrl" id="mlQ" placeholder="关键词（事项/类型/BU…）" size="22">
     <button class="toggle" type="button" id="mlGo">查询</button>
     <button class="toggle" type="button" id="mlClearF" title="清除列筛选">清除列筛</button>
     <span id="mlInfo" class="daily-note"></span>
   </div>
-  <div style="overflow:auto;max-height:420px">
-    <table class="bu-ledger" id="mlTbl" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+  <div class="ledger-scroll" id="mlScroll">
+    <table class="bu-ledger cock-ledger" id="mlTbl"></table>
   </div>
+  <div class="ledger-pager" id="mlPager"></div>
  </div>
  </div>
  <div class="foot">

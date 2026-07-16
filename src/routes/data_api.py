@@ -289,6 +289,10 @@ def register(app, d):
             row["orders_disp"], row["receipts_disp"] = _wan(row.pop("orders")), _wan(row.pop("receipts"))
         t = d["totals"]
         t["orders_disp"], t["receipts_disp"] = _wan(t.pop("orders")), _wan(t.pop("receipts"))
+        # 任务书39·C：双血条就绪结构（前端只拼 DOM）；保留旧 rankings 单卡字段兼容
+        import render as _render
+
+        dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
         for rk in d["rankings"].values():
             for it in rk["items"]:
                 it["disp"] = _wan(it.pop("amount"))
@@ -297,7 +301,71 @@ def register(app, d):
             if rk.get("unfilled"):
                 rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
             rk.pop("total", None)  # 用不到就不下发，防前端拿去做运算
-        return {"start": start, "end": end, **d}
+        return {"start": start, "end": end, "dual_rankings": dual, **d}
+
+    @app.get("/api/bu_daily")
+    def api_bu_daily(
+        request: Request,
+        bu: str = Query(""),
+        start: str = Query(""),
+        end: str = Query(""),
+        top: int = Query(10),
+    ):
+        """任务书39·B/C：BU 页按时间段查询（本 BU 销售过滤，零跨界全公司 /api/daily）。
+        会话须能看该 BU；返回与 /api/daily 同形 dual_rankings。"""
+        name = (bu or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="缺少 bu")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=401, detail="无权查看该 BU")
+        import datetime as _dt
+        import bu as _bu
+        import profit as _profit
+        import render as _render
+
+        try:
+            s = _dt.date.fromisoformat(start)
+            e = _dt.date.fromisoformat(end)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+        if e < s:
+            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
+        if (e - s).days > 366:
+            raise HTTPException(status_code=400, detail="区间最长 366 天")
+        top = max(1, min(2000, int(top)))
+        bucfg = _bu.load_bu_config(cfg, root) or {"bus": []}
+        sales = set()
+        for b in bucfg.get("bus") or []:
+            if b.get("name") == name:
+                sales = {str(x).strip() for x in (b.get("销售") or []) if str(x).strip()}
+                break
+        if not sales and name not in {b.get("name") for b in bucfg.get("bus") or []}:
+            raise HTTPException(status_code=404, detail="未知 BU")
+        conn = db.connect(cfg, root)
+        try:
+            orders = _profit.filter_rows_by_sales(db.load_orders(cfg, conn), sales)
+            receipts = _profit.filter_rows_by_sales(db.load_receipts(cfg, conn), sales)
+        finally:
+            conn.close()
+        d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top, sales_to_bu=None)
+
+        def _wan(v):
+            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+        for row in d["days"]:
+            row["orders_disp"], row["receipts_disp"] = _wan(row.pop("orders")), _wan(row.pop("receipts"))
+        t = d["totals"]
+        t["orders_disp"], t["receipts_disp"] = _wan(t.pop("orders")), _wan(t.pop("receipts"))
+        dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
+        for rk in d["rankings"].values():
+            for it in rk["items"]:
+                it["disp"] = _wan(it.pop("amount"))
+            if rk.get("others"):
+                rk["others"]["disp"] = _wan(rk["others"].pop("amount"))
+            if rk.get("unfilled"):
+                rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
+            rk.pop("total", None)
+        return {"start": start, "end": end, "bu": name, "dual_rankings": dual, **d}
 
     @app.get("/api/profit_ranking")
     def api_profit_ranking(

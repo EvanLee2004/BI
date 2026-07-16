@@ -76,6 +76,7 @@
     if (views.pl_tag != null) data.pl_tag = views.pl_tag;
     if (views.period_bar != null) data.period_bar = views.period_bar;
     if (views.daily_html != null) data.daily_html = views.daily_html;
+    if (views.expense_trend_html != null) data.expense_trend_html = views.expense_trend_html;
     return data;
   }
   function assemblePage(frags, templates, views) {

@@ -210,20 +210,142 @@
 })();
 
 
-/* A5：本 BU 费用明细（只读；后端强制 BU 隔离） */
+/* 任务书39·B/C：BU 页「按时间段看」— 走 /api/bu_daily（本 BU 过滤，零跨界 /api/daily） */
+(function(){
+  var panel=document.getElementById('dailyPanel');
+  if(!panel)return;
+  var card=document.getElementById("buLedgerCard");
+  var bu=(card&&card.getAttribute("data-bu"))||"";
+  var iS=document.getElementById('dailyS'),iE=document.getElementById('dailyE'),sum=document.getElementById('dailySum');
+  var rkGlobal=document.getElementById('rankViews'),rkCustom=document.getElementById('rkCustom');
+  var range=null;
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+    return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];});};
+  function yearStr(){var b=document.getElementById('periodBtn');return b?b.getAttribute('data-year'):'';}
+  function yearKey(){return yearStr()+'年';}
+  function yearRange(){var y=yearStr();return {s:y+'-01-01',e:y+'-12-31'};}
+  function datesForKey(key){
+    var el=document.querySelector('#rankViews .pv[data-blk="'+key+'"] [data-start]');
+    if(el){var s=el.getAttribute('data-start')||'',e=el.getAttribute('data-end')||'';
+      if(s&&e)return {s:s,e:e};}
+    return yearRange();}
+  function fillDates(se){if(!se)return;iS.value=se.s;iE.value=se.e;}
+  function dualBarRow(it){
+    // 宽度%后端已算好，前端只拼 CSS（铁律2）
+    var wo=(it.wo!=null?it.wo:0),wr=(it.wr!=null?it.wr:0);
+    return '<div class="ev-row dual-row"><span class="rk-no">'+it.i+'</span>'+
+      '<span class="ev-name" title="'+esc(it.name)+'">'+esc(it.name)+'</span>'+
+      '<div class="dual-bars">'+
+      '<span class="dual-bar dual-o" title="下单"><i style="width:'+wo+'%"></i><em>'+esc(it.order_disp)+'</em></span>'+
+      '<span class="dual-bar dual-r" title="回款"><i style="width:'+wr+'%"></i><em>'+esc(it.receipt_disp)+'</em></span>'+
+      '</div></div>';}
+  function dualCard(blk){
+    var body;
+    if(!blk||blk.empty||!(blk.items&&blk.items.length))body='<div class="ev-empty">本期无数据</div>';
+    else{
+      var more='';
+      if(blk.others)more='<div class="ev-row rk-row rk-others rk-more" title="点开看完整明细">'+
+        '<span class="rk-no">…</span><span class="ev-name">其余 '+blk.others.names+
+        ' 个 <span class="rk-open">点开看明细 ›</span></span><span class="ev-track"></span>'+
+        '<span class="ev-amt">'+esc(blk.others.amt)+'</span><span class="rk-meta">'+blk.others.count+'笔</span></div>';
+      var full='';
+      if(blk.full_items&&blk.full_items.length){
+        full='<div class="rk-full" hidden><div class="ev-list">'+blk.full_items.map(dualBarRow).join('')+'</div></div>';}
+      body='<div class="ev-list rk-list">'+blk.items.map(dualBarRow).join('')+more+'</div>'+full;}
+    var leg='<span class="dual-legend" title="双血条读法"><span class="dual-leg dual-o">上·紫=下单</span>'+
+      '<span class="dual-leg dual-r">下·青=回款</span></span>';
+    return '<div class="card" data-dim="'+esc(blk.dim||'')+'"><div class="card-h">'+esc(blk.title||'')+leg+'</div>'+body+'</div>';}
+  function runQuery(){
+    var s=iS.value,e=iE.value;
+    if(!s||!e){sum.textContent='请选起止日期';return;}
+    if(!bu){sum.textContent='缺少 BU';return;}
+    sum.textContent='查询中…';
+    var u='/api/bu_daily?bu='+encodeURIComponent(bu)+'&start='+encodeURIComponent(s)+'&end='+encodeURIComponent(e);
+    fetch(u,{credentials:'same-origin'}).then(function(r){
+      if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
+      return r.json();
+    }).then(function(d){
+      range={s:s,e:e};
+      var dual=d.dual_rankings||{};
+      var tag=(s===e)?('只看 '+s):(s+' ~ '+e);
+      rkCustom.innerHTML='<div class="grid-2e dual-grid" data-start="'+esc(s)+'" data-end="'+esc(e)+'" data-daily="1">'+
+        dualCard(dual.sales||{title:'下单/回款 · 按销售',dim:'sales',empty:true})+
+        dualCard(dual.customer||{title:'下单/回款 · 按客户',dim:'customer',empty:true})+'</div>';
+      if(rkGlobal)rkGlobal.style.display='none';
+      rkCustom.style.display='';
+      sum.innerHTML='这段合计：下单 <b>'+esc(d.totals.orders_disp)+'</b>·'+d.totals.orders_count+
+        '笔 ｜ 回款 <b>'+esc(d.totals.receipts_disp)+'</b>·'+d.totals.receipts_count+'笔 <span class="daily-note">'+esc(tag)+'</span>';
+    }).catch(function(err){sum.textContent='查询失败：'+err.message;});
+  }
+  window._syncDailyDates=function(key){
+    fillDates(datesForKey(key||window._curBlk||yearKey()));
+    runQuery();
+  };
+  fillDates(yearRange());
+  iS.addEventListener('change',function(){if(iE.value&&iE.value<iS.value)iE.value=iS.value;});
+  function restoreYear(){
+    range=null;sum.textContent='';
+    if(rkCustom){rkCustom.style.display='none';rkCustom.innerHTML='';}
+    if(rkGlobal)rkGlobal.style.display='';
+    var yk=yearKey(),yl=yearStr()+'年';
+    if(window.applyPeriod)window.applyPeriod(yk,yl);
+    else{window._curBlk=yk;fillDates(yearRange());}
+  }
+  var dc=document.getElementById('dailyClose');if(dc)dc.addEventListener('click',restoreYear);
+  function isoToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function monthRange(){var d=new Date(),y=d.getFullYear(),m=d.getMonth()+1;
+    var last=new Date(y,m,0).getDate();
+    return {s:y+'-'+String(m).padStart(2,'0')+'-01',e:y+'-'+String(m).padStart(2,'0')+'-'+String(last).padStart(2,'0')};}
+  var btnToday=document.getElementById('dailyToday'),btnMonth=document.getElementById('dailyMonth');
+  if(btnToday)btnToday.addEventListener('click',function(){var t=isoToday();iS.value=t;iE.value=t;runQuery();});
+  if(btnMonth)btnMonth.addEventListener('click',function(){var r=monthRange();iS.value=r.s;iE.value=r.e;runQuery();});
+  var go=document.getElementById('dailyGo');if(go)go.addEventListener('click',runQuery);
+  // 其余弹窗：本地 .rk-full
+  document.addEventListener('click',function(ev){
+    var row=ev.target.closest?ev.target.closest('.rk-more'):null;
+    if(!row)return;
+    var cardEl=row.closest('.card'); if(!cardEl)return;
+    var localFull=cardEl.querySelector('.rk-full'); if(!localFull)return;
+    var modal=document.getElementById('rkModal'); if(!modal)return;
+    if(modal.parentElement!==document.body)document.body.appendChild(modal);
+    var h=cardEl.querySelector('.card-h');
+    var title=(h?h.textContent:'').replace(/\s+/g,' ').trim();
+    document.getElementById('rkmTitle').textContent=title+' · 完整排名';
+    document.getElementById('rkmTag').textContent='';
+    document.getElementById('rkmList').innerHTML=localFull.innerHTML;
+    modal.style.display='';
+  });
+})();
+
+/* A5 + 任务书39·D：本 BU 费用明细（只读；后端强制 BU 隔离；胶囊控件/sticky/分页/周期联动） */
 (function(){
   var card=document.getElementById("buLedgerCard");
   if(!card)return;
   var bu=card.getAttribute("data-bu")||"";
   var yEl=document.getElementById("blY"), mEl=document.getElementById("blM");
   var qEl=document.getElementById("blQ"), info=document.getElementById("blInfo"), tbl=document.getElementById("blTbl");
+  var pager=document.getElementById("blPager");
+  var page=1, pageSize=200, total=0, handYm=false;
   var y0=new Date().getFullYear();
   for(var y=y0;y>=2026;y--){var o=document.createElement("option");o.value=String(y);o.textContent=y+"年";yEl.appendChild(o);}
   yEl.value=String(Math.max(y0,2026));
   for(var m=1;m<=12;m++){var o=document.createElement("option");o.value=String(m);o.textContent=m+"月";mEl.appendChild(o);}
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+  function isAmtCol(c){return /金额|含税|未税|价税/.test(c||"");}
+  function isFlexCol(c){return /事项|摘要|备注|说明/.test(c||"");}
+  function paintPager(){
+    if(!pager)return;
+    var pages=Math.max(1,Math.ceil((total||0)/pageSize));
+    if(page>pages)page=pages;
+    pager.innerHTML='<button type="button" class="toggle" id="blPrev" '+(page<=1?"disabled":"")+'>上一页</button>'+
+      '<span>第 '+page+' / '+pages+' 页 · 每页 '+pageSize+'</span>'+
+      '<button type="button" class="toggle" id="blNext" '+(page>=pages?"disabled":"")+'>下一页</button>';
+    var prev=document.getElementById("blPrev"),next=document.getElementById("blNext");
+    if(prev)prev.onclick=function(){if(page>1){page--;load();}};
+    if(next)next.onclick=function(){if(page<pages){page++;load();}};
+  }
   function load(){
-    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page=1&page_size=200&bu="+encodeURIComponent(bu);
+    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page="+page+"&page_size="+pageSize+"&bu="+encodeURIComponent(bu);
     if(yEl.value&&mEl.value){var mm=("0"+mEl.value).slice(-2);u+="&month="+encodeURIComponent(yEl.value+"-"+mm);}
     else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
     var q=(qEl.value||"").trim();if(q)u+="&q="+encodeURIComponent(q);
@@ -233,15 +355,40 @@
       return r.json();
     }).then(function(d){
       if(!d)return;
-      info.textContent="共 "+d.total+" 行（本页 "+(d.rows||[]).length+"）";
+      total=d.total||0;
+      info.textContent="共 "+total+" 行（本页 "+(d.rows||[]).length+"）";
       var cols=d.columns||[];
-      var h="<tr>"+cols.map(function(c){return "<th style='text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)'>"+esc(c)+"</th>";}).join("")+"</tr>";
+      var h="<tr>"+cols.map(function(c){
+        var cls=(isAmtCol(c)?"num":"")+(isFlexCol(c)?" col-flex":"");
+        return "<th class=\""+cls+"\">"+esc(c)+"</th>";
+      }).join("")+"</tr>";
       (d.rows||[]).forEach(function(row){
-        h+="<tr>"+cols.map(function(c){return "<td style='padding:4px 6px;border-bottom:1px solid var(--line)'>"+esc(row[c])+"</td>";}).join("")+"</tr>";
+        h+="<tr>"+cols.map(function(c){
+          var cls=(isAmtCol(c)?"num":"")+(isFlexCol(c)?" col-flex":"");
+          return "<td class=\""+cls+"\">"+esc(row[c])+"</td>";
+        }).join("")+"</tr>";
       });
       tbl.innerHTML=h||"<tr><td class='muted'>无数据</td></tr>";
+      paintPager();
     }).catch(function(e){info.textContent="失败："+e.message;});
   }
-  document.getElementById("blGo").onclick=load;
+  window._syncLedgerYm=function(key){
+    if(handYm)return;
+    var k=key||window._curBlk||"";
+    var yMatch=k.match(/^(\d{4})年/);
+    if(yMatch)yEl.value=yMatch[1];
+    var mSingle=k.match(/年(\d{1,2})月$/);
+    if(mSingle)mEl.value=String(parseInt(mSingle[1],10));
+    else mEl.value="";
+    page=1;load();
+  };
+  var _prev=window._syncDailyDates;
+  window._syncDailyDates=function(key){
+    if(typeof _prev==="function")_prev(key);
+    if(window._syncLedgerYm)window._syncLedgerYm(key);
+  };
+  document.getElementById("blGo").onclick=function(){handYm=true;page=1;load();};
+  yEl.addEventListener("change",function(){handYm=true;});
+  mEl.addEventListener("change",function(){handYm=true;});
   load();
 })();

@@ -353,6 +353,14 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         "receipts_budget": receipts_budget,
         "period_bar": period_bar,
         "daily_html": render.DAILY_HTML,
+        # 任务书39·E：费用堆叠（B8 默隐工资）
+        "expense_trend_html": render.render_expense_trend(
+            render.apply_expense_salary_hide(
+                summary.get("expense_monthly_by_cat"),
+                not bool(cfg.get("overall_see_salary", False)),
+            ),
+            title="费用月度趋势 · 按报表大类",
+        ),
     }
 
 
@@ -384,6 +392,8 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
             "receipts_html": "",
             "pl_tag": "",
             "period_bar": "",
+            "daily_html": "",
+            "expense_trend_html": "",
             "scope": "BU",
             "bu_name": bu_name or "",
         }
@@ -435,6 +445,14 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         for pk, pv in P.items()
         if isinstance(pv, dict)
     }
+    # 任务书39·B/E：与 build_bu_dashboard_fragments 同源（弹窗壳仍在 fragments.rk_modal）
+    daily_html = render.tpl.load("partials/daily_panel.html")
+    bu_exp = render.expense_monthly_from_period_ledgers(summary)
+    if not any(m.get("total") for m in bu_exp.get("months") or []):
+        bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
+    expense_trend_html = render.render_expense_trend(
+        bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类"
+    )
     return {
         "year_key": yk,
         "period_keys": ordered,
@@ -451,6 +469,8 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         "receipts_html": receipts_html,
         "pl_tag": pl_tag,
         "period_bar": period_bar,
+        "daily_html": daily_html,
+        "expense_trend_html": expense_trend_html,
     }
 
 
@@ -466,6 +486,7 @@ _CLIENT_ASSEMBLE_FIELDS = (
     "receipts_budget",
     "period_bar",
     "daily_html",
+    "expense_trend_html",  # 任务书39·E 由 views 注入
     # BU 模板字段
     "receipts_html",
     "pl_tag",
