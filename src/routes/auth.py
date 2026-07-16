@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import accounts
 import api_v1
+import authz
 import db
 from app_state import COOKIE, VCOOKIE, _state
 
@@ -90,7 +91,7 @@ def register(app, d):
                     )
                 # BU 账号：壳 + 本 BU fragments（隔离由 fragments API 保证）
                 return RedirectResponse(f"/bu/{existing[0]}", status_code=303)
-            if accounts.is_admin(acc):
+            if authz.is_admin(acc):
                 return RedirectResponse("/admin", status_code=303)
         return _view_login_file()
 
@@ -113,12 +114,14 @@ def register(app, d):
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
             login_guard.register_failure(account, cfg)
+            _audit(cfg, root, account or "?", ("访问", f"登录失败：{account or '空账号'}"))
             return RedirectResponse(
                 "/login?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"), status_code=303
             )
         login_guard.clear_failures(account)
         accounts.mark_login(cfg, root, account)
-        if accounts.is_admin(acc):
+        _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
+        if authz.is_admin(acc):
             return _set_acookie(RedirectResponse("/admin", status_code=303), account)
         if accounts.is_main(acc):
             return _set_vcookie(RedirectResponse("/", status_code=303), account)
@@ -159,10 +162,12 @@ def register(app, d):
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
             login_guard.register_failure(account, cfg)
+            _audit(cfg, root, account or "?", ("访问", f"登录失败：{account or '空账号'}"))
             raise HTTPException(status_code=401, detail="账号或密码不正确")
         login_guard.clear_failures(account)
         accounts.mark_login(cfg, root, account)
-        if accounts.is_admin(acc):
+        _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
+        if authz.is_admin(acc):
             sess = api_v1.session_public(acc, is_admin_session=True)
             resp = JSONResponse({"ok": True, "redirect": "/admin", "session": sess})
             return _set_acookie(resp, account)
@@ -184,7 +189,7 @@ def register(app, d):
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):
-        """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，写回 看板账号.json 明文。"""
+        """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，只存哈希并自增密码版本（旧会话失效）。"""
         name = _vacct(request)
         if not name:
             raise HTTPException(status_code=401, detail="请先登录看板")
@@ -193,14 +198,27 @@ def register(app, d):
         if err:
             raise HTTPException(status_code=400, detail=err)
         _audit(cfg, root, name, ("密码", f"账号 {name} 自改密码"))  # C3：不记密码内容
-        return {"note": "密码已修改"}
+        return {"note": "密码已修改", "relogin": True}
 
     @app.get("/api/accounts")
     def api_accounts_get(request: Request):
-        """账号表（管理员会话）：含明文密码。绝不出现在其他出口。"""
+        """账号表（管理员会话）：不再下发明文；has_hash + 占位，重置走 reset。"""
         _require(request)
         rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
         return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
+
+    @app.post("/api/accounts/reset_password")
+    def api_accounts_reset_password(request: Request, payload: dict = Body(default={})):
+        """管理员重置密码：生成一次性随机密码，只显示一次。"""
+        user = _require(request)
+        acct = str(payload.get("账号") or payload.get("account") or "").strip()
+        if not acct:
+            raise HTTPException(status_code=400, detail="缺少账号")
+        plain, err = accounts.reset_password(cfg, root, acct)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+        _audit(cfg, root, user, ("密码", f"账号 {acct} 重置密码"))
+        return {"账号": acct, "password_once": plain, "note": "请立即复制，离开后不可再查看明文"}
 
     @app.post("/api/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):

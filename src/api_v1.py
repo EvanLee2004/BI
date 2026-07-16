@@ -137,8 +137,8 @@ def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
         "display": acc.get("显示名") or acc.get("账号"),
         "perm": acc.get("权限"),
         "bus": accounts.bu_names_of(acc),
-        "is_admin": accounts.is_admin(acc),
-        "can_main": accounts.is_main(acc) or accounts.is_admin(acc),
+        "is_admin": __import__("authz").is_admin(acc),
+        "can_main": __import__("authz").can_main(acc),
     }
 
 

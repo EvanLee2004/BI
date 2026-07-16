@@ -6,22 +6,30 @@
 - 账号与 BU 解耦：账号绑定「能看什么」= 权限 ∈ {管理员, 整体, BU, 某 BU 名(旧)}；
   **v8.6 多 BU**：权限=BU 时可绑一组 BU（见 `可见BU` 列表）；整体=全部 BU + 全公司页；
   旧账号权限=单个 BU 名仍兼容（等价于绑定该一个 BU）。取用一律走 `bu_names_of`/`can_see_bu`。
-- 一个 BU 可挂多个账号；账号名唯一；密码明文（管理员端可见可改，看的人可自改）；
+- 一个 BU 可挂多个账号；账号名唯一；
+- 任务书46·1：密码以 Argon2 哈希存「密码哈希」；兼容旧明文「密码」字段（登录成功即透明迁移）；
 - 存 JSON 不开库（凭据不是业务数据，且 看板.db 每日备份会副本扩散）；
 - 缺文件 → 自动 seed 默认表（部署零配置）；git 里只有 docs/看板账号样例.json（合成名）。
 
 铁律：真实人名只进 数据/ 本地文件；代码默认 seed / 测试 / 样例一律合成名。
-口令比较一律 bytes（铁律 13）。
+口令比较：哈希走 passlib；明文迁移路径一律 bytes（铁律 13）。
 """
 
 from __future__ import annotations
 
 import hmac
 import json
+import secrets
+import string
 import time
 from pathlib import Path
 
 import loaders
+
+try:
+    from passlib.hash import argon2 as _argon2
+except ImportError:  # pragma: no cover
+    _argon2 = None  # type: ignore
 
 CONFIG_NAME = "看板账号.json"
 
@@ -83,6 +91,30 @@ def is_master_account(acct: str | None) -> bool:
     return str(acct or "").strip() == MASTER_ACCOUNT
 
 
+def _hash_password(plain: str) -> str:
+    """明文 → Argon2 哈希串。"""
+    if _argon2 is None:
+        raise RuntimeError("passlib[argon2] 未安装，无法哈希密码")
+    return _argon2.hash(plain or "")
+
+
+def _verify_hash(pw_hash: str, plain: str) -> bool:
+    if not pw_hash or _argon2 is None:
+        return False
+    try:
+        return bool(_argon2.verify(plain or "", pw_hash))
+    except (ValueError, TypeError):
+        return False
+
+
+def password_version_of(acc: dict | None) -> int:
+    """会话踢出因子：改密自增。缺省 0。"""
+    try:
+        return int((acc or {}).get("密码版本") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _norm_one(raw: dict) -> dict | None:
     """校验并规范化一条账号；不合格 → None。"""
     if not isinstance(raw, dict):
@@ -95,9 +127,29 @@ def _norm_one(raw: dict) -> dict | None:
         return None
     # 权限=管理员/整体/任意非空 BU 名（BU 是否存在由登录时再查；允许先建账号后配 BU）
     display = str(raw.get("显示名") or acct).strip() or acct
-    pw = str(raw.get("密码") if raw.get("密码") is not None else DEFAULT_VIEW_PW)
+    # 哈希优先；否则保留明文（迁移期）
+    pw_hash = str(raw.get("密码哈希") or "").strip()
+    if "密码" in raw and raw["密码"] is not None:
+        pw = str(raw["密码"])
+    elif pw_hash:
+        pw = ""
+    else:
+        pw = DEFAULT_VIEW_PW
     last = str(raw.get("最后登录") or "").strip() or None
-    out = {"账号": acct, "显示名": display, "权限": perm, "密码": pw}
+    try:
+        pw_ver = int(raw.get("密码版本") or 0)
+    except (TypeError, ValueError):
+        pw_ver = 0
+    out = {
+        "账号": acct,
+        "显示名": display,
+        "权限": perm,
+        "密码": pw,
+        "密码哈希": pw_hash,
+        "密码版本": pw_ver,
+    }
+    if raw.get("初始密码") is True or (not pw_hash and is_initial_password(pw)):
+        out["初始密码"] = True
     if perm == PERM_BU:  # 多 BU：权限=BU 时随附可见 BU 列表（旧账号权限=单个 BU 名不带此字段）
         out["可见BU"] = _clean_bu_list(raw.get("可见BU"))
     if last:
@@ -107,10 +159,23 @@ def _norm_one(raw: dict) -> dict | None:
 
 def _write(path: Path, accounts: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    # 落盘只保留规范字段
+    # 落盘：有哈希则不写明文；保留密码版本
     rows = []
     for a in accounts:
-        row = {"账号": a["账号"], "显示名": a["显示名"], "权限": a["权限"], "密码": a["密码"]}
+        row = {
+            "账号": a["账号"],
+            "显示名": a["显示名"],
+            "权限": a["权限"],
+            "密码版本": int(a.get("密码版本") or 0),
+        }
+        h = str(a.get("密码哈希") or "").strip()
+        if h:
+            row["密码哈希"] = h
+            row["密码"] = ""  # 迁移后清空明文
+        else:
+            row["密码"] = a.get("密码") or DEFAULT_VIEW_PW
+        if a.get("初始密码"):
+            row["初始密码"] = True
         if a.get("权限") == PERM_BU:
             row["可见BU"] = _clean_bu_list(a.get("可见BU"))
         if a.get("最后登录"):
@@ -154,7 +219,7 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
 def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
-    - 密码：条目带「密码」字段（含空串）则以之为准；不带则沿用已存（新账号无旧值→初始 8888）；
+    - 密码：条目带非空「密码」→ 只存哈希并自增密码版本；不带/空 → 沿用已存哈希或明文；
     - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）；
     - 总账号 MASTER_ACCOUNT：若库中已有则不可删、不可改登录名；至少保留一个「管理员」。
     返回落盘后的列表；校验失败抛 ValueError。"""
@@ -171,19 +236,46 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
             continue
         seen.add(acct)
         display = str(raw.get("显示名") or acct).strip() or acct
-        if "密码" in raw and raw["密码"] is not None:
-            pw = str(raw["密码"])
-        else:
-            pw = existing.get(acct, {}).get("密码", DEFAULT_VIEW_PW)
-        if not pw:
-            pw = DEFAULT_VIEW_PW
+        old = existing.get(acct, {})
         # 总账号：登录名固定且权限强制管理员（界面不提供下拉）
         if is_master_account(acct):
             perm = PERM_ADMIN
-        row = {"账号": acct, "显示名": display, "权限": perm, "密码": pw}
+        row = {
+            "账号": acct,
+            "显示名": display,
+            "权限": perm,
+            "密码": "",
+            "密码哈希": str(old.get("密码哈希") or ""),
+            "密码版本": password_version_of(old),
+        }
+        new_plain = None
+        if "密码" in raw and raw["密码"] is not None and str(raw["密码"]) != "":
+            # 仅当管理员明确写入新明文时才轮换（前端重置会先调 reset 再保存可带空）
+            cand = str(raw["密码"])
+            # 若与占位「********」或空哈希占位相同则忽略
+            if cand not in ("********", "••••••••") and not cand.startswith("$argon2"):
+                new_plain = cand
+        if new_plain is not None:
+            row["密码哈希"] = _hash_password(new_plain)
+            row["密码"] = ""
+            row["密码版本"] = password_version_of(old) + 1
+            row["初始密码"] = is_initial_password(new_plain)
+        else:
+            # 沿用：优先哈希，否则旧明文（迁移前）
+            if not row["密码哈希"] and old.get("密码"):
+                row["密码"] = str(old.get("密码") or DEFAULT_VIEW_PW)
+            if old.get("初始密码"):
+                row["初始密码"] = True
+            elif not row["密码哈希"] and is_initial_password(row.get("密码")):
+                row["初始密码"] = True
+            # 全新账号无旧记录
+            if acct not in existing and not row["密码哈希"] and not row.get("密码"):
+                row["密码哈希"] = _hash_password(DEFAULT_VIEW_PW)
+                row["密码"] = ""
+                row["初始密码"] = True
         if perm == PERM_BU:  # 多 BU：随权限=BU 存可见 BU 列表
             row["可见BU"] = _clean_bu_list(raw.get("可见BU"))
-        last = existing.get(acct, {}).get("最后登录")
+        last = old.get("最后登录")
         if last:
             row["最后登录"] = last
         out.append(row)
@@ -207,19 +299,56 @@ def find_account(cfg: dict, root: Path | None, account: str) -> dict | None:
 
 
 def verify_password(stored: str | None, pw: str) -> bool:
-    """明文口令比对；一律 bytes（铁律 13：中文密码不 500）。"""
+    """明文口令比对；一律 bytes（铁律 13：中文密码不 500）。仅迁移路径使用。"""
     return hmac.compare_digest((stored or "").encode(), (pw or "").encode())
 
 
+def verify_account_password(acc: dict | None, password: str) -> bool:
+    """校验顺序：有哈希验哈希 → 无哈希验明文。"""
+    if not acc:
+        return False
+    h = str(acc.get("密码哈希") or "").strip()
+    if h:
+        return _verify_hash(h, password)
+    return verify_password(acc.get("密码"), password)
+
+
+def _migrate_to_hash_inplace(rows: list[dict], account: str, plain: str) -> list[dict]:
+    """登录成功后：写哈希、清空明文（透明迁移）。"""
+    for a in rows:
+        if a["账号"] == account:
+            a["密码哈希"] = _hash_password(plain)
+            a["密码"] = ""
+            if is_initial_password(plain):
+                a["初始密码"] = True
+            else:
+                a.pop("初始密码", None)
+            break
+    return rows
+
+
 def authenticate(cfg: dict, root: Path | None, account: str, password: str) -> dict | None:
-    """账号+密码校验；成功返回账号条目，失败 None。账号不存在与密码错同一返回（不泄存在性）。"""
+    """账号+密码校验；成功返回账号条目，失败 None。账号不存在与密码错同一返回（不泄存在性）。
+    明文验证成功 → 立即写入哈希并清空明文（透明迁移）。"""
     acc = find_account(cfg, root, account)
     if not acc:
-        # 仍做一次假比较，耗时近似（防时序侧信道；明文场景意义有限但保持习惯）
-        verify_password(DEFAULT_VIEW_PW, password)
+        # 仍做一次假比较，耗时近似（防时序侧信道）
+        if _argon2 is not None:
+            try:
+                _verify_hash(_hash_password(DEFAULT_VIEW_PW), password)
+            except Exception:
+                verify_password(DEFAULT_VIEW_PW, password)
+        else:
+            verify_password(DEFAULT_VIEW_PW, password)
         return None
-    if not verify_password(acc.get("密码"), password):
+    if not verify_account_password(acc, password):
         return None
+    # 透明迁移：仅明文路径
+    if not str(acc.get("密码哈希") or "").strip() and acc.get("密码") is not None:
+        rows = load_accounts(cfg, root, create=False)
+        _migrate_to_hash_inplace(rows, account, password)
+        _write(config_path(cfg, root), rows)
+        acc = find_account(cfg, root, account) or acc
     return acc
 
 
@@ -238,38 +367,63 @@ def mark_login(cfg: dict, root: Path | None, account: str) -> None:
 
 
 def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new_pw: str) -> str | None:
-    """自改密码：验旧设新。成功返回 None；失败返回错误文案。"""
+    """自改密码：验旧设新（只存哈希，密码版本+1）。成功返回 None；失败返回错误文案。"""
     if len(new_pw or "") < 4:
         return "新密码至少 4 位"
     acc = find_account(cfg, root, account)
     if not acc:
         return "账号不存在"
-    if not verify_password(acc.get("密码"), old_pw):
+    if not verify_account_password(acc, old_pw):
         return "旧密码不正确"
     rows = load_accounts(cfg, root, create=False)
     for a in rows:
         if a["账号"] == account:
-            a["密码"] = new_pw
+            a["密码哈希"] = _hash_password(new_pw)
+            a["密码"] = ""
+            a["密码版本"] = password_version_of(a) + 1
+            a.pop("初始密码", None)
+            if is_initial_password(new_pw):
+                a["初始密码"] = True
             break
     _write(config_path(cfg, root), rows)
     return None
 
 
 def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str | None:
-    """管理员直接设某账号密码（不验旧）。成功 None；失败错误文案。"""
+    """管理员直接设某账号密码（不验旧；只存哈希，版本+1）。成功 None；失败错误文案。"""
     if len(new_pw or "") < 4:
         return "新密码至少 4 位"
     rows = load_accounts(cfg, root, create=False)
     found = False
     for a in rows:
         if a["账号"] == account:
-            a["密码"] = new_pw
+            a["密码哈希"] = _hash_password(new_pw)
+            a["密码"] = ""
+            a["密码版本"] = password_version_of(a) + 1
+            a.pop("初始密码", None)
+            if is_initial_password(new_pw):
+                a["初始密码"] = True
             found = True
             break
     if not found:
         return "账号不存在"
     _write(config_path(cfg, root), rows)
     return None
+
+
+def generate_temp_password(length: int = 12) -> str:
+    """一次性随机密码（管理员重置用，只显示一次）。"""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(max(8, length)))
+
+
+def reset_password(cfg: dict, root: Path | None, account: str) -> tuple[str | None, str | None]:
+    """管理员重置：生成随机密码写入哈希，返回 (plain_once, err)。"""
+    plain = generate_temp_password()
+    err = set_password(cfg, root, account, plain)
+    if err:
+        return None, err
+    return plain, None
 
 
 def role_of(acc: dict | None) -> str | None:
@@ -309,15 +463,21 @@ def bu_name_of(acc: dict | None) -> str | None:
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
-    """接口下发用：默认不含密码；with_password 仅管理员会话。"""
+    """接口下发用：默认不含密码。
+    with_password（管理员会话）：不再下发明文；下发 has_hash + 占位，重置走 reset_password。"""
+    has_hash = bool(str(acc.get("密码哈希") or "").strip())
+    init = bool(acc.get("初始密码")) or (not has_hash and is_initial_password(acc.get("密码")))
     out = {
         "账号": acc["账号"],
         "显示名": acc.get("显示名") or acc["账号"],
         "权限": acc["权限"],
         "可见BU": bu_names_of(acc),  # 多 BU：绑定名单（管理员/整体为空）；旧单 BU 账号=[该名]
         "最后登录": acc.get("最后登录") or "",
-        "初始密码": is_initial_password(acc.get("密码")),
+        "初始密码": init,
+        "密码版本": password_version_of(acc),
+        "has_hash": has_hash,
     }
     if with_password:
-        out["密码"] = acc.get("密码") or ""
+        # 兼容旧前端字段名：不再给真实明文
+        out["密码"] = "********" if has_hash else (acc.get("密码") or "")
     return out

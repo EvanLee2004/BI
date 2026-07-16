@@ -357,13 +357,24 @@ function acctRender(){const t=document.getElementById("acctTbl");
         "<td>"+acctInput+"</td>"+
         "<td><input style='width:90px' title='备注：谁用这个号，不影响权限' value=\""+esc(a.显示名||"")+"\" onchange='acctList["+i+"].显示名=this.value'></td>"+
         "<td>"+permCell+"</td>"+
-        "<td><input type='"+(show?"text":"password")+"' autocomplete='off' style='width:110px' value=\""+esc(pw)+"\" onchange='acctList["+i+"].密码=this.value;acctList["+i+"].初始密码=false'>"+
-        " <button class='ghost mini' type='button' onclick='acctTogglePw("+i+")'>"+(show?"🙈":"👁")+"</button>"+
+        "<td><span class='muted' style='font-size:12px'>"+(a.has_hash?"已哈希":"待迁移")+"</span>"+
+        " <button class='ghost mini' type='button' onclick='acctResetPw("+i+")' title='生成一次性随机密码'>重置密码</button>"+
         (init?" <span title='仍是初始密码' style='color:#fde68a'>⚠初始</span>":"")+"</td>"+
         "<td class='muted'>"+esc(a.最后登录||"—")+"</td>"+
         "<td>"+delCell+"</td></tr>";}).join("");}
 function acctTogglePw(i){acctPwShow[i]=!acctPwShow[i];acctRender();}
-function acctAdd(){acctList.push({账号:"",显示名:"",权限:"整体",密码:"8888",初始密码:true,最后登录:""});acctRender();setMark("acct");}
+async function acctResetPw(i){
+  const a=acctList[i];const name=String(a.账号||"").trim();
+  if(!name){alert("请先填写账号再重置");return;}
+  if(!confirm("重置「"+name+"」的密码？旧会话将立即失效。"))return;
+  try{
+    const d=await jpost("/api/accounts/reset_password",{账号:name});
+    const once=d.password_once||"";
+    alert("一次性密码（请立即复制，离开后不可再看）：\n\n"+once);
+    a.has_hash=true;a.密码="********";a.初始密码=false;acctRender();
+  }catch(e){alert("重置失败："+(e.message||e));}
+}
+function acctAdd(){acctList.push({账号:"",显示名:"",权限:"整体",密码:"",has_hash:false,初始密码:true,最后登录:""});acctRender();setMark("acct");}
 function acctDel(i){
   const a=acctList[i];
   if(_isMaster(a)){alert("总账号「"+ACCT_MASTER+"」永久不可删除（即使改成别的权限也不行）。部署机也靠它进管理端。");return;}

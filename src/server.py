@@ -823,17 +823,32 @@ def create_app(cfg, root=None) -> FastAPI:
     if resolve_serve_static(cfg) and STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+    def _session_subject(cookie_val: str) -> str | None:
+        """校验 cookie：签名/过期 + 密码版本与账号表一致（改密踢会话）。"""
+        raw = auth_session.check_token_raw(sec, cookie_val or "")
+        if not raw:
+            return None
+        name, tok_ver = raw
+        acc = accounts.find_account(cfg, root, name)
+        if not acc:
+            return None
+        if tok_ver != accounts.password_version_of(acc):
+            return None
+        return name
+
     def _user(request: Request) -> str | None:
         """管理员会话：cookie 主体=账号名，且账号表里权限仍是「管理员」。经手人=该账号。"""
-        name = _check_token(sec, request.cookies.get(COOKIE, ""))
+        import authz
+
+        name = _session_subject(request.cookies.get(COOKIE, ""))
         if not name:
             return None
         acc = accounts.find_account(cfg, root, name)
-        return name if accounts.is_admin(acc) else None
+        return name if authz.is_admin(acc) else None
 
     def _vacct(request: Request) -> str | None:
         """查看端会话：返回登录账号名（权限运行时再解析）。"""
-        return _check_vsubject(sec, request.cookies.get(VCOOKIE, ""))
+        return _session_subject(request.cookies.get(VCOOKIE, ""))
 
     def _vacc_row(request: Request) -> dict | None:
         name = _vacct(request)
@@ -841,20 +856,22 @@ def create_app(cfg, root=None) -> FastAPI:
 
     def _can_view_main(request: Request) -> bool:
         """整体页/全公司口径：整体权限账号 或 管理员会话。BU 账号不行。"""
+        import authz
+
         if _user(request):
             return True
         acc = _vacc_row(request)
-        return accounts.is_main(acc)
+        return authz.can_main(acc)  # 管理员已由 _user 覆盖；此处整体=True、BU=False
 
     def _can_view_bu(request: Request, bu_name: str) -> bool:
+        import authz
+
         if _user(request):
             return True
         acc = _vacc_row(request)
         if not acc:
             return False
-        if accounts.is_main(acc):
-            return True
-        return accounts.can_see_bu(acc, bu_name)  # 多 BU：在其绑定名单内即可
+        return authz.can_see_bu(acc, bu_name)
 
     def _bu_switcher_html(my_names, current: str) -> str:
         """多 BU 账号看 BU 页时顶部的「我的 BU」切换条：**只列该账号绑定且仍存在的 BU**
@@ -878,11 +895,15 @@ def create_app(cfg, root=None) -> FastAPI:
         return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
 
     def _set_vcookie(resp, account: str):
-        resp.set_cookie(VCOOKIE, _make_token(sec, account), max_age=SESSION_TTL, httponly=True, samesite="lax")
+        acc = accounts.find_account(cfg, root, account)
+        tok = auth_session.make_token(sec, account, pw_ver=accounts.password_version_of(acc))
+        resp.set_cookie(VCOOKIE, tok, max_age=SESSION_TTL, httponly=True, samesite="lax")
         return resp
 
     def _set_acookie(resp, account: str):
-        resp.set_cookie(COOKIE, _make_token(sec, account), max_age=SESSION_TTL, httponly=True, samesite="lax")
+        acc = accounts.find_account(cfg, root, account)
+        tok = auth_session.make_token(sec, account, pw_ver=accounts.password_version_of(acc))
+        resp.set_cookie(COOKIE, tok, max_age=SESSION_TTL, httponly=True, samesite="lax")
         return resp
 
     def _main_shell():

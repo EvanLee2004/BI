@@ -115,6 +115,8 @@ def register(app, d):
         import io
         import openpyxl
 
+        who = _user(request) or _vacct(request) or "?"
+        _audit(cfg, root, who, ("访问", f"导出：{table}" + (f" bu={force_bu}" if force_bu else "")))
         conn = _conn()
         try:
             d = db.query_detail(
@@ -183,6 +185,15 @@ def register(app, d):
         A5：查看端会话仅可查「费用明细」且必须带本 BU 过滤（铁律隔离）。
         任务书37·B7：filters=JSON 列筛（后端 SQL 分页）；B8：整体账号默隐工资。"""
         force_bu, hide_salary, audience = _detail_access(request, table, bu)
+        # 任务书46·1：看端明细查询写访问留痕（不记业务内容）
+        if audience in ("view", "view_bu"):
+            who = _vacct(request) or "?"
+            _audit(
+                cfg,
+                root,
+                who,
+                ("访问", f"看端明细：{table}" + (f" bu={force_bu}" if force_bu else "")),
+            )
         conn = db.connect(cfg, root)
         try:
             try:

@@ -93,8 +93,10 @@ def register(app, d):
                 "/admin?msg=" + __import__("urllib.parse").parse.quote(login_guard.lock_message(cfg)),
                 status_code=303,
             )
+        import authz
+
         acc = accounts.authenticate(cfg, root, account, password)
-        if not acc or not accounts.is_admin(acc):
+        if not acc or not authz.is_admin(acc):
             login_guard.register_failure(account, cfg)
             return RedirectResponse(
                 "/admin?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"), status_code=303

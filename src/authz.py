@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""任务书46·阶段1：RBAC 雏形——能力点枚举 + 角色映射。
+
+行为与现状完全一致：
+- 管理员：CAN_ADMIN + CAN_EXPORT + CAN_VIEW_SALARY
+- 整体：CAN_EXPORT；CAN_VIEW_SALARY 仅当配置 overall_see_salary=True（默认否）
+- BU：CAN_EXPORT + CAN_VIEW_SALARY（本 BU 明细含工资行，与现状 hide_salary=False 一致）
+
+散落的 is_admin / can_main 判断收敛到本模块（accounts 仍保留 is_* 兼容别名）。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import accounts
+
+CAN_EXPORT = "CAN_EXPORT"
+CAN_VIEW_SALARY = "CAN_VIEW_SALARY"
+CAN_ADMIN = "CAN_ADMIN"
+
+ALL_CAPS = frozenset({CAN_EXPORT, CAN_VIEW_SALARY, CAN_ADMIN})
+
+# 静态角色矩阵（不含配置联动的 VIEW_SALARY）
+_ROLE_BASE: dict[str, frozenset[str]] = {
+    accounts.PERM_ADMIN: frozenset({CAN_EXPORT, CAN_VIEW_SALARY, CAN_ADMIN}),
+    accounts.PERM_MAIN: frozenset({CAN_EXPORT}),
+    accounts.PERM_BU: frozenset({CAN_EXPORT, CAN_VIEW_SALARY}),
+}
+
+
+def role_key(acc: dict | None) -> str | None:
+    """归一角色：管理员 / 整体 / BU（旧「权限=单个BU名」也归为 BU）。"""
+    if not acc:
+        return None
+    if accounts.is_admin(acc):
+        return accounts.PERM_ADMIN
+    if accounts.is_main(acc):
+        return accounts.PERM_MAIN
+    if accounts.bu_names_of(acc):
+        return accounts.PERM_BU
+    # 权限字段是未知 BU 名也视作 BU 角色（可见列表可能空）
+    perm = accounts.role_of(acc)
+    if perm and perm not in (accounts.PERM_ADMIN, accounts.PERM_MAIN):
+        return accounts.PERM_BU
+    return None
+
+
+def caps_of(acc: dict | None, *, cfg: dict | None = None) -> frozenset[str]:
+    """账号能力点集合。cfg 用于整体账号的 overall_see_salary。"""
+    rk = role_key(acc)
+    if not rk:
+        return frozenset()
+    base = set(_ROLE_BASE.get(rk) or ())
+    if rk == accounts.PERM_MAIN and cfg is not None:
+        if bool(cfg.get("overall_see_salary", False)):
+            base.add(CAN_VIEW_SALARY)
+    return frozenset(base)
+
+
+def has_cap(acc: dict | None, cap: str, *, cfg: dict | None = None) -> bool:
+    return cap in caps_of(acc, cfg=cfg)
+
+
+def is_admin(acc: dict | None) -> bool:
+    """等价 accounts.is_admin（收敛入口）。"""
+    return has_cap(acc, CAN_ADMIN)
+
+
+def can_export(acc: dict | None, *, cfg: dict | None = None) -> bool:
+    return has_cap(acc, CAN_EXPORT, cfg=cfg)
+
+
+def can_view_salary(acc: dict | None, *, cfg: dict | None = None) -> bool:
+    return has_cap(acc, CAN_VIEW_SALARY, cfg=cfg)
+
+
+def can_main(acc: dict | None) -> bool:
+    """能看整体页：管理员或整体权限。"""
+    return accounts.is_admin(acc) or accounts.is_main(acc)
+
+
+def can_see_bu(acc: dict | None, name: str) -> bool:
+    """能看指定 BU：管理员/整体/绑定名单内。"""
+    if accounts.is_admin(acc) or accounts.is_main(acc):
+        return True
+    return accounts.can_see_bu(acc, name)
+
+
+def role_matrix_for_tests() -> dict[str, dict[str, bool]]:
+    """三角色 × 三能力点（默认配置 overall_see_salary=False）矩阵，供 test_authz 断言。"""
+    rows = {
+        accounts.PERM_ADMIN: {"账号": "a", "权限": accounts.PERM_ADMIN},
+        accounts.PERM_MAIN: {"账号": "m", "权限": accounts.PERM_MAIN},
+        accounts.PERM_BU: {"账号": "b", "权限": accounts.PERM_BU, "可见BU": ["甲BU"]},
+    }
+    out: dict[str, dict[str, bool]] = {}
+    for name, acc in rows.items():
+        caps = caps_of(acc, cfg={})
+        out[name] = {c: (c in caps) for c in (CAN_EXPORT, CAN_VIEW_SALARY, CAN_ADMIN)}
+    return out
+
+
+def assert_legacy_parity(acc: dict | None) -> dict[str, Any]:
+    """自检：authz 与 accounts 旧判断一致（调试用）。"""
+    return {
+        "is_admin": is_admin(acc) == accounts.is_admin(acc),
+        "can_main": can_main(acc) == (accounts.is_admin(acc) or accounts.is_main(acc)),
+    }
