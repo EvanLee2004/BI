@@ -47,8 +47,11 @@
       }
       body = '<div class="ev-list rk-list">' + dualRows(blk.items, true) + more + '</div>' + full;
     }
+    var leg = '<span class="dual-legend" title="双血条读法">' +
+      '<span class="dual-leg dual-o">上·紫=下单</span>' +
+      '<span class="dual-leg dual-r">下·青=回款</span></span>';
     return '<div class="card" data-dim="' + esc(blk.dim) + '"><div class="card-h">' + esc(blk.title) +
-      '</div>' + body + '</div>';
+      leg + '</div>' + body + '</div>';
   }
   /** 页面级月度 JSON 脚本（与 Python render.monthly_data_script 同形）。 */
   function monthlyDataScript(store) {
@@ -102,7 +105,10 @@
     if (!store) return '<div class="ev-empty">无月度数据</div>';
     var rows = store[key];
     if (!rows || !rows.length) return '<div class="ev-empty">无月度数据</div>';
-    return '<div class="ev-list">' + rows.map(function (m) {
+    var leg = '<div class="dual-legend dual-legend-block" title="双血条读法" style="margin:0 0 8px 2px">' +
+      '<span class="dual-leg dual-o">上·紫=下单</span>' +
+      '<span class="dual-leg dual-r">下·青=回款</span></div>';
+    return leg + '<div class="ev-list">' + rows.map(function (m) {
       return dualBarRow(m, "dual-month", "", "");
     }).join('') + '</div>';
   }

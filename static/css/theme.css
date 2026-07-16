@@ -701,16 +701,17 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .kpi-grid,.kpi-grid.kpi-5{grid-template-columns:1fr}
 }
 
-/* A3 回款侧栏：总下单/总回款首行 */
+/* A3 回款侧栏：总下单/总回款首行；任务书37·A4 周期标注 */
 .rc-hero-totals .rc-totals{display:flex;gap:14px;margin-top:4px}
 .rc-tot{flex:1;min-width:0}
 .rc-tot em{display:block;font-style:normal;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px}
 .rc-tot .rc-hero-num{font-size:26px}
+.rc-hero-l .rc-period{font-weight:600;color:var(--accent);margin-left:2px;font-size:11.5px;opacity:.95}
 .rc-gap-note{margin-top:10px;font-size:12px;color:#94a3b8}
 .rc-gap-note b{color:var(--orange);font-family:var(--num-font);font-size:14px}
 .theme-light .rc-tot em,.theme-light .rc-gap-note{color:var(--note)}
 .theme-light .rc-gap-note b{color:#c2410c}
-/* A6 双血条：上=下单 下=回款 */
+/* A6 双血条：上=下单 下=回款；任务书37 图例不喧宾夺主 */
 .dual-row{align-items:flex-start}
 .dual-bars{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;margin:0 8px}
 .dual-bar{display:flex;align-items:center;gap:6px;font-size:11px}
@@ -718,3 +719,11 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .dual-bar.dual-r i{background:var(--blue)}
 .dual-bar em{font-style:normal;font-family:var(--num-font);font-weight:700;color:var(--ink);white-space:nowrap}
 .dual-o em{color:var(--purple)}.dual-r em{color:var(--blue)}
+.dual-legend{display:inline-flex;align-items:center;gap:10px;margin-left:10px;font-size:11.5px;font-weight:600;letter-spacing:.02em;opacity:.88}
+.dual-leg{display:inline-flex;align-items:center;gap:4px}
+.dual-leg.dual-o{color:var(--purple)}.dual-leg.dual-r{color:var(--blue)}
+.dual-leg::before{content:"";width:10px;height:6px;border-radius:3px;background:currentColor;opacity:.85}
+.card-h .dual-legend{font-weight:600}
+/* 任务书37·A3：双血条两卡严格 50/50，右卡不被内容撑宽 */
+.dual-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important}
+.dual-grid > .card{min-width:0}
