@@ -361,12 +361,15 @@
   function hidePop(){if(!pop)return;pop.style.display="none";pop.hidden=true;pop.innerHTML="";}
   function openFilter(col, anchor){
     if(!pop)return;
+    // 铁律17：position:fixed 弹层必须 body 直下——#periodSync 有 will-change:transform
+    // 会成为 fixed 包含块，getBoundingClientRect 视口坐标会错位（同 rkModal 修法）
+    if(pop.parentElement!==document.body)document.body.appendChild(pop);
     var kind=colMeta[col]||"text";
     var cur=colFilters[col]||{};
     var body='<div class="mlf-h">筛选 · '+esc(col)+'</div>';
     if(kind==="number"){
-      body+='<div class="mlf-row"><label>最小（元）</label><input type="number" id="mlfMin" step="any" value="'+esc(cur.min??"")+'"></div>';
-      body+='<div class="mlf-row"><label>最大（元）</label><input type="number" id="mlfMax" step="any" value="'+esc(cur.max??"")+'"></div>';
+      body+='<div class="mlf-row"><label>最小（元）</label><input type="number" id="mlfMin" step="any" value="'+esc(cur.min!=null?cur.min:"")+'"></div>';
+      body+='<div class="mlf-row"><label>最大（元）</label><input type="number" id="mlfMax" step="any" value="'+esc(cur.max!=null?cur.max:"")+'"></div>';
     }else if(kind==="date"){
       body+='<div class="mlf-row"><label>起</label><input type="date" id="mlfFrom" value="'+esc(cur.from||"")+'"></div>';
       body+='<div class="mlf-row"><label>止</label><input type="date" id="mlfTo" value="'+esc(cur.to||"")+'"></div>';

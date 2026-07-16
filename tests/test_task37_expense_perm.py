@@ -157,7 +157,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
         # 截取 mainLedger 段
         i = js.find("mainLedgerCard")
         self.assertGreater(i, 0)
-        chunk = js[i : i + 8000]
+        chunk = js[i : i + 9000]
         self.assertIn("/api/detail/values", chunk, "文本列须调 values 接口")
         self.assertIn("mlfVals", chunk, "去重值多选容器")
         self.assertIn("type=\"checkbox\"", chunk.replace("'", '"') or chunk, "多选 checkbox")
@@ -165,6 +165,27 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("mlfQ", chunk, "关键词输入")
         # 不得仅用 prompt 做文本筛（旧实现）
         self.assertNotIn('prompt(col+" 关键词', chunk)
+
+    def test_ml_filter_pop_body_escape_rule17(self):
+        """铁律17：#mlFilterPop 不得困在 #periodSync（will-change:transform）；打开时 body.appendChild。"""
+        html = (ROOT / "static" / "templates" / "render" / "dashboard_body.html").read_text(encoding="utf-8")
+        # 模板：弹层在 </div> wrap/foot 之后、与 #tip 同级（不在 periodSync 内）
+        i_sync = html.find('id="periodSync"')
+        i_end_sync = html.find("</div>", html.find('id="mainLedgerCard"'))  # rough
+        i_pop = html.find('id="mlFilterPop"')
+        self.assertGreater(i_pop, 0, "缺 mlFilterPop")
+        # periodSync 开标签之后、mlFilterPop 之前不应仍把 pop 嵌在 sync 块内：
+        # 可靠判据= pop 出现在脚注/foot 之后（与 tip 同区）
+        self.assertIn("交付收入 = 交付金额", html[:i_pop] if i_pop > 0 else "")
+        self.assertLess(html.find('id="mainLedgerCard"'), i_pop)
+        # 不在 periodSync 开标签到 mainLedger 之间作为「仅内嵌」——要求 HTML 注释铁律17 或 body 区
+        self.assertIn("铁律17", html[html.find("mlFilterPop") - 200 : html.find("mlFilterPop") + 80])
+        js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        i = js.find("function openFilter")
+        self.assertGreater(i, 0)
+        open_fn = js[i : i + 600]
+        self.assertIn("document.body.appendChild(pop)", open_fn, "打开列筛必须 body.appendChild(pop)")
+        self.assertIn("parentElement!==document.body", open_fn)
 
     def test_settings_ui_has_switch(self):
         html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")

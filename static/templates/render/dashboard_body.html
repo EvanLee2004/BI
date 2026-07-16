@@ -51,7 +51,6 @@
   <div style="overflow:auto;max-height:420px">
     <table class="bu-ledger" id="mlTbl" style="width:100%;border-collapse:collapse;font-size:12px"></table>
   </div>
-  <div id="mlFilterPop" class="ml-filter-pop" style="display:none" hidden></div>
  </div>
  </div>
  <div class="foot">
@@ -62,4 +61,6 @@
 </div>
 {drawer}
 <div id="tip"></div>
+<!-- 铁律17：fixed 弹层挂 body 直下，勿放 #periodSync（will-change:transform 会成包含块） -->
+<div id="mlFilterPop" class="ml-filter-pop" style="display:none" hidden></div>
 <script src="/static/js/cockpit.js"></script>
