@@ -79,6 +79,7 @@ tests/test_b_p1_contract.py
 tests/test_task37_ui.py
 tests/test_year2027.py
 tests/test_split_static.py
+tests/test_linux_deploy.py
 "
 run_one() {
   f="$1"

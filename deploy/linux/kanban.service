@@ -1,0 +1,40 @@
+# 甲骨易智能经营罗盘 · systemd 单元（Ubuntu 22.04）
+# 安装见 docs/Ubuntu部署手册.md；模板内路径按实际部署目录改。
+#
+# 语义：
+#   - Restart=always + RestartSec=3：进程退出（含一键更新码 42）后自动再起
+#   - ExecStart 走 start_with_rollback.sh：坏版本 (.update_rollback) 自动 git reset 一次
+#   - StartLimitBurst=5 / StartLimitIntervalSec=120：短时反复崩则停下报警（对齐看门狗 5 次）
+#
+# 安装示例（部署目录=/opt/kanban/看板正式程序，用户=kanban）：
+#   sudo cp deploy/linux/kanban.service /etc/systemd/system/kanban.service
+#   sudo sed -i 's|/opt/kanban/看板正式程序|实际路径|g' /etc/systemd/system/kanban.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now kanban
+#   journalctl -u kanban -f
+
+[Unit]
+Description=甲骨易智能经营罗盘 (kanban)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kanban
+Group=kanban
+WorkingDirectory=/opt/kanban/看板正式程序
+# 包装脚本内自带 42 重启 / 回滚 / 5 次失败停下；systemd Restart 作双保险
+ExecStart=/bin/bash /opt/kanban/看板正式程序/deploy/linux/start_with_rollback.sh
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=120
+StartLimitBurst=5
+# 日志走 journald：journalctl -u kanban -n 200 --no-pager
+StandardOutput=journal
+StandardError=journal
+# 环境：UTF-8 兜底（中文路径/日志）
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+# 离线抓数开关可由本地配置控制；此处不强行设 KANBAN_OFFLINE
+
+[Install]
+WantedBy=multi-user.target

@@ -231,6 +231,74 @@ def _win_sync_schedule(times: list[str], root=None) -> str:
     return f"；计划任务已同步（{len(times)} 个时间点：{'、'.join(times)}）"
 
 
+# Linux crontab 哨兵（与 deploy/linux/register_schedule.sh 一致；绝不动段外行）
+CRON_BEGIN = "# BEGIN kanban-schedule"
+CRON_END = "# END kanban-schedule"
+
+
+def _cron_block_for_times(times: list[str], root=None) -> str:
+    """生成 crontab 哨兵段正文（含 BEGIN/END）。times 已规范为 HH:MM 列表。"""
+    import sys
+
+    py = sys.executable or "python3"
+    runpy = str((root or loaders.ROOT) / "run.py")
+    lines = [CRON_BEGIN, "# managed by 看板正式程序 _linux_sync_schedule / register_schedule.sh"]
+    for t in times:
+        hh, mm = t.split(":")
+        # 去前导零：避免部分 cron 把 08 当八进制
+        lines.append(f'{int(mm)} {int(hh)} * * * "{py}" "{runpy}" --scheduled')
+    lines.append(CRON_END)
+    return "\n".join(lines) + "\n"
+
+
+def _strip_cron_sentinel(text: str) -> str:
+    """去掉旧 kanban-schedule 哨兵段，保留用户其它 cron 行。"""
+    out, skip = [], False
+    for line in (text or "").splitlines():
+        if line.strip() == CRON_BEGIN:
+            skip = True
+            continue
+        if line.strip() == CRON_END:
+            skip = False
+            continue
+        if not skip:
+            out.append(line)
+    return "\n".join(out).rstrip("\n")
+
+
+def _linux_sync_schedule(times: list[str], root=None) -> str:
+    """Linux：重写当前用户 crontab 中本程序哨兵段（条目数=时间点数），绝不吞其它行。
+    best-effort：失败不打断保存，提示重跑 deploy/linux/register_schedule.sh。"""
+    import subprocess
+
+    try:
+        r = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=15)
+        old = r.stdout if r.returncode == 0 else ""
+        stripped = _strip_cron_sentinel(old)
+        block = _cron_block_for_times(times, root)
+        new_text = (stripped + "\n" if stripped else "") + block
+        w = subprocess.run(["crontab", "-"], input=new_text, capture_output=True, text=True, timeout=15)
+        if w.returncode != 0:
+            err = (w.stderr or w.stdout or "").strip()[:120]
+            return f"；⚠cron 同步失败（{err or '未知'}）——请重跑 bash deploy/linux/register_schedule.sh"
+    except Exception as e:
+        return f"；⚠cron 同步出错（{e}）——请重跑 bash deploy/linux/register_schedule.sh"
+    return f"；cron 已同步（{len(times)} 个时间点：{'、'.join(times)}）"
+
+
+def sync_schedule(times: list[str], root=None) -> str:
+    """按平台同步定时更新：win32→schtasks；linux→crontab 哨兵段；其它（含 macOS 开发机）no-op 提示。
+    部署主线=Ubuntu cron；开发机不写本机 crontab，避免污染。"""
+    import sys
+
+    plat = sys.platform
+    if plat == "win32":
+        return _win_sync_schedule(times, root)
+    if plat.startswith("linux"):
+        return _linux_sync_schedule(times, root)
+    return f"（本机非部署平台：{len(times)} 个时间点在 Ubuntu 上由 cron 生效；可跑 deploy/linux/register_schedule.sh）"
+
+
 def _zhiyun_cfg_file(cfg, root=None) -> Path:
     return loaders.data_dir(cfg, root) / "智云配置.json"
 
@@ -382,14 +450,9 @@ def save_settings(cfg, root, payload: dict) -> dict:
             conn_note = "；智云连接配置已更新（下次更新生效）"
 
     note = "已保存" + cred_note + conn_note
-    # 仅当本次真的提交了更新时间时才动计划任务（各卡就近保存）
+    # 仅当本次真的提交了更新时间时才动计划任务/cron（各卡就近保存；平台分支见 sync_schedule）
     if changed_times:
-        import sys
-
-        if sys.platform == "win32":
-            note += _win_sync_schedule(times, root)
-        else:
-            note += f"（本机非 Windows：{len(times)} 个时间点在部署机上生效）"
+        note += sync_schedule(times, root)
     return {
         "schedule_time": st,
         "schedule_times": times,
