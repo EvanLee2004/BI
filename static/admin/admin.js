@@ -89,7 +89,15 @@ function showToast(t,isErr,onclick){const el=document.getElementById("toast");el
 function _shortReason(h){const rr=(h.run_reasons||[])[0]||"";
   if(rr)return rr.length>36?rr.slice(0,36)+"…":rr;
   const w=(h.warnings||[])[0]||"";return w?(w.length>36?w.slice(0,36)+"…":w):"";}
+function paintFetchBanners(h){
+  const box=document.getElementById("fetchBanner");if(!box)return;
+  const list=(h&&h.fetch_banners)||[];
+  if(!list.length){box.style.display="none";box.innerHTML="";return;}
+  box.innerHTML=list.map(b=>'<div class="fb-line">'+esc((b&&b.text)||"")+'</div>').join("");
+  box.style.display="block";
+}
 async function loadHealth(){try{const h=await jget("/api/health");window._health=h;const el=document.getElementById("health");
+  paintFetchBanners(h);
   const c=h.result==="绿"?"g":h.result==="红"?"r":"y";el.className="pill "+c;
   const nWarn=(h.warnings&&h.warnings.length)||0;
   let label="体检 "+(h.result||"?");

@@ -51,6 +51,12 @@ border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12px
 #hDetail h4{margin:0 0 4px;font-size:13px}#hDetail .grp{margin-top:10px}
 #hDetail .k{color:var(--mut);font-weight:600;margin-bottom:2px}
 #hDetail ul{margin:3px 0 0;padding-left:18px}#hDetail .ok{color:#16a34a}
+/* 任务书37·B9 抓数降级黄横幅（管理端顶） */
+.fetch-banner-admin{display:none;padding:10px 16px;font-size:13.5px;font-weight:600;line-height:1.45;
+  background:linear-gradient(90deg,rgba(251,191,36,.28),rgba(251,191,36,.1));
+  border-bottom:1px solid #f59e0b66;color:#fde68a}
+html.theme-light .fetch-banner-admin{color:#92400e;background:linear-gradient(90deg,rgba(251,191,36,.4),rgba(251,191,36,.15))}
+.fetch-banner-admin .fb-line{margin:2px 0}
 #toast{display:none;position:fixed;top:56px;right:18px;z-index:50;background:#14532d;color:#bbf7d0;
 padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px var(--shadow);max-width:360px}
 #toast.err{background:#7f1d1d;color:#fecaca}

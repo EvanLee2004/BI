@@ -1178,6 +1178,43 @@ def _scan_ledger_issues(ledger_rows, ledger_year, lcols):
     return date_bad, amt_bad
 
 
+def _scan_future_dates_dict(rows, date_col, today: datetime.date, max_samples: int = 3):
+    """任务书37·B10：归属日期 > 今天 的行数与样例（不拦数据）。"""
+    n = 0
+    samples: list[str] = []
+    for r in rows or []:
+        p = loaders.parse_date_parts(r.get(date_col) if isinstance(r, dict) else None)
+        if not p:
+            continue
+        try:
+            d = datetime.date(int(p[0]), int(p[1]), int(p[2]))
+        except (TypeError, ValueError):
+            continue
+        if d > today:
+            n += 1
+            if len(samples) < max_samples:
+                samples.append(d.isoformat())
+    return n, samples
+
+
+def _scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today: datetime.date, max_samples: int = 3):
+    n = 0
+    samples: list[str] = []
+    for row in ledger_rows or []:
+        p = periods.ledger_row_date(row, ledger_year, lcols)
+        if not p:
+            continue
+        try:
+            d = datetime.date(int(p[0]), int(p[1]), int(p[2]))
+        except (TypeError, ValueError):
+            continue
+        if d > today:
+            n += 1
+            if len(samples) < max_samples:
+                samples.append(d.isoformat())
+    return n, samples
+
+
 def _data_health(
     cfg,
     cc,
@@ -1257,4 +1294,16 @@ def _data_health(
         warnings.append(
             f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount'] / 1e6:.1f}万），未计入费用"
         )
+    # 任务书37·B10：归属日期 > 今天 → 体检黄（条数+样例），不拦管道
+    future_scans = [
+        ("项目明细(智云)", *_scan_future_dates_dict(project, cc["project_delivery_date"], today)),
+        ("下单(智云)", *_scan_future_dates_dict(orders, cc["order_date"], today)),
+        ("回款(智云)", *_scan_future_dates_dict(receipts, cc["receipt_date"], today)),
+        ("内部译员(智云)", *_scan_future_dates_dict(inhouse, cc["inhouse_date"], today)),
+        ("收单台账", *_scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today)),
+    ]
+    for name, n_fut, samples in future_scans:
+        if n_fut:
+            samp = "、".join(samples) + ("…" if n_fut > len(samples) else "")
+            warnings.append(f"{name} 有 {n_fut} 行归属日期晚于今天（样例 {samp}），已计入对应未来月、不拦截")
     return {"sources": sources, "warnings": warnings, "ok": len(warnings) == 0}

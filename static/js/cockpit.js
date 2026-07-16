@@ -406,3 +406,21 @@
   var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};load();};
   load();
 })();
+
+
+/* 任务书37·B9：抓数降级黄横幅（/api/health.fetch_banners） */
+(function(){
+  var el=document.getElementById("fetchBanner");
+  if(!el)return;
+  function paint(list){
+    if(!list||!list.length){el.style.display="none";el.innerHTML="";return;}
+    el.innerHTML=list.map(function(b){
+      var t=(b&&b.text)||"";
+      return '<div class="fb-line">'+String(t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];})+'</div>';
+    }).join("");
+    el.style.display="";
+  }
+  fetch("/api/health",{credentials:"same-origin"}).then(function(r){return r.ok?r.json():null;})
+    .then(function(h){if(h)paint(h.fetch_banners||[]);})
+    .catch(function(){});
+})();

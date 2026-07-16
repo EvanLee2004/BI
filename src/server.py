@@ -591,6 +591,74 @@ def _run_reasons(report: dict) -> list[str]:
     return reasons
 
 
+# 智云源键 → 人读短名（任务书37·B9 黄横幅）
+_ZY_BANNER_NAMES = {
+    "orders": "智云·下单",
+    "receipts": "智云·回款",
+    "project_detail": "智云·项目明细",
+    "inhouse": "智云·内部译员",
+}
+_ZY_FILE_KEYS = {
+    "orders": "orders",
+    "receipts": "receipts",
+    "project_detail": "project_detail_stem",  # 实际文件由 readers 解析；横幅用 mtime 时退回目录内匹配
+    "inhouse": "inhouse",
+}
+
+
+def _file_as_of_label(path: Path) -> str:
+    """本地文件修改时间 →「M月D日」；无文件→「上次本地」。"""
+    try:
+        if path and path.exists():
+            import datetime as _dt
+
+            dt = _dt.datetime.fromtimestamp(path.stat().st_mtime)
+            return f"{dt.month}月{dt.day}日"
+    except OSError:
+        pass
+    return "上次本地"
+
+
+def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dict]:
+    """任务书37·B9：任一源 local_fallback/no_source → 醒目黄横幅文案（与 run_reasons 同源、UI 专用）。
+    返回 [{source, status, as_of, text}, …]；全部 fetched 或无报告 → []。"""
+    report = report or {}
+    banners: list[dict] = []
+    ddir = loaders.data_dir(cfg, root)
+    files = cfg.get("files") or {}
+
+    def _add(name: str, status: str, path: Path | None):
+        if not status or status == "fetched":
+            return
+        as_of = _file_as_of_label(path) if path else "上次本地"
+        text = f"⚠ {name}今日未抓到，正在沿用{as_of}数据"
+        banners.append({"source": name, "status": status, "as_of": as_of, "text": text})
+
+    fetch = report.get("fetch") or {}
+    if isinstance(fetch, dict) and fetch.get("status"):
+        led = ddir / files.get("ledger", "收单台账.xlsx")
+        _add("收单台账", fetch.get("status"), led)
+
+    for src, zv in (report.get("fetch_zhiyun") or {}).items():
+        if not isinstance(zv, dict):
+            continue
+        st = zv.get("status")
+        label = _ZY_BANNER_NAMES.get(src, f"智云·{src}")
+        # 本地副本路径：orders/receipts/inhouse 为 xlsx 文件名；project_detail 为 stem
+        fname = files.get(src) or files.get(_ZY_FILE_KEYS.get(src, src))
+        path = None
+        if fname:
+            p = ddir / fname
+            if p.exists():
+                path = p
+            else:
+                # stem 如「项目明细」→ 找 项目明细*.xlsx
+                cands = sorted(ddir.glob(f"{fname}*.xlsx")) if not str(fname).endswith(".xlsx") else []
+                path = cands[-1] if cands else p
+        _add(label, st, path)
+    return banners
+
+
 def _view_login_file():
     """看板登录：纯 static（B-P4 增补；错误由前端按 API 渲染）。会话态文档 → no-store。"""
     p = STATIC_DIR / "view_login.html"

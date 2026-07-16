@@ -375,7 +375,8 @@ def register(app, d):
 
     @app.get("/api/health")
     def api_health():
-        """体检状态条数据源（公开：只给绿/黄/红 + 时间 + 各源行数，不含金额/客户名）。"""
+        """体检状态条数据源（公开：只给绿/黄/红 + 时间 + 各源行数，不含金额/客户名）。
+        任务书37·B9：fetch_banners=抓数降级黄横幅（看端/管理端顶部）。"""
         conn = db.connect(cfg, root)
         try:
             run_log = db.latest_run(conn)
@@ -384,13 +385,17 @@ def register(app, d):
         meta = (_state.get("summary") or {}).get("meta", {})
         health = meta.get("health", {})
         result = (run_log or {}).get("结果")  # 黄/红/绿：管道运行日志
-        reasons = _run_reasons((run_log or {}).get("体检", {}))  # 「黄/红」：为啥（fetch/过期调整）
+        body = (run_log or {}).get("体检", {}) or {}
+        reasons = _run_reasons(body)  # 「黄/红」：为啥（fetch/过期调整）
         # A3：未归属销售>0 → 至少判黄 + 顶栏短原因（沿用 v8.0 机制；不覆盖已判红）
         n_un = int((meta.get("unassigned") or {}).get("count") or 0)
         if n_un > 0:
             reasons = [f"{n_un} 名销售未归属 BU（业务不进任何 BU 页，各 BU 合计小于全公司）"] + reasons
             if result in ("绿", None):  # 未判红时至少判黄（无运行日志时 result 为 None 也升黄）
                 result = "黄"
+        import server as _srv
+
+        banners = _srv.build_fetch_fallback_banners(body, cfg, root)
         return {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
@@ -398,6 +403,7 @@ def register(app, d):
             "sources": health.get("sources", []),
             "warnings": health.get("warnings", []),  # 「警」：数据体检（未填分类等）
             "run_reasons": reasons,
+            "fetch_banners": banners,  # B9 醒目横幅；全源成功=[]
         }
 
     def _require(request: Request) -> str:
