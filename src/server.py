@@ -180,17 +180,16 @@ def get_schedule_times(cfg) -> list[str]:
 
 
 def _schtask_command(root=None) -> str:
-    """计划任务要跑的命令：cd 到程序根 + <当前解释器> run.py --scheduled（部署机=venv python）。
+    """计划任务要跑的命令：绝对路径 <解释器> <run.py> --scheduled（部署机=venv python）。
 
-    显式 cd：计划任务默认 cwd 常为 System32；程序虽用 __file__ 定位，与 注册每日更新.bat 对齐更稳。
+    不用 cmd/cd：Windows 路径尾 \\ 在引号内会转义收尾引号（%%~dp0 经典坑）。
+    程序根由 run.py 的 __file__ 定位，计划任务默认 cwd 不影响。与 注册每日更新.bat 一致。
     """
     import sys
 
     py = sys.executable or "python"
-    base = root or loaders.ROOT
-    runpy = str(base / "run.py")
-    # Windows schtasks /TR：cmd /c "cd /d root && py run.py --scheduled"
-    return f'cmd /c "cd /d ""{base}"" && ""{py}"" ""{runpy}"" --scheduled"'
+    runpy = str((root or loaders.ROOT) / "run.py")
+    return f'"{py}" "{runpy}" --scheduled'
 
 
 def _win_task_names(n: int) -> list[str]:
