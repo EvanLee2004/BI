@@ -306,7 +306,7 @@ def _budget_tag(budget):
             if p is None:
                 pct = "—"
             elif p > 999:
-                pct = f"{p:.0f}%"
+                pct = ">999% · 目标待校准"
             else:
                 pct = f"{p:.1f}%"
             parts.append(
@@ -359,7 +359,7 @@ def _receipt_insight_totals(
         if pct is None:
             pct_txt = "—"
         elif pct > 999:
-            pct_txt = f"{pct:.0f}%·目标偏小"
+            pct_txt = ">999% · 目标待校准"
         else:
             pct_txt = f"{pct:.1f}%"
         bw = max(0.0, min(float(pct or 0), 100.0))
@@ -759,6 +759,167 @@ def _dual_card(title, dual, dim="", embed_full=False):
     return tpl.fill("render/dual_card.html", dim=_esc(dim), title=title, body=body)
 
 
+def expense_monthly_from_period_ledgers(summary: dict) -> dict:
+    """从各月周期 ledger_expenses 拼 1~12 矩阵（BU 分摊后与利润表费用口径一致）。"""
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    month_keys = (meta.get("tab_groups") or {}).get("月") or []
+    cats: list[str] = []
+    by_m: dict[int, dict[str, float]] = {m: {} for m in range(1, 13)}
+    for k in month_keys:
+        try:
+            rest = k.split("年", 1)[1]
+            m = int(rest.replace("月", "").split("-")[0]) if rest.endswith("月") else 0
+        except (IndexError, ValueError):
+            m = 0
+        if m < 1 or m > 12:
+            continue
+        led = (P.get(k) or {}).get("ledger_expenses") or {}
+        for c, v in led.items():
+            if not c:
+                continue
+            if c not in cats:
+                cats.append(c)
+            by_m[m][c] = round(float(v or 0), 2)
+    months = []
+    for m in range(1, 13):
+        bc = {c: float(by_m[m].get(c) or 0) for c in cats}
+        months.append({"m": m, "total": round(sum(bc.values()), 2), "by_cat": bc})
+    return {"categories": cats, "months": months, "salary_merged": False, "note": ""}
+
+
+def apply_expense_salary_hide(raw: dict | None, hide_salary: bool) -> dict | None:
+    """整体页 B8：默认隐工资 → 图中「工资」并入「其他」并注明（仅显示层副本，不改 summary）。"""
+    if not raw:
+        return raw
+    if not hide_salary or "工资" not in (raw.get("categories") or []):
+        return raw
+    import copy
+
+    out = copy.deepcopy(raw)
+    cats = [c for c in out.get("categories") or [] if c != "工资"]
+    if "其他" not in cats:
+        cats.append("其他")
+    for m in out.get("months") or []:
+        bc = dict(m.get("by_cat") or {})
+        sal = float(bc.pop("工资", 0) or 0)
+        if sal:
+            bc["其他"] = round(float(bc.get("其他") or 0) + sal, 2)
+        m["by_cat"] = bc
+        m["total"] = round(sum(float(bc.get(c) or 0) for c in cats), 2)
+    out["categories"] = cats
+    out["salary_merged"] = True
+    out["note"] = "工资大类已并入「其他」（整体账号默认隐工资；管理端可开）"
+    return out
+
+
+def pack_expense_trend_months(raw: dict) -> tuple[list[str], list[dict], str]:
+    """把 compute_expense_monthly_by_cat 结果压成 SVG 入参（显示串/高度比例后端算好）。"""
+    cats = list(raw.get("categories") or [])
+    months_out = []
+    for m in raw.get("months") or []:
+        total = float(m.get("total") or 0)
+        segs = []
+        by_cat = m.get("by_cat") or {}
+        for c in cats:
+            amt = float(by_cat.get(c) or 0)
+            if amt <= 0:
+                continue
+            pct = (amt / total * 100.0) if total else 0.0
+            segs.append(
+                {
+                    "cat": c,
+                    "amount": amt,
+                    "amount_disp": charts.fmt_wan(amt),
+                    "pct_disp": f"{pct:.1f}%",
+                }
+            )
+        months_out.append(
+            {
+                "m": m.get("m"),
+                "total": total,
+                "total_disp": charts.fmt_wan(total),
+                "segs": segs,
+            }
+        )
+    note = raw.get("note") or ""
+    return cats, months_out, note
+
+
+def render_expense_trend(raw: dict | None, *, title: str = "费用月度趋势 · 按报表大类") -> str:
+    """任务书39·E：费用堆叠柱卡 HTML。raw=compute_expense_monthly_by_cat 结果。"""
+    if not raw:
+        return ""
+    cats, months, note = pack_expense_trend_months(raw)
+    chart = charts.expense_stack_chart(months, cats, note=note)
+    return tpl.fill("render/exp_trend_card.html", title=_esc(title), chart=chart)
+
+
+def dual_rankings_from_daily(rankings: dict, top: int = 10) -> dict:
+    """任务书39·C：/api/daily 的四维单血条 → 双血条两卡就绪结构（显示串/宽度已算）。
+    自定义区间不带月度下钻（mkey 空；语义：跨任意日段非完整自然月）。"""
+    dual_s = _merge_dual_rank(rankings.get("orders_by_sales"), rankings.get("receipts_by_sales"), top=top)
+    dual_c = _merge_dual_rank(rankings.get("orders_by_customer"), rankings.get("receipts_by_customer"), top=top)
+
+    def pack(dual, title, dim):
+        items = []
+        for i, it in enumerate(dual.get("items") or [], 1):
+            items.append(
+                {
+                    "i": i,
+                    "name": it["name"],
+                    "wo": round(it.get("wo") or 0, 1),
+                    "wr": round(it.get("wr") or 0, 1),
+                    "order_disp": it.get("order_disp") or _rank_amt(it.get("order") or 0),
+                    "receipt_disp": it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0),
+                    "mkey": "",
+                }
+            )
+        others = dual.get("others")
+        others_out = None
+        if others:
+            others_out = {
+                "names": others["names"],
+                "amt": (
+                    f"下单{others.get('order_disp') or _rank_amt(others.get('order') or 0)}"
+                    f" / 回款{others.get('receipt_disp') or _rank_amt(others.get('receipt') or 0)}"
+                ),
+                "count": others["names"],
+            }
+        full_out = []
+        full_src = dual.get("full_items") or dual.get("items") or []
+        mx = dual.get("mx") or 1 or 1
+        for i, it in enumerate(full_src, 1):
+            oa = float(it.get("order") or 0)
+            ra = float(it.get("receipt") or 0)
+            full_out.append(
+                {
+                    "i": i,
+                    "name": it["name"],
+                    "wo": round(max(oa / mx * 100, 0), 1),
+                    "wr": round(max(ra / mx * 100, 0), 1),
+                    "order_disp": it.get("order_disp") or _rank_amt(oa),
+                    "receipt_disp": it.get("receipt_disp") or _rank_amt(ra),
+                    "mkey": "",
+                }
+            )
+        return {
+            "title": title,
+            "dim": dim,
+            "items": items,
+            "others": others_out,
+            "empty": not items,
+            "embed_full": bool(others),
+            "full_items": full_out if others else [],
+        }
+
+    return {
+        "sales": pack(dual_s, "下单/回款 · 按销售", "sales"),
+        "customer": pack(dual_c, "下单/回款 · 按客户", "customer"),
+        "monthly_drill": False,  # 自定义日段不带 1~12 月下钻
+    }
+
+
 def render_rankings(p, embed_full=False, *, monthly_store: dict | None = None, emit_monthly_script: bool = True):
     """A6：下单与回款双血条两卡（按销售 / 按客户）；去掉按部门。
     陆总#8 / 任务书34：页面级 monthly 字典 + 行 data-mkey（无行内 12 月 JSON）。
@@ -940,6 +1101,10 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
     )
     receipts_budget = tpl.fill("render/period_receipts.html", html=receipts_html)
     trend_html = render_trend(summary["trend"], hl, period_months_map=rm_map, year_key=yk)
+    # 任务书39·E：整体费用堆叠（B8 默认隐工资）
+    hide_sal = not bool(cfg.get("overall_see_salary", False))
+    exp_raw = apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), hide_sal)
+    expense_trend_html = render_expense_trend(exp_raw, title="费用月度趋势 · 按报表大类")
     return {
         "title": "甲骨易智能经营罗盘",
         "particles": PARTICLES_HTML,
@@ -956,6 +1121,7 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
         "receipts_budget": receipts_budget,
         "daily_html": DAILY_HTML,
         "rank_views": rank_views,
+        "expense_trend_html": expense_trend_html,
         "drawer": DRAWER_HTML,
     }
 
@@ -978,6 +1144,7 @@ def assemble_dashboard_html(frags: dict) -> str:
         receipts_budget=frags["receipts_budget"],
         daily_html=frags["daily_html"],
         rank_views=frags["rank_views"],
+        expense_trend_html=frags.get("expense_trend_html") or "",
         drawer=frags["drawer"],
     )
     return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易智能经营罗盘", body=body)
@@ -1134,6 +1301,13 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
 
     export_url = f"/bu/{_q(bu_name)}/export.png"
     pl_tag = tpl.fill("render/bu_pl_tag.html", note=_esc(tag_note)) if tag_note else ""
+    # 任务书39·E：BU 费用堆叠=各月 ledger（含分摊自公共）与利润表费用口径对齐，铁律12
+    bu_exp = expense_monthly_from_period_ledgers(summary)
+    if not any(m.get("total") for m in bu_exp.get("months") or []):
+        bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
+    expense_trend_html = render_expense_trend(bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类")
+    # 任务书39·B：BU 页同款「按时间段看」（查询走 /api/bu_daily；弹窗壳仍走 rk_modal，避免双份）
+    daily_html = tpl.load("partials/daily_panel.html")
     return {
         "title": f"甲骨易智能经营罗盘 · {name}",
         "particles": PARTICLES_HTML,
@@ -1151,7 +1325,9 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
         "pl_views": pl_views,
         "profit_rank_views": profit_rank_views,
         "receipts_html": receipts_html,
+        "daily_html": daily_html,
         "rank_views": rank_views,
+        "expense_trend_html": expense_trend_html,
         "drawer": DRAWER_HTML,
         "rk_modal": RK_MODAL_HTML,
     }
@@ -1176,7 +1352,9 @@ def assemble_bu_dashboard_html(frags: dict) -> str:
         pl_views=frags["pl_views"],
         profit_rank_views=frags["profit_rank_views"],
         receipts_html=frags["receipts_html"],
+        daily_html=frags.get("daily_html") or "",
         rank_views=frags["rank_views"],
+        expense_trend_html=frags.get("expense_trend_html") or "",
         drawer=frags["drawer"],
         rk_modal=frags["rk_modal"],
     )

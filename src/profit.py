@@ -232,6 +232,86 @@ def compute_profit_ranking(
     }
 
 
+def compute_expense_monthly_by_cat(
+    ledger_rows,
+    ledger_year,
+    lcols,
+    cfg,
+    *,
+    year: int,
+    profit_center: str | None = None,
+    hide_salary: bool = False,
+    alloc_by_month: dict | None = None,
+):
+    """任务书39·E：全年 1~12 月 × 报表大类 费用矩阵（金额=分）。
+
+    profit_center：BU 页只计「利润归属中心」=该 BU 的直记行；None=全公司。
+    alloc_by_month：{(y,m):{大类:分}} 分摊自公共（BU 页叠加，与利润表费用口径一致）。
+    hide_salary=True：工资并入「其他」并记 note（跟随 B8 工资明细开关）。
+    返回 {categories:[...], months:[{m,total,by_cat:{…}}], salary_merged:bool}。
+    """
+    included = list(cfg.get("expense_categories_included") or [])
+    excluded = list(cfg.get("expense_categories_excluded") or [])
+    # 图用台账大类全集（含成本/工资等排除类，便于领导看构成）
+    all_cats = []
+    for c in included + excluded:
+        if c and c not in all_cats and c != "非利润表":
+            all_cats.append(c)
+    by_m: dict[int, dict[str, float]] = {m: defaultdict(float) for m in range(1, 13)}
+    c_amt = lcols.get("含税金额")
+    c_pc = lcols.get("业务BU")
+    if c_amt is None:
+        return {"categories": all_cats, "months": [], "salary_merged": False, "note": ""}
+    for row in ledger_rows:
+        d = periods.ledger_row_date(row, ledger_year, lcols)
+        if not d or d[0] != year:
+            continue
+        m = int(d[1])
+        if m < 1 or m > 12:
+            continue
+        if profit_center is not None and c_pc is not None:
+            pc = str(row[c_pc] if len(row) > c_pc else "").strip()
+            if pc != profit_center:
+                continue
+        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
+        if not amt:
+            continue
+        cat, is_unc = columns.classify_expense_category(row, cfg, lcols)
+        if is_unc or not cat or cat == "非利润表":
+            continue
+        if cat not in all_cats:
+            all_cats.append(cat)
+        by_m[m][cat] += amt
+    # 叠加分摊
+    if alloc_by_month:
+        for (y, m), cats in alloc_by_month.items():
+            if int(y) != year or m < 1 or m > 12:
+                continue
+            for cat, amt in (cats or {}).items():
+                if cat and cat != "非利润表":
+                    if cat not in all_cats:
+                        all_cats.append(cat)
+                    by_m[m][cat] += float(amt or 0)
+    salary_merged = False
+    note = ""
+    if hide_salary and "工资" in all_cats:
+        salary_merged = True
+        note = "工资大类已并入「其他」（整体账号默认隐工资；管理端可开）"
+        if "其他" not in all_cats:
+            all_cats.append("其他")
+        for m in range(1, 13):
+            sal = float(by_m[m].pop("工资", 0) or 0)
+            if sal:
+                by_m[m]["其他"] += sal
+        all_cats = [c for c in all_cats if c != "工资"]
+    months = []
+    for m in range(1, 13):
+        bc = {c: round(float(by_m[m].get(c) or 0), 2) for c in all_cats}
+        total = round(sum(bc.values()), 2)
+        months.append({"m": m, "total": total, "by_cat": bc})
+    return {"categories": all_cats, "months": months, "salary_merged": salary_merged, "note": note}
+
+
 def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_to_bu=None):
     """按天明细（/api/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
     days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
@@ -769,6 +849,10 @@ def build_summary(
                 "receipts": sum(P[k]["receipts"] for k in h1_ms),
                 "gross_margin_pct": round(g / n * 100, 2) if n else 0.0,
             }
+    # 任务书39·E：全年费用×大类矩阵（显示层再按 B8 隐工资；算账口径不改）
+    expense_monthly_by_cat = compute_expense_monthly_by_cat(
+        ledger_rows, ledger_year, lcols, cfg, year=today.year, hide_salary=False
+    )
     return {
         "meta": {
             "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -790,6 +874,7 @@ def build_summary(
         "trend": trend,
         "receipt_monthly": receipt_monthly,
         "receipt_order_monthly": receipt_order_monthly,
+        "expense_monthly_by_cat": expense_monthly_by_cat,
     }
 
 
