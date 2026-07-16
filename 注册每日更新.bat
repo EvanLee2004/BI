@@ -35,7 +35,8 @@ goto :eof
 :reg
 if "%IDX%"=="1" (set "NAME=%TN%") else (set "NAME=%TN%_%IDX%")
 echo 注册 %NAME%  每天 %1 运行 run.py --scheduled
+rem TR 用 cmd /c + cd /d 固定起始目录（计划任务默认 cwd 常为 System32；程序虽用 __file__ 定位根目录，仍显式 cd 更稳）
 schtasks /Create /TN "%NAME%" /SC DAILY /ST %1 /F ^
-  /TR "\"%PY%\" \"%~dp0run.py\" --scheduled"
+  /TR "cmd /c \"cd /d \"\"%~dp0\"\" && \"\"%PY%\"\" run.py --scheduled\""
 if not %ERRORLEVEL%==0 echo   [失败] %NAME% 注册未成功——请确认以"管理员身份"运行本脚本。
 goto :eof

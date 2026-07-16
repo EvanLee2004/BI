@@ -1,12 +1,19 @@
 @echo off
-rem 经营驾驶舱：在本机 8018 端口开内网访问（只共享 output\ 目录，源数据绝不暴露）
-rem 开着这个窗口期间，同事用浏览器访问  http://本机IP:8018/经营驾驶舱.html
-rem ⚠ 注意：http.server 没有账号密码，开端口前先确认访问控制方案已经陆经理同意。
 chcp 65001 >nul
-cd /d "%~dp0output"
-echo 本机 IP 地址（发给需要看的人，选“IPv4 地址”那一行）：
+rem 经营罗盘：放行本机 TCP 8018 入站（内网同事/手机访问 http://本机IP:8018/）
+rem ⚠ 需「以管理员身份运行」。服务本身请用 看门狗启动.bat（本脚本只开防火墙，不启服务）。
+rem 历史：旧版曾用 python -m http.server 共享 output\，已废弃（无鉴权、非双端服务）。
+cd /d "%~dp0"
+echo 正在添加 Windows 防火墙入站规则：甲骨易经营罗盘-8018 ...
+netsh advfirewall firewall delete rule name="甲骨易经营罗盘-8018" >nul 2>&1
+netsh advfirewall firewall add rule name="甲骨易经营罗盘-8018" dir=in action=allow protocol=TCP localport=8018 profile=private,domain
+if errorlevel 1 (
+  echo [失败] 请右键本脚本 →「以管理员身份运行」，再试一次。
+  pause
+  exit /b 1
+)
+echo [完成] 已放行 TCP 8018（专用/域网络配置文件）。
+echo 请确认 看门狗启动.bat 已在跑；同事访问：http://本机IP:8018/
+echo 本机 IPv4：
 ipconfig | findstr /i "IPv4"
-echo.
-echo 访问地址： http://上面的IP:8018/经营驾驶舱.html
-echo 关闭本窗口 = 停止访问。
-python -m http.server 8018
+pause
