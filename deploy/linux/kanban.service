@@ -34,6 +34,9 @@ StandardError=journal
 # 环境：UTF-8 兜底（中文路径/日志）
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
+# nginx 反代生产：后端只绑回环、不挂 static（由 nginx :80 伺服）
+Environment=KANBAN_SERVER_HOST=127.0.0.1
+Environment=KANBAN_SERVE_STATIC=0
 # 离线抓数开关可由本地配置控制；此处不强行设 KANBAN_OFFLINE
 
 [Install]

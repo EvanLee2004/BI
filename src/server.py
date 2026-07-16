@@ -743,16 +743,43 @@ def _admin_login_file():
 
 
 # ---------------- FastAPI 应用 ----------------
+def resolve_serve_static(cfg: dict | None = None) -> bool:
+    """是否由 FastAPI 挂载 /static。nginx 模式 false（静态由 nginx 伺服）；直连 true。
+    环境变量 KANBAN_SERVE_STATIC=0/1/false/true 可覆盖 config。"""
+    import os
+
+    env = os.environ.get("KANBAN_SERVE_STATIC")
+    if env is not None and str(env).strip() != "":
+        return str(env).strip().lower() in ("1", "true", "yes", "on")
+    cfg = cfg or {}
+    if "serve_static" in cfg:
+        return bool(cfg.get("serve_static"))
+    # 未配置时：绑 127.0.0.1 默认不挂静态（倾向反代）；否则挂（直连兼容）
+    host = str(cfg.get("server_host") or "0.0.0.0")
+    return host not in ("127.0.0.1", "localhost", "::1")
+
+
+def resolve_server_host(cfg: dict | None = None) -> str:
+    """监听地址。KANBAN_SERVER_HOST 优先；默认 config server_host → 0.0.0.0。"""
+    import os
+
+    env = os.environ.get("KANBAN_SERVER_HOST")
+    if env is not None and str(env).strip() != "":
+        return str(env).strip()
+    return str((cfg or {}).get("server_host") or "0.0.0.0")
+
+
 def create_app(cfg, root=None) -> FastAPI:
     """组装 FastAPI：会话/中间件依赖 + 路由注册（路由体见 routes/）。"""
     app = FastAPI(title="甲骨易智能经营罗盘", docs_url=None, redoc_url=None, openapi_url=None)
-    # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。二进制仍可走 wire gzip，浏览器正常解压。
+    # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。
+    # 任务书43：nginx 模式也保留 GZipMiddleware（双模兼容；反代时可再由 nginx gzip）。
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
-    # 静态 CSS/JS（展示层外置；内容来自 theme/render 原样抽取）
-    if STATIC_DIR.is_dir():
+    # 静态：直连模式挂载；nginx 模式由 nginx 伺服 /static/（serve_static=false）
+    if resolve_serve_static(cfg) and STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     def _user(request: Request) -> str | None:
@@ -889,6 +916,12 @@ _screenshot_png = _export_png.screenshot_png
 
 def serve(cfg=None, root=None):
     cfg = cfg or loaders.load_config()
+    try:
+        from app_logging import setup_logging
+
+        setup_logging(cfg, root)
+    except Exception:
+        pass
     print("[server] 首次构建页面（跑管道+渲染）……")
     try:
         refresh(cfg, root)
@@ -898,10 +931,13 @@ def serve(cfg=None, root=None):
     app = create_app(cfg, root)
     import uvicorn
 
-    host = cfg.get("server_host", "0.0.0.0")
+    host = resolve_server_host(cfg)
     # 环境变量 KANBAN_PORT 可覆盖端口（本机多会话调试时避开 config 固定端口，不影响部署默认值）
     port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
-    print(f"[server] 内网服务：用户端 http://<本机IP>:{port}/   管理员端 http://<本机IP>:{port}/admin")
+    static_on = resolve_serve_static(cfg)
+    mode = "直连(挂static)" if static_on else "反代后端(无static挂载)"
+    print(f"[server] 内网服务 host={host} port={port} 模式={mode}")
+    print(f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/   管理员 /admin")
 
     # 看门狗回滚配套：正常起服务 N 秒后清掉「更新回滚点」标记 = 确认这版没崩、无需回滚。
     # （若这版更新后启动即崩，进程活不到清标记，看门狗见标记仍在→自动回滚上一版本。）
