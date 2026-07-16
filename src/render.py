@@ -315,9 +315,12 @@ def _budget_tag(budget):
     return tpl.fill("render/budget_tag.html", parts="　".join(parts)) if parts else ""
 
 
-def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None, show_delivered_unpaid=False):
+def _receipt_insight_totals(
+    tot_o, tot_r, delivered_gross=None, budget=None, show_delivered_unpaid=False, period_label=""
+):
     """回款右侧驾驶舱（A3·陆总#2）：①总下单/总回款首行 ②已交付未回款可隐藏
-    ③回款占下单 ④年目标进度。金额由调用方传入，本函数只拼 HTML、零运算。"""
+    ③回款占下单 ④年目标进度。金额由调用方传入，本函数只拼 HTML、零运算。
+    period_label：任务书37·A4 紧邻标注所属周期，防误读为历史累计。"""
     tot_o = float(tot_o or 0.0)
     tot_r = float(tot_r or 0.0)
     gap = tot_o - tot_r  # 下单 − 回款：>0 表示尚待回款（含未交付）
@@ -326,6 +329,8 @@ def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None, sho
     bar_w = max(0.0, min(float(ytd_pct or 0), 100.0))
     gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
     gap_num = charts.fmt_wan(abs(gap))
+    pl = (period_label or "").strip()
+    pl_html = f" · {_esc(pl)}" if pl else ""
 
     hero = tpl.fill(
         "render/rc_totals.html",
@@ -333,6 +338,7 @@ def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None, sho
         gap_num=gap_num,
         tot_o=charts.fmt_wan(tot_o),
         tot_r=charts.fmt_wan(tot_r),
+        period_label=pl_html,
     )
     recv = ""
     if show_delivered_unpaid and delivered_gross is not None:
@@ -361,7 +367,9 @@ def _receipt_insight_totals(tot_o, tot_r, delivered_gross=None, budget=None, sho
     return tpl.fill("render/rc_side.html", content=f"{hero}{recv}{rate}{pills}{bud}")
 
 
-def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=None, show_delivered_unpaid=False):
+def _receipt_insight_panel(
+    receipt_order_monthly, budget=None, delivered_gross=None, show_delivered_unpaid=False, period_label=""
+):
     """回款右侧驾驶舱（全年按月加总版，兼容旧调用）。"""
     if not receipt_order_monthly:
         return tpl.load("render/rc_side_empty.html")
@@ -370,11 +378,16 @@ def _receipt_insight_panel(receipt_order_monthly, budget=None, delivered_gross=N
         tot_r += rec or 0.0
         tot_o += order or 0.0
     return _receipt_insight_totals(
-        tot_o, tot_r, delivered_gross=delivered_gross, budget=budget, show_delivered_unpaid=show_delivered_unpaid
+        tot_o,
+        tot_r,
+        delivered_gross=delivered_gross,
+        budget=budget,
+        show_delivered_unpaid=show_delivered_unpaid,
+        period_label=period_label,
     )
 
 
-def _receipt_insight_from_period(p, budget=None, show_delivered_unpaid=False):
+def _receipt_insight_from_period(p, budget=None, show_delivered_unpaid=False, period_label=""):
     """单周期回款侧栏：用该周期已算好的 orders/receipts/revenue_gross（随 .pv 切，零运算）。"""
     return _receipt_insight_totals(
         p.get("orders"),
@@ -382,6 +395,7 @@ def _receipt_insight_from_period(p, budget=None, show_delivered_unpaid=False):
         delivered_gross=p.get("revenue_gross"),
         budget=budget,
         show_delivered_unpaid=show_delivered_unpaid,
+        period_label=period_label or p.get("label") or "",
     )
 
 
@@ -451,14 +465,21 @@ def render_receipts(
                 k,
                 dk,
                 _receipt_insight_from_period(
-                    periods[k], budget if k == yk else None, show_delivered_unpaid=show_delivered_unpaid
+                    periods[k],
+                    budget if k == yk else None,
+                    show_delivered_unpaid=show_delivered_unpaid,
+                    period_label=k,
                 ),
             )
             for k in periods
         )
     else:
         side = _receipt_insight_panel(
-            receipt_order_monthly, budget, delivered_gross=delivered_gross, show_delivered_unpaid=show_delivered_unpaid
+            receipt_order_monthly,
+            budget,
+            delivered_gross=delivered_gross,
+            show_delivered_unpaid=show_delivered_unpaid,
+            period_label=yk or "",
         )
     rm_map = period_months_map or {}
     map_json = json.dumps(rm_map, ensure_ascii=False, separators=(",", ":"))
