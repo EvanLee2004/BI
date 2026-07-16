@@ -203,19 +203,32 @@ body{
 /* 两栏：右列利润表与左列同高，行距拉开填满 */
 .grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:stretch}
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
-/* 回款情况：左图为主（≥70%）、右栏紧凑指标卡 */
-.rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px;align-items:stretch;margin-top:6px}
-.rc-card .rc-body{min-width:0;flex:1;display:flex;flex-direction:column;justify-content:center}
-.rc-card .rc-body svg{flex:0 0 auto}
-.rc-card .rc-body svg{max-height:460px;width:100%;min-height:320px}
-.rc-side{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;
+/* 任务书39·A：回款情况整行大图 + 图下横向摘要条（与板块二趋势同规格） */
+.rc-card .rc-stack{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.rc-card .rc-body{min-width:0;width:100%;display:flex;flex-direction:column;justify-content:center}
+.rc-card .rc-body svg{flex:0 0 auto;width:100%;max-width:100%;height:auto}
+/* 兼容旧类名：勿再左右挤图 */
+.rc-card .rc-split{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.rc-summary,.rc-side{border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
-  display:flex;flex-direction:column;min-height:0}
-.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
-.rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
+  display:flex;flex-direction:column;min-height:0;width:100%;box-sizing:border-box}
+.theme-light .rc-summary,.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
+.rc-summary-title,.rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
   padding:0 2px 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
-.rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:column;gap:14px}
+.rc-summary-list,.rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:row;flex-wrap:wrap;
+  gap:12px 20px;align-items:stretch}
+.rc-kpi{flex:1 1 120px;min-width:110px;display:flex;flex-direction:column;gap:4px;
+  padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(15,23,42,.28)}
+.theme-light .rc-kpi{background:#f8fafc}
+.rc-kpi em{font-style:normal;font-size:12px;color:var(--mut);font-weight:600}
+.rc-kpi-num{font-size:22px;font-weight:800;font-family:var(--num-font);letter-spacing:-.02em;color:var(--ink);line-height:1.1}
+.rc-kpi-orders .rc-kpi-num{color:var(--purple)}
+.rc-kpi-recv .rc-kpi-num{color:var(--blue)}
+.rc-kpi-gap .rc-kpi-num{color:var(--orange)}
+.rc-kpi-rate .rc-kpi-num{color:var(--orange);font-size:18px}
+.rc-kpi-u{font-size:12px;font-weight:700;color:var(--mut);margin-top:-2px}
+.rc-kpi-rate .rc-rate-bar{margin-top:6px}
 /* 下单未回款大数（暗色默认用亮灰字；浅色见下方 .theme-light 覆盖） */
 .rc-hero{border-radius:12px;padding:14px 14px 12px;position:relative;
   border:1px solid rgba(251,146,60,.35);
@@ -298,7 +311,8 @@ body{
 .rc-rm-filter rect.bar.rm-on{filter:drop-shadow(0 0 8px var(--accent))!important}
 .rc-rm-filter circle.rm-on{filter:drop-shadow(0 0 6px var(--orange))}
 @media(max-width:900px){
-  .rc-card .rc-split{grid-template-columns:1fr}
+  .rc-card .rc-stack,.rc-card .rc-split{flex-direction:column}
+  .rc-summary-list,.rc-side-list{flex-direction:column}
 }
 @media(prefers-reduced-motion:reduce){
   .rc-hero,.rc-rate,.rc-pills,.rc-bud,.rc-rate-bar i,.rc-bud-bar i{animation:none!important}
@@ -444,8 +458,26 @@ body{
 /* 按天明细（批次B）：面板/表格；金额串由后端下发，前端零运算 */
 .daily-btn{order:9;margin-left:8px}
 .daily-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 10px;font-size:13px;color:var(--mut)}
-.daily-bar input[type=date]{background:transparent;border:1px solid var(--line-2);color:var(--ink);border-radius:8px;padding:6px 8px;font-size:13px}
+.daily-bar input[type=date],.cock-ctrl{background:transparent;border:1px solid var(--line-2);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;outline:none}
+.daily-bar input[type=date]:focus,.cock-ctrl:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.12)}
+.cock-ctrl-bar select.cock-ctrl{appearance:none;-webkit-appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.theme-light .cock-ctrl,.theme-light .daily-bar input[type=date]{background:#fff}
 .daily-note{font-size:11.5px;color:var(--mut2)}
+/* 任务书39·D：费用明细表（对齐管理端暗色明细：sticky 表头、容器滚动、等宽数字） */
+.ledger-scroll{overflow:auto;max-height:min(70vh,720px);min-height:200px;border:1px solid var(--line);border-radius:10px;position:relative}
+.cock-ledger{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:auto}
+.cock-ledger th,.cock-ledger td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;color:var(--ink)}
+.cock-ledger th{position:sticky;top:0;z-index:2;background:var(--panel-solid,#0d1526);color:var(--mut);font-weight:700;font-size:11.5px;letter-spacing:.02em;cursor:pointer}
+.theme-light .cock-ledger th{background:#f1f5f9}
+.cock-ledger td.num,.cock-ledger th.num{text-align:right;font-family:var(--num-font);font-variant-numeric:tabular-nums}
+.cock-ledger td.col-flex,.cock-ledger th.col-flex{white-space:normal;min-width:160px;max-width:420px}
+.cock-ledger tr:hover td{background:rgba(34,211,238,.04)}
+.ledger-pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--mut)}
+.ledger-pager .toggle{padding:4px 12px;font-size:12px}
+/* 任务书39·E：费用月度堆叠柱 */
+.exp-trend-card{margin-bottom:16px}
+.exp-trend-card .rc-body{margin-top:6px}
+.exp-trend-note{font-size:12px;color:var(--note);margin-top:6px;line-height:1.45}
 .daily-wrap{overflow-x:auto}
 .daily-tbl{border-collapse:collapse;width:100%;font-size:12.5px}
 .daily-tbl th,.daily-tbl td{border-bottom:1px solid var(--line);padding:6px 10px;text-align:right;white-space:nowrap}

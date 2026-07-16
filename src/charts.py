@@ -267,9 +267,10 @@ def receipt_order_chart(
     series: list[tuple[str, float, float, float | None]], color: str = BLUE, budget_month: float | None = None
 ) -> str:
     """下单柱 + 回款柱 + 回款/下单比折线（A3·陆总#2：同图逐月下单与回款）。
-    series=[(label, 回款, 下单, 比率%), ...]；柱顶万；率%在折线点旁。"""
-    w, h = 640, 352
-    pl, pr, pt, pb = 52, 40, 34, 50
+    series=[(label, 回款, 下单, 比率%), ...]；柱顶万；率%在折线点旁。
+    任务书39·A：画布规格与板块二趋势图 combo_bar_line_chart 一致（640×288）。"""
+    w, h = 640, 288
+    pl, pr, pt, pb = 54, 36, 34, 32
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(series)
     if n == 0:
@@ -329,15 +330,15 @@ def receipt_order_chart(
             f'fill="url(#barGradRec)" opacity="0.95"{drm}/>'
         )
         parts.append(
-            f'<text x="{cx - bw / 2 - 1:.1f}" y="{oy - 5:.1f}" text-anchor="middle" font-size="9" '
+            f'<text x="{cx - bw / 2 - 1:.1f}" y="{oy - 5:.1f}" text-anchor="middle" font-size="9.5" '
             f'font-weight="700" fill="{PURPLE}"{drm}>{fmt_wan(order or 0)}</text>'
         )
         parts.append(
-            f'<text x="{cx + bw / 2 + 3:.1f}" y="{ry0 - 5:.1f}" text-anchor="middle" font-size="9.5" '
-            f'font-weight="700" fill="{BLUE}"{drm}>{fmt_wan(rec or 0)}</text>'
+            f'<text x="{cx + bw / 2 + 3:.1f}" y="{ry0 - 5:.1f}" text-anchor="middle" font-size="9" '
+            f'font-weight="600" fill="{BLUE}"{drm}>{fmt_wan(rec or 0)}</text>'
         )
         parts.append(
-            f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11.5" '
+            f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11" '
             f'fill="{MUT}"{drm}>{label}</text>'
         )
         if ratio is not None:
@@ -389,6 +390,97 @@ def receipt_order_chart(
     budget_span = tpl.fill("charts/legend_budget_span.html", teal=TEAL) if budget_month else ""
     legend = tpl.fill("charts/legend_receipt.html", color=color, orange=ORANGE, purple=PURPLE, budget_span=budget_span)
     return (
-        f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;max-height:300px;display:block">'
+        f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">'
         f"{''.join(parts)}{''.join(hits)}</svg>{legend}"
+    )
+
+
+# 任务书39·E：费用月度堆叠柱配色（走 CSS 变量，亮暗主题自动跟随）
+_STACK_PALETTE = (
+    "var(--blue)",
+    "var(--purple)",
+    "var(--teal)",
+    "var(--orange)",
+    "var(--cost)",
+    "var(--pos)",
+    "var(--accent)",
+    "var(--neg)",
+)
+
+
+def expense_stack_chart(
+    months: list[dict],
+    categories: list[str],
+    *,
+    note: str = "",
+) -> str:
+    """费用月度趋势·按报表大类堆叠柱。
+    months=[{m:1..12, total:分, total_disp:万串, segs:[{cat, amount, amount_disp, pct_disp, h_pct}…]}]
+    高度/显示串均由调用方预算好（铁律2）；本函数只拼 SVG。"""
+    w, h = 640, 288
+    pl, pr, pt, pb = 54, 36, 34, 40
+    plot_w, plot_h = w - pl - pr, h - pt - pb
+    n = 12
+    if not months:
+        months = [{"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []} for i in range(12)]
+    mx = max((float(m.get("total") or 0) for m in months), default=0) or 1
+    bar_h = plot_h * 0.88
+    gw = plot_w / n
+    bw = min(gw * 0.55, 28)
+    cat_colors = {c: _STACK_PALETTE[i % len(_STACK_PALETTE)] for i, c in enumerate(categories)}
+    parts, hits = [], []
+    for frac in (0, 0.5, 1.0):
+        y = pt + plot_h * (1 - frac)
+        parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w - pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
+        parts.append(
+            f'<text x="{pl - 8}" y="{y + 3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
+            f"{'0' if frac == 0 else fmt_wan(mx * frac) + '万'}</text>"
+        )
+    for i in range(12):
+        m = months[i] if i < len(months) else {"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []}
+        cx = pl + gw * i + gw / 2
+        segs = m.get("segs") or []
+        y_cursor = pt + plot_h
+        total = float(m.get("total") or 0)
+        for seg in segs:
+            amt = float(seg.get("amount") or 0)
+            if amt <= 0:
+                continue
+            sh = max(1.0, amt / mx * bar_h)
+            y_cursor -= sh
+            cat = seg.get("cat") or ""
+            color = cat_colors.get(cat, MUT)
+            tip = (
+                f"{i + 1}月 · {esc(cat)}<br>"
+                f"{esc(seg.get('amount_disp') or fmt_wan(amt))}万"
+                f" · 占当月 {esc(seg.get('pct_disp') or '—')}"
+            )
+            parts.append(
+                f'<rect class="bar exp-seg" data-tip="{tip}" x="{cx - bw / 2:.1f}" y="{y_cursor:.1f}" '
+                f'width="{bw:.1f}" height="{sh:.1f}" fill="{color}" opacity="0.92" rx="1"/>'
+            )
+        tot_disp = m.get("total_disp") or fmt_wan(total)
+        if total > 0:
+            ty = y_cursor - 5
+            parts.append(
+                f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="9.5" font-weight="700" '
+                f'fill="{INK}">{esc(tot_disp)}</text>'
+            )
+        parts.append(
+            f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11" fill="{MUT}">'
+            f"{i + 1}月</text>"
+        )
+        hits.append(
+            f'<rect class="hit" data-tip="{i + 1}月合计 {esc(tot_disp)}万" x="{pl + gw * i:.1f}" y="{pt:.1f}" '
+            f'width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>'
+        )
+    legend_items = "".join(
+        tpl.fill("charts/legend_expense_item.html", color=cat_colors[c], name=esc(c)) for c in categories
+    )
+    legend = tpl.fill("charts/legend_expense_stack.html", items=legend_items)
+    note_html = tpl.fill("charts/exp_trend_note.html", note=esc(note)) if note else ""
+    # SVG 本体仍内联拼接（与 combo_bar_line_chart / receipt_order_chart 同模式；无业务标签壳）
+    return (
+        f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">'
+        f"{''.join(parts)}{''.join(hits)}</svg>{legend}{note_html}"
     )
