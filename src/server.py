@@ -130,7 +130,7 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 SCHTASK_NAME = "经营驾驶舱每日更新"  # 与 注册每日更新.bat 里的 TN 一致
 
-EDITABLE_SETTINGS = ("schedule_time", "backup_keep_days", "zhiyun_auto_fetch")
+EDITABLE_SETTINGS = ("schedule_time", "backup_keep_days", "zhiyun_auto_fetch", "overall_see_salary")
 MAX_SCHEDULE_TIMES = 6  # 每天最多几个自动更新时间点（09:30/12:00/17:30… 3 个已够，留余量）
 
 
@@ -345,6 +345,11 @@ def save_settings(cfg, root, payload: dict) -> dict:
         lsp = str(payload.get("ledger_share_path") or "").strip()
         cfg["ledger_share_path"] = lsp
         updates["ledger_share_path"] = lsp
+    # 任务书37·B8：整体账号是否可见「工资」大类明细（默认关，落本地覆盖层）
+    if "overall_see_salary" in payload:
+        oss = bool(payload.get("overall_see_salary"))
+        cfg["overall_see_salary"] = oss
+        updates["overall_see_salary"] = oss
     loaders.write_local_config(cfg, root, updates)
 
     zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
@@ -383,6 +388,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         "backup_keep_days": keep,
         "zhiyun_auto_fetch": auto,
         "ledger_share_path": cfg.get("ledger_share_path", ""),
+        "overall_see_salary": bool(cfg.get("overall_see_salary", False)),
         "note": note,
     }
 

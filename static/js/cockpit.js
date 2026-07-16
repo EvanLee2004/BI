@@ -328,3 +328,81 @@
    }).catch(function(e){msg.style.color='#f87171';msg.textContent='网络错误：'+e.message;});
  });
 })();
+
+
+/* 任务书37·B8：整体页全公司费用明细（只读；默隐工资由后端闸） */
+(function(){
+  var card=document.getElementById("mainLedgerCard");
+  if(!card)return;
+  var yEl=document.getElementById("mlY"), mEl=document.getElementById("mlM");
+  var qEl=document.getElementById("mlQ"), info=document.getElementById("mlInfo"), tbl=document.getElementById("mlTbl");
+  var colFilters={}, colMeta={};
+  var y0=new Date().getFullYear();
+  for(var y=y0;y>=2026;y--){var o=document.createElement("option");o.value=String(y);o.textContent=y+"年";yEl.appendChild(o);}
+  yEl.value=String(Math.max(y0,2026));
+  for(var m=1;m<=12;m++){var o=document.createElement("option");o.value=String(m);o.textContent=m+"月";mEl.appendChild(o);}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+  function filtersQP(){
+    var k=Object.keys(colFilters);if(!k.length)return "";
+    try{return "&filters="+encodeURIComponent(JSON.stringify(colFilters));}catch(e){return "";}
+  }
+  function baseU(){
+    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page=1&page_size=200";
+    if(yEl.value&&mEl.value){var mm=("0"+mEl.value).slice(-2);u+="&month="+encodeURIComponent(yEl.value+"-"+mm);}
+    else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
+    var q=(qEl.value||"").trim();if(q)u+="&q="+encodeURIComponent(q);
+    return u+filtersQP();
+  }
+  function load(){
+    info.textContent="加载中…";
+    fetch(baseU(),{credentials:"same-origin"}).then(function(r){
+      if(r.status===401||r.status===403){
+        info.textContent="无权限";
+        card.style.display="none";
+        var sec=document.getElementById("mainLedgerSec");if(sec)sec.style.display="none";
+        return null;
+      }
+      return r.json();
+    }).then(function(d){
+      if(!d)return;
+      info.textContent="共 "+d.total+" 行（本页 "+(d.rows||[]).length+"）";
+      var cols=d.columns||[];
+      (d.column_meta||[]).forEach(function(m){colMeta[m.name]=m.kind;});
+      var h="<tr>"+cols.map(function(c){
+        var on=colFilters[c]?" color:var(--accent)":"";
+        return "<th data-col=\""+esc(c)+"\" style='text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);cursor:pointer"+on+"' title='点开列筛'>"+esc(c)+" ▾</th>";
+      }).join("")+"</tr>";
+      (d.rows||[]).forEach(function(row){
+        h+="<tr>"+cols.map(function(c){return "<td style='padding:4px 6px;border-bottom:1px solid var(--line)'>"+esc(row[c])+"</td>";}).join("")+"</tr>";
+      });
+      tbl.innerHTML=h||"<tr><td class='muted'>无数据</td></tr>";
+      tbl.querySelectorAll("th[data-col]").forEach(function(th){
+        th.addEventListener("click",function(){
+          var col=th.getAttribute("data-col");
+          var kind=colMeta[col]||"text";
+          if(kind==="number"){
+            var lo=prompt(col+" 最小金额（元，可空）",(colFilters[col]&&colFilters[col].min)||"");
+            var hi=prompt(col+" 最大金额（元，可空）",(colFilters[col]&&colFilters[col].max)||"");
+            if(lo===null&&hi===null)return;
+            var n={};if(lo)n.min=lo;if(hi)n.max=hi;
+            if(Object.keys(n).length)colFilters[col]=n;else delete colFilters[col];
+          }else if(kind==="date"){
+            var a=prompt(col+" 起 YYYY-MM-DD",(colFilters[col]&&colFilters[col].from)||"");
+            var b=prompt(col+" 止 YYYY-MM-DD",(colFilters[col]&&colFilters[col].to)||"");
+            if(a===null&&b===null)return;
+            var n2={};if(a)n2.from=a;if(b)n2.to=b;
+            if(Object.keys(n2).length)colFilters[col]=n2;else delete colFilters[col];
+          }else{
+            var kw=prompt(col+" 关键词（可空=不限）",(colFilters[col]&&colFilters[col].q)||"");
+            if(kw===null)return;
+            if(String(kw).trim())colFilters[col]={q:String(kw).trim()};else delete colFilters[col];
+          }
+          load();
+        });
+      });
+    }).catch(function(e){info.textContent="失败："+e.message;});
+  }
+  var go=document.getElementById("mlGo");if(go)go.onclick=load;
+  var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};load();};
+  load();
+})();

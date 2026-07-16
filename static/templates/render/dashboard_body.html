@@ -34,6 +34,23 @@
  {daily_html}
  <div id="rankViews">{rank_views}</div>
  <div id="rkCustom" style="display:none"></div>
+
+ <div class="sec" id="mainLedgerSec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></div>
+ <div class="card" id="mainLedgerCard">
+  <div class="card-h">全公司台账费用明细 <span class="tag">只读 · 含摘要/事项</span>
+    <span class="tag" id="mlSalaryTag" title="整体账号默认隐藏工资大类；管理端设置可开">默认隐工资</span></div>
+  <div class="daily-bar" style="padding:8px 0 12px">
+    <select id="mlY"></select> 年
+    <select id="mlM"><option value="">全部月</option></select>
+    <input id="mlQ" placeholder="关键词（事项/类型/BU…）" size="22">
+    <button class="toggle" type="button" id="mlGo">查询</button>
+    <button class="toggle" type="button" id="mlClearF" title="清除列筛选">清除列筛</button>
+    <span id="mlInfo" class="daily-note"></span>
+  </div>
+  <div style="overflow:auto;max-height:420px">
+    <table class="bu-ledger" id="mlTbl" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+  </div>
+ </div>
  </div>
  <div class="foot">
   甲骨易智能经营罗盘 · 财务部 &nbsp;|&nbsp;

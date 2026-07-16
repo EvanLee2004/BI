@@ -192,6 +192,12 @@
                  placeholder="\\\\服务器\\财务部\\...\\收单台账.xlsx" style="width:100%;max-width:420px">
           <div class="muted" style="font-size:11px;margin-top:3px">部署机填真实共享盘路径；只存本机 `数据\\本地配置.json`，config.json 不动（这样一键更新才不会被"工作区脏"卡住）。留空=沿用默认/本地副本。</div>
         </div>
+        <div class="field row" style="margin-top:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+            <input type="checkbox" id="sOverallSalary"> 整体账号可见工资明细
+          </label>
+          <div class="muted" style="font-size:11.5px;width:100%">默认关：姜总等「整体」权限在费用明细里看不到「工资」大类行（等陆总口径）。管理员端不受影响。只存本机覆盖层。</div>
+        </div>
         <details id="sZyConnBox" style="margin-top:6px">
           <summary class="muted" style="cursor:pointer;font-size:12px">智云服务器与抓取表（默认已内置，一般不用改）</summary>
           <div class="field" style="margin-top:8px"><label>智云服务器地址</label>

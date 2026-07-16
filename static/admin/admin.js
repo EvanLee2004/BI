@@ -157,6 +157,7 @@ async function loadSettings(){try{const s=await jget("/api/settings");
   document.getElementById("sZyUser").value=s.zhiyun_username||"";
   document.getElementById("sZyPwd").value=s.zhiyun_password||"";
   const lp=document.getElementById("sLedgerPath");if(lp)lp.value=s.ledger_share_path||"";
+  const oss=document.getElementById("sOverallSalary");if(oss)oss.checked=!!s.overall_see_salary;
   const zc=s.zhiyun_conn||{},zt=zc.tables||{};  // 服务器地址+四表ID（生效值=内置默认+本地覆盖）
   const zset=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||"";};
   zset("sZyUrl",zc.base_url);zset("sTblOrders",zt.orders);zset("sTblReceipts",zt.receipts);
@@ -264,6 +265,7 @@ async function saveBackup(){const m=document.getElementById("sBakMsg");m.textCon
     m.textContent=d.note||"已保存";return true;}catch(e){m.textContent="失败："+e.message;return false;}}
 async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textContent="保存中…";
   const p={ledger_share_path:document.getElementById("sLedgerPath").value};  // 台账路径总是提交（含清空）
+  const oss=document.getElementById("sOverallSalary");if(oss)p.overall_see_salary=!!oss.checked;
   const u=document.getElementById("sZyUser").value,pw=document.getElementById("sZyPwd").value;
   if(u||pw){p.zhiyun_username=u;p.zhiyun_password=pw;}  // 智云账号两项都填才提交（后端校验不能为空）
   const gv=id=>{const el=document.getElementById(id);return el?el.value.trim():"";};
