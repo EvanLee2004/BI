@@ -330,12 +330,14 @@
 })();
 
 
-/* 任务书37·B8：整体页全公司费用明细（只读；默隐工资由后端闸） */
+/* 任务书37·B8：整体页全公司费用明细（只读；默隐工资由后端闸）
+ * 列筛与管理端 B7 同款：文本=关键词+去重值多选（/api/detail/values）、数字区间、日期起止。 */
 (function(){
   var card=document.getElementById("mainLedgerCard");
   if(!card)return;
   var yEl=document.getElementById("mlY"), mEl=document.getElementById("mlM");
   var qEl=document.getElementById("mlQ"), info=document.getElementById("mlInfo"), tbl=document.getElementById("mlTbl");
+  var pop=document.getElementById("mlFilterPop");
   var colFilters={}, colMeta={};
   var y0=new Date().getFullYear();
   for(var y=y0;y>=2026;y--){var o=document.createElement("option");o.value=String(y);o.textContent=y+"年";yEl.appendChild(o);}
@@ -346,13 +348,83 @@
     var k=Object.keys(colFilters);if(!k.length)return "";
     try{return "&filters="+encodeURIComponent(JSON.stringify(colFilters));}catch(e){return "";}
   }
-  function baseU(){
-    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page=1&page_size=200";
+  function ctxParams(){
+    var u="";
     if(yEl.value&&mEl.value){var mm=("0"+mEl.value).slice(-2);u+="&month="+encodeURIComponent(yEl.value+"-"+mm);}
     else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
     var q=(qEl.value||"").trim();if(q)u+="&q="+encodeURIComponent(q);
     return u+filtersQP();
   }
+  function baseU(){
+    return "/api/detail?table="+encodeURIComponent("费用明细")+"&page=1&page_size=200"+ctxParams();
+  }
+  function hidePop(){if(!pop)return;pop.style.display="none";pop.hidden=true;pop.innerHTML="";}
+  function openFilter(col, anchor){
+    if(!pop)return;
+    var kind=colMeta[col]||"text";
+    var cur=colFilters[col]||{};
+    var body='<div class="mlf-h">筛选 · '+esc(col)+'</div>';
+    if(kind==="number"){
+      body+='<div class="mlf-row"><label>最小（元）</label><input type="number" id="mlfMin" step="any" value="'+esc(cur.min??"")+'"></div>';
+      body+='<div class="mlf-row"><label>最大（元）</label><input type="number" id="mlfMax" step="any" value="'+esc(cur.max??"")+'"></div>';
+    }else if(kind==="date"){
+      body+='<div class="mlf-row"><label>起</label><input type="date" id="mlfFrom" value="'+esc(cur.from||"")+'"></div>';
+      body+='<div class="mlf-row"><label>止</label><input type="date" id="mlfTo" value="'+esc(cur.to||"")+'"></div>';
+    }else{
+      // 文本：关键词 + 去重值多选（与管理端 B7 /api/detail/values 同路径）
+      body+='<div class="mlf-row"><label>含关键词</label><input type="text" id="mlfQ" value="'+esc(cur.q||"")+'" placeholder="模糊匹配"></div>';
+      body+='<div class="mlf-row"><label>去重值多选</label><div class="mlf-vals" id="mlfVals"><span class="muted">加载中…</span></div></div>';
+    }
+    body+='<div class="mlf-acts"><button type="button" class="toggle" id="mlfClear">本列清除</button>'+
+      '<button type="button" class="toggle" id="mlfApply">应用</button></div>';
+    pop.innerHTML=body;pop.hidden=false;pop.style.display="block";
+    var r=anchor.getBoundingClientRect();
+    var left=r.left, top=r.bottom+4;
+    if(left+280>window.innerWidth)left=Math.max(8,window.innerWidth-300);
+    if(top+300>window.innerHeight)top=Math.max(8,r.top-300);
+    pop.style.left=left+"px";pop.style.top=top+"px";
+    if(kind==="text"){
+      var vu="/api/detail/values?table="+encodeURIComponent("费用明细")+
+        "&column="+encodeURIComponent(col)+ctxParams();
+      fetch(vu,{credentials:"same-origin"}).then(function(res){
+        if(!res.ok)throw new Error("HTTP "+res.status);
+        return res.json();
+      }).then(function(d){
+        var box=document.getElementById("mlfVals");if(!box)return;
+        var picked={};(cur.in||[]).forEach(function(v){picked[String(v)]=1;});
+        if(!d.values||!d.values.length){box.innerHTML='<span class="muted">无候选</span>';return;}
+        box.innerHTML=d.values.map(function(v){
+          return '<label><input type="checkbox" value="'+esc(v)+'" '+(picked[String(v)]?"checked":"")+'> '+
+            (v===""?'<i class="muted">(空)</i>':esc(v))+'</label>';
+        }).join("");
+      }).catch(function(){
+        var box=document.getElementById("mlfVals");if(box)box.innerHTML='<span class="muted">加载失败</span>';
+      });
+    }
+    document.getElementById("mlfClear").onclick=function(){delete colFilters[col];hidePop();load();};
+    document.getElementById("mlfApply").onclick=function(){
+      var next={};
+      if(kind==="number"){
+        var a=document.getElementById("mlfMin").value,b=document.getElementById("mlfMax").value;
+        if(a!=="")next.min=a;if(b!=="")next.max=b;
+      }else if(kind==="date"){
+        var a2=document.getElementById("mlfFrom").value,b2=document.getElementById("mlfTo").value;
+        if(a2)next.from=a2;if(b2)next.to=b2;
+      }else{
+        var qv=(document.getElementById("mlfQ").value||"").trim();if(qv)next.q=qv;
+        var ins=[].map.call(document.querySelectorAll("#mlfVals input:checked"),function(el){return el.value;});
+        if(ins.length)next.in=ins;
+      }
+      if(Object.keys(next).length)colFilters[col]=next;else delete colFilters[col];
+      hidePop();load();
+    };
+  }
+  document.addEventListener("click",function(ev){
+    if(!pop||pop.hidden)return;
+    if(pop.contains(ev.target))return;
+    if(ev.target.closest&&ev.target.closest("#mlTbl th[data-col]"))return;
+    hidePop();
+  });
   function load(){
     info.textContent="加载中…";
     fetch(baseU(),{credentials:"same-origin"}).then(function(r){
@@ -377,33 +449,15 @@
       });
       tbl.innerHTML=h||"<tr><td class='muted'>无数据</td></tr>";
       tbl.querySelectorAll("th[data-col]").forEach(function(th){
-        th.addEventListener("click",function(){
-          var col=th.getAttribute("data-col");
-          var kind=colMeta[col]||"text";
-          if(kind==="number"){
-            var lo=prompt(col+" 最小金额（元，可空）",(colFilters[col]&&colFilters[col].min)||"");
-            var hi=prompt(col+" 最大金额（元，可空）",(colFilters[col]&&colFilters[col].max)||"");
-            if(lo===null&&hi===null)return;
-            var n={};if(lo)n.min=lo;if(hi)n.max=hi;
-            if(Object.keys(n).length)colFilters[col]=n;else delete colFilters[col];
-          }else if(kind==="date"){
-            var a=prompt(col+" 起 YYYY-MM-DD",(colFilters[col]&&colFilters[col].from)||"");
-            var b=prompt(col+" 止 YYYY-MM-DD",(colFilters[col]&&colFilters[col].to)||"");
-            if(a===null&&b===null)return;
-            var n2={};if(a)n2.from=a;if(b)n2.to=b;
-            if(Object.keys(n2).length)colFilters[col]=n2;else delete colFilters[col];
-          }else{
-            var kw=prompt(col+" 关键词（可空=不限）",(colFilters[col]&&colFilters[col].q)||"");
-            if(kw===null)return;
-            if(String(kw).trim())colFilters[col]={q:String(kw).trim()};else delete colFilters[col];
-          }
-          load();
+        th.addEventListener("click",function(e){
+          e.stopPropagation();
+          openFilter(th.getAttribute("data-col"), th);
         });
       });
     }).catch(function(e){info.textContent="失败："+e.message;});
   }
   var go=document.getElementById("mlGo");if(go)go.onclick=load;
-  var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};load();};
+  var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};hidePop();load();};
   load();
 })();
 

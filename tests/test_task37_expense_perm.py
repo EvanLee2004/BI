@@ -145,10 +145,26 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("mainLedgerCard", html)
         self.assertIn("费用明细", html)
         self.assertIn("事项", html)
+        self.assertIn("mlFilterPop", html, "整体页列筛弹层占位")
         js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("mainLedgerCard", js)
         self.assertIn("/api/detail", js)
         self.assertIn("filters", js)
+
+    def test_main_ledger_text_multiselect_like_b7(self):
+        """准则2 同款：文本列关键词 + /api/detail/values 去重值多选（非仅 prompt）。"""
+        js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
+        # 截取 mainLedger 段
+        i = js.find("mainLedgerCard")
+        self.assertGreater(i, 0)
+        chunk = js[i : i + 8000]
+        self.assertIn("/api/detail/values", chunk, "文本列须调 values 接口")
+        self.assertIn("mlfVals", chunk, "去重值多选容器")
+        self.assertIn("type=\"checkbox\"", chunk.replace("'", '"') or chunk, "多选 checkbox")
+        self.assertIn("next.in", chunk, "应用多选 in 写入 colFilters")
+        self.assertIn("mlfQ", chunk, "关键词输入")
+        # 不得仅用 prompt 做文本筛（旧实现）
+        self.assertNotIn('prompt(col+" 关键词', chunk)
 
     def test_settings_ui_has_switch(self):
         html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")

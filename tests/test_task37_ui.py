@@ -117,5 +117,19 @@ class TestA6BudgetH1First(unittest.TestCase):
         self.assertIn("回款年预算", keys)
 
 
+class TestTask37InRunVerify(unittest.TestCase):
+    """四个 test_task37_*.py 必须登记进 run_verify，避免一键验证漏跑。"""
+
+    def test_listed_in_run_verify(self):
+        sh = (ROOT / "tests" / "run_verify.sh").read_text(encoding="utf-8")
+        for name in (
+            "tests/test_task37_ui.py",
+            "tests/test_task37_filters.py",
+            "tests/test_task37_expense_perm.py",
+            "tests/test_task37_fetch_banner.py",
+        ):
+            self.assertIn(name, sh, f"{name} 未写入 run_verify SERIAL/PARALLEL")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

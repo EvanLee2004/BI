@@ -55,6 +55,9 @@ tests/test_money_fen.py
 tests/test_db_a4a7.py
 tests/test_hygiene_b.py
 tests/test_budget_rates_adj_migrate.py
+tests/test_task37_filters.py
+tests/test_task37_expense_perm.py
+tests/test_task37_fetch_banner.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
@@ -71,6 +74,7 @@ tests/test_admin_static.py
 tests/test_no_html_in_py.py
 tests/test_b_p0_rankings_assemble.py
 tests/test_b_p1_contract.py
+tests/test_task37_ui.py
 "
 run_one() {
   f="$1"
