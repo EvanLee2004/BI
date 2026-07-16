@@ -92,6 +92,19 @@ class TestDateSinceFilter(unittest.TestCase):
         self.assertEqual(fc[0]["controlId"], "first")
         self.assertEqual(len(fz.controls_with_name(ctrls, "整单交付日期")), 2)
 
+    def test_resolve_zhiyun_since_auto_and_fixed(self):
+        """任务书36·E：auto=当年元旦；写死日期兼容；空=全量。"""
+        import datetime as _dt
+
+        self.assertEqual(fz.resolve_zhiyun_since("auto", today=_dt.date(2027, 1, 15)), "2027-01-01")
+        self.assertEqual(fz.resolve_zhiyun_since("AUTO", today=_dt.date(2026, 6, 1)), "2026-01-01")
+        self.assertEqual(fz.resolve_zhiyun_since("2025-03-01"), "2025-03-01")
+        self.assertEqual(fz.resolve_zhiyun_since(""), "")
+        self.assertEqual(fz.resolve_zhiyun_since(None), "")
+        # auto → filter value = 前一年 12-31
+        fc = fz.build_date_since_filter(self.CTRLS, "下单日期", "auto", today=_dt.date(2027, 1, 15))
+        self.assertEqual(fc[0]["value"], "2026-12-31")
+
 
 class TestAuthExpiry(unittest.TestCase):
     def test_detects_expired(self):

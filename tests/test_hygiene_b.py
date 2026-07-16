@@ -36,7 +36,19 @@ class TestTimeBoundaries(unittest.TestCase):
         self.assertEqual(loaders.parse_date_parts("2027-01-01"), (2027, 1, 1))
         self.assertIsNone(loaders.parse_date_parts(""))
         self.assertIsNone(loaders.parse_date_parts(None))
-        # 非法日历日（2/30）现状：解析层只拆数字、不校验日历——列「待明昊拍板」是否严校
+
+    def test_illegal_calendar_day_is_none(self):
+        """任务书36·D：非法日历日返回 None（datetime.date 校验），不造 (2024,2,30)。"""
+        # 清缓存，避免旧结果残留
+        loaders._DATE_PARTS_CACHE.clear()
+        self.assertIsNone(loaders.parse_date_parts("2024-02-30"))
+        self.assertIsNone(loaders.parse_date_parts("2024-02-31"))
+        self.assertIsNone(loaders.parse_date_parts("2023-02-29"))  # 非闰年
+        self.assertIsNone(loaders.parse_date_parts("2024-04-31"))
+        self.assertIsNone(loaders.parse_date_parts("20240230"))
+        # 闰年合法
+        self.assertEqual(loaders.parse_date_parts("2024-02-29"), (2024, 2, 29))
+        self.assertEqual(loaders.parse_date_parts("2020-02-29"), (2020, 2, 29))
 
     def test_period_label_year_boundary(self):
         """build_summary 在 1 月 today 时不炸，且有 periods 结构。"""
@@ -56,6 +68,8 @@ class TestTimeBoundaries(unittest.TestCase):
         self.assertIn("periods", s)
         self.assertGreaterEqual(len(s["periods"]), 1)
         self.assertIn("meta", s)
+        # 周期键属 2027 系
+        self.assertTrue(any("2027" in k for k in s["periods"]), list(s["periods"].keys())[:5])
 
 
 if __name__ == "__main__":
