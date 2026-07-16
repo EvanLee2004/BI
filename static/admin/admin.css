@@ -94,13 +94,27 @@ background:var(--subnav-bg)}
 .save-bar .sb-n b{color:var(--vio2)}
 .save-bar button.primary{background:var(--vio);color:#fff;font-weight:700;padding:9px 18px;font-size:14px}
 .save-bar button.ghost{opacity:.9}
-/* 工具栏吸顶：#chrome 已 sticky，toolbar 贴在 chrome 下方（约 bar+页签+子导航高度） */
-:root{--admin-chrome-sticky:128px}
+/* 工具栏吸顶：#chrome 已 sticky，toolbar 贴在 chrome 下方（约 bar+页签+子导航高度）
+ * 任务书37·A5：--admin-toolbar-h 与 chrome 叠加，表头 sticky top 对齐，防滚时第一行被挡 */
+:root{--admin-chrome-sticky:128px;--admin-toolbar-h:56px}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;margin-bottom:12px;
 border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 16px var(--shadow);
 position:sticky;top:var(--admin-chrome-sticky);z-index:25}
 .toolbar .grow{flex:1;min-width:8px}
 html.theme-light .toolbar{background:var(--panel);box-shadow:0 4px 16px var(--shadow),0 1px 0 var(--line)}
+/* 人工填写/业绩目标：整页滚动，表头贴在 chrome+toolbar 下（勿用 top:0 钻到工具栏底下） */
+#manual .tbl-box.no-scroll th,#budget .tbl-box.no-scroll th,
+#manual table.b-matrix th,#budget table.b-matrix th{
+  top:calc(var(--admin-chrome-sticky) + var(--admin-toolbar-h));
+  z-index:15;
+  box-shadow:0 1px 0 var(--line);
+}
+/* 粘性列（指标名）须在表头层之上/同级可见 */
+#manual table.b-matrix th.b-metric,#budget table.b-matrix th.b-metric{z-index:16}
+#manual table.b-matrix td.b-metric,#budget table.b-matrix td.b-metric{z-index:3}
+/* 内容与吸顶条之间：滚动锚点与首行不被挡 */
+#manual,#budget{scroll-margin-top:calc(var(--admin-chrome-sticky) + var(--admin-toolbar-h) + 8px)}
+#manual .note.info,#budget .note.info{scroll-margin-top:calc(var(--admin-chrome-sticky) + var(--admin-toolbar-h) + 4px)}
 /* 业绩目标矩阵：行=指标、列=全公司+BU */
 .b-matrix-wrap{overflow-x:auto}
 table.b-matrix th,table.b-matrix td{vertical-align:top;min-width:132px}
