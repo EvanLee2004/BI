@@ -1294,12 +1294,16 @@ def _data_health(
         warnings.append(
             f"收单台账 {unclassified['expense']['count']} 笔未填「对应报表大类」（{unclassified['expense']['amount'] / 1e6:.1f}万），未计入费用"
         )
-    # 任务书37·B10：归属日期 > 今天 → 体检黄（条数+样例），不拦管道
+    # 任务书37·B10：归属日期 > 今天 → 体检黄（条数+样例），不拦管道。
+    # 内部译员只扫 IN-HOUSE（与 norm_inhouse/入库一致，避免文件全表 vs 库过滤后计数对不上红线）。
+    inhouse_for_future = [
+        r for r in inhouse if kw in str(r.get(cc["inhouse_type"], "")).upper()
+    ]
     future_scans = [
         ("项目明细(智云)", *_scan_future_dates_dict(project, cc["project_delivery_date"], today)),
         ("下单(智云)", *_scan_future_dates_dict(orders, cc["order_date"], today)),
         ("回款(智云)", *_scan_future_dates_dict(receipts, cc["receipt_date"], today)),
-        ("内部译员(智云)", *_scan_future_dates_dict(inhouse, cc["inhouse_date"], today)),
+        ("内部译员(智云)", *_scan_future_dates_dict(inhouse_for_future, cc["inhouse_date"], today)),
         ("收单台账", *_scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today)),
     ]
     for name, n_fut, samples in future_scans:
