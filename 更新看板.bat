@@ -1,9 +1,15 @@
 @echo off
+chcp 65001 >nul
 rem 经营驾驶舱：更新一次报表（读 数据\ 里 6 个源文件 → 生成 output\经营驾驶舱.html）
 rem 双击运行，或由任务计划程序每天定时调用。
-chcp 65001 >nul
+rem 优先用项目 .venv\Scripts\python.exe（与看门狗/注册脚本一致）。
 cd /d "%~dp0"
-python run.py
+if exist ".venv\Scripts\python.exe" (
+  set "PY=%~dp0.venv\Scripts\python.exe"
+) else (
+  set "PY=python"
+)
+"%PY%" run.py
 if errorlevel 1 (
     echo.
     echo ======================================================

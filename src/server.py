@@ -23,6 +23,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 
 import loaders
 import accounts
@@ -39,6 +40,9 @@ from app_state import (  # noqa: F401  # 测试/外部可读 server._state
     _LOCK,
     _EXPORT_LOCK,
 )
+
+# 任务书36·A：fragments JSON 等文本响应 gzip（Starlette 内置；minimum_size≈1KB）
+GZIP_MINIMUM_SIZE = 1000
 
 # B-P5：已登录整体/BU 页固定 static shell + fragments（无 SERVE_SHELL 化石开关）。
 # 测试断言 HTML 内容请用 _state["user_html"] / page["html"] / fragments 组装，勿依赖 / 直出 SSR。
@@ -176,7 +180,11 @@ def get_schedule_times(cfg) -> list[str]:
 
 
 def _schtask_command(root=None) -> str:
-    """计划任务要跑的命令：<当前解释器> <run.py> --scheduled（部署机上解释器=venv python）。"""
+    """计划任务要跑的命令：绝对路径 <解释器> <run.py> --scheduled（部署机=venv python）。
+
+    不用 cmd/cd：Windows 路径尾 \\ 在引号内会转义收尾引号（%%~dp0 经典坑）。
+    程序根由 run.py 的 __file__ 定位，计划任务默认 cwd 不影响。与 注册每日更新.bat 一致。
+    """
     import sys
 
     py = sys.executable or "python"
@@ -675,6 +683,8 @@ def _admin_login_file():
 def create_app(cfg, root=None) -> FastAPI:
     """组装 FastAPI：会话/中间件依赖 + 路由注册（路由体见 routes/）。"""
     app = FastAPI(title="甲骨易智能经营罗盘", docs_url=None, redoc_url=None, openapi_url=None)
+    # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。二进制仍可走 wire gzip，浏览器正常解压。
+    app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)

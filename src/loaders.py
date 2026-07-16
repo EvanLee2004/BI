@@ -186,8 +186,12 @@ def parse_date_parts(val: Any) -> tuple[int, int, int] | None:
 
 
 def _valid_ymd(y: int, m: int, d: int) -> tuple[int, int, int] | None:
-    """月日合理性校验：出界（如订单号误填进日期列被硬解析）返回 None 交给体检计数，别造出假日期。"""
-    return (y, m, d) if 1 <= m <= 12 and 1 <= d <= 31 else None
+    """日历合法性：用 datetime.date 校验（含闰年/月长），非法日（如 2/30）返回 None 交给体检黄，不造假日期。"""
+    try:
+        datetime.date(int(y), int(m), int(d))
+    except (TypeError, ValueError):
+        return None
+    return int(y), int(m), int(d)
 
 
 def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:

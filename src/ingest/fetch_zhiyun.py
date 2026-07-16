@@ -120,11 +120,41 @@ def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str
     return [w for w in wanted if w not in have]
 
 
+def resolve_zhiyun_since(since: str | None, today=None) -> str:
+    """规范化 config.zhiyun_since → 'YYYY-MM-DD' 或 ''（空=全量不过滤）。
+
+    - ``"auto"``（大小写不敏感）：当年元旦（today.year-01-01；today 可注入便于单测）
+    - 空串 / None：全量（不过滤）——与历史「留空=抓全量」一致
+    - 写死 ``YYYY-MM-DD``：原样返回（兼容补历史）
+    - 其它非法串：返回空（build_date_since_filter 跳过过滤）
+    """
+    from datetime import date as _date
+
+    if since is None:
+        return ""
+    s = str(since).strip()
+    if not s:
+        return ""
+    if s.lower() == "auto":
+        t = today if today is not None else _date.today()
+        return f"{int(t.year):04d}-01-01"
+    # 写死日期：只认前 10 位 YYYY-MM-DD 形态
+    head = s[:10]
+    try:
+        from datetime import datetime as _dt
+
+        _dt.strptime(head, "%Y-%m-%d")
+        return head
+    except ValueError:
+        return ""
+
+
 def _since_filter_value(since: str) -> str:
     """zhiyun_since → filterType=13 的 value。
 
     2026-07-16 真实 API 实测：filterType=13 为**严格大于** value（不是 >=）。
     要包含 since 当天，value 必须传 since 的**前一天**（datetime 计算，禁止字符串硬减）。
+    since 须已是 YYYY-MM-DD（先经 resolve_zhiyun_since）。
     """
     from datetime import datetime, timedelta
 
@@ -138,22 +168,23 @@ def controls_with_name(controls: list[dict], name: str) -> list[dict]:
     return [c for c in (controls or []) if c.get("controlName") == name]
 
 
-def build_date_since_filter(controls: list[dict], date_col_name: str, since: str) -> list[dict]:
+def build_date_since_filter(controls: list[dict], date_col_name: str, since: str, today=None) -> list[dict]:
     """构造「该日期字段 **>= since**」的服务器端过滤。
 
     ⚠ filterType=13 实测语义=**严格大于** value（2026-07-16 陆总号 GetFilterRows 对账）：
     value=since 会丢掉 since 当天行；故 value=since 前一天，整体效果等价于 >= since。
-    找不到该列/未给 since → 返回 []（不过滤，退回全量，安全降级）。
+    since 支持 ``"auto"``=当年元旦（见 resolve_zhiyun_since）；空/解析失败 → []（不过滤）。
     同名列多于一个时用**第一个**（与 rows_to_records 首个非空策略对齐）。
     """
-    if not since or not date_col_name:
+    resolved = resolve_zhiyun_since(since, today=today)
+    if not resolved or not date_col_name:
         return []
     matches = controls_with_name(controls, date_col_name)
     if not matches:
         return []
     ctrl = matches[0]
     try:
-        value = _since_filter_value(since)
+        value = _since_filter_value(resolved)
     except ValueError:
         return []  # since 非法日期 → 不过滤，避免整表抓挂
     return [
@@ -469,8 +500,8 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy
             {"worksheetId": tbl["worksheetId"], "appId": zy["app_id"], "getTemplate": True},
         )
         controls = info["data"]["template"]["controls"]
-        # 服务器端只抓"归属日期 >= config.zhiyun_since"的行（只要当年、少抓快抓）
-        since = cfg.get("zhiyun_since") or ""
+        # 服务器端只抓"归属日期 >= config.zhiyun_since"的行（auto=当年元旦，写死日期仍兼容）
+        since = cfg.get("zhiyun_since") if cfg.get("zhiyun_since") is not None else "auto"
         date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
         warnings: list[str] = []
         # 同名日期控件多于一个：观察项（黄），防顺序变了无声换列
