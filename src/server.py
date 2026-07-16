@@ -946,10 +946,11 @@ def create_app(cfg, root=None) -> FastAPI:
         root_dir = Path(__file__).resolve().parents[1]
         p = root_dir / "frontend" / "dist" / "index.html"
         if not p.is_file():
-            return _html_doc(
-                "<!DOCTYPE html><html><body class='wrap' style='padding:40px'>"
-                "Vue 前端未构建：请运行 scripts/build_frontend.sh"
-                "</body></html>",
+            # 禁止在 py 内嵌 HTML 标签（test_no_html_in_py）；用纯文本 503
+            from fastapi.responses import PlainTextResponse
+
+            return PlainTextResponse(
+                "Vue frontend not built. Run scripts/build_frontend.sh",
                 status_code=503,
             )
         return _file_html_doc(p)
