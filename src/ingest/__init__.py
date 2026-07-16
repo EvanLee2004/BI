@@ -15,64 +15,17 @@ from pathlib import Path
 import columns
 import db
 import schema
+from db_write import (
+    db_file_size_bytes,
+    disk_free_ratio,
+    insert_run_log,
+    prune_run_logs,
+    rebuild_std_tables,
+    vacuum_db,
+)
 from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, archive
 
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
-
-_STD_INSERT = {
-    "std_收入明细": (
-        [
-            "定位键",
-            "订单号",
-            "客户",
-            "业务线",
-            "销售",
-            "整单交付日期",
-            "交付额",
-            "项目成本",
-            "归属月",
-            "原值_交付日期",
-            "原值_归属月",
-        ]
-    ),
-    "std_下单": (["定位键", "订单号", "下单日期", "下单预估额", "部门", "销售", "客户", "归属月", "原值_归属月"]),
-    "std_回款": (["定位键", "回款ID", "到账日期", "到账金额", "客户", "销售", "归属月", "原值_归属月"]),
-    "std_内部译员": (
-        ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月", "原值_归属月"]
-    ),
-    "std_费用明细": (
-        [
-            "定位键",
-            "收单月份",
-            "收单日期",
-            "含税金额",
-            "业务BU",
-            "对应报表大类",
-            "预算明细费用类型",
-            "预算归属部门",
-            "事项",
-            "提单人",
-            "提单人部门",
-            "业务员",
-            "配音费合同号",
-            "归属月",
-            "原值_归属月",
-        ]
-    ),
-}
-
-
-def _insert(conn, table: str, records: list[dict]) -> None:
-    """写入 std；金额列在入库前元→分（定位键已在 normalize 用元算好）。"""
-    import money
-
-    cols = _STD_INSERT[table]
-    sql = f"INSERT INTO {table}({','.join(cols)}) VALUES({','.join('?' * len(cols))})"
-    rows = []
-    for r in records:
-        rf = money.record_amounts_to_fen(table, r)
-        rows.append(tuple(rf.get(c) for c in cols))
-    conn.executemany(sql, rows)
 
 
 def build_std_db(
@@ -134,14 +87,55 @@ def build_std_db(
     # 5c) A7 库完整性 quick_check（异常 → 体检红）
     report["db_check"] = db.pragma_quick_check(conn)
 
-    # 6) 写运行日志（结果绿/黄/红）——注意不把 records 塞进日志 JSON
+    # 5d) 磁盘剩余 + db 文件大小（任务书43·数据治理）
+    try:
+        data_path = __import__("loaders").data_dir(cfg, root)
+        ratio = disk_free_ratio(data_path)
+        min_r = float(cfg.get("disk_free_min_ratio", 0.10))
+        report["disk"] = {"free_ratio": ratio, "min_ratio": min_r}
+        if ratio is not None and ratio < min_r:
+            report["disk"]["red"] = True
+        report["db_size"] = db_file_size_bytes(cfg, root)
+    except Exception as e:
+        report["disk"] = {"error": f"{type(e).__name__}: {e}"}
+
+    # 6) 写运行日志（结果绿/黄/红；磁盘红并入 _log_run）
     report["result"] = _log_run(conn, now, trigger, report)
 
-    # 7) db 每日滚动备份（30份）+ 月末快照（仅真实跑，测试/回归不落盘污染数据目录）
+    # 6b) 运行日志滚动清理（config.run_log_keep_days 默认 365）
+    try:
+        keep = int(cfg.get("run_log_keep_days", 365))
+        report["run_log_pruned"] = prune_run_logs(conn, keep)
+    except Exception as e:
+        report["run_log_pruned"] = f"skip:{type(e).__name__}"
+
+    # 7) db 每日滚动备份 + 月末快照 + 月末 VACUUM
     if archive_backups:
         d = today if isinstance(today, datetime.date) else datetime.date.today()
         report["backup"] = archive.backup_db(cfg, d, root)
         report["snapshot"] = archive.snapshot_if_month_end(cfg, d, root)
+        # 月末（或快照成功）后 VACUUM
+        is_me = False
+        try:
+            is_me = bool((report.get("snapshot") or {}).get("done")) or (
+                d.month != (d + datetime.timedelta(days=1)).month
+            )
+        except Exception:
+            pass
+        if is_me:
+            try:
+                vacuum_db(conn)
+                report["vacuum"] = "ok"
+            except Exception as e:
+                report["vacuum"] = f"fail:{type(e).__name__}"
+
+    # 8) 可选飞书告警（失败绝不影响主流程）
+    try:
+        from notify import maybe_alert_pipeline
+
+        maybe_alert_pipeline(cfg, report, root)
+    except Exception:
+        pass
 
     report["records"] = records  # 供 server 缓存做"秒级重算"（不落日志）
     if own:
@@ -150,58 +144,24 @@ def build_std_db(
 
 
 def _rebuild_std(conn, records: dict) -> None:
-    """全量重建标准表（人工表不动）。records: {表名: [规范化记录]}。
-
-    任务书33·A1：清表+插入单事务（BEGIN IMMEDIATE → DELETE+INSERT → COMMIT）。
-    任一张表插入失败 → 回滚，旧 std 数据完整保留。
-    """
-    # 收束调用方可能未提交的残留事务，再开 IMMEDIATE（WAL 下读方仍见旧快照）
-    try:
-        conn.commit()
-    except Exception:
-        pass
-    prev_iso = conn.isolation_level
-    conn.isolation_level = None  # 手动事务
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        schema.reset_std_tables(conn, commit=False)
-        for t in _STD_ORDER:
-            _insert(conn, t, records.get(t) or [])
-        conn.execute("COMMIT")
-    except Exception:
-        try:
-            conn.execute("ROLLBACK")
-        except Exception:
-            pass
-        raise
-    finally:
-        conn.isolation_level = prev_iso
+    """全量重建标准表（人工表不动）。SQL 在 db_write.rebuild_std_tables。"""
+    rebuild_std_tables(conn, records)
 
 
 def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     """**轻量重算**（管理员保存后秒级重算用）：用缓存的原始记录重置标准表 → 重放全部生效调整。
     不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。
-
-    重建走 _rebuild_std 单事务；调整重放单独提交（apply_adjustments 内 commit）。
     """
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     _rebuild_std(conn, records)
     rep = adjust.apply_adjustments(conn, now)
-    # apply_adjustments 已 commit；此处不再二次 commit
     return rep
 
 
 def _log_run(conn, now: str, trigger: str, report: dict) -> str:
-    """据本轮情况判绿/黄/红，写 meta_运行日志。
-
-    黄=fetch 走本地 / 过期疑似 / 调整失配 / 智云降级 / 定位键重复。
-    红=无源 或 PRAGMA quick_check 失败。
-    备份结果在 report['backup']，管理端 /api/health 经体检 JSON 可见。
-    """
+    """据本轮情况判绿/黄/红，写 meta_运行日志（SQL 经 db_write.insert_run_log）。"""
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
-    # 智云在线抓时：任一源没抓到（走本地副本/无源）也算黄（诚实反映数据陈旧）
-    # 任务书35：fetched 但有 warnings（行数骤降/同名控件观察）→ 也黄
     zy = report.get("fetch_zhiyun") or {}
     zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
     zy_warn = any(bool(v.get("warnings")) for v in zy.values() if isinstance(v, dict))
@@ -216,13 +176,9 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
         or zy_warn
         or has_dups
     )
-    red = report["fetch"]["status"] == "no_source" or db_bad
+    disk_red = bool((report.get("disk") or {}).get("red"))
+    red = report["fetch"]["status"] == "no_source" or db_bad or disk_red
     结果 = "红" if red else ("黄" if yellow else "绿")
-    # 日志 JSON 不塞 records（体积大）
     log_body = {k: v for k, v in report.items() if k != "records"}
-    conn.execute(
-        "INSERT INTO meta_运行日志(时间,触发方式,结果,体检JSON) VALUES(?,?,?,?)",
-        (now, trigger, 结果, json.dumps(log_body, ensure_ascii=False)),
-    )
-    conn.commit()
+    insert_run_log(conn, now, trigger, 结果, log_body)
     return 结果

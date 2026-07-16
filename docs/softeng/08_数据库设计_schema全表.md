@@ -110,3 +110,35 @@ erDiagram
 ```
 
 **修订记录**：2026-07-16 任务书33 — 整数分 + WAL + 单事务重建 + 重复定位键行为 + quick_check；同日补 SCHEMA v3（adj 分文本 + 预算比率百分位点）。
+
+---
+
+## 换库须知（任务书43 · 2026-07-16）
+
+当前实现：**SQLite only**。业务层零裸 SQL（`db.py` / `db_write.py` / `schema.py`）。
+
+### SQLite 方言清单（换库时必改点）
+
+| 方言/特性 | 位置 | 说明 |
+|-----------|------|------|
+| `PRAGMA foreign_keys/journal_mode/WAL/busy_timeout/synchronous` | `db.connect` | 连接初始化 |
+| `PRAGMA quick_check` / `table_info` / `database_list` | `db`/`schema` | 体检与迁移 |
+| `BEGIN IMMEDIATE` + 手动事务 | `db_write.rebuild_std_tables` | 单事务重建 std |
+| `INSERT OR REPLACE` | 预算/手填/配置等 | 幂等写 |
+| `VACUUM` | `db_write.vacuum_db` | 月末压缩 |
+| `date('now', '-N days')` | `prune_run_logs` | 运行日志滚动 |
+| `AUTOINCREMENT` / `INTEGER PRIMARY KEY` | `schema` DDL | 主键 |
+| 金额 **INTEGER 分** | 全库 | 与 MySQL DECIMAL 映射需迁移脚本 |
+
+### 索引
+
+当前 **未新增预防性索引**。`EXPLAIN QUERY PLAN` 见交付报告附件；表规模适合全表扫描时不建索引。
+
+### 保留策略
+
+| 数据 | 策略 |
+|------|------|
+| `meta_运行日志` | 默认 365 天滚动（`run_log_keep_days`） |
+| `manual_*` 历史/配置变更 | 全量保留；可导出归档，不自动删 |
+| `数据/备份/` | `backup_keep_days`（默认 365） |
+| 共享盘台账 | **只读**拷入本地；绝不回写共享盘 |
