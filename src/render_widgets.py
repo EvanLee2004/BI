@@ -104,7 +104,11 @@ def _target_bar(budget, tkey, pkey, year, p):
         else:
             cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
         cur_s = f"{cur:.1f}%" if cur is not None else "—"
-        pct_s = f"{pct:.0f}%" if pct is not None else "—"
+        # 任务书39·G：极端进度仅显示层钳制（数值与存储不动）
+        if pct is not None and pct > 999:
+            pct_s = ">999% · 目标待校准"
+        else:
+            pct_s = f"{pct:.0f}%" if pct is not None else "—"
         w = min(max(pct or 0, 0), 100)
         cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
         return tpl.fill("render/kpi_tgt_margin.html", label=label, tgt=tgt, cur_s=cur_s, cls=cls, w=w, pct_s=pct_s)
@@ -112,7 +116,10 @@ def _target_bar(budget, tkey, pkey, year, p):
     if done is None:
         done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
         pct = (done / tgt * 100.0) if tgt else None
-    pct_s = f"{pct:.1f}%" if pct is not None else "—"
+    if pct is not None and pct > 999:
+        pct_s = ">999% · 目标待校准"
+    else:
+        pct_s = f"{pct:.1f}%" if pct is not None else "—"
     w = min(max(pct or 0, 0), 100)
     cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
     return tpl.fill(
