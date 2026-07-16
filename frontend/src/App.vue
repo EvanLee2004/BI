@@ -23,7 +23,11 @@ const isBuRoute = computed(() => {
 })
 
 onMounted(async () => {
-  if (location.pathname === '/login' || location.pathname.startsWith('/admin')) return
+  // 注意：条件须拆开写，避免打包器把 === 与 || 折叠成 ==(a||b) 语义错误
+  const path = location.pathname
+  const onLogin = path === '/login'
+  const onAdmin = path.startsWith('/admin')
+  if (onLogin || onAdmin) return
   const bu = isBuRoute.value
   if (bu) await store.loadBu(bu)
   else await store.loadMain()

@@ -101,6 +101,36 @@ class TestFrontendScaffold(unittest.TestCase):
         client = (FE / "api" / "client.ts").read_text(encoding="utf-8")
         self.assertIn("/api/v1/vm/cockpit", client)
 
+    def test_rankings_dual_binds_rankings_view_not_profit(self):
+        """板块四必须绑 rankings_view；禁止再误绑 profit_rank_body（板块三）。"""
+        src = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
+        # 去掉注释再断言，避免文档字面量误伤
+        code = re.sub(r"/\*[\s\S]*?\*/", "", src)
+        code = re.sub(r"//.*", "", code)
+        self.assertIn("rankings_view", code)
+        self.assertIn('data-source="rankings_view"', src)
+        self.assertIn("order_disp", code)
+        self.assertIn("receipt_disp", code)
+        self.assertNotIn("profit_rank_body", code)
+        self.assertIn("rk?.rankings_view", code)
+        # 板块三组件才绑 profit_rank_body
+        pr = (FE / "components" / "ProfitStructure.vue").read_text(encoding="utf-8")
+        self.assertIn("profit_rank_body", pr)
+
+    def test_app_login_guard_not_collapsed(self):
+        """App.vue 登录守卫不得写成 pathname==('/login'||…) 形式。"""
+        app = (FE / "App.vue").read_text(encoding="utf-8")
+        self.assertIn("path === '/login'", app)
+        self.assertIn("path.startsWith('/admin')", app)
+        self.assertNotIn("==('/login'", app)
+        dist = ROOT / "frontend" / "dist" / "assets"
+        js_files = list(dist.glob("index-*.js")) if dist.is_dir() else []
+        self.assertTrue(js_files, "dist 须重建")
+        blob = js_files[0].read_text(encoding="utf-8", errors="ignore")
+        # 禁止打包后的错误折叠：pathname==("/login"||...
+        self.assertNotIn('pathname==("/login"', blob)
+        self.assertNotIn("pathname==('/login'", blob)
+
 
 class TestVmLegacyDisplayParity(unittest.TestCase):
     """同一 summary：VM 与 legacy views 显示串逐字段相等。"""

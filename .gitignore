@@ -54,3 +54,5 @@ golden/_run_verify_raw.log
 
 # 任务书46：Vue 依赖不进 git（dist 进 git）
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+数据/日志/

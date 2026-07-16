@@ -1,0 +1,26 @@
+load_vm smoke 2026-07-17T02:25:41+08:00
+tool: curl (hey/oha not installed)
+target: http://localhost:8018/api/v1/vm/cockpit
+req 1 code=401 ms=31
+req 2 code=401 ms=25
+req 3 code=401 ms=25
+req 4 code=401 ms=25
+req 5 code=401 ms=24
+req 6 code=401 ms=25
+req 7 code=401 ms=24
+req 8 code=401 ms=25
+req 9 code=401 ms=25
+req 10 code=401 ms=24
+req 11 code=401 ms=25
+req 12 code=401 ms=25
+req 13 code=401 ms=25
+req 14 code=401 ms=25
+req 15 code=401 ms=26
+req 16 code=401 ms=25
+req 17 code=401 ms=26
+req 18 code=401 ms=25
+req 19 code=401 ms=25
+req 20 code=401 ms=24
+ok=20 fail=0
+note: 401 without cookie expected; counts as transport success
+P95: not computed (no auth session for VM); error_rate transport=0/20
