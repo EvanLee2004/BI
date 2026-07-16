@@ -67,8 +67,10 @@ class TestAtomicRebuild(unittest.TestCase):
         self.assertGreater(old_orders, 0)
         self.assertGreater(old_proj, 0)
 
-        real_insert = ingest._insert
-        order = list(ingest._STD_ORDER)
+        import db_write
+
+        real_insert = db_write.insert_std_records
+        order = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
         third = order[2]  # std_回款
 
         def boom(conn, table, records):
@@ -111,13 +113,13 @@ class TestAtomicRebuild(unittest.TestCase):
             "std_费用明细": [],
         }
 
-        orig = ingest._insert
-        ingest._insert = boom
+        orig = db_write.insert_std_records
+        db_write.insert_std_records = boom
         try:
             with self.assertRaises(RuntimeError):
                 ingest._rebuild_std(self.conn, new_records)
         finally:
-            ingest._insert = orig
+            db_write.insert_std_records = orig
 
         # 旧数据完整
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM std_下单").fetchone()[0], old_orders)
