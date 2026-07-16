@@ -152,8 +152,9 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     """[(label, 收入, 成本, 毛利率%), ...] 收入/成本双柱 + 毛利率折线。
     柱顶常显收入/成本（万）；毛利率%标在折线数据点旁（默认点上方）。
     折线带 flowline 流光 + comet 光点动效；柱带光晕。
-    柱高留顶空（headroom）保证最高柱的金额字一定在柱上方。"""
-    w, h = 640, 288
+    柱高留顶空（headroom）保证最高柱的金额字一定在柱上方。
+    任务书46·0：板块二图表高度 +10%（288→317）。"""
+    w, h = 640, 317
     pl, pr, pt, pb = 54, 36, 34, 32
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = len(groups)
@@ -414,21 +415,51 @@ def expense_stack_chart(
     *,
     note: str = "",
 ) -> str:
-    """费用月度趋势·按报表大类堆叠柱。
-    months=[{m:1..12, total:分, total_disp:万串, segs:[{cat, amount, amount_disp, pct_disp, h_pct}…]}]
-    高度/显示串均由调用方预算好（铁律2）；本函数只拼 SVG。"""
-    w, h = 640, 288
+    """费用月度趋势·按报表大类堆叠面积图（任务书46·阶段0：柱→面积）。
+    months=[{m:1..12, total:分, total_disp:万串, segs:[{cat, amount, amount_disp, pct_disp}…]}]
+    高度/显示串均由调用方预算好（铁律2）；本函数只拼 SVG。
+    X=1~12 月、分层=报表大类、配色沿用图例、顶部总额标签+悬浮月份合计 tooltip 保留。"""
+    w, h = 640, 317  # 任务书46·0：整体放大一档，图表高度 +10%（原 288）
     pl, pr, pt, pb = 54, 36, 34, 40
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = 12
     if not months:
         months = [{"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []} for i in range(12)]
-    mx = max((float(m.get("total") or 0) for m in months), default=0) or 1
-    bar_h = plot_h * 0.88
+    # 补齐到 12 月
+    while len(months) < 12:
+        months.append({"m": len(months) + 1, "total": 0, "total_disp": "0.0", "segs": []})
+    mx = max((float(m.get("total") or 0) for m in months[:12]), default=0) or 1
+    area_h = plot_h * 0.88
     gw = plot_w / n
-    bw = min(gw * 0.55, 28)
     cat_colors = {c: _STACK_PALETTE[i % len(_STACK_PALETTE)] for i, c in enumerate(categories)}
-    parts, hits = [], []
+    # 每月每类金额（分）；累计栈底/栈顶用于面积带
+    amt_by_cat: list[dict[str, float]] = []
+    for i in range(12):
+        m = months[i]
+        by = {s.get("cat") or "": float(s.get("amount") or 0) for s in (m.get("segs") or [])}
+        amt_by_cat.append(by)
+    # bottoms[i][cat] = 该类之下的累计；tops 同理
+    bottoms: list[dict[str, float]] = []
+    tops: list[dict[str, float]] = []
+    for i in range(12):
+        bot, top = {}, {}
+        acc = 0.0
+        for c in categories:
+            a = float(amt_by_cat[i].get(c) or 0)
+            bot[c] = acc
+            acc += max(0.0, a)
+            top[c] = acc
+        bottoms.append(bot)
+        tops.append(top)
+
+    def _y(val: float) -> float:
+        return pt + plot_h - (val / mx * area_h)
+
+    def _x(i: int) -> float:
+        return pl + gw * i + gw / 2
+
+    parts: list[str] = []
+    hits: list[str] = []
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w - pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
@@ -436,32 +467,26 @@ def expense_stack_chart(
             f'<text x="{pl - 8}" y="{y + 3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
             f"{'0' if frac == 0 else fmt_wan(mx * frac) + '万'}</text>"
         )
+    # 自底向上画堆叠面积 path（铁律2：坐标全由后端算好）
+    for c in categories:
+        color = cat_colors.get(c, MUT)
+        # 上沿左→右
+        top_pts = [f"{_x(i):.1f},{_y(tops[i].get(c, 0)):.1f}" for i in range(12)]
+        # 下沿右→左（闭合）
+        bot_pts = [f"{_x(i):.1f},{_y(bottoms[i].get(c, 0)):.1f}" for i in range(11, -1, -1)]
+        d = "M " + " L ".join(top_pts) + " L " + " L ".join(bot_pts) + " Z"
+        parts.append(
+            f'<path class="exp-area" data-cat="{esc(c)}" d="{d}" fill="{color}" fill-opacity="0.72" '
+            f'stroke="{color}" stroke-width="1" stroke-opacity="0.95"/>'
+        )
+    # 月标签 + 顶部总额 + 悬浮命中区
     for i in range(12):
-        m = months[i] if i < len(months) else {"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []}
-        cx = pl + gw * i + gw / 2
-        segs = m.get("segs") or []
-        y_cursor = pt + plot_h
+        m = months[i]
+        cx = _x(i)
         total = float(m.get("total") or 0)
-        for seg in segs:
-            amt = float(seg.get("amount") or 0)
-            if amt <= 0:
-                continue
-            sh = max(1.0, amt / mx * bar_h)
-            y_cursor -= sh
-            cat = seg.get("cat") or ""
-            color = cat_colors.get(cat, MUT)
-            tip = (
-                f"{i + 1}月 · {esc(cat)}<br>"
-                f"{esc(seg.get('amount_disp') or fmt_wan(amt))}万"
-                f" · 占当月 {esc(seg.get('pct_disp') or '—')}"
-            )
-            parts.append(
-                f'<rect class="bar exp-seg" data-tip="{tip}" x="{cx - bw / 2:.1f}" y="{y_cursor:.1f}" '
-                f'width="{bw:.1f}" height="{sh:.1f}" fill="{color}" opacity="0.92" rx="1"/>'
-            )
         tot_disp = m.get("total_disp") or fmt_wan(total)
         if total > 0:
-            ty = y_cursor - 5
+            ty = _y(total) - 5
             parts.append(
                 f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="9.5" font-weight="700" '
                 f'fill="{INK}">{esc(tot_disp)}</text>'
@@ -470,8 +495,20 @@ def expense_stack_chart(
             f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11" fill="{MUT}">'
             f"{i + 1}月</text>"
         )
+        # 悬浮：月份合计 + 各大类明细（后端拼好 data-tip）
+        seg_tips = []
+        for seg in m.get("segs") or []:
+            cat = seg.get("cat") or ""
+            if float(seg.get("amount") or 0) <= 0:
+                continue
+            seg_tips.append(
+                f"{esc(cat)} {esc(seg.get('amount_disp') or fmt_wan(seg.get('amount') or 0))}万"
+                f"（{esc(seg.get('pct_disp') or '—')}）"
+            )
+        tip_detail = "<br>".join(seg_tips)
+        tip = f"{i + 1}月合计 {esc(tot_disp)}万" + (f"<br>{tip_detail}" if tip_detail else "")
         hits.append(
-            f'<rect class="hit" data-tip="{i + 1}月合计 {esc(tot_disp)}万" x="{pl + gw * i:.1f}" y="{pt:.1f}" '
+            f'<rect class="hit" data-tip="{tip}" x="{pl + gw * i:.1f}" y="{pt:.1f}" '
             f'width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>'
         )
     legend_items = "".join(
@@ -479,7 +516,6 @@ def expense_stack_chart(
     )
     legend = tpl.fill("charts/legend_expense_stack.html", items=legend_items)
     note_html = tpl.fill("charts/exp_trend_note.html", note=esc(note)) if note else ""
-    # SVG 本体仍内联拼接（与 combo_bar_line_chart / receipt_order_chart 同模式；无业务标签壳）
     return (
         f'<svg viewBox="0 0 {w} {h}" style="max-width:100%;display:block">'
         f"{''.join(parts)}{''.join(hits)}</svg>{legend}{note_html}"

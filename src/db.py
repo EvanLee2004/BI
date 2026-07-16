@@ -247,8 +247,8 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     ),
 }
 
-# 任务书41·D：看端（整体页+BU 页）费用明细白名单与列序；口径人=业务员（非提单人）
-# 隐藏：定位键/收单月份/归属月/提单人/提单人部门。管理端仍用 DETAIL_TABLES 全列。
+# 任务书41·D / 46·阶段0：看端（整体页+BU 页）费用明细白名单与列序；口径人=业务员（非提单人）
+# 隐藏：定位键/收单月份/归属月/提单人/提单人部门/配音费合同号。管理端仍用 DETAIL_TABLES 全列。
 # 归属月计算仍依赖库内「收单月份」列——只动展示，norm_ledger 零改动。
 VIEW_EXPENSE_COLUMNS: list[str] = [
     "收单日期",
@@ -259,10 +259,18 @@ VIEW_EXPENSE_COLUMNS: list[str] = [
     "业务员",
     "预算归属部门",
     "业务BU",
-    "配音费合同号",
 ]
 # BU 页可省「业务BU」（本页全是自己）
 VIEW_EXPENSE_COLUMNS_BU: list[str] = [c for c in VIEW_EXPENSE_COLUMNS if c != "业务BU"]
+# 看端禁止出现的隐藏列（供数 JSON / 表头 / 导出走白名单；本常量供测试与文档）
+VIEW_EXPENSE_HIDDEN: list[str] = [
+    "定位键",
+    "收单月份",
+    "归属月",
+    "提单人",
+    "提单人部门",
+    "配音费合同号",
+]
 
 # 任务书37·B7：逐列筛选类型（日期列；金额列走 money.STD_MONEY_COLS）
 DETAIL_DATE_COLS = frozenset(

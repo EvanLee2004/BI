@@ -24,7 +24,7 @@ import money  # noqa: E402
 import server  # noqa: E402
 
 
-HIDDEN = ("定位键", "收单月份", "归属月", "提单人", "提单人部门")
+HIDDEN = ("定位键", "收单月份", "归属月", "提单人", "提单人部门", "配音费合同号")
 VIEW_COLS = list(db.VIEW_EXPENSE_COLUMNS)
 
 
@@ -94,12 +94,12 @@ class TestViewWhitelist(unittest.TestCase):
                 "业务员",
                 "预算归属部门",
                 "业务BU",
-                "配音费合同号",
             ],
         )
         self.assertNotIn("业务BU", db.VIEW_EXPENSE_COLUMNS_BU)
         for h in HIDDEN:
             self.assertNotIn(h, db.VIEW_EXPENSE_COLUMNS)
+        self.assertEqual(list(db.VIEW_EXPENSE_HIDDEN), list(HIDDEN))
 
 
 class TestDetailAudience(_Base):

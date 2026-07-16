@@ -832,7 +832,7 @@ def pack_expense_trend_months(raw: dict) -> tuple[list[str], list[dict], str]:
 
 
 def render_expense_trend(raw: dict | None, *, title: str = "费用月度趋势 · 按报表大类") -> str:
-    """任务书39·E：费用堆叠柱卡 HTML。raw=compute_expense_monthly_by_cat 结果。"""
+    """任务书39·E / 46·0：费用堆叠面积图卡 HTML。raw=compute_expense_monthly_by_cat 结果。"""
     if not raw:
         return ""
     cats, months, note = pack_expense_trend_months(raw)

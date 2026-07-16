@@ -64,6 +64,7 @@ tests/test_task41.py
 tests/test_task42_final.py
 tests/test_task43_nginx_mode.py
 tests/test_task43_arch.py
+tests/test_task46_stage0.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
