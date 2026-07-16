@@ -224,7 +224,7 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
         ["定位键", "任务ID", "任务提交日期", "结算金额", "译员类型", "译员姓名", "销售", "归属月"],
         ["定位键", "任务ID", "译员类型", "译员姓名", "销售"],
     ),
-    # A5：费用明细全列（含事项≈摘要）；系统列归属月置末
+    # A5：费用明细全列（含事项≈摘要）；系统列归属月置末 —— 管理端「数据调整」用全列
     "费用明细": (
         "std_费用明细",
         [
@@ -246,6 +246,23 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
         ["定位键", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门", "事项", "提单人", "业务员"],
     ),
 }
+
+# 任务书41·D：看端（整体页+BU 页）费用明细白名单与列序；口径人=业务员（非提单人）
+# 隐藏：定位键/收单月份/归属月/提单人/提单人部门。管理端仍用 DETAIL_TABLES 全列。
+# 归属月计算仍依赖库内「收单月份」列——只动展示，norm_ledger 零改动。
+VIEW_EXPENSE_COLUMNS: list[str] = [
+    "收单日期",
+    "事项",
+    "含税金额",
+    "对应报表大类",
+    "预算明细费用类型",
+    "业务员",
+    "预算归属部门",
+    "业务BU",
+    "配音费合同号",
+]
+# BU 页可省「业务BU」（本页全是自己）
+VIEW_EXPENSE_COLUMNS_BU: list[str] = [c for c in VIEW_EXPENSE_COLUMNS if c != "业务BU"]
 
 # 任务书37·B7：逐列筛选类型（日期列；金额列走 money.STD_MONEY_COLS）
 DETAIL_DATE_COLS = frozenset(
@@ -271,12 +288,20 @@ def detail_col_kind(table_key: str, col: str) -> str:
     return "text"
 
 
-def detail_columns_meta(table_key: str) -> list[dict]:
-    """管理端表头筛选用：[{name, kind}, …]。"""
+def detail_columns_meta(table_key: str, *, audience: str = "admin") -> list[dict]:
+    """表头筛选用：[{name, kind}, …]。audience=admin|view|view_bu（任务书41·D）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}")
-    cols = DETAIL_TABLES[table_key][1]
+    cols = _detail_display_columns(table_key, audience=audience)
     return [{"name": c, "kind": detail_col_kind(table_key, c)} for c in cols]
+
+
+def _detail_display_columns(table_key: str, *, audience: str = "admin") -> list[str]:
+    """展示列：管理端全列；看端费用明细走白名单（顺序固定）。"""
+    _table, cols, _search = DETAIL_TABLES[table_key]
+    if table_key == "费用明细" and audience in ("view", "view_bu"):
+        return list(VIEW_EXPENSE_COLUMNS_BU if audience == "view_bu" else VIEW_EXPENSE_COLUMNS)
+    return list(cols)
 
 
 def _parse_filters_arg(filters) -> dict:
@@ -401,8 +426,11 @@ def _detail_base_where(
     filters=None,
     *,
     hide_salary: bool = False,
+    month_from: str | None = None,
+    month_to: str | None = None,
 ) -> tuple[list[str], list]:
-    """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。"""
+    """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。
+    month_from/month_to：归属月闭区间 YYYY-MM（任务书41·E）；与单月 month 互斥时区间优先。"""
     where = ["已删除=0"]
     args: list = []
     if unclassified:
@@ -421,7 +449,28 @@ def _detail_base_where(
     if hide_salary and table_key == "费用明细" and "对应报表大类" in have:
         # 任务书37·B8：整体账号默认隐藏「工资」大类（管理员/开关打开不受影响）
         where.append("(对应报表大类 IS NULL OR TRIM(对应报表大类)<>'工资')")
-    if month:
+    mf = (month_from or "").strip() or None
+    mt = (month_to or "").strip() or None
+    if mf or mt:
+        import re as _re
+
+        ym_re = _re.compile(r"^\d{4}-\d{2}$")
+        if mf and not ym_re.match(mf):
+            raise KeyError("month_from 须为 YYYY-MM")
+        if mt and not ym_re.match(mt):
+            raise KeyError("month_to 须为 YYYY-MM")
+        if mf and mt:
+            if mf > mt:
+                mf, mt = mt, mf
+            where.append("归属月 BETWEEN ? AND ?")
+            args.extend([mf, mt])
+        elif mf:
+            where.append("归属月 >= ?")
+            args.append(mf)
+        else:
+            where.append("归属月 <= ?")
+            args.append(mt)
+    elif month:
         where.append("归属月=?")
         args.append(month)
     elif year:
@@ -457,20 +506,29 @@ def query_detail(
     filters=None,
     *,
     hide_salary: bool = False,
+    audience: str = "admin",
+    month_from: str | None = None,
+    month_to: str | None = None,
 ) -> dict:
     """明细分页查询（按年/月 + 关键词 + 可选 BU + 任务书37 列筛）。仅读未删除行。表键白名单防注入。
     unclassified=True 仅「费用明细」：对应报表大类为空且金额非零。
     unfilled_dept=True 仅「下单」：部门为空且金额非零。
     year=YYYY → 归属月 LIKE 'YYYY-%'（A5 年维度）；month 仍为完整归属月 YYYY-MM。
+    month_from/month_to：归属月闭区间（任务书41·E 真筛，SQL BETWEEN）。
     bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。
     filters：{列: {q/in/min/max/from/to}}，后端 SQL AND，禁止前端拉全表。
-    hide_salary：费用明细隐藏对应报表大类=工资（整体账号默认）。"""
+    hide_salary：费用明细隐藏对应报表大类=工资（整体账号默认）。
+    audience：admin=管理端全列；view/view_bu=看端白名单（任务书41·D）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
-    table, cols, searchable = DETAIL_TABLES[table_key]
+    table, _full_cols, searchable = DETAIL_TABLES[table_key]
     # 缺列兼容（旧库未补齐 A5 列时降级）
     have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-    cols = [c for c in cols if c in have or c in ("定位键", "归属月")]
+    cols = _detail_display_columns(table_key, audience=audience)
+    if audience == "admin":
+        cols = [c for c in cols if c in have or c in ("定位键", "归属月")]
+    else:
+        cols = [c for c in cols if c in have]
     where, args = _detail_base_where(
         table_key,
         table,
@@ -484,6 +542,8 @@ def query_detail(
         bu,
         filters,
         hide_salary=hide_salary,
+        month_from=month_from,
+        month_to=month_to,
     )
     wsql = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
@@ -528,12 +588,16 @@ def query_detail_distinct(
     *,
     hide_salary: bool = False,
     limit: int = 200,
+    audience: str = "admin",
+    month_from: str | None = None,
+    month_to: str | None = None,
 ) -> dict:
     """文本列去重值（Excel 式多选下拉）。列白名单；limit 默认 200。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}")
     table, cols, searchable = DETAIL_TABLES[table_key]
-    if column not in cols:
+    allow = set(_detail_display_columns(table_key, audience=audience)) | set(cols)
+    if column not in allow:
         raise KeyError(f"列不在表白名单：{column}")
     have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     if column not in have:
@@ -555,6 +619,8 @@ def query_detail_distinct(
         bu,
         fdict,
         hide_salary=hide_salary,
+        month_from=month_from,
+        month_to=month_to,
     )
     wsql = " AND ".join(where)
     limit = max(1, min(1000, int(limit)))

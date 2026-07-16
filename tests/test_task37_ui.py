@@ -52,10 +52,12 @@ class TestA2DualBarLegend(unittest.TestCase):
 
 
 class TestA3DualGridEqual(unittest.TestCase):
-    def test_dual_grid_half_half(self):
+    def test_dual_grid_sales_cust_ratio(self):
+        """任务书41·C：按销售 45% / 按客户 55%（原 50/50）。"""
         css = THEME.read_text(encoding="utf-8")
         self.assertIn(".dual-grid", css)
-        self.assertRegex(css, r"\.dual-grid\s*\{[^}]*minmax\(0,\s*1fr\)")
+        self.assertRegex(css, r"\.dual-grid\s*\{[^}]*0\.45fr")
+        self.assertRegex(css, r"\.dual-grid\s*\{[^}]*0\.55fr")
 
 
 class TestA4PeriodOnTotals(unittest.TestCase):

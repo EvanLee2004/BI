@@ -137,8 +137,14 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertEqual(r.status_code, 403)
         r2 = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r2.status_code, 200)
-        for row in r2.json()["rows"]:
-            self.assertEqual(row.get("业务BU"), "甲BU")
+        d = r2.json()
+        # 任务书41·D：BU 看端不展示「业务BU」列，隔离用 total/事项 验证（甲 2 行，非乙的 2 行）
+        self.assertNotIn("业务BU", d["columns"])
+        self.assertEqual(d["total"], 2)
+        matters = {row.get("事项") for row in d["rows"]}
+        self.assertEqual(matters, {"工资事项", "办公"})
+        self.assertNotIn("乙工资", matters)
+        self.assertNotIn("差旅", matters)
 
     def test_dashboard_has_ledger_entry(self):
         html = (ROOT / "static" / "templates" / "render" / "dashboard_body.html").read_text(encoding="utf-8")

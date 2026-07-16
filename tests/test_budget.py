@@ -95,9 +95,12 @@ class TestRenderSwitch(unittest.TestCase):
         }
         html = render.render_receipts(series, budget)
         self.assertIn("月均预算", html)  # 图上预算线（2400/12=200万/月）
-        self.assertIn("回款年预算", html)
+        # 任务书41·B：卡头「回款年预算…」小字删除；右侧驾驶舱仍保留年目标进度
+        self.assertNotIn("回款年预算", html)
+        self.assertNotIn("下单年预算", html)
+        self.assertIn("回款年目标", html)
         self.assertIn("25.0%", html)
-        self.assertIn("下单年预算", html)
+        self.assertIn("下单年目标", html)
 
 
 class TestBudgetMatrixAdminUi(unittest.TestCase):

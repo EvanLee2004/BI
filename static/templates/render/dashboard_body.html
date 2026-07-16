@@ -42,10 +42,13 @@
     <span class="tag" id="mlSalaryTag" title="整体账号默认隐藏工资大类；管理端设置可开">默认隐工资</span></div>
   <div class="daily-bar cock-ctrl-bar" style="padding:8px 0 12px">
     <select class="cock-ctrl" id="mlY"></select>
-    <select class="cock-ctrl" id="mlM"><option value="">全部月</option></select>
+    <select class="cock-ctrl" id="mlMFrom" title="起月"><option value="">起月·全部</option></select>
+    <span class="daily-note" style="margin:0 2px">~</span>
+    <select class="cock-ctrl" id="mlMTo" title="止月"><option value="">止月·全部</option></select>
     <input class="cock-ctrl" id="mlQ" placeholder="关键词（事项/类型/BU…）" size="22">
     <button class="toggle" type="button" id="mlGo">查询</button>
     <button class="toggle" type="button" id="mlClearF" title="清除列筛选">清除列筛</button>
+    <button class="toggle" type="button" id="mlExport" title="导出当前筛选（列=白名单）">导出</button>
     <span id="mlInfo" class="daily-note"></span>
   </div>
   <div class="ledger-scroll" id="mlScroll">

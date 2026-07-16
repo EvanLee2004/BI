@@ -295,24 +295,9 @@ def render_pl_table(p, fine, unclassified_amt=None):
 
 # ---------- 板块②-3 回款按月（整年，静态）+ 每月回款/下单比线 ----------
 def _budget_tag(budget):
-    """预算完成标签（卡头）：没填预算 → 空串（页面与无预算时代一分不差）。"""
-    if not budget:
-        return ""
-    parts = []
-    for key, name in (("receipt", "回款"), ("order", "下单")):
-        b = budget.get(key)
-        if b:
-            p = b.get("pct")
-            if p is None:
-                pct = "—"
-            elif p > 999:
-                pct = ">999% · 目标待校准"
-            else:
-                pct = f"{p:.1f}%"
-            parts.append(
-                tpl.fill("render/budget_tag_part.html", name=name, target=charts.fmt_wan(b["target"]), pct=pct)
-            )
-    return tpl.fill("render/budget_tag.html", parts="　".join(parts)) if parts else ""
+    """任务书41·B：回款情况卡头预算小字整行删除（KPI 进度条仍保留 G 钳制）。
+    保留函数与调用点，恒返空串，避免其它拼装路径再拼出冗余标签。"""
+    return ""
 
 
 def _receipt_insight_totals(

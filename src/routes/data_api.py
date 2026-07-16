@@ -62,20 +62,25 @@ def register(app, d):
     DEFAULT_PW = d.DEFAULT_PW
 
     def _detail_access(request: Request, table: str, bu: str | None):
-        """明细鉴权：返回 (force_bu, hide_salary)。管理员不隐工资；整体默隐（设置可开）；BU 强制本 BU。"""
+        """明细鉴权：返回 (force_bu, hide_salary, audience)。
+        audience：admin=管理端全列；view=整体看端白名单；view_bu=BU 页白名单（可省业务BU）。
+        管理员不隐工资；整体默隐（设置可开）；BU 强制本 BU。"""
         user = _user(request)
         vacc = _vacc_row(request)
         force_bu = None
         hide_salary = False
+        audience = "admin"
         if user:
             force_bu = bu.strip() if bu else None
             hide_salary = False  # 管理员看全量（含工资）
+            audience = "admin"
         elif vacc and table == "费用明细":
             names = accounts.bu_names_of(vacc)
             if accounts.is_main(vacc):
                 force_bu = bu.strip() if bu else None
                 # 任务书37·B8：整体账号默认隐藏工资大类；开关 overall_see_salary 打开才可见
                 hide_salary = not bool(cfg.get("overall_see_salary", False))
+                audience = "view"
             else:
                 if not names:
                     raise HTTPException(status_code=403, detail="无权查看费用明细")
@@ -84,9 +89,10 @@ def register(app, d):
                     raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
                 force_bu = want
                 hide_salary = False  # BU 看本 BU 全量（含本 BU 工资行，若有）
+                audience = "view_bu"
         else:
             raise HTTPException(status_code=401, detail="需要登录")
-        return force_bu, hide_salary
+        return force_bu, hide_salary, audience
 
     @app.get("/api/detail_export")
     def api_detail_export(
@@ -97,10 +103,12 @@ def register(app, d):
         year: str | None = None,
         bu: str | None = None,
         filters: str | None = None,
+        month_from: str | None = None,
+        month_to: str | None = None,
     ):
-        """当前筛选结果导出 Excel（.xlsx · 管理员；上限 5000 行，避免拖垮）。
-        表头+行与明细页一致；月份/搜索/列筛与页面筛选相同（任务书37·B7）。"""
-        force_bu, hide_salary = _detail_access(request, table, bu)
+        """当前筛选结果导出 Excel（.xlsx；上限 5000 行）。
+        表头+行与明细页一致（看端=白名单列，管理端=全列）；月份/搜索/列筛与页面相同。"""
+        force_bu, hide_salary, audience = _detail_access(request, table, bu)
         # 导出：管理员会话走 _require 语义——非管理员也可导出自己有权看的费用明细
         if _user(request) is None and not (_vacc_row(request) and table == "费用明细"):
             raise HTTPException(status_code=401, detail="需要登录")
@@ -120,6 +128,9 @@ def register(app, d):
                 bu=force_bu,
                 filters=filters,
                 hide_salary=hide_salary,
+                audience=audience,
+                month_from=month_from,
+                month_to=month_to,
             )
         except KeyError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -165,10 +176,13 @@ def register(app, d):
         year: str | None = None,
         bu: str | None = None,
         filters: str | None = None,
+        month_from: str | None = None,
+        month_to: str | None = None,
     ):
-        """明细查询。管理员：全表。A5：查看端会话仅可查「费用明细」且必须带本 BU 过滤（铁律隔离）。
+        """明细查询。管理员：全表全列。看端：费用明细白名单列（任务书41·D）+ 月区间真筛（41·E）。
+        A5：查看端会话仅可查「费用明细」且必须带本 BU 过滤（铁律隔离）。
         任务书37·B7：filters=JSON 列筛（后端 SQL 分页）；B8：整体账号默隐工资。"""
-        force_bu, hide_salary = _detail_access(request, table, bu)
+        force_bu, hide_salary, audience = _detail_access(request, table, bu)
         conn = db.connect(cfg, root)
         try:
             try:
@@ -186,6 +200,9 @@ def register(app, d):
                         bu=force_bu,
                         filters=filters,
                         hide_salary=hide_salary,
+                        audience=audience,
+                        month_from=month_from,
+                        month_to=month_to,
                     )
                 )
             except KeyError as e:
@@ -204,9 +221,11 @@ def register(app, d):
         bu: str | None = None,
         filters: str | None = None,
         limit: int = 200,
+        month_from: str | None = None,
+        month_to: str | None = None,
     ):
         """文本列去重值（Excel 多选下拉）。与 list 同鉴权/同上下文筛。"""
-        force_bu, hide_salary = _detail_access(request, table, bu)
+        force_bu, hide_salary, audience = _detail_access(request, table, bu)
         conn = db.connect(cfg, root)
         try:
             try:
@@ -222,6 +241,9 @@ def register(app, d):
                         filters=filters,
                         hide_salary=hide_salary,
                         limit=limit,
+                        audience=audience,
+                        month_from=month_from,
+                        month_to=month_to,
                     )
                 )
             except KeyError as e:
@@ -231,10 +253,10 @@ def register(app, d):
 
     @app.get("/api/detail/meta")
     def api_detail_meta(request: Request, table: str = Query("收入明细")):
-        """列名+类型（text/number/date），供表头筛选 UI。"""
-        _detail_access(request, table, None)
+        """列名+类型（text/number/date），供表头筛选 UI。看端跟白名单。"""
+        _force_bu, _hs, audience = _detail_access(request, table, None)
         try:
-            return {"table": table, "columns": db.detail_columns_meta(table)}
+            return {"table": table, "columns": db.detail_columns_meta(table, audience=audience)}
         except KeyError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

@@ -36,7 +36,9 @@
   <div class="card-h">本 BU 台账费用明细 <span class="tag">仅本 BU · 铁律隔离</span></div>
   <div class="daily-bar cock-ctrl-bar" style="padding:8px 0 12px">
     <select class="cock-ctrl" id="blY"></select>
-    <select class="cock-ctrl" id="blM"><option value="">全部月</option></select>
+    <select class="cock-ctrl" id="blMFrom" title="起月"><option value="">起月·全部</option></select>
+    <span class="daily-note" style="margin:0 2px">~</span>
+    <select class="cock-ctrl" id="blMTo" title="止月"><option value="">止月·全部</option></select>
     <input class="cock-ctrl" id="blQ" placeholder="关键词（事项/类型/部门…）" size="22">
     <button class="toggle" type="button" id="blGo">查询</button>
     <span id="blInfo" class="daily-note"></span>

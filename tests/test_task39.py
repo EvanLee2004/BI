@@ -206,9 +206,10 @@ class TestGPctClamp(unittest.TestCase):
         self.assertIn(">999% · 目标待校准", h)
         self.assertNotIn("48178", h)
 
-    def test_budget_tag_extreme(self):
+    def test_budget_tag_removed_task41(self):
+        """任务书41·B：卡头预算小字删除；KPI 进度条仍保留 G 钳制。"""
         tag = render._budget_tag({"receipt": {"target": 100, "pct": 50000}})
-        self.assertIn("目标待校准", tag)
+        self.assertEqual(tag, "")
 
 
 class TestDailyApiDual(unittest.TestCase):

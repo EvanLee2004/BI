@@ -94,12 +94,13 @@ class TestBuLedgerIsolation(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertGreaterEqual(d["total"], 1)
-        for row in d["rows"]:
-            self.assertEqual(row.get("业务BU"), "甲BU")
+        # 任务书41·D：BU 看端白名单不含「业务BU」列；隔离靠后端 force_bu + total
+        self.assertNotIn("业务BU", d["columns"])
         r2 = c.get("/api/detail", params={"table": "费用明细"})
         self.assertEqual(r2.status_code, 200)
-        for row in r2.json()["rows"]:
-            self.assertEqual(row.get("业务BU"), "甲BU")
+        d2 = r2.json()
+        self.assertEqual(d2["total"], d["total"])
+        self.assertNotIn("业务BU", d2["columns"])
 
     def test_bu_cannot_open_other_tables(self):
         c = self._client_as("bu_b")

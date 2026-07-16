@@ -341,13 +341,14 @@
 })();
 
 
-/* 任务书37·B8 + 任务书39·D：整体页费用明细（胶囊控件/sticky/分页/周期联动）
- * 列筛与管理端 B7 同款：文本=关键词+去重值多选（/api/detail/values）、数字区间、日期起止。
- * 任务书39·F：看端不再渲染抓数降级黄横幅（仅管理端）。 */
+/* 任务书37·B8 + 任务书39·D + 任务书41·D/E：整体页费用明细
+ * 列=后端白名单；月筛=起月~止月真筛；列筛同管理端 B7。 */
 (function(){
   var card=document.getElementById("mainLedgerCard");
   if(!card)return;
-  var yEl=document.getElementById("mlY"), mEl=document.getElementById("mlM");
+  var yEl=document.getElementById("mlY");
+  var mFromEl=document.getElementById("mlMFrom")||document.getElementById("mlM");
+  var mToEl=document.getElementById("mlMTo")||mFromEl;
   var qEl=document.getElementById("mlQ"), info=document.getElementById("mlInfo"), tbl=document.getElementById("mlTbl");
   var pager=document.getElementById("mlPager");
   var pop=document.getElementById("mlFilterPop");
@@ -356,7 +357,15 @@
   var y0=new Date().getFullYear();
   for(var y=y0;y>=2026;y--){var o=document.createElement("option");o.value=String(y);o.textContent=y+"年";yEl.appendChild(o);}
   yEl.value=String(Math.max(y0,2026));
-  for(var m=1;m<=12;m++){var o=document.createElement("option");o.value=String(m);o.textContent=m+"月";mEl.appendChild(o);}
+  function fillMonthSel(el, label){
+    if(!el)return;
+    var keep=el.querySelector("option[value='']");
+    el.innerHTML="";
+    var z=document.createElement("option");z.value="";z.textContent=label||"全部";el.appendChild(z);
+    for(var m=1;m<=12;m++){var o=document.createElement("option");o.value=String(m);o.textContent=m+"月";el.appendChild(o);}
+  }
+  fillMonthSel(mFromEl,"起月·全部");
+  if(mToEl&&mToEl!==mFromEl)fillMonthSel(mToEl,"止月·全部");
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
   function isAmtCol(c){return /金额|含税|未税|价税/.test(c||"");}
   function isFlexCol(c){return /事项|摘要|备注|说明/.test(c||"");}
@@ -364,10 +373,22 @@
     var k=Object.keys(colFilters);if(!k.length)return "";
     try{return "&filters="+encodeURIComponent(JSON.stringify(colFilters));}catch(e){return "";}
   }
+  function ym(m){return yEl.value+"-"+("0"+m).slice(-2);}
   function ctxParams(){
     var u="";
-    if(yEl.value&&mEl.value){var mm=("0"+mEl.value).slice(-2);u+="&month="+encodeURIComponent(yEl.value+"-"+mm);}
-    else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
+    var a=mFromEl&&mFromEl.value?parseInt(mFromEl.value,10):0;
+    var b=mToEl&&mToEl.value?parseInt(mToEl.value,10):0;
+    if(yEl.value&&a&&b){
+      if(a>b){var t=a;a=b;b=t;}
+      if(a===b)u+="&month="+encodeURIComponent(ym(a));
+      else{u+="&month_from="+encodeURIComponent(ym(a))+"&month_to="+encodeURIComponent(ym(b));}
+    }else if(yEl.value&&a){
+      u+="&month_from="+encodeURIComponent(ym(a));
+      if(yEl.value)u+="&month_to="+encodeURIComponent(yEl.value+"-12");
+    }else if(yEl.value&&b){
+      u+="&month_from="+encodeURIComponent(yEl.value+"-01");
+      u+="&month_to="+encodeURIComponent(ym(b));
+    }else if(yEl.value)u+="&year="+encodeURIComponent(yEl.value);
     var q=(qEl.value||"").trim();if(q)u+="&q="+encodeURIComponent(q);
     return u+filtersQP();
   }
@@ -489,9 +510,8 @@
       paintPager();
     }).catch(function(e){info.textContent="失败："+e.message;});
   }
-  /** 任务书39·D：全局周期 → 年/月筛选跟随。
-   * 规则：年→年+全部月；单月→该月；季/区间→年不变、月下拉取区间首月（API 单月语义；跨月看全部月+年过滤）。
-   * 手改年/月不回写全局。 */
+  /** 任务书41·E：全局周期 → 起止月真筛。
+   * 年→起止全部；单月→起止同月；Q1→1~3；手改不反向写全局。 */
   window._syncLedgerYm=function(key){
     if(handYm)return;
     var k=key||window._curBlk||"";
@@ -500,16 +520,30 @@
     var mSingle=k.match(/年(\d{1,2})月$/);
     var mRange=k.match(/年(\d{1,2})-(\d{1,2})月$/);
     var mQ=k.match(/年Q([1-4])$/);
-    if(mSingle){mEl.value=String(parseInt(mSingle[1],10));}
-    else if(mRange){mEl.value="";} // 跨月并集：年过滤+全部月
-    else if(mQ){mEl.value="";}
-    else{mEl.value="";}
+    if(mSingle){
+      var ms=String(parseInt(mSingle[1],10));
+      if(mFromEl)mFromEl.value=ms;if(mToEl)mToEl.value=ms;
+    }else if(mRange){
+      if(mFromEl)mFromEl.value=String(parseInt(mRange[1],10));
+      if(mToEl)mToEl.value=String(parseInt(mRange[2],10));
+    }else if(mQ){
+      var qn=parseInt(mQ[1],10);var s=(qn-1)*3+1;
+      if(mFromEl)mFromEl.value=String(s);if(mToEl)mToEl.value=String(s+2);
+    }else{
+      if(mFromEl)mFromEl.value="";if(mToEl)mToEl.value="";
+    }
     page=1;load();
   };
   var go=document.getElementById("mlGo");if(go)go.onclick=function(){handYm=true;page=1;load();};
   var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};hidePop();page=1;load();};
+  var exp=document.getElementById("mlExport");
+  if(exp)exp.onclick=function(){
+    var u="/api/detail_export?table="+encodeURIComponent("费用明细")+ctxParams();
+    window.open(u,"_blank");
+  };
   yEl.addEventListener("change",function(){handYm=true;page=1;});
-  mEl.addEventListener("change",function(){handYm=true;page=1;});
+  if(mFromEl)mFromEl.addEventListener("change",function(){handYm=true;page=1;});
+  if(mToEl&&mToEl!==mFromEl)mToEl.addEventListener("change",function(){handYm=true;page=1;});
   // 挂到周期切换
   var _prevSync=window._syncDailyDates;
   window._syncDailyDates=function(key){

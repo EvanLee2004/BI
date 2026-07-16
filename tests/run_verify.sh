@@ -60,6 +60,7 @@ tests/test_task37_expense_perm.py
 tests/test_task37_fetch_banner.py
 tests/test_task39.py
 tests/test_gzip_fragments.py
+tests/test_task41.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
