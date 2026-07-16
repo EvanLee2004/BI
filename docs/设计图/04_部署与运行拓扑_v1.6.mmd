@@ -1,0 +1,23 @@
+%% 任务书43 · Ubuntu 台式机部署拓扑
+flowchart LR
+  subgraph Desktop["Ubuntu 22.04 台式机"]
+    NGX[nginx :80]
+    SYS[systemd kanban.service]
+    CRON[cron 哨兵段]
+    PY[venv python<br/>127.0.0.1:8018]
+    DB[(数据/看板.db)]
+    LOG[数据/日志/ 滚动]
+    BAK[数据/备份/]
+  end
+  CIFS["//财务共享 CIFS<br/>/mnt/caiwu 只读"]
+  FS[飞书 webhook 可选]
+  LAN[内网同事手机/PC]
+  LAN --> NGX
+  NGX --> PY
+  SYS --> PY
+  CRON -->|--scheduled| PY
+  PY --> DB
+  PY --> LOG
+  PY --> BAK
+  CIFS -.->|fetch 只读拷入| PY
+  PY -.->|体检红| FS

@@ -1,0 +1,32 @@
+%% 任务书43 · 概要架构（与代码一致）
+flowchart TB
+  subgraph Client["浏览器 / 手机"]
+    U[用户]
+  end
+  subgraph Edge["对外入口"]
+    NGX["nginx :80<br/>static 长缓存 · HTML no-store<br/>/api /admin /login /bu 反代"]
+    DIR["直连模式可选<br/>FastAPI :8018 0.0.0.0<br/>serve_static=true"]
+  end
+  subgraph App["Python 进程 kanban.service"]
+    API["FastAPI API<br/>127.0.0.1:8018 生产<br/>GZipMiddleware"]
+    PIPE["ingest 管道<br/>fetch 只读共享盘"]
+    PROF["profit 算账"]
+    REND["render 模板"]
+  end
+  subgraph Data["数据层"]
+    DB[("SQLite 看板.db<br/>INTEGER 分 · WAL")]
+    XLSX["数据/ 六源 xlsx"]
+    CIFS["CIFS 台账只读"]
+  end
+  U --> NGX
+  U -.-> DIR
+  NGX -->|proxy| API
+  DIR --> API
+  NGX -->|/static| FS[(static/)]
+  API --> PROF
+  API --> REND
+  PIPE --> DB
+  PIPE --> XLSX
+  CIFS -.->|copy2 入本地| PIPE
+  PROF --> DB
+  REND --> API

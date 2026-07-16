@@ -655,6 +655,13 @@ def _run_reasons(report: dict) -> list[str]:
     dbc = report.get("db_check") or {}
     if dbc and not dbc.get("ok", True):
         reasons.append(f"数据库 quick_check 异常：{dbc.get('detail') or 'unknown'} → 判红")
+    disk = report.get("disk") or {}
+    if disk.get("red"):
+        fr = disk.get("free_ratio")
+        if isinstance(fr, float):
+            reasons.append(f"数据盘剩余不足（{fr:.0%} < {float(disk.get('min_ratio') or 0.1):.0%}）→ 判红")
+        else:
+            reasons.append("数据盘剩余不足 → 判红")
     bak = report.get("backup") or {}
     if bak.get("status") == "error" or bak.get("ok") is False:
         reasons.append(f"每日备份失败：{bak.get('detail') or bak.get('status')}")

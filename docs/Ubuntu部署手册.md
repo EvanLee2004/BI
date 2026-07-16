@@ -251,3 +251,52 @@ sudo systemctl restart kanban
 6. Playwright 导出 PNG 中文清晰  
 
 本仓库已覆盖：脚本 `bash -n`、回滚三态桩测、cron 哨兵桩测、`fetch_ledger` POSIX 降级、全量 `run_verify`。
+
+---
+
+## 附录 · nginx 反代双进程（任务书43 · 方案 B）
+
+### 模式
+
+| 模式 | server_host | serve_static | 对外 |
+|------|-------------|--------------|------|
+| 直连（默认/开发） | 0.0.0.0 | true | :8018 静态+API |
+| nginx 生产 | 127.0.0.1 | false | :80 nginx → 127.0.0.1:8018 |
+
+```bash
+sudo apt install -y nginx
+sudo cp /opt/kanban/看板正式程序/deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+# 改 conf 内 root/alias 路径
+sudo ln -sf /etc/nginx/sites-available/kanban /etc/nginx/sites-enabled/kanban
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+# systemd 已设 KANBAN_SERVER_HOST=127.0.0.1 KANBAN_SERVE_STATIC=0
+sudo systemctl restart kanban
+```
+
+### 禁休眠 / ufw / fail2ban（台式机长开）
+
+```bash
+# 禁休眠（GNOME 示例；以发行版为准）
+gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing' 2>/dev/null || true
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null || true
+
+# ufw：放行 80；8018 仅本机（不对外）
+sudo ufw allow 80/tcp comment 'kanban-nginx'
+sudo ufw allow from 127.0.0.1 to any port 8018
+sudo ufw status
+
+# fail2ban SSH（发行版包）
+sudo apt install -y fail2ban
+sudo systemctl enable --now fail2ban
+```
+
+### 飞书告警
+
+管理端设置或 `数据/本地配置.json` 写 `feishu_webhook_url`（不进 git）。空=静默。
+
+### NTP
+
+```bash
+timedatectl status   # NTP synchronized: yes
+```

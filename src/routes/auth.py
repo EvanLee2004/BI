@@ -102,12 +102,21 @@ def register(app, d):
     @app.post("/login")
     def viewer_login(account: str = Form(""), password: str = Form("")):
         """兼容旧 form POST：成功重定向；失败回登录 static（错误见 query，前端也可走 /api/v1/login）。"""
+        import login_guard
+
         account = account.strip()
+        if login_guard.is_locked(account, cfg):
+            return RedirectResponse(
+                "/login?msg=" + __import__("urllib.parse").parse.quote(login_guard.lock_message(cfg)),
+                status_code=303,
+            )
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
+            login_guard.register_failure(account, cfg)
             return RedirectResponse(
                 "/login?msg=" + __import__("urllib.parse").parse.quote("账号或密码不正确"), status_code=303
             )
+        login_guard.clear_failures(account)
         accounts.mark_login(cfg, root, account)
         if accounts.is_admin(acc):
             return _set_acookie(RedirectResponse("/admin", status_code=303), account)
@@ -141,11 +150,17 @@ def register(app, d):
 
     @app.post("/api/v1/login")
     def api_v1_login(payload: dict = Body(default={})):
+        import login_guard
+
         account = str(payload.get("account") or "").strip()
         password = str(payload.get("password") or "")
+        if login_guard.is_locked(account, cfg):
+            raise HTTPException(status_code=429, detail=login_guard.lock_message(cfg))
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
+            login_guard.register_failure(account, cfg)
             raise HTTPException(status_code=401, detail="账号或密码不正确")
+        login_guard.clear_failures(account)
         accounts.mark_login(cfg, root, account)
         if accounts.is_admin(acc):
             sess = api_v1.session_public(acc, is_admin_session=True)
