@@ -51,3 +51,6 @@ data/*.json
 _golden_data/
 golden/_run_verify_raw.log
 .coverage
+
+# 任务书46：Vue 依赖不进 git（dist 进 git）
+frontend/node_modules/

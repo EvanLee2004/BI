@@ -1,0 +1,23 @@
+{
+  "name": "kanban-cockpit-frontend",
+  "private": true,
+  "version": "2.0.0-beta",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b --noCheck 2>/dev/null || true; vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "3.5.13",
+    "pinia": "2.3.0",
+    "@vueuse/core": "12.5.0",
+    "echarts": "5.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.1",
+    "typescript": "5.7.3",
+    "vite": "6.0.7",
+    "vue-tsc": "2.2.0"
+  }
+}

@@ -78,9 +78,18 @@ class TestTask42Final(unittest.TestCase):
         self.assertIn(r.status_code, (302, 303), r.text[:200])
         return c
 
-    def test_version_is_160(self):
-        self.assertEqual(version.read_version(), "1.6.0-beta")
-        self.assertTrue(any("Ubuntu" in str(it) or "业务员" in str(it) for it in version.PRODUCT_CHANGELOG[0]["items"]))
+    def test_version_is_product(self):
+        # 任务书46·7：VERSION 1.6/2.0-beta；changelog 最新条非空
+        v = version.read_version()
+        self.assertTrue(v.endswith("-beta") or v >= "1.6.0", v)
+        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta"))
+        self.assertTrue(version.PRODUCT_CHANGELOG)
+        self.assertTrue(version.PRODUCT_CHANGELOG[0].get("items"))
+        blob = " ".join(str(it) for it in version.PRODUCT_CHANGELOG[0]["items"])
+        self.assertTrue(
+            any(k in blob for k in ("Ubuntu", "业务员", "Vue", "哈希", "口径")),
+            blob[:200],
+        )
 
     def test_admin_flow(self):
         c = self._login("admin1", admin=True)

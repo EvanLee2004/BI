@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import auth, cockpit, admin_pages, data_api, export, config_api, manual
+from . import auth, cockpit, admin_pages, data_api, export, config_api, manual, config_engine_api
 
 
 def register_all(app, d):
@@ -14,3 +14,4 @@ def register_all(app, d):
     export.register(app, d)
     config_api.register(app, d)
     manual.register(app, d)
+    config_engine_api.register(app, d)

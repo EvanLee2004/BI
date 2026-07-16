@@ -241,6 +241,29 @@
       <div class="scard-f"><span id="sZyMsg" class="muted"></span></div>
     </div>
 
+    <div class="scard full" id="setCardCaliber">
+      <div class="scard-h"><span class="ico">📐</span><div><div class="ttl">口径配置</div>
+        <div class="sub">任务书46：报表大类白名单 / 细类映射 / 利润表行 / 手填项 / 去税类别。保存前校验不变量；可回滚历史版本。默认=现硬编码忠实导出，不改数。</div></div></div>
+      <div class="scard-b">
+        <div class="field-inline">键
+          <select id="caliberKey">
+            <option value="报表大类白名单">报表大类白名单</option>
+            <option value="费用细类到大类映射">费用细类到大类映射</option>
+            <option value="利润表行结构">利润表行结构</option>
+            <option value="手填项清单">手填项清单</option>
+            <option value="去税类别白名单">去税类别白名单</option>
+          </select>
+        </div>
+        <textarea id="caliberJson" rows="8" style="width:100%;font-family:var(--mono,monospace);font-size:12px"></textarea>
+        <div class="muted" id="caliberMsg" style="margin-top:6px"></div>
+      </div>
+      <div class="scard-f">
+        <button class="mini" type="button" onclick="caliberLoad()">加载</button>
+        <button class="mini" type="button" onclick="caliberSave()">保存（校验）</button>
+        <button class="ghost mini" type="button" onclick="caliberRollback()">回滚到版本…</button>
+      </div>
+    </div>
+
     <div class="scard" id="setCardAcct">
       <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div>
         <div class="sub"><b>显示名</b>=备注（谁用这个号，只给人看）。<b>权限</b>：管理员 / 整体（看全公司+全部 BU）/ 按 BU（勾选一组 BU，只看这几块，可多选）。密码以哈希存储，点「重置密码」生成一次性随机口令（只显示一次）。黄底=初始密码。<b>总账号</b>（lushasha）固定管理员、不可删；另可再加其他管理员。</div></div></div>

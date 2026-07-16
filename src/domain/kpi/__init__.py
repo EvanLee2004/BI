@@ -1,0 +1,1 @@
+"""基本情况 KPI 口径（实现仍在 profit/render，本包为边界）。\n\n任务书46·5 纯搬家占位：公共接口经本包 re-export，旧 import 仍通。\n"""\n

@@ -1,0 +1,16 @@
+{
+  "allow": [
+    {
+      "pattern": "data-v-",
+      "reason": "Vue scoped attribute; decorative, not content"
+    },
+    {
+      "pattern": "v-cloak",
+      "reason": "Vue mount directive"
+    },
+    {
+      "pattern": "is-period-enter|riseIn|barBreathe|auroraDrift",
+      "reason": "科技风动画 class，任务书允许白名单登记"
+    }
+  ]
+}

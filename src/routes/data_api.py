@@ -497,6 +497,8 @@ def register(app, d):
         import server as _srv
 
         banners = _srv.build_fetch_fallback_banners(body, cfg, root)
+        # 任务书46·6：可观测指标滚动窗口（进程内；缺省 0）
+        metrics = _state.get("metrics") or {}
         return {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
@@ -505,6 +507,11 @@ def register(app, d):
             "warnings": health.get("warnings", []),  # 「警」：数据体检（未填分类等）
             "run_reasons": reasons,
             "fetch_banners": banners,  # B9 醒目横幅；全源成功=[]
+            "metrics": {
+                "update_ms": metrics.get("update_ms"),
+                "fetch_fail_rate": metrics.get("fetch_fail_rate"),
+                "api_p95_ms": metrics.get("api_p95_ms"),
+            },
         }
 
     def _require(request: Request) -> str:
