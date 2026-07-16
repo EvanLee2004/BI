@@ -1,6 +1,6 @@
 # 07 · HTTP 接口清单（权威 · 从 server.py 数出）
 
-> **产品 v1.5.0-beta**（`程序/看板正式程序` HEAD 以仓库为准）  
+> **产品 v1.6.0-beta**（`程序/看板正式程序` HEAD 以仓库为准）  
 > **统计方法**：对 `src/server.py` 用正则提取 `@app.get|post|…`，共 **55** 个注册路由；另挂载 `StaticFiles` 于 `/static/*`（不计入 55）。  
 > **鉴权**：从路由函数前几行是否调用 `_require` / `_user` / `_vacct` / `_can_view_*` 归纳；细节以源码为准。  
 > 页面返回 HTML；`/api/*` 多为 JSON。更细的 cockpit 字段见程序仓 `docs/api-v1-cockpit.md`。
@@ -46,8 +46,10 @@
 |------|------|------|
 | GET/POST | `/api/accounts` | 账号表明文管理 |
 | POST | `/api/my_passwd` | 看的人自改密码（非管理员看端） |
-| GET | `/api/detail` | 明细分页（可 unfilled_dept / unclassified） |
-| GET | `/api/detail_export` | 明细导出 xlsx |
+| GET | `/api/detail` | 明细分页；看端费用明细列=白名单（audience）；`month` 或 `month_from`+`month_to` 归属月区间；可 unfilled_dept / unclassified |
+| GET | `/api/detail_export` | 明细导出 xlsx（列与当前会话明细一致：看端白名单/管理端全列） |
+| GET | `/api/detail/values` | 列去重值（多选筛） |
+| GET | `/api/detail/meta` | 列名+类型（看端跟白名单） |
 | GET | `/api/exceptions` | 异常总览计数 |
 | GET | `/api/order_depts` | 下单部门清单 |
 | POST | `/api/refresh` | 立即更新（异步） |
