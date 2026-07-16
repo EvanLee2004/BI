@@ -247,6 +247,135 @@ DETAIL_TABLES: dict[str, tuple[str, list[str], list[str]]] = {
     ),
 }
 
+# 任务书37·B7：逐列筛选类型（日期列；金额列走 money.STD_MONEY_COLS）
+DETAIL_DATE_COLS = frozenset(
+    {
+        "整单交付日期",
+        "下单日期",
+        "到账日期",
+        "任务提交日期",
+        "收单日期",
+    }
+)
+
+
+def detail_col_kind(table_key: str, col: str) -> str:
+    """列筛选类型：number（金额元区间）/ date（起止）/ text（关键词+多选）。"""
+    if table_key not in DETAIL_TABLES:
+        return "text"
+    phys = DETAIL_TABLES[table_key][0]
+    if col in (money.STD_MONEY_COLS.get(phys) or ()):
+        return "number"
+    if col in DETAIL_DATE_COLS:
+        return "date"
+    return "text"
+
+
+def detail_columns_meta(table_key: str) -> list[dict]:
+    """管理端表头筛选用：[{name, kind}, …]。"""
+    if table_key not in DETAIL_TABLES:
+        raise KeyError(f"未知明细表：{table_key}")
+    cols = DETAIL_TABLES[table_key][1]
+    return [{"name": c, "kind": detail_col_kind(table_key, c)} for c in cols]
+
+
+def _parse_filters_arg(filters) -> dict:
+    """filters：dict 或 JSON 字符串 → {列名: {q?, in?, min?, max?, from?, to?}}。非法→{}。"""
+    import json as _json
+
+    if not filters:
+        return {}
+    if isinstance(filters, str):
+        s = filters.strip()
+        if not s:
+            return {}
+        try:
+            filters = _json.loads(s)
+        except (TypeError, ValueError, _json.JSONDecodeError):
+            return {}
+    if not isinstance(filters, dict):
+        return {}
+    out = {}
+    for k, v in filters.items():
+        if not isinstance(k, str) or not k.strip():
+            continue
+        if v is None or v == "" or v == {}:
+            continue
+        if not isinstance(v, dict):
+            continue
+        out[k.strip()] = v
+    return out
+
+
+def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:
+    """白名单列 + 参数化 WHERE 片段。金额筛选用元→分。多列 AND。"""
+    fdict = _parse_filters_arg(filters)
+    if not fdict:
+        return [], []
+    allowed = set(DETAIL_TABLES[table_key][1])
+    money_cols = set(money.STD_MONEY_COLS.get(phys) or ())
+    where: list[str] = []
+    args: list = []
+    for col, spec in fdict.items():
+        if col not in allowed or col not in have:
+            continue
+        if not isinstance(spec, dict):
+            continue
+        kind = detail_col_kind(table_key, col)
+        if kind == "number":
+            lo, hi = spec.get("min"), spec.get("max")
+            if lo is not None and lo != "":
+                try:
+                    v = float(lo)
+                except (TypeError, ValueError):
+                    continue
+                if col in money_cols:
+                    fen = money.yuan_to_fen(v)
+                    if fen is not None:
+                        where.append(f"{col} >= ?")
+                        args.append(fen)
+                else:
+                    where.append(f"CAST({col} AS REAL) >= ?")
+                    args.append(v)
+            if hi is not None and hi != "":
+                try:
+                    v = float(hi)
+                except (TypeError, ValueError):
+                    continue
+                if col in money_cols:
+                    fen = money.yuan_to_fen(v)
+                    if fen is not None:
+                        where.append(f"{col} <= ?")
+                        args.append(fen)
+                else:
+                    where.append(f"CAST({col} AS REAL) <= ?")
+                    args.append(v)
+        elif kind == "date":
+            d0, d1 = spec.get("from") or spec.get("start"), spec.get("to") or spec.get("end")
+            if d0:
+                where.append(f"substr(CAST({col} AS TEXT),1,10) >= ?")
+                args.append(str(d0)[:10])
+            if d1:
+                where.append(f"substr(CAST({col} AS TEXT),1,10) <= ?")
+                args.append(str(d1)[:10])
+        else:
+            # text：关键词 LIKE + 去重值 IN（多选）
+            q = spec.get("q") or spec.get("keyword")
+            if q is not None and str(q).strip():
+                where.append(f"CAST({col} AS TEXT) LIKE ?")
+                args.append("%" + str(q).strip() + "%")
+            vals = spec.get("in") or spec.get("values")
+            if vals is not None:
+                if isinstance(vals, str):
+                    vals = [vals]
+                clean = [str(x) for x in vals if x is not None and str(x) != ""]
+                if clean:
+                    # 空串多选语义：显式 in 含 "" 时用 COALESCE
+                    ph = ",".join("?" * len(clean))
+                    where.append(f"CAST(COALESCE({col},'') AS TEXT) IN ({ph})")
+                    args.extend(clean)
+    return where, args
+
 
 def adjustable_fields() -> dict[str, list[str]]:
     """{表键: 可调整字段列表}——R1：由 schema 黑名单制自动推导，管理员端字段下拉从服务端下发。"""
@@ -258,29 +387,22 @@ UNCLASSIFIED_WHERE = "(对应报表大类 IS NULL OR TRIM(对应报表大类)=''
 UNFILLED_DEPT_WHERE = "(部门 IS NULL OR TRIM(部门)='') AND 下单预估额 IS NOT NULL AND 下单预估额<>0"
 
 
-def query_detail(
-    conn: sqlite3.Connection,
+def _detail_base_where(
     table_key: str,
-    month: str | None = None,
-    q: str | None = None,
-    page: int = 1,
-    page_size: int = 50,
-    unclassified: bool = False,
-    unfilled_dept: bool = False,
-    year: str | None = None,
-    bu: str | None = None,
-) -> dict:
-    """明细分页查询（按年/月 + 关键词 + 可选 BU）。仅读未删除行。表键白名单防注入。
-    unclassified=True 仅「费用明细」：对应报表大类为空且金额非零。
-    unfilled_dept=True 仅「下单」：部门为空且金额非零。
-    year=YYYY → 归属月 LIKE 'YYYY-%'（A5 年维度）；month 仍为完整归属月 YYYY-MM。
-    bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。"""
-    if table_key not in DETAIL_TABLES:
-        raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
-    table, cols, searchable = DETAIL_TABLES[table_key]
-    # 缺列兼容（旧库未补齐 A5 列时降级）
-    have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-    cols = [c for c in cols if c in have or c in ("定位键", "归属月")]
+    table: str,
+    have: set,
+    searchable: list[str],
+    month: str | None,
+    q: str | None,
+    unclassified: bool,
+    unfilled_dept: bool,
+    year: str | None,
+    bu: str | None,
+    filters=None,
+    *,
+    hide_salary: bool = False,
+) -> tuple[list[str], list]:
+    """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。"""
     where = ["已删除=0"]
     args: list = []
     if unclassified:
@@ -296,6 +418,9 @@ def query_detail(
             raise KeyError("bu 筛选仅支持 费用明细 表")
         where.append("业务BU=?")
         args.append(str(bu).strip())
+    if hide_salary and table_key == "费用明细" and "对应报表大类" in have:
+        # 任务书37·B8：整体账号默认隐藏「工资」大类（管理员/开关打开不受影响）
+        where.append("(对应报表大类 IS NULL OR TRIM(对应报表大类)<>'工资')")
     if month:
         where.append("归属月=?")
         args.append(month)
@@ -312,6 +437,54 @@ def query_detail(
             ors = " OR ".join(f"{c} LIKE ?" for c in use_cols)
             where.append(f"({ors})")
             args += [like] * len(use_cols)
+    fw, fa = _build_column_filters(table_key, table, have, filters)
+    where.extend(fw)
+    args.extend(fa)
+    return where, args
+
+
+def query_detail(
+    conn: sqlite3.Connection,
+    table_key: str,
+    month: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    unclassified: bool = False,
+    unfilled_dept: bool = False,
+    year: str | None = None,
+    bu: str | None = None,
+    filters=None,
+    *,
+    hide_salary: bool = False,
+) -> dict:
+    """明细分页查询（按年/月 + 关键词 + 可选 BU + 任务书37 列筛）。仅读未删除行。表键白名单防注入。
+    unclassified=True 仅「费用明细」：对应报表大类为空且金额非零。
+    unfilled_dept=True 仅「下单」：部门为空且金额非零。
+    year=YYYY → 归属月 LIKE 'YYYY-%'（A5 年维度）；month 仍为完整归属月 YYYY-MM。
+    bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。
+    filters：{列: {q/in/min/max/from/to}}，后端 SQL AND，禁止前端拉全表。
+    hide_salary：费用明细隐藏对应报表大类=工资（整体账号默认）。"""
+    if table_key not in DETAIL_TABLES:
+        raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
+    table, cols, searchable = DETAIL_TABLES[table_key]
+    # 缺列兼容（旧库未补齐 A5 列时降级）
+    have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    cols = [c for c in cols if c in have or c in ("定位键", "归属月")]
+    where, args = _detail_base_where(
+        table_key,
+        table,
+        have,
+        searchable,
+        month,
+        q,
+        unclassified,
+        unfilled_dept,
+        year,
+        bu,
+        filters,
+        hide_salary=hide_salary,
+    )
     wsql = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
     page = max(1, int(page))
@@ -330,15 +503,70 @@ def query_detail(
             if mc in d and d[mc] is not None:
                 d[mc] = money.fen_to_yuan(d[mc])
         out_rows.append(d)
+    col_meta = [{"name": c, "kind": detail_col_kind(table_key, c)} for c in cols]
     return {
         "table": table_key,
         "columns": cols,
+        "column_meta": col_meta,
         "rows": out_rows,
         "total": total,
         "page": page,
         "page_size": page_size,
         "pages": (total + page_size - 1) // page_size,
     }
+
+
+def query_detail_distinct(
+    conn: sqlite3.Connection,
+    table_key: str,
+    column: str,
+    month: str | None = None,
+    q: str | None = None,
+    year: str | None = None,
+    bu: str | None = None,
+    filters=None,
+    *,
+    hide_salary: bool = False,
+    limit: int = 200,
+) -> dict:
+    """文本列去重值（Excel 式多选下拉）。列白名单；limit 默认 200。"""
+    if table_key not in DETAIL_TABLES:
+        raise KeyError(f"未知明细表：{table_key}")
+    table, cols, searchable = DETAIL_TABLES[table_key]
+    if column not in cols:
+        raise KeyError(f"列不在表白名单：{column}")
+    have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in have:
+        return {"column": column, "values": [], "total": 0}
+    # 构建 WHERE 时排除本列自己的 in/q，避免下拉自我收窄（其它列筛仍生效）
+    fdict = _parse_filters_arg(filters)
+    if column in fdict:
+        fdict = {k: v for k, v in fdict.items() if k != column}
+    where, args = _detail_base_where(
+        table_key,
+        table,
+        have,
+        searchable,
+        month,
+        q,
+        False,
+        False,
+        year,
+        bu,
+        fdict,
+        hide_salary=hide_salary,
+    )
+    wsql = " AND ".join(where)
+    limit = max(1, min(1000, int(limit)))
+    sql = (
+        f"SELECT DISTINCT CAST(COALESCE({column},'') AS TEXT) AS v FROM {table} "
+        f"WHERE {wsql} ORDER BY v LIMIT ?"
+    )
+    vals = [r[0] for r in conn.execute(sql, args + [limit]).fetchall()]
+    total = conn.execute(
+        f"SELECT COUNT(DISTINCT CAST(COALESCE({column},'') AS TEXT)) FROM {table} WHERE {wsql}", args
+    ).fetchone()[0]
+    return {"column": column, "values": vals, "total": total, "limit": limit}
 
 
 def list_order_depts(conn: sqlite3.Connection) -> list[str]:

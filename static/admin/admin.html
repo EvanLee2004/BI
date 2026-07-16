@@ -52,11 +52,13 @@
     <span class="field-inline">月份 <select id="dY"></select><select id="dM"></select></span>
     <span class="field-inline">搜索 <input id="dQ" placeholder="订单号/定位键/客户…" size="18"></span>
     <button onclick="dQuery()">查询</button>
+    <button class="mini ghost" type="button" onclick="clearColFilters()" title="清除所有列筛选">清除列筛</button>
     <button class="mini ghost" type="button" onclick="exportDetail()" title="导出当前表+筛选结果为 Excel">导出 Excel</button>
     <span id="dInfo" class="muted grow"></span>
   </div>
-  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。搜索支持订单号、定位键、客户等。</div>
+  <div class="note info">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动到底自动加载更多。搜索支持订单号、定位键、客户等。表头▼可按列筛选（多列叠加，导出跟随）。</div>
   <div id="editDock" class="row-form" style="display:none"></div>
+  <div id="colFilterPop" class="col-filter-pop" style="display:none" hidden></div>
   <div class="tbl-box lg wrap" id="dWrap"><table id="dTbl"></table></div>
 </div>
 

@@ -468,27 +468,125 @@ async function buSave(){const m=document.getElementById("buMsg");m.textContent="
 
 // ---- 明细编辑（无限滚动加载）----
 let curTable="收入明细";
+// 任务书37·B7：列筛状态 {列名: {q?,in?,min?,max?,from?,to?}}；后端 SQL，前端只拼参数
+let colFilters={};
+let colMetaMap={}; // name→kind
+function filtersQueryParam(){
+  const keys=Object.keys(colFilters||{});
+  if(!keys.length)return "";
+  try{return "&filters="+encodeURIComponent(JSON.stringify(colFilters));}catch(e){return "";}
+}
+function detailBaseParams(){
+  let u="";const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
+  const yEl=document.getElementById("dY");
+  if(m)u+="&month="+encodeURIComponent(m);
+  else if(yEl&&yEl.value)u+="&year="+encodeURIComponent(yEl.value);
+  if(q)u+="&q="+encodeURIComponent(q);
+  u+=filtersQueryParam();
+  return u;
+}
+function colFilterActive(col){
+  const s=colFilters[col];if(!s)return false;
+  if(s.q&&String(s.q).trim())return true;
+  if(s.in&&s.in.length)return true;
+  if(s.min!=null&&s.min!=="")return true;
+  if(s.max!=null&&s.max!=="")return true;
+  if(s.from)return true;if(s.to)return true;
+  return false;
+}
+function clearColFilters(){colFilters={};hideColFilterPop();dQuery();}
+function hideColFilterPop(){
+  const p=document.getElementById("colFilterPop");if(!p)return;
+  p.style.display="none";p.hidden=true;p.innerHTML="";
+}
+async function openColFilter(col,anchor){
+  const kind=(colMetaMap[col]&&colMetaMap[col].kind)||"text";
+  const pop=document.getElementById("colFilterPop");if(!pop)return;
+  const cur=colFilters[col]||{};
+  let body='<div class="cf-h">筛选 · '+esc(col)+'</div>';
+  if(kind==="number"){
+    body+='<div class="cf-row"><label>最小（元）</label><input type="number" id="cfMin" step="any" value="'+esc(cur.min??"")+'"></div>';
+    body+='<div class="cf-row"><label>最大（元）</label><input type="number" id="cfMax" step="any" value="'+esc(cur.max??"")+'"></div>';
+  }else if(kind==="date"){
+    body+='<div class="cf-row"><label>起</label><input type="date" id="cfFrom" value="'+esc(cur.from||"")+'"></div>';
+    body+='<div class="cf-row"><label>止</label><input type="date" id="cfTo" value="'+esc(cur.to||"")+'"></div>';
+  }else{
+    body+='<div class="cf-row"><label>含关键词</label><input type="text" id="cfQ" value="'+esc(cur.q||"")+'" placeholder="模糊匹配"></div>';
+    body+='<div class="cf-row"><label>去重值多选</label><div class="cf-vals" id="cfVals"><span class="muted">加载中…</span></div></div>';
+  }
+  body+='<div class="cf-acts"><button type="button" class="ghost mini" id="cfClear">本列清除</button>'+
+    '<button type="button" class="mini" id="cfApply">应用</button></div>';
+  pop.innerHTML=body;pop.hidden=false;pop.style.display="block";
+  const r=anchor.getBoundingClientRect();
+  let left=r.left, top=r.bottom+4;
+  if(left+260>window.innerWidth)left=Math.max(8,window.innerWidth-280);
+  if(top+280>window.innerHeight)top=Math.max(8,r.top-280);
+  pop.style.left=left+"px";pop.style.top=top+"px";
+  if(kind==="text"){
+    try{
+      const u="/api/detail/values?table="+encodeURIComponent(curTable)+"&column="+encodeURIComponent(col)+detailBaseParams();
+      // 拉去重时去掉本列 in（服务端已做），避免空
+      const d=await jget(u);
+      const box=document.getElementById("cfVals");
+      const picked=new Set((cur.in||[]).map(String));
+      if(!d.values||!d.values.length){box.innerHTML='<span class="muted">无候选</span>';}
+      else box.innerHTML=d.values.map(v=>{
+        const id="cfv_"+Math.random().toString(36).slice(2);
+        return '<label><input type="checkbox" value="'+esc(v)+'" '+(picked.has(String(v))?"checked":"")+'> '+
+          (v===""?'<i class="muted">(空)</i>':esc(v))+'</label>';
+      }).join("");
+    }catch(e){const box=document.getElementById("cfVals");if(box)box.innerHTML='<span class="muted">加载失败</span>';}
+  }
+  document.getElementById("cfClear").onclick=()=>{delete colFilters[col];hideColFilterPop();dQuery();};
+  document.getElementById("cfApply").onclick=()=>{
+    const next={};
+    if(kind==="number"){
+      const a=document.getElementById("cfMin").value,b=document.getElementById("cfMax").value;
+      if(a!=="")next.min=a;if(b!=="")next.max=b;
+    }else if(kind==="date"){
+      const a=document.getElementById("cfFrom").value,b=document.getElementById("cfTo").value;
+      if(a)next.from=a;if(b)next.to=b;
+    }else{
+      const qv=(document.getElementById("cfQ").value||"").trim();if(qv)next.q=qv;
+      const ins=[...document.querySelectorAll("#cfVals input:checked")].map(el=>el.value);
+      if(ins.length)next.in=ins;
+    }
+    if(Object.keys(next).length)colFilters[col]=next;else delete colFilters[col];
+    hideColFilterPop();dQuery();
+  };
+}
+document.addEventListener("click",function(ev){
+  const pop=document.getElementById("colFilterPop");
+  if(!pop||pop.hidden)return;
+  if(pop.contains(ev.target))return;
+  if(ev.target.closest&&ev.target.closest("th.col-f"))return;
+  hideColFilterPop();
+});
 const detail={page:0,pages:1,loading:false,loaded:0,
-  url(p){let u="/api/detail?table="+encodeURIComponent(curTable)+"&page="+p+"&page_size=50";
-    const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
-    const yEl=document.getElementById("dY"),mEl=document.getElementById("dM");
-    // A5：年月可独立——只选年则 year=；选到月则 month=YYYY-MM
-    if(m)u+="&month="+encodeURIComponent(m);
-    else if(yEl&&yEl.value)u+="&year="+encodeURIComponent(yEl.value);
-    if(q)u+="&q="+encodeURIComponent(q);return u;},
+  url(p){return "/api/detail?table="+encodeURIComponent(curTable)+"&page="+p+"&page_size=50"+detailBaseParams();},
   reset(){this.page=0;this.pages=1;this.loaded=0;document.getElementById("dTbl").innerHTML="";
     document.getElementById("dWrap").scrollTop=0;this.next();},
   async next(){if(this.loading||this.page>=this.pages)return;this.loading=true;
     try{const d=await jget(this.url(this.page+1));this.page=d.page;this.pages=d.pages;
       const cols=d.columns,tbl=document.getElementById("dTbl");
-      if(this.page===1)tbl.innerHTML="<tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+"<th>操作</th></tr>";
+      (d.column_meta||[]).forEach(m=>{colMetaMap[m.name]=m;});
+      if(this.page===1){
+        tbl.innerHTML="<tr>"+cols.map(c=>{
+          const on=colFilterActive(c)?" on":"";
+          return '<th class="col-f'+on+'" data-col="'+esc(c)+'">'+esc(c)+'<span class="cf-ico">▼</span></th>';
+        }).join("")+"<th>操作</th></tr>";
+        tbl.querySelectorAll("th.col-f").forEach(th=>{
+          th.addEventListener("click",function(e){e.stopPropagation();openColFilter(th.getAttribute("data-col"),th);});
+        });
+      }
       let h="";d.rows.forEach(r=>{const key=r["定位键"];h+="<tr>"+cols.map(c=>"<td>"+esc(r[c])+"</td>").join("")+
         '<td><button class="mini" onclick=\'editRow("'+STD[curTable]+'","'+encodeURIComponent(key)+'","'+curTable+'")\'>改</button> '+
         '<button class="mini ghost" onclick=\'removeRow("'+STD[curTable]+'","'+encodeURIComponent(key)+'")\'>剔除</button></td></tr>';});
       tbl.insertAdjacentHTML("beforeend",h);this.loaded+=d.rows.length;
-      document.getElementById("dInfo").textContent="共"+d.total+"行（已载入"+this.loaded+"）";
+      const nF=Object.keys(colFilters).filter(k=>colFilterActive(k)).length;
+      document.getElementById("dInfo").textContent="共"+d.total+"行（已载入"+this.loaded+"）"+(nF?" · 列筛"+nF:"");
     }catch(e){msg("查询失败:"+e.message);}this.loading=false;}};
-function pickTable(t){if(!confirmLeave())return;curTable=t;
+function pickTable(t){if(!confirmLeave())return;curTable=t;colFilters={};colMetaMap={};hideColFilterPop();
   document.querySelectorAll("#sub-edit .stab").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   document.getElementById("dTableName").textContent=t;showSec("detail");detail.reset();}
 function showManual(){
@@ -566,9 +664,7 @@ async function removeRow(std,keyEnc){const key=decodeURIComponent(keyEnc);if(!co
     showToast("✓ 已剔除");msg("已剔除");reloadDash();loadHealth();refreshUcBadge();dQuery();}catch(e){alert("失败："+e.message);}}
 async function exportDetail(){
   try{
-    let u="/api/detail_export?table="+encodeURIComponent(curTable);
-    const m=ymVal("dY","dM"),q=document.getElementById("dQ").value.trim();
-    if(m)u+="&month="+encodeURIComponent(m);if(q)u+="&q="+encodeURIComponent(q);
+    let u="/api/detail_export?table="+encodeURIComponent(curTable)+detailBaseParams();
     const r=await fetch(u);if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||("HTTP "+r.status));
     const blob=await r.blob();const a=document.createElement("a");
     const cd=r.headers.get("Content-Disposition")||"";

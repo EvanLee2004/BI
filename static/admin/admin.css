@@ -80,6 +80,23 @@ background:var(--subnav-bg)}
 .tbl-box.sm{max-height:42vh}.tbl-box.lg{max-height:calc(100vh - 240px)}
 /* 人工填写/业绩目标：整页展示，不在表内再套一层滚动 */
 .tbl-box.no-scroll{max-height:none!important;overflow:visible}
+/* 任务书37·B7：Excel 式表头列筛 */
+th.col-f{cursor:pointer;user-select:none;position:relative}
+th.col-f .cf-ico{margin-left:4px;font-size:10px;opacity:.55;font-weight:700}
+th.col-f.on .cf-ico,th.col-f.on{color:var(--vio2)}
+th.col-f.on .cf-ico{opacity:1}
+.col-filter-pop{position:fixed;z-index:60;min-width:220px;max-width:300px;max-height:70vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 12px 10px;
+  box-shadow:0 12px 36px var(--shadow);font-size:12.5px}
+.col-filter-pop .cf-h{font-weight:700;margin:0 0 8px;font-size:13px}
+.col-filter-pop .cf-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.col-filter-pop label{font-size:11.5px;color:var(--mut);font-weight:600}
+.col-filter-pop input[type=text],.col-filter-pop input[type=number],.col-filter-pop input[type=date]{
+  width:100%;box-sizing:border-box}
+.col-filter-pop .cf-vals{max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--tbl-bg)}
+.col-filter-pop .cf-vals label{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--fg);padding:2px 0;cursor:pointer}
+.col-filter-pop .cf-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+.col-filter-pop .cf-acts button{padding:5px 10px;font-size:12px}
 .tbl-box table{margin:0}.tbl-box th{border-bottom:1px solid var(--line)}
 .tbl-box tr:hover td{background:var(--hover-row)}
 .tbl-box input,.tbl-box select{border-radius:7px;padding:6px 8px;font-size:12.5px}
