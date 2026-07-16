@@ -1,1 +1,4 @@
-"""收入毛利趋势。\n\n任务书46·5 纯搬家占位：公共接口经本包 re-export，旧 import 仍通。\n"""\n
+"""收入毛利趋势（任务书46·5 纯搬家 re-export）。"""
+from render import render_trend
+
+__all__ = ["render_trend"]

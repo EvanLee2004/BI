@@ -10,6 +10,48 @@
       "default": "",
       "title": "Receipts Budget",
       "type": "string"
+    },
+    "labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "receipts": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Receipts",
+      "type": "array"
+    },
+    "orders": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Orders",
+      "type": "array"
+    },
+    "receipts_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Receipts Disp",
+      "type": "array"
+    },
+    "orders_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Orders Disp",
+      "type": "array"
+    },
+    "ratio_pct_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ratio Pct Disp",
+      "type": "array"
     }
   },
   "title": "ReceiptsVM",

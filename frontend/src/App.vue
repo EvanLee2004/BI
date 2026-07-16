@@ -9,6 +9,7 @@ import TrendChart from './components/TrendChart.vue'
 import PLTable from './components/PLTable.vue'
 import ExpenseSection from './components/ExpenseSection.vue'
 import ExpenseTrend from './components/ExpenseTrend.vue'
+import ProfitStructure from './components/ProfitStructure.vue'
 import RankingsDual from './components/RankingsDual.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
@@ -55,6 +56,8 @@ onMounted(async () => {
       <PLTable />
     </div>
     <ExpenseTrend />
+    <section class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></section>
+    <ProfitStructure />
     <section class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款</span></section>
     <DailyQuery />
     <ReceiptsCard />

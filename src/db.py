@@ -36,8 +36,22 @@ def db_path(cfg: dict, root: Path | None = None) -> Path:
 _BUSY_TIMEOUT_MS = 5000
 
 
-def connect(cfg: dict, root: Path | None = None) -> sqlite3.Connection:
+def connect(cfg: dict, root: Path | None = None, *, readonly: bool = False) -> sqlite3.Connection:
+    """打开看板库。
+
+    readonly=True：URI mode=ro（任务书46·5 读写分离语义——读路径不写盘）。
+    只读连接跳过 schema.create_all（避免写库）。
+    """
     path = db_path(cfg, root)
+    if readonly:
+        # 文件必须已存在；URI mode=ro（绝对路径，兼容中文路径）
+        p = path.resolve()
+        if not p.is_file():
+            raise FileNotFoundError(f"只读打开失败，库不存在：{p}")
+        uri = p.as_uri() + "?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=_BUSY_TIMEOUT_MS / 1000.0)
+        conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
+        return conn
     path.parent.mkdir(parents=True, exist_ok=True)
     # check_same_thread=False：更新线程与请求线程可共用连接模式（各自仍应独立 connect）
     conn = sqlite3.connect(str(path), timeout=_BUSY_TIMEOUT_MS / 1000.0)
@@ -47,6 +61,11 @@ def connect(cfg: dict, root: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA synchronous=NORMAL")
     schema.create_all(conn)
     return conn
+
+
+def connect_readonly(cfg: dict, root: Path | None = None) -> sqlite3.Connection:
+    """读连接：mode=ro，禁止写。"""
+    return connect(cfg, root, readonly=True)
 
 
 # ---------------- 读标准表 → loaders 同构 ----------------

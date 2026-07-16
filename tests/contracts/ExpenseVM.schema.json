@@ -12,6 +12,46 @@
       "default": "",
       "title": "Trend Html",
       "type": "string"
+    },
+    "area_categories": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Area Categories",
+      "type": "array"
+    },
+    "area_labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Area Labels",
+      "type": "array"
+    },
+    "area_series": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Area Series",
+      "type": "array"
+    },
+    "area_totals_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Area Totals Disp",
+      "type": "array"
+    },
+    "donut_by_period": {
+      "additionalProperties": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "title": "Donut By Period",
+      "type": "object"
     }
   },
   "title": "ExpenseVM",

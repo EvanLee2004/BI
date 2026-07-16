@@ -5,6 +5,55 @@
       "default": "",
       "title": "Svg Html",
       "type": "string"
+    },
+    "labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "revenue": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Revenue",
+      "type": "array"
+    },
+    "cost": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Cost",
+      "type": "array"
+    },
+    "margin_pct": {
+      "items": {
+        "type": "number"
+      },
+      "title": "Margin Pct",
+      "type": "array"
+    },
+    "revenue_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Revenue Disp",
+      "type": "array"
+    },
+    "cost_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Cost Disp",
+      "type": "array"
+    },
+    "margin_pct_disp": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Margin Pct Disp",
+      "type": "array"
     }
   },
   "title": "TrendVM",

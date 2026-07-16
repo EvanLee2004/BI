@@ -22,7 +22,15 @@ class KpiCardsVM(BaseModel):
 
 class TrendVM(BaseModel):
     model_config = ConfigDict(extra="allow")
-    svg_html: str = ""  # 后端 SVG
+    svg_html: str = ""  # 后端 SVG（legacy/导出）
+    # ECharts 用：标签与显示串均后端产；数值为后端已算好的分（前端只填 option，零运算）
+    labels: list[str] = Field(default_factory=list)
+    revenue: list[float] = Field(default_factory=list)
+    cost: list[float] = Field(default_factory=list)
+    margin_pct: list[float] = Field(default_factory=list)
+    revenue_disp: list[str] = Field(default_factory=list)
+    cost_disp: list[str] = Field(default_factory=list)
+    margin_pct_disp: list[str] = Field(default_factory=list)
 
 
 class PLTableVM(BaseModel):
@@ -35,6 +43,13 @@ class ExpenseVM(BaseModel):
     model_config = ConfigDict(extra="allow")
     body_by_period: dict[str, str] = Field(default_factory=dict)
     trend_html: str = ""  # 费用面积图 SVG 卡
+    # 堆叠面积：categories + 每月各层金额/显示串
+    area_categories: list[str] = Field(default_factory=list)
+    area_labels: list[str] = Field(default_factory=list)  # 1月..12月
+    area_series: list[dict[str, Any]] = Field(default_factory=list)  # [{name, data, data_disp}]
+    area_totals_disp: list[str] = Field(default_factory=list)
+    # 环形：当前周期叶子
+    donut_by_period: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
 class RankingsVM(BaseModel):
@@ -48,6 +63,13 @@ class ReceiptsVM(BaseModel):
     model_config = ConfigDict(extra="allow")
     receipts_html: str = ""
     receipts_budget: str = ""
+    # 回款柱线
+    labels: list[str] = Field(default_factory=list)
+    receipts: list[float] = Field(default_factory=list)
+    orders: list[float] = Field(default_factory=list)
+    receipts_disp: list[str] = Field(default_factory=list)
+    orders_disp: list[str] = Field(default_factory=list)
+    ratio_pct_disp: list[str] = Field(default_factory=list)
 
 
 class LedgerVM(BaseModel):
@@ -94,13 +116,137 @@ class CockpitVM(BaseModel):
     numbers: dict[str, Any] = Field(default_factory=dict)
 
 
+def _pack_trend_series(trend_rows) -> dict[str, Any]:
+    """summary['trend'] → ECharts 序列（显示串用 charts.fmt_wan）。"""
+    import charts
+
+    labels, rev, cost, margin = [], [], [], []
+    rev_d, cost_d, mar_d = [], [], []
+    for row in trend_rows or []:
+        if not row or len(row) < 4:
+            continue
+        lab, r, c, m = row[0], float(row[1] or 0), float(row[2] or 0), float(row[3] or 0)
+        labels.append(str(lab))
+        rev.append(r)
+        cost.append(c)
+        margin.append(m)
+        rev_d.append(charts.fmt_wan(r))
+        cost_d.append(charts.fmt_wan(c))
+        mar_d.append(f"{m:.1f}%")
+    return {
+        "labels": labels,
+        "revenue": rev,
+        "cost": cost,
+        "margin_pct": margin,
+        "revenue_disp": rev_d,
+        "cost_disp": cost_d,
+        "margin_pct_disp": mar_d,
+    }
+
+
+def _pack_receipt_series(rows) -> dict[str, Any]:
+    import charts
+
+    labels, recs, ords = [], [], []
+    rd, od, ratio_d = [], [], []
+    for row in rows or []:
+        if not row or len(row) < 3:
+            continue
+        lab = str(row[0])
+        rec = float(row[1] or 0)
+        order = float(row[2] or 0)
+        ratio = float(row[3] or 0) if len(row) > 3 else 0.0
+        labels.append(lab)
+        recs.append(rec)
+        ords.append(order)
+        rd.append(charts.fmt_wan(rec))
+        od.append(charts.fmt_wan(order))
+        ratio_d.append(f"{ratio:.1f}%")
+    return {
+        "labels": labels,
+        "receipts": recs,
+        "orders": ords,
+        "receipts_disp": rd,
+        "orders_disp": od,
+        "ratio_pct_disp": ratio_d,
+    }
+
+
+def _pack_expense_area(raw: dict | None) -> dict[str, Any]:
+    import charts
+
+    raw = raw or {}
+    cats = list(raw.get("categories") or [])
+    labels = [f"{i + 1}月" for i in range(12)]
+    series = []
+    totals_disp = []
+    for c in cats:
+        data, data_disp = [], []
+        for i in range(12):
+            months = raw.get("months") or []
+            m = months[i] if i < len(months) else {}
+            by = m.get("by_cat") or {}
+            amt = float(by.get(c) or 0)
+            data.append(amt)
+            data_disp.append(charts.fmt_wan(amt))
+        series.append({"name": c, "data": data, "data_disp": data_disp})
+    for i in range(12):
+        months = raw.get("months") or []
+        m = months[i] if i < len(months) else {}
+        totals_disp.append(charts.fmt_wan(float(m.get("total") or 0)))
+    return {
+        "area_categories": cats,
+        "area_labels": labels,
+        "area_series": series,
+        "area_totals_disp": totals_disp,
+    }
+
+
+def _pack_donut_by_period(summary: dict) -> dict[str, list[dict[str, Any]]]:
+    """各周期费用大类 → [{name, value, value_disp, pct_disp}]（pct 后端算）。"""
+    import charts
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    for pk, p in (summary.get("periods") or {}).items():
+        if not isinstance(p, dict):
+            continue
+        exp = p.get("expense") or {}
+        items = []
+        total = sum(float(exp.get(k) or 0) for k in exp if k and not str(k).startswith("_"))
+        for k, v in exp.items():
+            if str(k).startswith("_"):
+                continue
+            amt = float(v or 0)
+            if amt <= 0:
+                continue
+            pct = (amt / total * 100.0) if total else 0.0
+            items.append(
+                {
+                    "name": str(k),
+                    "value": amt,
+                    "value_disp": charts.fmt_wan(amt),
+                    "pct_disp": f"{pct:.1f}%",
+                }
+            )
+        out[pk] = items
+    return out
+
+
 def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
     """从 summary 构建整体页 VM（复用 build_cockpit_views，零重算金额）。"""
     import api_v1
     import db
+    import render
 
     views = api_v1.build_cockpit_views(summary, cfg)
     numbers = api_v1.extract_numbers(summary)
+    ts = _pack_trend_series(summary.get("trend") or [])
+    rs = _pack_receipt_series(summary.get("receipt_order_monthly") or [])
+    exp_raw = render.apply_expense_salary_hide(
+        summary.get("expense_monthly_by_cat"),
+        not bool((cfg or {}).get("overall_see_salary", False)),
+    )
+    area = _pack_expense_area(exp_raw)
     return CockpitVM(
         year_key=views.get("year_key") or "",
         period_keys=list(views.get("period_keys") or []),
@@ -109,18 +255,20 @@ def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
             period_keys=list(views.get("period_keys") or []),
             body_by_period=dict(views.get("kpi_body") or {}),
         ),
-        trend=TrendVM(svg_html=views.get("trend_html") or ""),
+        trend=TrendVM(svg_html=views.get("trend_html") or "", **ts),
         pl=PLTableVM(body_by_period=dict(views.get("pl_body") or {})),
         expense=ExpenseVM(
             body_by_period=dict(views.get("donut_body") or {}),
             trend_html=views.get("expense_trend_html") or "",
+            donut_by_period=_pack_donut_by_period(summary),
+            **area,
         ),
         rankings=RankingsVM(
             rankings_view=dict(views.get("rankings_view") or {}),
             rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
             profit_rank_body=dict(views.get("profit_rank_body") or {}),
         ),
-        receipts=ReceiptsVM(receipts_budget=views.get("receipts_budget") or ""),
+        receipts=ReceiptsVM(receipts_budget=views.get("receipts_budget") or "", **rs),
         ledger=LedgerVM(columns=list(db.VIEW_EXPENSE_COLUMNS)),
         period_bar=views.get("period_bar") or "",
         daily_html=views.get("daily_html") or "",
@@ -131,9 +279,16 @@ def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
 def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
     import api_v1
     import db
+    import render
 
     views = api_v1.build_bu_cockpit_views(bu_name, summary, cfg)
     numbers = api_v1.extract_numbers(summary)
+    ts = _pack_trend_series(summary.get("trend") or [])
+    rs = _pack_receipt_series(summary.get("receipt_order_monthly") or [])
+    bu_exp = render.expense_monthly_from_period_ledgers(summary)
+    if not any(m.get("total") for m in (bu_exp.get("months") or [])):
+        bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
+    area = _pack_expense_area(bu_exp)
     return BUPageVM(
         bu_name=bu_name or views.get("bu_name") or "",
         year_key=views.get("year_key") or "",
@@ -143,7 +298,7 @@ def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageV
             period_keys=list(views.get("period_keys") or []),
             body_by_period=dict(views.get("kpi_body") or {}),
         ),
-        trend=TrendVM(svg_html=views.get("trend_html") or ""),
+        trend=TrendVM(svg_html=views.get("trend_html") or "", **ts),
         pl=PLTableVM(
             body_by_period=dict(views.get("pl_body") or {}),
             pl_tag=views.get("pl_tag") or "",
@@ -151,13 +306,15 @@ def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageV
         expense=ExpenseVM(
             body_by_period=dict(views.get("donut_body") or {}),
             trend_html=views.get("expense_trend_html") or "",
+            donut_by_period=_pack_donut_by_period(summary),
+            **area,
         ),
         rankings=RankingsVM(
             rankings_view=dict(views.get("rankings_view") or {}),
             rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
             profit_rank_body=dict(views.get("profit_rank_body") or {}),
         ),
-        receipts=ReceiptsVM(receipts_html=views.get("receipts_html") or ""),
+        receipts=ReceiptsVM(receipts_html=views.get("receipts_html") or "", **rs),
         ledger=LedgerVM(columns=list(db.VIEW_EXPENSE_COLUMNS_BU)),
         period_bar=views.get("period_bar") or "",
         daily_html=views.get("daily_html") or "",

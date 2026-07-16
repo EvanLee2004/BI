@@ -69,6 +69,8 @@ tests/test_authz.py
 tests/test_vm_contract.py
 tests/test_config_engine.py
 tests/test_backup_restore.py
+tests/test_domain_reexport.py
+tests/test_echarts_vm_labels.py
 tests/frontend/parity/test_parity_structure.py
 "
 # 无共享进程态（或只读静态文件）

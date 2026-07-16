@@ -1,1 +1,5 @@
-"""回款情况。\n\n任务书46·5 纯搬家占位：公共接口经本包 re-export，旧 import 仍通。\n"""\n
+"""回款情况（任务书46·5 纯搬家 re-export）。"""
+from profit import compute_orders, compute_receipts
+from render import render_receipts
+
+__all__ = ["compute_orders", "compute_receipts", "render_receipts"]
