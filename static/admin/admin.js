@@ -664,15 +664,16 @@ async function dLoad(){const blk=document.getElementById("detaxBlock");if(!blk)r
     el.addEventListener("input",refreshDirtyUI);el.addEventListener("blur",refreshDirtyUI);});}
 // 业绩目标矩阵（金额界面=万元 / 毛利率=百分数；存储键 下单年预算/回款年预算 不变，界面显示「年目标」）
 // 矩阵渲染逻辑：bLoad() 写 #bMatrix；列=全公司+ /api/bu_config 业务 BU
+/* 任务书37·A6：展示顺序 H1 组在上、年目标在下；存储键 k 不变 */
 const BUDGET_METRICS=[
-  {k:"下单年预算",label:"下单年目标",tip:"万元 · 全年下单",thou:true,pct:false,wan:true,sumBu:true},
-  {k:"回款年预算",label:"回款年目标",tip:"万元 · 全年回款",thou:true,pct:false,wan:true,sumBu:true},
-  {k:"毛利率年目标",label:"毛利率年目标",tip:"百分数 · 如 35=35%",thou:false,pct:true,wan:false,sumBu:false},
-  {k:"税前利润率年目标",label:"税前利润率年目标",tip:"百分数 · 税前利润÷收入",thou:false,pct:true,wan:false,sumBu:false},
   {k:"下单H1目标",label:"下单H1目标",tip:"万元 · 上半年下单",thou:true,pct:false,wan:true,sumBu:false},
   {k:"回款H1目标",label:"回款H1目标",tip:"万元 · 上半年回款",thou:true,pct:false,wan:true,sumBu:false},
   {k:"毛利率H1目标",label:"毛利率H1目标",tip:"百分数 · 上半年毛利率",thou:false,pct:true,wan:false,sumBu:false},
   {k:"税前利润率H1目标",label:"税前利润率H1目标",tip:"百分数 · 上半年税前利润率",thou:false,pct:true,wan:false,sumBu:false},
+  {k:"下单年预算",label:"下单年目标",tip:"万元 · 全年下单",thou:true,pct:false,wan:true,sumBu:true},
+  {k:"回款年预算",label:"回款年目标",tip:"万元 · 全年回款",thou:true,pct:false,wan:true,sumBu:true},
+  {k:"毛利率年目标",label:"毛利率年目标",tip:"百分数 · 如 35=35%",thou:false,pct:true,wan:false,sumBu:false},
+  {k:"税前利润率年目标",label:"税前利润率年目标",tip:"百分数 · 税前利润÷收入",thou:false,pct:true,wan:false,sumBu:false},
 ];
 function bScopesFromBus(bus){return ["全公司"].concat((bus||[]).map(b=>b.name).filter(Boolean));}
 function bCellHtml(it,scope,old){
