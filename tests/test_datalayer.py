@@ -39,14 +39,19 @@ class TestIngestRoundtrip(unittest.TestCase):
         cls.report = ingest.build_std_db(cls.cfg, cls.yr, conn=cls.conn)
 
     def test_std_rowcounts_match_source(self):
-        # 标准表行数 = 源行数（智云四源逐行不塌；台账逐行原样含空行）
+        # 标准表行数 = 源行数（智云四源逐行不塌；台账=清洗后，全空行已跳过·任务书35）
+        from ingest import normalize
+        import columns as _columns
+
         c = self.report["counts"]
         self.assertEqual(c["std_收入明细"], len(loaders.load_project_detail(self.cfg)))
         self.assertEqual(c["std_下单"], len(loaders.load_orders(self.cfg)))
         self.assertEqual(c["std_回款"], len(loaders.load_receipts(self.cfg)))
-        # 台账逐行原样（含全空行），与旧读法行数一致
-        _, lr_old = loaders.load_ledger(self.cfg, str(self.yr))
-        self.assertEqual(c["std_费用明细"], len(lr_old))
+        lh, lr = loaders.load_ledger(self.cfg, str(self.yr))
+        lcols = _columns.resolve_ledger_columns(lh)
+        cleaned = normalize.norm_ledger(lh, lr, self.yr, lcols)
+        self.assertEqual(c["std_费用明细"], len(cleaned))
+        self.assertLessEqual(len(cleaned), len(lr))  # 跳过空行后 ≤ 原表
 
     def test_revenue_sum_lossless(self):
         # 从库读回的收入合计（分）== 从文件读的收入合计元→分
@@ -129,6 +134,36 @@ class TestUnclassifiedQuery(unittest.TestCase):
         ingest.build_std_db(cfg, loaders.pinned_today(cfg).year, conn=conn)
         with self.assertRaises(KeyError):
             db.query_detail(conn, "收入明细", unclassified=True)
+
+
+class TestNormLedgerEmpty(unittest.TestCase):
+    """任务书35：格式化全空行不入库（不依赖真实大表）。"""
+
+    def test_skip_all_empty_formatted_rows(self):
+        from ingest import normalize
+
+        HDR = [
+            "收单月份",
+            "收单日期",
+            "含税金额",
+            "业务BU",
+            "对应报表大类",
+            "预算明细费用类型",
+            "预算归属部门",
+            "事项",
+            "提单人",
+        ]
+        lcols = {k: i for i, k in enumerate(HDR)}
+        rows = [
+            ("2026年1月", "2026-01-05", 100.0, "语言", "管理费用", "办公", "运保", "买纸", "甲"),
+            (None, None, None, None, None, None, None, None, None),
+            ("", "", "", "", "", "", "", "", ""),
+            ("2026年2月", None, None, None, None, None, None, None, None),  # 仅月份 → 保留
+        ]
+        out = normalize.norm_ledger(HDR, rows, 2026, lcols)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0]["含税金额"], 100.0)
+        self.assertEqual(out[1]["收单月份"], "2026年2月")
 
 
 class TestRegressionRedline(unittest.TestCase):

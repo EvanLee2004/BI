@@ -67,6 +67,12 @@ def summary_from_files(cfg, today, ledger_year):
     conn.close()
     c = cfg["columns"]
     lh, lr = loaders.load_ledger(cfg, str(ledger_year))
+    # 任务书35：与入库 norm_ledger 一致，跳过全空格式化行（红线 health.rows 对齐）
+    from ingest import normalize as _normalize
+    import columns as _columns
+
+    _lcols = _columns.resolve_ledger_columns(lh)
+    lr = _normalize.filter_ledger_empty_rows(lh, lr, _lcols)
     lr = _ledger_yuan_to_fen(lh, lr, ledger_year)
     return profit.build_summary(
         cfg,
