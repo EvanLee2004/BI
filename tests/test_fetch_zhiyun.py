@@ -70,16 +70,27 @@ class TestRowsToRecords(unittest.TestCase):
 class TestDateSinceFilter(unittest.TestCase):
     CTRLS = [{"controlId": "d1", "controlName": "下单日期", "type": 15}]
 
-    def test_builds_filter_for_known_col(self):
+    def test_builds_filter_value_is_day_before_since(self):
+        """任务书35：filterType=13 严格大于 value → value=since 前一天才含 since 当天。"""
         fc = fz.build_date_since_filter(self.CTRLS, "下单日期", "2026-01-01")
         self.assertEqual(len(fc), 1)
         self.assertEqual(fc[0]["controlId"], "d1")
-        self.assertEqual(fc[0]["filterType"], 13)  # 13 = 该日及以后（实测语义）
-        self.assertEqual(fc[0]["value"], "2026-01-01")
+        self.assertEqual(fc[0]["filterType"], 13)
+        self.assertEqual(fc[0]["value"], "2025-12-31")  # 前一天，不是 2026-01-01
+        self.assertEqual(fz._since_filter_value("2026-03-01"), "2026-02-28")  # 非字符串硬减
 
     def test_empty_when_no_since_or_missing_col(self):
         self.assertEqual(fz.build_date_since_filter(self.CTRLS, "下单日期", ""), [])
         self.assertEqual(fz.build_date_since_filter(self.CTRLS, "不存在的列", "2026-01-01"), [])
+
+    def test_uses_first_of_duplicate_date_controls(self):
+        ctrls = [
+            {"controlId": "first", "controlName": "整单交付日期", "type": 15},
+            {"controlId": "second", "controlName": "整单交付日期", "type": 15},
+        ]
+        fc = fz.build_date_since_filter(ctrls, "整单交付日期", "2026-01-01")
+        self.assertEqual(fc[0]["controlId"], "first")
+        self.assertEqual(len(fz.controls_with_name(ctrls, "整单交付日期")), 2)
 
 
 class TestAuthExpiry(unittest.TestCase):
@@ -116,24 +127,51 @@ class TestRequiredColumns(unittest.TestCase):
 class TestPagination(unittest.TestCase):
     def test_pages_until_short_page(self):
         pages = [[{"i": n} for n in range(fz.PAGE_SIZE)], [{"i": "last"}]]
+        total = fz.PAGE_SIZE + 1
         calls = []
 
         def post(path, body):
-            calls.append(body["pageIndex"])
-            return {"data": {"data": pages[body["pageIndex"] - 1]}}
+            calls.append((body["pageIndex"], body.get("notGetTotal")))
+            d = {"data": pages[body["pageIndex"] - 1]}
+            if body["pageIndex"] == 1:
+                d["count"] = total
+            return {"data": d}
 
         rows = fz.fetch_all_rows(post, "ws1", "app1")
-        self.assertEqual(len(rows), fz.PAGE_SIZE + 1)
-        self.assertEqual(calls, [1, 2])
+        self.assertEqual(len(rows), total)
+        self.assertEqual(calls[0], (1, False))  # 首页要 total
+        self.assertEqual(calls[1], (2, True))
 
     def test_empty_table(self):
-        rows = fz.fetch_all_rows(lambda p, b: {"data": {"data": []}}, "ws1", "app1")
+        rows = fz.fetch_all_rows(lambda p, b: {"data": {"data": [], "count": 0}}, "ws1", "app1")
         self.assertEqual(rows, [])
 
     def test_runaway_pagination_raises(self):
         full = [{"i": 1}] * fz.PAGE_SIZE  # 永远回满页 → 必须撞上限而不是死循环
         with self.assertRaises(RuntimeError):
-            fz.fetch_all_rows(lambda p, b: {"data": {"data": full}}, "ws1", "app1")
+            fz.fetch_all_rows(lambda p, b: {"data": {"data": full, "count": 10**9}}, "ws1", "app1")
+
+    def test_total_mismatch_raises(self):
+        """任务书30·0.5 / 35：total=2500 只给 2 页残缺 → 拒收。"""
+        # 2 满页 = 2000 < 2500
+        pages = {
+            1: [{"i": n} for n in range(fz.PAGE_SIZE)],
+            2: [{"i": n} for n in range(fz.PAGE_SIZE)],  # 仍满页，但我们用 count 对账
+        }
+        # 模拟第 3 页空：实际上 2 满页后继续翻——改成 page2 short wrong total
+        pages[2] = [{"i": n} for n in range(100)]  # short page, total rows=1100 != 2500
+
+        def post(path, body):
+            idx = body["pageIndex"]
+            d = {"data": pages.get(idx, [])}
+            if idx == 1:
+                d["count"] = 2500
+            return {"data": d}
+
+        with self.assertRaises(RuntimeError) as cm:
+            fz.fetch_all_rows(post, "ws1", "app1")
+        self.assertIn("行数对账失败", str(cm.exception))
+        self.assertIn("2500", str(cm.exception))
 
     def test_write_empty_records_raises(self):
         import tempfile
@@ -232,7 +270,8 @@ class TestFetchSourceStates(unittest.TestCase):
                     }
                 }
             }
-        return {"data": {"data": [{"ca": "2026-06-01", "cb": "12.5", "cc": "客户A"}]}}
+        # GetFilterRows：count 与 data 对齐（批次0.5 对账）
+        return {"data": {"data": [{"ca": "2026-06-01", "cb": "12.5", "cc": "客户A"}], "count": 1}}
 
     def test_blank_base_url_no_local(self):
         """服务器地址为空（正常合并流程出不来，守卫直接传入）→ 不抓、no_source。"""
@@ -270,13 +309,93 @@ class TestFetchSourceStates(unittest.TestCase):
         def post(path, body):
             if path.endswith("getWorksheetInfo"):
                 return {"data": {"template": {"controls": [ctrl("cc", "客户名称")]}}}
-            return {"data": {"data": [{"cc": "客户A"}]}}
+            return {"data": {"data": [{"cc": "客户A"}], "count": 1}}
 
         with tempfile.TemporaryDirectory() as td:
             r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td), post=post, zy=self._zy())
             self.assertEqual(r["status"], "no_source")
             self.assertIn("缺必需列", r["detail"])
             self.assertFalse((Path(td) / "下单.xlsx").exists())  # 坏产物绝不落盘
+
+    def test_since_boundary_day_included_in_filter_and_rows(self):
+        """语义：since=2026-01-01 时，发出的 filter value=2025-12-31；归属日=since 的行在桩数据中可被抓进。"""
+        import tempfile
+
+        seen_filters = []
+
+        def post(path, body):
+            if path.endswith("getWorksheetInfo"):
+                return {
+                    "data": {
+                        "template": {
+                            "controls": [
+                                ctrl("ca", "下单日期"),
+                                ctrl("cb", "下单预估额/本币"),
+                            ]
+                        }
+                    }
+                }
+            seen_filters.append(body.get("filterControls") or [])
+            # 桩：两行，含 since 当天与之后
+            rows = [
+                {"ca": "2026-01-01", "cb": "1"},
+                {"ca": "2026-01-02", "cb": "2"},
+            ]
+            return {"data": {"data": rows, "count": 2}}
+
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self._cfg(Path(td))
+            cfg["zhiyun_since"] = "2026-01-01"
+            r = fz.fetch_source(cfg, "orders", root=Path(td), post=post, zy=self._zy())
+            self.assertEqual(r["status"], "fetched", r["detail"])
+            self.assertEqual(r.get("rows"), 2)
+            self.assertTrue(seen_filters)
+            fc = seen_filters[0]
+            self.assertEqual(fc[0]["value"], "2025-12-31")
+            # 产物含 since 当天行
+            from openpyxl import load_workbook
+
+            vals = list(load_workbook(Path(td) / "下单.xlsx").active.values)
+            dates = {v[0] for v in vals[1:]}
+            self.assertIn("2026-01-01", dates)
+
+    def test_row_drop_warns_yellow_not_block(self):
+        """骤降：上次 100 本次 50、阈值 30% → warnings，status 仍 fetched。"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self._cfg(Path(td))
+            cfg["zhiyun_row_drop_ratio"] = 0.3
+            fz.save_last_row_count(cfg, "orders", 100, root=Path(td))
+            r = fz.fetch_source(cfg, "orders", root=Path(td), post=self._post_ok, zy=self._zy())
+            self.assertEqual(r["status"], "fetched")
+            self.assertTrue(r.get("warnings"))
+            self.assertTrue(any("骤降" in w for w in r["warnings"]))
+            # 成功后更新上次行数
+            self.assertEqual(fz.load_last_row_counts(cfg, Path(td))["orders"], 1)
+
+    def test_duplicate_date_control_warns(self):
+        import tempfile
+
+        def post(path, body):
+            if path.endswith("getWorksheetInfo"):
+                return {
+                    "data": {
+                        "template": {
+                            "controls": [
+                                ctrl("c1", "下单日期"),
+                                ctrl("c2", "下单日期"),  # 同名
+                                ctrl("cb", "下单预估额/本币"),
+                            ]
+                        }
+                    }
+                }
+            return {"data": {"data": [{"c1": "2026-06-01", "c2": "", "cb": "1"}], "count": 1}}
+
+        with tempfile.TemporaryDirectory() as td:
+            r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td), post=post, zy=self._zy())
+            self.assertEqual(r["status"], "fetched")
+            self.assertTrue(any("同名控件" in w for w in (r.get("warnings") or [])))
 
     def test_min_rows_guard_blocks_permission_starved_account(self):
         """行数门槛：抓到的行数 < tables.<源>.min_rows（=账号行级权限不足，如亮晶号在

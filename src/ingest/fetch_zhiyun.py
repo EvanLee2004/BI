@@ -46,11 +46,14 @@ SOURCES = {
     },
 }
 # date_col_key = 该源"归属月"所依据的日期字段（与清洗层 normalize 一致）；
-# 服务器端只抓这个日期 >= config.zhiyun_since 的行（只要当年、少抓快抓）。
+# 服务器端只抓这个日期 **>= config.zhiyun_since** 的行（只要当年、少抓快抓）。
+# 实现：filterType=13 实测为**严格大于** value，故 value 传 since 的前一天（见 build_date_since_filter）。
 # 日期为空的行本就归属月=None、看板不计入任何月份，被服务器过滤掉不影响口径。
 
 PAGE_SIZE = 1000
 MAX_PAGES = 500  # 翻页安全上限（50万行，远超任何表；防接口异常时死循环）
+# 任务书30 批次0.5 / 任务书35 补做：本次成功抓取行数比上次少超此比例 → 体检黄（不拦）
+DEFAULT_ROW_DROP_RATIO = 0.30
 
 
 # ---------- 纯函数层（离线可测） ----------
@@ -117,14 +120,42 @@ def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str
     return [w for w in wanted if w not in have]
 
 
+def _since_filter_value(since: str) -> str:
+    """zhiyun_since → filterType=13 的 value。
+
+    2026-07-16 真实 API 实测：filterType=13 为**严格大于** value（不是 >=）。
+    要包含 since 当天，value 必须传 since 的**前一天**（datetime 计算，禁止字符串硬减）。
+    """
+    from datetime import datetime, timedelta
+
+    s = str(since).strip()[:10]
+    d = datetime.strptime(s, "%Y-%m-%d").date()
+    return (d - timedelta(days=1)).isoformat()
+
+
+def controls_with_name(controls: list[dict], name: str) -> list[dict]:
+    """同名控件列表（顺序=模板顺序；抓取/过滤取第一个）。"""
+    return [c for c in (controls or []) if c.get("controlName") == name]
+
+
 def build_date_since_filter(controls: list[dict], date_col_name: str, since: str) -> list[dict]:
-    """构造"该日期字段 >= since"的服务器端过滤（filterType=13=当日及以后）。
-    找不到该列/未给 since → 返回 []（不过滤，退回全量，安全降级）。"""
+    """构造「该日期字段 **>= since**」的服务器端过滤。
+
+    ⚠ filterType=13 实测语义=**严格大于** value（2026-07-16 陆总号 GetFilterRows 对账）：
+    value=since 会丢掉 since 当天行；故 value=since 前一天，整体效果等价于 >= since。
+    找不到该列/未给 since → 返回 []（不过滤，退回全量，安全降级）。
+    同名列多于一个时用**第一个**（与 rows_to_records 首个非空策略对齐）。
+    """
     if not since or not date_col_name:
         return []
-    ctrl = next((c for c in controls if c.get("controlName") == date_col_name), None)
-    if not ctrl:
+    matches = controls_with_name(controls, date_col_name)
+    if not matches:
         return []
+    ctrl = matches[0]
+    try:
+        value = _since_filter_value(since)
+    except ValueError:
+        return []  # since 非法日期 → 不过滤，避免整表抓挂
     return [
         {
             "controlId": ctrl["controlId"],
@@ -132,17 +163,36 @@ def build_date_since_filter(controls: list[dict], date_col_name: str, since: str
             "spec": {},
             "filterType": 13,
             "dateRange": 0,
-            "value": since,
+            "value": value,
             "values": [],
         }
     ]
 
 
+def _extract_row_total(page_data: dict) -> int | None:
+    """首页 GetFilterRows data 里取总条数。明道常见 count；兼容 total/totalNum。"""
+    if not isinstance(page_data, dict):
+        return None
+    for k in ("count", "total", "totalNum", "allCount"):
+        if k not in page_data or page_data[k] is None or page_data[k] == "":
+            continue
+        try:
+            return int(page_data[k])
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def fetch_all_rows(post, worksheet_id: str, app_id: str, filter_controls: list[dict] | None = None) -> list[dict]:
     """翻页拉全量。post(path, body)->dict 由调用方注入（真实 requests 或测试桩）。
-    filter_controls 非空时只抓命中过滤的行（如"日期>=2026-01-01"）。"""
+
+    filter_controls 非空时只抓命中过滤的行（如日期 >= zhiyun_since）。
+    任务书30·批次0.5 / 任务书35 补做：首页 notGetTotal=false 取 total，
+    抓完 len(out) 必须等于 total，差了 raise（整表按失败，不静默残缺）。
+    """
     fc = filter_controls or []
     out, page = [], 1
+    declared_total: int | None = None
     while page <= MAX_PAGES:
         body = {
             "worksheetId": worksheet_id,
@@ -160,11 +210,19 @@ def fetch_all_rows(post, worksheet_id: str, app_id: str, filter_controls: list[d
         }
         d = post("Worksheet/GetFilterRows", body).get("data") or {}
         rows = d.get("data") or []
+        if page == 1:
+            declared_total = _extract_row_total(d)
         out.extend(rows)
         if len(rows) < PAGE_SIZE:
-            return out
+            break
         page += 1
-    raise RuntimeError(f"翻页超过安全上限 {MAX_PAGES} 页仍未拉完，接口行为异常（拒收疑似坏数据）")
+    else:
+        raise RuntimeError(f"翻页超过安全上限 {MAX_PAGES} 页仍未拉完，接口行为异常（拒收疑似坏数据）")
+    if declared_total is not None and len(out) != declared_total:
+        raise RuntimeError(
+            f"行数对账失败：接口 total={declared_total}，实际抓到 {len(out)} 行（疑似翻页残缺，拒收）"
+        )
+    return out
 
 
 def write_records_xlsx(records: list[dict[str, str]], dest: Path) -> None:
@@ -330,8 +388,66 @@ def _dest_path(cfg: dict, source: str, root: Path | None) -> Path:
     return loaders.data_dir(cfg, root) / name
 
 
+def _last_counts_path(cfg: dict, root: Path | None) -> Path:
+    """上次成功抓取各源行数（任务书30·0.5 骤降告警）。gitignore 数据目录内。"""
+    return loaders.data_dir(cfg, root) / "智云抓数上次行数.json"
+
+
+def load_last_row_counts(cfg: dict, root: Path | None = None) -> dict[str, int]:
+    p = _last_counts_path(cfg, root)
+    if not p.is_file():
+        return {}
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    out: dict[str, int] = {}
+    if not isinstance(raw, dict):
+        return out
+    for k, v in raw.items():
+        try:
+            out[str(k)] = int(v)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def save_last_row_count(cfg: dict, source: str, n: int, root: Path | None = None) -> None:
+    counts = load_last_row_counts(cfg, root)
+    counts[source] = int(n)
+    p = _last_counts_path(cfg, root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(counts, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def row_drop_ratio(cfg: dict) -> float:
+    """骤降阈值，默认 30%。config.zhiyun_row_drop_ratio 可调（0~1）。"""
+    try:
+        r = float(cfg.get("zhiyun_row_drop_ratio", DEFAULT_ROW_DROP_RATIO))
+    except (TypeError, ValueError):
+        r = DEFAULT_ROW_DROP_RATIO
+    if r < 0:
+        return 0.0
+    if r > 1:
+        return 1.0
+    return r
+
+
+def check_row_drop(prev: int | None, curr: int, ratio: float) -> str | None:
+    """若 curr 比 prev 少超过 ratio，返回告警文案；否则 None。prev 空/0 不告警。"""
+    if not prev or prev <= 0 or ratio <= 0:
+        return None
+    if curr >= prev:
+        return None
+    drop = (prev - curr) / float(prev)
+    if drop > ratio + 1e-12:
+        pct = int(round(ratio * 100))
+        return f"行数骤降：上次成功 {prev} → 本次 {curr}（降幅 {drop:.0%} > 阈值 {pct}%）"
+    return None
+
+
 def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy: dict | None = None) -> dict:
-    """抓一个源到进料口。返回 {status, detail}，三态同 fetch_ledger，永不抛异常。"""
+    """抓一个源到进料口。返回 {status, detail, ...}，三态同 fetch_ledger，永不抛异常。"""
     local = _dest_path(cfg, source, root)
 
     def fallback(reason: str) -> dict:
@@ -356,6 +472,16 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy
         # 服务器端只抓"归属日期 >= config.zhiyun_since"的行（只要当年、少抓快抓）
         since = cfg.get("zhiyun_since") or ""
         date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
+        warnings: list[str] = []
+        # 同名日期控件多于一个：观察项（黄），防顺序变了无声换列
+        if date_col:
+            dups = controls_with_name(controls, date_col)
+            if len(dups) > 1:
+                ids = ",".join(str(c.get("controlId") or "")[:12] for c in dups)
+                warnings.append(
+                    f"表模板「{date_col}」同名控件 {len(dups)} 个（controlId≈{ids}…）；"
+                    f"过滤/取值用第一个，请确认未换序"
+                )
         fc = build_date_since_filter(controls, date_col, since)
         rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
         records = rows_to_records(rows, controls)
@@ -367,8 +493,20 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy
         min_rows = int(tbl.get("min_rows") or 0)
         if len(records) < min_rows:
             return fallback(f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）")
+        # 骤降告警（相对上次成功）：不拦写盘，status 仍 fetched + warnings → 管道黄
+        prev_counts = load_last_row_counts(cfg, root)
+        drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
+        if drop_msg:
+            warnings.append(drop_msg)
         write_records_xlsx(records, local)
-        return {"status": "fetched", "detail": f"智云抓取 {len(records)} 行 → {local.name}"}
+        save_last_row_count(cfg, source, len(records), root)
+        detail = f"智云抓取 {len(records)} 行 → {local.name}"
+        if warnings:
+            detail += "；" + "；".join(warnings)
+        out = {"status": "fetched", "detail": detail, "rows": len(records)}
+        if warnings:
+            out["warnings"] = warnings
+        return out
     except Exception as e:  # noqa: BLE001 铁律：抓失败不中断管道
         return fallback(f"智云抓取失败（{type(e).__name__}: {e}）")
 
