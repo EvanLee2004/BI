@@ -553,6 +553,15 @@ def _run_reasons(report: dict) -> list[str]:
         reasons.append("收单台账无可用数据源（共享路径与本地副本都没有）→ 判红")
     elif st and st != "fetched":
         reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
+    # 智云：降级 / 行数骤降 / 同名控件观察（任务书35·批次0.5 补做）
+    for src, zv in (report.get("fetch_zhiyun") or {}).items():
+        if not isinstance(zv, dict):
+            continue
+        zst = zv.get("status")
+        if zst and zst != "fetched":
+            reasons.append(f"智云·{src} 未在线抓到（{zst}：{(zv.get('detail') or '')[:80]}）")
+        for w in zv.get("warnings") or []:
+            reasons.append(f"智云·{src}：{w}")
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
         reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·数据修正』看")

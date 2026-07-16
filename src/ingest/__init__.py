@@ -201,8 +201,10 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     fetch_ok = report["fetch"]["status"] == "fetched"
     adj = report.get("adjust", {})
     # 智云在线抓时：任一源没抓到（走本地副本/无源）也算黄（诚实反映数据陈旧）
+    # 任务书35：fetched 但有 warnings（行数骤降/同名控件观察）→ 也黄
     zy = report.get("fetch_zhiyun") or {}
     zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
+    zy_warn = any(bool(v.get("warnings")) for v in zy.values() if isinstance(v, dict))
     dups = report.get("duplicate_locators") or {}
     has_dups = any(dups.values())
     db_bad = not (report.get("db_check") or {}).get("ok", True)
@@ -211,6 +213,7 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
         or adj.get("expired", 0) > 0
         or adj.get("missing", 0) > 0
         or zy_degraded
+        or zy_warn
         or has_dups
     )
     red = report["fetch"]["status"] == "no_source" or db_bad
