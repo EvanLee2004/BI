@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from fastapi import Body, HTTPException, Request
+from fastapi import Body, HTTPException, Query, Request, Response
 
 import bu
 import core
@@ -197,6 +197,9 @@ def register(app, d):
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         out["overall_see_salary"] = bool(cfg.get("overall_see_salary", False))  # 任务书37·B8 默认关
+        out["feishu_webhook_url"] = cfg.get("feishu_webhook_url", "") or ""  # 任务书43 告警
+        out["run_log_keep_days"] = int(cfg.get("run_log_keep_days", 365) or 365)
+        out["disk_free_min_ratio"] = float(cfg.get("disk_free_min_ratio", 0.10) or 0.10)
         bdir = loaders.data_dir(cfg, root) / "备份"
         baks = (sorted(bdir.glob("看板_*.db")) + sorted(bdir.glob("页面_*.html"))) if bdir.exists() else []
         out["backup_stats"] = {"count": len(baks), "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
@@ -232,6 +235,32 @@ def register(app, d):
             chg.append(
                 "整体账号可见工资明细：" + ("开" if res.get("overall_see_salary") else "关")
             )
+        if "feishu_webhook_url" in payload:
+            # webhook 含密钥，只记「已更改」
+            chg.append("飞书告警 webhook 已更改")
         if chg:
             _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
         return res
+
+    @app.get("/api/archive_export")
+    def api_archive_export(request: Request, year: str = Query("")):
+        """审计流水年度导出归档（手填历史/预算历史/配置变更）→ xlsx；不删库内数据。管理员。"""
+        _require(request)
+        y = (year or "").strip() or str(__import__("datetime").date.today().year)
+        import db_write
+        from urllib.parse import quote
+
+        conn = db.connect(cfg, root)
+        try:
+            raw = db_write.export_audit_archive_xlsx(conn, y)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+        fname = f"审计归档_{y}.xlsx"
+        cd = f"attachment; filename=\"archive.xlsx\"; filename*=UTF-8''{quote(fname)}"
+        return Response(
+            content=raw,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": cd},
+        )

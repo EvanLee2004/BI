@@ -217,5 +217,88 @@ class TestNginxAssets(unittest.TestCase):
         self.assertTrue((ROOT / "docs/madr/0003_nginx_proxy_scheme_b.md").is_file())
 
 
+class TestArchiveExportAndFeishuSettings(unittest.TestCase):
+    def test_export_audit_archive_xlsx(self):
+        import db
+        import db_write
+        import loaders
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "数据").mkdir()
+            cfg = dict(loaders.load_config(ROOT))
+            cfg["data_dir"] = "数据"
+            cfg["db_path"] = "数据/看板.db"
+            conn = db.connect(cfg, tmp)
+            conn.execute(
+                "INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
+                ("2026-03-01 10:00:00", "t", "2026-03", "项", 1, 2),
+            )
+            conn.execute(
+                "INSERT INTO manual_配置变更(时间,操作账号,类别,摘要) VALUES(?,?,?,?)",
+                ("2026-05-01 11:00:00", "a", "设置", "测"),
+            )
+            conn.commit()
+            raw = db_write.export_audit_archive_xlsx(conn, 2026)
+            self.assertGreater(len(raw), 100)
+            self.assertTrue(raw[:2] == b"PK")
+            conn.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_settings_feishu_roundtrip(self):
+        import accounts
+        import loaders
+        import server
+        from fastapi.testclient import TestClient
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "数据").mkdir()
+            cfg = dict(loaders.load_config(ROOT))
+            cfg["data_dir"] = "数据"
+            cfg["db_path"] = "数据/看板.db"
+            cfg["zhiyun_auto_fetch"] = False
+            accounts.save_accounts(
+                cfg,
+                tmp,
+                [{"账号": "admin1", "密码": "8888", "权限": "管理员", "显示名": "管"}],
+            )
+            app = server.create_app(cfg, root=tmp)
+            c = TestClient(app)
+            r = c.post("/admin/login", data={"account": "admin1", "password": "8888"}, follow_redirects=False)
+            self.assertIn(r.status_code, (302, 303))
+            r = c.post("/api/settings", json={"feishu_webhook_url": "https://example.com/hook"})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json().get("feishu_webhook_url"), "https://example.com/hook")
+            g = c.get("/api/settings")
+            self.assertEqual(g.json().get("feishu_webhook_url"), "https://example.com/hook")
+            # 归档导出
+            r2 = c.get("/api/archive_export", params={"year": "2026"})
+            self.assertEqual(r2.status_code, 200, r2.text[:200])
+            self.assertIn("spreadsheet", r2.headers.get("content-type", ""))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_admin_ui_has_archive_and_feishu(self):
+        html = (ROOT / "static/admin/admin.html").read_text(encoding="utf-8")
+        js = (ROOT / "static/admin/admin.js").read_text(encoding="utf-8")
+        self.assertIn("btnArchExport", html)
+        self.assertIn("exportAuditArchive", js)
+        self.assertIn("sFeishuHook", html)
+        self.assertIn("feishu_webhook_url", js)
+        self.assertIn("setCardAlert", html)
+
+    def test_watchdog_script_calls_alert(self):
+        sh = (ROOT / "deploy/linux/start_with_rollback.sh").read_text(encoding="utf-8")
+        self.assertIn("alert_event('rollback'", sh)
+        self.assertIn("alert_event('boot_crash'", sh)
+
+    def test_print_hook_in_setup_logging(self):
+        src = (ROOT / "src/app_logging.py").read_text(encoding="utf-8")
+        self.assertIn("builtins.print", src)
+        self.assertIn("kanban.stdout", src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

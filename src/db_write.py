@@ -205,3 +205,44 @@ def select_ledger_date_parts(conn: sqlite3.Connection, 定位键: str):
     return conn.execute(
         "SELECT 收单日期,收单月份 FROM std_费用明细 WHERE 定位键=? AND 已删除=0", (定位键,)
     ).fetchone()
+
+
+# ---------- 审计流水导出归档（不删，只导出；任务书43·阶段三）----------
+_ARCHIVE_TABLES = {
+    "manual_历史": ("时间", "经手人", "归属月", "项目", "旧值", "新值"),
+    "manual_预算历史": ("时间", "经手人", "年份", "指标", "范围", "旧值", "新值"),
+    "manual_配置变更": ("时间", "操作账号", "类别", "摘要"),
+}
+
+
+def export_audit_archive_xlsx(conn: sqlite3.Connection, year: str | int) -> bytes:
+    """导出指定年的手填历史/预算历史/配置变更到一个 xlsx（多 sheet）。不删除库内行。"""
+    import io
+    import openpyxl
+
+    y = str(year).strip()
+    if not (y.isdigit() and len(y) == 4):
+        raise ValueError("year 须为 4 位年份")
+    wb = openpyxl.Workbook()
+    first = True
+    for table, cols in _ARCHIVE_TABLES.items():
+        if first:
+            ws = wb.active
+            first = False
+        else:
+            ws = wb.create_sheet()
+        ws.title = table.replace("manual_", "")[:31]
+        ws.append(list(cols))
+        coln = ",".join(cols)
+        # 时间列以 YYYY 开头过滤该年
+        rows = conn.execute(
+            f"SELECT {coln} FROM {table} WHERE 时间 LIKE ? ORDER BY id",
+            (f"{y}-%",),
+        ).fetchall()
+        for r in rows:
+            ws.append([("" if v is None else v) for v in r])
+        for cell in ws[1]:
+            cell.font = openpyxl.styles.Font(bold=True)
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()

@@ -63,7 +63,47 @@ def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
 
 
 def maybe_alert_text(cfg: dict, text: str) -> None:
-    url = webhook_url(cfg)
-    if not url:
-        return
-    post_feishu_text(url, text)
+    try:
+        url = webhook_url(cfg)
+        if not url:
+            return
+        post_feishu_text(url, text)
+    except Exception:
+        pass
+
+
+def alert_event(kind: str, detail: str = "", root=None) -> None:
+    """看门狗/更新脚本调用：读合并配置 webhook，失败静默。
+    kind: boot_crash | rollback | update_fail | red
+    """
+    try:
+        import loaders
+
+        cfg = loaders.load_config(root)
+        host = socket.gethostname()
+        labels = {
+            "boot_crash": "服务连续异常退出",
+            "rollback": "更新后启动崩溃已回滚",
+            "update_fail": "一键更新失败/已回滚依赖",
+            "red": "体检红",
+        }
+        title = labels.get(kind, kind)
+        msg = f"【经营罗盘告警】{host} · {title}"
+        if detail:
+            msg += f" · {detail[:200]}"
+        maybe_alert_text(cfg, msg)
+    except Exception:
+        pass
+
+
+def cli_alert(argv: list[str] | None = None) -> int:
+    """deploy/linux 看门狗：python -m notify kind [detail…]"""
+    import sys
+
+    args = list(argv if argv is not None else sys.argv[1:])
+    if not args:
+        return 0
+    kind = args[0]
+    detail = " ".join(args[1:]) if len(args) > 1 else ""
+    alert_event(kind, detail)
+    return 0

@@ -232,18 +232,23 @@ def apply_update(root=None, remote="origin") -> dict:
     before = chk.get("local", "")
     rc, out, err = _git(root, "pull", "--ff-only", remote, branch, timeout=180)
     if rc != 0:
+        _alert_update_fail(root, f"git pull 失败：{err or out or '未知'}")
         return {"ok": False, "reason": f"git pull --ff-only 失败：{err or out or '未知错误'}"}
     # 依赖同步：requirements.txt 变了就装（拉取引入新包时不装，重启会缺包崩溃）
     deps = _sync_deps_if_changed(root, before)
     if not deps["ok"]:
         # 装依赖失败 → 回滚这次拉取，不带着装不上的新代码重启（更新期自愈）
         rb_rc, _, rb_err = _git(root, "reset", "--hard", before, timeout=60)
+        reason = (
+            f"拉取成功但安装依赖失败，已回滚到更新前版本（{before}）：{deps['detail']}"
+            + ("" if rb_rc == 0 else f"；⚠回滚也失败（{rb_err}），请人工 `git reset --hard {before}`")
+        )
+        _alert_update_fail(root, reason)
         return {
             "ok": False,
             "rolled_back": rb_rc == 0,
             "deps": deps,
-            "reason": f"拉取成功但安装依赖失败，已回滚到更新前版本（{before}）：{deps['detail']}"
-            + ("" if rb_rc == 0 else f"；⚠回滚也失败（{rb_err}），请人工 `git reset --hard {before}`"),
+            "reason": reason,
         }
     # 写"回滚点"给看门狗：这版若启动即崩，看门狗据此自动回滚一次（正常起 N 秒后 server 会清掉此标记）
     write_rollback_marker(root, before)
@@ -256,6 +261,16 @@ def apply_update(root=None, remote="origin") -> dict:
         "detail": out,
         "deps": deps,
     }
+
+
+def _alert_update_fail(root, detail: str) -> None:
+    """更新失败/依赖回滚告警；失败静默。"""
+    try:
+        from notify import alert_event
+
+        alert_event("update_fail", detail, root=root)
+    except Exception:
+        pass
 
 
 def request_restart(delay: float = 1.0) -> None:

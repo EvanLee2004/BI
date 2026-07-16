@@ -166,6 +166,10 @@ async function loadSettings(){try{const s=await jget("/api/settings");
   document.getElementById("sZyPwd").value=s.zhiyun_password||"";
   const lp=document.getElementById("sLedgerPath");if(lp)lp.value=s.ledger_share_path||"";
   const oss=document.getElementById("sOverallSalary");if(oss)oss.checked=!!s.overall_see_salary;
+  const fh=document.getElementById("sFeishuHook");if(fh)fh.value=s.feishu_webhook_url||"";
+  const lk=document.getElementById("sLogKeep");if(lk)lk.value=s.run_log_keep_days!=null?s.run_log_keep_days:365;
+  const dm=document.getElementById("sDiskMin");if(dm)dm.value=s.disk_free_min_ratio!=null?Math.round(Number(s.disk_free_min_ratio)*100):10;
+  const ay=document.getElementById("sArchYear");if(ay&&!ay.value)ay.value=String(new Date().getFullYear());
   const zc=s.zhiyun_conn||{},zt=zc.tables||{};  // 服务器地址+四表ID（生效值=内置默认+本地覆盖）
   const zset=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||"";};
   zset("sZyUrl",zc.base_url);zset("sTblOrders",zt.orders);zset("sTblReceipts",zt.receipts);
@@ -243,7 +247,7 @@ function setBarRender(){const bar=document.getElementById("setSaveBar");if(!bar)
   bar.classList.toggle("on",setDirty.size>0);
   const n=document.getElementById("setDirtyN");if(n)n.textContent=setDirty.size;}
 function setBindDirty(){if(window._setBound)return;window._setBound=1;
-  [["setCardSched","sched"],["setCardBackup","backup"],["setCardZy","zy"],
+  [["setCardSched","sched"],["setCardBackup","backup"],["setCardAlert","alert"],["setCardZy","zy"],
    ["setCardAcct","acct"],["setCardBu","bu"]].forEach(([id,k])=>{
     const el=document.getElementById(id);if(!el)return;
     ["input","change"].forEach(ev=>el.addEventListener(ev,e=>{
@@ -252,7 +256,7 @@ function setBindDirty(){if(window._setBound)return;window._setBound=1;
       setMark(k);}));});}
 async function setSaveAll(){const btn=document.getElementById("btnSetSave");if(!btn)return;
   btn.disabled=true;btn.textContent="保存中…";
-  const jobs=[["sched",saveSchedule],["backup",saveBackup],["zy",saveZhiyun],["acct",acctSave],["bu",buSave]];
+  const jobs=[["sched",saveSchedule],["backup",saveBackup],["alert",saveAlert],["zy",saveZhiyun],["acct",acctSave],["bu",buSave]];
   let fail=0;
   for(const [k,fn] of jobs){if(!setDirty.has(k))continue;
     let ok=false;try{ok=await fn();}catch(e){ok=false;}
@@ -271,6 +275,26 @@ async function saveSchedule(){const m=document.getElementById("sTimeMsg");m.text
 async function saveBackup(){const m=document.getElementById("sBakMsg");m.textContent="保存中…";
   try{const d=await jpost("/api/settings",{backup_keep_days:document.getElementById("sKeep").value});
     m.textContent=d.note||"已保存";return true;}catch(e){m.textContent="失败："+e.message;return false;}}
+async function saveAlert(){const m=document.getElementById("sAlertMsg");if(m)m.textContent="保存中…";
+  // 磁盘阈值：界面填整数百分比，后端收 0~1；禁止 parseFloat（前端零金额运算铁律，整数除法即可）
+  const pctRaw=String(document.getElementById("sDiskMin").value||"10").replace(/[^\d]/g,"");
+  const pct=pctRaw===""?10:(+pctRaw);
+  const p={feishu_webhook_url:document.getElementById("sFeishuHook").value,
+    run_log_keep_days:document.getElementById("sLogKeep").value,
+    disk_free_min_ratio:pct/100};
+  try{const d=await jpost("/api/settings",p);
+    if(m)m.textContent=d.note||"已保存";return true;}catch(e){if(m)m.textContent="失败："+e.message;return false;}}
+async function exportAuditArchive(){
+  const y=document.getElementById("sArchYear").value||String(new Date().getFullYear());
+  const m=document.getElementById("sArchMsg");if(m)m.textContent="导出中…";
+  try{
+    const r=await fetch("/api/archive_export?year="+encodeURIComponent(y),{credentials:"same-origin"});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||("HTTP "+r.status));}
+    const blob=await r.blob();const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download="审计归档_"+y+".xlsx";a.click();
+    URL.revokeObjectURL(a.href);if(m)m.textContent="✓ 已下载 "+y+" 年归档（库内未删）";
+  }catch(e){if(m)m.textContent="失败："+e.message;}
+}
 async function saveZhiyun(){const m=document.getElementById("sZyMsg");m.textContent="保存中…";
   const p={ledger_share_path:document.getElementById("sLedgerPath").value};  // 台账路径总是提交（含清空）
   const oss=document.getElementById("sOverallSalary");if(oss)p.overall_see_salary=!!oss.checked;

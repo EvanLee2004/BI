@@ -39,6 +39,8 @@ while true; do
     rm -f "${ROOT}/.update_rollback"
     # 变量一律 ${VAR}：macOS bash 3.2 对 $VAR 紧贴全角括号会误解析
     echo "[看门狗] 更新后启动异常(码=${CODE})，自动回滚到更新前版本 ${PREV} ..."
+    # 飞书告警（未配置 webhook 则静默；失败不挡回滚）
+    (cd "${ROOT}" && PYTHONPATH=src "${PY}" -c "from notify import alert_event; alert_event('rollback', 'exit=${CODE} prev=${PREV}')" ) 2>/dev/null || true
     if [ -n "${PREV}" ]; then
       if ! git -C "${ROOT}" reset --hard "${PREV}"; then
         echo "[看门狗] 回滚失败，请人工检查：git -C \"${ROOT}\" reset --hard ${PREV}"
@@ -56,6 +58,7 @@ while true; do
     echo "[看门狗] 连续异常退出过多，停止自动重启。"
     echo "        可能新版本有问题——请人工检查 journalctl -u kanban；需回滚可跑："
     echo "        git -C \"${ROOT}\" reset --hard HEAD~1 && sudo systemctl restart kanban"
+    (cd "${ROOT}" && PYTHONPATH=src "${PY}" -c "from notify import alert_event; alert_event('boot_crash', 'fails=${FAILS} code=${CODE}')" ) 2>/dev/null || true
     exit 1
   fi
   sleep 3

@@ -50,6 +50,9 @@
 | GET | `/api/detail_export` | 明细导出 xlsx（列与当前会话明细一致：看端白名单/管理端全列） |
 | GET | `/api/detail/values` | 列去重值（多选筛） |
 | GET | `/api/detail/meta` | 列名+类型（看端跟白名单） |
+| GET | `/api/settings` | 管理员：含 `feishu_webhook_url` / `run_log_keep_days` / `disk_free_min_ratio`（任务书43） |
+| POST | `/api/settings` | 管理员：可写飞书 webhook 等（落本地配置覆盖层） |
+| GET | `/api/archive_export?year=YYYY` | 管理员：审计流水年度 xlsx 归档（历史表不删） |
 | GET | `/api/exceptions` | 异常总览计数 |
 | GET | `/api/order_depts` | 下单部门清单 |
 | POST | `/api/refresh` | 立即更新（异步） |

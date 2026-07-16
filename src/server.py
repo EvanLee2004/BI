@@ -134,7 +134,15 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 SCHTASK_NAME = "经营驾驶舱每日更新"  # 与 注册每日更新.bat 里的 TN 一致
 
-EDITABLE_SETTINGS = ("schedule_time", "backup_keep_days", "zhiyun_auto_fetch", "overall_see_salary")
+EDITABLE_SETTINGS = (
+    "schedule_time",
+    "backup_keep_days",
+    "zhiyun_auto_fetch",
+    "overall_see_salary",
+    "feishu_webhook_url",
+    "run_log_keep_days",
+    "disk_free_min_ratio",
+)
 MAX_SCHEDULE_TIMES = 6  # 每天最多几个自动更新时间点（09:30/12:00/17:30… 3 个已够，留余量）
 
 
@@ -426,6 +434,29 @@ def save_settings(cfg, root, payload: dict) -> dict:
         oss = bool(payload.get("overall_see_salary"))
         cfg["overall_see_salary"] = oss
         updates["overall_see_salary"] = oss
+    # 任务书43：飞书 webhook / 日志保留 / 磁盘阈值 → 本地覆盖层（不进 git）
+    if "feishu_webhook_url" in payload:
+        wh = str(payload.get("feishu_webhook_url") or "").strip()
+        cfg["feishu_webhook_url"] = wh
+        updates["feishu_webhook_url"] = wh
+    if "run_log_keep_days" in payload:
+        try:
+            rkd = int(payload.get("run_log_keep_days"))
+        except (TypeError, ValueError):
+            raise ValueError("运行日志保留天数须为整数")
+        if not (30 <= rkd <= 3650):
+            raise ValueError("运行日志保留天数须在 30~3650 之间")
+        cfg["run_log_keep_days"] = rkd
+        updates["run_log_keep_days"] = rkd
+    if "disk_free_min_ratio" in payload:
+        try:
+            dfr = float(payload.get("disk_free_min_ratio"))
+        except (TypeError, ValueError):
+            raise ValueError("磁盘告警阈值须为 0~1 小数")
+        if not (0.01 <= dfr <= 0.5):
+            raise ValueError("磁盘告警阈值须在 1%~50% 之间")
+        cfg["disk_free_min_ratio"] = dfr
+        updates["disk_free_min_ratio"] = dfr
     loaders.write_local_config(cfg, root, updates)
 
     zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
@@ -460,6 +491,9 @@ def save_settings(cfg, root, payload: dict) -> dict:
         "zhiyun_auto_fetch": auto,
         "ledger_share_path": cfg.get("ledger_share_path", ""),
         "overall_see_salary": bool(cfg.get("overall_see_salary", False)),
+        "feishu_webhook_url": cfg.get("feishu_webhook_url", "") or "",
+        "run_log_keep_days": int(cfg.get("run_log_keep_days", 365) or 365),
+        "disk_free_min_ratio": float(cfg.get("disk_free_min_ratio", 0.10) or 0.10),
         "note": note,
     }
 

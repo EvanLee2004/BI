@@ -32,7 +32,10 @@ class _RedactFilter(logging.Filter):
 
 
 def setup_logging(cfg: dict | None = None, root: Path | None = None) -> Path | None:
-    """幂等配置 root logger + 文件滚动。返回日志文件路径。"""
+    """幂等配置 root logger + 文件滚动；并把 builtins.print 双写到日志（任务书43 收编 print）。
+
+    只在 serve() 调用，测试进程不改 print。脱敏过滤器挂在 handler 上。
+    """
     global _CONFIGURED
     if _CONFIGURED:
         return None
@@ -53,6 +56,22 @@ def setup_logging(cfg: dict | None = None, root: Path | None = None) -> Path | N
             root_logger.addHandler(fh)
         # 也给 kanban.* 用
         logging.getLogger("kanban").addFilter(_RedactFilter())
+        # 收编 print → 文件日志（控制台/journald 仍保留）
+        import builtins
+
+        _orig_print = builtins.print
+        _stdout_log = logging.getLogger("kanban.stdout")
+
+        def _print_to_log(*args, **kwargs):
+            try:
+                msg = " ".join(str(a) for a in args)
+                if msg.strip():
+                    _stdout_log.info("%s", msg)
+            except Exception:
+                pass
+            return _orig_print(*args, **kwargs)
+
+        builtins.print = _print_to_log  # type: ignore[assignment]
         _CONFIGURED = True
         return log_path
     except Exception:
