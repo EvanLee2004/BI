@@ -17,6 +17,7 @@
 ```bash
 KANBAN_OFFLINE=1 sh tests/run_verify.sh; echo $?
 .venv/bin/python tests/run_test.py tests/test_xxx.py
+# 任务书37：test_task37_ui / test_task37_filters / test_task37_expense_perm / test_task37_fetch_banner
 ```
 
 ## 质量闸（开发机）
