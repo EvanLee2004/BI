@@ -12,6 +12,7 @@ export LC_ALL="${LC_ALL:-C.UTF-8}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 
+# 解释器：优先 venv（由系统 python3 建，见 MADR-0010）；勿写死带小版本号的解释器路径
 if [ -x "$ROOT/.venv/bin/python" ]; then
   PY="$ROOT/.venv/bin/python"
 else

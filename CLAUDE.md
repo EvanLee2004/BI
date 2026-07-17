@@ -17,7 +17,7 @@
                   └▶ ④ profit → summary
                        └▶ ⑤ 展示：看端 static/ + shell；管理端 static/admin/ + /admin/app.js
 ```
-- **当前状态（v1.6.0-beta · 2026-07-16 · 任务书42）**：Ubuntu 22.04 主部署线（`deploy/linux/*` + 手册）+ Windows legacy；看端费用明细**白名单列**（口径人=业务员）+ 起止月真筛；KPI 略放大、双血条 45/55；回款卡头预算小字已删。看端与管理端前后端分离（static）。**库内金额 INTEGER 分**；WAL。算账/32 周期红线未改。
+- **当前状态（v2.0.0-beta · 2026-07-17 · 任务书50）**：主部署线 **Ubuntu 26.04**（系统 python3≥3.12 建 venv，MADR-0010；nginx 发 dist + 反代 API）+ Windows legacy；看端 Vue 真组件 + 明细**白名单列**（口径人=业务员）；登录明文+踢会话。**库内金额 INTEGER 分**；WAL。算账/32 周期红线未改。
 - **现状边界**：①抓数层智云自动抓已建成；②~⑤已实现。数据库是后端私有资产；浏览器只经 HTTP。
 - **契约（接缝=进料口）**：换数据源/抓取方式只动上游与 readers，进料口以下不动。
 - **测试规模**：**60** 个 `test_*.py` / **602** 个 `def test_`（2026-07-16 源码重数，与 run_verify 登记一致）；`sh tests/run_verify.sh` 一键绿。

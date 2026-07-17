@@ -2,6 +2,7 @@
 # 对应落地包：KANBAN_OFFLINE=1 sh tests/run_verify.sh + pre-commit --all-files
 # 防假绿：必须用仓库内 tests/fixtures/ci_data 播种 数据/；缺 fixtures 显式失败
 # 任务书50·D.4：dist 与 git 一致（硬闸）；pip-audit/npm audit 高危硬闸
+# 任务书50·D.6：部署目标 Ubuntu 26.04；CI 用 ubuntu-latest + Python 3.12（与系统 python3≥3.12 策略对齐，不绑 22.04 runner）
 name: verify
 
 on:

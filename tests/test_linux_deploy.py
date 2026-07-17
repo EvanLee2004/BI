@@ -22,7 +22,14 @@ LINUX = ROOT / "deploy" / "linux"
 
 class TestLinuxDeployAssets(unittest.TestCase):
     def test_assets_exist(self):
-        for name in ("kanban.service", "start_with_rollback.sh", "register_schedule.sh", "README.md"):
+        # 五件套（任务书50·D.6）：service / 看门狗 / cron / nginx / README
+        for name in (
+            "kanban.service",
+            "start_with_rollback.sh",
+            "register_schedule.sh",
+            "nginx-kanban.conf",
+            "README.md",
+        ):
             p = LINUX / name
             self.assertTrue(p.is_file(), f"缺 {p}")
 
@@ -40,6 +47,30 @@ class TestLinuxDeployAssets(unittest.TestCase):
         self.assertIn("RestartSec=3", text)
         self.assertIn("start_with_rollback.sh", text)
         self.assertIn("StartLimitBurst=5", text)
+
+    def test_ubuntu26_python_strategy_docs_and_scripts(self):
+        """任务书50·D.6：26.04 + 系统 python3；脚本不写死 deadsnakes/python3.12 路径。"""
+        readme = (LINUX / "README.md").read_text(encoding="utf-8")
+        self.assertIn("26.04", readme)
+        self.assertIn("0010", readme)
+        for name in ("start_with_rollback.sh", "register_schedule.sh"):
+            sh = (LINUX / name).read_text(encoding="utf-8")
+            self.assertIn("python3", sh)
+            self.assertNotIn("deadsnakes", sh)
+            # 实际命令不得绑定小版本解释器路径（注释可提及策略）
+            for line in sh.splitlines():
+                s = line.strip()
+                if s.startswith("#"):
+                    continue
+                self.assertNotIn("python3.12", s, f"{name} 非注释行写死小版本：{s}")
+        madr = (ROOT / "docs" / "madr" / "0010_python_version_ubuntu26.md").read_text(encoding="utf-8")
+        self.assertIn("SUPERSEDED", (ROOT / "docs" / "madr" / "0002_python_version_ubuntu22.md").read_text(encoding="utf-8"))
+        self.assertIn("python3 -m venv", madr)
+        self.assertIn("install-deps chromium", madr)
+        hb = (ROOT / "docs" / "Ubuntu部署手册.md").read_text(encoding="utf-8")
+        self.assertIn("Ubuntu 26.04", hb)
+        self.assertIn("playwright install-deps chromium", hb)
+        self.assertNotIn("ppa:deadsnakes", hb)
 
 
 class TestStartWithRollbackThreeStates(unittest.TestCase):

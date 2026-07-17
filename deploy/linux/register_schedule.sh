@@ -10,6 +10,7 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+# 解释器：优先 venv（系统 python3 建，MADR-0010）；勿写死带小版本号的解释器路径
 if [ -x "$ROOT/.venv/bin/python" ]; then
   PY="$ROOT/.venv/bin/python"
 else
