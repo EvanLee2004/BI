@@ -3,12 +3,13 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
-const trend = computed(() => (store.vm?.trend || {}) as Record<string, unknown>)
+const trend = computed((): Partial<TrendVM> => store.vm?.trend || {})
 
 /** 后端 ticks 精确匹配（禁最近刻度扫描）。 */
-function tickLabel(ticks: { value: number; label: string }[], val: number): string {
+function tickLabel(ticks: AxisTick[], val: number): string {
   for (const t of ticks) {
     if (Math.abs(Number(t.value) - Number(val)) < 1e-9) return t.label
   }
@@ -17,19 +18,18 @@ function tickLabel(ticks: { value: number; label: string }[], val: number): stri
 
 const option = computed(() => {
   const t = trend.value
-  const labels = (t.labels as string[]) || []
-  const rev = (t.revenue as number[]) || []
-  const cost = (t.cost as number[]) || []
-  const margin = (t.margin_pct as number[]) || []
-  const revD = (t.revenue_disp as string[]) || []
-  const costD = (t.cost_disp as string[]) || []
-  const marD = (t.margin_pct_disp as string[]) || []
-  const ticks = (t.y_axis_ticks as { value: number; label: string }[]) || []
-  const maxV = (t.y_axis_max as number) || (ticks.length ? ticks[ticks.length - 1].value : undefined)
+  const labels = t.labels || []
+  const rev = t.revenue || []
+  const cost = t.cost || []
+  const margin = t.margin_pct || []
+  const revD = t.revenue_disp || []
+  const costD = t.cost_disp || []
+  const marD = t.margin_pct_disp || []
+  const ticks = t.y_axis_ticks || []
+  const maxV = t.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
   const interval =
-    (t.y_axis_interval as number) ||
-    (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
-  const minV = (t.y_axis_min as number) ?? 0
+    t.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
+  const minV = t.y_axis_min ?? 0
   return {
     tooltip: {
       trigger: 'axis',

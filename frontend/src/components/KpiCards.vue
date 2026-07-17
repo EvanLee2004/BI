@@ -1,35 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import type { KpiCard } from '../types/vm'
 
 const store = useCockpitStore()
 
-type Card = {
-  label: string
-  period_tag?: string
-  value_disp: string
-  value_unit?: string
-  delta?: { show?: boolean; cls?: string; text?: string }
-  subs?: { label: string; value_disp: string }[]
-  target?: {
-    empty?: boolean
-    kind?: string
-    label?: string
-    tgt_disp?: string
-    done_disp?: string
-    cur_disp?: string
-    pct_disp?: string
-    bar_w?: number
-    cls?: string
-  } | null
-  bu_orders?: { name: string; amount_disp: string; badge_disp: string; bar_w: number; cls: string; tip: string }[]
-  feet?: { kind: string; label: string; value_disp: string }[]
-  src?: string
-}
-
-const cards = computed((): Card[] => {
-  const kpi = store.vm?.kpi as { cards_by_period?: Record<string, Card[]> } | undefined
-  return kpi?.cards_by_period?.[store.period] || []
+const cards = computed((): KpiCard[] => {
+  return store.vm?.kpi?.cards_by_period?.[store.period] || []
 })
 </script>
 <template>

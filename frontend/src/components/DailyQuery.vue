@@ -5,38 +5,21 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import type { RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
 
-const dailyMeta = computed(() => (store.vm?.daily as { year?: number; default_start?: string; default_end?: string }) || {})
+const dailyMeta = computed(() => store.vm?.daily || { year: 0, default_start: '', default_end: '', year_key: '' })
 const start = ref('')
 const end = ref('')
 const handEdit = ref(false)
 const loading = ref(false)
 const err = ref('')
 const sumText = ref('')
-const dual = ref<{ sales?: unknown; customer?: unknown } | null>(null)
-
-type DualItem = {
-  i: number
-  name: string
-  wo?: number
-  wr?: number
-  order_disp?: string
-  receipt_disp?: string
-}
-type DualBlk = {
-  title?: string
-  dim?: string
-  items?: DualItem[]
-  others?: { names?: number | string; amt?: string }
-  empty?: boolean
-  full_items?: DualItem[]
-}
+const dual = ref<{ sales?: RankViewBlk; customer?: RankViewBlk } | null>(null)
 
 function datesForPeriod(key: string): { s: string; e: string } {
-  const rk = store.vm?.rankings as { rankings_view?: Record<string, { start?: string; end?: string }> } | undefined
-  const v = rk?.rankings_view?.[key]
+  const v = store.vm?.rankings?.rankings_view?.[key]
   if (v?.start && v?.end) return { s: v.start, e: v.end }
   const y = dailyMeta.value.year || new Date().getFullYear()
   return { s: `${y}-01-01`, e: `${y}-12-31` }
@@ -94,7 +77,7 @@ async function runQuery() {
 
 function restoreYear() {
   handEdit.value = false
-  const yk = (store.vm?.year_key as string) || ''
+  const yk = store.vm?.year_key || ''
   if (yk) store.setPeriod(yk)
   syncFromPeriod()
   dual.value = null
@@ -107,8 +90,8 @@ function pct(v: unknown): string {
   return (Number.isFinite(n) ? n : 0).toFixed(1)
 }
 
-const sales = computed(() => (dual.value?.sales || null) as DualBlk | null)
-const customer = computed(() => (dual.value?.customer || null) as DualBlk | null)
+const sales = computed((): RankViewBlk | null => dual.value?.sales || null)
+const customer = computed((): RankViewBlk | null => dual.value?.customer || null)
 </script>
 <template>
   <div class="card daily-card" id="dailyPanel">

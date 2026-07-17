@@ -3,15 +3,16 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import type { ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
-const exp = computed(() => (store.vm?.expense || {}) as Record<string, unknown>)
+const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
 
 const option = computed(() => {
   const e = exp.value
-  const labels = (e.area_labels as string[]) || []
-  const seriesIn = (e.area_series as { name: string; data: number[]; data_disp: string[] }[]) || []
-  const totals = (e.area_totals_disp as string[]) || []
+  const labels = e.area_labels || []
+  const seriesIn = e.area_series || []
+  const totals = e.area_totals_disp || []
   return {
     tooltip: {
       trigger: 'axis',

@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchBuVm, fetchCockpitVm } from '../api/client'
+import type { PageVM } from '../types/vm'
 
 export const useCockpitStore = defineStore('cockpit', () => {
   const period = ref('')
-  const vm = ref<Record<string, unknown> | null>(null)
+  const vm = ref<PageVM | null>(null)
   const loading = ref(false)
   const error = ref('')
   const scope = ref<'main' | 'bu'>('main')
@@ -13,9 +14,9 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const buNames = ref<string[]>([])
   const buNavLabel = ref('业务 BU 分页')
 
-  function applyNavFromVm(data: Record<string, unknown>) {
+  function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
-    buNames.value = Array.isArray(names) ? (names as string[]) : []
+    buNames.value = Array.isArray(names) ? names : []
     buNavLabel.value = String(data.bu_nav_label || '业务 BU 分页')
   }
 
@@ -28,8 +29,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
       scope.value = 'main'
       buName.value = ''
       applyNavFromVm(data)
-      const keys = (data.period_keys as string[]) || []
-      period.value = (data.year_key as string) || keys[0] || ''
+      const keys = data.period_keys || []
+      period.value = data.year_key || keys[0] || ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -46,8 +47,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
       vm.value = data
       scope.value = 'bu'
       applyNavFromVm(data)
-      const keys = (data.period_keys as string[]) || []
-      period.value = (data.year_key as string) || keys[0] || ''
+      const keys = data.period_keys || []
+      period.value = data.year_key || keys[0] || ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {

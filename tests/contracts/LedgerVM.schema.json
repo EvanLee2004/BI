@@ -20,6 +20,16 @@
       },
       "title": "Forbidden Columns",
       "type": "array"
+    },
+    "period_months": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Period Months",
+      "type": "object"
     }
   },
   "title": "LedgerVM",

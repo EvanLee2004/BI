@@ -2,33 +2,20 @@
 /** 板块三：收入与毛利结构 — 真组件 + 其余弹窗 */
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import type { ProfitRankPeriod, RankItem, RankSide } from '../types/vm'
 
 const store = useCockpitStore()
 
-type Item = { i: number; name: string; revenue_disp: string; margin_disp?: string; bar_w?: number }
-type Side = {
-  title?: string
-  dim?: string
-  conc_disp?: string
-  items?: Item[]
-  others?: { names?: number | string; amt_disp?: string; margin_disp?: string }
-  empty?: boolean
-  full_items?: Item[]
-  show_meta?: boolean
-}
-type Pack = { start?: string; end?: string; customer?: Side; sales?: Side }
-
-const pack = computed((): Pack | null => {
-  const r = store.vm?.rankings as { profit_rank_by_period?: Record<string, Pack> } | undefined
-  return r?.profit_rank_by_period?.[store.period] || null
+const pack = computed((): ProfitRankPeriod | null => {
+  return store.vm?.rankings?.profit_rank_by_period?.[store.period] || null
 })
 
 const modal = ref(false)
 const modalTitle = ref('')
-const modalItems = ref<Item[]>([])
+const modalItems = ref<RankItem[]>([])
 const showMeta = ref(true)
 
-function openOthers(side: Side) {
+function openOthers(side: RankSide) {
   modalTitle.value = (side.title || '') + ' · 完整排名'
   modalItems.value = side.full_items || []
   showMeta.value = !!side.show_meta

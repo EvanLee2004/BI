@@ -68,6 +68,21 @@
       "title": "Y Axis Ticks",
       "type": "array"
     },
+    "y_axis_min": {
+      "default": 0.0,
+      "title": "Y Axis Min",
+      "type": "number"
+    },
+    "y_axis_max": {
+      "default": 0.0,
+      "title": "Y Axis Max",
+      "type": "number"
+    },
+    "y_axis_interval": {
+      "default": 0.0,
+      "title": "Y Axis Interval",
+      "type": "number"
+    },
     "summary_by_period": {
       "additionalProperties": {
         "additionalProperties": {

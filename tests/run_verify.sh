@@ -10,13 +10,18 @@ PY=python3
 [ -x .venv/bin/python ] && PY=.venv/bin/python
 JOBS="${KANBAN_VERIFY_JOBS:-4}"
 echo "用解释器：$PY  并行 jobs=$JOBS"
-echo "[1/4] 语法检查"
+echo "[1/5] 语法检查"
 $PY -m py_compile src/*.py src/ingest/*.py src/routes/*.py run.py tests/*.py
-echo "[2/4] 端到端生成"
+# 任务书51·B8：前端契约类型检查（vue-tsc --noEmit）
+if [ -d frontend/node_modules ] && [ -f frontend/package.json ]; then
+  echo "[1b/5] 前端 vue-tsc --noEmit"
+  (cd frontend && npm run typecheck) || exit 1
+fi
+echo "[2/5] 端到端生成"
 $PY run.py >/dev/null
-echo "[3/4] 回归红线：从库算 == 从文件算（一分不差）"
+echo "[3/5] 回归红线：从库算 == 从文件算（一分不差）"
 $PY tests/regress_db_vs_files.py
-echo "[4/4] 回归测试"
+echo "[4/5] 回归测试"
 # 写库 / generate / 全局锁 / HTTP 服务态
 SERIAL="
 tests/test_cockpit.py

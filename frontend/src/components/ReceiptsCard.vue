@@ -3,11 +3,12 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import type { AxisTick, ReceiptsVM } from '../types/vm'
 
 const store = useCockpitStore()
-const r = computed(() => (store.vm?.receipts || {}) as Record<string, unknown>)
+const r = computed((): Partial<ReceiptsVM> => store.vm?.receipts || {})
 
-function tickLabel(ticks: { value: number; label: string }[], val: number): string {
+function tickLabel(ticks: AxisTick[], val: number): string {
   for (const t of ticks) {
     if (Math.abs(Number(t.value) - Number(val)) < 1e-9) return t.label
   }
@@ -15,17 +16,16 @@ function tickLabel(ticks: { value: number; label: string }[], val: number): stri
 }
 
 const option = computed(() => {
-  const labels = (r.value.labels as string[]) || []
-  const recs = (r.value.receipts as number[]) || []
-  const ords = (r.value.orders as number[]) || []
-  const rd = (r.value.receipts_disp as string[]) || []
-  const od = (r.value.orders_disp as string[]) || []
-  const ticks = (r.value.y_axis_ticks as { value: number; label: string }[]) || []
-  const maxV = (r.value.y_axis_max as number) || (ticks.length ? ticks[ticks.length - 1].value : undefined)
+  const labels = r.value.labels || []
+  const recs = r.value.receipts || []
+  const ords = r.value.orders || []
+  const rd = r.value.receipts_disp || []
+  const od = r.value.orders_disp || []
+  const ticks = r.value.y_axis_ticks || []
+  const maxV = r.value.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
   const interval =
-    (r.value.y_axis_interval as number) ||
-    (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
-  const minV = (r.value.y_axis_min as number) ?? 0
+    r.value.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
+  const minV = r.value.y_axis_min ?? 0
   return {
     tooltip: {
       trigger: 'axis',
@@ -71,7 +71,7 @@ const option = computed(() => {
     animationDuration: 700,
   }
 })
-const hasSeries = computed(() => ((r.value.labels as string[]) || []).length > 0)
+const hasSeries = computed(() => (r.value.labels || []).length > 0)
 </script>
 <template>
   <div class="card rc-card">

@@ -113,8 +113,7 @@ async function exportXlsx() {
 watch(
   () => [store.period, store.vm?.ledger] as const,
   ([k]) => {
-    const pm = (store.vm?.ledger as { period_months?: Record<string, { month_from?: string; month_to?: string }> } | undefined)
-      ?.period_months
+    const pm = store.vm?.ledger?.period_months
     const range = (k && pm && pm[String(k)]) || { month_from: '', month_to: '' }
     monthFrom.value = range.month_from || ''
     monthTo.value = range.month_to || ''

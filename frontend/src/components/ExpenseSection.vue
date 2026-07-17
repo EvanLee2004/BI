@@ -3,39 +3,29 @@
 import { computed, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
-const exp = computed(() => (store.vm?.expense || {}) as Record<string, unknown>)
+const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
 const mode = ref<'donut' | 'fine' | 'pc' | 'dept'>('donut')
 
 const items = computed(() => {
-  const by =
-    (exp.value.donut_by_period as Record<
-      string,
-      { name: string; value: number; value_disp: string; pct_disp: string }[]
-    >) || {}
+  const by = exp.value.donut_by_period || {}
   return by[store.period] || []
 })
 const center = computed(() => {
-  const by = (exp.value.donut_center_by_period as Record<string, { title?: string; total_disp?: string }>) || {}
+  const by = exp.value.donut_center_by_period || {}
   return by[store.period] || { title: '期间费用', total_disp: '' }
 })
 const views = computed(() => {
-  const by = (exp.value.views_by_period as Record<string, Record<string, unknown>>) || {}
-  return by[store.period] || {}
+  const by = exp.value.views_by_period || {}
+  return by[store.period] || { total_disp: '', by_category: [], by_pc: [], by_dept: [] }
 })
-type HBarRow = {
-  key: string
-  name: string
-  amt_disp: string
-  bar_w: number
-  fine?: { name: string; amt_disp: string }[]
-}
 
-const hbar = computed((): HBarRow[] => {
-  if (mode.value === 'fine') return (views.value.by_category as HBarRow[]) || []
-  if (mode.value === 'pc') return (views.value.by_pc as HBarRow[]) || []
-  if (mode.value === 'dept') return (views.value.by_dept as HBarRow[]) || []
+const hbar = computed((): ExpenseHBar[] => {
+  if (mode.value === 'fine') return views.value.by_category || []
+  if (mode.value === 'pc') return views.value.by_pc || []
+  if (mode.value === 'dept') return views.value.by_dept || []
   return []
 })
 

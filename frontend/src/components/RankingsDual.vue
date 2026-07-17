@@ -6,43 +6,19 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import type { RankItem, RankView, RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
 
-type DualItem = {
-  i: number
-  name: string
-  wo?: number
-  wr?: number
-  order_disp?: string
-  receipt_disp?: string
-  mkey?: string
-}
-type DualBlk = {
-  title?: string
-  dim?: string
-  items?: DualItem[]
-  others?: { names?: number | string; amt?: string; count?: number | string }
-  empty?: boolean
-  embed_full?: boolean
-  full_items?: DualItem[]
-}
-type RankView = {
-  visible?: boolean
-  start?: string
-  end?: string
-  sales?: DualBlk
-  customer?: DualBlk
-}
+type DualItem = RankItem
+type DualBlk = RankViewBlk
 
 const view = computed((): RankView | null => {
-  const rk = store.vm?.rankings as { rankings_view?: Record<string, RankView> } | undefined
-  return rk?.rankings_view?.[store.period] || null
+  return store.vm?.rankings?.rankings_view?.[store.period] || null
 })
 
 const monthly = computed(() => {
-  const rk = store.vm?.rankings as { rankings_monthly_data?: Record<string, DualItem[]> } | undefined
-  return rk?.rankings_monthly_data || {}
+  return store.vm?.rankings?.rankings_monthly_data || {}
 })
 
 const modal = ref(false)
@@ -164,7 +140,7 @@ function pct(v: unknown): string {
           <div style="height: 320px">
             <EchartsHost
               :option="barOption(blk)"
-              @click="(p: { dataIndex?: number }) => onChartClick(blk, p)"
+              @click="(p) => onChartClick(blk, p)"
             />
           </div>
           <div

@@ -1,34 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import type { PLDetail, PLTablePeriod } from '../types/vm'
 
 const store = useCockpitStore()
 
-type Line = { name: string; amt_disp: string; kind?: string; sub?: boolean }
-type Detail = { title: string; lines: Line[] }
-type Row = {
-  name: string
-  amt_disp: string
-  kind?: string
-  formula?: string
-  open_key?: string | null
-  total?: boolean
-  grand?: boolean
-  is_pct?: boolean
-}
-
-const table = computed(() => {
-  const pl = store.vm?.pl as {
-    table_by_period?: Record<string, { rows: Row[]; details: Record<string, Detail> }>
-    pl_tag?: string
-  } | undefined
-  return pl?.table_by_period?.[store.period] || { rows: [], details: {} }
+const table = computed((): PLTablePeriod => {
+  return store.vm?.pl?.table_by_period?.[store.period] || { rows: [], details: {} }
 })
-const plTag = computed(() => (store.vm?.pl as { pl_tag?: string } | undefined)?.pl_tag || '')
+const plTag = computed(() => store.vm?.pl?.pl_tag || '')
 
 const openKey = ref<string | null>(null)
 const drawerOpen = computed(() => !!openKey.value)
-const detail = computed((): Detail | null => {
+const detail = computed((): PLDetail | null => {
   if (!openKey.value) return null
   return (table.value.details || {})[openKey.value] || null
 })
