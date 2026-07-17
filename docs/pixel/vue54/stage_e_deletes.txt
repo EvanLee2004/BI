@@ -1,0 +1,32 @@
+=== stage E deletes 2026-07-17T09:06:01Z ===
+DEL static/templates/render/dual_monthly.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL static/templates/render/budget_tag_part.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL static/templates/render/dual_month_row.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL static/templates/render/rankings_grid.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL static/templates/render/rc_hero.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL static/templates/partials/login_err.html
+  why: zero string refs in src/static/tests (rg)
+  residual: ZERO
+DEL src/docs/ (empty dir)
+KEEP: static/shell*, render*, frontend=legacy, golden/, 数据/, .update_rollback, tests/
+KEEP_OK static/shell.html
+KEEP_OK static/shell-bu.html
+KEEP_OK src/render.py
+KEEP_OK src/render_shell.py
+KEEP_OK src/render_widgets.py
+
+=== 待拍板（未删）===
+- docs/v1.4前后端分离交付说明.md / v1.5* / 2026071* 任务书交付报告：历史归档，有审计价值
+- viewmodels HTML body_by_period deprecated 字段：VM 契约只加不删
+- domain.config_engine 表与内核：54 保留
+- package-lock win32 optional deps：npm 平台可选依赖，非业务代码
