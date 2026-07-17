@@ -133,21 +133,19 @@ def main() -> int:
 
     real = [e for e in console_errs if e and "favicon" not in e.lower()]
     (OUT / "console.txt").write_text("\n".join(real) + "\n", encoding="utf-8")
-    notes = [
-        "# compare_notes（结构判断，无真实金额/客户名）",
-        f"shots={len(list(OUT.glob('*.png')))}",
-        f"console_errs={len(real)}",
-        "kpi: 五列+大字+左边条 — 对照视口1",
-        "sec: 青编号块+装饰线 — V1",
-        "trend: 青/灰柱+金黄毛利率线+底图例 — 视口2",
-        "donut: 饼周无标、底横排图例 — 视口2",
-        "pl: 铺满+源徽标 — 视口2",
-        "expense_trend: 多系列折线 — V7",
-        "receipts: 紫/青双柱+1-12月 — 视口4气质",
-        "rank: 放大双条 — 视口",
-        "PASS structural if shots exist and console 0",
-    ]
-    (OUT / "compare_notes.txt").write_text("\n".join(notes) + "\n", encoding="utf-8")
+    # 不写硬编码 PASS 假笔记。仅落拍摄日志；目检结论由实现者手写 compare_notes.txt。
+    (OUT / "shot_manifest.txt").write_text(
+        "\n".join(
+            [
+                f"shots={len(list(OUT.glob('*.png')))}",
+                f"console_errs={len(real)}",
+                "NOTE: open each PNG and write compare_notes.txt by hand (no auto PASS).",
+            ]
+            + log
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (SCRATCH / "playwright_54p2.log").write_text("\n".join(log) + "\n", encoding="utf-8")
     print("\n".join(log[-25:]))
     print("console", len(real), "png", len(list(OUT.glob("*.png"))))

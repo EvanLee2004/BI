@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 看板登录 · 54.2 深空气质壳（纯样式，无新库） */
 import { ref } from 'vue'
 import SciFiPanel from './SciFiPanel.vue'
 
@@ -26,20 +27,79 @@ async function submit() {
 }
 </script>
 <template>
-  <div class="wrap login-wrap" style="max-width: 400px; padding: 64px 24px">
-    <SciFiPanel title="看板登录" state="normal">
-      <p class="muted" style="margin: 0 0 6px">账号</p>
-      <input v-model="account" class="scifi-input" style="width: 100%; margin-bottom: 12px" />
-      <p class="muted" style="margin: 0 0 6px">密码</p>
-      <input
-        v-model="password"
-        type="password"
-        class="scifi-input"
-        style="width: 100%; margin-bottom: 12px"
-        @keyup.enter="submit"
-      />
-      <button class="dsdk-button" type="button" @click="submit">登录</button>
-      <p v-if="msg" style="color: var(--neg)">{{ msg }}</p>
-    </SciFiPanel>
+  <div class="login-page">
+    <div class="login-card-host">
+      <SciFiPanel title="看板登录" panel-class="login-panel">
+        <p class="login-sub muted">甲骨易 · 智能经营罗盘</p>
+        <label class="login-lab">账号</label>
+        <input
+          v-model="account"
+          class="scifi-input login-input"
+          autocomplete="username"
+          autofocus
+        />
+        <label class="login-lab">密码</label>
+        <input
+          v-model="password"
+          type="password"
+          class="scifi-input login-input"
+          autocomplete="current-password"
+          @keyup.enter="submit"
+        />
+        <button class="dsdk-button login-btn" type="button" @click="submit">登录</button>
+        <p v-if="msg" class="login-err">{{ msg }}</p>
+      </SciFiPanel>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  box-sizing: border-box;
+}
+.login-card-host {
+  width: min(400px, 100%);
+}
+.login-sub {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+.login-lab {
+  display: block;
+  font-size: 12.5px;
+  color: var(--mut, #93a1c0);
+  margin: 0 0 6px;
+}
+.login-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+}
+.login-btn {
+  width: 100%;
+  margin-top: 4px;
+  cursor: pointer;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #0891b2, #22d3ee);
+  color: #04101c;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
+}
+.login-btn:hover {
+  filter: brightness(1.06);
+}
+.login-err {
+  color: var(--neg, #fb7185);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+</style>

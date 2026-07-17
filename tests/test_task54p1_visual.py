@@ -136,6 +136,14 @@ class TestTask54p2DeepSpace(unittest.TestCase):
             src = p.read_text(encoding="utf-8")
             self.assertNotIn("v-html", src, p.name)
 
+    def test_rank_axis_no_truncate(self):
+        """V6：排名行名禁止 overflow truncate（54.2 补刀）。"""
+        src = (FE / "dual-rank-option.ts").read_text(encoding="utf-8")
+        self.assertNotIn("overflow: 'truncate'", src)
+        self.assertNotIn('overflow: "truncate"', src)
+        self.assertIn("overflow: 'break'", src)
+        self.assertIn("nameColW", src)
+
 
 if __name__ == "__main__":
     unittest.main()

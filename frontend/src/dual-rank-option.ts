@@ -29,9 +29,14 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
   const cR = '#2dd4bf'
   const n = Math.max(items.length, 1)
   /* 行高随条数放大：默认≥10 行时每行约 40px，最少 420 */
-  const chartH = Math.max(420, n * 42 + 48)
+  const chartH = Math.max(420, n * 44 + 56)
+  /* V6：行名不截断——按最长名估左栏，禁止 overflow:truncate */
+  const maxChars = names.reduce((m, s) => Math.max(m, String(s || '').length), 4)
+  const nameColW = Math.min(200, Math.max(112, maxChars * 13 + 8))
+  const leftPad = nameColW + 16
   return {
     _chartH: chartH,
+    _nameColW: nameColW,
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -46,7 +51,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
       textStyle: legendTextStyle(),
       top: 0,
     },
-    grid: { left: 132, right: 72, top: 36, bottom: 12, containLabel: false },
+    grid: { left: leftPad, right: 80, top: 36, bottom: 12, containLabel: false },
     xAxis: {
       type: 'value',
       max: 100,
@@ -56,11 +61,12 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
       type: 'category',
       data: names,
       axisLabel: {
-        width: 120,
-        overflow: 'truncate',
-        ellipsis: '…',
+        width: nameColW,
+        /* 不截断：过长则折行，禁止 truncate/ellipsis */
+        overflow: 'break',
         interval: 0,
-        ...axisLabelStyle({ fontSize: 12 }),
+        hideOverlap: false,
+        ...axisLabelStyle({ fontSize: 12, lineHeight: 16 }),
       },
       triggerEvent: true,
     },
