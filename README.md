@@ -5,7 +5,7 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.0.0-beta** | nginx → Vue(dist) → API v1(VM) → domain 模块 → 存储(SQLite) | 红线 32 周期 · Argon2 · 口径配置引擎 · 明细白名单 |
+| **v2.0.0-beta** | nginx → Vue(dist) → API v1(VM) → domain 模块 → 存储(SQLite) | 红线 32 周期 · 明文密码+踢会话 · 口径配置引擎 · 明细白名单 |
 
 ```bash
 python run.py             # 抓数 → 建库 → 算账 → 出 HTML
@@ -36,13 +36,21 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-17 · v2.0 · 任务书46）**  
-> 对照 `VERSION=2.0.0-beta`：逻辑链 **nginx → Vue(dist) → API v1(VM) → domain 模块 → 存储抽象(SQLite)**。  
-> legacy 壳 `static/shell.html` 仍可 `KANBAN_FRONTEND=legacy` 回退。部署拓扑（Ubuntu nginx / 直连）不变。  
-> 看端明细白名单；密码 Argon2；口径配置引擎；SQL 在 `db`/`db_write`/`schema`。  
+> **图集与代码对齐说明（2026-07-17 · v2.0 · 任务书50）**  
+> 对照 `VERSION=2.0.0-beta`：逻辑链 **nginx → Vue(dist) → API v1(VM 结构化) → domain 模块 → 存储抽象(SQLite)**。  
+> **生产标准** = nginx 发 dist + 反代 API（`deploy/linux/nginx-kanban.conf` · MADR-0009）；**简易模式** = `run.py --serve` 单进程。  
+> Vue 真组件（无 v-html）；看端明细任何会话白名单；明文密码 + 改密踢会话 + 防爆破。  
 > 手册：`docs/Ubuntu部署手册.md` · `docs/Windows部署手册.md` · `docs/Runbook.md` · `docs/api/契约与兼容策略.md`。
 
-五层单向数据流（展示层升级为 Vue + 版本化 VM API）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
+五层单向数据流（展示层 = Vue 真组件 + 版本化结构化 VM）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
+
+### 开发 vs 部署
+
+| 模式 | 怎么起 | 适用 |
+|------|--------|------|
+| **开发** | 终端1 `python run.py --serve`；终端2 `cd frontend && npm run dev`（vite proxy `/api→8018`） | 热更新 |
+| **简易预览** | `KANBAN_OFFLINE=1 python run.py --serve`（单进程发 dist+API） | 本机/Windows |
+| **生产 Ubuntu** | nginx:80 → dist + 反代 `127.0.0.1:8018` | 唯一推荐生产架构 |
 
 ### 1. 逻辑架构（主图）
 
@@ -54,8 +62,8 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 ② 清洗    规范化 → 行哈希定位键 → 重放人工调整
 ③ 存储    SQLite（std_/adj_/manual_/meta_/cfg_）· 读连接 mode=ro
 ④ 计算    domain(kpi/pl/expense/…) ← profit/render re-export · summary
-⑤ 展示    Vue dist(/app) ← GET /api/v1/vm/* (显示串+图表序列) · legacy fragments 可回退
-          管理端 static/admin · 口径配置 / 账号哈希重置
+⑤ 展示    Vue dist ← GET /api/v1/vm/*（结构化 *_disp + 图表序列）· 真组件事件
+          管理端 static/admin · 口径配置 / 账号明文👁
 ```
 
 | 契约 | 含义 |
