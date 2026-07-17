@@ -2,7 +2,7 @@
 # 注册 Linux cron：每天在「合并配置」(config.json + 数据/本地配置.json) 的 schedule_times
 # 每个时间点各跑一次 run.py --scheduled。
 # 选 cron 而非 systemd timer 的理由：无需 root、多时间点一行一条最简（见 docs/madr/0001_cron_vs_timer.md）。
-# 与 Windows 注册每日更新.bat 语义对齐；Windows 资产保留标 legacy。
+# 任务书54：Windows 注册脚本已删；本脚本是唯一注册入口。
 #
 # 用法：在程序根目录执行  bash deploy/linux/register_schedule.sh
 # 管理端「设置」保存时间点也会 best-effort 同步 crontab 哨兵段；失败再跑本脚本。
@@ -17,7 +17,7 @@ else
   PY="${PYTHON:-python3}"
 fi
 
-# 与 .bat 相同：必须走 loaders.load_config（F-02），不可直读 config.json
+# 必须走 loaders.load_config（F-02），不可直读 config.json
 TIMES="$("$PY" -c "import sys;sys.path.insert(0,'src');import loaders;c=loaders.load_config();ts=c.get('schedule_times') or [c.get('schedule_time') or '09:30'];print(' '.join(ts))")"
 if [ -z "${TIMES// }" ]; then
   TIMES="09:30"

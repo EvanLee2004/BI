@@ -132,7 +132,7 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
 
 # ---------------- 设置（config.json 可改项：自动更新时间/备份保留天数/在线抓开关） ----------------
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-SCHTASK_NAME = "经营驾驶舱每日更新"  # 与 注册每日更新.bat 里的 TN 一致
+# 任务书54·D：Windows 计划任务 / 启动脚本全线退役；定时同步仅 Linux crontab。
 
 EDITABLE_SETTINGS = (
     "schedule_time",
@@ -185,58 +185,6 @@ def get_schedule_times(cfg) -> list[str]:
         return normalize_schedule_times(cfg.get("schedule_time") or "09:30")
     except ValueError:
         return ["09:30"]
-
-
-def _schtask_command(root=None) -> str:
-    """计划任务要跑的命令：绝对路径 <解释器> <run.py> --scheduled（部署机=venv python）。
-
-    不用 cmd/cd：Windows 路径尾 \\ 在引号内会转义收尾引号（%%~dp0 经典坑）。
-    程序根由 run.py 的 __file__ 定位，计划任务默认 cwd 不影响。与 注册每日更新.bat 一致。
-    """
-    import sys
-
-    py = sys.executable or "python"
-    runpy = str((root or loaders.ROOT) / "run.py")
-    return f'"{py}" "{runpy}" --scheduled'
-
-
-def _win_task_names(n: int) -> list[str]:
-    """n 个时间点对应的计划任务名：第 1 个=主名（铁律，须与 .bat 一致），其余 _2.._n。"""
-    return [SCHTASK_NAME] + [f"{SCHTASK_NAME}_{i}" for i in range(2, n + 1)]
-
-
-def _win_sync_schedule(times: list[str], root=None) -> str:
-    """Windows：把计划任务同步成 times 里每个时间点各一个任务（主名 + _2.._n）。
-    先试 /Change（改已存在任务的时间，通常不需提权）→ 不存在则 /Create（可能需提权）；
-    再删掉多出来的编号任务（时间点变少时）。全程 best-effort + try/except，
-    **永不抛异常打断保存**；返回人读备注。非 Windows 不会走到这里。"""
-    import subprocess
-
-    tr = _schtask_command(root)
-    names = _win_task_names(len(times))
-    created = changed = failed = 0
-    try:
-        for name, t in zip(names, times):
-            r = subprocess.run(["schtasks", "/Change", "/TN", name, "/ST", t], capture_output=True, timeout=15)
-            if r.returncode == 0:
-                changed += 1
-                continue
-            rc = subprocess.run(
-                ["schtasks", "/Create", "/TN", name, "/SC", "DAILY", "/ST", t, "/TR", tr, "/F"],
-                capture_output=True,
-                timeout=15,
-            )
-            if rc.returncode == 0:
-                created += 1
-            else:
-                failed += 1
-        for i in range(len(times) + 1, MAX_SCHEDULE_TIMES + 2):  # 删多余编号任务
-            subprocess.run(["schtasks", "/Delete", "/TN", f"{SCHTASK_NAME}_{i}", "/F"], capture_output=True, timeout=15)
-    except Exception:
-        return "；⚠计划任务同步出错——请以管理员身份重跑 注册每日更新.bat"
-    if failed:
-        return f"；⚠有 {failed} 个时间点没同步成（多半需管理员权限）——请以管理员身份重跑 注册每日更新.bat"
-    return f"；计划任务已同步（{len(times)} 个时间点：{'、'.join(times)}）"
 
 
 # Linux crontab 哨兵（与 deploy/linux/register_schedule.sh 一致；绝不动段外行）
@@ -295,16 +243,17 @@ def _linux_sync_schedule(times: list[str], root=None) -> str:
 
 
 def sync_schedule(times: list[str], root=None) -> str:
-    """按平台同步定时更新：win32→schtasks；linux→crontab 哨兵段；其它（含 macOS 开发机）no-op 提示。
-    部署主线=Ubuntu cron；开发机不写本机 crontab，避免污染。"""
+    """任务书54·D：仅 Linux crontab 哨兵段；其它平台（含 macOS 开发机）no-op 提示。
+    Windows 定时载体已退役。部署主线=Ubuntu cron。"""
     import sys
 
-    plat = sys.platform
-    if plat == "win32":
-        return _win_sync_schedule(times, root)
-    if plat.startswith("linux"):
+    if sys.platform.startswith("linux"):
         return _linux_sync_schedule(times, root)
-    return f"（本机非部署平台：{len(times)} 个时间点在 Ubuntu 上由 cron 生效；可跑 deploy/linux/register_schedule.sh）"
+    times_s = "、".join(times) if times else "—"
+    return (
+        f"（本机非 Linux 部署平台：{len(times)} 个时间点（{times_s}）在 Ubuntu 上由 cron 生效；"
+        "请跑 deploy/linux/register_schedule.sh）"
+    )
 
 
 def _zhiyun_cfg_file(cfg, root=None) -> Path:
@@ -404,7 +353,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         times = normalize_schedule_times(payload["schedule_time"])
     else:
         times = get_schedule_times(cfg)
-    st = times[0]  # 旧字段镜像=最早的时间点（向后兼容 .bat / 读单值的地方）
+    st = times[0]  # 旧字段镜像=最早的时间点（向后兼容读单值）
     if "backup_keep_days" in payload:
         try:
             keep = int(payload.get("backup_keep_days"))

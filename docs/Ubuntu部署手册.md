@@ -4,7 +4,7 @@
 > **产品目录约定**：`/opt/kanban/看板正式程序`（也可放 home，权衡见 §1）。  
 > **形态**：**生产标准** = nginx:80 发 `frontend/dist` + 反代 `127.0.0.1:8018`（见 §nginx / MADR-0009）；uvicorn 仅回环。systemd 常驻 + cron 定时 + 智云/台账 CIFS。简易模式单进程 `--serve` 仅开发/预览。  
 > **修订**：2026-07-17 任务书50·D.6（22.04→26.04；系统 python3 建 venv）。原 2026-07-16 任务书40/42 基础仍有效。  
-> **Windows 手册**（`docs/Windows部署手册.md`）保留，标 **legacy**，回退保险。
+> **Windows 手册与 `.bat` 已于任务书54 删除**（部署机=Ubuntu 唯一线）。
 
 **不做**：Docker / K8s（现阶段裸 systemd 最简，见 `docs/madr/`）。
 

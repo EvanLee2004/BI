@@ -1,6 +1,6 @@
 # deploy/linux · Ubuntu **26.04** 部署资产（任务书50·D.6）
 
-Linux 为主部署线；根目录 `*.bat` / schtasks 逻辑**保留不删**（Windows legacy）。  
+Linux 为**唯一**部署线（任务书54：Windows `.bat` / schtasks 已全线退役）。  
 Python：系统 `python3`（≥3.12）建 venv，见 `docs/madr/0010_python_version_ubuntu26.md`。  
 **不**在脚本里写死 `python3.12` 或 deadsnakes 路径。
 

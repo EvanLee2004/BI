@@ -3,8 +3,12 @@
 """④ 一键更新 + 安全看门狗（2026-07-12 · 部署侧配套才完全激活）。
 
 职责：只做「检测远端有没有新版本」和「安全地 `git pull --ff-only` 拉取」。
-真正的**重启由看门狗脚本（看门狗启动.bat）接管**——服务进程不能干净重启自己，
-故拉取成功后本进程以特殊退出码 `RESTART_EXIT_CODE` 退出，看门狗据此用新代码重新拉起。
+真正的**重启由 Linux 看门狗** `deploy/linux/start_with_rollback.sh` 接管——服务进程
+不能干净重启自己，故拉取成功后本进程以特殊退出码 `RESTART_EXIT_CODE` 退出，
+看门狗据此用新代码重新拉起。
+
+任务书54·D：Windows `看门狗启动.bat` 已退役；退出码 42 与 `.update_rollback`
+自愈机制跨平台保留（载体仅 Linux 脚本）。
 
 护栏（安全第一：宁可不更新，也不弄坏部署机）：
 - **只认 fast-forward**：`git pull --ff-only`，绝不产生合并/变基/冲突；
@@ -26,7 +30,7 @@ from pathlib import Path
 
 import loaders
 
-RESTART_EXIT_CODE = 42  # 看门狗据此判「更新后重启」；须与 看门狗启动.bat 里的 42 一致
+RESTART_EXIT_CODE = 42  # 看门狗据此判「更新后重启」；须与 deploy/linux/start_with_rollback.sh 的 42 一致
 _TIMEOUT = 30  # 单条 git 命令默认超时（秒）
 _ROOT = Path(__file__).resolve().parent.parent  # 程序根=git 仓库工作区（.git/run.py 所在层）
 
@@ -275,7 +279,7 @@ def _alert_update_fail(root, detail: str) -> None:
 
 def request_restart(delay: float = 1.0) -> None:
     """触发进程重启：后台线程延时后以 RESTART_EXIT_CODE 退出（让 HTTP 响应先发回）；
-    看门狗据码用新代码重新拉起。**没有看门狗时=服务停掉**（部署手册要求用 看门狗启动.bat 起）。"""
+    看门狗据码用新代码重新拉起。**没有看门狗时=服务停掉**（部署手册要求用 deploy/linux/start_with_rollback.sh 起）。"""
 
     def _bye():
         time.sleep(max(0.1, delay))

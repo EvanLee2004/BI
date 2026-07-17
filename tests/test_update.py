@@ -5,7 +5,7 @@
 守卫点（明昊 2026-07-12 拍板：版本检测 git fetch 比对 + 按钮 git pull --ff-only + 看门狗重启 + 护栏）：
 - updater.check_update（真实临时 git 仓库）：已最新/落后可更新/脏工作区拒绝/分叉拒绝/非仓库不支持
 - updater.apply_update：落后+干净→ff 拉取成功 HEAD 前进；脏/分叉/已最新→拒绝不拉
-- RESTART_EXIT_CODE=42（须与 看门狗启动.bat 一致）；request_restart 不在测试里真跑
+- RESTART_EXIT_CODE=42（须与 deploy/linux/start_with_rollback.sh 一致）；request_restart 不在测试里真跑
 - `/api/update/check`、`/api/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
 - 控制台含一键更新 UI 锚点（checkUpdate/applyUpdate/vuAvail）
 """
@@ -205,10 +205,11 @@ class TestUpdaterGit(unittest.TestCase):
 class TestUpdateConstants(unittest.TestCase):
     def test_restart_code(self):
         self.assertEqual(updater.RESTART_EXIT_CODE, 42)
-        # 看门狗脚本里也必须是 42
-        bat = (ROOT / "看门狗启动.bat").read_text(encoding="utf-8")
-        self.assertIn("42", bat)
-        self.assertIn("run.py --serve", bat)
+        # Linux 看门狗脚本里也必须是 42（任务书54 退役 .bat）
+        sh = (ROOT / "deploy" / "linux" / "start_with_rollback.sh").read_text(encoding="utf-8")
+        self.assertIn("42", sh)
+        self.assertIn("run.py --serve", sh)
+        self.assertIn(".update_rollback", sh)
 
 
 class TestUpdateApi(unittest.TestCase):

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 看门狗启动（Linux）：常驻运行经营罗盘服务，支持管理端「一键更新」后自动重启 + 坏版本自愈。
-# 语义对齐根目录 看门狗启动.bat（Windows legacy 保留）：
+# 语义：退出码 42 重启 + .update_rollback 自愈（任务书54 仅 Linux）：
 #   - 退出码 42 = 一键更新后重启信号 → 用新代码重启，失败计数清零
 #   - 非 42 且存在 .update_rollback → 自动 git reset --hard 回滚一次再起（只一次，删标记）
 #   - 其它非 42：累计失败，连续 ≥5 次停下（配合 systemd StartLimitBurst）

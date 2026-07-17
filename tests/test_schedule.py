@@ -5,7 +5,7 @@
 守卫点（明昊 2026-07-12 拍板：单一每日时间 → 可添加/删除多个时间点，各到点各更新一次）：
 - normalize_schedule_times：接受 list/单串/分隔串；HH:MM 校验；去重、升序；空/非法/超上限 → ValueError
 - get_schedule_times：优先 schedule_times，缺失从旧 schedule_time 单值推导，坏值兜底 09:30
-- _win_task_names：第 1 个=主名（与 .bat 一致），其余 _2.._n
+- sync_schedule：仅 Linux crontab；非 Linux no-op（任务书54 退役 Windows schtasks/.bat）
 - /api/settings：GET 回 schedule_times；POST 列表→config 写 schedule_times + schedule_time(=最早)；
   兼容旧单值 schedule_time；列表含非法 → 400
 - 控制台含多时间点 UI 锚点（schedTimes / schedAdd / saveSchedule）
@@ -67,12 +67,28 @@ class TestGetTimes(unittest.TestCase):
         self.assertEqual(server.get_schedule_times({"schedule_times": ["坏"], "schedule_time": "坏"}), ["09:30"])
 
 
-class TestTaskNames(unittest.TestCase):
-    def test_naming(self):
-        self.assertEqual(server._win_task_names(1), [server.SCHTASK_NAME])
-        self.assertEqual(
-            server._win_task_names(3), [server.SCHTASK_NAME, f"{server.SCHTASK_NAME}_2", f"{server.SCHTASK_NAME}_3"]
-        )
+class TestSyncScheduleLinuxOnly(unittest.TestCase):
+    """任务书54·D：无 win32/schtasks 辅助；非 Linux 返回 cron 提示。"""
+
+    def test_no_win_helpers(self):
+        self.assertFalse(hasattr(server, "_win_task_names"))
+        self.assertFalse(hasattr(server, "_win_sync_schedule"))
+        self.assertFalse(hasattr(server, "SCHTASK_NAME"))
+        src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
+        # 可执行路径不得再调 Windows 计划任务（注释允许提「已退役」）
+        self.assertNotIn('["schtasks"', src)
+        self.assertNotIn("subprocess.run([\"schtasks\"", src)
+        self.assertNotIn('plat == "win32"', src)
+        self.assertNotIn("def _win_sync_schedule", src)
+
+    def test_sync_schedule_non_linux_message(self):
+        import sys
+
+        if sys.platform.startswith("linux"):
+            self.skipTest("本机是 Linux，测 no-op 需非 linux")
+        msg = server.sync_schedule(["09:30", "17:30"])
+        self.assertIn("cron", msg.lower())
+        self.assertIn("09:30", msg)
 
 
 class TestSettingsApi(unittest.TestCase):
@@ -167,13 +183,11 @@ class TestSettingsApi(unittest.TestCase):
             self.assertIn(anchor, html)
 
 
-class TestRegisterBatReadsMergedConfig(unittest.TestCase):
-    """守卫 F-02（2026-07-15 部署机实锤）：注册每日更新.bat 的时间点必须来自合并配置。
-    管理端保存的 schedule_times 只写 数据/本地配置.json 覆盖层（铁律19），
-    .bat 若直读 config.json 会永远拿到出厂默认 09:30、只注册一个任务。"""
+class TestRegisterScheduleScriptReadsMergedConfig(unittest.TestCase):
+    """守卫 F-02：register_schedule.sh 时间点必须来自合并配置（loaders.load_config）。
+    管理端保存的 schedule_times 只写 数据/本地配置.json 覆盖层（铁律19）。"""
 
-    def _bat_oneliner_times(self, root):
-        """与 注册每日更新.bat 内联 python 同一取值逻辑（loaders.load_config 合并后）。"""
+    def _merged_times(self, root):
         c = loaders.load_config(root=root)
         return c.get("schedule_times") or [c.get("schedule_time") or "09:30"]
 
@@ -187,7 +201,7 @@ class TestRegisterBatReadsMergedConfig(unittest.TestCase):
             ov.write_text(
                 json.dumps({"schedule_times": ["09:00", "12:00", "17:00"]}, ensure_ascii=False), encoding="utf-8"
             )
-            self.assertEqual(self._bat_oneliner_times(tmp), ["09:00", "12:00", "17:00"])
+            self.assertEqual(self._merged_times(tmp), ["09:00", "12:00", "17:00"])
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
@@ -195,18 +209,19 @@ class TestRegisterBatReadsMergedConfig(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         try:
             shutil.copy(ROOT / "config.json", tmp / "config.json")
-            ts = self._bat_oneliner_times(tmp)
+            ts = self._merged_times(tmp)
             self.assertTrue(ts, "至少兜底 09:30")
             for t in ts:
                 self.assertRegex(t, r"^\d{2}:\d{2}$")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_bat_file_uses_loaders_not_raw_config(self):
-        """锁死 .bat 文本本身：必须经 loaders.load_config，不许再出现直读 config.json 的 json.load。"""
-        bat = (ROOT / "注册每日更新.bat").read_text(encoding="utf-8")
-        self.assertIn("loaders.load_config", bat)
-        self.assertNotIn("json.load(open('config.json'))", bat)
+    def test_linux_script_uses_loaders_not_raw_config(self):
+        """锁死 register_schedule.sh：必须经 loaders.load_config。"""
+        sh = (ROOT / "deploy" / "linux" / "register_schedule.sh").read_text(encoding="utf-8")
+        self.assertIn("loaders.load_config", sh)
+        self.assertNotIn("json.load(open('config.json'))", sh)
+        self.assertNotIn("schtasks", sh)
 
 
 if __name__ == "__main__":
