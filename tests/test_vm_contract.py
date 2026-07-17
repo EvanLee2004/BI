@@ -111,8 +111,19 @@ class TestVmNumbersParity(unittest.TestCase):
             )
 
     def test_vm_display_strings_from_views(self):
+        """vue 默认：HTML 字段空；legacy：与 build_cockpit_views 同源（任务书51·B1）。"""
         views = api_v1.build_cockpit_views(self.summary, self.cfg)
-        vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        # 默认 cfg.frontend=vue
+        vm_vue = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        self.assertEqual(viewmodels.frontend_mode(self.cfg), "vue")
+        self.assertEqual(vm_vue.trend.svg_html, "")
+        self.assertEqual(vm_vue.kpi.body_by_period, {})
+        self.assertEqual(vm_vue.expense.trend_html, "")
+        self.assertTrue(vm_vue.kpi.cards_by_period)
+
+        legacy_cfg = dict(self.cfg)
+        legacy_cfg["frontend"] = "legacy"
+        vm = viewmodels.build_cockpit_vm(self.summary, legacy_cfg)
         self.assertEqual(vm.trend.svg_html, views.get("trend_html") or "")
         self.assertEqual(vm.kpi.body_by_period, views.get("kpi_body") or {})
         self.assertEqual(vm.expense.trend_html, views.get("expense_trend_html") or "")

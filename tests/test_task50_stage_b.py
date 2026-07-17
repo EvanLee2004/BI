@@ -248,20 +248,46 @@ class TestStageBDisplayStringParity(unittest.TestCase):
         cls.render = render
         cls.yk = cls.vm.year_key
 
+    def test_vue_mode_skips_legacy_html_bodies(self):
+        """任务书51·B1：默认 vue 路径 body_by_period / profit_rank_body 为空（不生成 HTML）。"""
+        import viewmodels as vm_mod
+
+        self.assertEqual(vm_mod.frontend_mode(self.cfg), "vue")
+        self.assertEqual(self.vm.kpi.body_by_period or {}, {})
+        self.assertEqual(self.vm.pl.body_by_period or {}, {})
+        self.assertEqual(self.vm.expense.body_by_period or {}, {})
+        self.assertEqual(self.vm.rankings.profit_rank_body or {}, {})
+        self.assertEqual(self.vm.trend.svg_html or "", "")
+        self.assertEqual(self.vm.daily_html or "", "")
+        # 结构化字段仍在
+        self.assertTrue(self.vm.kpi.cards_by_period.get(self.yk))
+        self.assertTrue(self.vm.pl.table_by_period.get(self.yk))
+
     def test_kpi_value_disps_in_legacy_html(self):
-        cards = self.vm.kpi.cards_by_period.get(self.yk) or []
-        html = (self.vm.kpi.body_by_period or {}).get(self.yk) or ""
+        """legacy 模式下 body HTML 仍含 KPI 主数（与结构化串一致）。"""
+        import viewmodels as vm_mod
+
+        legacy_cfg = dict(self.cfg)
+        legacy_cfg["frontend"] = "legacy"
+        vm = vm_mod.build_cockpit_vm(self.summary, legacy_cfg)
+        cards = vm.kpi.cards_by_period.get(self.yk) or []
+        html = (vm.kpi.body_by_period or {}).get(self.yk) or ""
+        self.assertTrue(html, "legacy 应生成 KPI HTML")
         for c in cards:
-            # 主数出现在 legacy HTML 中
             self.assertIn(c["value_disp"], html, f"KPI {c['label']} 显示串不在 legacy HTML")
 
     def test_pl_amt_disps_in_legacy_html(self):
-        t = self.vm.pl.table_by_period.get(self.yk) or {}
-        html = (self.vm.pl.body_by_period or {}).get(self.yk) or ""
+        import viewmodels as vm_mod
+
+        legacy_cfg = dict(self.cfg)
+        legacy_cfg["frontend"] = "legacy"
+        vm = vm_mod.build_cockpit_vm(self.summary, legacy_cfg)
+        t = vm.pl.table_by_period.get(self.yk) or {}
+        html = (vm.pl.body_by_period or {}).get(self.yk) or ""
+        self.assertTrue(html, "legacy 应生成 PL HTML")
         for r in t.get("rows") or []:
             if r.get("is_pct"):
                 continue
-            # 金额显示串应出现在 legacy 利润表 HTML
             self.assertIn(r["amt_disp"], html, f"PL 行 {r['name']} 金额串缺失")
 
 

@@ -7,9 +7,49 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+def frontend_mode(cfg: dict | None = None) -> str:
+    """vue|legacy：env KANBAN_FRONTEND > config.frontend > vue。
+
+    任务书51·B1：vue 路径不执行 legacy HTML 建造；legacy 仍走完整 HTML views。
+    """
+    env = (os.environ.get("KANBAN_FRONTEND") or "").strip().lower()
+    if env in ("vue", "legacy"):
+        return env
+    cfg_fe = str((cfg or {}).get("frontend") or "").strip().lower()
+    if cfg_fe in ("vue", "legacy"):
+        return cfg_fe
+    return "vue"
+
+
+def _vue_core_views(summary: dict) -> dict[str, Any]:
+    """Vue 路径仅建造结构化必需元数据：周期键 + 双血条 rankings_view（非 HTML）。
+
+    **不**调用 render_basic / render_pl_table / render_expense_views / SVG 等 HTML 路径。
+    """
+    import api_v1
+
+    yk, ordered = api_v1._period_keys(summary)
+    P = summary.get("periods") or {}
+    monthly_store: dict = {}
+    rankings_view = {
+        pk: api_v1.rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
+        for pk, pv in P.items()
+        if isinstance(pv, dict)
+    }
+    return {
+        "year_key": yk,
+        "period_keys": ordered,
+        "rankings_view": rankings_view,
+        "rankings_monthly_data": monthly_store,
+        "pl_tag": "",
+        "bu_name": "",
+    }
 
 
 class KpiCardsVM(BaseModel):
@@ -268,13 +308,32 @@ def _donut_center_by_period(summary: dict) -> dict[str, dict[str, str]]:
 
 
 def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
-    """从 summary 构建整体页 VM（复用 build_cockpit_views，零重算金额）。"""
+    """从 summary 构建整体页 VM。
+
+    任务书51·B1：vue 模式**不执行** legacy HTML 建造；legacy 模式才调 build_cockpit_views。
+    """
     import api_v1
     import db
     import render
     from viewmodels import packers
 
-    views = api_v1.build_cockpit_views(summary, cfg)
+    mode = frontend_mode(cfg)
+    if mode == "legacy":
+        views = api_v1.build_cockpit_views(summary, cfg)
+        html_kpi = dict(views.get("kpi_body") or {})
+        html_pl = dict(views.get("pl_body") or {})
+        html_donut = dict(views.get("donut_body") or {})
+        html_profit = dict(views.get("profit_rank_body") or {})
+        svg_trend = views.get("trend_html") or ""
+        exp_trend_html = views.get("expense_trend_html") or ""
+        receipts_budget = views.get("receipts_budget") or ""
+        period_bar = views.get("period_bar") or ""
+        daily_html = views.get("daily_html") or ""
+    else:
+        views = _vue_core_views(summary)
+        html_kpi = html_pl = html_donut = html_profit = {}
+        svg_trend = exp_trend_html = receipts_budget = period_bar = daily_html = ""
+
     numbers = api_v1.extract_numbers(summary)
     ts = _pack_trend_series(summary.get("trend") or [])
     tvals = list(ts.get("revenue") or []) + list(ts.get("cost") or [])
@@ -301,17 +360,17 @@ def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
         kpi=KpiCardsVM(
             year_key=views.get("year_key") or "",
             period_keys=list(views.get("period_keys") or []),
-            body_by_period=dict(views.get("kpi_body") or {}),
+            body_by_period=html_kpi,
             cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
         ),
-        trend=TrendVM(svg_html=views.get("trend_html") or "", **ts),
+        trend=TrendVM(svg_html=svg_trend, **ts),
         pl=PLTableVM(
-            body_by_period=dict(views.get("pl_body") or {}),
+            body_by_period=html_pl,
             table_by_period=packers.pack_pl_by_period(summary, is_bu=False),
         ),
         expense=ExpenseVM(
-            body_by_period=dict(views.get("donut_body") or {}),
-            trend_html=views.get("expense_trend_html") or "",
+            body_by_period=html_donut,
+            trend_html=exp_trend_html,
             donut_by_period=donut,
             views_by_period=packers.pack_expense_views_by_period(summary),
             donut_center_by_period=_donut_center_by_period(summary),
@@ -320,28 +379,49 @@ def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
         rankings=RankingsVM(
             rankings_view=dict(views.get("rankings_view") or {}),
             rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
-            profit_rank_body=dict(views.get("profit_rank_body") or {}),
+            profit_rank_body=html_profit,
             profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
         ),
-        receipts=ReceiptsVM(receipts_budget=views.get("receipts_budget") or "", **rs),
+        receipts=ReceiptsVM(receipts_budget=receipts_budget, **rs),
         ledger=LedgerVM(
             columns=list(db.VIEW_EXPENSE_COLUMNS),
             forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
         ),
-        period_bar=views.get("period_bar") or "",
-        daily_html=views.get("daily_html") or "",
+        period_bar=period_bar,
+        daily_html=daily_html,
         daily=packers.pack_daily_defaults(summary),
         numbers=numbers,
     )
 
 
 def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
+    """BU 页 VM。vue 模式同样跳过 legacy HTML 建造（任务书51·B1）。"""
     import api_v1
     import db
     import render
     from viewmodels import packers
 
-    views = api_v1.build_bu_cockpit_views(bu_name, summary, cfg)
+    mode = frontend_mode(cfg)
+    if mode == "legacy":
+        views = api_v1.build_bu_cockpit_views(bu_name, summary, cfg)
+        html_kpi = dict(views.get("kpi_body") or {})
+        html_pl = dict(views.get("pl_body") or {})
+        html_donut = dict(views.get("donut_body") or {})
+        html_profit = dict(views.get("profit_rank_body") or {})
+        svg_trend = views.get("trend_html") or ""
+        exp_trend_html = views.get("expense_trend_html") or ""
+        receipts_html = views.get("receipts_html") or ""
+        period_bar = views.get("period_bar") or ""
+        daily_html = views.get("daily_html") or ""
+        pl_tag = views.get("pl_tag") or ""
+    else:
+        views = _vue_core_views(summary)
+        views["bu_name"] = bu_name or ""
+        html_kpi = html_pl = html_donut = html_profit = {}
+        svg_trend = exp_trend_html = receipts_html = period_bar = daily_html = ""
+        pl_tag = ""
+        # BU pl_tag 仍可由结构化侧补；保持空串（Vue 用 table_by_period）
+
     numbers = api_v1.extract_numbers(summary)
     ts = _pack_trend_series(summary.get("trend") or [])
     tvals = list(ts.get("revenue") or []) + list(ts.get("cost") or [])
@@ -368,18 +448,18 @@ def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageV
         kpi=KpiCardsVM(
             year_key=views.get("year_key") or "",
             period_keys=list(views.get("period_keys") or []),
-            body_by_period=dict(views.get("kpi_body") or {}),
+            body_by_period=html_kpi,
             cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
         ),
-        trend=TrendVM(svg_html=views.get("trend_html") or "", **ts),
+        trend=TrendVM(svg_html=svg_trend, **ts),
         pl=PLTableVM(
-            body_by_period=dict(views.get("pl_body") or {}),
-            pl_tag=views.get("pl_tag") or "",
+            body_by_period=html_pl,
+            pl_tag=pl_tag,
             table_by_period=packers.pack_pl_by_period(summary, is_bu=True),
         ),
         expense=ExpenseVM(
-            body_by_period=dict(views.get("donut_body") or {}),
-            trend_html=views.get("expense_trend_html") or "",
+            body_by_period=html_donut,
+            trend_html=exp_trend_html,
             donut_by_period=donut,
             views_by_period=packers.pack_expense_views_by_period(summary),
             donut_center_by_period=_donut_center_by_period(summary),
@@ -388,16 +468,16 @@ def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageV
         rankings=RankingsVM(
             rankings_view=dict(views.get("rankings_view") or {}),
             rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
-            profit_rank_body=dict(views.get("profit_rank_body") or {}),
+            profit_rank_body=html_profit,
             profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
         ),
-        receipts=ReceiptsVM(receipts_html=views.get("receipts_html") or "", **rs),
+        receipts=ReceiptsVM(receipts_html=receipts_html, **rs),
         ledger=LedgerVM(
             columns=list(db.VIEW_EXPENSE_COLUMNS_BU),
             forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
         ),
-        period_bar=views.get("period_bar") or "",
-        daily_html=views.get("daily_html") or "",
+        period_bar=period_bar,
+        daily_html=daily_html,
         daily=packers.pack_daily_defaults(summary),
         numbers=numbers,
     )
@@ -413,6 +493,7 @@ __all__ = [
     "LedgerVM",
     "BUPageVM",
     "CockpitVM",
+    "frontend_mode",
     "build_cockpit_vm",
     "build_bu_vm",
 ]
