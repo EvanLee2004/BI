@@ -369,11 +369,18 @@ def kpi_peak_for(summary: dict, key: str) -> dict[str, str] | None:
         if isinstance(best_mk, str) and best_mk.startswith(f"{year}年")
         else str(best_mk)
     )
-    return {"label": lab, "value_disp": charts.fmt_wan(best_v) + "万"}
+    wan = charts.fmt_wan(best_v)
+    # value_wan：legacy HTML 模板自拼「万」；value_disp：VM 整串
+    return {"label": lab, "value_wan": wan, "value_disp": wan + "万"}
 
 
 def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
-    """结构化目标条（VM）；无 tkey → None；无 budget 项 → empty 态。"""
+    """结构化目标条（VM + legacy HTML 共用）；无 tkey → None；无 budget 项 → empty 态。
+
+    字段约定：
+    - VM 用 *_disp 显示串；
+    - HTML 用 tgt（毛利数值）/ tgt_wan·done_wan（金额模板自拼「万」）。
+    """
     import charts
     from render_widgets import _kpi_val
 
@@ -406,6 +413,7 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
             "empty": False,
             "kind": "margin",
             "label": label,
+            "tgt": tgt,
             "tgt_disp": str(tgt),
             "cur_disp": cur_s,
             "pct_disp": pct_s,
@@ -421,12 +429,16 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
         pct_s = f"{pct:.1f}%" if pct is not None else "—"
     w = min(max(pct or 0, 0), 100)
     cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
+    tgt_wan = charts.fmt_wan(tgt)
+    done_wan = charts.fmt_wan(done)
     return {
         "empty": False,
         "kind": "amount",
         "label": label,
-        "tgt_disp": charts.fmt_wan(tgt) + "万",
-        "done_disp": charts.fmt_wan(done) + "万",
+        "tgt_wan": tgt_wan,
+        "done_wan": done_wan,
+        "tgt_disp": tgt_wan + "万",
+        "done_disp": done_wan + "万",
         "pct_disp": pct_s,
         "bar_w": w,
         "cls": cls,

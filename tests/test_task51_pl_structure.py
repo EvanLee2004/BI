@@ -98,6 +98,38 @@ class TestPLStructureSingleChain(unittest.TestCase):
         self.assertGreaterEqual(len(cards), 5)
         self.assertIn("value_disp", cards[0])
 
+    def test_legacy_html_kpi_consumes_shared_structure(self):
+        """任务书51·B2：legacy HTML 路径 render_widgets 必须 import/调用共享 KPI 函数（非平行实现）。"""
+        src = (ROOT / "src" / "render_widgets.py").read_text(encoding="utf-8")
+        self.assertIn("from domain.pl.structure import kpi_target_bar", src)
+        self.assertIn("from domain.pl.structure import kpi_peak_for", src)
+        self.assertIn("kpi_target_bar(", src)
+        self.assertIn("kpi_peak_for(", src)
+        # 旧平行实现关键字不得再作为主逻辑（业务规则已迁到 structure）
+        self.assertNotIn("best_v, best_mk = None, None", src)
+        self.assertNotIn('label = "H1目标"', src)
+        # 运行时：共享函数 + HTML 渲染都能产出
+        from domain.pl.structure import kpi_peak_for, kpi_target_bar
+        from render_widgets import _kpi_peak_row, _target_bar
+
+        peak = kpi_peak_for(self.summary, "orders")
+        month_keys = (self.summary.get("meta") or {}).get("tab_groups", {}).get("月") or []
+        year = (self.summary.get("meta") or {}).get("year")
+        html_peak = _kpi_peak_row(month_keys, self.P, "orders", year)
+        if peak:
+            self.assertIn(peak["label"], html_peak)
+            self.assertIn(peak["value_wan"], html_peak)
+        budget = (self.summary.get("meta") or {}).get("budget") or {}
+        p = self.P[self.yk]
+        bar = kpi_target_bar("order", self.yk, p, budget)
+        html_bar = _target_bar(budget, "order", self.yk, year, p)
+        if bar is None:
+            self.assertEqual(html_bar, "")
+        elif bar.get("empty"):
+            self.assertIn("未设目标", html_bar)
+        else:
+            self.assertIn("kpi-tgt", html_bar)
+
 
 if __name__ == "__main__":
     unittest.main()

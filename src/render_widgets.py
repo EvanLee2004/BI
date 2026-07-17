@@ -80,77 +80,56 @@ def _amt(v, colored=False, muted=False):
 
 
 def _target_bar(budget, tkey, pkey, year, p):
-    """KPI 下业务目标进度条。tkey=order/receipt/margin/pretax_margin；无目标→空态小字。
-    仅「1-6 月」区间用 H1 目标；Q1≠H1（勿把 Q1 当上半年）。年目标 done=全年累计。"""
-    if not budget or not tkey:
+    """KPI 下业务目标进度条（任务书51·B2：消费 domain.pl.structure.kpi_target_bar）。
+
+    tkey=order/receipt/margin/pretax_margin；无目标→空态小字。
+    仅「1-6 月」区间用 H1 目标；Q1≠H1。年目标 done=全年累计。
+    """
+    from domain.pl.structure import kpi_target_bar
+
+    bar = kpi_target_bar(tkey, pkey, p, budget)
+    if bar is None:
         return ""
-    # 仅明确的 1–6 月区间用 H1；Q1 仍用年目标
-    use_h1 = ("1-6" in pkey) or pkey.endswith("1-6月") or ("1~6" in pkey)
-    item = None
-    label = "年目标"
-    if use_h1 and budget.get(f"{tkey}_h1"):
-        item = budget[f"{tkey}_h1"]
-        label = "H1目标"
-    if item is None:
-        item = budget.get(tkey)
-        label = "年目标"
-    if not item:
+    if bar.get("empty"):
         return tpl.load("render/kpi_tgt_empty.html")
-    tgt, done, pct = item.get("target"), item.get("done"), item.get("pct")
-    if tkey in ("margin", "pretax_margin"):
-        # 「当前」必须与达成率同一口径：H1 用 item.done，否则用本周期对应率
-        if use_h1 and item.get("done") is not None:
-            cur = item["done"]
-        else:
-            cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
-        cur_s = f"{cur:.1f}%" if cur is not None else "—"
-        # 任务书39·G：极端进度仅显示层钳制（数值与存储不动）
-        if pct is not None and pct > 999:
-            pct_s = ">999% · 目标待校准"
-        else:
-            pct_s = f"{pct:.0f}%" if pct is not None else "—"
-        w = min(max(pct or 0, 0), 100)
-        cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
-        return tpl.fill("render/kpi_tgt_margin.html", label=label, tgt=tgt, cur_s=cur_s, cls=cls, w=w, pct_s=pct_s)
-    # 金额类：完成 / 目标 · 进度（年目标 done 为全年累计，标签已写「年目标」）
-    if done is None:
-        done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
-        pct = (done / tgt * 100.0) if tgt else None
-    if pct is not None and pct > 999:
-        pct_s = ">999% · 目标待校准"
-    else:
-        pct_s = f"{pct:.1f}%" if pct is not None else "—"
-    w = min(max(pct or 0, 0), 100)
-    cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
+    if bar.get("kind") == "margin":
+        return tpl.fill(
+            "render/kpi_tgt_margin.html",
+            label=bar.get("label") or "年目标",
+            tgt=bar.get("tgt"),
+            cur_s=bar.get("cur_disp") or "—",
+            cls=bar.get("cls") or "low",
+            w=bar.get("bar_w") or 0,
+            pct_s=bar.get("pct_disp") or "—",
+        )
     return tpl.fill(
         "render/kpi_tgt_amount.html",
-        label=label,
-        tgt_wan=charts.fmt_wan(tgt),
-        done_wan=charts.fmt_wan(done),
-        cls=cls,
-        w=w,
-        pct_s=pct_s,
+        label=bar.get("label") or "年目标",
+        tgt_wan=bar.get("tgt_wan") or "0",
+        done_wan=bar.get("done_wan") or "0",
+        cls=bar.get("cls") or "low",
+        w=bar.get("bar_w") or 0,
+        pct_s=bar.get("pct_disp") or "—",
     )
 
 
 # ---------- 板块① 基本情况（单周期，5 KPI：值+环比+目标进度+峰值/对照）----------
 def _kpi_peak_row(month_keys, P, key, year):
-    """全年逐月峰值一行（替代迷你折线）：领导扫哪个月最高。金额后端算好。"""
-    if not month_keys:
+    """全年逐月峰值一行（任务书51·B2：消费 domain.pl.structure.kpi_peak_for）。"""
+    from domain.pl.structure import kpi_peak_for
+
+    summary = {
+        "meta": {"year": year, "tab_groups": {"月": list(month_keys or [])}},
+        "periods": P or {},
+    }
+    peak = kpi_peak_for(summary, key)
+    if not peak:
         return ""
-    best_v, best_mk = None, None
-    for mk in month_keys:
-        v = float(_kpi_val(P[mk], key) or 0.0)
-        if best_v is None or v > best_v:
-            best_v, best_mk = v, mk
-    if best_v is None or (best_v == 0.0 and all(float(_kpi_val(P[mk], key) or 0.0) == 0.0 for mk in month_keys)):
-        return ""
-    lab = (
-        best_mk.replace(f"{year}年", "")
-        if isinstance(best_mk, str) and best_mk.startswith(f"{year}年")
-        else str(best_mk)
+    return tpl.fill(
+        "render/kpi_peak_row.html",
+        lab=_esc(peak.get("label") or ""),
+        val_wan=peak.get("value_wan") or "0",
     )
-    return tpl.fill("render/kpi_peak_row.html", lab=_esc(lab), val_wan=charts.fmt_wan(best_v))
 
 
 def _bu_orders_block(bu_list):
