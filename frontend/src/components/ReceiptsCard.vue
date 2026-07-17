@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 回款柱线：序列与轴标签来自 VM；无「ECharts」技术字样。 */
+/** 回款柱线：序列与轴标签来自 VM；任务书51·B7：轴刻度精确查表。 */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
@@ -7,21 +7,11 @@ import EchartsHost from './charts/EchartsHost.vue'
 const store = useCockpitStore()
 const r = computed(() => (store.vm?.receipts || {}) as Record<string, unknown>)
 
-function axisFormatter(ticks: { value: number; label: string }[]) {
-  return (val: number) => {
-    if (!ticks.length) return ''
-    let best = ticks[0]
-    let bestD = Math.abs(val - best.value)
-    for (const t of ticks) {
-      const d = Math.abs(val - t.value)
-      if (d < bestD) {
-        best = t
-        bestD = d
-      }
-    }
-    if (bestD > (ticks[1] ? Math.abs(ticks[1].value - ticks[0].value) * 0.25 : 1)) return ''
-    return best.label
+function tickLabel(ticks: { value: number; label: string }[], val: number): string {
+  for (const t of ticks) {
+    if (Math.abs(Number(t.value) - Number(val)) < 1e-9) return t.label
   }
+  return ''
 }
 
 const option = computed(() => {
@@ -31,8 +21,11 @@ const option = computed(() => {
   const rd = (r.value.receipts_disp as string[]) || []
   const od = (r.value.orders_disp as string[]) || []
   const ticks = (r.value.y_axis_ticks as { value: number; label: string }[]) || []
-  const maxV = ticks.length ? ticks[ticks.length - 1].value : undefined
-  const interval = ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined
+  const maxV = (r.value.y_axis_max as number) || (ticks.length ? ticks[ticks.length - 1].value : undefined)
+  const interval =
+    (r.value.y_axis_interval as number) ||
+    (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
+  const minV = (r.value.y_axis_min as number) ?? 0
   return {
     tooltip: {
       trigger: 'axis',
@@ -46,10 +39,10 @@ const option = computed(() => {
     xAxis: { type: 'category', data: labels },
     yAxis: {
       type: 'value',
-      min: 0,
+      min: minV,
       max: maxV,
       interval,
-      axisLabel: { formatter: axisFormatter(ticks) },
+      axisLabel: { formatter: (val: number) => tickLabel(ticks, val) },
     },
     series: [
       {
@@ -69,6 +62,7 @@ const option = computed(() => {
         data: ords,
         label: {
           show: true,
+          position: 'top',
           formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
           fontSize: 10,
         },

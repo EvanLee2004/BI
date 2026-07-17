@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。 */
+/** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。任务书51·B7：轴刻度精确查表。 */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
@@ -7,22 +7,12 @@ import EchartsHost from './charts/EchartsHost.vue'
 const store = useCockpitStore()
 const trend = computed(() => (store.vm?.trend || {}) as Record<string, unknown>)
 
-function axisFormatter(ticks: { value: number; label: string }[]) {
-  return (val: number) => {
-    if (!ticks.length) return ''
-    let best = ticks[0]
-    let bestD = Math.abs(val - best.value)
-    for (const t of ticks) {
-      const d = Math.abs(val - t.value)
-      if (d < bestD) {
-        best = t
-        bestD = d
-      }
-    }
-    // 仅在接近某个后端刻度时显示，避免乱标
-    if (bestD > (ticks[1] ? Math.abs(ticks[1].value - ticks[0].value) * 0.25 : 1)) return ''
-    return best.label
+/** 后端 ticks 精确匹配（禁最近刻度扫描）。 */
+function tickLabel(ticks: { value: number; label: string }[], val: number): string {
+  for (const t of ticks) {
+    if (Math.abs(Number(t.value) - Number(val)) < 1e-9) return t.label
   }
+  return ''
 }
 
 const option = computed(() => {
@@ -35,8 +25,11 @@ const option = computed(() => {
   const costD = (t.cost_disp as string[]) || []
   const marD = (t.margin_pct_disp as string[]) || []
   const ticks = (t.y_axis_ticks as { value: number; label: string }[]) || []
-  const maxV = ticks.length ? ticks[ticks.length - 1].value : undefined
-  const interval = ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined
+  const maxV = (t.y_axis_max as number) || (ticks.length ? ticks[ticks.length - 1].value : undefined)
+  const interval =
+    (t.y_axis_interval as number) ||
+    (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
+  const minV = (t.y_axis_min as number) ?? 0
   return {
     tooltip: {
       trigger: 'axis',
@@ -51,10 +44,10 @@ const option = computed(() => {
     yAxis: [
       {
         type: 'value',
-        min: 0,
+        min: minV,
         max: maxV,
         interval,
-        axisLabel: { formatter: axisFormatter(ticks) },
+        axisLabel: { formatter: (val: number) => tickLabel(ticks, val) },
       },
       { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
     ],

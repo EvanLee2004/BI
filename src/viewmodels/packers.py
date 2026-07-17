@@ -307,7 +307,10 @@ def pack_axis_labels(values: list[float], n: int = 5) -> list[str]:
 
 
 def pack_axis_ticks(values: list[float], n: int = 5) -> list[dict[str, Any]]:
-    """Y 轴刻度：[{value, label}] 后端算好，前端 axisLabel 只查表。修复 000,000 bug。"""
+    """Y 轴刻度：[{value, label}] 后端算好，前端 axisLabel 只查表。修复 000,000 bug。
+
+    任务书51·B7：附 min/max/interval 元数据（写在首元素旁由 pack_axis_meta 取）。
+    """
     import charts
     import math
 
@@ -331,6 +334,46 @@ def pack_axis_ticks(values: list[float], n: int = 5) -> list[dict[str, Any]]:
         if v > mx * 1.05 + step * 0.01:
             break
     return ticks
+
+
+def pack_axis_meta(values: list[float], n: int = 5) -> dict[str, Any]:
+    """任务书51·B7：Y 轴 min/max/interval + ticks，前端禁止最近刻度扫描。"""
+    ticks = pack_axis_ticks(values, n=n)
+    if not ticks:
+        return {"min": 0, "max": 0, "interval": 0, "ticks": []}
+    mn = float(ticks[0]["value"])
+    mx = float(ticks[-1]["value"])
+    interval = float(ticks[1]["value"] - ticks[0]["value"]) if len(ticks) >= 2 else 0.0
+    return {"min": mn, "max": mx, "interval": interval, "ticks": ticks}
+
+
+def pack_period_month_ranges(summary: dict) -> dict[str, dict[str, str]]:
+    """任务书51·B6：周期 key → {month_from, month_to}（YYYY-MM），前端只赋值。
+
+    年 key → 空串（不筛月，与旧 Ledger 行为一致）；季/月/区间 → 起止月。
+    """
+    import render
+
+    meta = summary.get("meta") or {}
+    year = int(meta.get("year") or 2026)
+    yk = meta.get("year_key") or ""
+    out: dict[str, dict[str, str]] = {}
+    for k, months in (render._period_months_map(summary) or {}).items():
+        if not k:
+            continue
+        # 全年：不限月
+        if k == yk or (str(k).endswith("年") and "Q" not in str(k) and "月" not in str(k)):
+            out[k] = {"month_from": "", "month_to": ""}
+            continue
+        if not months:
+            out[k] = {"month_from": "", "month_to": ""}
+            continue
+        a, b = int(months[0]), int(months[-1])
+        out[k] = {
+            "month_from": f"{year}-{a:02d}",
+            "month_to": f"{year}-{b:02d}",
+        }
+    return out
 
 
 def pack_daily_defaults(summary: dict) -> dict[str, Any]:

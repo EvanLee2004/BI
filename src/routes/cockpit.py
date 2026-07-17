@@ -206,6 +206,82 @@ def register(app, d):
             }
         )
 
+    @app.get("/api/v1/vm/ledger/export")
+    def api_v1_vm_ledger_export(
+        request: Request,
+        month_from: str | None = None,
+        month_to: str | None = None,
+        filters: str | None = None,
+        bu: str | None = None,
+        q: str | None = None,
+    ):
+        """任务书51·B5：看端费用明细导出 xlsx。
+
+        鉴权/audience/列白名单与 GET /api/v1/vm/ledger 完全同一策略（force_whitelist=True）。
+        """
+        import io
+
+        import authz
+        import db
+        import openpyxl
+        from fastapi.responses import StreamingResponse
+
+        user = _user(request)
+        vacc = _vacc_row(request)
+        force_bu, hide_salary, audience = authz.resolve_expense_view_access(
+            user,
+            vacc,
+            bu,
+            cfg=cfg,
+            force_whitelist=True,
+        )
+        who = user or _vacct(request) or "?"
+        _audit(cfg, root, who, ("访问", f"看端明细导出" + (f" bu={force_bu}" if force_bu else "")))
+
+        conn = db.connect(cfg, root)
+        try:
+            try:
+                data = db.query_detail(
+                    conn,
+                    "费用明细",
+                    None,
+                    q,
+                    1,
+                    5000,
+                    False,
+                    False,
+                    year=None,
+                    bu=force_bu,
+                    filters=filters,
+                    hide_salary=hide_salary,
+                    audience=audience,
+                    month_from=month_from,
+                    month_to=month_to,
+                )
+            except KeyError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+
+        forbidden = set(db.VIEW_EXPENSE_HIDDEN)
+        cols = [c for c in (data.get("columns") or []) if c not in forbidden]
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "费用明细"
+        ws.append(list(cols))
+        for r in data.get("rows") or []:
+            if not isinstance(r, dict):
+                continue
+            ws.append([r.get(c, "") if r.get(c, "") is not None else "" for c in cols])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="expense_ledger.xlsx"'},
+        )
+
     @app.get("/api/v1/cockpit/bu/{name}")
     def api_v1_cockpit_bu(name: str, request: Request):
         if not (_vacct(request) or _user(request)):

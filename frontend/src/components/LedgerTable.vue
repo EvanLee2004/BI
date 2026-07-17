@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * 费用明细：走 /api/v1/vm/ledger，任何会话白名单列；单元格 text 转义（铁律10）。
- * 翻页 / 月区间 / 列筛胶囊 / 导出 Excel。
+ * 翻页 / 月区间 / 列筛胶囊 / 导出 Excel（服务端 xlsx，任务书51·B5）。
+ * 周期月区间：VM.ledger.period_months 直接赋值（任务书51·B6）。
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
@@ -28,8 +29,6 @@ const info = computed(() => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-// 单元格用 Vue 文本插值（等同 textContent），事项等自由文本自动转义——禁止原始 HTML 绑定。
-
 async function load() {
   loading.value = true
   err.value = ''
@@ -41,7 +40,6 @@ async function load() {
     if (monthTo.value) params.set('month_to', monthTo.value)
     if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
     if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
-    // 列筛：选中列关键词
     if (colFilter.value && filterQ.value.trim()) {
       params.set(
         'filters',
@@ -57,7 +55,6 @@ async function load() {
     columns.value = d.columns || []
     rows.value = d.rows || []
     total.value = d.total || 0
-    // 守卫：禁止列绝不出现
     const forbidden = new Set(d.forbidden || ['定位键', '收单月份', '归属月', '提单人', '提单人部门', '配音费合同号'])
     for (const c of columns.value) {
       if (forbidden.has(c)) throw new Error('接口泄漏隐藏列：' + c)
@@ -90,77 +87,37 @@ function applyFilter() {
 
 async function exportXlsx() {
   const params = new URLSearchParams()
-  params.set('table', '费用明细')
   if (monthFrom.value) params.set('month_from', monthFrom.value)
   if (monthTo.value) params.set('month_to', monthTo.value)
   if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
   if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
-  // 看端导出：管理端 audience 会全列——改走 ledger 同源时，用 detail_export 但强制非管理员会话路径
-  // 管理员会话 detail_export 会全列；任务书要求导出=白名单。用 blob 从当前页 JSON 组 CSV 兜底。
-  // 优先：若当前是管理员，本地用白名单列导出。
-  const cols = columns.value
-  const all: Record<string, unknown>[] = []
-  // 拉最多 5000 行
-  const p2 = new URLSearchParams(params)
-  p2.set('page', '1')
-  p2.set('page_size', '5000')
-  if (store.scope === 'bu' && store.buName) p2.set('bu', store.buName)
-  if (monthFrom.value) p2.set('month_from', monthFrom.value)
-  if (monthTo.value) p2.set('month_to', monthTo.value)
-  if (filterQ.value.trim()) p2.set('q', filterQ.value.trim())
-  const r = await fetch('/api/v1/vm/ledger?' + p2.toString(), { credentials: 'same-origin' })
+  if (colFilter.value && filterQ.value.trim()) {
+    params.set('filters', JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }))
+  }
+  const r = await fetch('/api/v1/vm/ledger/export?' + params.toString(), { credentials: 'same-origin' })
   if (!r.ok) {
     alert('导出失败')
     return
   }
-  const d = await r.json()
-  const ccols: string[] = d.columns || cols
-  const rrows: Record<string, unknown>[] = d.rows || []
-  const lines = [ccols.join(',')]
-  for (const row of rrows) {
-    lines.push(
-      ccols
-        .map((c) => {
-          const v = String(row[c] ?? '')
-          if (/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"'
-          return v
-        })
-        .join(','),
-    )
-  }
-  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const blob = await r.blob()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = '费用明细_白名单.csv'
+  a.download = '费用明细_白名单.xlsx'
   document.body.appendChild(a)
   a.click()
   a.remove()
+  URL.revokeObjectURL(a.href)
 }
 
-// 周期 → 月区间粗跟随（年/季/月标签解析）
+// 任务书51·B6：周期月区间由 VM 下发，前端只赋值（禁止正则拆中文周期）
 watch(
-  () => store.period,
-  (k) => {
-    // 简单跟随：X年 → 空；X年N月 → 该月；X年Q1 → 01-03
-    monthFrom.value = ''
-    monthTo.value = ''
-    const m = String(k || '').match(/(\d{4})年(?:Q(\d)|(\d{1,2})(?:-(\d{1,2}))?月)?/)
-    if (!m) return
-    const y = m[1]
-    if (m[2]) {
-      const q = +m[2]
-      const a = (q - 1) * 3 + 1
-      const b = q * 3
-      monthFrom.value = `${y}-${String(a).padStart(2, '0')}`
-      monthTo.value = `${y}-${String(b).padStart(2, '0')}`
-    } else if (m[3] && m[4]) {
-      monthFrom.value = `${y}-${String(+m[3]).padStart(2, '0')}`
-      monthTo.value = `${y}-${String(+m[4]).padStart(2, '0')}`
-    } else if (m[3]) {
-      const mm = String(+m[3]).padStart(2, '0')
-      monthFrom.value = `${y}-${mm}`
-      monthTo.value = `${y}-${mm}`
-    }
+  () => [store.period, store.vm?.ledger] as const,
+  ([k]) => {
+    const pm = (store.vm?.ledger as { period_months?: Record<string, { month_from?: string; month_to?: string }> } | undefined)
+      ?.period_months
+    const range = (k && pm && pm[String(k)]) || { month_from: '', month_to: '' }
+    monthFrom.value = range.month_from || ''
+    monthTo.value = range.month_to || ''
     page.value = 1
     load()
   },

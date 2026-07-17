@@ -76,6 +76,10 @@ class TrendVM(BaseModel):
     # 任务书50·C：Y 轴刻度显示串（后端下发，禁前端格式化金额）
     y_axis_labels: list[str] = Field(default_factory=list)
     y_axis_ticks: list[dict[str, Any]] = Field(default_factory=list)
+    # 任务书51·B7：min/max/interval，前端禁最近刻度扫描
+    y_axis_min: float = 0.0
+    y_axis_max: float = 0.0
+    y_axis_interval: float = 0.0
 
 
 class PLTableVM(BaseModel):
@@ -127,6 +131,9 @@ class ReceiptsVM(BaseModel):
     ratio_pct_disp: list[str] = Field(default_factory=list)
     y_axis_labels: list[str] = Field(default_factory=list)
     y_axis_ticks: list[dict[str, Any]] = Field(default_factory=list)
+    y_axis_min: float = 0.0
+    y_axis_max: float = 0.0
+    y_axis_interval: float = 0.0
     # 摘要条显示串（可选）
     summary_by_period: dict[str, dict[str, str]] = Field(default_factory=dict)
 
@@ -137,6 +144,8 @@ class LedgerVM(BaseModel):
     columns: list[str] = Field(default_factory=list)
     note: str = "行数据见 /api/v1/vm/ledger"
     forbidden_columns: list[str] = Field(default_factory=list)
+    # 任务书51·B6：周期 → month_from/month_to（YYYY-MM），前端只赋值
+    period_months: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class BUPageVM(BaseModel):
@@ -334,13 +343,21 @@ def _assemble_vm(
 
     ts = _pack_trend_series(summary.get("trend") or [])
     tvals = list(ts.get("revenue") or []) + list(ts.get("cost") or [])
-    ts["y_axis_ticks"] = packers.pack_axis_ticks(tvals)
-    ts["y_axis_labels"] = [t["label"] for t in ts["y_axis_ticks"]]
+    tmeta = packers.pack_axis_meta(tvals)
+    ts["y_axis_ticks"] = tmeta["ticks"]
+    ts["y_axis_labels"] = [t["label"] for t in tmeta["ticks"]]
+    ts["y_axis_min"] = tmeta["min"]
+    ts["y_axis_max"] = tmeta["max"]
+    ts["y_axis_interval"] = tmeta["interval"]
 
     rs = _pack_receipt_series(summary.get("receipt_order_monthly") or [])
     rvals = list(rs.get("receipts") or []) + list(rs.get("orders") or [])
-    rs["y_axis_ticks"] = packers.pack_axis_ticks(rvals)
-    rs["y_axis_labels"] = [t["label"] for t in rs["y_axis_ticks"]]
+    rmeta = packers.pack_axis_meta(rvals)
+    rs["y_axis_ticks"] = rmeta["ticks"]
+    rs["y_axis_labels"] = [t["label"] for t in rmeta["ticks"]]
+    rs["y_axis_min"] = rmeta["min"]
+    rs["y_axis_max"] = rmeta["max"]
+    rs["y_axis_interval"] = rmeta["interval"]
 
     if is_bu:
         exp_raw = render.expense_monthly_from_period_ledgers(summary)
@@ -393,6 +410,7 @@ def _assemble_vm(
     ledger = LedgerVM(
         columns=list(db.VIEW_EXPENSE_COLUMNS_BU if is_bu else db.VIEW_EXPENSE_COLUMNS),
         forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
+        period_months=packers.pack_period_month_ranges(summary),
     )
     period_bar = html.get("period_bar") or ""
     daily_html = html.get("daily_html") or ""
