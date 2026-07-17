@@ -197,14 +197,27 @@ class TestF5PasswordOutOfGit(unittest.TestCase):
         self.assertEqual(hits, [], "docs 泄漏现役密码: " + "; ".join(hits[:5]))
 
     def test_task50_report_no_password_table(self):
+        """50 交付报告不得含密码表；现役明文只许在本机账号文件。"""
         p = ROOT / "docs" / "20260717_任务书50交付报告.md"
         if not p.is_file():
             self.skipTest("无任务书50交付报告")
         t = p.read_text(encoding="utf-8")
-        self.assertNotIn("gJA242IkmfcN", t)
-        self.assertNotIn("vrZkxZ3Gf1s6", t)
-        self.assertNotIn("bcgGEQ9tmPJX", t)
         self.assertIn("看板账号.json", t)
+        # 不得再出现「账号 | 明文密码」表格头/行（任务书52·F-5 出库）
+        self.assertNotRegex(t, r"\| *账号 *\| *新明文密码 *\|")
+        self.assertNotIn("哈希迁移账号新明文（请明昊转告相关人）", t)
+        # 动态：当前账号文件中三账号口令不得出现在本报告（账号文件缺失则跳过）
+        acc_path = ROOT / "数据" / "看板账号.json"
+        if not acc_path.is_file():
+            return
+        data = json.loads(acc_path.read_text(encoding="utf-8"))
+        watch = {"lushasha", "123", "zhengrui"}
+        for a in data.get("accounts") or []:
+            if str(a.get("账号") or "") not in watch:
+                continue
+            pw = str(a.get("密码") or "").strip()
+            if pw and len(pw) >= 8:
+                self.assertNotIn(pw, t, "任务书50报告泄漏现役密码")
 
 
 class TestF6LedgerAndPlSha(unittest.TestCase):
