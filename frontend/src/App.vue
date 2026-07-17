@@ -14,6 +14,7 @@ import RankingsDual from './components/RankingsDual.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
 import LedgerTable from './components/LedgerTable.vue'
+import BuNav from './components/BuNav.vue'
 import BUPage from './components/BUPage.vue'
 
 const store = useCockpitStore()
@@ -41,7 +42,7 @@ onMounted(async () => {
   <div v-else-if="store.loading" class="wrap muted" style="padding:40px">加载中…</div>
   <div v-else-if="store.error" class="wrap" style="padding:40px;color:var(--neg)">{{ store.error }}</div>
   <BUPage v-else-if="store.scope === 'bu'" />
-  <div v-else-if="store.vm" class="wrap" id="periodSync">
+  <div v-else-if="store.vm" id="periodSync">
     <header class="topbar">
       <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
       <div class="tb-right">
@@ -49,6 +50,8 @@ onMounted(async () => {
         <ThemeToggle />
       </div>
     </header>
+    <BuNav />
+    <div class="wrap">
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>
@@ -68,5 +71,6 @@ onMounted(async () => {
     <RankingsDual />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
     <LedgerTable />
+    </div>
   </div>
 </template>

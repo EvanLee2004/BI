@@ -91,7 +91,10 @@ def register(app, d):
         if not summary:
             raise HTTPException(status_code=503, detail="数据尚未生成")
         vm = viewmodels.build_cockpit_vm(summary, cfg)
-        return JSONResponse(vm.model_dump())
+        out = vm.model_dump()
+        # 整体页「业务 BU 分页」入口（与 fragments chrome_prefix 同源名单）
+        out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+        return JSONResponse(out)
 
     @app.get("/api/v1/vm/bu/{name}")
     def api_v1_vm_bu(name: str, request: Request):
@@ -109,7 +112,22 @@ def register(app, d):
         if not summary:
             raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
         vm = viewmodels.build_bu_vm(name, summary, cfg)
-        return JSONResponse(vm.model_dump())
+        out = vm.model_dump()
+        # 多 BU 账号：可切换的本账号可见 BU（在已发布 bu_pages 内）
+        vacc = _vacc_row(request)
+        if _user(request):
+            out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+            out["bu_nav_label"] = "业务 BU 分页"
+        elif vacc and accounts.is_main(vacc):
+            out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+            out["bu_nav_label"] = "业务 BU 分页"
+        else:
+            my = accounts.bu_names_of(vacc) if vacc else []
+            existing = [n for n in my if n in (_state.get("bu_pages") or {})]
+            out["bu_names"] = existing
+            out["bu_nav_label"] = "我的 BU"
+        out["current_bu"] = name
+        return JSONResponse(out)
 
     @app.get("/api/v1/cockpit/bu/{name}")
     def api_v1_cockpit_bu(name: str, request: Request):

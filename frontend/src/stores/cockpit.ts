@@ -9,15 +9,27 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const error = ref('')
   const scope = ref<'main' | 'bu'>('main')
   const buName = ref('')
+  /** 业务 BU 分页名单（整体页=全部已发布 BU；BU 页=本账号可见） */
+  const buNames = ref<string[]>([])
+  const buNavLabel = ref('业务 BU 分页')
+
+  function applyNavFromVm(data: Record<string, unknown>) {
+    const names = data.bu_names
+    buNames.value = Array.isArray(names) ? (names as string[]) : []
+    buNavLabel.value = String(data.bu_nav_label || '业务 BU 分页')
+  }
 
   async function loadMain() {
     loading.value = true
     error.value = ''
     try {
-      vm.value = await fetchCockpitVm()
+      const data = await fetchCockpitVm()
+      vm.value = data
       scope.value = 'main'
-      const keys = (vm.value.period_keys as string[]) || []
-      period.value = (vm.value.year_key as string) || keys[0] || ''
+      buName.value = ''
+      applyNavFromVm(data)
+      const keys = (data.period_keys as string[]) || []
+      period.value = (data.year_key as string) || keys[0] || ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -30,10 +42,12 @@ export const useCockpitStore = defineStore('cockpit', () => {
     error.value = ''
     buName.value = name
     try {
-      vm.value = await fetchBuVm(name)
+      const data = await fetchBuVm(name)
+      vm.value = data
       scope.value = 'bu'
-      const keys = (vm.value.period_keys as string[]) || []
-      period.value = (vm.value.year_key as string) || keys[0] || ''
+      applyNavFromVm(data)
+      const keys = (data.period_keys as string[]) || []
+      period.value = (data.year_key as string) || keys[0] || ''
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -45,5 +59,17 @@ export const useCockpitStore = defineStore('cockpit', () => {
     period.value = key
   }
 
-  return { period, vm, loading, error, scope, buName, loadMain, loadBu, setPeriod }
+  return {
+    period,
+    vm,
+    loading,
+    error,
+    scope,
+    buName,
+    buNames,
+    buNavLabel,
+    loadMain,
+    loadBu,
+    setPeriod,
+  }
 })

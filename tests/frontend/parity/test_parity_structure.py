@@ -96,6 +96,8 @@ class TestFrontendScaffold(unittest.TestCase):
         self.assertLess(i3, i4)
         self.assertLess(i4, i5)
         self.assertIn("ProfitStructure", app)
+        self.assertIn("BuNav", app)
+        self.assertTrue((FE / "components" / "BuNav.vue").is_file())
 
     def test_client_uses_vm_api(self):
         client = (FE / "api" / "client.ts").read_text(encoding="utf-8")

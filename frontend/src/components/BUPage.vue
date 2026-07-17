@@ -12,11 +12,12 @@ import RankingsDual from './RankingsDual.vue'
 import ReceiptsCard from './ReceiptsCard.vue'
 import DailyQuery from './DailyQuery.vue'
 import LedgerTable from './LedgerTable.vue'
+import BuNav from './BuNav.vue'
 
 const store = useCockpitStore()
 </script>
 <template>
-  <div class="wrap">
+  <div>
     <header class="topbar">
       <a class="bu-back" href="/">← 整体</a>
       <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
@@ -25,6 +26,8 @@ const store = useCockpitStore()
         <ThemeToggle />
       </div>
     </header>
+    <BuNav :current="store.buName" :label="store.buNavLabel" :names="store.buNames" />
+    <div class="wrap">
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>
@@ -44,5 +47,6 @@ const store = useCockpitStore()
     <RankingsDual />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
     <LedgerTable />
+    </div>
   </div>
 </template>
