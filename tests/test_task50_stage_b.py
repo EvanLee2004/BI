@@ -249,19 +249,32 @@ class TestStageBDisplayStringParity(unittest.TestCase):
         cls.yk = cls.vm.year_key
 
     def test_vue_mode_skips_legacy_html_bodies(self):
-        """任务书51·B1：默认 vue 路径 body_by_period / profit_rank_body 为空（不生成 HTML）。"""
+        """任务书51·B1：vue 路径 body_by_period / profit_rank_body 为空（不生成 HTML）。
+
+        注意：tests/support.py 默认 setdefault KANBAN_FRONTEND=legacy（回归壳）；
+        本用例显式切 vue 并重建 VM。
+        """
+        import os
         import viewmodels as vm_mod
 
-        self.assertEqual(vm_mod.frontend_mode(self.cfg), "vue")
-        self.assertEqual(self.vm.kpi.body_by_period or {}, {})
-        self.assertEqual(self.vm.pl.body_by_period or {}, {})
-        self.assertEqual(self.vm.expense.body_by_period or {}, {})
-        self.assertEqual(self.vm.rankings.profit_rank_body or {}, {})
-        self.assertEqual(self.vm.trend.svg_html or "", "")
-        self.assertEqual(self.vm.daily_html or "", "")
-        # 结构化字段仍在
-        self.assertTrue(self.vm.kpi.cards_by_period.get(self.yk))
-        self.assertTrue(self.vm.pl.table_by_period.get(self.yk))
+        old = os.environ.get("KANBAN_FRONTEND")
+        os.environ["KANBAN_FRONTEND"] = "vue"
+        try:
+            self.assertEqual(vm_mod.frontend_mode(self.cfg), "vue")
+            vm = vm_mod.build_cockpit_vm(self.summary, self.cfg)
+            self.assertEqual(vm.kpi.body_by_period or {}, {})
+            self.assertEqual(vm.pl.body_by_period or {}, {})
+            self.assertEqual(vm.expense.body_by_period or {}, {})
+            self.assertEqual(vm.rankings.profit_rank_body or {}, {})
+            self.assertEqual(vm.trend.svg_html or "", "")
+            self.assertEqual(vm.daily_html or "", "")
+            self.assertTrue(vm.kpi.cards_by_period.get(self.yk))
+            self.assertTrue(vm.pl.table_by_period.get(self.yk))
+        finally:
+            if old is None:
+                os.environ.pop("KANBAN_FRONTEND", None)
+            else:
+                os.environ["KANBAN_FRONTEND"] = old
 
     def test_kpi_value_disps_in_legacy_html(self):
         """legacy 模式下 body HTML 仍含 KPI 主数（与结构化串一致）。"""

@@ -111,24 +111,37 @@ class TestVmNumbersParity(unittest.TestCase):
             )
 
     def test_vm_display_strings_from_views(self):
-        """vue 默认：HTML 字段空；legacy：与 build_cockpit_views 同源（任务书51·B1）。"""
-        views = api_v1.build_cockpit_views(self.summary, self.cfg)
-        # 默认 cfg.frontend=vue
-        vm_vue = viewmodels.build_cockpit_vm(self.summary, self.cfg)
-        self.assertEqual(viewmodels.frontend_mode(self.cfg), "vue")
-        self.assertEqual(vm_vue.trend.svg_html, "")
-        self.assertEqual(vm_vue.kpi.body_by_period, {})
-        self.assertEqual(vm_vue.expense.trend_html, "")
-        self.assertTrue(vm_vue.kpi.cards_by_period)
+        """vue：HTML 字段空；legacy：与 build_cockpit_views 同源（任务书51·B1）。
 
-        legacy_cfg = dict(self.cfg)
-        legacy_cfg["frontend"] = "legacy"
-        vm = viewmodels.build_cockpit_vm(self.summary, legacy_cfg)
-        self.assertEqual(vm.trend.svg_html, views.get("trend_html") or "")
-        self.assertEqual(vm.kpi.body_by_period, views.get("kpi_body") or {})
-        self.assertEqual(vm.expense.trend_html, views.get("expense_trend_html") or "")
-        if vm.expense.trend_html:
-            self.assertIn("<path", vm.expense.trend_html)
+        support.py 默认 setdefault KANBAN_FRONTEND=legacy，本用例显式切 vue/legacy。
+        """
+        import os
+
+        views = api_v1.build_cockpit_views(self.summary, self.cfg)
+        old = os.environ.get("KANBAN_FRONTEND")
+        try:
+            os.environ["KANBAN_FRONTEND"] = "vue"
+            vm_vue = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+            self.assertEqual(viewmodels.frontend_mode(self.cfg), "vue")
+            self.assertEqual(vm_vue.trend.svg_html, "")
+            self.assertEqual(vm_vue.kpi.body_by_period, {})
+            self.assertEqual(vm_vue.expense.trend_html, "")
+            self.assertTrue(vm_vue.kpi.cards_by_period)
+
+            os.environ["KANBAN_FRONTEND"] = "legacy"
+            legacy_cfg = dict(self.cfg)
+            legacy_cfg["frontend"] = "legacy"
+            vm = viewmodels.build_cockpit_vm(self.summary, legacy_cfg)
+            self.assertEqual(vm.trend.svg_html, views.get("trend_html") or "")
+            self.assertEqual(vm.kpi.body_by_period, views.get("kpi_body") or {})
+            self.assertEqual(vm.expense.trend_html, views.get("expense_trend_html") or "")
+            if vm.expense.trend_html:
+                self.assertIn("<path", vm.expense.trend_html)
+        finally:
+            if old is None:
+                os.environ.pop("KANBAN_FRONTEND", None)
+            else:
+                os.environ["KANBAN_FRONTEND"] = old
 
     def test_vm_numbers_align_golden_sample(self):
         vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)

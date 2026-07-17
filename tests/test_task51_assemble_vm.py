@@ -37,15 +37,25 @@ class TestAssembleVm(unittest.TestCase):
         cls.cfg = cfg
 
     def test_cockpit_has_structured_fields(self):
-        vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
-        self.assertEqual(vm.scope, "整体")
-        self.assertTrue(vm.period_keys)
-        self.assertTrue(vm.kpi.cards_by_period)
-        self.assertTrue(vm.pl.table_by_period)
-        self.assertTrue(vm.trend.y_axis_ticks)
-        # vue 默认：HTML 字段空
-        self.assertEqual(vm.kpi.body_by_period, {})
-        self.assertEqual(vm.pl.body_by_period, {})
+        import os
+
+        old = os.environ.get("KANBAN_FRONTEND")
+        os.environ["KANBAN_FRONTEND"] = "vue"
+        try:
+            vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+            self.assertEqual(vm.scope, "整体")
+            self.assertTrue(vm.period_keys)
+            self.assertTrue(vm.kpi.cards_by_period)
+            self.assertTrue(vm.pl.table_by_period)
+            self.assertTrue(vm.trend.y_axis_ticks)
+            # vue 路径：HTML 字段空
+            self.assertEqual(vm.kpi.body_by_period, {})
+            self.assertEqual(vm.pl.body_by_period, {})
+        finally:
+            if old is None:
+                os.environ.pop("KANBAN_FRONTEND", None)
+            else:
+                os.environ["KANBAN_FRONTEND"] = old
 
     def test_wrappers_call_assemble(self):
         src = (ROOT / "src" / "viewmodels" / "__init__.py").read_text(encoding="utf-8")

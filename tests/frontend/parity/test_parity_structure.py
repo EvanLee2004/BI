@@ -114,7 +114,11 @@ class TestFrontendScaffold(unittest.TestCase):
         self.assertIn("order_disp", code)
         self.assertIn("receipt_disp", code)
         self.assertNotIn("profit_rank_body", code)
-        self.assertIn("rk?.rankings_view", code)
+        # 任务书51·B8 类型化后：store.vm?.rankings?.rankings_view（旧写法 rk?.rankings_view 亦兼容）
+        self.assertTrue(
+            "rk?.rankings_view" in code or "rankings?.rankings_view" in code,
+            "板块四须绑定 rankings.rankings_view",
+        )
         # 板块三：结构化 profit_rank_by_period（任务书50·B 替代 HTML body）
         pr = (FE / "components" / "ProfitStructure.vue").read_text(encoding="utf-8")
         self.assertTrue(

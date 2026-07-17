@@ -98,6 +98,11 @@ tests/test_task37_ui.py
 tests/test_year2027.py
 tests/test_split_static.py
 tests/test_linux_deploy.py
+tests/test_task51_pl_structure.py
+tests/test_task51_assemble_vm.py
+tests/test_task51_authz_access.py
+tests/test_task51_batch5.py
+tests/test_task51_frontend_types.py
 "
 run_one() {
   f="$1"
