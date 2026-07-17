@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchBuVm, fetchCockpitVm } from '../api/client'
-import type { PageVM } from '../types/vm'
+import type { PageVM, RankViewBlk } from '../types/vm'
 
 export const useCockpitStore = defineStore('cockpit', () => {
   const period = ref('')
@@ -10,6 +10,14 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const error = ref('')
   const scope = ref<'main' | 'bu'>('main')
   const buName = ref('')
+  /**
+   * 按时间段查询（B-01）：查询激活时排名双卡「原位」切换为区间结果，
+   * 回款情况总图不消失不挪窝、版面不跳动；返回默认（年）一键恢复。
+   * 对齐 legacy 老前端实录行为——只有排名卡换，其余各卡各安其位。
+   */
+  const dailyActive = ref(false)
+  const dailyRange = ref<{ start: string; end: string }>({ start: '', end: '' })
+  const dailyDual = ref<{ sales?: RankViewBlk; customer?: RankViewBlk } | null>(null)
   /** 业务 BU 分页名单（整体页=全部已发布 BU；BU 页=本账号可见） */
   const buNames = ref<string[]>([])
   const buNavLabel = ref('业务 BU 分页')
@@ -58,6 +66,19 @@ export const useCockpitStore = defineStore('cockpit', () => {
 
   function setPeriod(key: string) {
     period.value = key
+    // 切顶部周期即回默认排名态（区间查询是临时叠加，周期一变就撤销），与 legacy 一致
+    clearDaily()
+  }
+
+  function setDaily(start: string, end: string, dual: { sales?: RankViewBlk; customer?: RankViewBlk } | null) {
+    dailyRange.value = { start, end }
+    dailyDual.value = dual
+    dailyActive.value = !!dual
+  }
+
+  function clearDaily() {
+    dailyActive.value = false
+    dailyDual.value = null
   }
 
   return {
@@ -69,8 +90,13 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buName,
     buNames,
     buNavLabel,
+    dailyActive,
+    dailyRange,
+    dailyDual,
     loadMain,
     loadBu,
     setPeriod,
+    setDaily,
+    clearDaily,
   }
 })

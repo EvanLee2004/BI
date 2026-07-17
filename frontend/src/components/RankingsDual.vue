@@ -19,6 +19,23 @@ const view = computed((): RankView | null => {
   return store.vm?.rankings?.rankings_view?.[store.period] || null
 })
 
+/** B-01：按时间段查询激活时，排名双卡「原位」切换为区间结果（回款总图不动、版面不跳）。 */
+const dailyOn = computed(() => store.dailyActive && !!store.dailyDual)
+const rangeLabel = computed(() =>
+  store.dailyRange.start === store.dailyRange.end
+    ? store.dailyRange.start
+    : `${store.dailyRange.start} ~ ${store.dailyRange.end}`,
+)
+const blkPair = computed((): (DualBlk | undefined)[] => {
+  if (dailyOn.value) return [store.dailyDual?.sales, store.dailyDual?.customer]
+  return [view.value?.sales, view.value?.customer]
+})
+const visible = computed(() => dailyOn.value || !!(view.value && view.value.visible !== false))
+function blkTitle(blk: DualBlk | undefined): string {
+  const t = blk?.title || ''
+  return dailyOn.value ? `${t} · 区间 ${rangeLabel.value}` : t
+}
+
 const monthly = computed(() => {
   return store.vm?.rankings?.rankings_monthly_data || {}
 })
@@ -72,21 +89,22 @@ function pct(v: unknown): string {
 </script>
 <template>
   <div
-    v-if="view && view.visible !== false"
+    v-if="visible"
     id="rankViews"
     class="rank-host dual-rankings"
     data-source="rankings_view"
-    :data-start="view.start"
-    :data-end="view.end"
+    :data-daily="dailyOn ? '1' : '0'"
+    :data-start="dailyOn ? store.dailyRange.start : view?.start"
+    :data-end="dailyOn ? store.dailyRange.end : view?.end"
   >
-    <div class="grid-2e dual-grid" :data-start="view.start" :data-end="view.end">
+    <div class="grid-2e dual-grid" :data-start="dailyOn ? store.dailyRange.start : view?.start" :data-end="dailyOn ? store.dailyRange.end : view?.end">
       <SciFiPanel
-        v-for="blk in [view.sales, view.customer]"
-        :key="blk?.dim || Math.random()"
+        v-for="blk in blkPair"
+        :key="(blk?.dim || '') + (dailyOn ? 'd' : 'v')"
         :data-dim="blk?.dim"
       >
         <template #header>
-          <span>{{ blk?.title }}</span>
+          <span>{{ blkTitle(blk) }}</span>
           <span class="dual-legend">
             <span class="dual-leg dual-o">紫=下单</span>
             <span class="dual-leg dual-r">青=回款</span>

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 /**
- * 按时间段查询：日期区间 + 与全局周期联动 + 查询打 /api/daily。
- * 查询结果与默认 RankingsDual 同用 dualRankBarOption（ECharts 双条），顺序/样子一致。
+ * 按时间段查询（B-01）：日期区间 + 与全局周期联动 + 查询打 /api/daily。
+ * 查询结果写入 store（dailyDual），由下方 RankingsDual「原位」切换为区间双卡展示——
+ * 本面板只保留查询控件与摘要，不再自渲染排名卡：回款情况总图不消失、版面不跳动。
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
-import EchartsHost from './charts/EchartsHost.vue'
-import { dualRankBarOption } from '../dual-rank-option'
 import type { RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -19,7 +18,6 @@ const handEdit = ref(false)
 const loading = ref(false)
 const err = ref('')
 const sumText = ref('')
-const dual = ref<{ sales?: RankViewBlk; customer?: RankViewBlk } | null>(null)
 
 function datesForPeriod(key: string): { s: string; e: string } {
   const v = store.vm?.rankings?.rankings_view?.[key]
@@ -51,7 +49,6 @@ function onDateEdit() {
 async function runQuery() {
   err.value = ''
   loading.value = true
-  dual.value = null
   try {
     const u =
       '/api/daily?start=' +
@@ -65,7 +62,8 @@ async function runQuery() {
       throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
     }
     const d = await r.json()
-    dual.value = d.dual_rankings || null
+    const dual = (d.dual_rankings || null) as { sales?: RankViewBlk; customer?: RankViewBlk } | null
+    store.setDaily(start.value, end.value, dual)
     const o = d.orders_disp || d.orders_total_disp || ''
     const rc = d.receipts_disp || d.receipts_total_disp || ''
     sumText.value =
@@ -73,6 +71,7 @@ async function runQuery() {
       (o || rc ? ` · 下单 ${o || '—'} / 回款 ${rc || '—'}` : '')
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)
+    store.clearDaily()
   } finally {
     loading.value = false
   }
@@ -83,17 +82,9 @@ function restoreYear() {
   const yk = store.vm?.year_key || ''
   if (yk) store.setPeriod(yk)
   syncFromPeriod()
-  dual.value = null
+  store.clearDaily()
   sumText.value = ''
   err.value = ''
-}
-
-const sales = computed((): RankViewBlk | null => dual.value?.sales || null)
-const customer = computed((): RankViewBlk | null => dual.value?.customer || null)
-
-function chartH(blk: RankViewBlk | null): number {
-  const opt = dualRankBarOption(blk || undefined)
-  return typeof opt._chartH === 'number' ? opt._chartH : 480
 }
 </script>
 <template>
@@ -107,27 +98,6 @@ function chartH(blk: RankViewBlk | null): number {
       <button type="button" class="ghost mini" id="dailyClose" @click="restoreYear">返回默认（年）</button>
       <span id="dailySum" class="muted" style="font-size: 12px">{{ sumText }}</span>
       <span v-if="err" style="color: var(--neg); font-size: 12px">{{ err }}</span>
-    </div>
-    <div v-if="dual" id="rkCustom" class="grid-2e dual-grid dual-rankings" :data-start="start" :data-end="end" data-daily="1">
-      <SciFiPanel
-        v-for="blk in [sales, customer]"
-        :key="(blk?.dim || '') + 'd'"
-        :data-dim="blk?.dim"
-      >
-        <template #header>
-          <span>{{ blk?.title || '' }}</span>
-          <span class="dual-legend">
-            <span class="dual-leg dual-o">紫=下单</span>
-            <span class="dual-leg dual-r">青=回款</span>
-          </span>
-        </template>
-        <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
-        <div v-else>
-          <div class="rank-chart-host" :style="{ height: chartH(blk) + 'px', minHeight: '420px' }">
-            <EchartsHost :option="dualRankBarOption(blk)" />
-          </div>
-        </div>
-      </SciFiPanel>
     </div>
   </SciFiPanel>
 </template>

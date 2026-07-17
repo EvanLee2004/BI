@@ -100,8 +100,12 @@ class TestLiveReviewFixes54p1(unittest.TestCase):
         self.assertIn("dualRankBarOption", src)
         daily = (FE / "components" / "DailyQuery.vue").read_text(encoding="utf-8")
         rank = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
-        self.assertIn("dualRankBarOption", daily)
+        # 任务书54.3·B-01：查询结果不再由 DailyQuery 自渲染（会挤走回款总图/版面跳动），
+        # 改为写入 store（setDaily），由 RankingsDual「原位」用同一 dualRankBarOption 渲染——
+        # 「默认排名与区间结果同用一套 option、样式顺序一致」的不变式仍成立，只是收敛到一处。
+        self.assertIn("setDaily", daily)
         self.assertIn("dualRankBarOption", rank)
+        self.assertIn("dailyDual", rank)
         self.assertIn("rank-chart-host", rank)
 
 

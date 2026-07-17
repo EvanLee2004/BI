@@ -12,8 +12,11 @@ import {
   animDuration,
   axisLabelStyle,
   barGlowStyle,
+  breathScatterSeries,
   dataLabelStyle,
   legendTextStyle,
+  lineGlowStyle,
+  pointGlowStyle,
 } from '../chart-fx'
 import { axisMaxCover, padYearMonths } from '../chart-months'
 import type { AxisTick, ReceiptsVM } from '../types/vm'
@@ -34,15 +37,29 @@ const option = computed(() => {
   const rawOrds = (r.value.orders || []).map((x) => Number(x) || 0)
   const rawRd = (r.value.receipts_disp || []).map((x) => String(x ?? ''))
   const rawOd = (r.value.orders_disp || []).map((x) => String(x ?? ''))
-  const padded = padYearMonths(rawLabels, [rawRecs, rawOrds], [rawRd, rawOd])
+  // 回款率金黄线（对照 legacy 回款情况总图）：几何取自后端已下发的百分比显示串，
+  // 标签直接用该显示串——前端不做任何金额/比率四则运算（铁律2）。
+  const rawRatioD = (r.value.ratio_pct_disp || []).map((x) => String(x ?? ''))
+  const rawRatio = rawRatioD.map((s) => {
+    const n = parseFloat(s)
+    return Number.isFinite(n) ? n : 0
+  })
+  const padded = padYearMonths(
+    rawLabels,
+    [rawRecs, rawOrds, rawRatio],
+    [rawRd, rawOd, rawRatioD],
+  )
   const labels = padded.labels
   const recs = padded.series[0]
   const ords = padded.series[1]
+  const ratio = padded.series[2]
   const rd = padded.disps[0]
   const od = padded.disps[1]
+  const ratioD = padded.disps[2]
   const empty = (i: number) => !rd[i] && !od[i]
   const recPlot = recs.map((v, i) => (empty(i) ? null : v))
   const ordPlot = ords.map((v, i) => (empty(i) ? null : v))
+  const ratioPlot = ratio.map((v, i) => (empty(i) || !ratioD[i] ? null : v))
   const ticks = r.value.y_axis_ticks || []
   const maxV0 = r.value.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
   const interval =
@@ -51,67 +68,106 @@ const option = computed(() => {
   const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords])
   const cOrd = '#a78bfa'
   const cRec = '#22d3ee'
+  const cRatio = '#fbbf24'
+  const series: Record<string, unknown>[] = [
+    {
+      name: '下单',
+      type: 'bar',
+      data: ordPlot,
+      barMaxWidth: 28,
+      itemStyle: barGlowStyle(cOrd),
+      label: dataLabelStyle({
+        position: 'top',
+        formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
+        fontSize: 11,
+      }),
+    },
+    {
+      name: '回款',
+      type: 'bar',
+      data: recPlot,
+      barMaxWidth: 28,
+      itemStyle: barGlowStyle(cRec),
+      label: dataLabelStyle({
+        position: 'top',
+        formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
+        fontSize: 11,
+      }),
+    },
+    {
+      name: '回款率',
+      type: 'line',
+      yAxisIndex: 1,
+      data: ratioPlot,
+      symbol: 'circle',
+      symbolSize: 8,
+      connectNulls: false,
+      z: 5,
+      itemStyle: pointGlowStyle(cRatio),
+      lineStyle: lineGlowStyle(cRatio, 2.5),
+      label: dataLabelStyle({
+        formatter: (p: { dataIndex: number }) => ratioD[p.dataIndex] || '',
+      }),
+      emphasis: { focus: 'series', scale: true },
+    },
+  ]
+  const breath = breathScatterSeries(
+    '回款率',
+    ratioPlot.map((x) => (x == null ? 0 : x)),
+    cRatio,
+    1,
+  )
+  if (breath) {
+    breath.data = ratioPlot.map((x) => (x == null ? '-' : x))
+    breath.yAxisIndex = 1
+    series.push(breath)
+  }
   return {
     tooltip: {
       trigger: 'axis',
       formatter: (params: { dataIndex: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`
-        return `${labels[i] || ''}<br/>下单 ${od[i] || '—'}万<br/>回款 ${rd[i] || '—'}万`
+        const tail = ratioD[i] ? `<br/>回款率 ${ratioD[i]}` : ''
+        return `${labels[i] || ''}<br/>下单 ${od[i] || '—'}万<br/>回款 ${rd[i] || '—'}万${tail}`
       },
     },
     legend: {
-      data: ['下单', '回款'],
+      data: ['下单', '回款', '回款率'],
       bottom: 0,
       textStyle: legendTextStyle(),
     },
-    grid: { left: 64, right: 28, top: 40, bottom: 48 },
+    grid: { left: 64, right: 52, top: 40, bottom: 48 },
     xAxis: {
       type: 'category',
       data: labels,
       axisLabel: axisLabelStyle({ interval: 0 }),
     },
-    yAxis: {
-      type: 'value',
-      min: minV,
-      max: maxV,
-      interval,
-      axisLabel: {
-        formatter: (val: number) => {
-          const lab = tickLabel(ticks, val)
-          if (lab) return lab
-          if (val === 0) return '0'
-          return ''
+    yAxis: [
+      {
+        type: 'value',
+        min: minV,
+        max: maxV,
+        interval,
+        axisLabel: {
+          formatter: (val: number) => {
+            const lab = tickLabel(ticks, val)
+            if (lab) return lab
+            if (val === 0) return '0'
+            return ''
+          },
+          ...axisLabelStyle(),
         },
-        ...axisLabelStyle(),
-      },
-    },
-    series: [
-      {
-        name: '下单',
-        type: 'bar',
-        data: ordPlot,
-        barMaxWidth: 28,
-        itemStyle: barGlowStyle(cOrd),
-        label: dataLabelStyle({
-          position: 'top',
-          formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-          fontSize: 11,
-        }),
       },
       {
-        name: '回款',
-        type: 'bar',
-        data: recPlot,
-        barMaxWidth: 28,
-        itemStyle: barGlowStyle(cRec),
-        label: dataLabelStyle({
-          position: 'top',
-          formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-          fontSize: 11,
-        }),
+        type: 'value',
+        min: 0,
+        max: 100,
+        splitLine: { show: false },
+        axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
       },
     ],
+    series,
     ...animBlock(animDuration(700)),
   }
 })
