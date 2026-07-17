@@ -52,6 +52,39 @@
       },
       "title": "Donut By Period",
       "type": "object"
+    },
+    "views_by_period": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Views By Period",
+      "type": "object"
+    },
+    "donut_center_by_period": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Donut Center By Period",
+      "type": "object"
+    },
+    "area_y_axis_labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Area Y Axis Labels",
+      "type": "array"
+    },
+    "area_y_axis_ticks": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Area Y Axis Ticks",
+      "type": "array"
     }
   },
   "title": "ExpenseVM",

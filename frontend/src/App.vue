@@ -16,6 +16,7 @@ import DailyQuery from './components/DailyQuery.vue'
 import LedgerTable from './components/LedgerTable.vue'
 import BuNav from './components/BuNav.vue'
 import BUPage from './components/BUPage.vue'
+import TopBarActions from './components/TopBarActions.vue'
 
 const store = useCockpitStore()
 const isBuRoute = computed(() => {
@@ -48,6 +49,7 @@ onMounted(async () => {
       <div class="tb-right">
         <PeriodPicker />
         <ThemeToggle />
+        <TopBarActions />
       </div>
     </header>
     <BuNav />

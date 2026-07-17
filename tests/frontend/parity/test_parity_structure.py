@@ -115,9 +115,13 @@ class TestFrontendScaffold(unittest.TestCase):
         self.assertIn("receipt_disp", code)
         self.assertNotIn("profit_rank_body", code)
         self.assertIn("rk?.rankings_view", code)
-        # 板块三组件才绑 profit_rank_body
+        # 板块三：结构化 profit_rank_by_period（任务书50·B 替代 HTML body）
         pr = (FE / "components" / "ProfitStructure.vue").read_text(encoding="utf-8")
-        self.assertIn("profit_rank_body", pr)
+        self.assertTrue(
+            "profit_rank_by_period" in pr or "profit_rank_body" in pr,
+            "板块三须绑 profit_rank_by_period 或兼容 profit_rank_body",
+        )
+        self.assertNotIn("rankings_view", pr.replace("profit_rank", ""))
 
     def test_app_login_guard_not_collapsed(self):
         """App.vue 登录守卫不得写成 pathname==('/login'||…) 形式。"""

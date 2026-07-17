@@ -1,6 +1,6 @@
 {
   "additionalProperties": true,
-  "description": "明细白名单元数据（行数据仍走 /api/detail）。",
+  "description": "明细白名单：行数据走 GET /api/v1/vm/ledger（任何会话一律白名单列）。",
   "properties": {
     "columns": {
       "items": {
@@ -10,9 +10,16 @@
       "type": "array"
     },
     "note": {
-      "default": "行数据见 /api/detail?table=费用明细",
+      "default": "行数据见 /api/v1/vm/ledger",
       "title": "Note",
       "type": "string"
+    },
+    "forbidden_columns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Columns",
+      "type": "array"
     }
   },
   "title": "LedgerVM",

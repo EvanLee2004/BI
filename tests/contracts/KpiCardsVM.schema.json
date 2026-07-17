@@ -19,6 +19,17 @@
       },
       "title": "Body By Period",
       "type": "object"
+    },
+    "cards_by_period": {
+      "additionalProperties": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "title": "Cards By Period",
+      "type": "object"
     }
   },
   "title": "KpiCardsVM",

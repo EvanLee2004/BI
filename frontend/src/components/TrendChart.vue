@@ -1,11 +1,29 @@
 <script setup lang="ts">
-/** 板块二左：收入·成本柱 + 毛利率线。数据/显示串全部来自 VM，前端零运算。 */
+/** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。 */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 
 const store = useCockpitStore()
 const trend = computed(() => (store.vm?.trend || {}) as Record<string, unknown>)
+
+function axisFormatter(ticks: { value: number; label: string }[]) {
+  return (val: number) => {
+    if (!ticks.length) return ''
+    let best = ticks[0]
+    let bestD = Math.abs(val - best.value)
+    for (const t of ticks) {
+      const d = Math.abs(val - t.value)
+      if (d < bestD) {
+        best = t
+        bestD = d
+      }
+    }
+    // 仅在接近某个后端刻度时显示，避免乱标
+    if (bestD > (ticks[1] ? Math.abs(ticks[1].value - ticks[0].value) * 0.25 : 1)) return ''
+    return best.label
+  }
+}
 
 const option = computed(() => {
   const t = trend.value
@@ -16,6 +34,9 @@ const option = computed(() => {
   const revD = (t.revenue_disp as string[]) || []
   const costD = (t.cost_disp as string[]) || []
   const marD = (t.margin_pct_disp as string[]) || []
+  const ticks = (t.y_axis_ticks as { value: number; label: string }[]) || []
+  const maxV = ticks.length ? ticks[ticks.length - 1].value : undefined
+  const interval = ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined
   return {
     tooltip: {
       trigger: 'axis',
@@ -25,10 +46,17 @@ const option = computed(() => {
       },
     },
     legend: { data: ['收入', '成本', '毛利率'] },
+    grid: { left: 64, right: 48, top: 36, bottom: 28 },
     xAxis: { type: 'category', data: labels },
     yAxis: [
-      { type: 'value', name: '万' },
-      { type: 'value', name: '%', max: 100 },
+      {
+        type: 'value',
+        min: 0,
+        max: maxV,
+        interval,
+        axisLabel: { formatter: axisFormatter(ticks) },
+      },
+      { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
     ],
     series: [
       {
@@ -72,7 +100,7 @@ const option = computed(() => {
 </script>
 <template>
   <div class="card">
-    <div class="card-h">收入 · 毛利趋势 <span class="tag">ECharts</span></div>
+    <div class="card-h">收入 · 毛利趋势</div>
     <div class="rc-body">
       <EchartsHost :option="option" />
     </div>

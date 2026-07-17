@@ -52,6 +52,31 @@
       },
       "title": "Ratio Pct Disp",
       "type": "array"
+    },
+    "y_axis_labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Y Axis Labels",
+      "type": "array"
+    },
+    "y_axis_ticks": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Y Axis Ticks",
+      "type": "array"
+    },
+    "summary_by_period": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Summary By Period",
+      "type": "object"
     }
   },
   "title": "ReceiptsVM",

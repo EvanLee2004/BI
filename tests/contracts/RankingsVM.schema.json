@@ -17,6 +17,14 @@
       },
       "title": "Profit Rank Body",
       "type": "object"
+    },
+    "profit_rank_by_period": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Profit Rank By Period",
+      "type": "object"
     }
   },
   "title": "RankingsVM",

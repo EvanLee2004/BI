@@ -28,7 +28,13 @@ const option = computed(() => {
     },
     legend: { data: seriesIn.map((s) => s.name) },
     xAxis: { type: 'category', data: labels, boundaryGap: false },
-    yAxis: { type: 'value' },
+    yAxis: {
+      type: 'value',
+      axisLabel: {
+        // 显示原值；金额标签在 tooltip 用 data_disp（后端串）
+        formatter: (v: number) => String(v),
+      },
+    },
     series: seriesIn.map((s) => ({
       name: s.name,
       type: 'line',

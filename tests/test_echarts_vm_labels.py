@@ -69,6 +69,41 @@ class TestEchartsVmLabels(unittest.TestCase):
                 if a == 0:
                     self.assertEqual(d, "0.0")
 
+    def test_y_axis_ticks_backend(self):
+        """任务书50·C：Y 轴刻度显示串由后端下发，禁止 000,000。"""
+        import viewmodels
+
+        vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        self.assertTrue(vm.trend.y_axis_ticks)
+        for t in vm.trend.y_axis_ticks:
+            self.assertIn("label", t)
+            self.assertNotIn("000,000", t["label"])
+        self.assertEqual([t["label"] for t in vm.trend.y_axis_ticks], vm.trend.y_axis_labels)
+
+    def test_donut_center_not_debug(self):
+        import viewmodels
+
+        vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        yk = vm.year_key
+        c = (vm.expense.donut_center_by_period or {}).get(yk) or {}
+        self.assertEqual(c.get("title"), "期间费用")
+        blob = str(c)
+        self.assertNotIn("total 50", blob)
+        self.assertNotIn("50.0%", blob)
+
+    def test_ui_no_echarts_tech_label(self):
+        for name in ("TrendChart.vue", "ExpenseSection.vue", "ReceiptsCard.vue", "RankingsDual.vue"):
+            text = (FE / "components" / name).read_text(encoding="utf-8")
+            # 卡头不得把技术栈名当用户文案
+            self.assertNotIn("ECharts</span>", text, name)
+            self.assertNotIn("环形 · ECharts", text, name)
+
+    def test_rankings_use_echarts_bars(self):
+        text = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
+        self.assertIn("EchartsHost", text)
+        self.assertIn("type: 'bar'", text)
+
 
 if __name__ == "__main__":
     unittest.main()
+

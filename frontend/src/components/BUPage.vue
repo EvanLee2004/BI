@@ -13,6 +13,7 @@ import ReceiptsCard from './ReceiptsCard.vue'
 import DailyQuery from './DailyQuery.vue'
 import LedgerTable from './LedgerTable.vue'
 import BuNav from './BuNav.vue'
+import TopBarActions from './TopBarActions.vue'
 
 const store = useCockpitStore()
 </script>
@@ -24,6 +25,7 @@ const store = useCockpitStore()
       <div class="tb-right">
         <PeriodPicker />
         <ThemeToggle />
+        <TopBarActions />
       </div>
     </header>
     <BuNav :current="store.buName" :label="store.buNavLabel" :names="store.buNames" />

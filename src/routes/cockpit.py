@@ -129,6 +129,99 @@ def register(app, d):
         out["current_bu"] = name
         return JSONResponse(out)
 
+    @app.get("/api/v1/vm/ledger")
+    def api_v1_vm_ledger(
+        request: Request,
+        page: int = 1,
+        page_size: int = 50,
+        month_from: str | None = None,
+        month_to: str | None = None,
+        filters: str | None = None,
+        bu: str | None = None,
+        q: str | None = None,
+    ):
+        """任务书50·B：看端费用明细 VM。
+        **任何会话（含管理员）一律白名单列**——管理员也走 view/view_bu，不走管理端全列。
+        管理端数据调整仍用 /api/detail（audience=admin）。"""
+        import db
+
+        user = _user(request)
+        vacc = _vacc_row(request)
+        if not user and not vacc:
+            raise HTTPException(status_code=401, detail="未登录")
+
+        force_bu = None
+        hide_salary = False
+        audience = "view"
+        if user:
+            # 管理员看端：整体白名单；若指定 bu 则按 view_bu 裁「业务BU」列
+            force_bu = (bu or "").strip() or None
+            hide_salary = False
+            audience = "view_bu" if force_bu else "view"
+        elif vacc and accounts.is_main(vacc):
+            force_bu = (bu or "").strip() or None
+            hide_salary = not bool(cfg.get("overall_see_salary", False))
+            audience = "view"
+        else:
+            names = accounts.bu_names_of(vacc) if vacc else []
+            if not names:
+                raise HTTPException(status_code=403, detail="无权查看费用明细")
+            want = (bu or "").strip() or (names[0] if len(names) == 1 else "")
+            if not want or not accounts.can_see_bu(vacc, want):
+                raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
+            force_bu = want
+            hide_salary = False
+            audience = "view_bu"
+
+        who = user or _vacct(request) or "?"
+        _audit(cfg, root, who, ("访问", f"看端明细VM" + (f" bu={force_bu}" if force_bu else "")))
+
+        conn = db.connect(cfg, root)
+        try:
+            try:
+                data = db.query_detail(
+                    conn,
+                    "费用明细",
+                    None,
+                    q,
+                    page,
+                    page_size,
+                    False,
+                    False,
+                    year=None,
+                    bu=force_bu,
+                    filters=filters,
+                    hide_salary=hide_salary,
+                    audience=audience,
+                    month_from=month_from,
+                    month_to=month_to,
+                )
+            except KeyError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        finally:
+            conn.close()
+
+        cols = list(data.get("columns") or [])
+        # 双保险：响应绝不含隐藏列
+        forbidden = set(db.VIEW_EXPENSE_HIDDEN)
+        cols = [c for c in cols if c not in forbidden]
+        rows = []
+        for r in data.get("rows") or []:
+            if not isinstance(r, dict):
+                continue
+            rows.append({c: r.get(c, "") for c in cols})
+        return JSONResponse(
+            {
+                "columns": cols,
+                "rows": rows,
+                "total": data.get("total") or 0,
+                "page": data.get("page") or page,
+                "page_size": data.get("page_size") or page_size,
+                "audience": audience,
+                "forbidden": list(db.VIEW_EXPENSE_HIDDEN),
+            }
+        )
+
     @app.get("/api/v1/cockpit/bu/{name}")
     def api_v1_cockpit_bu(name: str, request: Request):
         if not (_vacct(request) or _user(request)):

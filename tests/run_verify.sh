@@ -65,6 +65,7 @@ tests/test_task42_final.py
 tests/test_task43_nginx_mode.py
 tests/test_task43_arch.py
 tests/test_task46_stage0.py
+tests/test_task50_stage_b.py
 tests/test_authz.py
 tests/test_vm_contract.py
 tests/test_config_engine.py

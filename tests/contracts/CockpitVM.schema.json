@@ -54,6 +54,39 @@
           },
           "title": "Donut By Period",
           "type": "object"
+        },
+        "views_by_period": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Views By Period",
+          "type": "object"
+        },
+        "donut_center_by_period": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Donut Center By Period",
+          "type": "object"
+        },
+        "area_y_axis_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Area Y Axis Labels",
+          "type": "array"
+        },
+        "area_y_axis_ticks": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Area Y Axis Ticks",
+          "type": "array"
         }
       },
       "title": "ExpenseVM",
@@ -80,6 +113,17 @@
           },
           "title": "Body By Period",
           "type": "object"
+        },
+        "cards_by_period": {
+          "additionalProperties": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": "Cards By Period",
+          "type": "object"
         }
       },
       "title": "KpiCardsVM",
@@ -87,7 +131,7 @@
     },
     "LedgerVM": {
       "additionalProperties": true,
-      "description": "明细白名单元数据（行数据仍走 /api/detail）。",
+      "description": "明细白名单：行数据走 GET /api/v1/vm/ledger（任何会话一律白名单列）。",
       "properties": {
         "columns": {
           "items": {
@@ -97,9 +141,16 @@
           "type": "array"
         },
         "note": {
-          "default": "行数据见 /api/detail?table=费用明细",
+          "default": "行数据见 /api/v1/vm/ledger",
           "title": "Note",
           "type": "string"
+        },
+        "forbidden_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Columns",
+          "type": "array"
         }
       },
       "title": "LedgerVM",
@@ -119,6 +170,14 @@
           "default": "",
           "title": "Pl Tag",
           "type": "string"
+        },
+        "table_by_period": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Table By Period",
+          "type": "object"
         }
       },
       "title": "PLTableVM",
@@ -142,6 +201,14 @@
             "type": "string"
           },
           "title": "Profit Rank Body",
+          "type": "object"
+        },
+        "profit_rank_by_period": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Profit Rank By Period",
           "type": "object"
         }
       },
@@ -202,6 +269,31 @@
           },
           "title": "Ratio Pct Disp",
           "type": "array"
+        },
+        "y_axis_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Y Axis Labels",
+          "type": "array"
+        },
+        "y_axis_ticks": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Y Axis Ticks",
+          "type": "array"
+        },
+        "summary_by_period": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Summary By Period",
+          "type": "object"
         }
       },
       "title": "ReceiptsVM",
@@ -263,6 +355,21 @@
           },
           "title": "Margin Pct Disp",
           "type": "array"
+        },
+        "y_axis_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Y Axis Labels",
+          "type": "array"
+        },
+        "y_axis_ticks": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Y Axis Ticks",
+          "type": "array"
         }
       },
       "title": "TrendVM",
@@ -323,6 +430,11 @@
       "default": "",
       "title": "Daily Html",
       "type": "string"
+    },
+    "daily": {
+      "additionalProperties": true,
+      "title": "Daily",
+      "type": "object"
     },
     "numbers": {
       "additionalProperties": true,

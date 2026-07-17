@@ -12,6 +12,14 @@
       "default": "",
       "title": "Pl Tag",
       "type": "string"
+    },
+    "table_by_period": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Table By Period",
+      "type": "object"
     }
   },
   "title": "PLTableVM",
