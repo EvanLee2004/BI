@@ -2,11 +2,19 @@
 /**
  * 板块四：下单/回款双系列横向条形图（ECharts）+ 其余弹窗 + 月度下钻。
  * 铁律2：金额串/系列值全后端；前端只摆 option。
+ * 任务书54.1：V4 柱发光 + V6 排名行名列宽给足 + 文字清晰。
  */
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
+import {
+  animBlock,
+  animDuration,
+  axisLabelStyle,
+  dataLabelStyle,
+  legendTextStyle,
+} from '../chart-fx'
 import type { RankItem, RankView, RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -57,6 +65,8 @@ function barOption(blk: DualBlk | undefined) {
   const receipts = items.map((it) => Number(it.wr) || 0)
   const od = items.map((it) => it.order_disp || '')
   const rd = items.map((it) => it.receipt_disp || '')
+  const cO = '#a78bfa'
+  const cR = '#2dd4bf'
   return {
     tooltip: {
       trigger: 'axis',
@@ -67,41 +77,85 @@ function barOption(blk: DualBlk | undefined) {
         return `${it?.name || ''}<br/>下单 ${od[i]}<br/>回款 ${rd[i]}`
       },
     },
-    legend: { data: ['下单', '回款'] },
-    grid: { left: 100, right: 48, top: 28, bottom: 16 },
-    xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+    legend: { data: ['下单', '回款'], textStyle: legendTextStyle() },
+    /* V6：行名列宽给足，避免无故截断 */
+    grid: { left: 128, right: 56, top: 28, bottom: 16 },
+    xAxis: {
+      type: 'value',
+      max: 100,
+      axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
+    },
     yAxis: {
       type: 'category',
       data: names,
-      axisLabel: { width: 90, overflow: 'truncate' },
+      axisLabel: {
+        width: 118,
+        overflow: 'truncate',
+        ellipsis: '…',
+        interval: 0,
+        ...axisLabelStyle({ fontSize: 11 }),
+      },
+      triggerEvent: true,
     },
     series: [
       {
         name: '下单',
         type: 'bar',
         data: orders,
-        itemStyle: { color: '#a78bfa' },
-        label: {
-          show: true,
+        itemStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 1,
+            y2: 0,
+            colorStops: [
+              { offset: 0, color: cO },
+              { offset: 1, color: '#c4b5fd' },
+            ],
+          },
+          borderRadius: [0, 4, 4, 0],
+          shadowBlur: 10,
+          shadowColor: 'rgba(167,139,250,0.45)',
+        },
+        label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-          fontSize: 10,
+        }),
+        emphasis: {
+          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(167,139,250,0.7)' },
         },
       },
       {
         name: '回款',
         type: 'bar',
         data: receipts,
-        itemStyle: { color: '#2dd4bf' },
-        label: {
-          show: true,
+        itemStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 1,
+            y2: 0,
+            colorStops: [
+              { offset: 0, color: cR },
+              { offset: 1, color: '#5eead4' },
+            ],
+          },
+          borderRadius: [0, 4, 4, 0],
+          shadowBlur: 10,
+          shadowColor: 'rgba(45,212,191,0.45)',
+        },
+        label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-          fontSize: 10,
+        }),
+        emphasis: {
+          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(45,212,191,0.7)' },
         },
       },
     ],
-    animationDuration: 600,
+    ...animBlock(animDuration(600)),
   }
 }
 

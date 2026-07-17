@@ -1,5 +1,6 @@
 /**
  * 任务书54·B：ECharts 主题全面从 SciFi kit CSS 变量派生（+ theme.css 业务色）。
+ * 任务书54.1：V6 图表文字清晰度（轴/图例字号≥11、对比提高）。
  * 目标：图表与 kit 面板肉眼同一套设计；亮暗纯前端 CSS 切换。
  */
 
@@ -26,8 +27,13 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
   const pos = cssVar('--dsdk-success-color', cssVar('--pos', isLight ? '#0f766e' : '#34d399'))
   const neg = cssVar('--dsdk-danger-color', cssVar('--neg', isLight ? '#c2410c' : '#fb7185'))
   const ink = cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'))
-  const mut = cssVar('--dsdk-text-color-darker', cssVar('--mut', '#93a1c0'))
-  const mut2 = cssVar('--dsdk-text-color-dim', cssVar('--mut2', '#5f6d92'))
+  /* V6：暗色用更亮墨色、亮色用更深墨色，轴标签对比拉满 */
+  const mut = isLight
+    ? cssVar('--dsdk-text-color-darker', cssVar('--mut', '#3d4a5c'))
+    : cssVar('--note', '#c5d0e8')
+  const mut2 = isLight
+    ? cssVar('--dsdk-text-color-dim', cssVar('--mut2', '#4a5a6e'))
+    : '#a8b6d4'
   const line = cssVar('--dsdk-panel-border-default', cssVar('--line', 'rgba(125,211,252,.16)'))
   const mono = cssVar('--dsdk-font-mono', cssVar('--mono', 'ui-monospace, monospace'))
 
@@ -37,17 +43,18 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
     textStyle: {
       color: ink,
       fontFamily: `-apple-system,"PingFang SC",sans-serif,${mono}`,
+      fontSize: 12,
     },
     grid: { left: 54, right: 36, top: 34, bottom: 40 },
     categoryAxis: {
       axisLine: { lineStyle: { color: line, width: 1 } },
-      axisLabel: { color: mut, fontSize: 11 },
+      axisLabel: { color: mut, fontSize: 11, fontWeight: 500 },
       splitLine: { show: false },
       axisTick: { show: false },
     },
     valueAxis: {
       axisLine: { show: false },
-      axisLabel: { color: mut2, fontSize: 11 },
+      axisLabel: { color: mut2, fontSize: 11, fontWeight: 500 },
       splitLine: {
         lineStyle: {
           color: line,
@@ -57,7 +64,7 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
       },
     },
     legend: {
-      textStyle: { color: mut, fontSize: 12 },
+      textStyle: { color: mut, fontSize: 12, fontWeight: 500 },
       pageTextStyle: { color: mut2 },
     },
     tooltip: {

@@ -1,10 +1,22 @@
 <script setup lang="ts">
-/** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。任务书51·B7：轴刻度精确查表。 */
+/** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。任务书51·B7：轴刻度精确查表。
+ *  任务书54.1：V4 呼吸发光 + V6 文字清晰度。
+ */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
-import { themeInkColor } from '../echarts-theme'
+import {
+  animBlock,
+  animDuration,
+  axisLabelStyle,
+  barGlowStyle,
+  breathScatterSeries,
+  dataLabelStyle,
+  legendTextStyle,
+  lineGlowStyle,
+  pointGlowStyle,
+} from '../chart-fx'
 import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -32,7 +44,50 @@ const option = computed(() => {
   const interval =
     t.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = t.y_axis_min ?? 0
-  const ink = themeInkColor()
+  const cRev = '#22d3ee'
+  const cCost = '#64769e'
+  const cMar = '#c084fc'
+  const series: Record<string, unknown>[] = [
+    {
+      name: '收入',
+      type: 'bar',
+      data: rev,
+      itemStyle: barGlowStyle(cRev),
+      label: dataLabelStyle({
+        position: 'top',
+        formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
+      }),
+      emphasis: {
+        itemStyle: { shadowBlur: 20, shadowColor: 'rgba(34,211,238,0.65)' },
+      },
+    },
+    {
+      name: '成本',
+      type: 'bar',
+      data: cost,
+      itemStyle: barGlowStyle(cCost, true),
+      label: dataLabelStyle({
+        position: 'top',
+        formatter: (p: { dataIndex: number }) => costD[p.dataIndex] || '',
+      }),
+    },
+    {
+      name: '毛利率',
+      type: 'line',
+      yAxisIndex: 1,
+      data: margin,
+      symbol: 'circle',
+      symbolSize: 8,
+      itemStyle: pointGlowStyle(cMar),
+      lineStyle: lineGlowStyle(cMar, 2.5),
+      label: dataLabelStyle({
+        formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
+      }),
+      emphasis: { focus: 'series', scale: true },
+    },
+  ]
+  const breath = breathScatterSeries('毛利率', margin, cMar, 1)
+  if (breath) series.push(breath)
   return {
     tooltip: {
       trigger: 'axis',
@@ -41,9 +96,13 @@ const option = computed(() => {
         return `${labels[i] || ''}<br/>收入 ${revD[i] || '—'}万<br/>成本 ${costD[i] || '—'}万<br/>毛利率 ${marD[i] || '—'}`
       },
     },
-    legend: { data: ['收入', '成本', '毛利率'], textStyle: { color: ink } },
+    legend: { data: ['收入', '成本', '毛利率'], textStyle: legendTextStyle() },
     grid: { left: 64, right: 48, top: 36, bottom: 28 },
-    xAxis: { type: 'category', data: labels },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLabel: axisLabelStyle(),
+    },
     yAxis: [
       {
         type: 'value',
@@ -52,60 +111,17 @@ const option = computed(() => {
         interval,
         axisLabel: {
           formatter: (val: number) => tickLabel(ticks, val),
-          color: ink,
+          ...axisLabelStyle(),
         },
       },
       {
         type: 'value',
         max: 100,
-        axisLabel: { formatter: '{value}%', color: ink },
+        axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
       },
     ],
-    series: [
-      {
-        name: '收入',
-        type: 'bar',
-        data: rev,
-        itemStyle: { borderRadius: [4, 4, 0, 0], color: '#22d3ee' },
-        label: {
-          show: true,
-          position: 'top',
-          formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
-          fontSize: 10,
-          color: ink,
-        },
-      },
-      {
-        name: '成本',
-        type: 'bar',
-        data: cost,
-        itemStyle: { borderRadius: [4, 4, 0, 0], color: '#64769e' },
-        label: {
-          show: true,
-          position: 'top',
-          formatter: (p: { dataIndex: number }) => costD[p.dataIndex] || '',
-          fontSize: 10,
-          color: ink,
-        },
-      },
-      {
-        name: '毛利率',
-        type: 'line',
-        yAxisIndex: 1,
-        data: margin,
-        symbol: 'circle',
-        symbolSize: 6,
-        itemStyle: { color: '#c084fc' },
-        lineStyle: { width: 2, color: '#c084fc' },
-        label: {
-          show: true,
-          formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
-          fontSize: 10,
-          color: ink,
-        },
-      },
-    ],
-    animationDuration: 700,
+    series,
+    ...animBlock(animDuration(700)),
   }
 })
 </script>

@@ -3,6 +3,7 @@
  * ECharts 宿主。
  * 铁律2：option 的数据/标签串必须由后端 VM 预计算后传入，前端不做金额运算。
  * 任务书54：主题从 kit CSS 变量派生；亮暗切换后重注册并 dispose 重绘。
+ * 任务书54.1·V8：ResizeObserver 调 chart.resize()（修先大窗后缩窗横向溢出）。
  */
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import * as echarts from 'echarts'
@@ -13,6 +14,7 @@ const emit = defineEmits<{ click: [params: { dataIndex?: number; seriesName?: st
 const el = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let lastMode: 'dark' | 'light' | null = null
+let ro: ResizeObserver | null = null
 
 function ensureChart() {
   if (!el.value) return
@@ -45,13 +47,29 @@ function onTheme() {
   render()
 }
 
+function onWinResize() {
+  chart?.resize()
+}
+
 onMounted(() => {
   render()
-  window.addEventListener('resize', () => chart?.resize())
+  window.addEventListener('resize', onWinResize)
   window.addEventListener('kanban-theme-change', onTheme)
+  /* V8：容器尺寸变化（侧栏/栅格/先大后缩）也 resize */
+  if (typeof ResizeObserver !== 'undefined' && el.value) {
+    ro = new ResizeObserver(() => {
+      chart?.resize()
+    })
+    ro.observe(el.value)
+  }
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', onWinResize)
   window.removeEventListener('kanban-theme-change', onTheme)
+  if (ro) {
+    ro.disconnect()
+    ro = null
+  }
   chart?.dispose()
   chart = null
 })

@@ -12,7 +12,7 @@ const cards = computed((): KpiCard[] => {
 </script>
 <template>
   <div class="kpi-host">
-    <div class="kpi-grid">
+    <div class="kpi-grid kpi-5">
       <SciFiPanel
         v-for="(c, i) in cards"
         :key="i"

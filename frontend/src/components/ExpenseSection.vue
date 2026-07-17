@@ -1,9 +1,18 @@
 <script setup lang="ts">
-/** 期间费用构成：环形 + 构成四态切换 + 抽屉。数字全后端。 */
+/** 期间费用构成：环形 + 构成四态切换 + 抽屉。数字全后端。
+ *  任务书54.1：V4 环形 hover 光晕 + V6 文字清晰。
+ */
 import { computed, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
+import {
+  animBlock,
+  animDuration,
+  chartMutedColor,
+  chartTextColor,
+  pieEmphasis,
+} from '../chart-fx'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -35,6 +44,8 @@ const openFine = ref<string | null>(null)
 const option = computed(() => {
   const data = items.value
   const c = center.value
+  const ink = chartTextColor()
+  const mut = chartMutedColor()
   return {
     tooltip: {
       trigger: 'item',
@@ -54,10 +65,22 @@ const option = computed(() => {
             const it = data[p.dataIndex]
             return `${p.name}\n${it?.pct_disp || ''}`
           },
+          fontSize: 12,
+          color: ink,
+          fontWeight: 600,
+          textBorderColor: 'rgba(4,8,20,0.75)',
+          textBorderWidth: 2,
         },
-        labelLine: { length: 12, length2: 8 },
+        labelLine: { length: 14, length2: 10, lineStyle: { width: 1.5 } },
+        itemStyle: {
+          shadowBlur: 12,
+          shadowColor: 'rgba(34,211,238,0.25)',
+          borderColor: 'rgba(4,8,20,0.35)',
+          borderWidth: 1,
+        },
+        emphasis: pieEmphasis(),
         animationType: 'scale',
-        animationDuration: 600,
+        animationDuration: animDuration(600),
       },
     ],
     graphic: [
@@ -71,8 +94,9 @@ const option = computed(() => {
             style: {
               text: c.title || '期间费用',
               textAlign: 'center',
-              fill: '#94a3b8',
+              fill: mut,
               fontSize: 12,
+              fontWeight: 500,
             },
             top: -10,
           },
@@ -81,8 +105,8 @@ const option = computed(() => {
             style: {
               text: '合计' + (c.total_disp || ''),
               textAlign: 'center',
-              fill: '#e2e8f0',
-              fontSize: 14,
+              fill: ink,
+              fontSize: 15,
               fontWeight: 700,
             },
             top: 8,
@@ -90,6 +114,7 @@ const option = computed(() => {
         ],
       },
     ],
+    ...animBlock(animDuration(600)),
   }
 })
 </script>
@@ -109,7 +134,7 @@ const option = computed(() => {
     <div v-if="mode === 'donut' && items.length" class="ev-body">
       <EchartsHost :option="option" />
       <div class="legend" style="display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: center; margin-top: 8px">
-        <span v-for="it in items" :key="it.name" class="muted" style="font-size: 11px">
+        <span v-for="it in items" :key="it.name" class="muted" style="font-size: 12px">
           {{ it.name }} {{ it.value_disp }}万（{{ it.pct_disp }}）
         </span>
       </div>

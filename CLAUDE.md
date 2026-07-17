@@ -17,7 +17,7 @@
                   └▶ ④ profit → summary
                        └▶ ⑤ 展示：看端 static/ + shell；管理端 static/admin/ + /admin/app.js
 ```
-- **当前状态（v2.0.0-beta · 2026-07-18 · 任务书54）**：主部署线 **Ubuntu 26.04 唯一**（系统 python3≥3.12；nginx 发 dist + 反代 API；Windows `.bat`/schtasks 已删）。看端 Vue + **SciFi kit 面板壳** + ECharts（kit CSS 变量主题）；亮暗纯前端；费用月度=堆叠柱。口径配置 UI/API 下线（引擎默认直通）。明细**白名单列**；登录明文+踢会话。**库内金额 INTEGER 分**；WAL。算账/32 周期红线未改。legacy 壳保留至 55。
+- **当前状态（v2.0.0-beta · 2026-07-18 · 任务书54.1）**：主部署线 **Ubuntu 26.04 唯一**（系统 python3≥3.12；nginx 发 dist + 反代 API；Windows `.bat`/schtasks 已删）。看端 Vue + **SciFi kit 面板壳** + ECharts（kit CSS 变量主题）；亮暗纯前端；费用月度=**多系列发光折线**（54.1·V7）；五卡一排/星光背景/图表呼吸发光。口径配置 UI/API 下线（引擎默认直通）。明细**白名单列**；登录明文+踢会话。**库内金额 INTEGER 分**；WAL。算账/32 周期红线未改。legacy 壳保留至 55。tag `stage54p1` 未 push。
 - **现状边界**：①抓数层智云自动抓已建成；②~⑤已实现。数据库是后端私有资产；浏览器只经 HTTP。
 - **契约（接缝=进料口）**：换数据源/抓取方式只动上游与 readers，进料口以下不动。
 - **测试规模**：**60** 个 `test_*.py` / **602** 个 `def test_`（2026-07-16 源码重数，与 run_verify 登记一致）；`sh tests/run_verify.sh` 一键绿。

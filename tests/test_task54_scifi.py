@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""任务书54·B/C：SciFi kit 落地守卫 + 费用堆叠柱图型 + 无第二 UI 库。"""
+"""任务书54·B/C：SciFi kit 落地守卫；任务书54.1·V7 费用多系列折线 + 无第二 UI 库。"""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
@@ -46,21 +45,22 @@ class TestSciFiVendor54(unittest.TestCase):
         self.assertIn("--dsdk-text-color", src)
 
 
-class TestExpenseStackedBar54(unittest.TestCase):
-    def test_expense_trend_is_stacked_bar_not_area(self):
+class TestExpenseMultiLine54p1(unittest.TestCase):
+    """54.1·V7：费用月度 = 多系列发光折线（仍用 area_* 数据，零口径变化）。"""
+
+    def test_expense_trend_is_multi_line_not_stack_bar(self):
         src = (FE / "components" / "ExpenseTrend.vue").read_text(encoding="utf-8")
-        self.assertIn("type: 'bar'", src)
+        self.assertIn("type: 'line'", src)
         self.assertNotIn("areaStyle", src)
-        self.assertIn("stack: 'total'", src)
+        self.assertNotIn("stack: 'total'", src)
+        self.assertNotIn("堆叠柱", src)
         self.assertIn("area_totals_disp", src)
         self.assertIn("area_labels", src)
-        self.assertIn("堆叠柱", src)
-        # 柱顶合计：透明叠层 + themeInkColor hex（禁 CSS var 进 canvas）
-        self.assertIn("themeInkColor", src)
-        self.assertIn("position: 'top'", src)
-        self.assertIn("_柱顶合计", src)
+        self.assertIn("area_series", src)
+        self.assertIn("多系列折线", src)
+        self.assertIn("breathScatterSeries", src)
+        self.assertIn("lineGlowStyle", src)
         self.assertNotIn("var(--ink", src)
-        # 禁止误用 kit 图表画金额
         self.assertNotIn("CanvasGraphPanel", src)
         self.assertNotIn("TrueCanvasGraph", src)
 
