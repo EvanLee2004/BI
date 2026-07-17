@@ -10,4 +10,3 @@ playwright==1.61.0 # 智云账号密码自动登录(login_zhiyun)用；装完还
 
 # 仅测试用（TestClient）：
 # httpx==0.28.1
-passlib[argon2]==1.7.4  # 任务书46·1：账号口令 Argon2 哈希（透明迁移）

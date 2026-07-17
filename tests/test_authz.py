@@ -34,11 +34,11 @@ class TestAuthzMatrix(unittest.TestCase):
         self.assertFalse(authz.can_view_salary(acc, cfg={}))
         self.assertTrue(authz.can_view_salary(acc, cfg={"overall_see_salary": True}))
 
-    def test_sso_disabled_by_default(self):
-        import sso_feishu
+    def test_sso_module_removed(self):
+        """任务书50·A：飞书 SSO 适配器已删除。"""
+        import importlib.util
 
-        self.assertFalse(sso_feishu.is_enabled({}))
-        self.assertIsNone(sso_feishu.authorize_url({}))
+        self.assertIsNone(importlib.util.find_spec("sso_feishu"))
 
 
 if __name__ == "__main__":

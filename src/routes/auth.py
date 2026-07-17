@@ -189,7 +189,7 @@ def register(app, d):
 
     @app.post("/api/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):
-        """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，只存哈希并自增密码版本（旧会话失效）。"""
+        """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，密码版本+1（旧会话失效）。"""
         name = _vacct(request)
         if not name:
             raise HTTPException(status_code=401, detail="请先登录看板")
@@ -202,23 +202,10 @@ def register(app, d):
 
     @app.get("/api/accounts")
     def api_accounts_get(request: Request):
-        """账号表（管理员会话）：不再下发明文；has_hash + 占位，重置走 reset。"""
+        """账号表（管理员会话）：下发明文密码（管理端 👁 可见）。"""
         _require(request)
         rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
         return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
-
-    @app.post("/api/accounts/reset_password")
-    def api_accounts_reset_password(request: Request, payload: dict = Body(default={})):
-        """管理员重置密码：生成一次性随机密码，只显示一次。"""
-        user = _require(request)
-        acct = str(payload.get("账号") or payload.get("account") or "").strip()
-        if not acct:
-            raise HTTPException(status_code=400, detail="缺少账号")
-        plain, err = accounts.reset_password(cfg, root, acct)
-        if err:
-            raise HTTPException(status_code=400, detail=err)
-        _audit(cfg, root, user, ("密码", f"账号 {acct} 重置密码"))
-        return {"账号": acct, "password_once": plain, "note": "请立即复制，离开后不可再查看明文"}
 
     @app.post("/api/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):

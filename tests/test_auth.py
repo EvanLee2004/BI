@@ -241,12 +241,11 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn(old.status_code, (401, 303))
         _, new = self._login("overall", "newpw1")
         self.assertEqual(new.status_code, 303)
-        # 任务书46·1：管理员端不再下发明文，仅 has_hash + 占位
+        # 任务书50·A：管理员端恢复明文可见
         a = self._admin()
         rows = a.get("/api/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
-        self.assertTrue(row.get("has_hash"))
-        self.assertNotEqual(row.get("密码"), "newpw1")
+        self.assertEqual(row.get("密码"), "newpw1")
         self.assertFalse(row["初始密码"])
 
     def test_change_password_kicks_old_session(self):
@@ -273,9 +272,8 @@ class TestViewerAuth(unittest.TestCase):
         _, new = self._login("user_a", "adminset1")
         self.assertEqual(new.status_code, 303)
 
-    def test_plain_migrates_to_hash_on_login(self):
-        """明文库登录一次后明文消失、只留哈希。"""
-        # 直接写旧格式明文 JSON
+    def test_plaintext_persists_on_login(self):
+        """任务书50·A：明文为真相源，登录不改写为哈希。"""
         p = accounts.config_path(self.cfg, self.tmp)
         p.write_text(
             json.dumps(
@@ -292,8 +290,14 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "plainu", "plain888"))
         raw = json.loads(p.read_text(encoding="utf-8"))
         row = next(x for x in raw["accounts"] if x["账号"] == "plainu")
-        self.assertTrue(row.get("密码哈希", "").startswith("$argon2"))
-        self.assertFalse(str(row.get("密码") or "").strip())
+        self.assertEqual(row.get("密码"), "plain888")
+        self.assertFalse(str(row.get("密码哈希") or "").strip())
+
+    def test_no_reset_password_endpoint(self):
+        """任务书50·A：删除重置密码流。"""
+        a = self._admin()
+        r = a.post("/api/accounts/reset_password", json={"账号": "overall"})
+        self.assertEqual(r.status_code, 404)
 
     def test_rebind_permission_takes_effect(self):
         a = self._admin()
@@ -341,12 +345,11 @@ class TestViewerAuth(unittest.TestCase):
         for b in a.get("/api/bu_config").json()["bus"]:
             self.assertNotIn("密码", b)
             self.assertNotIn("密码hash", b)
-        # 管理员 accounts：有密码字段但非真实明文（占位或空）；has_hash 标记
+        # 管理员 accounts：下发明文（任务书50·A 回退）
         rows = a.get("/api/accounts").json()["accounts"]
-        self.assertTrue(any(r.get("has_hash") or r.get("密码") for r in rows))
-        for r in rows:
-            if r.get("has_hash"):
-                self.assertNotIn(r.get("密码"), (server.DEFAULT_VIEW_PW, server.DEFAULT_PW, "newpw1"))
+        self.assertTrue(any(r.get("密码") for r in rows))
+        overall = next(x for x in rows if x["账号"] == "overall")
+        self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
         # 自改密码弹窗文案在 HTML 壳（JS 只绑事件，文案不在 static/js）
         import render
 
@@ -354,6 +357,13 @@ class TestViewerAuth(unittest.TestCase):
         _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", _js)
         self.assertIn("/api/my_passwd", _js)
+        # 管理端账号卡恢复 👁 看明文，无重置密码流
+        admin_js = (Path(__file__).resolve().parents[1] / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
+        self.assertIn("acctTogglePw", admin_js)
+        self.assertIn("👁", admin_js)
+        self.assertNotIn("acctResetPw", admin_js)
+        self.assertNotIn("/api/accounts/reset_password", admin_js)
+        self.assertNotIn("has_hash", admin_js)
 
     def test_initial_password_yellow_flag(self):
         a = self._admin()
