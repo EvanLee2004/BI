@@ -1,7 +1,5 @@
 <script setup lang="ts">
-/** 期间费用构成：环形 + 构成四态切换 + 抽屉。数字全后端。
- *  任务书54.1：V4 环形 hover 光晕 + V6 文字清晰。
- */
+/** 期间费用构成：环形 + 构成四态。54.2：饼周无标签、图例横排底部（色点+名+金额）。 */
 import { computed, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
@@ -12,6 +10,7 @@ import {
   chartMutedColor,
   chartTextColor,
   pieEmphasis,
+  SERIES_PALETTE,
 } from '../chart-fx'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
@@ -41,6 +40,10 @@ const hbar = computed((): ExpenseHBar[] => {
 
 const openFine = ref<string | null>(null)
 
+const legendColors = computed(() =>
+  items.value.map((_, i) => SERIES_PALETTE[i % SERIES_PALETTE.length]),
+)
+
 const option = computed(() => {
   const data = items.value
   const c = center.value
@@ -54,29 +57,26 @@ const option = computed(() => {
         return `${p.name}<br/>${it?.value_disp || '—'}万（${it?.pct_disp || '—'}）`
       },
     },
+    color: SERIES_PALETTE,
     series: [
       {
         type: 'pie',
-        radius: ['42%', '68%'],
+        radius: ['44%', '70%'],
+        center: ['50%', '48%'],
         avoidLabelOverlap: true,
-        data: data.map((d) => ({ name: d.name, value: d.value })),
-        label: {
-          formatter: (p: { dataIndex: number; name: string }) => {
-            const it = data[p.dataIndex]
-            return `${p.name}\n${it?.pct_disp || ''}`
-          },
-          fontSize: 12,
-          color: ink,
-          fontWeight: 600,
-          textBorderColor: 'rgba(4,8,20,0.75)',
-          textBorderWidth: 2,
-        },
-        labelLine: { length: 14, length2: 10, lineStyle: { width: 1.5 } },
+        data: data.map((d, i) => ({
+          name: d.name,
+          value: d.value,
+          itemStyle: { color: SERIES_PALETTE[i % SERIES_PALETTE.length] },
+        })),
+        /* 54.2：图例在下方，饼周不挤字 */
+        label: { show: false },
+        labelLine: { show: false },
         itemStyle: {
-          shadowBlur: 12,
-          shadowColor: 'rgba(34,211,238,0.25)',
-          borderColor: 'rgba(4,8,20,0.35)',
-          borderWidth: 1,
+          shadowBlur: 14,
+          shadowColor: 'rgba(34,211,238,0.28)',
+          borderColor: 'rgba(4,8,20,0.45)',
+          borderWidth: 2,
         },
         emphasis: pieEmphasis(),
         animationType: 'scale',
@@ -98,18 +98,18 @@ const option = computed(() => {
               fontSize: 12,
               fontWeight: 500,
             },
-            top: -10,
+            top: -12,
           },
           {
             type: 'text',
             style: {
-              text: '合计' + (c.total_disp || ''),
+              text: c.total_disp ? `${c.total_disp}万` : '',
               textAlign: 'center',
               fill: ink,
-              fontSize: 15,
-              fontWeight: 700,
+              fontSize: 18,
+              fontWeight: 800,
             },
-            top: 8,
+            top: 6,
           },
         ],
       },
@@ -132,10 +132,14 @@ const option = computed(() => {
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'dept' }" @click="mode = 'dept'">按部门</button>
     </div>
     <div v-if="mode === 'donut' && items.length" class="ev-body">
-      <EchartsHost :option="option" />
-      <div class="legend" style="display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: center; margin-top: 8px">
-        <span v-for="it in items" :key="it.name" class="muted" style="font-size: 12px">
-          {{ it.name }} {{ it.value_disp }}万（{{ it.pct_disp }}）
+      <div style="height: 280px">
+        <EchartsHost :option="option" />
+      </div>
+      <div class="ev-legend-row">
+        <span v-for="(it, i) in items" :key="it.name" class="ev-legend-item">
+          <i :style="{ background: legendColors[i], color: legendColors[i] }" />
+          {{ it.name }}
+          <em>{{ it.value_disp }}万</em>
         </span>
       </div>
     </div>

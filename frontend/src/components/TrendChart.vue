@@ -62,9 +62,10 @@ const option = computed(() => {
     t.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = t.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...rev, ...cost])
+  /* 54.2 对照基准：收入青柱 / 成本灰柱 / 毛利率金黄线 */
   const cRev = '#22d3ee'
   const cCost = '#64769e'
-  const cMar = '#c084fc'
+  const cMar = '#fbbf24'
   const series: Record<string, unknown>[] = [
     {
       name: '收入',
@@ -124,8 +125,12 @@ const option = computed(() => {
         return `${labels[i] || ''}<br/>收入 ${revD[i] || '—'}万<br/>成本 ${costD[i] || '—'}万<br/>毛利率 ${marD[i] || '—'}`
       },
     },
-    legend: { data: ['收入', '成本', '毛利率'], textStyle: legendTextStyle() },
-    grid: { left: 64, right: 48, top: 48, bottom: 36 },
+    legend: {
+      data: ['收入', '成本', '毛利率'],
+      bottom: 0,
+      textStyle: legendTextStyle(),
+    },
+    grid: { left: 64, right: 48, top: 40, bottom: 48 },
     xAxis: {
       type: 'category',
       data: labels,
@@ -155,7 +160,7 @@ const option = computed(() => {
 </script>
 <template>
   <SciFiPanel id="trendChartCard" title="收入 · 毛利趋势" panel-class="trend-chart-card">
-    <div class="rc-body" data-chart="trend" style="min-height: 320px; height: 340px">
+    <div class="rc-body" data-chart="trend" style="min-height: 340px; height: 360px">
       <EchartsHost :option="option" />
     </div>
   </SciFiPanel>

@@ -49,6 +49,12 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
         <span class="pl-amt" :class="{ pos: r.grand || r.total }">{{ r.amt_disp }}</span>
       </div>
     </div>
+    <!-- 数据源徽标（装饰对齐基准；无金额） -->
+    <div class="src-legend" aria-hidden="true">
+      <span><i class="s-sys" />智云</span>
+      <span><i class="s-led" />台账</span>
+      <span><i class="s-man" />手填</span>
+    </div>
 
     <!-- 右侧抽屉：body 直下 fixed 用 portal 类 -->
     <Teleport to="body">

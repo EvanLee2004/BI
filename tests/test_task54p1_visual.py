@@ -105,5 +105,37 @@ class TestLiveReviewFixes54p1(unittest.TestCase):
         self.assertIn("rank-chart-host", rank)
 
 
+class TestTask54p2DeepSpace(unittest.TestCase):
+    """54.2 深空指挥舱：图例/金线/双柱/KPI 结构守卫。"""
+
+    def test_donut_labels_off_legend_row(self):
+        src = (FE / "components" / "ExpenseSection.vue").read_text(encoding="utf-8")
+        self.assertIn("label: { show: false }", src)
+        self.assertIn("ev-legend-row", src)
+
+    def test_trend_gold_margin(self):
+        src = (FE / "components" / "TrendChart.vue").read_text(encoding="utf-8")
+        self.assertIn("#fbbf24", src)
+
+    def test_receipts_dual_bars(self):
+        src = (FE / "components" / "ReceiptsCard.vue").read_text(encoding="utf-8")
+        self.assertIn("name: '下单'", src)
+        self.assertIn("name: '回款'", src)
+        self.assertIn("type: 'bar'", src)
+        self.assertIn("padYearMonths", src)
+
+    def test_kpi_five_and_bridge_kpi(self):
+        kpi = (FE / "components" / "KpiCards.vue").read_text(encoding="utf-8")
+        self.assertIn("kpi-grid kpi-5", kpi)
+        css = (FE / "vendor" / "scifi-kit" / "scifi-bridge.css").read_text(encoding="utf-8")
+        self.assertIn("scifi-panel.kpi-card", css)
+        self.assertIn("54.2", css)
+
+    def test_no_backend_html_in_vue_components(self):
+        for p in (FE / "components").rglob("*.vue"):
+            src = p.read_text(encoding="utf-8")
+            self.assertNotIn("v-html", src, p.name)
+
+
 if __name__ == "__main__":
     unittest.main()

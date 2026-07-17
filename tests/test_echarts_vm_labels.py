@@ -115,7 +115,10 @@ class TestEchartsVmLabels(unittest.TestCase):
     def test_rankings_use_echarts_bars(self):
         text = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
         self.assertIn("EchartsHost", text)
-        self.assertIn("type: 'bar'", text)
+        # 54.1+：bar option 抽到 dual-rank-option（与 DailyQuery 共用）
+        self.assertIn("dualRankBarOption", text)
+        factory = (FE / "dual-rank-option.ts").read_text(encoding="utf-8")
+        self.assertIn("type: 'bar'", factory)
 
 
 if __name__ == "__main__":
