@@ -224,73 +224,75 @@ def _detail_block(cat, title, inner):
     return tpl.fill("render/detail_block.html", cat=_esc(cat), title=_esc(title), inner=inner)
 
 
-def render_pl_table(p, fine, unclassified_amt=None):
-    """管理利润表（看端·领导视角）：行旁只留计算公式；运营备注/填数提示不展示（管理端数据页看）。"""
-    e = p["expense"]
-    man = p["manual"]
-    led = p["ledger_expenses"]
-    prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
-    # 主表：公式留 / 运营备注去
-    rows = [_row("交付收入（不含税）", p["revenue_net"], "system", "交付金额÷1.06")]
-    rows.append(_open_row("cost", "交付成本（生产成本）", -p["production_cost"]))
-    rows.append(_row("管理毛利", p["gross_profit"], "", total=True))
-    rows.append(_open_row("sales", "营销费用", -e["营销费用"]))
-    rows.append(_open_row("admin", "管理费用", -e["管理费用"]))
-    rows.append(_open_row("fixed", "固定运营费用", -e["固定运营费用"]))
-    rows.append(_open_row("rd", "研发费用", -e["研发费用"]))
-    rows.append(_open_row("fin", "财务费用", -e["财务费用"]))
-    rows.append(_row("附加税费", -p["surtax"], "system", "净收入×6%×12%"))
-    rows.append(_row("其他损益", p["other_pl"], "manual", ""))
-    if unclassified_amt and unclassified_amt > 0:
-        rows.append(_row("未计入费用（台账未填大类）", -unclassified_amt, "ledger", ""))
-    rows.append(_row("税前利润", p["pretax_profit"], "", "管理毛利−期间费用−附加税±其他", grand=True))
-    # 陆总0714/A4#3：税前利润率（=税前利润÷交付收入；显示名原「税前利润率」）
-    rows.append(_pct_row("税前利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
+def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:
+    """任务书51·B2：结构 → legacy 利润表 HTML（与重构前逐字节对齐）。"""
+    row_html: list[str] = []
+    for r in struct.get("rows") or []:
+        if r.get("pending"):
+            row_html.append(_bu_pending_row(r["name"]))
+            continue
+        if r.get("is_pct"):
+            row_html.append(_pct_row(r["name"], r.get("pct"), r.get("formula") or ""))
+            continue
+        impact = float(r.get("impact") or 0)
+        ok = r.get("open_key")
+        formula = r.get("formula") or ""
+        if bu_display and r.get("name") == "税前利润" and r.get("grand"):
+            formula = "毛利−期间费用−附加税±其他"
+        if ok:
+            row_html.append(_open_row(ok, r["name"], impact))
+        else:
+            row_html.append(
+                _row(
+                    r["name"],
+                    impact,
+                    r.get("kind") or "",
+                    formula,
+                    total=bool(r.get("total")),
+                    grand=bool(r.get("grand")),
+                )
+            )
 
-    # 抽屉：只列名目+金额，不堆「手填·默认0」类运营旁注
-    # 抽屉行名不带「加/减」：用户只看名目与金额
-    cost_inner = (
-        _drow("系统直接成本", -p["system_direct_cost"], "system")
-        + _drow("系统内部译员", p["inhouse_cost"], "system")
-        + _drow("直接成本增值税", man.get("直接成本增值税", 0.0), "manual")
-        + "".join(_drow(n, -man[n], "manual") for n in prod_manual)
-    )
-    details = "".join(
-        [
-            _detail_block("cost", "交付成本（生产成本）构成", cost_inner),
-            _detail_block(
-                "sales",
-                "营销费用构成",
-                _drow("营销人力成本", -man["营销人力成本"], "manual")
-                + _d_ledger("市场费用", led["市场费用"], "", fine.get("市场费用")),
-            ),
-            _detail_block(
-                "admin",
-                "管理费用构成",
-                _drow("管理人力成本", -man["管理人力成本"], "manual")
-                + _d_ledger("管理费用", led["管理费用"], "", fine.get("管理费用")),
-            ),
-            _detail_block(
-                "fixed",
-                "固定运营费用构成",
-                _d_ledger("固定运营费用明细", led["固定运营费用"], "", fine.get("固定运营费用")),
-            ),
-            _detail_block(
-                "rd",
-                "研发费用构成",
-                _drow("研发人力成本", -man["研发人力成本"], "manual")
-                + _d_ledger("技术服务费", led["技术服务费"], "", fine.get("技术服务费")),
-            ),
-            _detail_block(
-                "fin",
-                "财务费用构成",
-                _d_ledger("财务费用", led["财务费用"], "", fine.get("财务费用"))
-                + _drow("财务费用补充", -man["财务费用补充"], "manual"),
-            ),
-        ]
-    )
+    pending_keys = {r.get("open_key") for r in (struct.get("rows") or []) if r.get("pending") and r.get("open_key")}
+    # 顺序：cost → sales/admin/fixed/rd/fin（与旧 render 一致）
+    order = ["cost", "sales", "admin", "fixed", "rd", "fin"]
+    details = struct.get("details") or {}
+    detail_parts: list[str] = []
+    for cat in order:
+        if cat not in details or cat in pending_keys:
+            continue
+        block = details[cat]
+        title = block.get("title") or ""
+        if bu_display and cat == "cost":
+            title = "交付成本构成"
+        inner = ""
+        for ln in block.get("lines") or []:
+            kind = ln.get("kind") or ""
+            # 旧 HTML：系统内部译员传正值、其余抽屉行传负值；_drow 最终 abs 显示
+            raw = float(ln.get("impact") or 0)
+            if ln.get("name") == "系统内部译员":
+                signed = raw
+            else:
+                signed = -raw
+            inner += _drow(ln["name"], signed, kind, "", sub=bool(ln.get("sub")))
+        detail_parts.append(_detail_block(cat, title, inner))
+
     kinds = tpl.load("render/kinds.html")
-    return tpl.fill("render/pl_table.html", rows="".join(rows), kinds=kinds, details=details)
+    return tpl.fill(
+        "render/pl_table.html",
+        rows="".join(row_html),
+        kinds=kinds,
+        details="".join(detail_parts),
+    )
+
+
+def render_pl_table(p, fine, unclassified_amt=None):
+    """管理利润表（看端·领导视角）：任务书51·B2 消费 pl_structure → HTML。"""
+    from domain.pl.structure import pl_structure
+
+    unc = float(unclassified_amt) if unclassified_amt and float(unclassified_amt) > 0 else None
+    struct = pl_structure(p, fine or {}, is_bu=False, unclassified_amt=unc)
+    return _pl_structure_to_html(struct, bu_display=False)
 
 
 # ---------- 板块②-3 回款按月（整年，静态）+ 每月回款/下单比线 ----------
@@ -1151,93 +1153,11 @@ def _bu_pending_row(name, note="—"):
 
 
 def render_bu_pl_table(p, alloc_meta=None, fine=None):
-    """BU 版利润表（看端精简备注）：费用有数就显示；抽屉只列名目+金额；公式保留。"""
-    alloc = alloc_meta or {}
-    on = bool(alloc.get("enabled"))
-    rdisp = alloc.get("ratio_disp") or ""
-    exp = p.get("expense") or {}
-    man = p.get("manual") or {}
-    led = p.get("ledger_expenses") or {}
-    exp_total = float(exp.get("total") or 0)
-    has_fee = exp_total > 0.005 or any(float(led.get(c) or 0) > 0.005 for c in led)
-    man_keys = (
-        "营销人力成本",
-        "管理人力成本",
-        "研发人力成本",
-        "财务费用补充",
-        "PM人力成本",
-        "VM人力成本",
-        "实际内部译员成本",
-        "税费损失",
-        "技术流量成本",
-        "其他（生产成本）",
-        "其他损益",
-    )
-    has_manual = any(abs(float(man.get(k) or 0)) > 0.005 for k in man_keys)
-    other_pl = float(p.get("other_pl") or 0)
+    """BU 版利润表：任务书51·B2 消费 pl_structure → HTML；返回 (html, tag_note)。"""
+    from domain.pl.structure import pl_structure
 
-    if on and rdisp:
-        tag_note = f"含公共分摊 {rdisp}"
-    elif has_fee:
-        tag_note = "本BU直记"
-    else:
-        tag_note = ""
-
-    fine = fine or {}
-    alloc_added = p.get("alloc_added") or {}
-    # 大类 → (抽屉key, 手填项, 台账类)；财务费用的手填是"补充"、挂台账行后面
-    _GROUPS = (
-        ("sales", "营销费用", "营销人力成本", "市场费用"),
-        ("admin", "管理费用", "管理人力成本", "管理费用"),
-        ("fixed", "固定运营费用", None, "固定运营费用"),
-        ("rd", "研发费用", "研发人力成本", "技术服务费"),
-        ("fin", "财务费用", None, "财务费用"),
-    )
-
-    rows = [_row("交付收入（不含税）", p["revenue_net"], "system", "交付金额÷1.06")]
-    rows.append(_open_row("cost", "交付成本（生产成本）", -p["production_cost"]))
-    rows.append(_row("管理毛利", p["gross_profit"], "", total=True))
-    exp_details = []
-    for cat_key, nm, man_key, led_cat in _GROUPS:
-        v = float(exp.get(nm) or 0)
-        if has_fee or abs(v) > 0.005:
-            rows.append(_open_row(cat_key, nm, -v))
-            alloc_amt = float(alloc_added.get(led_cat) or 0.0)
-            direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
-            inner = ""
-            if man_key:
-                inner += _drow(man_key, -float(man.get(man_key) or 0), "manual")
-            inner += _d_ledger(led_cat, direct_amt, "", fine.get(led_cat))
-            if nm == "财务费用":
-                inner += _drow("财务费用补充", -float(man.get("财务费用补充") or 0), "manual")
-            if alloc_amt > 0.005:
-                inner += _drow("分摊自公共", -alloc_amt, "ledger")
-            exp_details.append(_detail_block(cat_key, f"{nm}构成", inner))
-        else:
-            rows.append(_bu_pending_row(nm))
-    rows.append(_row("附加税费", -p["surtax"], "system", "净收入×6%×12%"))
-    if abs(other_pl) > 0.005 or has_manual:
-        rows.append(_row("其他损益", other_pl, "manual", ""))
-    else:
-        rows.append(_bu_pending_row("其他损益"))
-    pretax_src = "毛利−期间费用−附加税±其他"
-    rows.append(_row("税前利润", p["pretax_profit"], "", pretax_src, grand=True))
-    rows.append(_pct_row("税前利润率", p.get("pretax_margin_pct"), "税前利润÷交付收入"))
-
-    prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
-    if has_manual:
-        man_cost_html = "".join(_drow(n, -float(man.get(n) or 0), "manual") for n in prod_manual)
-    else:
-        man_cost_html = "".join(_drow(n, 0.0, "manual") for n in prod_manual)
-    cost_inner = (
-        _drow("系统直接成本", -p["system_direct_cost"], "system")
-        + _drow("系统内部译员", p["inhouse_cost"], "system")
-        + _drow("直接成本增值税", float(man.get("直接成本增值税") or 0), "manual")
-        + man_cost_html
-    )
-    details = _detail_block("cost", "交付成本构成", cost_inner) + "".join(exp_details)
-    kinds = tpl.load("render/kinds.html")
-    return (tpl.fill("render/pl_table.html", rows="".join(rows), kinds=kinds, details=details), tag_note)
+    struct = pl_structure(p, fine or {}, is_bu=True, alloc_meta=alloc_meta or {})
+    return _pl_structure_to_html(struct, bu_display=True), struct.get("tag_note") or ""
 
 
 def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:

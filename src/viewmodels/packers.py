@@ -28,96 +28,22 @@ def _abs_amt_disp(v) -> str:
 
 
 def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str, list[dict[str, Any]]]:
-    """周期 → KPI 卡数组（主数/副标/峰值/目标条/BU 进度全为显示串）。"""
+    """周期 → KPI 卡数组（主数/副标/峰值/目标条/BU 进度全为显示串）。
+
+    任务书51·B2：峰值/目标条消费 domain.pl.structure 公共函数。
+    """
     import charts
+    from domain.pl.structure import kpi_peak_for, kpi_target_bar
     from render_widgets import KPI_CARDS, _kpi_period_label, _kpi_val, _prev_period_key
 
     cfg = cfg or {}
     meta = summary.get("meta") or {}
     P = summary.get("periods") or {}
     year = meta.get("year")
-    month_keys = (meta.get("tab_groups") or {}).get("月") or []
     budget = meta.get("budget")
     BUO = meta.get("bu_orders") or {}
     show_ar = bool(cfg.get("show_delivered_unpaid", False))
     out: dict[str, list[dict[str, Any]]] = {}
-
-    def peak_for(key: str) -> dict[str, str] | None:
-        if not month_keys:
-            return None
-        best_v, best_mk = None, None
-        for mk in month_keys:
-            if mk not in P:
-                continue
-            v = float(_kpi_val(P[mk], key) or 0.0)
-            if best_v is None or v > best_v:
-                best_v, best_mk = v, mk
-        if best_v is None:
-            return None
-        if best_v == 0.0 and all(float(_kpi_val(P.get(mk) or {}, key) or 0.0) == 0.0 for mk in month_keys):
-            return None
-        lab = (
-            best_mk.replace(f"{year}年", "")
-            if isinstance(best_mk, str) and best_mk.startswith(f"{year}年")
-            else str(best_mk)
-        )
-        return {"label": lab, "value_disp": charts.fmt_wan(best_v) + "万"}
-
-    def target_bar(tkey, pkey, p) -> dict[str, Any] | None:
-        if not budget or not tkey:
-            return None
-        use_h1 = ("1-6" in pkey) or pkey.endswith("1-6月") or ("1~6" in pkey)
-        item, label = None, "年目标"
-        if use_h1 and budget.get(f"{tkey}_h1"):
-            item = budget[f"{tkey}_h1"]
-            label = "H1目标"
-        if item is None:
-            item = budget.get(tkey)
-            label = "年目标"
-        if not item:
-            return {"empty": True, "label": label}
-        tgt, done, pct = item.get("target"), item.get("done"), item.get("pct")
-        if tkey in ("margin", "pretax_margin"):
-            if use_h1 and item.get("done") is not None:
-                cur = item["done"]
-            else:
-                cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
-            cur_s = f"{cur:.1f}%" if cur is not None else "—"
-            if pct is not None and pct > 999:
-                pct_s = ">999% · 目标待校准"
-            else:
-                pct_s = f"{pct:.0f}%" if pct is not None else "—"
-            w = min(max(pct or 0, 0), 100)
-            cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
-            return {
-                "empty": False,
-                "kind": "margin",
-                "label": label,
-                "tgt_disp": str(tgt),
-                "cur_disp": cur_s,
-                "pct_disp": pct_s,
-                "bar_w": w,
-                "cls": cls,
-            }
-        if done is None:
-            done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
-            pct = (done / tgt * 100.0) if tgt else None
-        if pct is not None and pct > 999:
-            pct_s = ">999% · 目标待校准"
-        else:
-            pct_s = f"{pct:.1f}%" if pct is not None else "—"
-        w = min(max(pct or 0, 0), 100)
-        cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
-        return {
-            "empty": False,
-            "kind": "amount",
-            "label": label,
-            "tgt_disp": charts.fmt_wan(tgt) + "万",
-            "done_disp": charts.fmt_wan(done) + "万",
-            "pct_disp": pct_s,
-            "bar_w": w,
-            "cls": cls,
-        }
 
     def bu_orders_rows(bu_list) -> list[dict[str, Any]]:
         if not bu_list:
@@ -183,7 +109,7 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
                 r = p.get("receipt_order_ratio_pct")
                 rtxt = f"{r:.1f}%" if r is not None else "—"
                 subs = [{"label": "总回款/下单比", "value_disp": rtxt}]
-            peak = peak_for(key)
+            peak = kpi_peak_for(summary, key)
             feet = []
             if peak:
                 feet.append({"kind": "peak", "label": peak["label"], "value_disp": peak["value_disp"]})
@@ -199,7 +125,7 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
                     "value_unit": "万",
                     "delta": delta,
                     "subs": subs,
-                    "target": target_bar(tkey, pkey, p),
+                    "target": kpi_target_bar(tkey, pkey, p, budget),
                     "bu_orders": bu_orders_rows(BUO.get(pkey)) if key == "orders" else [],
                     "feet": feet,
                     "src": src,
@@ -210,188 +136,31 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
     return out
 
 
-def _fine_pairs(fine_pairs, limit=8) -> list[dict[str, Any]]:
-    pairs = sorted(fine_pairs or [], key=lambda x: -x[1])
-    lines = []
-    for n, a in pairs[:limit]:
-        lines.append({"name": str(n), "amt_disp": _abs_amt_disp(a), "sub": True, "kind": ""})
-    rest = pairs[limit:]
-    if rest:
-        lines.append(
-            {
-                "name": f"其他{len(rest)}项",
-                "amt_disp": _abs_amt_disp(sum(a for _, a in rest)),
-                "sub": True,
-                "kind": "",
-            }
-        )
-    return lines
-
-
 def pack_pl_by_period(summary: dict, *, is_bu: bool = False) -> dict[str, dict[str, Any]]:
-    """周期 → {rows, details} 结构化利润表。"""
+    """周期 → {rows, details} 结构化利润表（任务书51·B2：消费 domain.pl.pl_structure）。"""
+    from domain.pl.structure import pl_structure, structure_for_vm
+
     meta = summary.get("meta") or {}
     P = summary.get("periods") or {}
     FT = summary.get("expense_fine_type") or {}
     yk = meta.get("year_key") or ""
     unc = (meta.get("unclassified") or {}).get("expense") or {}
     unc_amt = float(unc.get("amount") or 0) if unc else 0.0
+    alloc = meta.get("public_allocation") or {"enabled": False}
     out: dict[str, dict[str, Any]] = {}
-
-    def line(name, impact, *, kind="", formula="", open_key=None, total=False, grand=False, is_pct=False, pct=None):
-        if is_pct:
-            txt = f"{pct:.1f}%" if pct is not None else "—"
-            return {
-                "name": name,
-                "amt_disp": txt,
-                "kind": kind,
-                "formula": formula,
-                "open_key": None,
-                "total": False,
-                "grand": False,
-                "is_pct": True,
-            }
-        return {
-            "name": name,
-            "amt_disp": _amt_disp(impact),
-            "kind": kind,
-            "formula": formula,
-            "open_key": open_key,
-            "total": total,
-            "grand": grand,
-            "is_pct": False,
-        }
-
-    def dline(name, impact, kind="", sub=False):
-        return {"name": name, "amt_disp": _abs_amt_disp(impact), "kind": kind, "sub": sub}
 
     for pkey, p in P.items():
         if not isinstance(p, dict):
             continue
-        e = p.get("expense") or {}
-        man = p.get("manual") or {}
-        led = p.get("ledger_expenses") or {}
-        fine = FT.get(pkey) or {}
-        rows = []
-        details: dict[str, dict[str, Any]] = {}
-
-        rows.append(line("交付收入（不含税）", p.get("revenue_net"), kind="system", formula="交付金额÷1.06"))
-        rows.append(line("交付成本（生产成本）", -float(p.get("production_cost") or 0), open_key="cost"))
-        rows.append(line("管理毛利", p.get("gross_profit"), total=True))
-
-        prod_manual = ["PM人力成本", "VM人力成本", "实际内部译员成本", "税费损失", "技术流量成本", "其他（生产成本）"]
-        cost_lines = [
-            dline("系统直接成本", p.get("system_direct_cost"), "system"),
-            dline("系统内部译员", abs(float(p.get("inhouse_cost") or 0)), "system"),
-            dline("直接成本增值税", man.get("直接成本增值税", 0.0), "manual"),
-        ]
-        for n in prod_manual:
-            cost_lines.append(dline(n, man.get(n, 0.0), "manual"))
-        details["cost"] = {"title": "交付成本（生产成本）构成", "lines": cost_lines}
-
-        if is_bu:
-            alloc = meta.get("public_allocation") or {"enabled": False}
-            alloc_added = p.get("alloc_added") or {}
-            groups = (
-                ("sales", "营销费用", "营销人力成本", "市场费用"),
-                ("admin", "管理费用", "管理人力成本", "管理费用"),
-                ("fixed", "固定运营费用", None, "固定运营费用"),
-                ("rd", "研发费用", "研发人力成本", "技术服务费"),
-                ("fin", "财务费用", None, "财务费用"),
-            )
-            for cat_key, nm, man_key, led_cat in groups:
-                v = float(e.get(nm) or 0)
-                rows.append(line(nm, -v, open_key=cat_key))
-                alloc_amt = float(alloc_added.get(led_cat) or 0.0)
-                direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
-                lines = []
-                if man_key:
-                    lines.append(dline(man_key, man.get(man_key, 0), "manual"))
-                lines.append(dline(led_cat, direct_amt, "ledger"))
-                lines.extend(_fine_pairs(fine.get(led_cat)))
-                if nm == "财务费用":
-                    lines.append(dline("财务费用补充", man.get("财务费用补充", 0), "manual"))
-                if alloc_amt > 0.005:
-                    lines.append(dline("分摊自公共", alloc_amt, "ledger"))
-                details[cat_key] = {"title": f"{nm}构成", "lines": lines}
-        else:
-            # 整体页
-            rows.append(line("营销费用", -float(e.get("营销费用") or 0), open_key="sales"))
-            rows.append(line("管理费用", -float(e.get("管理费用") or 0), open_key="admin"))
-            rows.append(line("固定运营费用", -float(e.get("固定运营费用") or 0), open_key="fixed"))
-            rows.append(line("研发费用", -float(e.get("研发费用") or 0), open_key="rd"))
-            rows.append(line("财务费用", -float(e.get("财务费用") or 0), open_key="fin"))
-
-            def led_block(title_led, amount, fine_key, extra_before=None, extra_after=None):
-                lines = list(extra_before or [])
-                lines.append(dline(title_led, amount, "ledger"))
-                lines.extend(_fine_pairs(fine.get(fine_key)))
-                lines.extend(extra_after or [])
-                return lines
-
-            details["sales"] = {
-                "title": "营销费用构成",
-                "lines": led_block(
-                    "市场费用",
-                    led.get("市场费用", 0),
-                    "市场费用",
-                    extra_before=[dline("营销人力成本", man.get("营销人力成本", 0), "manual")],
-                ),
-            }
-            details["admin"] = {
-                "title": "管理费用构成",
-                "lines": led_block(
-                    "管理费用",
-                    led.get("管理费用", 0),
-                    "管理费用",
-                    extra_before=[dline("管理人力成本", man.get("管理人力成本", 0), "manual")],
-                ),
-            }
-            details["fixed"] = {
-                "title": "固定运营费用构成",
-                "lines": led_block("固定运营费用明细", led.get("固定运营费用", 0), "固定运营费用"),
-            }
-            details["rd"] = {
-                "title": "研发费用构成",
-                "lines": led_block(
-                    "技术服务费",
-                    led.get("技术服务费", 0),
-                    "技术服务费",
-                    extra_before=[dline("研发人力成本", man.get("研发人力成本", 0), "manual")],
-                ),
-            }
-            details["fin"] = {
-                "title": "财务费用构成",
-                "lines": led_block(
-                    "财务费用",
-                    led.get("财务费用", 0),
-                    "财务费用",
-                    extra_after=[dline("财务费用补充", man.get("财务费用补充", 0), "manual")],
-                ),
-            }
-
-        rows.append(line("附加税费", -float(p.get("surtax") or 0), kind="system", formula="净收入×6%×12%"))
-        rows.append(line("其他损益", p.get("other_pl"), kind="manual"))
-        if (not is_bu) and unc_amt > 0 and pkey == yk:
-            rows.append(line("未计入费用（台账未填大类）", -unc_amt, kind="ledger"))
-        rows.append(
-            line(
-                "税前利润",
-                p.get("pretax_profit"),
-                grand=True,
-                formula="管理毛利−期间费用−附加税±其他",
-            )
+        unc_use = unc_amt if ((not is_bu) and unc_amt > 0 and pkey == yk) else None
+        struct = pl_structure(
+            p,
+            FT.get(pkey) or {},
+            is_bu=is_bu,
+            unclassified_amt=unc_use,
+            alloc_meta=alloc if is_bu else None,
         )
-        rows.append(
-            line(
-                "税前利润率",
-                0,
-                is_pct=True,
-                pct=p.get("pretax_margin_pct"),
-                formula="税前利润÷交付收入",
-            )
-        )
-        out[pkey] = {"rows": rows, "details": details}
+        out[pkey] = structure_for_vm(struct)
     return out
 
 
