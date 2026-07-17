@@ -1,9 +1,9 @@
-# 甲骨易智能经营罗盘 · Ubuntu 22.04 从零部署手册
+# 甲骨易智能经营罗盘 · Ubuntu 26.04 从零部署手册
 
-> **适用**：部署机从 Windows 迁到 **Ubuntu 22.04 LTS**（或兼容的 22.04 系）。  
+> **适用**：部署机从 Windows 迁到 **Ubuntu 26.04 LTS**（明昊 2026-07-17 拍板；22.04 旧稿作废）。  
 > **产品目录约定**：`/opt/kanban/看板正式程序`（也可放 home，权衡见 §1）。  
-> **形态**：FastAPI 同端口双端（用户 `/` + 管理 `/admin`）+ systemd 常驻 + cron 定时更新 + 智云/台账 CIFS 抓数。  
-> **修订**：2026-07-16 任务书40/42。  
+> **形态**：**生产标准** = nginx:80 发 `frontend/dist` + 反代 `127.0.0.1:8018`（见 §nginx / MADR-0009）；uvicorn 仅回环。systemd 常驻 + cron 定时 + 智云/台账 CIFS。简易模式单进程 `--serve` 仅开发/预览。  
+> **修订**：2026-07-17 任务书50·D.6（22.04→26.04；系统 python3 建 venv）。原 2026-07-16 任务书40/42 基础仍有效。  
 > **Windows 手册**（`docs/Windows部署手册.md`）保留，标 **legacy**，回退保险。
 
 **不做**：Docker / K8s（现阶段裸 systemd 最简，见 `docs/madr/`）。
@@ -14,7 +14,7 @@
 
 | 项 | 说明 |
 |----|------|
-| 机器 | 财务部 Ubuntu 22.04，内网，建议常开 |
+| 机器 | 财务部 Ubuntu 26.04，内网，建议常开 |
 | 权限 | sudo（装包、fstab、systemd、ufw） |
 | 账号 | 智云全量只读号；看板管理员口令；**CIFS 共享盘账号密码（手填，不进 git）** |
 | 网络 | 智云内网、共享盘 `//192.168.10.151/财务部`、Gitee（或 GitHub） |
@@ -44,24 +44,25 @@ export LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 ---
 
-## 2. 基础包 + Python 3.12（deadsnakes）
+## 2. 基础包 + Python（系统 python3 ≥ 3.12）
 
-Ubuntu 22.04 自带 3.10；本产品与 CI 对齐 **3.12**（MADR：`docs/madr/0002_python_version_ubuntu22.md`）。
+Ubuntu **26.04** 系统 `python3` 已 ≥ 3.12，**直接用系统解释器建 venv**（MADR：`docs/madr/0010_python_version_ubuntu26.md`）。  
+**不要**默认装 deadsnakes（旧 22.04 路径已 SUPERSEDED，见 `0002_python_version_ubuntu22.md`）。
 
 ```bash
 sudo apt update
 sudo apt install -y git curl ca-certificates build-essential \
   cifs-utils fonts-noto-cjk \
-  libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-  libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+  python3 python3-venv python3-dev \
+  nginx
 
-# deadsnakes → Python 3.12
-sudo apt install -y software-properties-common
-sudo add-apt-repository -y ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install -y python3.12 python3.12-venv python3.12-dev
-python3.12 --version
+# 判定：必须 ≥ 3.12
+python3 --version   # 例：Python 3.12+（系统 python3）.x / 3.13.x
+
+# Playwright 系统库：不在手册硬编码发行版包名（24.04+ 多为 t64 后缀）
+# 装完 venv + requirements 后执行：
+#   .venv/bin/playwright install chromium
+#   sudo .venv/bin/playwright install-deps chromium   # 缺库时
 ```
 
 **中文字体 `fonts-noto-cjk` 必装**：否则导出 PNG 中文变豆腐块。
@@ -69,12 +70,12 @@ python3.12 --version
 **导出 PNG / Playwright**（可选，管理端截图导出时）：
 
 ```bash
-# 在 venv 装好 requirements 后
 .venv/bin/playwright install chromium
-# 若缺系统库，再：
+# 缺系统库时（推荐，自适应发行版）：
 sudo .venv/bin/playwright install-deps chromium
-# 或使用上文 apt 列表（chromium 运行库）
 ```
+
+---
 
 ---
 
@@ -86,7 +87,7 @@ cd /opt/kanban
 git clone <仓库URL> 看板正式程序
 cd 看板正式程序
 
-python3.12 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -U pip
 # 清华镜像（与 config 默认 pip_mirror 一致；也可用官方源）
 .venv/bin/pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
@@ -233,7 +234,7 @@ sudo systemctl restart kanban
 | 台账一直黄 | `mount \| grep caiwu`；设置页路径是否 POSIX |
 | 导出图中文方块 | `fc-list :lang=zh`；装 `fonts-noto-cjk` |
 | 8018 不通 | `ss -lntp \| grep 8018`；`ufw status` |
-| 服务起不来 | `journalctl -u kanban -e`；`.venv` 与 Python 3.12 |
+| 服务起不来 | `journalctl -u kanban -e`；`.venv` 与 Python 3.12+（系统 python3） |
 | 定时没跑 | `crontab -l` 哨兵段；`systemctl status cron` |
 | 一键更新拒 | `git status` 是否脏（勿改 config.json） |
 

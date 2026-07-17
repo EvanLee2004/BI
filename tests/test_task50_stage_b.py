@@ -130,19 +130,81 @@ class TestStageBLedgerWhitelist(unittest.TestCase):
             for forbidden in db.VIEW_EXPENSE_HIDDEN:
                 self.assertNotIn(forbidden, row)
 
-    def test_xss_matter_escaped_in_json_path(self):
-        """种一条恶意事项；接口返回字符串本身可含尖括号，但 Vue 侧用 text 插值不执行。
-        后端断言：响应 JSON 中事项原样字符串（供前端转义展示），列仍白名单。"""
-        c = self._admin()
-        # 写入一条台账（若库支持）
+    def test_xss_matter_seeded_not_raw_tag_in_shipped_path(self):
+        """种一行恶意事项，走真实 /api/v1/vm/ledger + Vue 绑定路径断言。
+
+        1) 数据层可保留尖括号文本（JSON 字符串）；
+        2) 白名单列不含隐藏字段；
+        3) 前端 LedgerTable 用文本插值（无 v-html/innerHTML）；
+        4) html.escape 后不得再出现可解析的 <img ...> 标签串（等同 Vue mustache）。
+        """
+        import html as htmlmod
+
+        import db_write
+
+        evil = '<img src=x onerror=alert(1)>XSS'
         conn = db.connect(self.cfg, self.tmp)
         try:
-            # 直接插 std 可能复杂；至少断言接口列裁剪与 forbidden 字段
-            r = c.get("/api/v1/vm/ledger")
-            self.assertEqual(r.status_code, 200)
-            self.assertIn("forbidden", r.json())
+            db_write.insert_std_records(
+                conn,
+                "std_费用明细",
+                [
+                    {
+                        "定位键": "xss-seed-task50",
+                        "收单月份": "2026-03",
+                        "收单日期": "2026-03-15",
+                        "含税金额": 1.0,
+                        "业务BU": "数据",
+                        "对应报表大类": "管理费用",
+                        "预算明细费用类型": "办公费",
+                        "预算归属部门": "财务",
+                        "事项": evil,
+                        "提单人": "不应出现",
+                        "提单人部门": "隐",
+                        "业务员": "测试员",
+                        "配音费合同号": "隐合同",
+                        "归属月": "2026-03",
+                        "原值_归属月": "2026-03",
+                    }
+                ],
+            )
+            conn.commit()
         finally:
             conn.close()
+
+        c = self._admin()
+        r = c.get("/api/v1/vm/ledger", params={"page": 1, "page_size": 50, "q": "XSS"})
+        self.assertEqual(r.status_code, 200, r.text[:300])
+        j = r.json()
+        cols = j.get("columns") or []
+        for forbidden in db.VIEW_EXPENSE_HIDDEN:
+            self.assertNotIn(forbidden, cols)
+        rows = j.get("rows") or []
+        self.assertTrue(rows, "应查到种入的恶意事项行")
+        matter = None
+        for row in rows:
+            if "XSS" in str(row.get("事项") or ""):
+                matter = str(row.get("事项") or "")
+                # 响应不得带隐藏列键
+                for forbidden in db.VIEW_EXPENSE_HIDDEN:
+                    self.assertNotIn(forbidden, row)
+                break
+        self.assertIsNotNone(matter)
+        self.assertIn("<img", matter)  # JSON 数据层是文本
+
+        # 出货前端：禁止把事项灌进 HTML 插槽
+        fe = (Path(__file__).resolve().parents[1] / "frontend" / "src" / "components" / "LedgerTable.vue").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("v-html", fe)
+        self.assertNotIn("innerHTML", fe)
+        # Vue {{ }} ≈ html.escape + 文本节点：转义后不得残留可解析标签开角括号
+        escaped = htmlmod.escape(matter)
+        self.assertNotIn("<img", escaped)
+        self.assertIn("&lt;img", escaped)
+        # 属性串可作为纯文本残留，但整体不是 HTML 标签（无未转义的 <）
+        self.assertNotIn("<", escaped)
+
 
 
 class TestStageBNoVHtml(unittest.TestCase):

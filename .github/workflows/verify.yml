@@ -1,6 +1,7 @@
 # 看板正式程序 · push/PR 全量闸门
 # 对应落地包：KANBAN_OFFLINE=1 sh tests/run_verify.sh + pre-commit --all-files
 # 防假绿：必须用仓库内 tests/fixtures/ci_data 播种 数据/；缺 fixtures 显式失败
+# 任务书50·D.4：dist 与 git 一致（硬闸）；pip-audit/npm audit 高危硬闸
 name: verify
 
 on:
@@ -56,7 +57,6 @@ jobs:
           mkdir -p 数据
           if [ -d tests/fixtures/ci_data ]; then
             cp -R tests/fixtures/ci_data/* 数据/ || true
-            # 只拷 xlsx（README 可有）
             find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} 数据/ \;
             mkdir -p _golden_data
             find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} _golden_data/ \;
@@ -66,7 +66,6 @@ jobs:
             echo "::error::缺少 tests/fixtures/ci_data/。请先提交 6 个合成 xlsx。"
             exit 1
           fi
-          # 防假绿：至少要有项目明细
           test -f 数据/项目明细.xlsx
 
       - name: Run full verify
@@ -75,23 +74,47 @@ jobs:
           sh tests/run_verify.sh
 
   frontend-build:
-    name: frontend build + dist check
+    name: frontend build + dist-diff
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: npm ci && build
+      - name: Snapshot committed dist
+        run: |
+          set -e
+          test -f frontend/dist/index.html
+          # 备份 git 内 dist，供 clean build 后 diff
+          rm -rf /tmp/kanban_dist_git
+          cp -a frontend/dist /tmp/kanban_dist_git
+      - name: npm ci && build (clean)
         working-directory: frontend
         run: |
-          npm ci || npm install
+          set -e
+          npm ci
           npm run build
-      - name: dist must exist
+      - name: dist must exist after build
         run: test -f frontend/dist/index.html
+      - name: dist-diff vs git（防手改 dist）
+        run: |
+          set -e
+          # 忽略 map 与时间戳噪音：比 index.html + assets 文件名集合 + 主 js 体积阈值
+          echo "== index.html =="
+          diff -u /tmp/kanban_dist_git/index.html frontend/dist/index.html
+          echo "== assets 文件名集合 =="
+          (cd /tmp/kanban_dist_git/assets && ls -1 | sort) > /tmp/dist_git_assets.txt
+          (cd frontend/dist/assets && ls -1 | sort) > /tmp/dist_build_assets.txt
+          diff -u /tmp/dist_git_assets.txt /tmp/dist_build_assets.txt
+          echo "== 主 bundle 字节一致 =="
+          for f in /tmp/kanban_dist_git/assets/index-*.js; do
+            base=$(basename "$f")
+            cmp -s "$f" "frontend/dist/assets/$base" || { echo "mismatch $base"; exit 1; }
+          done
+          echo "dist-diff OK"
 
   security-audit:
-    name: npm/pip audit
+    name: npm/pip audit (hard gate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,13 +126,18 @@ jobs:
           node-version: "20"
       - name: pip-audit
         run: |
-          pip install pip-audit==2.7.3 || true
-          pip-audit -r requirements.txt || echo "pip-audit soft-fail recorded"
+          set -e
+          python -m pip install -U pip
+          pip install "pip-audit==2.7.3"
+          # 无高危才绿；失败即 job 红（禁止 || echo 软失败）
+          pip-audit -r requirements.txt
       - name: npm audit
         working-directory: frontend
         run: |
-          npm ci || npm install
-          npm audit --audit-level=high || echo "npm audit soft-fail recorded"
+          set -e
+          npm ci
+          # 高危及以上失败（禁止 || echo 软失败）
+          npm audit --audit-level=high
 
   backup-restore:
     name: backup restore drill

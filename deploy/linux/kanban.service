@@ -1,5 +1,6 @@
-# 甲骨易智能经营罗盘 · systemd 单元（Ubuntu 22.04）
+# 甲骨易智能经营罗盘 · systemd 单元（Ubuntu 26.04 · 任务书50）
 # 安装见 docs/Ubuntu部署手册.md；模板内路径按实际部署目录改。
+# 生产：配合 nginx-kanban.conf，本服务仅绑 127.0.0.1:8018。
 #
 # 语义：
 #   - Restart=always + RestartSec=3：进程退出（含一键更新码 42）后自动再起
