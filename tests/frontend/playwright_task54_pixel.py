@@ -105,14 +105,15 @@ def login(page) -> None:
 
 
 def card_shots(page, prefix: str) -> None:
+    # 稳定 id / data-chart（勿用 has-text('收入'|'回款')——会误截 KPI 卡）
     selectors = {
         "kpi": ".kpi-host, .kpi-grid",
-        "trend": ".scifi-panel:has-text('收入'), .card:has-text('收入')",
+        "trend": "#trendChartCard, .trend-chart-card, [data-chart=trend]",
         "pl": ".pl-card, .scifi-panel.pl-card, .pl-table",
-        "expense_donut": ".exp-donut-card, .scifi-panel:has-text('期间费用')",
-        "expense_trend": "#expTrendCard, .exp-trend-card",
+        "expense_donut": ".exp-donut-card",
+        "expense_trend": "#expTrendCard, .exp-trend-card, [data-chart=expense-trend]",
         "rank": "#rankViews, .dual-rankings",
-        "receipts": ".rc-card, .scifi-panel:has-text('回款')",
+        "receipts": "#receiptsCard, .rc-card, [data-chart=receipts]",
         "ledger": ".scifi-panel:has-text('费用明细'), .cock-ledger",
     }
     for key, sel in selectors.items():
@@ -201,9 +202,9 @@ def main() -> int:
             # KPI / trend / expense / pl regions for side-by-side pack
             for name, sel in (
                 ("compare_vue_kpi", ".kpi-grid"),
-                ("compare_vue_trend", ".scifi-panel:has-text('收入')"),
+                ("compare_vue_trend", "#trendChartCard"),
                 ("compare_vue_expense", "#expTrendCard"),
-                ("compare_vue_pl", ".pl-table"),
+                ("compare_vue_pl", ".pl-table, .pl-card"),
             ):
                 try:
                     loc = page.locator(sel).first

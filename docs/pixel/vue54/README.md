@@ -5,4 +5,4 @@
 - 逐卡：`vue_overall_{mode}_{kpi|trend|pl|...}.png`
 - 与 legacy 并排对照素材：`compare_vue_*.png`（legacy 对照见同目录 `compare_legacy_*` 若已拍）
 - 生成日志见 scratch playwright_task54.log
-- 文件数：43
+- 文件数：48

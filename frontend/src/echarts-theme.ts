@@ -9,6 +9,13 @@ function cssVar(name: string, fallback: string): string {
   return v || fallback
 }
 
+/** 解析后的正文色（ECharts canvas 不能吃 CSS var()，图内 label 必须用 hex/rgb）。 */
+export function themeInkColor(): string {
+  const mode = currentThemeMode()
+  const isLight = mode === 'light'
+  return cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'))
+}
+
 export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
   const isLight = mode === 'light'
   const accent = cssVar('--dsdk-accent-color-secondary', cssVar('--blue', isLight ? '#0891b2' : '#22d3ee'))

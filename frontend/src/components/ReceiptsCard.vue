@@ -75,8 +75,8 @@ const option = computed(() => {
 const hasSeries = computed(() => (r.value.labels || []).length > 0)
 </script>
 <template>
-  <SciFiPanel title="回款情况" panel-class="rc-card">
-    <div v-if="hasSeries" class="rc-body">
+  <SciFiPanel id="receiptsCard" title="回款情况" panel-class="rc-card">
+    <div v-if="hasSeries" class="rc-body" data-chart="receipts">
       <EchartsHost :option="option" />
     </div>
     <div v-else class="ev-empty">暂无回款数据</div>

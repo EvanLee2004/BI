@@ -55,9 +55,18 @@ class TestExpenseStackedBar54(unittest.TestCase):
         self.assertIn("area_totals_disp", src)
         self.assertIn("area_labels", src)
         self.assertIn("堆叠柱", src)
+        # 柱顶合计：透明叠层 + themeInkColor hex（禁 CSS var 进 canvas）
+        self.assertIn("themeInkColor", src)
+        self.assertIn("position: 'top'", src)
+        self.assertIn("_柱顶合计", src)
+        self.assertNotIn("var(--ink", src)
         # 禁止误用 kit 图表画金额
         self.assertNotIn("CanvasGraphPanel", src)
         self.assertNotIn("TrueCanvasGraph", src)
+
+    def test_theme_ink_helper_exported(self):
+        src = (FE / "echarts-theme.ts").read_text(encoding="utf-8")
+        self.assertIn("export function themeInkColor", src)
 
 
 class TestCardsUseSciFiShell(unittest.TestCase):
