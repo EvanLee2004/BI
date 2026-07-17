@@ -106,7 +106,15 @@ def register(app, d):
         return _set_acookie(RedirectResponse("/admin", status_code=303), account)
 
     @app.get("/admin/logout")
-    def admin_logout():
+    def admin_logout(request: Request):
+        """任务书52·F-3：管理端退出同样 bump 会话版本。"""
+        name = _user(request)
+        if name:
+            accounts.bump_session_version(cfg, root, name)
+            try:
+                _audit(cfg, root, name, ("访问", "管理端退出（会话版本+1）"))
+            except Exception:
+                pass
         resp = RedirectResponse("/admin", status_code=303)
         resp.delete_cookie(COOKIE)
         return resp

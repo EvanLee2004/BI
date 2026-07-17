@@ -107,6 +107,10 @@ class ExpenseVM(BaseModel):
     donut_center_by_period: dict[str, dict[str, str]] = Field(default_factory=dict)
     area_y_axis_labels: list[str] = Field(default_factory=list)
     area_y_axis_ticks: list[dict[str, Any]] = Field(default_factory=list)
+    # 任务书52·F-4
+    area_y_axis_min: float = 0.0
+    area_y_axis_max: float = 0.0
+    area_y_axis_interval: float = 0.0
 
 
 class RankingsVM(BaseModel):
@@ -244,25 +248,40 @@ def _pack_receipt_series(rows) -> dict[str, Any]:
 
 
 def _pack_expense_area(raw: dict | None) -> dict[str, Any]:
+    """费用面积序列。任务书52·F-4：裁到最后一个有数据的月份（后缀空月不拖尾）。"""
     import charts
 
     raw = raw or {}
     cats = list(raw.get("categories") or [])
-    labels = [f"{i + 1}月" for i in range(12)]
+    months = raw.get("months") or []
+    # 找最后一个 total>0 或 任一类 >0 的月（1-based 月序 0..11）
+    last = -1
+    for i in range(min(12, len(months))):
+        m = months[i] if i < len(months) else {}
+        tot = float(m.get("total") or 0)
+        if tot > 0.005:
+            last = i
+            continue
+        by = m.get("by_cat") or {}
+        if any(float(by.get(c) or 0) > 0.005 for c in cats):
+            last = i
+    n = last + 1 if last >= 0 else 0
+    if n <= 0:
+        # 全空：仍给 1 个占位月，避免 ECharts 空轴
+        n = 1
+    labels = [f"{i + 1}月" for i in range(n)]
     series = []
     totals_disp = []
     for c in cats:
         data, data_disp = [], []
-        for i in range(12):
-            months = raw.get("months") or []
+        for i in range(n):
             m = months[i] if i < len(months) else {}
             by = m.get("by_cat") or {}
             amt = float(by.get(c) or 0)
             data.append(amt)
             data_disp.append(charts.fmt_wan(amt))
         series.append({"name": c, "data": data, "data_disp": data_disp})
-    for i in range(12):
-        months = raw.get("months") or []
+    for i in range(n):
         m = months[i] if i < len(months) else {}
         totals_disp.append(charts.fmt_wan(float(m.get("total") or 0)))
     return {
@@ -372,8 +391,12 @@ def _assemble_vm(
     area_vals: list[float] = []
     for s in area.get("area_series") or []:
         area_vals.extend(s.get("data") or [])
-    area["area_y_axis_ticks"] = packers.pack_axis_ticks(area_vals)
-    area["area_y_axis_labels"] = [t["label"] for t in area["area_y_axis_ticks"]]
+    ameta = packers.pack_axis_meta(area_vals)
+    area["area_y_axis_ticks"] = ameta["ticks"]
+    area["area_y_axis_labels"] = [t["label"] for t in ameta["ticks"]]
+    area["area_y_axis_min"] = ameta["min"]
+    area["area_y_axis_max"] = ameta["max"]
+    area["area_y_axis_interval"] = ameta["interval"]
     donut = _pack_donut_by_period(summary)
 
     kpi = KpiCardsVM(

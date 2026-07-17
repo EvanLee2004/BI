@@ -112,6 +112,9 @@ export type ExpenseVM = {
   donut_center_by_period: Record<string, DonutCenter>
   area_y_axis_labels: string[]
   area_y_axis_ticks: AxisTick[]
+  area_y_axis_min: number
+  area_y_axis_max: number
+  area_y_axis_interval: number
 }
 
 export type RankItem = {

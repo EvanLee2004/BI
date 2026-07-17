@@ -194,6 +194,7 @@ def register(app, d):
             if not isinstance(r, dict):
                 continue
             rows.append({c: r.get(c, "") for c in cols})
+        # 任务书52·F-6：响应不带 forbidden 元数据（列已裁剪，名单不下发）
         return JSONResponse(
             {
                 "columns": cols,
@@ -202,7 +203,6 @@ def register(app, d):
                 "page": data.get("page") or page,
                 "page_size": data.get("page_size") or page_size,
                 "audience": audience,
-                "forbidden": list(db.VIEW_EXPENSE_HIDDEN),
             }
         )
 

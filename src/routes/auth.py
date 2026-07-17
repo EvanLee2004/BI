@@ -181,7 +181,12 @@ def register(app, d):
         return _set_vcookie(resp, account)
 
     @app.post("/api/v1/logout")
-    def api_v1_logout():
+    def api_v1_logout(request: Request):
+        """任务书52·F-3：删 cookie +  bump 账号会话版本，旧 cookie 重放 401。"""
+        name = _user(request) or _vacct(request)
+        if name:
+            accounts.bump_session_version(cfg, root, name)
+            _audit(cfg, root, name, ("访问", "退出登录（会话版本+1）"))
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(COOKIE)
         resp.delete_cookie(VCOOKIE)

@@ -86,11 +86,32 @@ def is_master_account(acct: str | None) -> bool:
 
 
 def password_version_of(acc: dict | None) -> int:
-    """会话踢出因子：改密自增。缺省 0。"""
+    """会话踢出因子：改密 / logout 自增（任务书52·F-3 与改密共用同一版本位）。缺省 0。"""
     try:
         return int((acc or {}).get("密码版本") or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def bump_session_version(cfg: dict, root: Path | None, account: str) -> bool:
+    """任务书52·F-3：logout 作废会话——账号「密码版本」+1（token 内 pw_ver 比对失败 → 401）。
+
+    与 change_password / set_password 同一字段，重启后已退出会话仍不可复活（版本已写盘）。
+    返回是否找到并更新了账号。
+    """
+    acct = str(account or "").strip()
+    if not acct:
+        return False
+    rows = load_accounts(cfg, root, create=False)
+    found = False
+    for a in rows:
+        if a.get("账号") == acct:
+            a["密码版本"] = password_version_of(a) + 1
+            found = True
+            break
+    if found:
+        _write(config_path(cfg, root), rows)
+    return found
 
 
 def _norm_one(raw: dict) -> dict | None:
