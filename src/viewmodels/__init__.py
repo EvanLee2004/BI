@@ -307,46 +307,50 @@ def _donut_center_by_period(summary: dict) -> dict[str, dict[str, str]]:
     return out
 
 
-def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
-    """从 summary 构建整体页 VM。
+def _assemble_vm(
+    summary: dict,
+    views: dict,
+    *,
+    scope: str,
+    cfg: dict | None = None,
+    bu_name: str | None = None,
+    html: dict | None = None,
+) -> CockpitVM | BUPageVM:
+    """任务书51·B3：VM 组装单一主函数（趋势/回款/面积/刻度/环形/KPI/PL/费用/排名）。
 
-    任务书51·B1：vue 模式**不执行** legacy HTML 建造；legacy 模式才调 build_cockpit_views。
+    scope=整体 → CockpitVM；scope=BU → BUPageVM。
+    html 为 legacy 可选碎片（vue 路径传空 dict）。
     """
     import api_v1
     import db
     import render
     from viewmodels import packers
 
-    mode = frontend_mode(cfg)
-    if mode == "legacy":
-        views = api_v1.build_cockpit_views(summary, cfg)
-        html_kpi = dict(views.get("kpi_body") or {})
-        html_pl = dict(views.get("pl_body") or {})
-        html_donut = dict(views.get("donut_body") or {})
-        html_profit = dict(views.get("profit_rank_body") or {})
-        svg_trend = views.get("trend_html") or ""
-        exp_trend_html = views.get("expense_trend_html") or ""
-        receipts_budget = views.get("receipts_budget") or ""
-        period_bar = views.get("period_bar") or ""
-        daily_html = views.get("daily_html") or ""
-    else:
-        views = _vue_core_views(summary)
-        html_kpi = html_pl = html_donut = html_profit = {}
-        svg_trend = exp_trend_html = receipts_budget = period_bar = daily_html = ""
-
+    html = html or {}
+    is_bu = scope == "BU"
+    yk = views.get("year_key") or ""
+    pkeys = list(views.get("period_keys") or [])
     numbers = api_v1.extract_numbers(summary)
+
     ts = _pack_trend_series(summary.get("trend") or [])
     tvals = list(ts.get("revenue") or []) + list(ts.get("cost") or [])
     ts["y_axis_ticks"] = packers.pack_axis_ticks(tvals)
     ts["y_axis_labels"] = [t["label"] for t in ts["y_axis_ticks"]]
+
     rs = _pack_receipt_series(summary.get("receipt_order_monthly") or [])
     rvals = list(rs.get("receipts") or []) + list(rs.get("orders") or [])
     rs["y_axis_ticks"] = packers.pack_axis_ticks(rvals)
     rs["y_axis_labels"] = [t["label"] for t in rs["y_axis_ticks"]]
-    exp_raw = render.apply_expense_salary_hide(
-        summary.get("expense_monthly_by_cat"),
-        not bool((cfg or {}).get("overall_see_salary", False)),
-    )
+
+    if is_bu:
+        exp_raw = render.expense_monthly_from_period_ledgers(summary)
+        if not any(m.get("total") for m in (exp_raw.get("months") or [])):
+            exp_raw = summary.get("expense_monthly_by_cat") or exp_raw
+    else:
+        exp_raw = render.apply_expense_salary_hide(
+            summary.get("expense_monthly_by_cat"),
+            not bool((cfg or {}).get("overall_see_salary", False)),
+        )
     area = _pack_expense_area(exp_raw)
     area_vals: list[float] = []
     for s in area.get("area_series") or []:
@@ -354,133 +358,131 @@ def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
     area["area_y_axis_ticks"] = packers.pack_axis_ticks(area_vals)
     area["area_y_axis_labels"] = [t["label"] for t in area["area_y_axis_ticks"]]
     donut = _pack_donut_by_period(summary)
+
+    kpi = KpiCardsVM(
+        year_key=yk,
+        period_keys=pkeys,
+        body_by_period=dict(html.get("kpi_body") or {}),
+        cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
+    )
+    trend = TrendVM(svg_html=html.get("trend_html") or "", **ts)
+    pl = PLTableVM(
+        body_by_period=dict(html.get("pl_body") or {}),
+        pl_tag=html.get("pl_tag") or "",
+        table_by_period=packers.pack_pl_by_period(summary, is_bu=is_bu),
+    )
+    expense = ExpenseVM(
+        body_by_period=dict(html.get("donut_body") or {}),
+        trend_html=html.get("expense_trend_html") or "",
+        donut_by_period=donut,
+        views_by_period=packers.pack_expense_views_by_period(summary),
+        donut_center_by_period=_donut_center_by_period(summary),
+        **area,
+    )
+    rankings = RankingsVM(
+        rankings_view=dict(views.get("rankings_view") or {}),
+        rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
+        profit_rank_body=dict(html.get("profit_rank_body") or {}),
+        profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
+    )
+    receipts = ReceiptsVM(
+        receipts_html=html.get("receipts_html") or "",
+        receipts_budget=html.get("receipts_budget") or "",
+        **rs,
+    )
+    ledger = LedgerVM(
+        columns=list(db.VIEW_EXPENSE_COLUMNS_BU if is_bu else db.VIEW_EXPENSE_COLUMNS),
+        forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
+    )
+    period_bar = html.get("period_bar") or ""
+    daily_html = html.get("daily_html") or ""
+    daily = packers.pack_daily_defaults(summary)
+
+    if is_bu:
+        return BUPageVM(
+            bu_name=bu_name or views.get("bu_name") or "",
+            year_key=yk,
+            period_keys=pkeys,
+            kpi=kpi,
+            trend=trend,
+            pl=pl,
+            expense=expense,
+            rankings=rankings,
+            receipts=receipts,
+            ledger=ledger,
+            period_bar=period_bar,
+            daily_html=daily_html,
+            daily=daily,
+            numbers=numbers,
+        )
     return CockpitVM(
-        year_key=views.get("year_key") or "",
-        period_keys=list(views.get("period_keys") or []),
-        kpi=KpiCardsVM(
-            year_key=views.get("year_key") or "",
-            period_keys=list(views.get("period_keys") or []),
-            body_by_period=html_kpi,
-            cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
-        ),
-        trend=TrendVM(svg_html=svg_trend, **ts),
-        pl=PLTableVM(
-            body_by_period=html_pl,
-            table_by_period=packers.pack_pl_by_period(summary, is_bu=False),
-        ),
-        expense=ExpenseVM(
-            body_by_period=html_donut,
-            trend_html=exp_trend_html,
-            donut_by_period=donut,
-            views_by_period=packers.pack_expense_views_by_period(summary),
-            donut_center_by_period=_donut_center_by_period(summary),
-            **area,
-        ),
-        rankings=RankingsVM(
-            rankings_view=dict(views.get("rankings_view") or {}),
-            rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
-            profit_rank_body=html_profit,
-            profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
-        ),
-        receipts=ReceiptsVM(receipts_budget=receipts_budget, **rs),
-        ledger=LedgerVM(
-            columns=list(db.VIEW_EXPENSE_COLUMNS),
-            forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
-        ),
+        year_key=yk,
+        period_keys=pkeys,
+        kpi=kpi,
+        trend=trend,
+        pl=pl,
+        expense=expense,
+        rankings=rankings,
+        receipts=receipts,
+        ledger=ledger,
         period_bar=period_bar,
         daily_html=daily_html,
-        daily=packers.pack_daily_defaults(summary),
+        daily=daily,
         numbers=numbers,
     )
 
 
-def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
-    """BU 页 VM。vue 模式同样跳过 legacy HTML 建造（任务书51·B1）。"""
+def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
+    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。
+
+    任务书51·B1：vue 模式**不执行** legacy HTML 建造；legacy 模式才调 build_cockpit_views。
+    """
     import api_v1
-    import db
-    import render
-    from viewmodels import packers
+
+    mode = frontend_mode(cfg)
+    if mode == "legacy":
+        views = api_v1.build_cockpit_views(summary, cfg)
+        html = {
+            "kpi_body": dict(views.get("kpi_body") or {}),
+            "pl_body": dict(views.get("pl_body") or {}),
+            "donut_body": dict(views.get("donut_body") or {}),
+            "profit_rank_body": dict(views.get("profit_rank_body") or {}),
+            "trend_html": views.get("trend_html") or "",
+            "expense_trend_html": views.get("expense_trend_html") or "",
+            "receipts_budget": views.get("receipts_budget") or "",
+            "period_bar": views.get("period_bar") or "",
+            "daily_html": views.get("daily_html") or "",
+        }
+    else:
+        views = _vue_core_views(summary)
+        html = {}
+    return _assemble_vm(summary, views, scope="整体", cfg=cfg, html=html)  # type: ignore[return-value]
+
+
+def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
+    """BU 页 VM 薄包装（任务书51·B3 → _assemble_vm）。vue 同样跳过 legacy HTML。"""
+    import api_v1
 
     mode = frontend_mode(cfg)
     if mode == "legacy":
         views = api_v1.build_bu_cockpit_views(bu_name, summary, cfg)
-        html_kpi = dict(views.get("kpi_body") or {})
-        html_pl = dict(views.get("pl_body") or {})
-        html_donut = dict(views.get("donut_body") or {})
-        html_profit = dict(views.get("profit_rank_body") or {})
-        svg_trend = views.get("trend_html") or ""
-        exp_trend_html = views.get("expense_trend_html") or ""
-        receipts_html = views.get("receipts_html") or ""
-        period_bar = views.get("period_bar") or ""
-        daily_html = views.get("daily_html") or ""
-        pl_tag = views.get("pl_tag") or ""
+        html = {
+            "kpi_body": dict(views.get("kpi_body") or {}),
+            "pl_body": dict(views.get("pl_body") or {}),
+            "donut_body": dict(views.get("donut_body") or {}),
+            "profit_rank_body": dict(views.get("profit_rank_body") or {}),
+            "trend_html": views.get("trend_html") or "",
+            "expense_trend_html": views.get("expense_trend_html") or "",
+            "receipts_html": views.get("receipts_html") or "",
+            "period_bar": views.get("period_bar") or "",
+            "daily_html": views.get("daily_html") or "",
+            "pl_tag": views.get("pl_tag") or "",
+        }
     else:
         views = _vue_core_views(summary)
         views["bu_name"] = bu_name or ""
-        html_kpi = html_pl = html_donut = html_profit = {}
-        svg_trend = exp_trend_html = receipts_html = period_bar = daily_html = ""
-        pl_tag = ""
-        # BU pl_tag 仍可由结构化侧补；保持空串（Vue 用 table_by_period）
-
-    numbers = api_v1.extract_numbers(summary)
-    ts = _pack_trend_series(summary.get("trend") or [])
-    tvals = list(ts.get("revenue") or []) + list(ts.get("cost") or [])
-    ts["y_axis_ticks"] = packers.pack_axis_ticks(tvals)
-    ts["y_axis_labels"] = [t["label"] for t in ts["y_axis_ticks"]]
-    rs = _pack_receipt_series(summary.get("receipt_order_monthly") or [])
-    rvals = list(rs.get("receipts") or []) + list(rs.get("orders") or [])
-    rs["y_axis_ticks"] = packers.pack_axis_ticks(rvals)
-    rs["y_axis_labels"] = [t["label"] for t in rs["y_axis_ticks"]]
-    bu_exp = render.expense_monthly_from_period_ledgers(summary)
-    if not any(m.get("total") for m in (bu_exp.get("months") or [])):
-        bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
-    area = _pack_expense_area(bu_exp)
-    area_vals: list[float] = []
-    for s in area.get("area_series") or []:
-        area_vals.extend(s.get("data") or [])
-    area["area_y_axis_ticks"] = packers.pack_axis_ticks(area_vals)
-    area["area_y_axis_labels"] = [t["label"] for t in area["area_y_axis_ticks"]]
-    donut = _pack_donut_by_period(summary)
-    return BUPageVM(
-        bu_name=bu_name or views.get("bu_name") or "",
-        year_key=views.get("year_key") or "",
-        period_keys=list(views.get("period_keys") or []),
-        kpi=KpiCardsVM(
-            year_key=views.get("year_key") or "",
-            period_keys=list(views.get("period_keys") or []),
-            body_by_period=html_kpi,
-            cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
-        ),
-        trend=TrendVM(svg_html=svg_trend, **ts),
-        pl=PLTableVM(
-            body_by_period=html_pl,
-            pl_tag=pl_tag,
-            table_by_period=packers.pack_pl_by_period(summary, is_bu=True),
-        ),
-        expense=ExpenseVM(
-            body_by_period=html_donut,
-            trend_html=exp_trend_html,
-            donut_by_period=donut,
-            views_by_period=packers.pack_expense_views_by_period(summary),
-            donut_center_by_period=_donut_center_by_period(summary),
-            **area,
-        ),
-        rankings=RankingsVM(
-            rankings_view=dict(views.get("rankings_view") or {}),
-            rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
-            profit_rank_body=html_profit,
-            profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
-        ),
-        receipts=ReceiptsVM(receipts_html=receipts_html, **rs),
-        ledger=LedgerVM(
-            columns=list(db.VIEW_EXPENSE_COLUMNS_BU),
-            forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
-        ),
-        period_bar=period_bar,
-        daily_html=daily_html,
-        daily=packers.pack_daily_defaults(summary),
-        numbers=numbers,
-    )
+        html = {}
+    return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name, html=html)  # type: ignore[return-value]
 
 
 __all__ = [
