@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
  * 按时间段查询：日期区间 + 与全局周期联动 + 查询打 /api/daily。
- * 年/季/月切换 → 起止日自动跟随；手改日期不反向改周期。
+ * 查询结果与默认 RankingsDual 同用 dualRankBarOption（ECharts 双条），顺序/样子一致。
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
+import EchartsHost from './charts/EchartsHost.vue'
+import { dualRankBarOption } from '../dual-rank-option'
 import type { RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -86,13 +88,13 @@ function restoreYear() {
   err.value = ''
 }
 
-function pct(v: unknown): string {
-  const n = v == null ? 0 : Number(v)
-  return (Number.isFinite(n) ? n : 0).toFixed(1)
-}
-
 const sales = computed((): RankViewBlk | null => dual.value?.sales || null)
 const customer = computed((): RankViewBlk | null => dual.value?.customer || null)
+
+function chartH(blk: RankViewBlk | null): number {
+  const opt = dualRankBarOption(blk || undefined)
+  return typeof opt._chartH === 'number' ? opt._chartH : 480
+}
 </script>
 <template>
   <SciFiPanel id="dailyPanel" title="按时间段查询" panel-class="daily-card">
@@ -106,26 +108,23 @@ const customer = computed((): RankViewBlk | null => dual.value?.customer || null
       <span id="dailySum" class="muted" style="font-size: 12px">{{ sumText }}</span>
       <span v-if="err" style="color: var(--neg); font-size: 12px">{{ err }}</span>
     </div>
-    <div v-if="dual" id="rkCustom" class="grid-2e dual-grid" :data-start="start" :data-end="end" data-daily="1">
+    <div v-if="dual" id="rkCustom" class="grid-2e dual-grid dual-rankings" :data-start="start" :data-end="end" data-daily="1">
       <SciFiPanel
         v-for="blk in [sales, customer]"
         :key="(blk?.dim || '') + 'd'"
-        :title="blk?.title || ''"
         :data-dim="blk?.dim"
       >
+        <template #header>
+          <span>{{ blk?.title || '' }}</span>
+          <span class="dual-legend">
+            <span class="dual-leg dual-o">紫=下单</span>
+            <span class="dual-leg dual-r">青=回款</span>
+          </span>
+        </template>
         <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
-        <div v-else class="ev-list rk-list">
-          <div v-for="it in blk.items" :key="it.i + it.name" class="ev-row dual-row">
-            <span class="rk-no">{{ it.i }}</span>
-            <span class="ev-name" :title="it.name">{{ it.name }}</span>
-            <div class="dual-bars">
-              <span class="dual-bar dual-o"
-                ><i :style="{ width: pct(it.wo) + '%' }"></i><em>{{ it.order_disp }}</em></span
-              >
-              <span class="dual-bar dual-r"
-                ><i :style="{ width: pct(it.wr) + '%' }"></i><em>{{ it.receipt_disp }}</em></span
-              >
-            </div>
+        <div v-else>
+          <div class="rank-chart-host" :style="{ height: chartH(blk) + 'px', minHeight: '420px' }">
+            <EchartsHost :option="dualRankBarOption(blk)" />
           </div>
         </div>
       </SciFiPanel>

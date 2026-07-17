@@ -70,7 +70,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
               class="pl-drow"
               :class="{ sub: ln.sub }"
             >
-              <span>{{ ln.name }}</span>
+              <!-- 用 pl-name 类 + 两列网格（scifi-bridge 覆盖 14px 竖排坑） -->
+              <span class="pl-name">{{ ln.name }}</span>
               <span class="pl-amt">{{ ln.amt_disp }}</span>
             </div>
           </div>

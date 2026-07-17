@@ -50,10 +50,13 @@ class TestV4V6ChartFx(unittest.TestCase):
             "ExpenseTrend.vue",
             "ExpenseSection.vue",
             "ReceiptsCard.vue",
-            "RankingsDual.vue",
         ):
             src = (FE / "components" / name).read_text(encoding="utf-8")
             self.assertIn("chart-fx", src, name)
+        # RankingsDual 经 dual-rank-option 间接用 chart-fx
+        rank = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
+        self.assertIn("dual-rank-option", rank)
+        self.assertIn("chart-fx", (FE / "dual-rank-option.ts").read_text(encoding="utf-8"))
 
 
 class TestV5StarBg(unittest.TestCase):
@@ -77,6 +80,29 @@ class TestNoNewDeps(unittest.TestCase):
         pkg = (ROOT / "frontend" / "package.json").read_text(encoding="utf-8")
         for bad in ("gsap", "animejs", "three", "particles", "lottie", "framer", "motion"):
             self.assertNotIn(bad, pkg.lower())
+
+
+class TestLiveReviewFixes54p1(unittest.TestCase):
+    """人审补刀：抽屉横排 / 12月轴 / 双榜共用 option。"""
+
+    def test_drawer_two_col_css(self):
+        css = (FE / "vendor" / "scifi-kit" / "scifi-bridge.css").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns: minmax(10em, 1fr) auto", css)
+        self.assertIn("writing-mode: horizontal-tb", css)
+
+    def test_pad_year_months_helper(self):
+        src = (FE / "chart-months.ts").read_text(encoding="utf-8")
+        self.assertIn("padYearMonths", src)
+        self.assertIn("axisMaxCover", src)
+
+    def test_dual_rank_shared(self):
+        src = (FE / "dual-rank-option.ts").read_text(encoding="utf-8")
+        self.assertIn("dualRankBarOption", src)
+        daily = (FE / "components" / "DailyQuery.vue").read_text(encoding="utf-8")
+        rank = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
+        self.assertIn("dualRankBarOption", daily)
+        self.assertIn("dualRankBarOption", rank)
+        self.assertIn("rank-chart-host", rank)
 
 
 if __name__ == "__main__":

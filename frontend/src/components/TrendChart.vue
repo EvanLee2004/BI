@@ -17,6 +17,7 @@ import {
   lineGlowStyle,
   pointGlowStyle,
 } from '../chart-fx'
+import { axisMaxCover, padYearMonths } from '../chart-months'
 import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -32,18 +33,35 @@ function tickLabel(ticks: AxisTick[], val: number): string {
 
 const option = computed(() => {
   const t = trend.value
-  const labels = (t.labels || []).map((x) => String(x))
-  const rev = (t.revenue || []).map((x) => Number(x) || 0)
-  const cost = (t.cost || []).map((x) => Number(x) || 0)
-  const margin = (t.margin_pct || []).map((x) => Number(x) || 0)
-  const revD = (t.revenue_disp || []).map((x) => String(x ?? ''))
-  const costD = (t.cost_disp || []).map((x) => String(x ?? ''))
-  const marD = (t.margin_pct_disp || []).map((x) => String(x ?? ''))
+  const rawLabels = (t.labels || []).map((x) => String(x))
+  const rawRev = (t.revenue || []).map((x) => Number(x) || 0)
+  const rawCost = (t.cost || []).map((x) => Number(x) || 0)
+  const rawMar = (t.margin_pct || []).map((x) => Number(x) || 0)
+  const rawRevD = (t.revenue_disp || []).map((x) => String(x ?? ''))
+  const rawCostD = (t.cost_disp || []).map((x) => String(x ?? ''))
+  const rawMarD = (t.margin_pct_disp || []).map((x) => String(x ?? ''))
+  const padded = padYearMonths(
+    rawLabels,
+    [rawRev, rawCost, rawMar],
+    [rawRevD, rawCostD, rawMarD],
+  )
+  const labels = padded.labels
+  const rev = padded.series[0]
+  const cost = padded.series[1]
+  const margin = padded.series[2]
+  const revD = padded.disps[0]
+  const costD = padded.disps[1]
+  const marD = padded.disps[2]
+  const empty = (i: number) => !revD[i] && !costD[i] && !marD[i]
+  const revPlot = rev.map((v, i) => (empty(i) ? null : v))
+  const costPlot = cost.map((v, i) => (empty(i) ? null : v))
+  const marPlot = margin.map((v, i) => (empty(i) ? null : v))
   const ticks = t.y_axis_ticks || []
-  const maxV = t.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
+  const maxV0 = t.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
   const interval =
     t.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = t.y_axis_min ?? 0
+  const maxV = axisMaxCover(maxV0, interval, [...rev, ...cost])
   const cRev = '#22d3ee'
   const cCost = '#64769e'
   const cMar = '#c084fc'
@@ -51,7 +69,7 @@ const option = computed(() => {
     {
       name: '收入',
       type: 'bar',
-      data: rev,
+      data: revPlot,
       itemStyle: barGlowStyle(cRev),
       label: dataLabelStyle({
         position: 'top',
@@ -64,7 +82,7 @@ const option = computed(() => {
     {
       name: '成本',
       type: 'bar',
-      data: cost,
+      data: costPlot,
       itemStyle: barGlowStyle(cCost, true),
       label: dataLabelStyle({
         position: 'top',
@@ -75,9 +93,10 @@ const option = computed(() => {
       name: '毛利率',
       type: 'line',
       yAxisIndex: 1,
-      data: margin,
+      data: marPlot,
       symbol: 'circle',
       symbolSize: 8,
+      connectNulls: false,
       itemStyle: pointGlowStyle(cMar),
       lineStyle: lineGlowStyle(cMar, 2.5),
       label: dataLabelStyle({
@@ -86,22 +105,31 @@ const option = computed(() => {
       emphasis: { focus: 'series', scale: true },
     },
   ]
-  const breath = breathScatterSeries('毛利率', margin, cMar, 1)
-  if (breath) series.push(breath)
+  const breath = breathScatterSeries(
+    '毛利率',
+    marPlot.map((x) => (x == null ? 0 : x)),
+    cMar,
+    1,
+  )
+  if (breath) {
+    breath.data = marPlot.map((x) => (x == null ? '-' : x))
+    series.push(breath)
+  }
   return {
     tooltip: {
       trigger: 'axis',
       formatter: (params: { dataIndex: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
+        if (empty(i)) return `${labels[i] || ''} · 暂无数据`
         return `${labels[i] || ''}<br/>收入 ${revD[i] || '—'}万<br/>成本 ${costD[i] || '—'}万<br/>毛利率 ${marD[i] || '—'}`
       },
     },
     legend: { data: ['收入', '成本', '毛利率'], textStyle: legendTextStyle() },
-    grid: { left: 64, right: 48, top: 36, bottom: 28 },
+    grid: { left: 64, right: 48, top: 48, bottom: 36 },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: axisLabelStyle(),
+      axisLabel: axisLabelStyle({ interval: 0 }),
     },
     yAxis: [
       {
@@ -127,7 +155,7 @@ const option = computed(() => {
 </script>
 <template>
   <SciFiPanel id="trendChartCard" title="收入 · 毛利趋势" panel-class="trend-chart-card">
-    <div class="rc-body" data-chart="trend">
+    <div class="rc-body" data-chart="trend" style="min-height: 320px; height: 340px">
       <EchartsHost :option="option" />
     </div>
   </SciFiPanel>

@@ -1,20 +1,13 @@
 <script setup lang="ts">
 /**
  * 板块四：下单/回款双系列横向条形图（ECharts）+ 其余弹窗 + 月度下钻。
- * 铁律2：金额串/系列值全后端；前端只摆 option。
- * 任务书54.1：V4 柱发光 + V6 排名行名列宽给足 + 文字清晰。
+ * 与 DailyQuery 共用 dualRankBarOption，保证样式/顺序一致；放大行高。
  */
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
-import {
-  animBlock,
-  animDuration,
-  axisLabelStyle,
-  dataLabelStyle,
-  legendTextStyle,
-} from '../chart-fx'
+import { dualRankBarOption, dualRankItemAt } from '../dual-rank-option'
 import type { RankItem, RankView, RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -59,111 +52,16 @@ onMounted(() => document.addEventListener('keydown', onKey))
 onUnmounted(() => document.removeEventListener('keydown', onKey))
 
 function barOption(blk: DualBlk | undefined) {
-  const items = [...(blk?.items || [])].reverse() // 横向条图顶=第1名
-  const names = items.map((it) => it.name)
-  const orders = items.map((it) => Number(it.wo) || 0) // 用后端宽度百分比作条长（非金额运算）
-  const receipts = items.map((it) => Number(it.wr) || 0)
-  const od = items.map((it) => it.order_disp || '')
-  const rd = items.map((it) => it.receipt_disp || '')
-  const cO = '#a78bfa'
-  const cR = '#2dd4bf'
-  return {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      formatter: (params: { dataIndex: number; seriesName: string }[]) => {
-        const i = params?.[0]?.dataIndex ?? 0
-        const it = items[i]
-        return `${it?.name || ''}<br/>下单 ${od[i]}<br/>回款 ${rd[i]}`
-      },
-    },
-    legend: { data: ['下单', '回款'], textStyle: legendTextStyle() },
-    /* V6：行名列宽给足，避免无故截断 */
-    grid: { left: 128, right: 56, top: 28, bottom: 16 },
-    xAxis: {
-      type: 'value',
-      max: 100,
-      axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
-    },
-    yAxis: {
-      type: 'category',
-      data: names,
-      axisLabel: {
-        width: 118,
-        overflow: 'truncate',
-        ellipsis: '…',
-        interval: 0,
-        ...axisLabelStyle({ fontSize: 11 }),
-      },
-      triggerEvent: true,
-    },
-    series: [
-      {
-        name: '下单',
-        type: 'bar',
-        data: orders,
-        itemStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 1,
-            y2: 0,
-            colorStops: [
-              { offset: 0, color: cO },
-              { offset: 1, color: '#c4b5fd' },
-            ],
-          },
-          borderRadius: [0, 4, 4, 0],
-          shadowBlur: 10,
-          shadowColor: 'rgba(167,139,250,0.45)',
-        },
-        label: dataLabelStyle({
-          position: 'right',
-          formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-        }),
-        emphasis: {
-          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(167,139,250,0.7)' },
-        },
-      },
-      {
-        name: '回款',
-        type: 'bar',
-        data: receipts,
-        itemStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 1,
-            y2: 0,
-            colorStops: [
-              { offset: 0, color: cR },
-              { offset: 1, color: '#5eead4' },
-            ],
-          },
-          borderRadius: [0, 4, 4, 0],
-          shadowBlur: 10,
-          shadowColor: 'rgba(45,212,191,0.45)',
-        },
-        label: dataLabelStyle({
-          position: 'right',
-          formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-        }),
-        emphasis: {
-          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(45,212,191,0.7)' },
-        },
-      },
-    ],
-    ...animBlock(animDuration(600)),
-  }
+  return dualRankBarOption(blk)
+}
+
+function chartH(blk: DualBlk | undefined): number {
+  const opt = dualRankBarOption(blk)
+  return typeof opt._chartH === 'number' ? opt._chartH : 480
 }
 
 function onChartClick(blk: DualBlk | undefined, params: { dataIndex?: number }) {
-  if (!blk?.items || params.dataIndex == null) return
-  // reverse 后的 index
-  const items = [...(blk.items || [])].reverse()
-  const it = items[params.dataIndex]
+  const it = dualRankItemAt(blk, params.dataIndex)
   if (it) openMonthly(it)
 }
 
@@ -196,7 +94,7 @@ function pct(v: unknown): string {
         </template>
         <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
         <div v-else>
-          <div style="height: 320px">
+          <div class="rank-chart-host" :style="{ height: chartH(blk) + 'px', minHeight: '420px' }">
             <EchartsHost
               :option="barOption(blk)"
               @click="(p) => onChartClick(blk, p)"
