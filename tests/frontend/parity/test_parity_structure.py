@@ -184,8 +184,11 @@ class TestVmLegacyDisplayParity(unittest.TestCase):
         self.assertEqual(len(vm.trend.labels), len(vm.trend.revenue_disp))
         self.assertEqual(len(vm.trend.labels), len(vm.trend.margin_pct_disp))
         if vm.expense.area_labels:
-            self.assertEqual(len(vm.expense.area_labels), 12)
-            self.assertEqual(len(vm.expense.area_totals_disp), 12)
+            # 任务书52·F-4：裁到最后有数月，系列与 totals 等长、≤12
+            n = len(vm.expense.area_labels)
+            self.assertGreaterEqual(n, 1)
+            self.assertLessEqual(n, 12)
+            self.assertEqual(len(vm.expense.area_totals_disp), n)
 
 
 class TestParityAllowFile(unittest.TestCase):
