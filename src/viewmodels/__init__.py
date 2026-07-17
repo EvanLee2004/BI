@@ -302,9 +302,10 @@ def _pack_donut_by_period(summary: dict) -> dict[str, list[dict[str, Any]]]:
             continue
         exp = p.get("expense") or {}
         items = []
-        total = sum(float(exp.get(k) or 0) for k in exp if k and not str(k).startswith("_"))
+        # "total"=合计键，不是费用大类：进分母/进扇区都会把占比稀释一半（legacy render 用大类白名单天然排除）
+        total = sum(float(exp.get(k) or 0) for k in exp if k and not str(k).startswith("_") and str(k) != "total")
         for k, v in exp.items():
-            if str(k).startswith("_"):
+            if str(k).startswith("_") or str(k) == "total":
                 continue
             amt = float(v or 0)
             if amt <= 0:

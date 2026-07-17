@@ -93,6 +93,18 @@ class TestEchartsVmLabels(unittest.TestCase):
         self.assertNotIn("total 50", blob)
         self.assertNotIn("50.0%", blob)
 
+    def test_donut_items_no_total_and_pct_sums_100(self):
+        """环形扇区不得混入合计键 total（曾把各类占比稀释一半）；pct 合计≈100%。"""
+        import viewmodels
+
+        vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        for pk, items in (vm.expense.donut_by_period or {}).items():
+            names = [i.get("name") for i in items]
+            self.assertNotIn("total", names, f"{pk} 扇区混入 total")
+            if items:
+                s = sum(float(str(i.get("pct_disp", "0")).rstrip("%")) for i in items)
+                self.assertAlmostEqual(s, 100.0, delta=0.5, msg=f"{pk} 占比合计 {s}")
+
     def test_ui_no_echarts_tech_label(self):
         for name in ("TrendChart.vue", "ExpenseSection.vue", "ReceiptsCard.vue", "RankingsDual.vue"):
             text = (FE / "components" / name).read_text(encoding="utf-8")
