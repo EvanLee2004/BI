@@ -104,6 +104,7 @@ tests/test_task51_authz_access.py
 tests/test_task51_batch5.py
 tests/test_task51_frontend_types.py
 tests/test_task52_fixes.py
+tests/test_task54_scifi.py
 "
 run_one() {
   f="$1"
