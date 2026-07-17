@@ -60,11 +60,13 @@ class TestEchartsVmLabels(unittest.TestCase):
             self.assertTrue(lab)
             self.assertEqual(len(vm.trend.revenue_disp[i]) > 0, True)
             self.assertIn("%", vm.trend.margin_pct_disp[i])
-        # 费用面积 12 月
-        self.assertEqual(len(vm.expense.area_labels), 12)
+        # 费用面积：任务书52·F-4 裁到最后有数月（≤12），系列与 labels 等长
+        n = len(vm.expense.area_labels)
+        self.assertGreaterEqual(n, 1)
+        self.assertLessEqual(n, 12)
         for s in vm.expense.area_series:
-            self.assertEqual(len(s["data"]), 12)
-            self.assertEqual(len(s["data_disp"]), 12)
+            self.assertEqual(len(s["data"]), n)
+            self.assertEqual(len(s["data_disp"]), n)
             for a, d in zip(s["data"], s["data_disp"]):
                 if a == 0:
                     self.assertEqual(d, "0.0")
