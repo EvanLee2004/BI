@@ -142,36 +142,20 @@ def register(app, d):
     ):
         """任务书50·B：看端费用明细 VM。
         **任何会话（含管理员）一律白名单列**——管理员也走 view/view_bu，不走管理端全列。
-        管理端数据调整仍用 /api/detail（audience=admin）。"""
+        管理端数据调整仍用 /api/detail（audience=admin）。
+        任务书51·B4：鉴权统一 resolve_expense_view_access(force_whitelist=True)。"""
+        import authz
         import db
 
         user = _user(request)
         vacc = _vacc_row(request)
-        if not user and not vacc:
-            raise HTTPException(status_code=401, detail="未登录")
-
-        force_bu = None
-        hide_salary = False
-        audience = "view"
-        if user:
-            # 管理员看端：整体白名单；若指定 bu 则按 view_bu 裁「业务BU」列
-            force_bu = (bu or "").strip() or None
-            hide_salary = False
-            audience = "view_bu" if force_bu else "view"
-        elif vacc and accounts.is_main(vacc):
-            force_bu = (bu or "").strip() or None
-            hide_salary = not bool(cfg.get("overall_see_salary", False))
-            audience = "view"
-        else:
-            names = accounts.bu_names_of(vacc) if vacc else []
-            if not names:
-                raise HTTPException(status_code=403, detail="无权查看费用明细")
-            want = (bu or "").strip() or (names[0] if len(names) == 1 else "")
-            if not want or not accounts.can_see_bu(vacc, want):
-                raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-            force_bu = want
-            hide_salary = False
-            audience = "view_bu"
+        force_bu, hide_salary, audience = authz.resolve_expense_view_access(
+            user,
+            vacc,
+            bu,
+            cfg=cfg,
+            force_whitelist=True,
+        )
 
         who = user or _vacct(request) or "?"
         _audit(cfg, root, who, ("访问", f"看端明细VM" + (f" bu={force_bu}" if force_bu else "")))

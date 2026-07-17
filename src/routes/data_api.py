@@ -62,37 +62,17 @@ def register(app, d):
     DEFAULT_PW = d.DEFAULT_PW
 
     def _detail_access(request: Request, table: str, bu: str | None):
-        """明细鉴权：返回 (force_bu, hide_salary, audience)。
-        audience：admin=管理端全列；view=整体看端白名单；view_bu=BU 页白名单（可省业务BU）。
-        管理员不隐工资；整体默隐（设置可开）；BU 强制本 BU。"""
-        user = _user(request)
-        vacc = _vacc_row(request)
-        force_bu = None
-        hide_salary = False
-        audience = "admin"
-        if user:
-            force_bu = bu.strip() if bu else None
-            hide_salary = False  # 管理员看全量（含工资）
-            audience = "admin"
-        elif vacc and table == "费用明细":
-            names = accounts.bu_names_of(vacc)
-            if accounts.is_main(vacc):
-                force_bu = bu.strip() if bu else None
-                # 任务书37·B8：整体账号默认隐藏工资大类；开关 overall_see_salary 打开才可见
-                hide_salary = not bool(cfg.get("overall_see_salary", False))
-                audience = "view"
-            else:
-                if not names:
-                    raise HTTPException(status_code=403, detail="无权查看费用明细")
-                want = (bu or "").strip() or (names[0] if len(names) == 1 else "")
-                if not want or not accounts.can_see_bu(vacc, want):
-                    raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-                force_bu = want
-                hide_salary = False  # BU 看本 BU 全量（含本 BU 工资行，若有）
-                audience = "view_bu"
-        else:
-            raise HTTPException(status_code=401, detail="需要登录")
-        return force_bu, hide_salary, audience
+        """明细鉴权：任务书51·B4 统一走 authz.resolve_expense_view_access(force_whitelist=False)。"""
+        import authz
+
+        return authz.resolve_expense_view_access(
+            _user(request),
+            _vacc_row(request),
+            bu,
+            cfg=cfg,
+            force_whitelist=False,
+            table=table,
+        )
 
     @app.get("/api/detail_export")
     def api_detail_export(
