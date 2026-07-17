@@ -2,6 +2,7 @@
 /** 板块三：收入与毛利结构 — 真组件 + 其余弹窗 */
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import SciFiPanel from './SciFiPanel.vue'
 import type { ProfitRankPeriod, RankItem, RankSide } from '../types/vm'
 
 const store = useCockpitStore()
@@ -33,12 +34,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
 <template>
   <div>
     <div v-if="pack" id="profitRankViews" class="pr-grid grid-2e" :data-start="pack.start" :data-end="pack.end">
-      <div v-for="side in [pack.customer, pack.sales]" :key="side?.dim" class="card" :data-dim="side?.dim">
-        <div class="card-h">
-          {{ side?.title }}
+      <SciFiPanel
+        v-for="side in [pack.customer, pack.sales]"
+        :key="side?.dim"
+        :data-dim="side?.dim"
+      >
+        <template #header>
+          <span>{{ side?.title }}</span>
           <span v-if="side?.conc_disp" class="conc">{{ side.conc_disp }}</span>
           <span class="tag">确认口径</span>
-        </div>
+        </template>
         <div v-if="!side || side.empty" class="ev-empty">本期无数据</div>
         <div v-else class="ev-list rk-list">
           <div v-for="it in side.items" :key="it.i + it.name" class="ev-row rk-row">
@@ -61,7 +66,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
             <span class="ev-amt">{{ side.others.amt_disp }}</span>
           </div>
         </div>
-      </div>
+      </SciFiPanel>
     </div>
     <div class="pr-formula">
       <span class="pr-f-h">计算逻辑</span>

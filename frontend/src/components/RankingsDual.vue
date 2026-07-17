@@ -6,6 +6,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import SciFiPanel from './SciFiPanel.vue'
 import type { RankItem, RankView, RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -127,14 +128,18 @@ function pct(v: unknown): string {
     :data-end="view.end"
   >
     <div class="grid-2e dual-grid" :data-start="view.start" :data-end="view.end">
-      <div v-for="blk in [view.sales, view.customer]" :key="blk?.dim || Math.random()" class="card" :data-dim="blk?.dim">
-        <div class="card-h">
-          {{ blk?.title }}
+      <SciFiPanel
+        v-for="blk in [view.sales, view.customer]"
+        :key="blk?.dim || Math.random()"
+        :data-dim="blk?.dim"
+      >
+        <template #header>
+          <span>{{ blk?.title }}</span>
           <span class="dual-legend">
             <span class="dual-leg dual-o">紫=下单</span>
             <span class="dual-leg dual-r">青=回款</span>
           </span>
-        </div>
+        </template>
         <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
         <div v-else>
           <div style="height: 320px">
@@ -157,7 +162,7 @@ function pct(v: unknown): string {
             <span class="ev-amt">{{ blk.others.amt }}</span>
           </div>
         </div>
-      </div>
+      </SciFiPanel>
     </div>
 
     <Teleport to="body">

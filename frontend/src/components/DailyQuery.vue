@@ -5,6 +5,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import SciFiPanel from './SciFiPanel.vue'
 import type { RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
@@ -94,9 +95,8 @@ const sales = computed((): RankViewBlk | null => dual.value?.sales || null)
 const customer = computed((): RankViewBlk | null => dual.value?.customer || null)
 </script>
 <template>
-  <div class="card daily-card" id="dailyPanel">
-    <div class="card-h">按时间段查询</div>
-    <div class="daily-row" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px">
+  <SciFiPanel id="dailyPanel" title="按时间段查询" panel-class="daily-card">
+    <div class="daily-row" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 0 8px">
       <label>起 <input type="date" v-model="start" @change="onDateEdit" id="dailyS" /></label>
       <label>止 <input type="date" v-model="end" @change="onDateEdit" id="dailyE" /></label>
       <button type="button" class="mini" id="dailyGo" :disabled="loading" @click="runQuery">
@@ -107,8 +107,12 @@ const customer = computed((): RankViewBlk | null => dual.value?.customer || null
       <span v-if="err" style="color: var(--neg); font-size: 12px">{{ err }}</span>
     </div>
     <div v-if="dual" id="rkCustom" class="grid-2e dual-grid" :data-start="start" :data-end="end" data-daily="1">
-      <div v-for="blk in [sales, customer]" :key="(blk?.dim || '') + 'd'" class="card" :data-dim="blk?.dim">
-        <div class="card-h">{{ blk?.title }}</div>
+      <SciFiPanel
+        v-for="blk in [sales, customer]"
+        :key="(blk?.dim || '') + 'd'"
+        :title="blk?.title || ''"
+        :data-dim="blk?.dim"
+      >
         <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
         <div v-else class="ev-list rk-list">
           <div v-for="it in blk.items" :key="it.i + it.name" class="ev-row dual-row">
@@ -124,7 +128,7 @@ const customer = computed((): RankViewBlk | null => dual.value?.customer || null
             </div>
           </div>
         </div>
-      </div>
+      </SciFiPanel>
     </div>
-  </div>
+  </SciFiPanel>
 </template>

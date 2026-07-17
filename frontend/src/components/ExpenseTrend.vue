@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import SciFiPanel from './SciFiPanel.vue'
 import type { AxisTick, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -40,7 +41,7 @@ const option = computed(() => {
       },
     },
     legend: { data: seriesIn.map((s) => s.name) },
-    xAxis: { type: 'category', data: labels, boundaryGap: false },
+    xAxis: { type: 'category', data: labels, boundaryGap: true },
     yAxis: {
       type: 'value',
       min: minV,
@@ -48,27 +49,49 @@ const option = computed(() => {
       interval,
       axisLabel: { formatter: (v: number) => tickLabel(ticks, v) },
     },
-    series: seriesIn.map((s) => ({
-      name: s.name,
-      type: 'line',
-      stack: 'total',
-      areaStyle: { opacity: 0.72 },
-      emphasis: { focus: 'series' },
-      data: s.data,
-      smooth: true,
-    })),
+    /* 任务书54·C：唯一换图型 — 堆叠面积 → 按月堆叠柱 + 柱顶合计 */
+    series: [
+      ...seriesIn.map((s) => ({
+        name: s.name,
+        type: 'bar' as const,
+        stack: 'total',
+        emphasis: { focus: 'series' as const },
+        data: s.data,
+        barMaxWidth: 36,
+      })),
+      {
+        name: '合计',
+        type: 'bar' as const,
+        stack: 'total',
+        data: seriesIn.length
+          ? (seriesIn[0].data || []).map(() => 0)
+          : [],
+        itemStyle: { color: 'transparent' },
+        label: {
+          show: true,
+          position: 'top' as const,
+          formatter: (p: { dataIndex: number }) => totals[p.dataIndex] || '',
+          fontSize: 10,
+          color: 'var(--ink, #eaf1ff)',
+        },
+        tooltip: { show: false },
+        silent: true,
+        barMaxWidth: 36,
+      },
+    ],
     animationDuration: 800,
   }
 })
 </script>
 <template>
-  <div class="card exp-trend-card" id="expTrendCard">
-    <div class="card-h">
-      费用月度趋势 · 按报表大类
-      <span class="tag">按有数月份 · 面积</span>
-    </div>
+  <SciFiPanel
+    id="expTrendCard"
+    title="费用月度趋势 · 按报表大类"
+    tag="按有数月份 · 堆叠柱"
+    panel-class="exp-trend-card"
+  >
     <div class="rc-body">
       <EchartsHost :option="option" />
     </div>
-  </div>
+  </SciFiPanel>
 </template>

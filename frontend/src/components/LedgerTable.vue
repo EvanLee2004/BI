@@ -6,6 +6,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import SciFiPanel from './SciFiPanel.vue'
 
 const store = useCockpitStore()
 
@@ -125,12 +126,8 @@ watch(
 onMounted(() => load())
 </script>
 <template>
-  <div class="card">
-    <div class="card-h">
-      费用明细
-      <span class="tag">{{ info }}</span>
-    </div>
-    <div class="ledger-tools" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px; align-items: center">
+  <SciFiPanel title="费用明细" :tag="info">
+    <div class="ledger-tools" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; align-items: center">
       <label
         >月起
         <input v-model="monthFrom" placeholder="2026-01" style="width: 90px" @change="applyFilter"
@@ -171,5 +168,5 @@ onMounted(() => load())
         </tbody>
       </table>
     </div>
-  </div>
+  </SciFiPanel>
 </template>

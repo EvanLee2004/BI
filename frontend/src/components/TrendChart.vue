@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import SciFiPanel from './SciFiPanel.vue'
 import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -56,7 +57,20 @@ const option = computed(() => {
         name: '收入',
         type: 'bar',
         data: rev,
-        itemStyle: { borderRadius: [4, 4, 0, 0] },
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(34,211,238,0.95)' },
+              { offset: 1, color: 'rgba(34,211,238,0.35)' },
+            ],
+          },
+        },
         label: {
           show: true,
           position: 'top',
@@ -68,6 +82,20 @@ const option = computed(() => {
         name: '成本',
         type: 'bar',
         data: cost,
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(100,118,158,0.9)' },
+              { offset: 1, color: 'rgba(100,118,158,0.3)' },
+            ],
+          },
+        },
         label: {
           show: true,
           position: 'top',
@@ -80,6 +108,10 @@ const option = computed(() => {
         type: 'line',
         yAxisIndex: 1,
         data: margin,
+        symbol: true,
+        symbolSize: 6,
+        itemStyle: { color: '#c084fc' },
+        lineStyle: { width: 2, shadowBlur: 8, shadowColor: 'rgba(192,132,252,0.45)' },
         label: {
           show: true,
           formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
@@ -92,10 +124,9 @@ const option = computed(() => {
 })
 </script>
 <template>
-  <div class="card">
-    <div class="card-h">收入 · 毛利趋势</div>
+  <SciFiPanel title="收入 · 毛利趋势">
     <div class="rc-body">
       <EchartsHost :option="option" />
     </div>
-  </div>
+  </SciFiPanel>
 </template>

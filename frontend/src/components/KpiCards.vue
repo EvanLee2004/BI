@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import SciFiPanel from './SciFiPanel.vue'
 import type { KpiCard } from '../types/vm'
 
 const store = useCockpitStore()
@@ -12,11 +13,13 @@ const cards = computed((): KpiCard[] => {
 <template>
   <div class="kpi-host">
     <div class="kpi-grid">
-      <div v-for="(c, i) in cards" :key="i" class="kpi-card">
-        <div class="kpi-h">
-          <span class="kpi-lab">{{ c.label }}</span>
-          <span v-if="c.period_tag" class="kpi-period">{{ c.period_tag }}</span>
-        </div>
+      <SciFiPanel
+        v-for="(c, i) in cards"
+        :key="i"
+        :title="c.label"
+        :tag="c.period_tag || ''"
+        panel-class="kpi-card"
+      >
         <div class="kpi-v">
           <b>{{ c.value_disp }}</b><span class="kpi-u">{{ c.value_unit || '万' }}</span>
           <span v-if="c.delta?.show" class="kpi-delta" :class="c.delta.cls">{{ c.delta.text }}</span>
@@ -50,7 +53,7 @@ const cards = computed((): KpiCard[] => {
             <b>{{ f.value_disp }}</b>
           </div>
         </div>
-      </div>
+      </SciFiPanel>
     </div>
   </div>
 </template>

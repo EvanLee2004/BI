@@ -1,0 +1,183 @@
+/*
+ * SciFi bridge — map kanban theme tokens ↔ kit --dsdk-* vars.
+ * Light/dark = pure frontend (html.theme-light); no backend theme endpoints.
+ * Task 54 Stage B · 2026-07-18
+ */
+
+:root {
+  /* Align kit palette to kanban dark cyan/violet language */
+  --dsdk-accent-color-main: var(--purple, #c084fc);
+  --dsdk-accent-color-secondary: var(--blue, #22d3ee);
+  --dsdk-rgb-accent-secondary: 34, 211, 238;
+
+  --dsdk-text-color: var(--ink, #eaf1ff);
+  --dsdk-text-color-darker: var(--mut, #93a1c0);
+  --dsdk-text-color-dim: var(--mut2, #5f6d92);
+
+  --dsdk-warning-color: var(--orange, #fbbf24);
+  --dsdk-danger-color: var(--neg, #fb7185);
+  --dsdk-success-color: var(--pos, #34d399);
+  --dsdk-rgb-warning-color: 251, 191, 36;
+  --dsdk-rgb-danger-color: 251, 113, 133;
+  --dsdk-rgb-success-color: 52, 211, 153;
+
+  --dsdk-panel-bg: var(--panel, rgba(16, 24, 46, 0.55));
+  --dsdk-panel-border-default: var(--line, rgba(125, 211, 252, 0.16));
+  --dsdk-panel-header-bg-default: rgba(34, 211, 238, 0.1);
+
+  --dsdk-font-sans: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --dsdk-font-mono: var(--mono, ui-monospace, monospace);
+
+  /* kanban aliases derived from kit (single theme module) */
+  --scifi-glow: 0 0 18px rgba(34, 211, 238, 0.18), inset 0 0 12px rgba(34, 211, 238, 0.04);
+  --scifi-corner: 10px;
+}
+
+html.theme-light {
+  --dsdk-accent-color-main: var(--purple, #6d28d9);
+  --dsdk-accent-color-secondary: var(--blue, #0891b2);
+  --dsdk-rgb-accent-secondary: 8, 145, 178;
+
+  --dsdk-text-color: var(--ink, #15202b);
+  --dsdk-text-color-darker: var(--mut, #3d4a5c);
+  --dsdk-text-color-dim: var(--mut2, #5a6a7d);
+
+  --dsdk-warning-color: var(--orange, #c2410c);
+  --dsdk-danger-color: var(--neg, #c2410c);
+  --dsdk-success-color: var(--pos, #0f766e);
+  --dsdk-rgb-warning-color: 194, 65, 12;
+  --dsdk-rgb-danger-color: 194, 65, 12;
+  --dsdk-rgb-success-color: 15, 118, 110;
+
+  --dsdk-panel-bg: var(--panel, #ffffff);
+  --dsdk-panel-border-default: var(--line, rgba(8, 145, 178, 0.14));
+  --dsdk-panel-header-bg-default: rgba(8, 145, 178, 0.08);
+
+  --scifi-glow: 0 1px 3px rgba(8, 145, 178, 0.08), 0 4px 16px rgba(15, 42, 70, 0.06);
+}
+
+/* Vue shell: remove kit max-height so business cards can grow */
+.scifi-panel.dsdk-panel {
+  margin-bottom: 0;
+  height: 100%;
+  box-shadow: var(--scifi-glow);
+  border-radius: var(--scifi-corner);
+  backdrop-filter: blur(16px);
+}
+.scifi-panel .dsdk-panel-content {
+  max-height: none;
+  overflow: visible;
+  padding: 12px 14px 14px;
+  font-size: inherit;
+  color: var(--ink);
+}
+.scifi-panel .dsdk-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: var(--fs-card-h, 13.5px);
+  padding: 10px 14px;
+}
+.scifi-panel .dsdk-panel-header .tag {
+  font-size: 12px;
+  color: var(--note, var(--dsdk-text-color-darker));
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* corner accents */
+.scifi-panel::before,
+.scifi-panel::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  z-index: 3;
+  border-color: var(--dsdk-accent-color-secondary);
+  border-style: solid;
+  opacity: 0.75;
+}
+.scifi-panel::before {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+.scifi-panel::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}
+
+/* Map legacy .card host when nested inside SciFi panel */
+.scifi-panel .card,
+.scifi-panel.card-reset {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  backdrop-filter: none;
+}
+.scifi-panel .card-h {
+  display: none; /* title moved to dsdk-panel-header */
+}
+
+/* KPI grid cells as mini scifi shells */
+.kpi-grid > .scifi-panel {
+  min-width: 0;
+}
+
+/* Topbar / section slight kit tint */
+.topbar {
+  border-bottom-color: var(--dsdk-panel-border-default);
+  box-shadow: 0 0 24px rgba(var(--dsdk-rgb-accent-secondary), 0.08);
+}
+.sec-n {
+  border-color: var(--dsdk-accent-color-secondary);
+  color: var(--dsdk-accent-color-secondary);
+  box-shadow: 0 0 10px rgba(var(--dsdk-rgb-accent-secondary), 0.15);
+}
+
+/* form inputs kit tint */
+.scifi-input,
+.scifi-panel input,
+.scifi-panel select,
+.scifi-panel textarea {
+  background: color-mix(in srgb, var(--dsdk-panel-bg) 80%, transparent);
+  border: 1px solid var(--dsdk-panel-border-default);
+  color: var(--dsdk-text-color);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font: inherit;
+}
+.scifi-input:focus,
+.scifi-panel input:focus,
+.scifi-panel select:focus {
+  outline: none;
+  border-color: var(--dsdk-accent-color-secondary);
+  box-shadow: 0 0 0 2px rgba(var(--dsdk-rgb-accent-secondary), 0.2);
+}
+
+/* PL fill density inside kit shell */
+.scifi-panel.pl-card .pl-table {
+  width: 100%;
+}
+.scifi-panel.pl-card .pl-row {
+  border-bottom: 1px dashed rgba(var(--dsdk-rgb-accent-secondary), 0.12);
+}
+.scifi-panel .drawer-panel {
+  background: var(--dsdk-panel-bg);
+  border: 1px solid var(--dsdk-panel-border-default);
+  box-shadow: var(--scifi-glow);
+}
+
+/* grid gaps for kit panels */
+.grid-2 > .scifi-panel,
+.grid-2e > .scifi-panel {
+  min-width: 0;
+}
+.kpi-grid {
+  gap: var(--gap-card, 14px);
+}

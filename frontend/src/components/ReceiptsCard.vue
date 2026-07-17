@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import SciFiPanel from './SciFiPanel.vue'
 import type { AxisTick, ReceiptsVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -74,11 +75,10 @@ const option = computed(() => {
 const hasSeries = computed(() => (r.value.labels || []).length > 0)
 </script>
 <template>
-  <div class="card rc-card">
-    <div class="card-h">回款情况</div>
+  <SciFiPanel title="回款情况" panel-class="rc-card">
     <div v-if="hasSeries" class="rc-body">
       <EchartsHost :option="option" />
     </div>
     <div v-else class="ev-empty">暂无回款数据</div>
-  </div>
+  </SciFiPanel>
 </template>

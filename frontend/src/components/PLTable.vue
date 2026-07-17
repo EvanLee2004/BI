@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import SciFiPanel from './SciFiPanel.vue'
 import type { PLDetail, PLTablePeriod } from '../types/vm'
 
 const store = useCockpitStore()
@@ -31,11 +32,7 @@ onMounted(() => document.addEventListener('keydown', onKey))
 onUnmounted(() => document.removeEventListener('keydown', onKey))
 </script>
 <template>
-  <div class="card pl-card">
-    <div class="card-h">
-      管理利润表
-      <span v-if="plTag" class="tag">{{ plTag }}</span>
-    </div>
+  <SciFiPanel title="管理利润表" :tag="plTag" panel-class="pl-card">
     <div class="pl-table">
       <div
         v-for="(r, i) in table.rows"
@@ -80,5 +77,5 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
         </div>
       </div>
     </Teleport>
-  </div>
+  </SciFiPanel>
 </template>

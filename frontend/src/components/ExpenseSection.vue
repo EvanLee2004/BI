@@ -3,6 +3,7 @@
 import { computed, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
+import SciFiPanel from './SciFiPanel.vue'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -93,12 +94,13 @@ const option = computed(() => {
 })
 </script>
 <template>
-  <div class="card" style="margin-top: 16px">
-    <div class="card-h">
-      期间费用构成
-      <span class="tag">{{ (views.total_disp as string) || center.total_disp }}</span>
-    </div>
-    <div class="ev-tabs" style="display: flex; gap: 6px; padding: 8px 12px">
+  <SciFiPanel
+    title="期间费用构成"
+    :tag="String((views.total_disp as string) || center.total_disp || '')"
+    panel-class="exp-donut-card"
+    style="margin-top: 16px"
+  >
+    <div class="ev-tabs" style="display: flex; gap: 6px; padding: 4px 0 8px">
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'donut' }" @click="mode = 'donut'">按大类</button>
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'fine' }" @click="mode = 'fine'">按类别</button>
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'pc' }" @click="mode = 'pc'">按利润中心</button>
@@ -131,5 +133,5 @@ const option = computed(() => {
       <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
     </div>
     <div v-else class="ev-empty">本期无数据</div>
-  </div>
+  </SciFiPanel>
 </template>

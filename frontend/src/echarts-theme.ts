@@ -1,4 +1,7 @@
-/** 任务书46·3B：ECharts 主题，色板取自 theme.css 变量（暗/亮两套） */
+/**
+ * 任务书54·B：ECharts 主题全面从 SciFi kit CSS 变量派生（+ theme.css 业务色）。
+ * 目标：图表与 kit 面板肉眼同一套设计；亮暗纯前端 CSS 切换。
+ */
 
 function cssVar(name: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback
@@ -8,32 +11,56 @@ function cssVar(name: string, fallback: string): string {
 
 export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
   const isLight = mode === 'light'
+  const accent = cssVar('--dsdk-accent-color-secondary', cssVar('--blue', isLight ? '#0891b2' : '#22d3ee'))
+  const purple = cssVar('--dsdk-accent-color-main', cssVar('--purple', isLight ? '#6d28d9' : '#c084fc'))
+  const teal = cssVar('--teal', isLight ? '#0d9488' : '#2dd4bf')
+  const orange = cssVar('--dsdk-warning-color', cssVar('--orange', isLight ? '#c2410c' : '#fbbf24'))
+  const cost = cssVar('--cost', isLight ? '#8b9aab' : '#64769e')
+  const pos = cssVar('--dsdk-success-color', cssVar('--pos', isLight ? '#0f766e' : '#34d399'))
+  const neg = cssVar('--dsdk-danger-color', cssVar('--neg', isLight ? '#c2410c' : '#fb7185'))
+  const ink = cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'))
+  const mut = cssVar('--dsdk-text-color-darker', cssVar('--mut', '#93a1c0'))
+  const mut2 = cssVar('--dsdk-text-color-dim', cssVar('--mut2', '#5f6d92'))
+  const line = cssVar('--dsdk-panel-border-default', cssVar('--line', 'rgba(125,211,252,.16)'))
+  const mono = cssVar('--dsdk-font-mono', cssVar('--mono', 'ui-monospace, monospace'))
+
   return {
-    color: [
-      cssVar('--blue', isLight ? '#0891b2' : '#22d3ee'),
-      cssVar('--purple', isLight ? '#6d28d9' : '#c084fc'),
-      cssVar('--teal', isLight ? '#0d9488' : '#2dd4bf'),
-      cssVar('--orange', isLight ? '#c2410c' : '#fbbf24'),
-      cssVar('--cost', isLight ? '#8b9aab' : '#64769e'),
-      cssVar('--pos', isLight ? '#0f766e' : '#34d399'),
-      cssVar('--accent', isLight ? '#0891b2' : '#22d3ee'),
-      cssVar('--neg', isLight ? '#c2410c' : '#fb7185'),
-    ],
+    color: [accent, purple, teal, orange, cost, pos, accent, neg],
     backgroundColor: 'transparent',
     textStyle: {
-      color: cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'),
-      fontFamily: '-apple-system,"PingFang SC",sans-serif',
+      color: ink,
+      fontFamily: `-apple-system,"PingFang SC",sans-serif,${mono}`,
     },
     grid: { left: 54, right: 36, top: 34, bottom: 40 },
     categoryAxis: {
-      axisLine: { lineStyle: { color: cssVar('--line', 'rgba(125,211,252,.16)') } },
-      axisLabel: { color: cssVar('--mut', '#93a1c0') },
+      axisLine: { lineStyle: { color: line, width: 1 } },
+      axisLabel: { color: mut, fontSize: 11 },
       splitLine: { show: false },
+      axisTick: { show: false },
     },
     valueAxis: {
       axisLine: { show: false },
-      axisLabel: { color: cssVar('--mut2', '#5f6d92') },
-      splitLine: { lineStyle: { color: cssVar('--line', 'rgba(125,211,252,.16)') } },
+      axisLabel: { color: mut2, fontSize: 11 },
+      splitLine: {
+        lineStyle: {
+          color: line,
+          type: 'dashed',
+          opacity: isLight ? 0.7 : 0.45,
+        },
+      },
+    },
+    legend: {
+      textStyle: { color: mut, fontSize: 12 },
+      pageTextStyle: { color: mut2 },
+    },
+    tooltip: {
+      backgroundColor: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(10,16,32,0.92)',
+      borderColor: accent,
+      borderWidth: 1,
+      textStyle: { color: ink, fontSize: 12 },
+      extraCssText: isLight
+        ? 'box-shadow:0 4px 16px rgba(8,145,178,.12);'
+        : 'box-shadow:0 0 18px rgba(34,211,238,.25);',
     },
   }
 }
@@ -41,4 +68,9 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
 export function currentThemeMode(): 'dark' | 'light' {
   if (typeof document === 'undefined') return 'dark'
   return document.documentElement.classList.contains('theme-light') ? 'light' : 'dark'
+}
+
+/** Re-register theme after light/dark toggle so charts pick up CSS vars. */
+export function reregisterTheme(): void {
+  // lazy import avoided — callers use echarts.registerTheme directly via EchartsHost
 }
