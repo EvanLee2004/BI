@@ -14,7 +14,7 @@
 2. `git checkout <tag>`（或部署包切版本）
 3. 恢复 `数据/看板.db` 与 `数据/看板账号.json` 备份
 4. 重启服务，curl `/api/health` 绿/黄可接受
-5. 口径配置回滚：管理端「口径配置」选历史版本，或 `POST /api/config/caliber/rollback`
+5. 口径配置：任务书54 起管理端 UI/API 已下线；引擎默认直通。紧急改口径仅运维层（代码默认值 / DB `cfg_口径配置`，见 MADR-0011）
 
 ## 3. 备份恢复
 

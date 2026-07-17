@@ -122,5 +122,38 @@ class TestConfigEngine(unittest.TestCase):
         self.assertEqual(a, b)
 
 
+class TestCaliberApiOffline54(unittest.TestCase):
+    """任务书54·A：口径配置 HTTP 面下线；引擎内核仍可用。"""
+
+    def test_admin_html_no_caliber_card(self):
+        html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+        self.assertNotIn("setCardCaliber", html)
+        self.assertNotIn("口径配置", html)
+        self.assertNotIn("caliberKey", html)
+        js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
+        self.assertNotIn("caliberLoad", js)
+        self.assertNotIn("/api/config/caliber", js)
+
+    def test_golden_admin_no_caliber_card(self):
+        g = (ROOT / "golden" / "admin_baseline.html").read_text(encoding="utf-8")
+        self.assertNotIn("setCardCaliber", g)
+        self.assertNotIn("口径配置", g)
+
+    def test_routes_register_is_noop(self):
+        """config_engine_api.register 不再挂载 /api/config/caliber*。"""
+        from fastapi import FastAPI
+        from routes import config_engine_api
+
+        app = FastAPI()
+        # 签名与其它 routes 一致；register 为空操作
+        config_engine_api.register(app, object())
+        paths = {getattr(r, "path", None) for r in app.routes}
+        self.assertNotIn("/api/config/caliber", paths)
+        self.assertNotIn("/api/config/caliber/rollback", paths)
+        src = (ROOT / "src" / "routes" / "config_engine_api.py").read_text(encoding="utf-8")
+        self.assertNotIn('@app.get("/api/config/caliber")', src)
+        self.assertNotIn('@app.post("/api/config/caliber")', src)
+
+
 if __name__ == "__main__":
     unittest.main()

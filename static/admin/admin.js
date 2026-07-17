@@ -1143,36 +1143,4 @@ loadHealth();refreshUcBadge();loadAdjFields();loadVersion();setInterval(loadHeal
 // 打开页面时若更新已在跑（别处/定时触发），按钮跟着进入进度态
 jget("/api/refresh_status").then(s=>{if(s.running){document.getElementById("btnRefresh").disabled=true;refT0=Date.now();pollRefresh();}}).catch(()=>{});
 
-/* 任务书46·4：口径配置 */
-async function caliberLoad(){
-  const m=document.getElementById("caliberMsg");
-  try{
-    const d=await jget("/api/config/caliber");
-    const k=document.getElementById("caliberKey").value;
-    const v=d.config?d.config[k]:null;
-    document.getElementById("caliberJson").value=JSON.stringify(v,null,2);
-    m.textContent="已加载 "+k;
-  }catch(e){m.textContent="加载失败:"+e.message;}
-}
-async function caliberSave(){
-  const m=document.getElementById("caliberMsg");
-  const k=document.getElementById("caliberKey").value;
-  let value;
-  try{value=JSON.parse(document.getElementById("caliberJson").value);}
-  catch(e){m.textContent="JSON 无效";return;}
-  try{
-    const d=await jpost("/api/config/caliber",{key:k,value:value});
-    m.textContent="已保存 v"+d.version;
-  }catch(e){m.textContent="保存失败:"+e.message;}
-}
-async function caliberRollback(){
-  const m=document.getElementById("caliberMsg");
-  const k=document.getElementById("caliberKey").value;
-  const ver=prompt("回滚到版本号？");
-  if(!ver)return;
-  try{
-    await jpost("/api/config/caliber/rollback",{key:k,version:parseInt(ver,10)});
-    m.textContent="已回滚";
-    caliberLoad();
-  }catch(e){m.textContent="回滚失败:"+e.message;}
-}
+
