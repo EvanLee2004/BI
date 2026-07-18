@@ -70,8 +70,10 @@ const option = computed(() => {
       type: 'bar',
       data: revPlot,
       itemStyle: barGlowStyle(cRev),
+      /* 54.5：只标收入柱顶，避免与成本/毛利率三重叠难辨 */
       label: dataLabelStyle({
         position: 'top',
+        distance: 4,
         formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
       }),
       emphasis: {
@@ -83,10 +85,7 @@ const option = computed(() => {
       type: 'bar',
       data: costPlot,
       itemStyle: barGlowStyle(cCost, true),
-      label: dataLabelStyle({
-        position: 'top',
-        formatter: (p: { dataIndex: number }) => costD[p.dataIndex] || '',
-      }),
+      label: { show: false },
     },
     {
       name: '毛利率',
@@ -99,6 +98,9 @@ const option = computed(() => {
       itemStyle: pointGlowStyle(cMar),
       lineStyle: lineGlowStyle(cMar, 2.5),
       label: dataLabelStyle({
+        position: 'top',
+        distance: 8,
+        color: cMar,
         formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
       }),
       emphasis: { focus: 'series', scale: true },
@@ -118,7 +120,7 @@ const option = computed(() => {
       bottom: 0,
       textStyle: legendTextStyle(),
     },
-    grid: { left: 64, right: 48, top: 40, bottom: 48 },
+    grid: { left: 64, right: 48, top: 48, bottom: 48 },
     xAxis: {
       type: 'category',
       data: labels,

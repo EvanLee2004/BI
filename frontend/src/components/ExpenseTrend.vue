@@ -53,14 +53,8 @@ const option = computed(() => {
       itemStyle: pointGlowStyle(hex),
       lineStyle: lineGlowStyle(hex, 2.6),
       emphasis: { focus: 'series' as const, scale: true },
-      label:
-        idx === 0
-          ? dataLabelStyle({
-              position: 'top',
-              formatter: (p: { dataIndex: number }) => totals[p.dataIndex] || '',
-              fontSize: 11,
-            })
-          : { show: false },
+      /* 54.5：多系列常显点标仍拥挤 → 默认关，合计只靠 tooltip/图例隔离 */
+      label: { show: false },
     })
   })
   return {
@@ -79,11 +73,11 @@ const option = computed(() => {
     },
     legend: {
       data: seriesIn.map((s) => s.name),
-      textStyle: legendTextStyle(),
+      textStyle: legendTextStyle({ fontSize: 11 }),
       type: 'scroll',
       top: 0,
     },
-    grid: { left: 54, right: 24, top: 52, bottom: 36, containLabel: false },
+    grid: { left: 54, right: 28, top: 44, bottom: 36, containLabel: false },
     xAxis: {
       type: 'category',
       data: labels,
