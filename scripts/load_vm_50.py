@@ -5,7 +5,7 @@
 用法（服务须已起且 KANBAN_OFFLINE=1 推荐）：
   .venv/bin/python scripts/load_vm_50.py --base http://127.0.0.1:8018 \\
       --user overall --password 8888 --concurrency 50 --seconds 120 \\
-      --out docs/20260717_负载报告_50并发.md
+      --out docs/历史批次/20260717_负载报告_50并发.md
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ async def main():
     ap.add_argument("--password", default="8888")
     ap.add_argument("--concurrency", type=int, default=50)
     ap.add_argument("--seconds", type=int, default=120)
-    ap.add_argument("--out", default="docs/20260717_负载报告_50并发.md")
+    ap.add_argument("--out", default="docs/历史批次/20260717_负载报告_50并发.md")
     args = ap.parse_args()
 
     base = args.base.rstrip("/")

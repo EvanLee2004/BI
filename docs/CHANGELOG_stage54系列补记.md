@@ -18,30 +18,30 @@
 ## [stage54p6] · 2026-07-18 · 全项目文档审计与补全（只文档）
 
 - 审计表 + 测试说明/概要设计/README/HTTP 清单/架构 SVG/文档地图对齐磁盘现状。  
-- 交付：`docs/20260718_任务书54.6交付报告.md`；tag `stage54p6`；不 push。
+- 交付：`docs/历史批次/20260718_任务书54.6交付报告.md`；tag `stage54p6`；不 push。
 
 ## [stage54p5] · 2026-07-18 · 截图自查找茬
 
 - 12 屏视口找茬；名列 scifi-bridge；趋势/费用标签；明细日期展示。  
-- `docs/pixel/vue54p5/` · `docs/20260718_任务书54.5交付报告.md` · tag `stage54p5`。
+- `docs/pixel/vue54p5/` · `docs/历史批次/20260718_任务书54.5交付报告.md` · tag `stage54p5`。
 
 ## [stage54p4] · 2026-07-18 · Vue 重构到生产前（PERF 不含上机）
 
 - 性能关动画；删看端 shell；管理端 Vue SPA；profit/db 可导航；安全/CI 资产。  
-- `docs/20260718_任务书54.4交付报告.md`（无独立 stage54p4 tag；合入 main 于 54.4 commits）。
+- `docs/历史批次/20260718_任务书54.4交付报告.md`（无独立 stage54p4 tag；合入 main 于 54.4 commits）。
 
 ## [stage54p3] · 2026-07-18 · B-01 查询原位 + 回款金线
 
-- tag `stage54p3` · `docs/20260718_任务书54.3交付报告.md`
+- tag `stage54p3` · `docs/历史批次/20260718_任务书54.3交付报告.md`
 
 ## [stage54p2] · 2026-07-18 · legacy 气质对齐
 
-- tag `stage54p2` · `docs/20260718_任务书54.2交付报告.md`
+- tag `stage54p2` · `docs/历史批次/20260718_任务书54.2交付报告.md`
 
 ## [stage54p1] · 2026-07-18 · B0 视觉 V1–V8
 
-- tag `stage54p1` · `docs/20260718_任务书54.1交付报告.md`
+- tag `stage54p1` · `docs/历史批次/20260718_任务书54.1交付报告.md`
 
 ## [stage54] · 2026-07-18 · SciFi 皮肤 + 去 Windows
 
-- tag `stage54` · `docs/20260718_任务书54交付报告.md`
+- tag `stage54` · `docs/历史批次/20260718_任务书54交付报告.md`

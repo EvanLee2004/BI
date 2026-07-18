@@ -4,7 +4,7 @@
 
 ```bash
 # 1) 54.6 交付报告在仓
-test -f docs/20260718_任务书54.6交付报告.md && echo OK_54p6_report
+test -f docs/历史批次/20260718_任务书54.6交付报告.md && echo OK_54p6_report
 
 # 2) README 跑法关键字
 rg -n "run_verify|KANBAN_OFFLINE|--serve" README.md | head

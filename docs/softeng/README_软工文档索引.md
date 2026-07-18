@@ -64,7 +64,7 @@
 
 ## 相关指针
 
-- 运行/部署：`程序/看板正式程序/README.md` · `docs/Windows部署手册.md` · `docs/v1.5管理端前后端分离交付说明.md`  
+- 运行/部署：`程序/看板正式程序/README.md` · `docs/Windows部署手册.md` · `docs/历史批次/v1.5管理端前后端分离交付说明.md`  
 - 进度：`progress.md` · `工作日志.md`  
 - 接口细节（cockpit JSON）：`程序/看板正式程序/docs/api-v1-cockpit.md`  
 

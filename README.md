@@ -36,7 +36,7 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-18 · v2.0.0-beta · stage54p5）**  
+> **图集与代码对齐说明（2026-07-18 · v2.0.0-beta · stage54p7 终验就绪）**  
 > 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
 > **看端**仅 Vue（`static/shell*.html` 已删）；**管理端** Vue SPA（`admin.html` 重定向）。  
 > **`KANBAN_FRONTEND`** 默认 `vue`（`config.json`）；`KANBAN_OFFLINE=1` 测回归。  
@@ -183,7 +183,7 @@ GET /api/v1/vm/bu/{name}      BU ViewModel
 # static/js/cockpit.js · assemble/   → v1.4/v1.5 时代
 ```
 
-说明：[API 契约策略](docs/api/契约与兼容策略.md) · 项目树 `方案与文档/软件工程文档/2_设计/07_HTTP接口清单_全端点.md` · [v1.4 交付说明](docs/v1.4前后端分离交付说明.md)（历史）
+说明：[API 契约策略](docs/api/契约与兼容策略.md) · 项目树 `方案与文档/软件工程文档/2_设计/07_HTTP接口清单_全端点.md` · [v1.4 交付说明](docs/历史批次/v1.4前后端分离交付说明.md)（历史）
 
 ---
 
@@ -260,17 +260,21 @@ tests/  docs/  golden/
 
 | 文档 | 说明 |
 |------|------|
+| [docs 索引](docs/README.md) | 程序仓文档总表 · 当前权威 |
+| [54.7 终验报告](docs/20260718_任务书54.7终验报告.md) | 上线就绪结论 |
+| [用户手册](docs/用户手册/) | 看板使用 · 管理端 · FAQ |
 | [Ubuntu 部署手册](docs/Ubuntu部署手册.md) | 装机 · cron · 看门狗 · nginx |
+| [Runbook](docs/Runbook.md) | 运维排障 |
 | [数据来源说明](docs/数据来源说明.md) | 六源字段与口径 |
-| [v1.4 交付说明](docs/v1.4前后端分离交付说明.md) | 分离动机 · 回退 · 边界 |
 | [API v1 契约](docs/api-v1-cockpit.md) | cockpit JSON |
+| [历史批次](docs/历史批次/) | 54.7 前任务/交付/验收（非权威） |
 | [CLAUDE.md](CLAUDE.md) | 开发铁律与模块地图 |
 
 > 需求台账、概要/详细设计全文、迭代计划等在项目本地文档库（含业务口径，不随公开仓发布）。
 
 ---
 
-**产品阶段**：公测 Beta（`1.5.0-beta`）→ 去掉 `-beta` 即为 1.0 正式版。
+**产品阶段**：v2.0.0-beta（stage54p7 终验「上线就绪」）；配套文档见任务书 54.8。
 
 ### 教学与软工
 
