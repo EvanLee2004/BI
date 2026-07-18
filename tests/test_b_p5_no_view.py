@@ -82,13 +82,14 @@ class TestP5NoViewPath(unittest.TestCase):
         self.assertIn("views", body)
         self.assertEqual(body["fragments"].get("rank_views"), "")  # P0 shipped：JS 组装
 
-    def test_shell_has_no_view_string(self):
-        shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")
-        self.assertNotIn("/api/v1/cockpit/view", shell)
-        self.assertIn("/api/v1/cockpit/fragments", shell)
-        # 源码无 view 路由注册
+    def test_no_view_route_and_shell_gone(self):
+        """54.4·C：无 cockpit/view 路由；看端 shell 已删。"""
+        self.assertFalse((ROOT / "static" / "shell.html").is_file())
         src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
         self.assertNotIn('@app.get("/api/v1/cockpit/view"', src)
+        # Vue 客户端走 VM
+        client = (ROOT / "frontend" / "src" / "api" / "client.ts").read_text(encoding="utf-8")
+        self.assertIn("/api/v1/vm/cockpit", client)
 
 
 if __name__ == "__main__":

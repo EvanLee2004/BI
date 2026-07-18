@@ -56,22 +56,23 @@ class TestServeShellProductionPath(unittest.TestCase):
 
         return TestClient(self.app, follow_redirects=False)
 
-    def test_logged_in_overall_gets_shell_not_inline_page(self):
+    def test_logged_in_overall_gets_vue_spa_not_inline_page(self):
+        """54.4·C：已登录 / 固定 Vue dist SPA，非 legacy shell。"""
         c = self._client()
         c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         r = c.get("/")
         self.assertEqual(r.status_code, 200)
         body = r.text
-        self.assertIn("加载驾驶舱", body)
-        self.assertIn("/api/v1/cockpit/fragments", body)
-        self.assertIn("assemble/page.js", body)
+        self.assertIn("智能经营罗盘", body)
+        self.assertIn('id="app"', body)
+        self.assertNotIn("assemble/page.js", body)
         self.assertNotIn("USER-MAIN", body)
-        # 碎片 API：卡字段须 strip；内容在 views
+        # 碎片 API 仍可用（VM 对照）；卡字段 strip
         fr = c.get("/api/v1/cockpit/fragments")
         self.assertEqual(fr.status_code, 200)
-        body = fr.json()
-        self.assertEqual(body["fragments"].get("kpi_views"), "")
-        kpi_body = (body.get("views") or {}).get("kpi_body") or {}
+        payload = fr.json()
+        self.assertEqual(payload["fragments"].get("kpi_views"), "")
+        kpi_body = (payload.get("views") or {}).get("kpi_body") or {}
         self.assertIn("USER-MAIN", " ".join(str(v) for v in kpi_body.values()))
 
     def test_no_serve_shell_attr_fossil(self):
@@ -82,7 +83,7 @@ class TestServeShellProductionPath(unittest.TestCase):
         if hasattr(server, "SERVE_SHELL"):
             server.SERVE_SHELL = False  # 即便有人误设，也不得直出
         r = c.get("/")
-        self.assertIn("加载驾驶舱", r.text)
+        self.assertIn("智能经营罗盘", r.text)
         self.assertNotIn("USER-MAIN", r.text)
 
 

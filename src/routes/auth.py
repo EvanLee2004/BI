@@ -73,7 +73,7 @@ def register(app, d):
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
-        """看板统一入口：未登录 → static 登录；已登录 → shell/shell-bu（fragments 组装）。"""
+        """看板统一入口：未登录 → 登录；已登录 → Vue dist SPA（54.4·C 删 shell）。"""
         if _user(request):
             return _main_shell()
         acc = _vacc_row(request)
@@ -131,7 +131,7 @@ def register(app, d):
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：shell-bu → fragments 组装（与整体页同一 page.js）。未登录 → 登录 static。"""
+        """BU 页：Vue dist SPA（54.4·C）。未登录 → 登录。"""
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")

@@ -152,11 +152,22 @@ class TestVmLegacyDisplayParity(unittest.TestCase):
         cls.summary, cls.cfg = _build_summary()
 
     def test_kpi_pl_expense_strings_equal(self):
+        """vue 默认：VM 不带 legacy HTML body；结构化 cards/table 仍有。
+        legacy env 下 body 与 views HTML 对齐。
+        """
+        import os
         import api_v1
         import viewmodels
 
+        mode = viewmodels.frontend_mode(self.cfg)
         views = api_v1.build_cockpit_views(self.summary, self.cfg)
         vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        if mode == "vue":
+            self.assertEqual(vm.kpi.body_by_period or {}, {})
+            self.assertEqual(vm.pl.body_by_period or {}, {})
+            self.assertTrue(vm.kpi.cards_by_period)
+            self.assertTrue(vm.pl.table_by_period)
+            return
         self.assertEqual(vm.kpi.body_by_period, views.get("kpi_body") or {})
         self.assertEqual(vm.pl.body_by_period, views.get("pl_body") or {})
         self.assertEqual(vm.expense.body_by_period, views.get("donut_body") or {})

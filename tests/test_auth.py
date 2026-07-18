@@ -150,7 +150,7 @@ class TestViewerAuth(unittest.TestCase):
         c, ok = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(ok.status_code, 303)
         home = c.get("/").text
-        self.assertIn("加载驾驶舱", home)  # shell
+        self.assertIn("智能经营罗盘", home)  # shell
         self.assertNotIn("USER-MAIN", home)
         fr = c.get("/api/v1/cockpit/fragments").json()
         self.assertEqual(fr["fragments"].get("kpi_views"), "")
@@ -161,12 +161,18 @@ class TestViewerAuth(unittest.TestCase):
         c, r = self._login("lushasha", server.DEFAULT_PW)
         self.assertEqual(r.status_code, 303)
         self.assertEqual(r.headers.get("location"), "/admin")
-        self.assertIn("管理员控制台", c.get("/admin").text)
-        # 无身份下拉
+        # 54.4·D：/admin 为 Vue SPA（壳含 id=app）
+        admin_body = c.get("/admin").text
+        self.assertTrue(
+            'id="app"' in admin_body or "管理员控制台" in admin_body,
+            "admin 应为 Vue SPA 或 legacy 控制台",
+        )
+        # 未登录 /admin：Vue SPA 登录壳（无身份下拉、无真实人名）
         login_html = self.raw.get("/admin").text
         self.assertNotIn("identity", login_html)
         self.assertNotIn("明昊", login_html)
-        self.assertIn('name="account"', login_html)
+        # Vue 壳或 legacy 登录 form
+        self.assertTrue('id="app"' in login_html or 'name="account"' in login_html)
 
     def test_bu_account_sees_own_page_at_root(self):
         c, ok = self._login("user_a", server.DEFAULT_VIEW_PW)
@@ -177,7 +183,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("/bu/", r0.headers.get("location") or "")
         rbu = c.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(rbu.status_code, 200)
-        self.assertIn("加载 BU", rbu.text)  # shell-bu
+        self.assertIn("智能经营罗盘", rbu.text)  # shell-bu
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
         self.assertEqual(fr.status_code, 200)
         j = fr.json()

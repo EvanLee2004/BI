@@ -76,13 +76,11 @@ class TestP0RankingsAssemble(unittest.TestCase):
         bad = re.findall(r"\b(amount|order|receipt)\s*[\+\-\*/]", js)
         self.assertEqual(bad, [], f"组装 JS 疑似金额运算: {bad}")
 
-    def test_js_loaded_by_shell_or_runner(self):
+    def test_js_runner_exists_shell_deleted(self):
+        """54.4·C：shell 已删；assemble 单元 runner 仍可作历史契约。"""
         self.assertTrue(JS.is_file())
         self.assertTrue(RUNNER.is_file())
-        # B-P0 shipped：shell 必须加载 rankings.js + page.js
-        shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")
-        self.assertIn("assemble/rankings.js", shell)
-        self.assertIn("assemble/page.js", shell)
+        self.assertFalse((ROOT / "static" / "shell.html").is_file())
 
 
 if __name__ == "__main__":

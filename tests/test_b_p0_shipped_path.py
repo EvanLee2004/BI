@@ -58,13 +58,14 @@ class TestP0ShippedPath(unittest.TestCase):
         cls.render = render
         cls.api_v1 = api_v1
 
-    def test_shell_loads_rankings_js(self):
-        for p in (SHELL, SHELL_BU):
-            t = p.read_text(encoding="utf-8")
-            self.assertIn("assemble/rankings.js", t, p.name)
-            self.assertIn("assemble/page.js", t, p.name)
-            # rankings 必须先于 page
-            self.assertLess(t.find("rankings.js"), t.find("page.js"), p.name)
+    def test_view_shell_deleted_vue_only(self):
+        """54.4·C：看端 shell 已删；Vue dist 为唯一看端入口。"""
+        self.assertFalse(SHELL.is_file(), "shell.html 应已删除")
+        self.assertFalse(SHELL_BU.is_file(), "shell-bu.html 应已删除")
+        dist = ROOT / "frontend" / "dist" / "index.html"
+        self.assertTrue(dist.is_file(), "frontend/dist/index.html 须存在")
+        t = dist.read_text(encoding="utf-8")
+        self.assertIn('id="app"', t)
 
     def test_api_payload_has_views_not_server_rank_html(self):
         fr = self.pack["fragments"]

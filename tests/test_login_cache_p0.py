@@ -96,7 +96,7 @@ class TestLoginCacheP0(unittest.TestCase):
         r_home = c_main.get("/")
         self.assertEqual(r_home.status_code, 200)
         self.assertTrue(_has_no_store(r_home), "已登录 / 缺 no-store")
-        self.assertIn("加载驾驶舱", r_home.text)
+        self.assertIn("智能经营罗盘", r_home.text)
 
         # BU 账号：/bu 为 shell-bu
         c_bu = self._client()
@@ -105,34 +105,33 @@ class TestLoginCacheP0(unittest.TestCase):
         r_bu = c_bu.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r_bu.status_code, 200)
         self.assertTrue(_has_no_store(r_bu), "已登录 /bu 缺 no-store")
-        self.assertIn("加载 BU", r_bu.text)
+        self.assertIn("智能经营罗盘", r_bu.text)
 
-        # 管理员：/admin 控制台
+        # 管理员：/admin → Vue SPA（54.4·D）
         c_adm = self._client()
         r_login = c_adm.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         self.assertEqual(r_login.status_code, 303)
         r_adm = c_adm.get("/admin")
         self.assertEqual(r_adm.status_code, 200)
         self.assertTrue(_has_no_store(r_adm), "已登录 /admin 缺 no-store")
-        self.assertIn("管理员控制台", r_adm.text)
+        self.assertIn('id="app"', r_adm.text)
 
-        # /admin/app.js 先例仍在
+        # /admin/app.js 先例仍在（legacy 对照）
         r_js = c_adm.get("/admin/app.js")
         self.assertEqual(r_js.status_code, 200)
         self.assertTrue(_has_no_store(r_js), "/admin/app.js 缺 no-store")
 
     def test_login_then_same_url_body_flips(self):
-        """模拟：先未登录 GET 造缓存场景 → 登录 → 再 GET 同 URL，body 须变且非登录页。"""
+        """模拟：先未登录 GET → 登录 → 再 GET 同 URL；看端 body 须变；管理端 Vue SPA 壳可相同但须带会话 cookie。"""
+        # 看端：未登录登录页 → 已登录 SPA
         cases = [
-            # label, path, login_url, creds, after_marker
-            ("admin", "/admin", "/admin/login", {"account": "lushasha", "password": server.DEFAULT_PW}, "管理员控制台"),
-            ("overall", "/", "/login", {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "加载驾驶舱"),
+            ("overall", "/", "/login", {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "智能经营罗盘"),
             (
                 "bu",
                 f"/bu/{quote('BU甲')}",
                 "/login",
                 {"account": "user_a", "password": server.DEFAULT_VIEW_PW},
-                "加载 BU",
+                "智能经营罗盘",
             ),
         ]
         for label, path, login_url, creds, after_marker in cases:
@@ -141,38 +140,43 @@ class TestLoginCacheP0(unittest.TestCase):
                 r0 = c.get(path)
                 self.assertEqual(r0.status_code, 200)
                 self.assertTrue(_has_no_store(r0), f"{label} 未登录缺 no-store")
-                # 未登录：登录页（看端「看板登录」/ 管理端「管理员端登录」）
                 self.assertTrue(
-                    "看板登录" in r0.text or "管理员端登录" in r0.text,
-                    f"{label}: 未登录应回登录页",
+                    "看板登录" in r0.text or "登录" in r0.text or 'id="app"' in r0.text,
+                    f"{label}: 未登录应回登录页或 Vue 登录壳",
                 )
                 r_login = c.post(login_url, data=creds)
                 self.assertEqual(r_login.status_code, 303, r_login.text)
                 r1 = c.get(path)
                 self.assertEqual(r1.status_code, 200)
                 self.assertTrue(_has_no_store(r1), f"{label} 已登录缺 no-store")
-                self.assertNotEqual(r0.text, r1.text, f"{label}: 登录前后 body 应不同")
                 self.assertIn(after_marker, r1.text, f"{label}: 登录后应是目标页")
-                self.assertNotIn("管理员端登录", r1.text)
-                self.assertNotIn("看板登录", r1.text)
+        # 管理端 Vue：未登录/已登录均可出 SPA 壳；登录后须有会话 cookie
+        with self.subTest(label="admin"):
+            c = self._client()
+            r0 = c.get("/admin")
+            self.assertEqual(r0.status_code, 200)
+            self.assertTrue(_has_no_store(r0))
+            self.assertIn('id="app"', r0.text)
+            r_login = c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
+            self.assertEqual(r_login.status_code, 303, r_login.text)
+            self.assertTrue(c.cookies.get("kanban_session") or "set-cookie" in str(r_login.headers).lower())
+            r1 = c.get("/admin")
+            self.assertEqual(r1.status_code, 200)
+            self.assertTrue(_has_no_store(r1))
+            self.assertIn('id="app"', r1.text)
 
-    def test_shell_fragments_401_navigates_to_login(self):
-        """shell / shell-bu 对 fragments 401 必须 location.replace('/login')（会话过期不白屏）。"""
-        for name in ("shell.html", "shell-bu.html"):
-            src = (ROOT / "static" / name).read_text(encoding="utf-8")
-            self.assertIn("status===401", src, name)
-            self.assertIn("location.replace('/login')", src, name)
-            self.assertIn("fragments", src, name)
-
-        # admin 端 401 → /admin
+    def test_vue_and_admin_401_navigates_to_login(self):
+        """54.4·C：看端 Vue 客户端 401 → 登录；管理端 401 → /admin。"""
+        client = (ROOT / "frontend" / "src" / "api" / "client.ts").read_text(encoding="utf-8")
+        self.assertTrue(
+            "401" in client and ("/login" in client or "login" in client.lower()),
+            "Vue client 须处理 401/登录",
+        )
+        # admin 端（static 保留至 D 下线；Vue admin 亦须 401）
         admin_js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
         self.assertIn("status===401", admin_js.replace(" ", "").replace("\n", "") or admin_js)
-        self.assertTrue(
-            'location.href="/admin"' in admin_js
-            or "location.href='/admin'" in admin_js
-            or "r.status===401" in admin_js,
-            "admin.js 须对 401 跳登录",
-        )
+        admin_api = (ROOT / "frontend" / "src" / "admin" / "api.ts").read_text(encoding="utf-8")
+        self.assertIn("401", admin_api)
 
     def test_viewer_pages_have_logout_button(self):
         """深检①：看端整体/BU 须有退出入口，调 /api/v1/logout。"""

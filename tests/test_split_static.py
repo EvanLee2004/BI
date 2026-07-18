@@ -64,17 +64,19 @@ class TestStaticServableOnOtherPort(unittest.TestCase):
         t.start()
         try:
             base = f"http://127.0.0.1:{port}"
-            for path in ("/shell.html", "/shell-bu.html", "/js/assemble/page.js", "/js/cockpit.js"):
+            # 54.4·C：看端 shell 已删；shared 资产 theme / admin 仍可静态服务
+            for path in ("/css/theme.css", "/admin/admin.css"):
                 with urlopen(base + path, timeout=5) as r:  # noqa: S310 本机测试
                     self.assertEqual(r.status, 200, path)
                     body = r.read()
                     self.assertGreater(len(body), 50, path)
-            # shell 里 fragments 仍是相对路径
-            with urlopen(base + "/shell.html", timeout=5) as r:  # noqa: S310
-                html = r.read().decode("utf-8", errors="replace")
-            self.assertIn("/api/v1/cockpit/fragments", html)
-            self.assertNotIn("http://127.0.0.1:8018", html)
-            self.assertNotIn("localhost:8018", html)
+            # shell 不得再存在
+            for gone in ("/shell.html", "/shell-bu.html"):
+                try:
+                    with urlopen(base + gone, timeout=5) as r:  # noqa: S310
+                        self.fail(f"{gone} 应已删除，却返回 {r.status}")
+                except Exception as e:
+                    self.assertIn("404", str(e) or type(e).__name__ or "404")
         finally:
             httpd.shutdown()
 

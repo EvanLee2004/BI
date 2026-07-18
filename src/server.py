@@ -875,9 +875,10 @@ def create_app(cfg, root=None) -> FastAPI:
         return resp
 
     def _frontend_mode() -> str:
-        """KANBAN_FRONTEND=vue|legacy（env > config.frontend > 默认）。
-        任务书46·3：默认 vue（有 dist 时）；无 dist 回落 legacy。
-        回归测试可 export KANBAN_FRONTEND=legacy 锁定旧壳。"""
+        """KANBAN_FRONTEND=vue|legacy（env > config.frontend > 默认 vue）。
+        任务书54.4·C：看端壳已删，/_bu 永远 Vue dist；
+        legacy 仅影响管理端 static 回退与 VM HTML 打包对照。
+        """
         env = (os.environ.get("KANBAN_FRONTEND") or "").strip().lower()
         if env in ("vue", "legacy"):
             return env
@@ -887,7 +888,7 @@ def create_app(cfg, root=None) -> FastAPI:
         root_dir = Path(__file__).resolve().parents[1]
         if (root_dir / "frontend" / "dist" / "index.html").is_file():
             return "vue"
-        return "legacy"
+        return "vue"
 
     def _vue_index():
         """Vue SPA 入口（frontend/dist/index.html）。"""
@@ -905,21 +906,12 @@ def create_app(cfg, root=None) -> FastAPI:
         return _file_html_doc(p)
 
     def _main_shell():
-        """整体页：KANBAN_FRONTEND=vue 时走 Vue dist；legacy 走 shell+fragments。"""
-        if _frontend_mode() == "vue":
-            return _vue_index()
-        p = STATIC_DIR / "shell.html"
-        if not p.is_file():
-            return _html_doc(_EMPTY_DATA_HTML, status_code=503)
-        return _file_html_doc(p)
+        """整体页：仅 Vue dist（54.4·C 删看端 legacy 壳；与 frontend_mode 无关）。"""
+        return _vue_index()
 
     def _bu_shell():
-        if _frontend_mode() == "vue":
-            return _vue_index()
-        p = STATIC_DIR / "shell-bu.html"
-        if not p.is_file():
-            return _html_doc(_EMPTY_DATA_HTML, status_code=503)
-        return _file_html_doc(p)
+        """BU 页：仅 Vue dist。"""
+        return _vue_index()
 
     # 批次3：路由纯搬家到 routes.register_all（行为零变化）
     from types import SimpleNamespace

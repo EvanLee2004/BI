@@ -68,11 +68,9 @@ class TestP4Remainder(unittest.TestCase):
                 self.assertIn(m, self.html, m)
 
     def test_body_data_assembled_mark(self):
+        """导出/快照 HTML 仍可带 assembled 标记；看端 shell 已删。"""
         self.assertIn('data-assembled="1"', self.html)
-        shell = (ROOT / "static" / "shell.html").read_text(encoding="utf-8")
-        self.assertIn('data-assembled="0"', shell)
-        self.assertIn("cockpit/fragments", shell)
-        self.assertNotIn("cockpit/view", shell)
+        self.assertFalse((ROOT / "static" / "shell.html").is_file())
 
     def test_bu_pages_have_fragments_for_shell(self):
         """BU 页与整体同源碎片（shell-bu 组装）；有 summary + fragments。"""

@@ -43,7 +43,7 @@ class TestServerAuth(unittest.TestCase):
         self.assertEqual(r.status_code, 303)
         vcookie = r.cookies.get(server.VCOOKIE)
         r = anon.get("/", headers={"Cookie": f"{server.VCOOKIE}={vcookie}"})
-        self.assertIn("加载驾驶舱", r.text)  # shell，非 SSR 整页
+        self.assertIn("智能经营罗盘", r.text)  # shell，非 SSR 整页
         self.assertNotIn("USER-DASH", r.text)
         self.assertNotIn("管理员控制台", r.text)
         self.assertNotIn("/api/detail", r.text)
@@ -51,7 +51,11 @@ class TestServerAuth(unittest.TestCase):
     def test_admin_requires_login(self):
         r = self.client.get("/admin")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("管理员端登录", r.text)  # 无会话 → 密码页
+        # 54.4·D：无会话时 Vue SPA 壳（客户端登录）；API 仍 401
+        self.assertTrue(
+            "管理员端登录" in r.text or 'id="app"' in r.text,
+            "未登录 /admin 应为登录页或 Vue SPA",
+        )
 
     def test_detail_401_without_session(self):
         r = self.client.get("/api/detail?table=收入明细")
@@ -69,12 +73,15 @@ class TestServerAuth(unittest.TestCase):
         cookie = r.cookies.get(server.COOKIE)
         self.assertTrue(cookie)
         hdr = {"Cookie": f"{server.COOKIE}={cookie}"}
-        # 带会话 → /api/detail 200；/admin 出管理员页
+        # 带会话 → /api/detail 200；/admin 出 Vue SPA 管理壳
         r2 = self.client.get("/api/detail?table=收入明细", headers=hdr)
         self.assertEqual(r2.status_code, 200)
         self.assertIn("columns", r2.json())
         r3 = self.client.get("/admin", headers=hdr)
-        self.assertIn("管理员控制台", r3.text)
+        self.assertTrue(
+            "管理员控制台" in r3.text or 'id="app"' in r3.text,
+            "已登录 /admin 应为控制台或 Vue SPA",
+        )
 
     def test_tampered_cookie_rejected(self):
         # 伪造 token（合法 base64 载荷 + 错签名）——ASCII，模拟改签名攻击

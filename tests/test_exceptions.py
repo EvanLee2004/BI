@@ -224,7 +224,19 @@ class TestExceptionEndpoints(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_admin_console_renamed_tabs(self):
+        """54.4·D：/admin 为 Vue SPA 时壳无页签字面量 → 查 Vue 源 + static 对照。"""
         html = self.client.get("/admin", headers=self.hdr).text
+        if 'id="app"' in html and "异常处理" not in html:
+            # Vue SPA：页签在源码
+            layout = (ROOT / "frontend" / "src" / "admin" / "layout" / "AdminLayout.vue").read_text(
+                encoding="utf-8"
+            )
+            for t in ("异常处理", "总览", "历史快照", "配置变更"):
+                self.assertIn(t, layout)
+            admin_js = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+            self.assertIn("异常处理", admin_js)
+            self.assertNotIn(">复核<", admin_js)
+            return
         for t in ("异常处理", "总览", "下单未填部门", "费用未分类（台账）", "数据修正", "历史快照", "配置变更记录"):
             self.assertIn(t, html)
         self.assertNotIn(">复核<", html)
