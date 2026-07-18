@@ -206,7 +206,7 @@ def writeback_checklists(results: dict) -> None:
         raw_list.write_text(t2, encoding="utf-8")
         print("synced", raw_list)
 
-    sec = ROOT / "docs" / "20260718_任务书54.4_安全留痕.md"
+    sec = ROOT / "docs" / "历史批次" / "20260718_任务书54.4_安全留痕.md"
     if sec.is_file():
         kick = results.get("F2_passwd_kick") or {}
         block = (

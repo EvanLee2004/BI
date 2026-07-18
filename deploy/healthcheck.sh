@@ -34,24 +34,26 @@ if [ "$code" != "200" ]; then
   alert "login_page_not_200 base=$BASE code=$code"
 fi
 
-# 2) 首页可达（可能 200 或 302/登录）
+# 2) 首页可达：连接失败 code=0 必须告警；200/301/302 视为可达
 code2="$(python3 - <<PY
 import urllib.request
+import urllib.error
 try:
-    r=urllib.request.urlopen("$BASE/", timeout=5)
+    r = urllib.request.urlopen("$BASE/", timeout=5)
     print(r.status)
+except urllib.error.HTTPError as e:
+    # 未跟随时可能拿到 3xx/4xx；3xx 仍算可达
+    print(e.code)
 except Exception:
-    try:
-        import urllib.error
-    except Exception:
-        pass
     print(0)
 PY
 )"
-# 接受 200
-if [ "$code2" != "200" ]; then
-  # 未登录时有的部署会 200 登录页挂在 /
-  :
+if [ "$code2" = "0" ]; then
+  alert "home_unreachable base=$BASE code=$code2"
+fi
+if [ "$code2" != "200" ] && [ "$code2" != "301" ] && [ "$code2" != "302" ] && [ "$code2" != "303" ] && [ "$code2" != "307" ] && [ "$code2" != "308" ]; then
+  # 4xx/5xx 等非可达
+  alert "home_not_ok base=$BASE code=$code2"
 fi
 
 # 3) 数据新鲜度：看板.db 或 data_dir 下最新 xlsx mtime
@@ -77,5 +79,5 @@ if [ "$latest" -gt 0 ]; then
   fi
 fi
 
-echo "$(ts) OK base=$BASE login=200 data_age_ok"
+echo "$(ts) OK base=$BASE login=200 home=$code2 data_age_ok"
 exit 0
