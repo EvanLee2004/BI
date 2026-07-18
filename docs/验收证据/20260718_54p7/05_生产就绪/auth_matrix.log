@@ -1,0 +1,6 @@
+=== auth matrix (no cookie) ===
+GET /api/accounts -> 401
+GET /api/v1/vm/cockpit -> 401
+GET /api/detail -> 401
+GET /export.png -> 401
+GET /admin -> 200
