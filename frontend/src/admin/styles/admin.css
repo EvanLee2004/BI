@@ -48,9 +48,33 @@ html.theme-light .admin-root {
   --el-table-header-text-color: var(--admin-mut);
   --el-table-border-color: var(--admin-line);
   --el-table-row-hover-bg-color: rgba(139, 92, 246, 0.08);
+  /* 54.7 R-00b：Element Plus stripe 默认近纯白/纯黑刺眼 → 同色系浅深 */
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.035);
+  --el-table-row-striped-bg-color: rgba(255, 255, 255, 0.035);
 }
 html.theme-light .admin-root .el-table {
   --el-table-header-bg-color: #f0f2f5;
+  --el-fill-color-lighter: #f2f5f9;
+  --el-table-row-striped-bg-color: #f2f5f9;
+}
+
+/* 54.7 R-00b：主题级覆盖 striped 行（所有 el-table stripe） */
+.admin-root .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--el-table-row-striped-bg-color, rgba(255, 255, 255, 0.035)) !important;
+}
+.admin-root .el-table--striped .el-table__body tr.el-table__row--striped:hover > td.el-table__cell {
+  background: var(--el-table-row-hover-bg-color) !important;
+}
+html.theme-light .admin-root .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: #f2f5f9 !important;
+}
+
+/* 业绩目标矩阵等同主题斑马 */
+.admin-root .b-matrix tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
+  background: #f2f5f9;
 }
 
 .admin-note {

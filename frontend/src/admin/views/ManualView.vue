@@ -287,7 +287,7 @@ onMounted(load)
     </div>
     <div class="admin-note">人工填写：人力/补充等。可批量改数，离开会提醒。</div>
 
-    <el-table :data="manualRows" border size="small" style="width: 100%; max-width: 720px">
+    <el-table :data="manualRows" border stripe size="small" style="width: 100%; max-width: 720px">
       <el-table-column prop="item" label="项目" min-width="160" />
       <el-table-column prop="cur" label="当前金额(元)" width="140" />
       <el-table-column label="新值(元)" width="180">
@@ -303,7 +303,7 @@ onMounted(load)
         本月公共费用总额 <b>{{ allocTotal }}</b> 元。各 BU 填比例 %；合计可小于 100%。
       </div>
       <p class="muted">{{ allocInherit }}</p>
-      <el-table :data="allocRows" border size="small" style="max-width: 480px">
+      <el-table :data="allocRows" border stripe size="small" style="max-width: 480px">
         <el-table-column prop="bu" label="BU" />
         <el-table-column label="本月分摊比例(%)">
           <template #default="{ row }">
@@ -317,7 +317,7 @@ onMounted(load)
     <div v-if="showDetax" style="margin-top: 20px">
       <h3>💧 费用去税率（按类别·全公司）</h3>
       <div class="admin-note">能抵扣进项的费用可填增值税率 %；默认全空=不去税。</div>
-      <el-table :data="detaxRows" border size="small" style="max-width: 640px">
+      <el-table :data="detaxRows" border stripe size="small" style="max-width: 640px">
         <el-table-column prop="cat" label="费用类别" min-width="140" />
         <el-table-column prop="amount" label="全年含税金额" width="140" />
         <el-table-column label="去税率(%)" width="140">

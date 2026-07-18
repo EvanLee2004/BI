@@ -39,7 +39,7 @@ onMounted(load)
       <span class="muted">未分类 {{ total }} 笔</span>
     </div>
     <div class="admin-note">收单（费用）台账明细还没填「对应报表大类」→ 暂未计入费用。请在源头补填，下次更新自动计入。</div>
-    <el-table :data="rows" v-loading="loading" border height="calc(100vh - 260px)">
+    <el-table :data="rows" v-loading="loading" border stripe height="calc(100vh - 260px)">
       <el-table-column label="收单日期" width="140">
         <template #default="{ row }">{{ row['收单日期'] || row['收单月份'] }}</template>
       </el-table-column>
