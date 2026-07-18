@@ -48,13 +48,13 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
     grid: { left: 54, right: 36, top: 34, bottom: 40 },
     categoryAxis: {
       axisLine: { lineStyle: { color: line, width: 1 } },
-      axisLabel: { color: mut, fontSize: 11, fontWeight: 500 },
+      axisLabel: { color: mut, fontSize: 12, fontWeight: 500 },
       splitLine: { show: false },
       axisTick: { show: false },
     },
     valueAxis: {
       axisLine: { show: false },
-      axisLabel: { color: mut2, fontSize: 11, fontWeight: 500 },
+      axisLabel: { color: mut2, fontSize: 12, fontWeight: 500 },
       splitLine: {
         lineStyle: {
           color: line,

@@ -280,9 +280,11 @@ class TestAssemblePagesNoHidden(unittest.TestCase):
 class TestThemeScale(unittest.TestCase):
     def test_fs_kpi_and_bu_nav_and_chart_h(self):
         css = theme.get_css()
-        self.assertIn("--fs-kpi:35.2px", css)
+        # 54.9：KPI 字号归 8pt 网格 32px（原任务书46 的 35.2px 已废止）
+        self.assertIn("--fs-kpi:32px", css)
+        self.assertNotIn("--fs-kpi:35.2px", css)
         self.assertIn("--chart-h-sec2:317px", css)
-        # 业务 BU 分页 +10%
+        # 业务 BU 分页 +10%（历史刻度仍保留）
         self.assertIn("font-size:15.4px", css)
         self.assertIn("padding:7.7px 17.6px", css)
         # 板块二图高

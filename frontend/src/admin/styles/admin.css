@@ -1,12 +1,38 @@
-/* 管理端壳：暗色默认 + 浅色同步 cockpit-theme；Element Plus 变量覆盖 */
+/* 管理端壳：暗色默认 + 浅色同步 cockpit-theme；Element Plus ↔ scifi-kit（54.9 R6） */
 .admin-root {
+  /* 与看端 scifi 同源色相：青主色 + 紫辅色 */
   --admin-bg: #0b1220;
   --admin-panel: #151e30;
   --admin-panel2: #1a2438;
-  --admin-line: #2a364d;
-  --admin-fg: #e8eef9;
-  --admin-mut: #8b9bb4;
-  --admin-vio: #8b5cf6;
+  --admin-line: rgba(125, 211, 252, 0.16);
+  --admin-fg: #eaf1ff;
+  --admin-mut: #93a1c0;
+  --admin-vio: #c084fc;
+  --admin-cyan: #22d3ee;
+  --admin-radius: 10px;
+  --admin-radius-sm: 6px;
+  /* Element Plus 主题变量对齐 scifi */
+  --el-color-primary: #22d3ee;
+  --el-color-primary-light-3: #67e8f9;
+  --el-color-primary-light-5: #a5f3fc;
+  --el-color-primary-light-7: #cffafe;
+  --el-color-primary-light-9: rgba(34, 211, 238, 0.12);
+  --el-color-primary-dark-2: #0891b2;
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 10px;
+  --el-font-size-base: 14px;
+  --el-font-size-small: 12px;
+  --el-text-color-primary: var(--admin-fg);
+  --el-text-color-regular: var(--admin-fg);
+  --el-text-color-secondary: var(--admin-mut);
+  --el-text-color-placeholder: #5f6d92;
+  --el-border-color: var(--admin-line);
+  --el-border-color-light: rgba(125, 211, 252, 0.12);
+  --el-fill-color-blank: var(--admin-panel2);
+  --el-bg-color: var(--admin-panel);
+  --el-bg-color-overlay: var(--admin-panel2);
+  --el-mask-color: rgba(5, 11, 20, 0.65);
   min-height: 100vh;
   background:
     radial-gradient(1200px 600px at 10% -10%, #1a1040 0%, transparent 55%),
@@ -14,15 +40,22 @@
     var(--admin-bg);
   color: var(--admin-fg);
   font-family: -apple-system, system-ui, 'PingFang SC', 'Segoe UI', sans-serif;
+  font-size: 14px;
 }
 
 html.theme-light .admin-root {
-  --admin-bg: #eef1f5;
-  --admin-panel: #fff;
+  --admin-bg: #f4f7fb;
+  --admin-panel: #ffffff;
   --admin-panel2: #f5f7fa;
-  --admin-line: #e3e8ef;
-  --admin-fg: #1d2836;
-  --admin-mut: #525c68;
+  --admin-line: rgba(8, 145, 178, 0.14);
+  --admin-fg: #15202b;
+  --admin-mut: #3d4a5c;
+  --admin-vio: #6d28d9;
+  --admin-cyan: #0891b2;
+  --el-color-primary: #0891b2;
+  --el-color-primary-dark-2: #0e7490;
+  --el-color-primary-light-9: rgba(8, 145, 178, 0.1);
+  --el-text-color-placeholder: #5a6a7d;
   background: var(--admin-bg);
   color: var(--admin-fg);
 }
@@ -31,14 +64,60 @@ html.theme-light .admin-root {
   border-right: none !important;
   background: transparent !important;
 }
+.admin-root .el-menu-item {
+  min-height: 44px;
+  border-radius: var(--admin-radius-sm);
+  margin: 4px 8px;
+}
 .admin-root .el-menu-item.is-active {
-  background: rgba(139, 92, 246, 0.18) !important;
-  color: #c4b5fd !important;
+  background: rgba(34, 211, 238, 0.14) !important;
+  color: var(--admin-cyan) !important;
+}
+html.theme-light .admin-root .el-menu-item.is-active {
+  background: rgba(8, 145, 178, 0.12) !important;
+  color: var(--admin-cyan) !important;
 }
 .admin-root .el-card {
   background: var(--admin-panel);
   border-color: var(--admin-line);
   color: var(--admin-fg);
+  border-radius: var(--admin-radius);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.08);
+}
+html.theme-light .admin-root .el-card {
+  box-shadow: 0 1px 3px rgba(8, 145, 178, 0.08), 0 4px 16px rgba(15, 42, 70, 0.06);
+}
+/* R5：设置/表单页内容区收窄居中（勿选 main 全宽表） */
+.admin-root .admin-form-narrow,
+.admin-root .settings-stack,
+.admin-root .el-form,
+.admin-root .el-card > .el-card__body {
+  max-width: 960px;
+}
+.admin-root .el-card.is-wide > .el-card__body,
+.admin-root .el-table {
+  max-width: none;
+}
+.admin-root .el-button {
+  border-radius: var(--admin-radius-sm);
+  min-height: 36px;
+}
+.admin-root .el-button--primary {
+  --el-button-bg-color: var(--admin-cyan);
+  --el-button-border-color: var(--admin-cyan);
+  --el-button-hover-bg-color: #67e8f9;
+  --el-button-hover-border-color: #67e8f9;
+}
+.admin-root .el-input__wrapper,
+.admin-root .el-textarea__inner,
+.admin-root .el-select__wrapper {
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-panel2);
+  box-shadow: 0 0 0 1px var(--admin-line) inset;
+}
+.admin-root .el-input__wrapper:hover,
+.admin-root .el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--admin-cyan) inset;
 }
 .admin-root .el-table {
   --el-table-bg-color: var(--admin-panel);
@@ -78,12 +157,12 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
 }
 
 .admin-note {
-  border-left: 3px solid var(--admin-vio);
+  border-left: 4px solid var(--admin-cyan);
   padding: 12px 16px;
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--admin-radius) var(--admin-radius) 0;
   background: var(--admin-panel2);
-  margin: 0 0 12px;
-  font-size: 13.5px;
+  margin: 0 0 16px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--admin-fg);
 }
@@ -101,8 +180,8 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
 .admin-pill.r { background: #7f1d1d; color: #fca5a5; }
 
 .admin-fetch-banner {
-  padding: 10px 16px;
-  font-size: 13.5px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.45;
   background: linear-gradient(90deg, rgba(251, 191, 36, 0.28), rgba(251, 191, 36, 0.1));
@@ -115,9 +194,18 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
   height: calc(100vh - 140px);
   min-height: 480px;
   border: 1px solid var(--admin-line);
-  border-radius: 12px;
+  border-radius: var(--admin-radius);
   background: #fff;
   display: block;
+}
+
+/* R7 375 管理端触目标 */
+@media (max-width: 520px) {
+  .admin-root .el-button,
+  .admin-root .el-menu-item,
+  .admin-pill {
+    min-height: 44px;
+  }
 }
 
 .admin-dirty-bar {

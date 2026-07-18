@@ -501,12 +501,12 @@ html.theme-light .scifi-panel .dsdk-panel-header > span:first-child::before {
   border-left: 3px solid var(--dsdk-accent-color-secondary);
 }
 .scifi-panel.kpi-card .dsdk-panel-header {
-  padding: 10px 12px 4px;
+  padding: 12px 12px 4px;
   justify-content: space-between;
 }
 .scifi-panel.kpi-card .dsdk-panel-header .tag {
-  font-size: 11px;
-  padding: 1px 8px;
+  font-size: 12px;
+  padding: 4px 8px;
   border-radius: 999px;
   border: 1px solid var(--dsdk-panel-border-default);
   background: rgba(var(--dsdk-rgb-accent-secondary), 0.08);
@@ -516,11 +516,11 @@ html.theme-light .scifi-panel .dsdk-panel-header > span:first-child::before {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 6px;
-  margin: 2px 0 8px;
+  gap: 4px 8px;
+  margin: 4px 0 8px;
 }
 .scifi-panel.kpi-card .kpi-v > b {
-  font-size: 28px;
+  font-size: var(--fs-kpi, 32px);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0.3px;
@@ -530,20 +530,20 @@ html.theme-light .scifi-panel .dsdk-panel-header > span:first-child::before {
 }
 html.theme-light .scifi-panel.kpi-card .kpi-v > b {
   text-shadow: none;
-  font-size: 26px;
+  font-size: var(--fs-kpi, 32px);
 }
 .scifi-panel.kpi-card .kpi-u {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--mut, #93a1c0);
 }
 .scifi-panel.kpi-card .kpi-delta {
   width: 100%;
   font-size: 12px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .scifi-panel.kpi-card .kpi-sub {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--note, #b6c3e0);
   margin-top: 4px;
   display: flex;
@@ -739,4 +739,126 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
 }
 html.theme-light .tb-title b {
   text-shadow: none;
+}
+
+/* ========== 54.9 美学终修：8pt 网格 + 字号地板 + 对齐 token ========== */
+:root {
+  --scifi-space-1: 4px;
+  --scifi-space-2: 8px;
+  --scifi-space-3: 12px;
+  --scifi-space-4: 16px;
+  --scifi-space-5: 24px;
+  --scifi-space-6: 32px;
+  --scifi-radius-sm: 6px;
+  --scifi-radius: 10px;
+  --scifi-corner: 10px;
+  --scifi-fs-body: 14px;
+  --scifi-fs-mut: 12px;
+  --scifi-fs-title: 16px;
+  --scifi-fs-kpi: 32px;
+}
+
+/* R1：面板内边距归位 12/16 */
+.scifi-panel .dsdk-panel-content {
+  padding: 12px 16px 16px;
+}
+.scifi-panel .dsdk-panel-header {
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: var(--fs-card-h, 14px);
+}
+.scifi-panel .dsdk-panel-header .tag {
+  font-size: 12px;
+}
+
+/* R1：KPI 卡间距 16（组内） */
+.kpi-grid {
+  gap: var(--gap-card, 16px) !important;
+}
+
+/* R3：字号阶梯 · Vue KPI 大数（.kpi-v b 非 legacy .kpi-cum） */
+.kpi-v b,
+.kpi-host .kpi-v b {
+  font-size: var(--fs-kpi, 32px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.kpi-v .kpi-u {
+  font-size: 12px;
+  margin-left: 4px;
+  color: var(--mut, #93a1c0);
+}
+
+.scifi-panel.pl-card .pl-name { font-size: 14px; }
+.scifi-panel.pl-card .pl-amt { font-size: 14px; }
+.scifi-panel.pl-card .pl-row.total .pl-name { font-size: 14px; }
+.scifi-panel.pl-card .pl-row.total .pl-amt { font-size: 16px; }
+.scifi-panel.pl-card .pl-row.grand .pl-amt { font-size: 16px; font-weight: 700; }
+.sec-t { font-size: 16px; }
+.sec-n { font-size: 12px; padding: 4px 12px; }
+
+/* R4：禁止 <12px 正文 */
+.scifi-panel .kpi-period,
+.scifi-panel .kpi-cum-l,
+.scifi-panel .kpi-note,
+.scifi-panel .kpi-src,
+.src-legend {
+  font-size: 12px !important;
+}
+.src-legend {
+  gap: 8px;
+  margin-top: 8px;
+}
+.src-legend span { gap: 8px; }
+
+/* R1 抽屉行 */
+.drawer .pl-drow,
+body > .drawer .pl-drow {
+  gap: 8px 16px !important;
+  padding: 12px 8px;
+}
+.drawer .pl-drow > span:first-child,
+body > .drawer .pl-drow > span:first-child {
+  font-size: 14px;
+}
+.drawer .pl-drow.sub > span:first-child {
+  font-size: 12px;
+  padding-left: 16px;
+}
+
+/* R6 输入圆角统一 6/10 */
+.scifi-input,
+.scifi-panel input,
+.scifi-panel select,
+.scifi-panel textarea {
+  border-radius: var(--scifi-radius-sm);
+  padding: 8px 12px;
+}
+
+/* R7 空态 */
+.ev-empty,
+.bud-empty {
+  padding: 24px 16px;
+  font-size: 14px;
+  color: var(--mut, #93a1c0);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* R7 375 触目标 */
+@media (max-width: 520px) {
+  .topbar .pbtn,
+  .topbar button,
+  .bu-back,
+  .bu-nav-a,
+  .pp-m,
+  .pp-chip,
+  .daily-bar button,
+  .ledger-pager button {
+    min-height: 44px;
+  }
+  .kpi-grid {
+    gap: 16px !important;
+  }
 }

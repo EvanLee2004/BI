@@ -1,0 +1,218 @@
+{
+  "home_dark_1440": [
+    {
+      "规则": "R1 KPI gap",
+      "位置": ".kpi-grid",
+      "实测值": "{\"gap\": \"16px\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"0px\", \"h\": 174, \"w\": 1392}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R3 KPI font",
+      "位置": ".kpi-cum",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R3 sec title",
+      "位置": ".sec-t",
+      "实测值": "{\"fontSize\": \"16px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 24, \"w\": 68}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R4 body",
+      "位置": "body",
+      "实测值": "{\"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgb(5, 11, 20)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 4433, \"w\": 1440}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R1 topbar pad",
+      "位置": ".topbar",
+      "实测值": "{\"padding\": \"12px 24px\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(6, 10, 22, 0.78)\", \"pad\": \"12px 24px\", \"gap\": \"16px\", \"h\": 59, \"w\": 1440}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R6 card radius",
+      "位置": ".scifi-panel.dsdk-panel, .kpi-grid .scifi-panel",
+      "实测值": "{\"borderRadius\": \"10px\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(8, 16, 32, 0.92)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 174, \"w\": 266}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R4 对比度",
+      "位置": ".kpi-l vs 祖先底",
+      "实测值": "fg=rgb(234, 241, 255) bg=rgb(5, 11, 20) ratio=17.40:1 font=14px",
+      "判定": "达标"
+    },
+    {
+      "规则": "R1 KPI 同级 gap",
+      "位置": ".kpi-grid children",
+      "实测值": "{\"cssGap\": \"16px\", \"childCount\": 5, \"interGaps\": [16, 16, 16, 16]}",
+      "判定": "达标"
+    }
+  ],
+  "home_light_1440": [
+    {
+      "规则": "R4",
+      "位置": "light",
+      "实测值": "Locator.evaluate: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\".kpi-l\").first\n",
+      "判定": "失败"
+    }
+  ],
+  "mobile375": [
+    {
+      "规则": "R7 触目标高",
+      "位置": "button",
+      "实测值": "h=44px w=58 亮/暗",
+      "判定": "达标"
+    },
+    {
+      "规则": "R7 触目标高",
+      "位置": "button",
+      "实测值": "h=44px w=52 退出",
+      "判定": "达标"
+    },
+    {
+      "规则": "R7 触目标高",
+      "位置": "button",
+      "实测值": "h=44px w=73 🔑\n密码",
+      "判定": "达标"
+    },
+    {
+      "规则": "R7 触目标高",
+      "位置": "button",
+      "实测值": "h=24px w=57 按大类",
+      "判定": "失败"
+    }
+  ],
+  "login": [
+    {
+      "规则": "R3 标题",
+      "位置": "h1, .tb-title, .login-title, .title",
+      "实测值": "{\"fontSize\": \"18px\", \"color\": \"rgb(226, 232, 240)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 25, \"w\": 300}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R1 pad",
+      "位置": "body, .login-box, .el-card",
+      "实测值": "{\"padding\": \"0px\", \"fontSize\": \"16px\", \"color\": \"rgb(226, 232, 240)\", \"bg\": \"rgb(15, 23, 42)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 900, \"w\": 1440}",
+      "判定": "记录"
+    }
+  ],
+  "admin_orderdept": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "{\"backgroundColor\": \"rgb(34, 211, 238)\", \"fontSize\": \"14px\", \"color\": \"rgb(255, 255, 255)\", \"bg\": \"rgb(34, 211, 238)\", \"pad\": \"8px 15px\", \"gap\": \"normal\", \"h\": 36, \"w\": 88}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R6 card radius",
+      "位置": ".el-card",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R5 form max",
+      "位置": ".el-form, .settings-stack, main",
+      "实测值": "{\"maxWidth\": \"none\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"16px 20px 28px\", \"gap\": \"normal\", \"h\": 752, \"w\": 1440}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R4 menu font",
+      "位置": ".el-menu-item",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R6 --el-color-primary",
+      "位置": ".admin-root",
+      "实测值": "#409eff",
+      "判定": "记录"
+    }
+  ],
+  "admin_manual": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "{\"backgroundColor\": \"rgb(34, 211, 238)\", \"fontSize\": \"14px\", \"color\": \"rgb(255, 255, 255)\", \"bg\": \"rgb(34, 211, 238)\", \"pad\": \"8px 15px\", \"gap\": \"normal\", \"h\": 36, \"w\": 88}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R6 card radius",
+      "位置": ".el-card",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R5 form max",
+      "位置": ".el-form, .settings-stack, main",
+      "实测值": "{\"maxWidth\": \"none\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"16px 20px 28px\", \"gap\": \"normal\", \"h\": 1988, \"w\": 1440}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R4 menu font",
+      "位置": ".el-menu-item",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R6 --el-color-primary",
+      "位置": ".admin-root",
+      "实测值": "#409eff",
+      "判定": "记录"
+    }
+  ],
+  "admin_settings": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "{\"backgroundColor\": \"rgb(34, 211, 238)\", \"fontSize\": \"14px\", \"color\": \"rgb(255, 255, 255)\", \"bg\": \"rgb(34, 211, 238)\", \"pad\": \"8px 15px\", \"gap\": \"normal\", \"h\": 36, \"w\": 88}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R6 card radius",
+      "位置": ".el-card",
+      "实测值": "{\"borderRadius\": \"10px\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgb(21, 30, 48)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 202, \"w\": 1400}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R5 form max",
+      "位置": ".el-form, .settings-stack, main",
+      "实测值": "{\"maxWidth\": \"none\", \"fontSize\": \"14px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"16px 20px 28px\", \"gap\": \"normal\", \"h\": 2294, \"w\": 1440}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R4 menu font",
+      "位置": ".el-menu-item",
+      "实测值": "元素不存在",
+      "判定": "跳过"
+    },
+    {
+      "规则": "R6 --el-color-primary",
+      "位置": ".admin-root",
+      "实测值": "#409eff",
+      "判定": "记录"
+    }
+  ],
+  "bu": [
+    {
+      "规则": "BU",
+      "位置": "nav",
+      "实测值": "无 BU 入口（golden 可能仅整体）",
+      "判定": "跳过"
+    }
+  ],
+  "detail_ledger": [
+    {
+      "规则": "R4 table font",
+      "位置": ".cock-ledger, .bu-ledger, table",
+      "实测值": "{\"fontSize\": \"12.5px\", \"color\": \"rgb(234, 241, 255)\", \"bg\": \"rgba(0, 0, 0, 0)\", \"pad\": \"0px\", \"gap\": \"normal\", \"h\": 1822, \"w\": 1356}",
+      "判定": "记录"
+    },
+    {
+      "规则": "R2 th align",
+      "位置": "th",
+      "实测值": "{\"textAlign\": \"left\", \"fontSize\": \"11.5px\", \"color\": \"rgb(147, 161, 192)\", \"bg\": \"rgb(13, 21, 38)\", \"pad\": \"8px 10px\", \"gap\": \"normal\", \"h\": 34, \"w\": 161}",
+      "判定": "记录"
+    }
+  ]
+}
