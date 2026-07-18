@@ -21,11 +21,17 @@ export const useCockpitStore = defineStore('cockpit', () => {
   /** 业务 BU 分页名单（整体页=全部已发布 BU；BU 页=本账号可见） */
   const buNames = ref<string[]>([])
   const buNavLabel = ref('业务 BU 分页')
+  /** 54.11 R-01：有配置但名单空时的可见提示（勿静默） */
+  const buNavHint = ref('')
+  const buConfigCount = ref(0)
 
   function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
     buNames.value = Array.isArray(names) ? names : []
     buNavLabel.value = String(data.bu_nav_label || '业务 BU 分页')
+    buNavHint.value = String(data.bu_nav_hint || '')
+    const n = (data as { bu_config_count?: number }).bu_config_count
+    buConfigCount.value = typeof n === 'number' ? n : 0
   }
 
   async function loadMain() {
@@ -90,6 +96,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buName,
     buNames,
     buNavLabel,
+    buNavHint,
+    buConfigCount,
     dailyActive,
     dailyRange,
     dailyDual,

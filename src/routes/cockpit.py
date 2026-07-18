@@ -14,6 +14,22 @@ import render
 from app_state import _state
 
 
+def _bu_nav_meta(cfg, root, pages: dict | None) -> dict:
+    """54.11 R-01：BU 导航元信息——配置条数 + 有配置但无分页时的可见提示（防静默）。"""
+    import bu as _bu
+
+    pages = pages or {}
+    bucfg = _bu.load_bu_config(cfg, root)
+    n_cfg = len(bucfg["bus"]) if bucfg else 0
+    hint = ""
+    if n_cfg > 0 and not pages:
+        hint = (
+            f"已配置 {n_cfg} 个业务 BU，但当前尚未生成 BU 分页（入口暂不可用）。"
+            "请管理员在管理端点「更新数据」后刷新本页。"
+        )
+    return {"bu_config_count": n_cfg, "bu_nav_hint": hint}
+
+
 def register(app, d):
     cfg = d.cfg
     root = d.root
@@ -93,7 +109,10 @@ def register(app, d):
         vm = viewmodels.build_cockpit_vm(summary, cfg)
         out = vm.model_dump()
         # 整体页「业务 BU 分页」入口（与 fragments chrome_prefix 同源名单）
-        out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+        pages = _state.get("bu_pages") or {}
+        out["bu_names"] = list(pages.keys())
+        # 54.11 R-01：有 BU 配置但未生成分页时勿静默（管理员/整体可见提示）
+        out.update(_bu_nav_meta(cfg, root, pages))
         return JSONResponse(out)
 
     @app.get("/api/v1/vm/bu/{name}")
@@ -114,19 +133,21 @@ def register(app, d):
         vm = viewmodels.build_bu_vm(name, summary, cfg)
         out = vm.model_dump()
         # 多 BU 账号：可切换的本账号可见 BU（在已发布 bu_pages 内）
+        pages = _state.get("bu_pages") or {}
         vacc = _vacc_row(request)
         if _user(request):
-            out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+            out["bu_names"] = list(pages.keys())
             out["bu_nav_label"] = "业务 BU 分页"
         elif vacc and accounts.is_main(vacc):
-            out["bu_names"] = list((_state.get("bu_pages") or {}).keys())
+            out["bu_names"] = list(pages.keys())
             out["bu_nav_label"] = "业务 BU 分页"
         else:
             my = accounts.bu_names_of(vacc) if vacc else []
-            existing = [n for n in my if n in (_state.get("bu_pages") or {})]
+            existing = [n for n in my if n in pages]
             out["bu_names"] = existing
             out["bu_nav_label"] = "我的 BU"
         out["current_bu"] = name
+        out.update(_bu_nav_meta(cfg, root, pages))
         return JSONResponse(out)
 
     @app.get("/api/v1/vm/ledger")

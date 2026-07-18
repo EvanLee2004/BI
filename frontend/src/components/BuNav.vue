@@ -8,8 +8,9 @@ const props = withDefaults(
     label?: string
     names?: string[]
     current?: string
+    hint?: string
   }>(),
-  { label: '业务 BU 分页', names: () => [], current: '' },
+  { label: '业务 BU 分页', names: () => [], current: '', hint: '' },
 )
 
 const store = useCockpitStore()
@@ -19,6 +20,15 @@ const list = computed(() => {
 })
 const lab = computed(() => props.label || store.buNavLabel || '业务 BU 分页')
 const cur = computed(() => props.current || store.buName || '')
+const emptyHint = computed(() => {
+  if (props.hint) return props.hint
+  if (store.buNavHint) return store.buNavHint
+  // 有配置计数但名单空、后端未给文案时的兜底（管理员/整体可见）
+  if ((store.buConfigCount || 0) > 0 && !list.value.length) {
+    return `已配置 ${store.buConfigCount} 个业务 BU，但入口名单为空。请管理员「更新数据」后刷新。`
+  }
+  return ''
+})
 
 function href(name: string) {
   return '/bu/' + encodeURIComponent(name)
@@ -30,6 +40,7 @@ function href(name: string) {
     class="bu-nav"
     role="navigation"
     :aria-label="lab"
+    data-testid="bu-nav"
   >
     <span class="bu-nav-label">{{ lab }}</span>
     <span class="bu-nav-links">
@@ -43,4 +54,52 @@ function href(name: string) {
       >{{ n }}</a>
     </span>
   </div>
+  <div
+    v-else-if="emptyHint"
+    class="bu-nav bu-nav--empty"
+    role="status"
+    data-testid="bu-nav-empty-hint"
+  >
+    <span class="bu-nav-label">{{ lab }}</span>
+    <span class="bu-nav-hint">{{ emptyHint }}</span>
+  </div>
 </template>
+
+<style scoped>
+.bu-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.bu-nav-label {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.bu-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bu-nav-a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--line, rgba(34, 211, 238, 0.35));
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.bu-nav-a:hover {
+  border-color: var(--blue, #22d3ee);
+}
+.bu-nav--empty .bu-nav-hint {
+  color: var(--warn, #fbbf24);
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 52rem;
+}
+</style>

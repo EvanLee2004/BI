@@ -225,6 +225,8 @@ export type CockpitVM = {
   /** 路由层注入的 BU 导航（非 pydantic 核心字段，extra allow） */
   bu_names?: string[]
   bu_nav_label?: string
+  bu_nav_hint?: string
+  bu_config_count?: number
   current_bu?: string
 }
 
@@ -247,6 +249,8 @@ export type BUPageVM = {
   numbers: Record<string, unknown>
   bu_names?: string[]
   bu_nav_label?: string
+  bu_nav_hint?: string
+  bu_config_count?: number
   current_bu?: string
 }
 
