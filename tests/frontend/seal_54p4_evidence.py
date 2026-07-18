@@ -181,7 +181,7 @@ def writeback_checklists(results: dict) -> None:
     )
     a4_pat = re.compile(r"^\| A4 \|.*$", re.M)
 
-    docs_list = ROOT / "docs" / "复刻清单_54p4状态.md"
+    docs_list = ROOT / "docs" / "历史批次" / "复刻清单_54p4状态.md"
     if docs_list.is_file():
         t = docs_list.read_text(encoding="utf-8")
         t2 = a4_pat.sub(a4_line_docs, t, count=1)
