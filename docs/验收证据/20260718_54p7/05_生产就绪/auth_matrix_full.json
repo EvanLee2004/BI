@@ -1,5 +1,3 @@
-# 鉴权矩阵（全角色）
-
 {
   "noauth": {
     "/api/accounts": 401,
@@ -27,9 +25,3 @@
     "vm_cockpit": 200
   }
 }
-
-## 期望解读
-- noauth: accounts/cockpit/detail → 401
-- overall: cockpit 200；accounts/detail/settings → 401
-- bu: cockpit 403；accounts/settings 401；本BU vm 200或404(配置)；他BU 403
-- admin: accounts/settings/vm 200
