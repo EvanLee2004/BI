@@ -137,6 +137,13 @@ def register(app, d):
         finally:
             conn.close()
 
+    @app.get("/api/manual_items")
+    def api_manual_items(request: Request):
+        """手填项目名列表（Vue 管理端用；与 config.manual_items / legacy __MANUAL_ITEMS__ 同源）。"""
+        _require(request)
+        items = [it["name"] for it in (cfg.get("manual_items") or []) if isinstance(it, dict) and it.get("name")]
+        return {"items": items}
+
     @app.get("/api/manual")
     def api_manual_get(request: Request, month: str | None = None, scope: str = "全公司"):
         _require(request)

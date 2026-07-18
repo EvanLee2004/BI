@@ -21,16 +21,27 @@ class TestSciFiVendor54(unittest.TestCase):
         self.assertIn("--dsdk-", css)
 
     def test_main_imports_vendor_not_cdn(self):
+        """看端 boot-cockpit 引 SciFi kit；管理端可引 Element Plus（MIT·54.4·D）；禁 CDN。"""
+        boot = (FE / "boot-cockpit.ts").read_text(encoding="utf-8")
+        self.assertIn("vendor/scifi-kit/DynamicSciFiDashboardKit.css", boot)
+        self.assertIn("scifi-bridge.css", boot)
         main = (FE / "main.ts").read_text(encoding="utf-8")
-        self.assertIn("vendor/scifi-kit/DynamicSciFiDashboardKit.css", main)
-        self.assertIn("scifi-bridge.css", main)
-        blob = "\n".join(
+        self.assertIn("boot-cockpit", main)
+        self.assertIn("admin/bootstrap", main)
+        # 看端路径（排除 admin/）不得出现 element-plus / CDN
+        cockpit_blob = "\n".join(
             p.read_text(encoding="utf-8")
             for p in FE.rglob("*")
-            if p.suffix in {".ts", ".vue", ".css", ".html"} and "node_modules" not in str(p)
+            if p.suffix in {".ts", ".vue", ".css", ".html"}
+            and "node_modules" not in str(p)
+            and "/admin/" not in str(p).replace("\\", "/")
+            and not str(p).endswith("main.ts")
         )
         for bad in ("cdn.jsdelivr", "unpkg.com", "vuetify", "element-plus", "nuxt", "@element-plus"):
-            self.assertNotIn(bad, blob.lower() if bad.islower() else blob)
+            self.assertNotIn(bad, cockpit_blob.lower())
+        # 管理端入口确有 EP（动态 import）
+        admin_boot = (FE / "admin" / "bootstrap.ts").read_text(encoding="utf-8")
+        self.assertIn("element-plus", admin_boot)
 
     def test_scifi_panel_component(self):
         p = FE / "components" / "SciFiPanel.vue"

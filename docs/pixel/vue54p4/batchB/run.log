@@ -1,0 +1,12 @@
+account=123
+shot B_overall.png 1016908b
+shot C02_period.png 390046b
+shot C03_pl_drawer.png 393125b
+shot C04_expense.png 325482b
+shot C05_rank_more.png 314175b
+shot C06_pw.png 304944b
+shot C07_theme_light.png 189865b
+shot C08_ledger.png 358509b
+shot C09_query.png 349066b
+shot B4_receipts.png 343796b
+results={"C02_period": "select:2026年Q1", "C03_pl_drawer": "opened", "C04_expense_tabs": "ok", "C05_rank_more": "opened", "C06_pw": "opened", "C07_theme": "toggled", "C08_ledger": "next_page", "C09_query": "queried", "B4_receipts_side": "yes", "console_errors": "0"}

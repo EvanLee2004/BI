@@ -56,23 +56,23 @@ def register(app, d):
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
     DEFAULT_PW = d.DEFAULT_PW
+    _frontend_mode = getattr(d, "frontend_mode", None)
+    _vue_index = getattr(d, "vue_index", None)
 
-    @app.get("/admin", response_class=HTMLResponse)
-    def admin_page(request: Request):
-        """管理员控制台：仅 static/admin（+ /admin/app.js）。
-        _state['admin_html'] 仅作「是否已首次取数成功」标记（truthy=完整台，空=引导页）。
-        会话态文档 → 一律 no-store（防登录成功后仍吃缓存登录页）。"""
-        if _user(request):
-            # 数据未生成（空机器首次部署）→ 引导页：填智云账号→立即更新→自动进完整管理端（F-02）
-            if not _state.get("admin_html"):
-                return _html_doc(_bootstrap_page())
-            return _html_doc(_admin_static_html())
-        return _admin_login_file()
+    def _admin_is_vue() -> bool:
+        """KANBAN_FRONTEND=vue 且 dist 可用时走 Vue SPA 管理端。"""
+        try:
+            return callable(_frontend_mode) and _frontend_mode() == "vue" and callable(_vue_index)
+        except Exception:
+            return False
+
+    # —— 固定端点必须先于 /admin/{path} 通配注册 ——
 
     @app.get("/admin/app.js")
     def admin_app_js(request: Request):
         """管理端应用 JS：磁盘 static/admin/admin.js 与抽取常量一致，
-        仅将 __MANUAL_ITEMS__ 换成当前 config 手填项 JSON（纯注入、不算账）。"""
+        仅将 __MANUAL_ITEMS__ 换成当前 config 手填项 JSON（纯注入、不算账）。
+        legacy 主路径；vue 模式下仍保留供对照/回退。"""
 
         js_path = STATIC_DIR / "admin" / "admin.js"
         if not js_path.is_file():
@@ -80,6 +80,20 @@ def register(app, d):
         raw = js_path.read_text(encoding="utf-8")
         body = raw.replace("__MANUAL_ITEMS__", _manual_items_json(cfg))
         return Response(body, media_type="application/javascript; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+    @app.get("/admin/logout")
+    def admin_logout(request: Request):
+        """任务书52·F-3：管理端退出同样 bump 会话版本。"""
+        name = _user(request)
+        if name:
+            accounts.bump_session_version(cfg, root, name)
+            try:
+                _audit(cfg, root, name, ("访问", "管理端退出（会话版本+1）"))
+            except Exception:
+                pass
+        resp = RedirectResponse("/admin", status_code=303)
+        resp.delete_cookie(COOKIE)
+        return resp
 
     @app.post("/admin/login")
     def admin_login(
@@ -105,16 +119,42 @@ def register(app, d):
         accounts.mark_login(cfg, root, account)
         return _set_acookie(RedirectResponse("/admin", status_code=303), account)
 
-    @app.get("/admin/logout")
-    def admin_logout(request: Request):
-        """任务书52·F-3：管理端退出同样 bump 会话版本。"""
-        name = _user(request)
-        if name:
-            accounts.bump_session_version(cfg, root, name)
-            try:
-                _audit(cfg, root, name, ("访问", "管理端退出（会话版本+1）"))
-            except Exception:
-                pass
-        resp = RedirectResponse("/admin", status_code=303)
-        resp.delete_cookie(COOKIE)
-        return resp
+    @app.get("/admin", response_class=HTMLResponse)
+    def admin_page(request: Request):
+        """管理员控制台。
+        vue 模式：SPA（frontend/dist/index.html，前端 path=/admin 挂 AdminApp）。
+        legacy：static/admin（+ /admin/app.js）。
+        _state['admin_html'] 仅作「是否已首次取数成功」标记（truthy=完整台，空=引导页）。
+        会话态文档 → 一律 no-store（防登录成功后仍吃缓存登录页）。"""
+        if _user(request):
+            # 数据未生成（空机器首次部署）→ 引导页：填智云账号→立即更新→自动进完整管理端（F-02）
+            if not _state.get("admin_html"):
+                return _html_doc(_bootstrap_page())
+            if _admin_is_vue():
+                return _vue_index()
+            return _html_doc(_admin_static_html())
+        # 未登录：vue → SPA 登录页；legacy → static 登录
+        if _admin_is_vue():
+            return _vue_index()
+        return _admin_login_file()
+
+    @app.get("/admin/login", response_class=HTMLResponse)
+    def admin_login_get(request: Request):
+        """Vue 路由 /admin/login：未登录进 SPA；已登录进控制台。"""
+        if _user(request):
+            return RedirectResponse("/admin", status_code=303)
+        if _admin_is_vue():
+            return _vue_index()
+        return _admin_login_file()
+
+    @app.get("/admin/{spa_path:path}", response_class=HTMLResponse)
+    def admin_spa_fallback(spa_path: str, request: Request):
+        """Vue SPA 深链回落：/admin/edit/* · /admin/settings · /admin/review/* 等。
+        app.js / logout / login 已在上方精确注册，不会落到这里。"""
+        # 非 vue：不提供 SPA 深链
+        if not _admin_is_vue():
+            raise HTTPException(status_code=404, detail="Not Found")
+        # 引导页优先（未取数）
+        if _user(request) and not _state.get("admin_html"):
+            return _html_doc(_bootstrap_page())
+        return _vue_index()

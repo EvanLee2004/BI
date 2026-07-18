@@ -92,6 +92,16 @@
       },
       "title": "Summary By Period",
       "type": "object"
+    },
+    "budget_month": {
+      "default": 0.0,
+      "title": "Budget Month",
+      "type": "number"
+    },
+    "budget_month_disp": {
+      "default": "",
+      "title": "Budget Month Disp",
+      "type": "string"
     }
   },
   "title": "ReceiptsVM",

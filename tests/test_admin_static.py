@@ -111,10 +111,11 @@ class TestAdminStaticHttp(unittest.TestCase):
     def test_unauthenticated_admin_is_login(self):
         r = self._client().get("/admin")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("管理员端登录", r.text)
-        # B-P4：static 登录 + /api/v1/login（无 form action 服务端拼 HTML）
-        self.assertTrue('action="/admin/login"' in r.text or "/api/v1/login" in r.text, "管理员登录页应可提交")
-        self.assertIn("管理员端登录", r.text)
+        body = r.text
+        # legacy static 登录 或 vue SPA（登录在客户端渲染「管理员端登录」）
+        is_static_login = "管理员端登录" in body and ("/api/v1/login" in body or 'action="/admin/login"' in body)
+        is_vue_spa = "/app/assets/" in body or 'id="app"' in body
+        self.assertTrue(is_static_login or is_vue_spa, "expected admin login page or Vue SPA shell")
 
     def test_static_admin_html_is_shell_without_session_data(self):
         """未登录直接读 /static/admin/admin.html 只是壳，无会话态数据。"""
@@ -133,16 +134,20 @@ class TestAdminStaticHttp(unittest.TestCase):
         self.assertIn("营销人力成本", r.text)
 
     def test_logged_in_serves_static_admin(self):
-        """登录后 /admin 只走 static 骨架（外链 css/js，不再内嵌整页）。"""
+        """登录后 /admin：legacy 走 static 骨架；vue 走 dist SPA（批次 D）。
+        本类不强制 KANBAN_FRONTEND，两种模式均接受。"""
         c = self._client()
         c.post("/admin/login", data={"account": "lushasha", "password": self.server.DEFAULT_PW})
         r = c.get("/admin")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("管理员控制台", r.text)
-        self.assertIn("/static/admin/admin.css", r.text)
-        self.assertIn("/admin/app.js", r.text)
-        self.assertNotIn("<style>", r.text)
-        self.assertNotIn("function showGroup", r.text)
+        body = r.text
+        is_static = "/static/admin/admin.css" in body and "/admin/app.js" in body
+        is_vue = "/app/assets/" in body or 'id="app"' in body
+        self.assertTrue(is_static or is_vue, "expected static admin shell or Vue SPA")
+        if is_static:
+            self.assertIn("管理员控制台", body)
+            self.assertNotIn("function showGroup", body)
+
 
 
 class TestAdminGoldenSkeleton(unittest.TestCase):

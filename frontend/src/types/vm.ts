@@ -183,7 +183,11 @@ export type ReceiptsVM = {
   y_axis_min: number
   y_axis_max: number
   y_axis_interval: number
+  /** 各周期摘要显示串（orders/receipts/gap/ratio/年目标） */
   summary_by_period: Record<string, Record<string, string>>
+  /** 月均预算虚线数值（与柱同口径，后端已算好） */
+  budget_month?: number
+  budget_month_disp?: string
 }
 
 export type PeriodMonthRange = { month_from: string; month_to: string }

@@ -968,6 +968,8 @@ def create_app(cfg, root=None) -> FastAPI:
             BU_NAV_TPL=_BU_NAV_TPL,
             BU_NAV_LINK_TPL=_BU_NAV_LINK_TPL,
             EDITABLE_SETTINGS=EDITABLE_SETTINGS,
+            frontend_mode=_frontend_mode,
+            vue_index=_vue_index,
         ),
     )
 

@@ -138,8 +138,11 @@ class ReceiptsVM(BaseModel):
     y_axis_min: float = 0.0
     y_axis_max: float = 0.0
     y_axis_interval: float = 0.0
-    # 摘要条显示串（可选）
+    # 摘要条显示串（54.4·B4 由 packer 用 summary 已算值填充）
     summary_by_period: dict[str, dict[str, str]] = Field(default_factory=dict)
+    # 月均预算虚线（年回款目标/12 展示；数值与柱同单位）
+    budget_month: float = 0.0
+    budget_month_disp: str = ""
 
 
 class LedgerVM(BaseModel):
@@ -244,6 +247,88 @@ def _pack_receipt_series(rows) -> dict[str, Any]:
         "receipts_disp": rd,
         "orders_disp": od,
         "ratio_pct_disp": ratio_d,
+    }
+
+
+def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:
+    """任务书54.4·B4：用 summary 已算好的 orders/receipts/ratio/budget 组装显示串。
+
+    - summary_by_period：各周期右侧摘要（总下单/总回款/尚待回款/回款率/年目标条）
+    - receipts_budget：月均预算显示串（年回款目标÷12 的展示；与 legacy markLine 一致）
+    - budget_month / budget_month_disp：图上虚线用（数值与柱同口径已算目标）
+    不碰 profit 算账；仅显示串与展示刻度。
+    """
+    import charts
+
+    meta = summary.get("meta") or {}
+    yk = meta.get("year_key") or ""
+    budget = meta.get("budget") or {}
+    periods = summary.get("periods") or {}
+    summary_by_period: dict[str, dict[str, str]] = {}
+
+    for pk, p in periods.items():
+        if not isinstance(p, dict):
+            continue
+        tot_o = float(p.get("orders") or 0)
+        tot_r = float(p.get("receipts") or 0)
+        gap = tot_o - tot_r
+        ratio = p.get("receipt_order_ratio_pct")
+        if ratio is None and tot_o:
+            # 与 profit 同口径的兜底：仅当字段缺失时用已有 totals 拼显示
+            ratio = round(tot_r / tot_o * 100, 2) if tot_o else None
+        ytd_txt = f"{float(ratio):.1f}%" if ratio is not None else "—"
+        try:
+            bar_w = max(0.0, min(float(ratio or 0), 100.0))
+        except (TypeError, ValueError):
+            bar_w = 0.0
+        gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
+        row: dict[str, str] = {
+            "period_label": str(p.get("label") or pk),
+            "orders_disp": charts.fmt_wan(tot_o),
+            "receipts_disp": charts.fmt_wan(tot_r),
+            "gap_disp": charts.fmt_wan(abs(gap)),
+            "gap_hint": gap_hint,
+            "ratio_disp": ytd_txt,
+            "bar_w": f"{bar_w:.1f}",
+        }
+        # 年目标进度条只挂全年（与 legacy 一致）
+        if pk == yk and budget:
+            for key, title, bkey in (
+                ("receipt_target_disp", "回款年目标", "receipt"),
+                ("order_target_disp", "下单年目标", "order"),
+            ):
+                b = budget.get(bkey) if isinstance(budget, dict) else None
+                if not (b and b.get("target") is not None):
+                    continue
+                pct = b.get("pct")
+                if pct is None:
+                    pct_txt = "—"
+                elif float(pct) > 999:
+                    pct_txt = ">999% · 目标待校准"
+                else:
+                    pct_txt = f"{float(pct):.1f}%"
+                bw = max(0.0, min(float(pct or 0), 100.0))
+                row[key] = charts.fmt_wan(float(b["target"]))
+                row[f"{bkey}_pct_disp"] = pct_txt
+                row[f"{bkey}_bar_w"] = f"{bw:.1f}"
+                row[f"{bkey}_title"] = title
+        summary_by_period[pk] = row
+
+    rb = budget.get("receipt") if isinstance(budget, dict) else None
+    budget_month = None
+    budget_month_disp = ""
+    receipts_budget = ""
+    if rb and rb.get("target") is not None:
+        # 与 render_receipts 一致：年目标 / 12 作月均预算虚线
+        budget_month = float(rb["target"]) / 12.0
+        budget_month_disp = charts.fmt_wan(budget_month)
+        receipts_budget = f"月均预算 {budget_month_disp}万"
+
+    return {
+        "summary_by_period": summary_by_period,
+        "receipts_budget": receipts_budget,
+        "budget_month": budget_month if budget_month is not None else 0.0,
+        "budget_month_disp": budget_month_disp,
     }
 
 
@@ -426,9 +511,15 @@ def _assemble_vm(
         profit_rank_body=dict(html.get("profit_rank_body") or {}),
         profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
     )
+    side_pack = _pack_receipts_side_and_budget(summary)
+    # vue 路径：用 packer 显示串填空字段；legacy html 若已有完整 HTML 优先保留给对照
+    rb_html = (html.get("receipts_budget") or "").strip()
     receipts = ReceiptsVM(
         receipts_html=html.get("receipts_html") or "",
-        receipts_budget=html.get("receipts_budget") or "",
+        receipts_budget=rb_html or side_pack.get("receipts_budget") or "",
+        summary_by_period=side_pack.get("summary_by_period") or {},
+        budget_month=side_pack.get("budget_month") or 0.0,
+        budget_month_disp=side_pack.get("budget_month_disp") or "",
         **rs,
     )
     ledger = LedgerVM(

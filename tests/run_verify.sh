@@ -91,6 +91,7 @@ tests/test_iter21.py
 tests/test_iter22.py
 tests/test_profile.py
 tests/test_admin_static.py
+tests/test_admin_vue_54d.py
 tests/test_no_html_in_py.py
 tests/test_b_p0_rankings_assemble.py
 tests/test_b_p1_contract.py
@@ -106,6 +107,7 @@ tests/test_task51_frontend_types.py
 tests/test_task52_fixes.py
 tests/test_task54_scifi.py
 tests/test_task54p1_visual.py
+tests/test_task54p4_receipts_b4.py
 "
 run_one() {
   f="$1"

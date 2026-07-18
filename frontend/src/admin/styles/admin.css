@@ -1,0 +1,146 @@
+/* 管理端壳：暗色默认 + 浅色同步 cockpit-theme；Element Plus 变量覆盖 */
+.admin-root {
+  --admin-bg: #0b1220;
+  --admin-panel: #151e30;
+  --admin-panel2: #1a2438;
+  --admin-line: #2a364d;
+  --admin-fg: #e8eef9;
+  --admin-mut: #8b9bb4;
+  --admin-vio: #8b5cf6;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #1a1040 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #0c2a3a 0%, transparent 50%),
+    var(--admin-bg);
+  color: var(--admin-fg);
+  font-family: -apple-system, system-ui, 'PingFang SC', 'Segoe UI', sans-serif;
+}
+
+html.theme-light .admin-root {
+  --admin-bg: #eef1f5;
+  --admin-panel: #fff;
+  --admin-panel2: #f5f7fa;
+  --admin-line: #e3e8ef;
+  --admin-fg: #1d2836;
+  --admin-mut: #525c68;
+  background: var(--admin-bg);
+  color: var(--admin-fg);
+}
+
+.admin-root .el-menu {
+  border-right: none !important;
+  background: transparent !important;
+}
+.admin-root .el-menu-item.is-active {
+  background: rgba(139, 92, 246, 0.18) !important;
+  color: #c4b5fd !important;
+}
+.admin-root .el-card {
+  background: var(--admin-panel);
+  border-color: var(--admin-line);
+  color: var(--admin-fg);
+}
+.admin-root .el-table {
+  --el-table-bg-color: var(--admin-panel);
+  --el-table-tr-bg-color: var(--admin-panel);
+  --el-table-header-bg-color: #0f172a;
+  --el-table-text-color: var(--admin-fg);
+  --el-table-header-text-color: var(--admin-mut);
+  --el-table-border-color: var(--admin-line);
+  --el-table-row-hover-bg-color: rgba(139, 92, 246, 0.08);
+}
+html.theme-light .admin-root .el-table {
+  --el-table-header-bg-color: #f0f2f5;
+}
+
+.admin-note {
+  border-left: 3px solid var(--admin-vio);
+  padding: 12px 16px;
+  border-radius: 0 10px 10px 0;
+  background: var(--admin-panel2);
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--admin-fg);
+}
+
+.admin-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.admin-pill.g { background: #14532d; color: #86efac; }
+.admin-pill.y { background: #713f12; color: #fde68a; }
+.admin-pill.r { background: #7f1d1d; color: #fca5a5; }
+
+.admin-fetch-banner {
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.28), rgba(251, 191, 36, 0.1));
+  border-bottom: 1px solid #f59e0b66;
+  color: #fde68a;
+}
+
+.admin-iframe {
+  width: 100%;
+  height: calc(100vh - 140px);
+  min-height: 480px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: #fff;
+  display: block;
+}
+
+.admin-dirty-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(21, 30, 48, 0.95);
+  border-top: 1px solid var(--admin-line);
+  backdrop-filter: blur(8px);
+}
+html.theme-light .admin-dirty-bar {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.admin-bu-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel2);
+  font-size: 12.5px;
+  cursor: grab;
+}
+.admin-bu-chip.dragging { opacity: 0.5; }
+.admin-bu-zone {
+  min-height: 64px;
+  padding: 8px;
+  border: 1px dashed var(--admin-line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.admin-bu-zone.drag-over {
+  border-color: var(--admin-vio);
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-bg, #0f172a);
+}

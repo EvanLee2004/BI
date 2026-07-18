@@ -1,10 +1,11 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-/* SciFi kit CSS (vendored, no CDN) + bridge to theme.css */
-import './vendor/scifi-kit/DynamicSciFiDashboardKit.css'
-import './vendor/scifi-kit/scifi-bridge.css'
-import App from './App.vue'
+/**
+ * 双入口：/admin* → 管理端 Vue（动态加载 Element Plus）
+ * 其余 → 看端驾驶舱（零 Element Plus 污染包体）
+ */
+const path = location.pathname
 
-const app = createApp(App)
-app.use(createPinia())
-app.mount('#app')
+if (path === '/admin' || path.startsWith('/admin/')) {
+  import('./admin/bootstrap').then((m) => m.bootAdmin())
+} else {
+  import('./boot-cockpit').then((m) => m.bootCockpit())
+}
