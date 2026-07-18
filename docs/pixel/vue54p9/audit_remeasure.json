@@ -1,61 +1,144 @@
-[
-  [
-    "R3 KPI",
+{
+  "login": [
     {
-      "kpiFs": "32px",
-      "gap": "16px",
-      "radius": "10px"
-    },
-    "达标"
+      "规则": "R6 登录主按钮",
+      "位置": "button[type=submit]",
+      "实测值": "rgba(0, 0, 0, 0)|linear-gradient(90deg, rgb(8, 145, 178), rgb(34, 211, 238))",
+      "判定": "达标"
+    }
   ],
-  [
-    "R1 gap",
-    "16px",
-    "达标"
-  ],
-  [
-    "R4 light",
+  "home_dark_1440": [
     {
-      "ratio": "16.49",
-      "color": "rgb(21, 32, 43)",
-      "bg": "rgba(255, 255, 255, 0.96)",
-      "fs": "32px"
+      "规则": "R1 gap",
+      "位置": ".kpi-grid",
+      "实测值": "16px",
+      "判定": "达标"
     },
-    "达标"
+    {
+      "规则": "R3 KPI",
+      "位置": ".kpi-v b",
+      "实测值": "32px",
+      "判定": "达标"
+    },
+    {
+      "规则": "R4 no<12",
+      "位置": "samples",
+      "实测值": "[]",
+      "判定": "达标"
+    }
   ],
-  [
-    "R7 lows",
-    [
-      {
-        "t": "查询",
-        "h": 25
-      },
-      {
-        "t": "返回默认（年）",
-        "h": 25
-      },
-      {
-        "t": "筛选",
-        "h": 25
-      },
-      {
-        "t": "导出 Excel",
-        "h": 25
-      },
-      {
-        "t": "上一页",
-        "h": 25
-      },
-      {
-        "t": "下一页",
-        "h": 25
-      }
-    ],
-    "关注"
+  "home_light_1440": [
+    {
+      "规则": "R4 light",
+      "位置": ".kpi-v b",
+      "实测值": "16.49:1",
+      "判定": "达标"
+    }
   ],
-  [
-    "R6 admin primary",
-    "rgb(34, 211, 238)",
-    "达标"
+  "mobile375": [
+    {
+      "规则": "R7 lows",
+      "位置": "buttons 375",
+      "实测值": "[]",
+      "判定": "达标"
+    }
+  ],
+  "bu": [
+    {
+      "规则": "BU 登录分流",
+      "位置": "POST /api/v1/login bu_only",
+      "实测值": "redirect=/bu/营销",
+      "判定": "达标"
+    },
+    {
+      "规则": "BU 页壳",
+      "位置": "GET /bu/营销",
+      "实测值": "404：golden OFFLINE bu_pages 无「营销」预渲染（非样式缺口）",
+      "判定": "待明昊拍板"
+    },
+    {
+      "规则": "R1–R7 样式",
+      "位置": "scifi/theme 同源",
+      "实测值": "BU 与主页共用 dist+theme，无独立破格样式",
+      "判定": "达标"
+    }
+  ],
+  "detail_ledger": [
+    {
+      "规则": "R4 th",
+      "位置": ".cock-ledger th",
+      "实测值": "12px",
+      "判定": "达标"
+    }
+  ],
+  "admin_orderdept": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_manual": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_settings": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    },
+    {
+      "规则": "R5 max-width",
+      "位置": ".settings",
+      "实测值": "{\"exists\": true, \"maxWidth\": \"960px\", \"width\": 960}",
+      "判定": "达标"
+    }
+  ],
+  "admin_budget": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_detail": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_ledger": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_unclassified": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
+  ],
+  "admin_audit": [
+    {
+      "规则": "R6 EP primary",
+      "位置": ".el-button--primary",
+      "实测值": "rgb(34, 211, 238)",
+      "判定": "达标"
+    }
   ]
-]
+}

@@ -10,16 +10,19 @@
 html.theme-light{--bg:#eef1f5;--card:#fff;--fg:#1d2836;--mut:#525c68;--line:#e3e8ef;--input-bg:#fff;--hint:#64748b;--err:#dc2626}
 body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);
 display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;position:relative}
-.card{background:var(--card);padding:32px;border-radius:12px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,.2);border:1px solid var(--line)}
-h1{font-size:18px;margin:0 0 20px}label{font-size:13px;color:var(--mut)}
-input{width:100%;box-sizing:border-box;margin:6px 0 16px;padding:9px;border-radius:7px;
+.card{background:var(--card);padding:32px;border-radius:10px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2);border:1px solid var(--line)}
+h1{font-size:16px;margin:0 0 16px}label{font-size:12px;color:var(--mut)}
+input{width:100%;box-sizing:border-box;margin:8px 0 16px;padding:12px;border-radius:6px;
 border:1px solid var(--line);background:var(--input-bg);color:var(--fg);font-size:14px}
-button[type=submit]{width:100%;padding:10px;border:0;border-radius:7px;background:#8b5cf6;color:#fff;
-font-size:15px;cursor:pointer}.err{color:var(--err);font-size:13px;margin-bottom:10px;display:none}
+/* 54.9 R6：主 CTA scifi 青，禁止紫 */
+button[type=submit]{width:100%;padding:12px 16px;border:1px solid #22d3ee;border-radius:8px;
+background:linear-gradient(90deg,#0891b2,#22d3ee);color:#04101c;font-size:16px;font-weight:600;cursor:pointer}
+button[type=submit]:hover{filter:brightness(1.06)}
+.err{color:var(--err);font-size:12px;margin-bottom:8px;display:none}
 .hint{color:var(--hint);font-size:12px;margin-top:12px}
-#themeBtn{position:fixed;top:14px;right:16px;background:transparent;border:1px solid var(--line);color:var(--fg);
-padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer}
-#themeBtn:hover{border-color:#8b5cf6}
+#themeBtn{position:fixed;top:16px;right:16px;background:transparent;border:1px solid var(--line);color:var(--fg);
+padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;min-height:44px}
+#themeBtn:hover{border-color:#22d3ee}
 </style>
 </head>
 <body>

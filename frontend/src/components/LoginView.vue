@@ -81,21 +81,27 @@ async function submit() {
   box-sizing: border-box;
   margin-bottom: 14px;
 }
+/* R6：主 CTA 必须 scifi 青，禁止 kit 紫/默认紫压过 */
+button.dsdk-button.login-btn,
 .login-btn {
   width: 100%;
   margin-top: 4px;
   cursor: pointer;
-  border: 0;
+  border: 1px solid #22d3ee !important;
   border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 15px;
+  padding: 12px 16px;
+  font-size: 16px;
   font-weight: 600;
-  background: linear-gradient(90deg, #0891b2, #22d3ee);
-  color: #04101c;
+  text-transform: none;
+  background: linear-gradient(90deg, #0891b2, #22d3ee) !important;
+  color: #04101c !important;
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
 }
+button.dsdk-button.login-btn:hover,
 .login-btn:hover {
   filter: brightness(1.06);
+  background: linear-gradient(90deg, #0e7490, #67e8f9) !important;
+  border-color: #67e8f9 !important;
 }
 .login-err {
   color: var(--neg, #fb7185);

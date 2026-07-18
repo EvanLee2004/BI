@@ -393,7 +393,8 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         css = theme.get_css()
         self.assertIn("--note:", css)
         self.assertIn(".chart-note{font-size:13.5px;color:var(--note)", css)
-        self.assertIn(".pr-formula{margin-top:14px;padding:12px 16px", css)
+        # 54.9：margin-top 14→12（8pt 网格）
+        self.assertIn(".pr-formula{margin-top:12px;padding:12px 16px", css)
         self.assertNotIn(".chart-note{font-size:12.5px", css)
 
 

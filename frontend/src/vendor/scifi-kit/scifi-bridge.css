@@ -73,7 +73,7 @@ html.theme-light .scifi-panel.dsdk-panel {
 .scifi-panel .dsdk-panel-content {
   max-height: none;
   overflow: visible;
-  padding: 12px 14px 14px;
+  padding: 12px 12px 12px;
   font-size: inherit;
   color: var(--ink);
 }
@@ -84,7 +84,7 @@ html.theme-light .scifi-panel.dsdk-panel {
   text-transform: none;
   letter-spacing: 0.02em;
   font-size: var(--fs-card-h, 13.5px);
-  padding: 10px 14px;
+  padding: 8px 12px;
 }
 .scifi-panel .dsdk-panel-header .tag {
   font-size: 12px;
@@ -150,7 +150,7 @@ html.theme-light .scifi-panel.dsdk-panel {
   background: var(--dsdk-accent-color-secondary, var(--accent, #22d3ee)) !important;
   border: 0 !important;
   border-radius: 0;
-  padding: 3px 12px;
+  padding: 4px 12px;
   letter-spacing: 1.2px;
   font-weight: 800;
   font-size: 12.5px;
@@ -177,7 +177,7 @@ html.theme-light .sec-t {
   content: "";
   flex: 1;
   height: 1px;
-  margin-left: 6px;
+  margin-left: 4px;
   background: linear-gradient(90deg, var(--dsdk-panel-border-default), transparent);
 }
 
@@ -190,7 +190,7 @@ html.theme-light .sec-t {
   border: 1px solid var(--dsdk-panel-border-default);
   color: var(--dsdk-text-color);
   border-radius: 6px;
-  padding: 7px 10px;
+  padding: 8px 8px;
   font: inherit;
 }
 .scifi-input:focus,
@@ -262,7 +262,7 @@ html.theme-light .sec-t {
 body > .drawer .pl-drow {
   display: grid !important;
   grid-template-columns: minmax(10em, 1fr) auto !important;
-  gap: 10px 16px !important;
+  gap: 8px 16px !important;
   align-items: center;
   padding: 12px 4px;
 }
@@ -338,7 +338,7 @@ body > .drawer .pl-drow > span:last-child {
 
 /* V2：五卡一排（与 theme.css .kpi-5 对齐，保证 Vue 皮也挂类） */
 .kpi-grid {
-  gap: var(--gap-card, 14px);
+  gap: var(--gap-card, 12px);
 }
 .kpi-grid.kpi-5 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -556,17 +556,17 @@ html.theme-light .scifi-panel.kpi-card .kpi-v > b {
   font-variant-numeric: tabular-nums;
 }
 .scifi-panel.kpi-card .kpi-tgt {
-  margin-top: 10px;
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed rgba(var(--dsdk-rgb-accent-secondary), 0.18);
 }
 .scifi-panel.kpi-card .kpi-tgt-lab {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--mut);
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
-  margin-bottom: 5px;
+  gap: 4px 8px;
+  margin-bottom: 4px;
 }
 .scifi-panel.kpi-card .kpi-tgt-pct {
   margin-left: auto;
@@ -589,8 +589,8 @@ html.theme-light .scifi-panel.kpi-card .kpi-v > b {
 }
 .scifi-panel.kpi-card .kpi-foot {
   margin-top: auto;
-  padding-top: 10px;
-  font-size: 11.5px;
+  padding-top: 8px;
+  font-size: 12px;
   color: var(--mut2);
 }
 .scifi-panel.kpi-card .kpi-peak {
@@ -605,12 +605,12 @@ html.theme-light .scifi-panel.kpi-card .kpi-v > b {
 }
 /* BU 子条 */
 .scifi-panel.kpi-card .kpi-bu-row {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .scifi-panel.kpi-card .kpi-bu-h {
   display: flex;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
   font-size: 12px;
   color: var(--mut);
 }
@@ -618,7 +618,7 @@ html.theme-light .scifi-panel.kpi-card .kpi-v > b {
   height: 6px;
   border-radius: 4px;
   background: rgba(148, 163, 184, 0.12);
-  margin-top: 3px;
+  margin-top: 4px;
   overflow: hidden;
 }
 .scifi-panel.kpi-card .kpi-bu-track > i {
@@ -658,13 +658,13 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
   flex-wrap: wrap;
   gap: 8px 16px;
   justify-content: center;
-  margin-top: 10px;
-  padding: 4px 4px 2px;
+  margin-top: 8px;
+  padding: 4px 4px 4px;
 }
 .ev-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-size: 12px;
   color: var(--ink);
   font-weight: 500;
@@ -696,16 +696,16 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
-  margin-top: 10px;
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed rgba(var(--dsdk-rgb-accent-secondary), 0.12);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--mut);
 }
 .src-legend span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 .src-legend i {
   width: 8px;

@@ -87,16 +87,33 @@ html.theme-light .admin-root .el-menu-item.is-active {
 html.theme-light .admin-root .el-card {
   box-shadow: 0 1px 3px rgba(8, 145, 178, 0.08), 0 4px 16px rgba(15, 42, 70, 0.06);
 }
-/* R5：设置/表单页内容区收窄居中（勿选 main 全宽表） */
-.admin-root .admin-form-narrow,
-.admin-root .settings-stack,
-.admin-root .el-form,
-.admin-root .el-card > .el-card__body {
+/* R5：设置页内容区收窄居中（真实 DOM：.settings 包多卡） */
+.admin-root .settings {
   max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+  box-sizing: border-box;
 }
-.admin-root .el-card.is-wide > .el-card__body,
-.admin-root .el-table {
-  max-width: none;
+.admin-root .admin-form-narrow,
+.admin-root .settings-stack {
+  max-width: 960px;
+  margin: 0 auto;
+}
+/* 登录卡：EP 主色与 scifi 青一致（登录页也在 .admin-root 内） */
+.admin-root .admin-login-page,
+.admin-login-page {
+  --el-color-primary: #22d3ee;
+  --el-color-primary-light-3: #67e8f9;
+  --el-color-primary-dark-2: #0891b2;
+}
+.admin-login-page .el-button--primary {
+  --el-button-bg-color: #22d3ee;
+  --el-button-border-color: #22d3ee;
+  --el-button-hover-bg-color: #67e8f9;
+  --el-button-hover-border-color: #67e8f9;
+  background-color: #22d3ee !important;
+  border-color: #22d3ee !important;
+  color: #04101c !important;
 }
 .admin-root .el-button {
   border-radius: var(--admin-radius-sm);
@@ -227,8 +244,8 @@ html.theme-light .admin-dirty-bar {
 .admin-bu-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 4px 8px;
   margin: 4px;
   border-radius: 999px;
   border: 1px solid var(--admin-line);
