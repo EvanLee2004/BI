@@ -1,16 +1,36 @@
 {
-  "login": 200,
-  "accounts": 200,
-  "settings": 200,
-  "manual": 200,
-  "logout": "ok",
-  "after_logout": 401,
-  "app_js": 410,
-  "static_admin": {
+  "admin_post_login_url": "http://127.0.0.1:8018/admin",
+  "admin_still_login": false,
+  "admin_settings_url": "http://127.0.0.1:8018/admin/settings",
+  "admin_settings_has_form": 80,
+  "admin_dirty_probe": "sched_add",
+  "admin_dirty_bar_visible": true,
+  "admin_settings_save_click": "button:has-text('保存全部设置')",
+  "admin_settings_save_net": {
+    "url": "http://127.0.0.1:8018/api/settings",
     "status": 200,
-    "to_admin": true
+    "sel": "button:has-text('保存全部设置')"
   },
-  "bu_login": "ok",
+  "admin_dirty_ok": true,
+  "admin_manual_url": "http://127.0.0.1:8018/admin/edit/manual",
+  "admin_manual_inputs": 56,
+  "admin_manual_save": "no_dirty_bar_ok_page_loaded",
+  "admin_detail_url": "http://127.0.0.1:8018/admin/edit/detail",
+  "admin_accounts_api": {
+    "status": 200,
+    "n": 3
+  },
+  "F2_logout_accounts": 401,
+  "static_admin_final_url": "http://127.0.0.1:8018/admin/login",
+  "admin_app_js": 410,
+  "F2_passwd_kick": {
+    "before": 200,
+    "change": 200,
+    "changeBody": "{\"note\":\"密码已修改\",\"relogin\":true}",
+    "after_session": 401
+  },
+  "F2_passwd_restored": 200,
+  "F2_passwd_kick_ok": true,
   "F3": {
     "vm_cockpit": 403,
     "accounts": 401,

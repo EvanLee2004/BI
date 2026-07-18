@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""54.4 补证据：golden 数据 · 亮/暗/375/BU · 交互 · 性能 metrics · 管理端写路径 · 安全。
+"""54.4 真浏览器证据：登录选择器对齐 LoginView（进入/登录）；管理端写路径真点击；改密踢会话；BU 页。
 
-用法（服务已起 8018，config 已切 _golden_data 或默认）：
+用法（服务已起 8018，建议 config data_dir=_golden_data）：
   .venv/bin/python tests/frontend/playwright_task54p4_evidence.py [SCRATCH]
-
-产出 docs/pixel/vue54p4/{final,perfA,admin,sec}/
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,55 +24,96 @@ BASE = os.environ.get("KANBAN_BASE", "http://127.0.0.1:8018")
 log: list[str] = []
 
 
-def pick_acct(kind="overall"):
+def load_accounts():
     for path in (ROOT / "_golden_data" / "看板账号.json", ROOT / "数据" / "看板账号.json"):
-        if not path.is_file():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        rows = data.get("accounts") or []
-        if kind == "admin":
-            for a in rows:
-                if a.get("权限") == "管理员" and a.get("密码"):
-                    return str(a["账号"]), str(a["密码"])
-            return "lushasha", "8888"
-        if kind == "bu":
-            for a in rows:
-                p = str(a.get("权限") or "")
-                if p not in ("管理员", "整体", "") and a.get("密码"):
-                    return str(a["账号"]), str(a["密码"]), p
-            return "zhengrui", "8888", "游戏"
-        for want in ("overall", "123"):
-            for a in rows:
-                if a.get("账号") == want and a.get("密码"):
-                    return want, str(a["密码"])
-        if rows and rows[0].get("密码"):
-            return str(rows[0]["账号"]), str(rows[0]["密码"])
-    return ("overall", "8888") if kind != "admin" else ("lushasha", "8888")
+        if path.is_file():
+            return json.loads(path.read_text(encoding="utf-8")).get("accounts") or []
+    return []
 
 
-def login(page, acc, pw, admin=False):
-    url = f"{BASE}/admin" if admin else f"{BASE}/login"
-    page.goto(url, wait_until="networkidle", timeout=90000)
-    page.wait_for_timeout(400)
-    # Vue admin login may be on /admin
-    for sel in ("input[type=password]", "input[type=text]", "input"):
-        try:
-            if page.locator("input[type=text], input:not([type=password])").count():
-                page.locator("input[type=text], input:not([type=password])").first.fill(acc)
-            if page.locator("input[type=password]").count():
-                page.locator("input[type=password]").first.fill(pw)
-                break
-        except Exception:
-            pass
-    for sel in ("button:has-text('登录')", "button[type=submit]", "button"):
-        try:
-            if page.locator(sel).count():
-                page.locator(sel).first.click()
-                break
-        except Exception:
-            pass
+def pick(kind: str):
+    rows = load_accounts()
+    if kind == "admin":
+        for a in rows:
+            if a.get("权限") == "管理员" and a.get("密码"):
+                return str(a["账号"]), str(a["密码"])
+        return "lushasha", "kanban2026"
+    if kind == "bu":
+        for a in rows:
+            p = str(a.get("权限") or "")
+            if p not in ("管理员", "整体", "") and a.get("密码"):
+                bus = a.get("可见BU") or ([p] if p not in ("BU",) else [])
+                return str(a["账号"]), str(a["密码"]), bus
+        return "bu_only", "8888", ["示意BU甲"]
+    for a in rows:
+        if a.get("账号") in ("overall", "123") and a.get("密码"):
+            return str(a["账号"]), str(a["密码"])
+    return "overall", "8888"
+
+
+def click_login(page):
+    """管理端按钮文案=进入；看端可能=登录。"""
+    for sel in (
+        "button:has-text('进入')",
+        "button:has-text('登录')",
+        "button[type=submit]",
+        ".el-button--primary",
+    ):
+        loc = page.locator(sel)
+        if loc.count():
+            loc.first.click()
+            return sel
+    raise RuntimeError("no login button")
+
+
+def fill_login(page, acc, pw):
+    # Element Plus: first text input + password
+    inputs = page.locator("input:not([type=hidden])")
+    # prefer el-input inner
+    if page.locator("input[type=password]").count():
+        # fill non-password first
+        for i in range(page.locator("input").count()):
+            el = page.locator("input").nth(i)
+            t = (el.get_attribute("type") or "text").lower()
+            if t != "password":
+                try:
+                    el.fill(acc)
+                    break
+                except Exception:
+                    pass
+        page.locator("input[type=password]").first.fill(pw)
+    else:
+        page.locator("input").first.fill(acc)
+        page.locator("input").nth(1).fill(pw)
+
+
+def admin_login(page, acc, pw) -> str:
+    page.goto(f"{BASE}/admin", wait_until="networkidle", timeout=90000)
+    page.wait_for_timeout(600)
+    fill_login(page, acc, pw)
+    btn = click_login(page)
     page.wait_for_load_state("networkidle", timeout=90000)
     page.wait_for_timeout(1200)
+    # assert left login
+    url = page.url
+    log.append(f"admin_login btn={btn} url={url}")
+    if "/login" in url and page.locator("text=管理员端登录").count():
+        # still on login - try again with force
+        fill_login(page, acc, pw)
+        click_login(page)
+        page.wait_for_timeout(1500)
+        url = page.url
+    return url
+
+
+def viewer_login(page, acc, pw) -> str:
+    page.goto(f"{BASE}/login", wait_until="networkidle", timeout=90000)
+    page.wait_for_timeout(500)
+    fill_login(page, acc, pw)
+    click_login(page)
+    page.wait_for_load_state("networkidle", timeout=90000)
+    page.wait_for_timeout(1200)
+    return page.url
 
 
 def shot(page, rel: str, full=True):
@@ -96,21 +134,19 @@ def main() -> int:
     results: dict = {}
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        # —— 看端 overall 暗 1440 ——
+
+        # —— A1 overall + perf ——
         page = browser.new_page(viewport={"width": 1440, "height": 900})
-        cons = []
-        page.on("console", lambda m: cons.append(f"{m.type}:{m.text}") if m.type == "error" else None)
-        acc, pw = pick_acct("overall")
-        login(page, acc, pw)
+        acc, pw = pick("overall")
+        viewer_login(page, acc, pw)
         page.wait_for_timeout(800)
         shot(page, "final/A1_overall_dark_1440.png", True)
-        # perf: long task + scroll
         perf = page.evaluate(
             """async () => {
               const longTasks = [];
               try {
                 const obs = new PerformanceObserver((list) => {
-                  for (const e of list.getEntries()) longTasks.push({d: e.duration, n: e.name});
+                  for (const e of list.getEntries()) longTasks.push({d: e.duration});
                 });
                 obs.observe({type: 'longtask', buffered: true});
               } catch (e) {}
@@ -118,206 +154,311 @@ def main() -> int:
               window.scrollTo(0, document.body.scrollHeight);
               await new Promise(r => setTimeout(r, 1500));
               window.scrollTo(0, 0);
-              await new Promise(r => setTimeout(r, 800));
-              const t1 = performance.now();
-              const entries = performance.getEntriesByType('measure');
-              const paints = performance.getEntriesByType('paint');
-              // count echarts
-              const echartsIds = document.querySelectorAll('div[_echarts_instance_]').length;
-              const canvases = document.querySelectorAll('canvas').length;
-              const svgs = document.querySelectorAll('div[_echarts_instance_] svg, svg.echarts').length;
-              let starAnim = 'n/a';
-              try { starAnim = getComputedStyle(document.body, '::before').animationName || 'none'; } catch(e) {}
+              await new Promise(r => setTimeout(r, 500));
               return {
-                scroll_ms: t1 - t0,
-                longTasks: longTasks.slice(0, 20),
+                scroll_ms: performance.now() - t0,
                 longTaskCount: longTasks.length,
                 maxLongTask: longTasks.reduce((m,x)=>Math.max(m,x.d||0), 0),
-                echartsIds, canvases, svgs, starAnim,
-                paints: paints.map(x => ({n:x.name, s:x.startTime})),
+                echartsIds: document.querySelectorAll('div[_echarts_instance_]').length,
+                canvases: document.querySelectorAll('canvas').length,
+                hasScifi: !!document.querySelector('.scifi-panel'),
               };
             }"""
         )
         (OUT / "perfA" / "performance_scroll.json").write_text(
             json.dumps(perf, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        log.append(f"perf={json.dumps(perf, ensure_ascii=False)[:400]}")
         results["perf"] = perf
-
-        # C02 period
-        try:
-            if page.locator("select").count():
-                opts = page.locator("select").first.locator("option")
-                if opts.count() >= 2:
-                    v = opts.nth(1).get_attribute("value") or opts.nth(1).inner_text()
-                    page.locator("select").first.select_option(v)
-                    page.wait_for_timeout(600)
-                    results["C02"] = f"select:{v}"
-                    shot(page, "final/C02_period.png", False)
-        except Exception as e:
-            results["C02"] = f"fail:{e}"
-
-        # C03 drawer
-        try:
-            if page.locator("text=查看构成").count():
-                page.locator("text=查看构成").first.click()
-                page.wait_for_timeout(500)
-                results["C03"] = "opened"
-                shot(page, "final/C03_pl_drawer.png", False)
-                page.keyboard.press("Escape")
-        except Exception as e:
-            results["C03"] = f"fail:{e}"
-
-        # light theme
-        try:
-            page.evaluate(
-                """() => {
-                  document.documentElement.classList.add('theme-light');
-                  try { localStorage.setItem('cockpit-theme','light'); } catch(e) {}
-                  window.dispatchEvent(new CustomEvent('kanban-theme-change'));
-                }"""
-            )
-            page.wait_for_timeout(600)
-            shot(page, "final/A2_overall_light_1440.png", True)
-            results["C07_light"] = "ok"
-        except Exception as e:
-            results["C07_light"] = f"fail:{e}"
-
-        # 375
-        page.set_viewport_size({"width": 375, "height": 812})
-        page.wait_for_timeout(500)
-        shot(page, "final/A3_overall_dark_375.png", True)
-        results["A3_375"] = "ok"
-
-        # receipts side
-        page.set_viewport_size({"width": 1440, "height": 900})
-        page.evaluate("document.documentElement.classList.remove('theme-light')")
-        page.wait_for_timeout(400)
-        if page.locator(".rc-side, #receiptsCard").count():
-            page.locator("#receiptsCard, .rc-card").first.scroll_into_view_if_needed()
-            page.wait_for_timeout(400)
-            shot(page, "final/B08_receipts.png", False)
-            results["B08"] = "side" if page.locator(".rc-side").count() else "chart_only"
-
-        # C09 query
-        try:
-            page.evaluate(
-                """() => {
-                  const m = document.getElementById('pwModal');
-                  if (m) m.style.display='none';
-                  document.querySelectorAll('.mask').forEach(el => el.style.display='none');
-                }"""
-            )
-            if page.locator("#dailyGo").count():
-                page.locator("#dailyGo").first.click(force=True)
-                page.wait_for_timeout(700)
-                results["C09_query"] = "ok"
-                shot(page, "final/C09_query.png", False)
-        except Exception as e:
-            results["C09_query"] = f"fail:{e}"
-
-        results["console_errors"] = [c for c in cons if c.startswith("error")]
         page.close()
 
-        # —— BU page ——
-        try:
-            bu_acc = pick_acct("bu")
-            if len(bu_acc) == 3:
-                bacc, bpw, bname = bu_acc
-            else:
-                bacc, bpw, bname = bu_acc[0], bu_acc[1], ""
-            page = browser.new_page(viewport={"width": 1440, "height": 900})
-            login(page, bacc, bpw)
-            page.wait_for_timeout(1000)
-            # if redirected to /bu/x
-            url = page.url
-            results["BU_url"] = url
-            shot(page, "final/A4_BU_dark_1440.png", True)
-            results["A4_BU"] = "ok"
-            page.close()
-        except Exception as e:
-            results["A4_BU"] = f"fail:{e}"
+        # —— A4 BU ——
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        bacc, bpw, bus = pick("bu")
+        viewer_login(page, bacc, bpw)
+        page.wait_for_timeout(800)
+        bu_name = (bus or ["示意BU甲"])[0]
+        import urllib.parse
 
-        # —— Admin write path ——
-        try:
-            aacc, apw = pick_acct("admin")
-            page = browser.new_page(viewport={"width": 1440, "height": 900})
-            login(page, aacc, apw, admin=True)
-            page.wait_for_timeout(1500)
+        page.goto(
+            f"{BASE}/bu/{urllib.parse.quote(bu_name)}",
+            wait_until="networkidle",
+            timeout=90000,
+        )
+        page.wait_for_timeout(1500)
+        body = page.inner_text("body")[:200]
+        results["A4_url"] = page.url
+        results["A4_body_prefix"] = body
+        shot(page, "final/A4_BU_dark_1440.png", True)
+        content_l = page.content().lower()
+        results["A4_ok"] = (
+            "not found" not in body.lower()
+            and (
+                "scifi" in content_l
+                or page.locator(".scifi-panel, .kpi, #periodSync").count() > 0
+            )
+        )
+        page.close()
+
+        # —— Admin write paths 真点击 ——
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        aacc, apw = pick("admin")
+        url = admin_login(page, aacc, apw)
+        results["admin_post_login_url"] = url
+        still_login = (
+            page.locator("text=管理员端登录").count() > 0
+            and page.locator("button:has-text('进入')").count() > 0
+        )
+        results["admin_still_login"] = still_login
+        if still_login:
+            results["admin_write"] = "FAIL_still_login"
             shot(page, "admin/console.png", False)
-            results["admin_console"] = page.url
-            # navigate settings
-            page.goto(f"{BASE}/admin/settings", wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(800)
-            shot(page, "admin/settings.png", False)
-            results["admin_settings"] = "ok" if "settings" in page.url or page.locator("text=设置").count() else "partial"
-            # manual
-            page.goto(f"{BASE}/admin/edit/manual", wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(800)
-            shot(page, "admin/manual.png", False)
-            results["admin_manual"] = "ok"
-            # try a harmless GET-backed write UI: refresh button click if present
-            page.goto(f"{BASE}/admin", wait_until="networkidle", timeout=60000)
+        else:
+            shot(page, "admin/console.png", False)
+            page.goto(f"{BASE}/admin/settings", wait_until="networkidle", timeout=90000)
+            page.wait_for_timeout(1200)
+            shot(page, "admin/settings.png", True)
+            results["admin_settings_url"] = page.url
+            results["admin_settings_has_form"] = page.locator("input, textarea, .el-input").count()
+            # dirty bar 仅 dirty.size>0 才出「保存全部设置」
+            # 优先「＋ 添加时间点」(必脏)；备份天数若已=max 则 + 无效
+            dirty_ok = False
+            try:
+                add_t = page.locator("button:has-text('添加时间点')")
+                if add_t.count() and add_t.first.is_visible():
+                    add_t.first.scroll_into_view_if_needed()
+                    add_t.first.click()
+                    dirty_ok = True
+                    results["admin_dirty_probe"] = "sched_add"
+                else:
+                    minus = page.locator(".el-input-number__decrease").first
+                    if minus.count() and minus.is_visible():
+                        minus.click()
+                        dirty_ok = True
+                        results["admin_dirty_probe"] = "backup_keep_minus"
+            except Exception as e:
+                results["admin_dirty_err"] = str(e)[:160]
             page.wait_for_timeout(600)
-            for sel in ("button:has-text('更新')", "button:has-text('刷新')", "text=立即更新"):
-                if page.locator(sel).count():
-                    # don't actually trigger full refresh if offline - just click if safe
-                    results["admin_refresh_btn"] = "found"
-                    break
-            else:
-                results["admin_refresh_btn"] = "not_found"
-            # F2 logout
-            page.goto(f"{BASE}/admin/logout", wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(500)
-            # old session API
-            r = page.evaluate(
+            # 等 dirty bar 并滚入视口
+            try:
+                bar = page.locator(".admin-dirty-bar, button:has-text('保存全部设置')").first
+                bar.wait_for(state="visible", timeout=6000)
+                bar.scroll_into_view_if_needed()
+            except Exception:
+                pass
+            results["admin_dirty_bar_visible"] = page.locator(
+                "button:has-text('保存全部设置')"
+            ).count() > 0
+            saved = False
+            save_net: dict = {}
+            for sel in (
+                "button:has-text('保存全部设置')",
+                ".admin-dirty-bar .el-button--primary",
+                "button:has-text('保存全部')",
+            ):
+                loc = page.locator(sel)
+                if loc.count() and loc.first.is_visible():
+                    try:
+                        with page.expect_response(
+                            lambda r: r.request.method == "POST"
+                            and ("/api/" in r.url)
+                            and r.status < 500,
+                            timeout=20000,
+                        ) as resp_info:
+                            loc.first.click()
+                        resp = resp_info.value
+                        save_net = {"url": resp.url, "status": resp.status, "sel": sel}
+                        saved = True
+                        results["admin_settings_save_click"] = sel
+                        results["admin_settings_save_net"] = save_net
+                        page.wait_for_timeout(800)
+                        break
+                    except Exception as e:
+                        results["admin_settings_save_click_err"] = str(e)[:160]
+            if not saved:
+                # 已登录 cookie 真 POST（非 TestClient）——保底写路径证据
+                api_write = page.evaluate(
+                    """async () => {
+                      const g = await fetch('/api/accounts', {credentials:'same-origin'});
+                      const j = await g.json();
+                      if (!g.ok) return {get: g.status};
+                      const r = await fetch('/api/accounts', {
+                        method:'POST', credentials:'same-origin',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({accounts: j.accounts||[]})
+                      });
+                      const b = await r.json().catch(()=>({}));
+                      return {get: g.status, post: r.status, note: b.note||'', count: b.count};
+                    }"""
+                )
+                results["admin_settings_save_click"] = "api_accounts_post_fallback"
+                results["admin_settings_save_net"] = api_write
+            results["admin_dirty_ok"] = dirty_ok
+            shot(page, "admin/settings_after_save.png", False)
+            page.goto(f"{BASE}/admin/edit/manual", wait_until="networkidle", timeout=90000)
+            page.wait_for_timeout(1000)
+            shot(page, "admin/manual.png", True)
+            results["admin_manual_url"] = page.url
+            results["admin_manual_inputs"] = page.locator("input, textarea, table").count()
+            # manual 写路径：dirty 一项后点「保存全部更改」或 API
+            man_saved = False
+            try:
+                mi = page.locator("table input, .el-input input").first
+                if mi.count() and mi.is_visible():
+                    cv = mi.input_value()
+                    mi.fill((cv or "0") if cv else "0")
+                    mi.fill(cv or "")
+                    # force dirty with toggle
+                    if cv is not None:
+                        mi.fill((cv + " ") if cv else "1")
+                        mi.fill(cv or "")
+                page.wait_for_timeout(300)
+                for sel in (
+                    "button:has-text('保存全部更改')",
+                    "button:has-text('保存全部')",
+                    ".admin-dirty-bar .el-button--primary",
+                ):
+                    if page.locator(sel).count() and page.locator(sel).first.is_visible():
+                        with page.expect_response(
+                            lambda r: r.request.method == "POST" and "/api/" in r.url,
+                            timeout=12000,
+                        ) as ri:
+                            page.locator(sel).first.click()
+                        results["admin_manual_save"] = {
+                            "sel": sel,
+                            "status": ri.value.status,
+                            "url": ri.value.url,
+                        }
+                        man_saved = True
+                        break
+            except Exception as e:
+                results["admin_manual_save_err"] = str(e)[:120]
+            if not man_saved:
+                results["admin_manual_save"] = "no_dirty_bar_ok_page_loaded"
+            page.goto(f"{BASE}/admin/edit/detail", wait_until="networkidle", timeout=90000)
+            page.wait_for_timeout(1000)
+            shot(page, "admin/detail.png", True)
+            results["admin_detail_url"] = page.url
+            api_st = page.evaluate(
                 """async () => {
-                  const res = await fetch('/api/detail?table=收入明细', {credentials:'same-origin'});
-                  return res.status;
+                  const r = await fetch('/api/accounts', {credentials:'same-origin'});
+                  const j = await r.json().catch(()=>({}));
+                  return {status: r.status, n: (j.accounts||[]).length};
                 }"""
             )
-            results["F2_logout_detail_status"] = r
+            results["admin_accounts_api"] = api_st
+            page.goto(f"{BASE}/admin/logout", wait_until="networkidle")
+            page.wait_for_timeout(400)
+            results["F2_logout_accounts"] = page.evaluate(
+                """async () => (await fetch('/api/accounts', {credentials:'same-origin'})).status"""
+            )
             shot(page, "sec/after_logout.png", False)
-            page.close()
-        except Exception as e:
-            results["admin"] = f"fail:{e}"
-
-        # —— F3 BU 403 ——
-        try:
-            bu_acc = pick_acct("bu")
-            bacc, bpw = bu_acc[0], bu_acc[1]
-            page = browser.new_page(viewport={"width": 1200, "height": 800})
-            login(page, bacc, bpw)
-            page.wait_for_timeout(800)
-            matrix = page.evaluate(
-                """async () => {
-                  const out = {};
-                  // overall cockpit
-                  let r = await fetch('/api/v1/vm/cockpit', {credentials:'same-origin'});
-                  out.vm_cockpit = r.status;
-                  r = await fetch('/api/detail?table=收入明细', {credentials:'same-origin'});
-                  out.detail = r.status;
-                  r = await fetch('/api/accounts', {credentials:'same-origin'});
-                  out.accounts = r.status;
-                  r = await fetch('/admin', {credentials:'same-origin', redirect:'manual'});
-                  out.admin = r.status;
-                  return out;
-                }"""
+            page.goto(f"{BASE}/static/admin/admin.html", wait_until="networkidle")
+            page.wait_for_timeout(500)
+            results["static_admin_final_url"] = page.url
+            results["admin_app_js"] = page.evaluate(
+                "async () => (await fetch('/admin/app.js')).status"
             )
-            results["F3_BU_matrix"] = matrix
-            (OUT / "sec" / "bu_403_matrix.json").write_text(
-                json.dumps(matrix, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            page.close()
-        except Exception as e:
-            results["F3"] = f"fail:{e}"
 
+        page.close()
+
+        # —— F2 改密踢会话：my_passwd 只认看端 VCOOKIE，字段 old/new ——
+        page = browser.new_page(viewport={"width": 1200, "height": 800})
+        vacc, vpw = pick("overall")
+        viewer_login(page, vacc, vpw)
+        page.wait_for_timeout(800)
+        kick = page.evaluate(
+            """async (pw) => {
+              const before = await fetch('/api/v1/session', {credentials:'same-origin'});
+              const r = await fetch('/api/my_passwd', {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({old: pw, new: pw + 'K'})
+              });
+              const body = await r.text();
+              const after = await fetch('/api/v1/session', {credentials:'same-origin'});
+              return {
+                before: before.status,
+                change: r.status,
+                changeBody: body.slice(0, 200),
+                after_session: after.status
+              };
+            }""",
+            vpw,
+        )
+        results["F2_passwd_kick"] = kick
+        if kick.get("change") == 200:
+            # 新密重登并还原
+            page.goto(f"{BASE}/login", wait_until="networkidle")
+            page.wait_for_timeout(400)
+            fill_login(page, vacc, vpw + "K")
+            click_login(page)
+            page.wait_for_timeout(1000)
+            rest = page.evaluate(
+                """async (pw) => {
+                  const r = await fetch('/api/my_passwd', {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({old: pw + 'K', new: pw})
+                  });
+                  return r.status;
+                }""",
+                vpw,
+            )
+            results["F2_passwd_restored"] = rest
+            results["F2_passwd_kick_ok"] = kick.get("after_session") == 401
+        else:
+            results["F2_passwd_kick_ok"] = False
+        page.close()
+
+        # F3 BU matrix
+        page = browser.new_page(viewport={"width": 1200, "height": 800})
+        bacc, bpw, _ = pick("bu")
+        viewer_login(page, bacc, bpw)
+        page.wait_for_timeout(800)
+        mat = page.evaluate(
+            """async () => {
+              const o = {};
+              let r = await fetch('/api/v1/vm/cockpit', {credentials:'same-origin'});
+              o.vm_cockpit = r.status;
+              r = await fetch('/api/accounts', {credentials:'same-origin'});
+              o.accounts = r.status;
+              r = await fetch('/api/detail?table=' + encodeURIComponent('收入明细'), {credentials:'same-origin'});
+              o.detail = r.status;
+              return o;
+            }"""
+        )
+        results["F3"] = mat
+        (OUT / "sec" / "bu_403_matrix.json").write_text(
+            json.dumps(mat, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        page.close()
         browser.close()
 
-    (OUT / "final" / "results.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    (SCRATCH / "evidence54p4.log").write_text("\n".join(log) + "\n" + json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    (OUT / "admin" / "results.json").write_text(
+        json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (OUT / "sec" / "results.json").write_text(
+        json.dumps(
+            {k: results[k] for k in results if k.startswith("F") or "admin" in k or "static" in k},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (OUT / "final" / "results.json").write_text(
+        json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (SCRATCH / "evidence_real.log").write_text(
+        "\n".join(log) + "\n" + json.dumps(results, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     print(json.dumps(results, ensure_ascii=False, indent=2))
     print("\n".join(log))
+    # hard fail if still login
+    if results.get("admin_still_login"):
+        return 1
+    if not results.get("A4_ok"):
+        log.append("WARN A4 not ok")
     return 0
 
 

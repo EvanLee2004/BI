@@ -1,20 +1,8 @@
 {
-  "scroll_ms": 2313.5,
-  "longTasks": [],
+  "scroll_ms": 2009.4000000059605,
   "longTaskCount": 0,
   "maxLongTask": 0,
   "echartsIds": 4,
   "canvases": 0,
-  "svgs": 2,
-  "starAnim": "none",
-  "paints": [
-    {
-      "n": "first-paint",
-      "s": 28
-    },
-    {
-      "n": "first-contentful-paint",
-      "s": 152
-    }
-  ]
+  "hasScifi": true
 }
