@@ -36,11 +36,13 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-17 · v2.0 · 任务书50）**  
-> 对照 `VERSION=2.0.0-beta`：逻辑链 **nginx → Vue(dist) → API v1(VM 结构化) → domain 模块 → 存储抽象(SQLite)**。  
-> **生产标准** = nginx 发 dist + 反代 API（`deploy/linux/nginx-kanban.conf` · MADR-0009）；**简易模式** = `run.py --serve` 单进程。  
-> Vue 真组件（无 v-html）；看端明细任何会话白名单；明文密码 + 改密踢会话 + 防爆破。  
-> 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · `docs/api/契约与兼容策略.md`（任务书54：Windows 手册已删）。
+> **图集与代码对齐说明（2026-07-18 · v2.0.0-beta · stage54p5）**  
+> 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
+> **看端**仅 Vue（`static/shell*.html` 已删）；**管理端** Vue SPA（`admin.html` 重定向）。  
+> **`KANBAN_FRONTEND`** 默认 `vue`（`config.json`）；`KANBAN_OFFLINE=1` 测回归。  
+> **生产** = nginx 发 dist + 反代（`deploy/linux/nginx-kanban.conf`）；**简易** = `run.py --serve`。  
+> 真组件无 v-html；明细白名单；明文密码 + 改密踢会话。Windows 手册已删。  
+> 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · 接口：`方案与文档/软件工程文档/2_设计/07_HTTP接口清单_全端点.md`。
 
 五层单向数据流（展示层 = Vue 真组件 + 版本化结构化 VM）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
 
@@ -61,9 +63,10 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
     ↓ 进料口：数据/ 目录（6 个 xlsx + 配置，不进 git）
 ② 清洗    规范化 → 行哈希定位键 → 重放人工调整
 ③ 存储    SQLite（std_/adj_/manual_/meta_/cfg_）· 读连接 mode=ro
-④ 计算    domain(kpi/pl/expense/…) ← profit/render re-export · summary
-⑤ 展示    Vue dist ← GET /api/v1/vm/*（结构化 *_disp + 图表序列）· 真组件事件
-          管理端 static/admin · 账号明文👁（口径配置 UI 已于任务书54 下线）
+④ 计算    domain / profit·db 包 re-export · summary（32 周期红线）
+⑤ 展示    看端：Vue dist only（无 shell.html）← GET /api/v1/vm/*
+          管理端：Vue SPA（Element Plus）；static/admin/admin.html 仅重定向 /admin
+          账号明文管理端👁 · 口径配置 UI 已于任务书54 下线
 ```
 
 | 契约 | 含义 |
