@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。任务书51·B7：轴刻度精确查表。
- *  任务书54.1：V4 呼吸发光 + V6 文字清晰度。
+ *  任务书54.4：零持续动画 + 无呼吸特效；54.3 图区自适应保留。
  */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
@@ -8,10 +8,8 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import {
   animBlock,
-  animDuration,
   axisLabelStyle,
   barGlowStyle,
-  breathScatterSeries,
   dataLabelStyle,
   legendTextStyle,
   lineGlowStyle,
@@ -77,7 +75,7 @@ const option = computed(() => {
         formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
       }),
       emphasis: {
-        itemStyle: { shadowBlur: 20, shadowColor: 'rgba(34,211,238,0.65)' },
+        itemStyle: { shadowBlur: 4, shadowColor: 'rgba(34,211,238,0.4)' },
       },
     },
     {
@@ -106,16 +104,6 @@ const option = computed(() => {
       emphasis: { focus: 'series', scale: true },
     },
   ]
-  const breath = breathScatterSeries(
-    '毛利率',
-    marPlot.map((x) => (x == null ? 0 : x)),
-    cMar,
-    1,
-  )
-  if (breath) {
-    breath.data = marPlot.map((x) => (x == null ? '-' : x))
-    series.push(breath)
-  }
   return {
     tooltip: {
       trigger: 'axis',
@@ -154,7 +142,7 @@ const option = computed(() => {
       },
     ],
     series,
-    ...animBlock(animDuration(700)),
+    ...animBlock(),
   }
 })
 </script>

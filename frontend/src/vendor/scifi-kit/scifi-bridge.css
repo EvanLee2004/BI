@@ -57,12 +57,18 @@ html.theme-light {
 }
 
 /* Vue shell: remove kit max-height so business cards can grow */
+/* 54.4·A7：弱化毛玻璃 → 实色半透明底（滚动时不再一直合成 blur） */
 .scifi-panel.dsdk-panel {
   margin-bottom: 0;
   height: 100%;
   box-shadow: var(--scifi-glow);
   border-radius: var(--scifi-corner);
-  backdrop-filter: blur(16px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(8, 16, 32, 0.92);
+}
+html.theme-light .scifi-panel.dsdk-panel {
+  background: rgba(255, 255, 255, 0.96);
 }
 .scifi-panel .dsdk-panel-content {
   max-height: none;
@@ -359,8 +365,10 @@ body::before {
     radial-gradient(1.1px 1.1px at 8% 52%, rgba(255, 255, 255, 0.55), transparent),
     radial-gradient(1px 1px at 92% 14%, rgba(34, 211, 238, 0.6), transparent);
   background-size: 100% 100%;
-  opacity: 0.75;
-  animation: scifiStarTwinkle 3.6s ease-in-out infinite alternate;
+  /* 54.4·A6：静态星点，删 twinkle 动画与 filter:brightness（滚动时不再合成） */
+  opacity: 0.65;
+  animation: none;
+  filter: none;
 }
 /* 细网格叠加（不覆盖 theme 光晕，仅补一层纵深） */
 body::after {
@@ -376,8 +384,9 @@ body::after {
   opacity: 0.9;
 }
 html.theme-light body::before {
-  opacity: 0.22;
-  animation-duration: 5s;
+  opacity: 0.18;
+  animation: none;
+  filter: none;
   background-image:
     radial-gradient(1.2px 1.2px at 12% 18%, rgba(8, 145, 178, 0.35), transparent),
     radial-gradient(1px 1px at 28% 42%, rgba(8, 145, 178, 0.25), transparent),
@@ -392,11 +401,7 @@ html.theme-light body::after {
     linear-gradient(rgba(8, 145, 178, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(8, 145, 178, 0.05) 1px, transparent 1px);
 }
-@keyframes scifiStarTwinkle {
-  0% { opacity: 0.55; filter: brightness(0.92); }
-  50% { opacity: 0.9; filter: brightness(1.12); }
-  100% { opacity: 0.7; filter: brightness(1); }
-}
+/* scifiStarTwinkle 已删（54.4·A6 静态星空） */
 .wrap,
 .topbar,
 #periodSync,
@@ -404,13 +409,19 @@ html.theme-light body::after {
   position: relative;
   z-index: 1;
 }
+/* A8：prefers-reduced-motion 彻底静止（星空已无动画，再保险） */
 @media (prefers-reduced-motion: reduce) {
   body::before {
     animation: none !important;
+    filter: none !important;
     opacity: 0.45;
   }
   html.theme-light body::before {
     opacity: 0.15;
+  }
+  .scifi-panel.dsdk-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 

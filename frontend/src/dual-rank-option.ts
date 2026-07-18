@@ -4,7 +4,6 @@
  */
 import {
   animBlock,
-  animDuration,
   axisLabelStyle,
   dataLabelStyle,
   legendTextStyle,
@@ -89,8 +88,8 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
             ],
           },
           borderRadius: [0, 4, 4, 0],
-          shadowBlur: 10,
-          shadowColor: 'rgba(167,139,250,0.45)',
+          shadowBlur: 0,
+          shadowColor: 'transparent',
         },
         label: dataLabelStyle({
           position: 'right',
@@ -98,7 +97,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
           fontSize: 11,
         }),
         emphasis: {
-          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(167,139,250,0.7)' },
+          itemStyle: { shadowBlur: 4, shadowColor: 'rgba(167,139,250,0.45)' },
         },
       },
       {
@@ -119,8 +118,8 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
             ],
           },
           borderRadius: [0, 4, 4, 0],
-          shadowBlur: 10,
-          shadowColor: 'rgba(45,212,191,0.45)',
+          shadowBlur: 0,
+          shadowColor: 'transparent',
         },
         label: dataLabelStyle({
           position: 'right',
@@ -128,11 +127,11 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
           fontSize: 11,
         }),
         emphasis: {
-          itemStyle: { shadowBlur: 18, shadowColor: 'rgba(45,212,191,0.7)' },
+          itemStyle: { shadowBlur: 4, shadowColor: 'rgba(45,212,191,0.45)' },
         },
       },
     ],
-    ...animBlock(animDuration(600)),
+    ...animBlock(),
   }
 }
 

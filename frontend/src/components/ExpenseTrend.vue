@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 费用月度趋势：任务书54.1·V7 — 多系列发光折线图（替换旧面积/柱图型）。
+ * 费用月度趋势：多系列折线（D2）；54.4 零持续动画、无呼吸特效。
  * 序列/轴/合计显示串全部来自 VM（area_*）；前端零金额运算；数据零变化。
  */
 import { computed } from 'vue'
@@ -9,9 +9,7 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import {
   animBlock,
-  animDuration,
   axisLabelStyle,
-  breathScatterSeries,
   dataLabelStyle,
   legendTextStyle,
   lineGlowStyle,
@@ -64,8 +62,6 @@ const option = computed(() => {
             })
           : { show: false },
     })
-    const breath = breathScatterSeries(s.name, data, hex, 0)
-    if (breath) series.push(breath)
   })
   return {
     tooltip: {
@@ -74,7 +70,6 @@ const option = computed(() => {
         const i = params?.[0]?.dataIndex ?? 0
         const lines = [`${labels[i] || ''} 合计 ${totals[i] || '—'}万`]
         for (const p of params || []) {
-          if (String(p.seriesName || '').endsWith('·glow')) continue
           const s = seriesIn.find((x) => x.name === p.seriesName)
           const d = s?.data_disp?.[i] || String(p.value)
           lines.push(`${p.seriesName}: ${d}万`)
@@ -106,7 +101,7 @@ const option = computed(() => {
       },
     },
     series,
-    ...animBlock(animDuration(800)),
+    ...animBlock(),
   }
 })
 </script>

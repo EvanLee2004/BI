@@ -1,8 +1,9 @@
 /**
- * 任务书54.1 · 图表动效 / 清晰度共享（纯 ECharts 原生，禁新库）。
- * - V4：入场 + 持续发光/呼吸（effectScatter / shadowBlur / hover 光晕）
- * - V6：字号≥11、对比色、数字标签防糊
- * - prefers-reduced-motion 时关闭动效
+ * 任务书54.4 · 图表性能/清晰度共享（纯 ECharts 原生，禁新库）。
+ * - 默认零持续动画（ECharts 复杂场景官方建议 animation:false）
+ * - 删除 breath/effectScatter 常驻特效（showEffectOn render 开销大）
+ * - shadowBlur 默认 0，hover 才略加
+ * - prefers-reduced-motion 彻底静止
  */
 
 import { themeInkColor, currentThemeMode } from './echarts-theme'
@@ -12,20 +13,17 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** 入场动画时长；reduced-motion → 0 */
-export function animDuration(ms = 700): number {
-  return prefersReducedMotion() ? 0 : ms
+/** @deprecated 54.4 默认零动画；保留签名以免旧调用炸 */
+export function animDuration(_ms = 700): number {
+  return 0
 }
 
-export function animBlock(ms = 700): Record<string, unknown> {
-  if (prefersReducedMotion()) {
-    return { animation: false, animationDuration: 0, animationDurationUpdate: 0 }
-  }
+/** 默认关闭入场/更新动画（PERF A1） */
+export function animBlock(_ms = 700): Record<string, unknown> {
   return {
-    animation: true,
-    animationDuration: ms,
-    animationDurationUpdate: Math.min(400, ms),
-    animationEasing: 'cubicOut',
+    animation: false,
+    animationDuration: 0,
+    animationDurationUpdate: 0,
   }
 }
 
@@ -51,7 +49,7 @@ export function dataLabelStyle(extra: Record<string, unknown> = {}): Record<stri
     textBorderColor: light ? 'rgba(255,255,255,0.92)' : 'rgba(4,8,20,0.85)',
     textBorderWidth: 2,
     textShadowColor: light ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)',
-    textShadowBlur: 3,
+    textShadowBlur: 0,
     ...extra,
   }
 }
@@ -74,7 +72,7 @@ export function legendTextStyle(extra: Record<string, unknown> = {}): Record<str
   }
 }
 
-/** 柱体：顶部高光渐变 + 外发光 */
+/** 柱体：顶部高光渐变；默认无软阴影（PERF A3） */
 export function barGlowStyle(hex: string, soft = false): Record<string, unknown> {
   const c = hex
   return {
@@ -91,19 +89,19 @@ export function barGlowStyle(hex: string, soft = false): Record<string, unknown>
         { offset: 1, color: soft ? c : shadeHex(c, -0.28) },
       ],
     },
-    shadowBlur: prefersReducedMotion() ? 0 : 14,
-    shadowColor: withAlpha(c, 0.45),
-    shadowOffsetY: prefersReducedMotion() ? 0 : 2,
+    shadowBlur: 0,
+    shadowColor: 'transparent',
+    shadowOffsetY: 0,
   }
 }
 
-/** 折线发光 */
+/** 折线：无常驻发光 */
 export function lineGlowStyle(hex: string, width = 2.5): Record<string, unknown> {
   return {
     width,
     color: hex,
-    shadowBlur: prefersReducedMotion() ? 0 : 12,
-    shadowColor: withAlpha(hex, 0.55),
+    shadowBlur: 0,
+    shadowColor: 'transparent',
   }
 }
 
@@ -112,56 +110,31 @@ export function pointGlowStyle(hex: string): Record<string, unknown> {
     color: hex,
     borderColor: '#fff',
     borderWidth: 1,
-    shadowBlur: prefersReducedMotion() ? 0 : 14,
-    shadowColor: withAlpha(hex, 0.7),
+    shadowBlur: 0,
+    shadowColor: 'transparent',
   }
 }
 
 /**
- * 折线点呼吸：同坐标 effectScatter（showEffectOn:render 持续涟漪）。
- * data 与主 series 同序；reduced-motion 时返回 null，调用方勿 push。
+ * @deprecated 54.4 已删呼吸系列；保留函数恒返回 null，调用方 if 守卫可保留。
  */
 export function breathScatterSeries(
-  name: string,
-  data: number[],
-  hex: string,
-  yAxisIndex = 0,
+  _name: string,
+  _data: number[],
+  _hex: string,
+  _yAxisIndex = 0,
 ): Record<string, unknown> | null {
-  if (prefersReducedMotion()) return null
-  return {
-    name: `${name}·glow`,
-    type: 'effectScatter',
-    yAxisIndex,
-    data,
-    symbolSize: 7,
-    showEffectOn: 'render',
-    rippleEffect: {
-      brushType: 'stroke',
-      scale: 2.8,
-      period: 2.8,
-      color: hex,
-    },
-    itemStyle: {
-      color: hex,
-      shadowBlur: 10,
-      shadowColor: withAlpha(hex, 0.8),
-    },
-    z: 6,
-    tooltip: { show: false },
-    silent: true,
-    legendHoverLink: false,
-    animation: true,
-  }
+  return null
 }
 
-/** 环形 hover：放大 + 外圈光晕 */
+/** 环形 hover：略放大；阴影 ≤4 */
 export function pieEmphasis(): Record<string, unknown> {
   return {
     scale: true,
-    scaleSize: 10,
+    scaleSize: 8,
     itemStyle: {
-      shadowBlur: prefersReducedMotion() ? 8 : 22,
-      shadowColor: 'rgba(34, 211, 238, 0.55)',
+      shadowBlur: 4,
+      shadowColor: 'rgba(34, 211, 238, 0.35)',
     },
     label: {
       fontSize: 13,
@@ -184,16 +157,6 @@ export const SERIES_PALETTE = [
   '#f59e0b',
 ]
 
-function withAlpha(hex: string, a: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!m) return hex
-  const n = parseInt(m[1], 16)
-  const r = (n >> 16) & 255
-  const g = (n >> 8) & 255
-  const b = n & 255
-  return `rgba(${r},${g},${b},${a})`
-}
-
 /** amount in [-1,1] darken/lighten hex */
 function shadeHex(hex: string, amount: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
@@ -211,3 +174,4 @@ function shadeHex(hex: string, amount: number): string {
   b = adj(b)
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
 }
+

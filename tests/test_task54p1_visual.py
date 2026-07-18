@@ -36,13 +36,19 @@ class TestV3PlFill(unittest.TestCase):
 
 class TestV4V6ChartFx(unittest.TestCase):
     def test_chart_fx_module(self):
+        """54.4：默认零动画；breathScatter 恒 null；无 effectScatter 系列体。"""
         src = (FE / "chart-fx.ts").read_text(encoding="utf-8")
         self.assertIn("prefersReducedMotion", src)
+        self.assertIn("animation: false", src)
         self.assertIn("breathScatterSeries", src)
-        self.assertIn("effectScatter", src)
+        # 兼容桩保留但恒 return null，源码不得再声明 effectScatter 系列体
+        self.assertNotIn("type: 'effectScatter'", src)
+        self.assertNotIn("showEffectOn:", src)
+        self.assertIn("return null", src)
         self.assertIn("dataLabelStyle", src)
         self.assertIn("fontSize: 11", src)
         self.assertIn("pieEmphasis", src)
+        self.assertIn("shadowBlur: 0", src)
 
     def test_charts_import_fx(self):
         for name in (
@@ -60,11 +66,37 @@ class TestV4V6ChartFx(unittest.TestCase):
 
 
 class TestV5StarBg(unittest.TestCase):
-    def test_star_twinkle_css(self):
+    def test_star_static_no_twinkle(self):
+        """54.4·A6：星空静态，无 twinkle 动画与 filter:brightness。"""
         css = (FE / "vendor" / "scifi-kit" / "scifi-bridge.css").read_text(encoding="utf-8")
-        self.assertIn("scifiStarTwinkle", css)
         self.assertIn("body::before", css)
         self.assertIn("prefers-reduced-motion", css)
+        self.assertNotIn("@keyframes scifiStarTwinkle", css)
+        # 静态星点：animation: none
+        self.assertIn("animation: none", css)
+        self.assertNotIn("filter: brightness", css)
+
+
+class Test54p4PerfA(unittest.TestCase):
+    """任务书54.4 批次 A 性能收口守卫。"""
+
+    def test_echarts_host_lazy_and_no_anim(self):
+        src = (FE / "components" / "charts" / "EchartsHost.vue").read_text(encoding="utf-8")
+        self.assertIn("IntersectionObserver", src)
+        self.assertIn("animation: false", src)
+        self.assertIn("renderer", src)
+        self.assertIn("ResizeObserver", src)
+
+    def test_panel_no_backdrop_blur(self):
+        css = (FE / "vendor" / "scifi-kit" / "scifi-bridge.css").read_text(encoding="utf-8")
+        self.assertIn("backdrop-filter: none", css)
+        self.assertIn("rgba(8, 16, 32, 0.92)", css)
+
+    def test_no_breath_calls_in_charts(self):
+        for name in ("TrendChart.vue", "ExpenseTrend.vue", "ReceiptsCard.vue"):
+            src = (FE / "components" / name).read_text(encoding="utf-8")
+            self.assertNotIn("breathScatterSeries", src, name)
+            self.assertNotIn("effectScatter", src, name)
 
 
 class TestV8ResizeObserver(unittest.TestCase):

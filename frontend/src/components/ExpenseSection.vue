@@ -6,7 +6,6 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import {
   animBlock,
-  animDuration,
   chartMutedColor,
   chartTextColor,
   pieEmphasis,
@@ -73,14 +72,14 @@ const option = computed(() => {
         label: { show: false },
         labelLine: { show: false },
         itemStyle: {
-          shadowBlur: 14,
-          shadowColor: 'rgba(34,211,238,0.28)',
+          shadowBlur: 0,
+          shadowColor: 'transparent',
           borderColor: 'rgba(4,8,20,0.45)',
           borderWidth: 2,
         },
         emphasis: pieEmphasis(),
-        animationType: 'scale',
-        animationDuration: animDuration(600),
+        animationType: 'expansion',
+        animationDuration: 0,
       },
     ],
     graphic: [
@@ -114,7 +113,7 @@ const option = computed(() => {
         ],
       },
     ],
-    ...animBlock(animDuration(600)),
+    ...animBlock(),
   }
 })
 </script>

@@ -9,10 +9,8 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import {
   animBlock,
-  animDuration,
   axisLabelStyle,
   barGlowStyle,
-  breathScatterSeries,
   dataLabelStyle,
   legendTextStyle,
   lineGlowStyle,
@@ -111,17 +109,6 @@ const option = computed(() => {
       emphasis: { focus: 'series', scale: true },
     },
   ]
-  const breath = breathScatterSeries(
-    '回款率',
-    ratioPlot.map((x) => (x == null ? 0 : x)),
-    cRatio,
-    1,
-  )
-  if (breath) {
-    breath.data = ratioPlot.map((x) => (x == null ? '-' : x))
-    breath.yAxisIndex = 1
-    series.push(breath)
-  }
   return {
     tooltip: {
       trigger: 'axis',
@@ -168,7 +155,7 @@ const option = computed(() => {
       },
     ],
     series,
-    ...animBlock(animDuration(700)),
+    ...animBlock(),
   }
 })
 const hasSeries = computed(() => (r.value.labels || []).length > 0)

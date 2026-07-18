@@ -58,7 +58,8 @@ class TestExpenseMultiLine54p1(unittest.TestCase):
         self.assertIn("area_labels", src)
         self.assertIn("area_series", src)
         self.assertIn("多系列折线", src)
-        self.assertIn("breathScatterSeries", src)
+        # 54.4：删呼吸特效，保留折线样式
+        self.assertNotIn("breathScatterSeries", src)
         self.assertIn("lineGlowStyle", src)
         self.assertNotIn("var(--ink", src)
         self.assertNotIn("CanvasGraphPanel", src)
