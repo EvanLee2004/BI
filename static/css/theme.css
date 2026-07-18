@@ -840,3 +840,9 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   /* 1440 宽五卡一行不换行 */
   .kpi-grid.kpi-5{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
+
+/* ── 54.3：趋势图区随面板高自适应，修「利润表短的BU页(营销等)面板被压缩→固定高图区溢出→overflow:hidden裁掉月份轴」 ── */
+.trend-chart-card.scifi-panel.dsdk-panel{display:flex;flex-direction:column}
+.trend-chart-card>.dsdk-panel-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.trend-chart-card .rc-body.trend-fill{flex:1 1 auto;min-height:240px;height:auto;display:flex;flex-direction:column}
+.trend-chart-card .rc-body.trend-fill>div{flex:1 1 auto;min-height:0}

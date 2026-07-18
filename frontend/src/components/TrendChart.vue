@@ -160,7 +160,8 @@ const option = computed(() => {
 </script>
 <template>
   <SciFiPanel id="trendChartCard" title="收入 · 毛利趋势" panel-class="trend-chart-card">
-    <div class="rc-body" data-chart="trend" style="min-height: 340px; height: 360px">
+    <!-- 54.3：图区随面板高自适应填充（禁固定高溢出被压缩面板 overflow:hidden 裁掉月份轴，营销等小值BU踩过） -->
+    <div class="rc-body trend-fill" data-chart="trend">
       <EchartsHost :option="option" />
     </div>
   </SciFiPanel>
