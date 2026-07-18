@@ -84,7 +84,7 @@ const option = computed(() => {
       label: dataLabelStyle({
         position: 'top',
         formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-        fontSize: 11,
+        fontSize: 12,
       }),
     },
     {
@@ -96,7 +96,7 @@ const option = computed(() => {
       label: dataLabelStyle({
         position: 'top',
         formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-        fontSize: 11,
+        fontSize: 12,
       }),
     },
     {
@@ -134,7 +134,7 @@ const option = computed(() => {
         position: 'end',
         formatter: () => (budDisp ? `月均预算 ${budDisp}万` : '月均预算'),
         color: '#2dd4bf',
-        fontSize: 11,
+        fontSize: 12,
       },
       tooltip: { show: true },
       z: 3,
@@ -281,7 +281,7 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
 }
 .rc-v em {
   font-style: normal;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   opacity: 0.75;
   margin-left: 1px;
@@ -290,7 +290,7 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   color: #22d3ee;
 }
 .rc-pl {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--note, #8b9bb4);
   margin-top: 2px;
 }
@@ -317,9 +317,9 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   border-radius: 3px;
 }
 .rc-bud-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--note, #8b9bb4);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 @media (max-width: 900px) {
   .rc-layout {

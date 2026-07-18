@@ -46,7 +46,9 @@ class TestV4V6ChartFx(unittest.TestCase):
         self.assertNotIn("showEffectOn:", src)
         self.assertIn("return null", src)
         self.assertIn("dataLabelStyle", src)
-        self.assertIn("fontSize: 11", src)
+        # 54.9 R4：字号地板 12（原 11）
+        self.assertIn("fontSize: 12", src)
+        self.assertNotIn("fontSize: 11", src)
         self.assertIn("pieEmphasis", src)
         self.assertIn("shadowBlur: 0", src)
 

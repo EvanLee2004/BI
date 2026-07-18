@@ -73,7 +73,7 @@ const option = computed(() => {
     },
     legend: {
       data: seriesIn.map((s) => s.name),
-      textStyle: legendTextStyle({ fontSize: 11 }),
+      textStyle: legendTextStyle({ fontSize: 12 }),
       type: 'scroll',
       top: 0,
     },

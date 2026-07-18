@@ -266,6 +266,6 @@ onMounted(load)
 .b-cur { margin-bottom: 4px; }
 .b-edit { display: flex; align-items: center; gap: 4px; }
 .pct { font-size: 12px; color: var(--admin-mut); }
-.b-sum-tip { margin-top: 4px; font-size: 11.5px; color: var(--admin-mut); }
+.b-sum-tip { margin-top: 4px; font-size: 12px; color: var(--admin-mut); }
 .b-sum-tip.warn { color: #fbbf24; font-weight: 600; }
 </style>

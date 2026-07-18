@@ -94,7 +94,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-          fontSize: 11,
+          fontSize: 12,
         }),
         emphasis: {
           itemStyle: { shadowBlur: 4, shadowColor: 'rgba(167,139,250,0.45)' },
@@ -124,7 +124,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-          fontSize: 11,
+          fontSize: 12,
         }),
         emphasis: {
           itemStyle: { shadowBlur: 4, shadowColor: 'rgba(45,212,191,0.45)' },

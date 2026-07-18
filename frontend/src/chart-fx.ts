@@ -43,7 +43,7 @@ export function dataLabelStyle(extra: Record<string, unknown> = {}): Record<stri
   const light = currentThemeMode() === 'light'
   return {
     show: true,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
     color: ink,
     textBorderColor: light ? 'rgba(255,255,255,0.92)' : 'rgba(4,8,20,0.85)',
@@ -57,7 +57,7 @@ export function dataLabelStyle(extra: Record<string, unknown> = {}): Record<stri
 export function axisLabelStyle(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     color: chartMutedColor(),
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 500,
     ...extra,
   }

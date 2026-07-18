@@ -25,6 +25,12 @@
       "位置": "samples",
       "实测值": "[]",
       "判定": "达标"
+    },
+    {
+      "规则": "R4 ReceiptsCard 辅文",
+      "位置": ".rc-v em / .rc-pl",
+      "实测值": "fs=12 (remeasure_receipts.out)",
+      "判定": "达标"
     }
   ],
   "home_light_1440": [

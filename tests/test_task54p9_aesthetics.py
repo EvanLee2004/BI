@@ -52,6 +52,36 @@ class Test54p9DesignTokens(unittest.TestCase):
             bad = [(ln, v, s) for ln, v, s in _font_sizes(css) if v < 12]
             self.assertEqual(bad, [], f"{path.name} font-size<12: {bad[:8]}")
 
+    def test_no_font_size_below_12_in_frontend_src(self):
+        """R4/前科#1：看端+管理端 SFC/CSS/TS 图表 option 均不得 font-size/fontSize <12。"""
+        src = ROOT / "frontend" / "src"
+        # CSS property + JS/TS/Vue option
+        pat = re.compile(
+            r"(?:font-size\s*:\s*|fontSize\s*:\s*)([\d.]+)(?:px)?\b",
+            re.I,
+        )
+        bad: list[str] = []
+        for path in sorted(src.rglob("*")):
+            if path.suffix.lower() not in {".vue", ".css", ".scss", ".ts", ".js"}:
+                continue
+            if "node_modules" in path.parts or "dist" in path.parts:
+                continue
+            # vendored kit 原文可含旧字号；看端覆盖以 bridge 为准，仍扫描 kit 以外
+            if path.parts[-1] == "DynamicSciFiDashboardKit.css":
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                for m in pat.finditer(line):
+                    v = float(m.group(1))
+                    # fontSize: 12 is ok; bare fontSize: 11 not
+                    if v < 12:
+                        rel = path.relative_to(ROOT)
+                        bad.append(f"{rel}:{i} value={v} :: {line.strip()[:90]}")
+        self.assertEqual(bad, [], "frontend/src font-size/fontSize<12:\n" + "\n".join(bad[:20]))
+
     def test_spacing_on_8pt_grid_theme_bridge_admin(self):
         for path in (THEME, BRIDGE, ADMIN):
             css = path.read_text(encoding="utf-8")
