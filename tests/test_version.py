@@ -35,16 +35,19 @@ class TestVersionModule(unittest.TestCase):
         self.assertEqual(V.product_stage("0.1"), "试运行")
         self.assertEqual(V.product_stage("1.0-beta"), "公测 Beta")  # 预发布标记优先
         self.assertEqual(V.product_stage("1.0-BETA"), "公测 Beta")  # 大小写不敏感
+        self.assertEqual(V.product_stage("2.0.0-rc1"), "发布候选")
         self.assertEqual(V.product_stage("1.0"), "正式版")
         self.assertEqual(V.product_stage("2.3"), "正式版")
         self.assertEqual(V.product_stage("坏值"), "试运行")  # 解析不了按试运行兜底
 
-    def test_current_is_beta(self):
-        # 公测 Beta 迭代号写在 VERSION（1.0.2-beta）；去掉 -beta 即升正式版主号
-        self.assertTrue(V.PRODUCT_VERSION.endswith("-beta") or "beta" in V.PRODUCT_VERSION.lower())
-        self.assertEqual(V.PRODUCT_STAGE, "公测 Beta")
+    def test_current_is_rc1(self):
+        # 封板 54.10：VERSION=2.0.0-rc1 发布候选
+        self.assertTrue(
+            V.PRODUCT_VERSION.endswith("-rc1") or "rc" in V.PRODUCT_VERSION.lower()
+        )
+        self.assertEqual(V.PRODUCT_STAGE, "发布候选")
+        self.assertEqual(V.product_label("2.0.0-rc1"), "v2.0.0（发布候选）")
         self.assertEqual(V.product_label("1.0-beta"), "v1.0（公测 Beta）")
-        self.assertEqual(V.product_label("1.0.2-beta"), "v1.0.2（公测 Beta）")
         self.assertEqual(V.product_label("0.9"), "v0.9（试运行）")
 
     def test_changelog_is_copy(self):
@@ -106,8 +109,8 @@ class TestVersionApi(unittest.TestCase):
         self.assertEqual(r.status_code, 303, r.text)
         d = c.get("/api/version").json()
         self.assertEqual(d["version"], V.PRODUCT_VERSION)
-        self.assertEqual(d["stage"], "公测 Beta")
-        self.assertIn("公测 Beta", d["label"])
+        self.assertEqual(d["stage"], V.PRODUCT_STAGE)
+        self.assertIn(V.PRODUCT_STAGE, d["label"])
         self.assertTrue(d["changelog"] and d["changelog"][0]["items"])
 
     def test_console_has_version_ui(self):

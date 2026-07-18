@@ -79,15 +79,21 @@ class TestTask42Final(unittest.TestCase):
         return c
 
     def test_version_is_product(self):
-        # 任务书46·7：VERSION 1.6/2.0-beta；changelog 最新条非空
+        # 任务书46·7 / 54.10：VERSION 为产品预发布号；changelog 最新条非空
         v = version.read_version()
-        self.assertTrue(v.endswith("-beta") or v >= "1.6.0", v)
-        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta"))
+        self.assertTrue(
+            v.endswith("-beta") or v.endswith("-rc1") or "rc" in v.lower() or v >= "1.6.0",
+            v,
+        )
+        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta", "2.0.0-rc1"))
         self.assertTrue(version.PRODUCT_CHANGELOG)
         self.assertTrue(version.PRODUCT_CHANGELOG[0].get("items"))
         blob = " ".join(str(it) for it in version.PRODUCT_CHANGELOG[0]["items"])
         self.assertTrue(
-            any(k in blob for k in ("Ubuntu", "业务员", "Vue", "哈希", "口径")),
+            any(
+                k in blob
+                for k in ("Ubuntu", "业务员", "Vue", "哈希", "口径", "手册", "人审", "发布候选", "科技风")
+            ),
             blob[:200],
         )
 

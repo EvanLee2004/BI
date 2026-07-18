@@ -31,12 +31,14 @@ def read_version() -> str:
 
 
 def product_stage(version: str | None = None) -> str:
-    """判阶段：带 `-beta` 预发布标记 → 公测 Beta；否则主版本 <1 → 试运行、≥1 → 正式版。
-    （0.9→试运行，1.0-beta→公测 Beta，1.0→正式版）。"""
+    """判阶段：`-beta`→公测 Beta；`-rc*`→发布候选；主版本 <1 → 试运行、≥1 → 正式版。
+    （0.9→试运行，1.0-beta→公测 Beta，2.0.0-rc1→发布候选，1.0→正式版）。"""
     v = str(version if version is not None else read_version()).strip()
     base, _, pre = v.partition("-")
     if pre and "beta" in pre.lower():
         return "公测 Beta"
+    if pre and "rc" in pre.lower():
+        return "发布候选"
     try:
         major = int(base.split(".")[0])
     except (ValueError, IndexError):
@@ -57,6 +59,16 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 面向用户的更新日志（倒序·最新在上）。每条：date=公开日期、title=一句话标题、items=大白话要点。
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
+    {
+        "date": "2026-07-18",
+        "title": "发布候选 v2.0.0-rc1：可上线人审版——看端/管理端统一、手册与健康检查齐备",
+        "items": [
+            "看端与管理端统一科技风界面；间距、字号、对比度按可验收规则收口，手机也可点。",
+            "财务同事可用的看板/管理端使用手册与常见问题；坏了可看健康检查日志。",
+            "性能与全量回归本机复验通过；上线前请按交接包完成 10 分钟人审（含手机扫码）。",
+            "版本号升为 2.0.0-rc1（发布候选）；签字后即可按部署单上内网。",
+        ],
+    },
     {
         "date": "2026-07-17",
         "title": "界面全面翻新：图表更清晰、明细更干净、可退出登录",

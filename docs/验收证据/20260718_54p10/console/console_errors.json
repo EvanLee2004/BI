@@ -1,0 +1,28 @@
+{
+  "visual": [
+    "home_dark_1440 ok",
+    "home_light_1440 ok",
+    "home_375 ok",
+    "admin_orderdept ok",
+    "admin_settings ok",
+    "admin_manual ok"
+  ],
+  "interactive": [
+    "period_click skip(no chip)",
+    "drill_click ok",
+    "R00a_orderdept table=True",
+    "manual_page ok count_inputs=52",
+    "login_viewer url=http://127.0.0.1:8018/",
+    "login_admin url=http://127.0.0.1:8018/admin",
+    "login_bu url=http://127.0.0.1:8018/bu/%E8%90%A5%E9%94%80"
+  ],
+  "console": {
+    "count": 4,
+    "sample": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  }
+}
