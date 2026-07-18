@@ -123,6 +123,13 @@ watch(
   },
 )
 
+/** 54.5：日期列展示去掉无意义的 00:00:00（纯展示串，不改后端/不碰金额） */
+function cellText(v: unknown): string {
+  if (v == null) return ''
+  const s = String(v)
+  return s.replace(/(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1')
+}
+
 onMounted(() => load())
 </script>
 <template>
@@ -159,7 +166,7 @@ onMounted(() => load())
               v-for="c in columns"
               :key="c"
               :class="{ num: /金额|含税/.test(c), 'col-flex': /事项/.test(c) }"
-              >{{ row[c] == null ? '' : String(row[c]) }}</td
+              >{{ cellText(row[c]) }}</td
             >
           </tr>
           <tr v-if="!rows.length && !loading">
