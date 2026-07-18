@@ -192,8 +192,7 @@ body{
 .pr-grid .card-h .conc b{font-size:17px;font-weight:800;color:var(--accent);
   font-family:var(--mono,inherit);letter-spacing:.3px}
 .pr-grid .rk-no{font-size:12.5px}
-/* 54.5：客户名 120px 截断复发 → 加宽，宁短轨条不截名（title 仍有全名） */
-.pr-grid .ev-name{flex:0 1 200px;min-width:140px;max-width:240px;font-size:13px}
+.pr-grid .ev-name{flex-basis:120px;font-size:13px}
 .pr-grid .ev-amt{flex-basis:86px;font-size:13px}
 .pr-grid .rk-meta{flex-basis:104px;font-size:12.5px}  /* 容「项目毛利率 100%」 */
 .pr-grid .rk-open{font-size:12px}
@@ -661,8 +660,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .ev-list{max-height:300px;overflow-y:auto;padding:4px 2px}
 .ev-row{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:7px;cursor:pointer}
 .ev-row:hover{background:rgba(139,92,246,.08)}
-/* 54.5 找茬：默认名列加宽，避免「有限…」半截难辨 */
-.ev-name{flex:0 1 168px;min-width:120px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-name{flex:0 0 120px;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-track{flex:1;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .ev-track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--teal),var(--blue));
  box-shadow:0 0 6px var(--teal)}

@@ -6,7 +6,7 @@
 
 - **我看到了什么**：板块③「收入·按客户」行名显示为 `示例客户012有限…`，末字被 ellipsis 吃掉，需悬停 title 才见全名。
 - **挑出了什么茬**：`.ev-name`/`pr-grid` 固定 120px 过窄，与 54.1 排名「行名不截断」口味冲突。
-- **改了什么**：`static/css/theme.css` 将 `.pr-grid .ev-name` 加宽至 min140/flex200；通用 `.ev-name` 加宽至 168px。复测 DOM：`示例客户012有限公司` 完整可见（w=200）。
+- **改了什么**：名列加宽写在 **`frontend/.../scifi-bridge.css`**（In 范围；theme.css 已 revert 不动）。复测 DOM：`示例客户012有限公司` 完整、无省略号（见 `after_names.png`）。
 
 ## 茬 2 · 趋势图柱顶标签三重叠
 

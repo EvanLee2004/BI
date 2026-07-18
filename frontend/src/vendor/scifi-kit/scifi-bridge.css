@@ -317,6 +317,25 @@ body > .drawer .pl-drow > span:last-child {
 .grid-2e > .scifi-panel {
   min-width: 0;
 }
+/* 54.5：客户/销售名列加宽（In=frontend；覆盖 theme.css 默认 120px 截断，不改 static） */
+#profitRankViews .pr-grid .ev-name,
+.pr-grid .ev-name {
+  flex: 0 1 200px;
+  min-width: 140px;
+  max-width: 240px;
+  font-size: 13px;
+}
+.scifi-panel .ev-list .ev-name,
+.rk-list .ev-name {
+  flex: 0 1 168px;
+  min-width: 120px;
+  font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* V2：五卡一排（与 theme.css .kpi-5 对齐，保证 Vue 皮也挂类） */
 .kpi-grid {
   gap: var(--gap-card, 14px);
