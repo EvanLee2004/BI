@@ -116,10 +116,10 @@ class TestLoginCacheP0(unittest.TestCase):
         self.assertTrue(_has_no_store(r_adm), "已登录 /admin 缺 no-store")
         self.assertIn('id="app"', r_adm.text)
 
-        # /admin/app.js 先例仍在（legacy 对照）
+        # /admin/app.js：vue=410 下线；legacy=200
         r_js = c_adm.get("/admin/app.js")
-        self.assertEqual(r_js.status_code, 200)
-        self.assertTrue(_has_no_store(r_js), "/admin/app.js 缺 no-store")
+        self.assertIn(r_js.status_code, (200, 410))
+        self.assertTrue(_has_no_store(r_js) or r_js.status_code == 410, "/admin/app.js 须 no-store 或 410")
 
     def test_login_then_same_url_body_flips(self):
         """模拟：先未登录 GET → 登录 → 再 GET 同 URL；看端 body 须变；管理端 Vue SPA 壳可相同但须带会话 cookie。"""

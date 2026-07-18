@@ -576,7 +576,16 @@ refresh_pipeline.set_admin_page_builder(_admin_page)
 
 
 def _admin_static_html() -> str:
-    """管理端完整台骨架：static/admin/admin.html（CSS/JS 外链；手填清单由 /admin/app.js 注入）。"""
+    """管理端完整台骨架（legacy 模式）。
+
+    54.4·D4：static/admin/admin.html 为 Vue 重定向页；完整骨架在 admin.html.legacy。
+    """
+    for name in ("admin.html.legacy", "admin.html"):
+        p = STATIC_DIR / "admin" / name
+        if p.is_file() and "location.replace('/admin')" not in p.read_text(encoding="utf-8")[:500]:
+            return p.read_text(encoding="utf-8")
+        if p.is_file() and name.endswith(".legacy"):
+            return p.read_text(encoding="utf-8")
     p = STATIC_DIR / "admin" / "admin.html"
     if not p.is_file():
         raise FileNotFoundError(f"缺少管理端静态页：{p}")
@@ -592,9 +601,9 @@ def _bootstrap_page() -> str:
 
 
 def admin_ui_source() -> str:
-    """供测试搜锚点：admin.html + admin.js + admin.css 拼接（非运行路径）。"""
+    """供测试搜锚点：admin 骨架 + admin.js + admin.css 拼接（非运行路径）。"""
     parts = []
-    for name in ("admin.html", "admin.js", "admin.css", "bootstrap.html"):
+    for name in ("admin.html.legacy", "admin.html", "admin.js", "admin.css", "bootstrap.html"):
         p = STATIC_DIR / "admin" / name
         if p.is_file():
             parts.append(p.read_text(encoding="utf-8"))

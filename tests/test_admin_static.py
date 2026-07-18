@@ -47,7 +47,7 @@ class TestAdminStaticFiles(unittest.TestCase):
             self.assertIn(token, js, token)
 
     def test_no_duplicate_ids_in_admin_html(self):
-        html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        html = (ADMIN_DIR / "admin.html.legacy").read_text(encoding="utf-8")
         ids = re.findall(r'\bid=["\']([^"\']+)["\']', html)
         from collections import Counter
 
@@ -61,21 +61,26 @@ class TestAdminStaticFiles(unittest.TestCase):
             self.assertNotIn(bad, js, bad)
 
     def test_static_admin_complete(self):
-        """static/admin 四件齐全且 app 入口引用正确（已无 server 内嵌副本）。"""
+        """static/admin 四件齐全；D4 后 admin.html=重定向，完整骨架在 .legacy。"""
         for name in ("admin.html", "admin.css", "admin.js", "bootstrap.html"):
             self.assertTrue((ADMIN_DIR / name).is_file(), name)
-        html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        # 主入口已是 Vue 重定向
+        redir = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("/admin", redir)
+        # legacy 骨架保留
+        leg = ADMIN_DIR / "admin.html.legacy"
+        self.assertTrue(leg.is_file(), "admin.html.legacy 须保留完整骨架")
+        html = leg.read_text(encoding="utf-8")
         self.assertIn("/static/admin/admin.css", html)
         self.assertIn("/admin/app.js", html)
         js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
         self.assertIn("__MANUAL_ITEMS__", js)
 
     def test_external_html_links(self):
-        html = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        html = (ADMIN_DIR / "admin.html.legacy").read_text(encoding="utf-8")
         self.assertIn('href="/static/admin/admin.css"', html)
         self.assertIn('src="/admin/app.js"', html)
         self.assertNotIn("<style>", html)
-        # app logic not inlined
         self.assertNotIn("function showGroup", html)
 
 
@@ -118,20 +123,25 @@ class TestAdminStaticHttp(unittest.TestCase):
         self.assertTrue(is_static_login or is_vue_spa, "expected admin login page or Vue SPA shell")
 
     def test_static_admin_html_is_shell_without_session_data(self):
-        """未登录直接读 /static/admin/admin.html 只是壳，无会话态数据。"""
+        """D4：/static/admin/admin.html 为重定向页，无会话态数据。"""
         r = self._client().get("/static/admin/admin.html")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("管理员控制台", r.text)
-        self.assertIn("/admin/app.js", r.text)
-        # 壳里不应出现已注入的手填 JSON 数组（仍是占位在 app.js）
+        self.assertTrue(
+            "/admin" in r.text or "location.replace" in r.text or "管理员控制台" in r.text,
+            "应为重定向到 /admin 或 legacy 壳",
+        )
         self.assertNotIn("营销人力成本", r.text)
 
     def test_app_js_injects_manual_items(self):
         r = self._client().get("/admin/app.js")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("function showGroup", r.text)
-        self.assertNotIn("__MANUAL_ITEMS__", r.text)
-        self.assertIn("营销人力成本", r.text)
+        # vue: 410 offline；legacy: 200 + 注入
+        self.assertIn(r.status_code, (200, 410))
+        if r.status_code == 200:
+            self.assertIn("function showGroup", r.text)
+            self.assertNotIn("__MANUAL_ITEMS__", r.text)
+            self.assertIn("营销人力成本", r.text)
+        else:
+            self.assertIn("offline", r.text.lower() or "offline")
 
     def test_logged_in_serves_static_admin(self):
         """登录后 /admin：legacy 走 static 骨架；vue 走 dist SPA（批次 D）。
@@ -152,13 +162,18 @@ class TestAdminStaticHttp(unittest.TestCase):
 
 class TestAdminGoldenSkeleton(unittest.TestCase):
     def test_external_skeleton_matches_golden_normalized(self):
+        """54.4·D4：admin.html 已改为 Vue 重定向；骨架对照用 admin.html.legacy。"""
         if not GOLDEN.exists():
             self.skipTest("no golden")
         golden = GOLDEN.read_text(encoding="utf-8")
-        ext = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        leg = ADMIN_DIR / "admin.html.legacy"
+        self.assertTrue(leg.is_file(), "admin.html.legacy 须存在")
+        ext = leg.read_text(encoding="utf-8")
+        # 重定向页不参与骨架对照
+        redir = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("/admin", redir)
 
         def body_core(h: str) -> str:
-            # strip head assets / scripts; keep body markup for structure
             h = re.sub(r"<style>.*?</style>", "", h, flags=re.S)
             h = re.sub(r"<link[^>]*>", "", h)
             h = re.sub(r"<script[^>]*>.*?</script>", "", h, flags=re.S)
@@ -167,7 +182,7 @@ class TestAdminGoldenSkeleton(unittest.TestCase):
             return h
 
         g, e = body_core(golden), body_core(ext)
-        self.assertEqual(g, e, "admin body skeleton differs from golden after asset strip")
+        self.assertEqual(g, e, "admin.legacy body skeleton differs from golden after asset strip")
 
 
 class TestAdminToolbarSticky(unittest.TestCase):

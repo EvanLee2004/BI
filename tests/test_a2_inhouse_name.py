@@ -57,7 +57,11 @@ class TestSalesPoolExcludesInhouse(unittest.TestCase):
         self.assertIn("销售真", names)
         self.assertNotIn("假销售只在译员表", names)
         # SQL 源码守卫
-        src = (ROOT / "src" / "db.py").read_text(encoding="utf-8")
+        # 54.4·E：db 包实现在 db/_impl.py
+        src_path = ROOT / "src" / "db" / "_impl.py"
+        if not src_path.is_file():
+            src_path = ROOT / "src" / "db.py"
+        src = src_path.read_text(encoding="utf-8")
         self.assertNotIn("SELECT 销售 FROM std_内部译员", src)
 
 

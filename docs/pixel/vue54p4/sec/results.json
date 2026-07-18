@@ -1,0 +1,19 @@
+{
+  "login": 200,
+  "accounts": 200,
+  "settings": 200,
+  "manual": 200,
+  "logout": "ok",
+  "after_logout": 401,
+  "app_js": 410,
+  "static_admin": {
+    "status": 200,
+    "to_admin": true
+  },
+  "bu_login": "ok",
+  "F3": {
+    "vm_cockpit": 403,
+    "accounts": 401,
+    "detail": 401
+  }
+}

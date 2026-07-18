@@ -126,7 +126,7 @@ class TestCaliberApiOffline54(unittest.TestCase):
     """任务书54·A：口径配置 HTTP 面下线；引擎内核仍可用。"""
 
     def test_admin_html_no_caliber_card(self):
-        html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
         self.assertNotIn("setCardCaliber", html)
         self.assertNotIn("口径配置", html)
         self.assertNotIn("caliberKey", html)

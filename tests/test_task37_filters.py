@@ -200,7 +200,8 @@ class TestDetailFiltersHttp(unittest.TestCase):
         self.assertIn("openColFilter", js)
         # 导出带同一套 detailBaseParams
         self.assertIn("detailBaseParams()", js)
-        html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+        # 54.4·D4：完整骨架在 admin.html.legacy
+        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
         self.assertIn("clearColFilters", html)
         self.assertIn("colFilterPop", html)
 

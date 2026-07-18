@@ -70,10 +70,17 @@ def register(app, d):
 
     @app.get("/admin/app.js")
     def admin_app_js(request: Request):
-        """管理端应用 JS：磁盘 static/admin/admin.js 与抽取常量一致，
-        仅将 __MANUAL_ITEMS__ 换成当前 config 手填项 JSON（纯注入、不算账）。
-        legacy 主路径；vue 模式下仍保留供对照/回退。"""
-
+        """管理端应用 JS。
+        54.4·D4：vue 模式主 UI 已迁 Vue SPA → 本入口 410（禁止再当业务主路径）。
+        legacy 模式仍注入 __MANUAL_ITEMS__ 供 static 对照。
+        """
+        if _admin_is_vue():
+            return Response(
+                "/* admin.js offline: use Vue /admin */\n",
+                status_code=410,
+                media_type="application/javascript; charset=utf-8",
+                headers={"Cache-Control": "no-store"},
+            )
         js_path = STATIC_DIR / "admin" / "admin.js"
         if not js_path.is_file():
             raise HTTPException(status_code=404, detail="admin.js missing")

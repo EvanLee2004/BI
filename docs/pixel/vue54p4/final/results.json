@@ -1,0 +1,42 @@
+{
+  "perf": {
+    "scroll_ms": 2313.5,
+    "longTasks": [],
+    "longTaskCount": 0,
+    "maxLongTask": 0,
+    "echartsIds": 4,
+    "canvases": 0,
+    "svgs": 2,
+    "starAnim": "none",
+    "paints": [
+      {
+        "n": "first-paint",
+        "s": 28
+      },
+      {
+        "n": "first-contentful-paint",
+        "s": 152
+      }
+    ]
+  },
+  "C02": "select:2026年Q1",
+  "C03": "opened",
+  "C07_light": "ok",
+  "A3_375": "ok",
+  "B08": "side",
+  "C09_query": "ok",
+  "console_errors": [],
+  "BU_url": "http://127.0.0.1:8018/bu/%E8%90%A5%E9%94%80",
+  "A4_BU": "ok",
+  "admin_console": "http://127.0.0.1:8018/admin/login",
+  "admin_settings": "partial",
+  "admin_manual": "ok",
+  "admin_refresh_btn": "not_found",
+  "F2_logout_detail_status": 401,
+  "F3_BU_matrix": {
+    "vm_cockpit": 403,
+    "detail": 401,
+    "accounts": 401,
+    "admin": 200
+  }
+}

@@ -194,7 +194,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("parentElement!==document.body", open_fn)
 
     def test_settings_ui_has_switch(self):
-        html = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
         self.assertIn("sOverallSalary", html)
         self.assertIn("整体账号可见工资明细", html)
 

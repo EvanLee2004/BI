@@ -233,7 +233,7 @@ class TestExceptionEndpoints(unittest.TestCase):
             )
             for t in ("异常处理", "总览", "历史快照", "配置变更"):
                 self.assertIn(t, layout)
-            admin_js = (ROOT / "static" / "admin" / "admin.html").read_text(encoding="utf-8")
+            admin_js = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
             self.assertIn("异常处理", admin_js)
             self.assertNotIn(">复核<", admin_js)
             return

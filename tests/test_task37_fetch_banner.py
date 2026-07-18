@@ -111,7 +111,7 @@ class TestFetchFallbackBanners(unittest.TestCase):
         self.assertNotIn("paintFetchBanners", js)
         self.assertNotIn("fetch_banners", js)
         self.assertIn("paintFetchBanners", (ROOT / "static/admin/admin.js").read_text(encoding="utf-8"))
-        self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html").read_text(encoding="utf-8"))
+        self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html.legacy").read_text(encoding="utf-8"))
 
 
 class TestFutureDateWarnings(unittest.TestCase):

@@ -193,7 +193,7 @@ class TestEExpenseTrend(unittest.TestCase):
 
 class TestFFetchBannerViewerGone(unittest.TestCase):
     def test_admin_keeps_banner_hook(self):
-        self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html").read_text(encoding="utf-8"))
+        self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html.legacy").read_text(encoding="utf-8"))
         self.assertIn("paintFetchBanners", (ROOT / "static/admin/admin.js").read_text(encoding="utf-8"))
 
 
