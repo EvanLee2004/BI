@@ -62,9 +62,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
         v-if="drawerOpen && detail"
         class="drawer open"
         aria-hidden="false"
-        @click.self="closeDrawer"
       >
-        <div class="drawer-panel">
+        <div class="drawer-mask" data-testid="drawer-mask" @click="closeDrawer"></div>
+        <div class="drawer-panel" data-testid="drawer-panel">
           <div class="drawer-h">
             <b id="drawerTitle">{{ detail.title }}</b>
             <button type="button" class="ghost mini" data-close @click="closeDrawer">关闭</button>

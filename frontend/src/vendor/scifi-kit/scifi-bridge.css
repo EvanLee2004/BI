@@ -251,7 +251,8 @@ html.theme-light .sec-t {
   font-size: 18px;
 }
 .scifi-panel .drawer-panel {
-  background: var(--dsdk-panel-bg);
+  /* 54.11 R-03：禁止半透明 panel-bg 透字；用近实色 token */
+  background: var(--overlay-panel-solid, var(--panel-solid, #0b1222));
   border: 1px solid var(--dsdk-panel-border-default);
   box-shadow: var(--scifi-glow);
 }
@@ -291,10 +292,35 @@ body > .drawer .pl-drow > span:last-child {
   color: var(--mut, #93a1c0);
 }
 .drawer-panel {
-  background: var(--dsdk-panel-bg, var(--panel-solid, #0d1526)) !important;
+  background: var(--overlay-panel-solid, var(--panel-solid, #0b1222)) !important;
   border-left: 1px solid var(--dsdk-panel-border-default, var(--line)) !important;
   color: var(--ink);
   width: min(460px, 94vw);
+}
+
+/* 54.11 R-03 全局弹层：遮罩 + 内容近实色（抽屉/弹窗/下拉/tooltip） */
+.drawer-mask,
+.rkm-mask,
+#rkModal {
+  background: var(--overlay-mask, rgba(0, 0, 0, 0.45)) !important;
+}
+.rkm,
+.rkm-box,
+.pp-panel {
+  background: var(--overlay-panel, rgba(8, 14, 28, 0.97)) !important;
+  color: var(--ink, #eaf1ff);
+}
+html.theme-light .rkm,
+html.theme-light .rkm-box,
+html.theme-light .pp-panel,
+html[data-theme='light'] .rkm,
+html[data-theme='light'] .rkm-box,
+html[data-theme='light'] .pp-panel,
+body.theme-light .rkm,
+body.theme-light .rkm-box,
+body.theme-light .pp-panel {
+  background: var(--overlay-panel, rgba(255, 255, 255, 0.98)) !important;
+  color: var(--ink, #15202b);
 }
 .drawer-h b {
   color: var(--ink);

@@ -31,8 +31,9 @@
   --el-border-color-light: rgba(125, 211, 252, 0.12);
   --el-fill-color-blank: var(--admin-panel2);
   --el-bg-color: var(--admin-panel);
-  --el-bg-color-overlay: var(--admin-panel2);
-  --el-mask-color: rgba(5, 11, 20, 0.65);
+  /* 54.11 R-03：EP 遮罩 0.4~0.5；overlay 近实色 */
+  --el-bg-color-overlay: #151e30;
+  --el-mask-color: rgba(0, 0, 0, 0.45);
   min-height: 100vh;
   background:
     radial-gradient(1200px 600px at 10% -10%, #1a1040 0%, transparent 55%),
@@ -272,4 +273,28 @@ html.theme-light .admin-dirty-bar {
   align-items: center;
   justify-content: center;
   background: var(--admin-bg, #0f172a);
+}
+
+/* 54.11 R-03：Element Plus 下拉/浮层近实色 */
+.admin-root .el-popper,
+.admin-root .el-select__popper,
+.admin-root .el-dropdown-menu,
+.admin-root .el-picker-panel,
+.admin-root .el-tooltip__popper {
+  background: var(--el-bg-color-overlay, #151e30) !important;
+  border-color: var(--admin-line) !important;
+}
+.admin-root .el-overlay {
+  background-color: var(--el-mask-color, rgba(0, 0, 0, 0.45)) !important;
+}
+.admin-root .el-drawer,
+.admin-root .el-dialog {
+  background: var(--admin-panel2, #151e30) !important;
+}
+html.theme-light .admin-root .el-popper,
+html.theme-light .admin-root .el-select__popper,
+html.theme-light .admin-root .el-dropdown-menu,
+html.theme-light .admin-root .el-drawer,
+html.theme-light .admin-root .el-dialog {
+  background: #ffffff !important;
 }
