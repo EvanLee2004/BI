@@ -265,7 +265,12 @@ const curTable = computed(() => {
     <header class="admin-bar">
       <b>管理员控制台</b>
       <span class="ver-pill" title="版本" @click="showGroup('cfg')">{{ versionLabel }}</span>
-      <span class="admin-pill" :class="pillClass(health?.result)" @click="healthOpen = !healthOpen">{{ healthLabel }}</span>
+      <span
+        class="admin-pill"
+        :class="pillClass(health?.result)"
+        :title="(healthRunReasons[0] || healthWarnings[0] || healthLabel)"
+        @click="healthOpen = !healthOpen"
+      >{{ healthLabel }}</span>
       <el-button type="primary" :loading="refreshing" @click="doRefresh">{{ refreshing ? '更新中…' : '更新数据' }}</el-button>
       <span class="muted">{{ refreshMsg }}</span>
       <span style="margin-left: auto" />

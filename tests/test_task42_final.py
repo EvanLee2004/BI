@@ -82,10 +82,10 @@ class TestTask42Final(unittest.TestCase):
         # 任务书46·7 / 54.10：VERSION 为产品预发布号；changelog 最新条非空
         v = version.read_version()
         self.assertTrue(
-            v.endswith("-beta") or v.endswith("-rc1") or "rc" in v.lower() or v >= "1.6.0",
+            v.endswith("-beta") or "rc" in v.lower() or v >= "1.6.0",
             v,
         )
-        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta", "2.0.0-rc1"))
+        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta", "2.0.0-rc1", "2.0.0-rc2"))
         self.assertTrue(version.PRODUCT_CHANGELOG)
         self.assertTrue(version.PRODUCT_CHANGELOG[0].get("items"))
         blob = " ".join(str(it) for it in version.PRODUCT_CHANGELOG[0]["items"])
