@@ -1,5 +1,7 @@
 <script setup lang="ts">
-/** 期间费用构成：环形 + 构成四态。54.2：饼周无标签、图例横排底部（色点+名+金额）。 */
+/** 期间费用构成：环形 + 构成四态。54.2：饼周无标签、图例横排底部（色点+名+金额）。
+ *  54.14 R-20：center.total_disp 已含「万」，禁止再拼单位（整体页/BU 页共用本组件）。
+ */
 import { computed, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
@@ -11,6 +13,8 @@ import {
   pieEmphasis,
   SERIES_PALETTE,
 } from '../chart-fx'
+import { withWanUnit } from '../utils/disp'
+import { themeMode } from '../utils/theme'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -44,16 +48,20 @@ const legendColors = computed(() =>
 )
 
 const option = computed(() => {
+  // 依赖主题 tick：亮暗切换后 option 重算，graphic 文字色即时更新（R-21）
+  void themeMode.value
   const data = items.value
   const c = center.value
   const ink = chartTextColor()
   const mut = chartMutedColor()
+  // VM 约定：donut_center.total_disp 已含「万」整串；扇区 value_disp 为裸数字串
+  const centerText = withWanUnit(c.total_disp || '')
   return {
     tooltip: {
       trigger: 'item',
       formatter: (p: { dataIndex: number; name: string }) => {
         const it = data[p.dataIndex]
-        return `${p.name}<br/>${it?.value_disp || '—'}万（${it?.pct_disp || '—'}）`
+        return `${p.name}<br/>${withWanUnit(it?.value_disp || '—')}（${it?.pct_disp || '—'}）`
       },
     },
     color: SERIES_PALETTE,
@@ -102,7 +110,7 @@ const option = computed(() => {
           {
             type: 'text',
             style: {
-              text: c.total_disp ? `${c.total_disp}万` : '',
+              text: centerText,
               textAlign: 'center',
               fill: ink,
               fontSize: 18,
@@ -138,7 +146,7 @@ const option = computed(() => {
         <span v-for="(it, i) in items" :key="it.name" class="ev-legend-item">
           <i :style="{ background: legendColors[i], color: legendColors[i] }" />
           {{ it.name }}
-          <em>{{ it.value_disp }}万</em>
+          <em>{{ withWanUnit(it.value_disp) }}</em>
         </span>
       </div>
     </div>

@@ -1,6 +1,12 @@
 /**
  * 任务书51·B8：与后端 pydantic CockpitVM / BUPageVM 等逐字段对齐的 TypeScript 契约。
  * 金额/比率一律 *_disp 显示串；前端零金额运算。
+ *
+ * 54.14 R-20 · disp 单位约定（防「万万」）：
+ * - **整串含「万」**：donut_center.total_disp、views.total_disp、amount_disp/amt_disp、
+ *   排名 revenue_disp、KPI feet peak/ar、部分 subs → 前端原样展示。
+ * - **裸数字串**：KPI value_disp(+value_unit)、donut 扇区 value_disp、图表序列 *_disp、
+ *   回款摘要 orders/receipts/gap/target/budget_month_disp → 需要时用 withWanUnit() 幂等拼接。
  */
 
 export type AxisTick = { value: number; label: string }
