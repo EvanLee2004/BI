@@ -123,6 +123,7 @@ tests/test_task54p14_r21_r26.py
 tests/test_task54p12_export_consistency.py
 tests/test_task54p15_chart_whitelist.py
 tests/test_task55_friendly_error.py
+tests/test_task56_r45_ledger_caliber.py
 "
 run_one() {
   f="$1"

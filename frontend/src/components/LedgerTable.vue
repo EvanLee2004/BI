@@ -21,6 +21,9 @@ const monthFrom = ref('')
 const monthTo = ref('')
 const filterQ = ref('')
 const colFilter = ref('')
+/** R-45：默认期间费用口径；开=台账全量 */
+const showAll = ref(false)
+const caliberNote = ref('仅期间费用大类（与上方图表口径一致；已剔成本/非利润表）')
 
 const info = computed(() => {
   if (loading.value) return '加载中…'
@@ -47,6 +50,7 @@ async function load() {
         JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }),
       )
     }
+    params.set('show_all', showAll.value ? '1' : '0')
     const r = await fetch('/api/v1/vm/ledger?' + params.toString(), { credentials: 'same-origin' })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
@@ -56,6 +60,7 @@ async function load() {
     columns.value = d.columns || []
     rows.value = d.rows || []
     total.value = d.total || 0
+    if (d.caliber_note) caliberNote.value = String(d.caliber_note)
     const forbidden = new Set(d.forbidden || ['定位键', '收单月份', '归属月', '提单人', '提单人部门', '配音费合同号'])
     for (const c of columns.value) {
       if (forbidden.has(c)) throw new Error('接口泄漏隐藏列：' + c)
@@ -95,6 +100,7 @@ async function exportXlsx() {
   if (colFilter.value && filterQ.value.trim()) {
     params.set('filters', JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }))
   }
+  params.set('show_all', showAll.value ? '1' : '0')
   const r = await fetch('/api/v1/vm/ledger/export?' + params.toString(), { credentials: 'same-origin' })
   if (!r.ok) {
     alert('导出失败')
@@ -103,7 +109,7 @@ async function exportXlsx() {
   const blob = await r.blob()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = '费用明细_白名单.xlsx'
+  a.download = showAll.value ? '费用明细_台账全量.xlsx' : '费用明细_期间费用.xlsx'
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -134,10 +140,12 @@ onMounted(() => load())
 </script>
 <template>
   <SciFiPanel title="费用明细" :tag="info">
-    <p class="ledger-caliber-note" data-testid="ledger-caliber-note">
-      表内为台账全部记录（含成本/非利润表类）；上方费用折线与热力图仅计期间费用大类。
-    </p>
+    <p class="ledger-caliber-note" data-testid="ledger-caliber-note">{{ caliberNote }}</p>
     <div class="ledger-tools" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; align-items: center">
+      <label class="ledger-show-all" data-testid="ledger-show-all">
+        <input type="checkbox" v-model="showAll" @change="applyFilter" />
+        显示全部台账记录
+      </label>
       <label
         >月起
         <input v-model="monthFrom" placeholder="2026-01" style="width: 90px" @change="applyFilter"

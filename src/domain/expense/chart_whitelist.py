@@ -44,3 +44,48 @@ def filter_expense_monthly_raw_for_charts(raw: dict | None, cfg: dict | None) ->
         "months": months_out,
         "chart_whitelist_note": "仅期间费用大类（已剔成本/非利润表）",
     }
+
+
+def merge_ledger_caliber_filters(filters, cfg: dict | None, *, show_all: bool):
+    """看端明细默认口径：仅期间费用白名单大类（与图表一致）。
+
+    show_all=True → 原样返回 filters（台账全量，仍受列白名单/隐工资约束）。
+    show_all=False → 在 filters 上叠加 对应报表大类 IN 白名单（与用户筛选项 AND）。
+    返回可直接传给 db.query_detail 的 filters（dict 或 JSON 字符串，与入参同型）。
+    """
+    if show_all:
+        return filters
+    import json as _json
+
+    cats = period_expense_chart_categories(cfg)
+    if not cats:
+        return filters
+    # parse
+    fdict = {}
+    if filters:
+        if isinstance(filters, str):
+            s = filters.strip()
+            if s:
+                try:
+                    raw = _json.loads(s)
+                    if isinstance(raw, dict):
+                        fdict = dict(raw)
+                except (TypeError, ValueError, _json.JSONDecodeError):
+                    fdict = {}
+        elif isinstance(filters, dict):
+            fdict = dict(filters)
+    existing = fdict.get("对应报表大类") if isinstance(fdict.get("对应报表大类"), dict) else {}
+    # 若用户已 in 筛选，取交集；否则用白名单全集
+    user_in = existing.get("in") or existing.get("values")
+    if user_in is not None:
+        if isinstance(user_in, str):
+            user_in = [user_in]
+        allowed = set(cats)
+        inter = [str(x) for x in user_in if str(x) in allowed]
+        fdict["对应报表大类"] = {**existing, "in": inter or ["__no_match__"]}
+    else:
+        fdict["对应报表大类"] = {**existing, "in": list(cats)}
+    # preserve type
+    if isinstance(filters, str) or filters is None:
+        return _json.dumps(fdict, ensure_ascii=False)
+    return fdict

@@ -7,7 +7,7 @@ from profit import (
 )
 from render import render_donut, render_expense_trend, render_expense_views, render_bu_expense_views
 
-from .chart_whitelist import filter_expense_monthly_raw_for_charts, period_expense_chart_categories
+from .chart_whitelist import filter_expense_monthly_raw_for_charts, period_expense_chart_categories, merge_ledger_caliber_filters
 
 __all__ = [
     "compute_expense_monthly_by_cat",
@@ -20,4 +20,5 @@ __all__ = [
     "render_bu_expense_views",
     "filter_expense_monthly_raw_for_charts",
     "period_expense_chart_categories",
+    "merge_ledger_caliber_filters",
 ]

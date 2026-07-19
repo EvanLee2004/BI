@@ -145,35 +145,6 @@ def _scan_ledger_rows(rows, year: int, lcols, known_cats) -> tuple[list[int], li
     return bad_date, bad_amt, bad_cat
 
 
-def _scan_ledger_rows(rows, year, lcols, known_cats) -> tuple[list[int], list[int], dict]:
-    import periods
-
-    c_amt, c_cat = lcols["含税金额"], lcols["对应报表大类"]
-    c_d, c_m = lcols["收单日期"], lcols["收单月份"]
-    bad_date: list[int] = []
-    bad_amt: list[int] = []
-    bad_cat: dict[str, list[int]] = {}
-    for rowno, row in enumerate(rows[1:], start=2):
-        if all(v is None for v in row):
-            continue
-        amt_raw = row[c_amt] if len(row) > c_amt else None
-        if loaders.amount_parse_fails(amt_raw):
-            bad_amt.append(rowno)
-        has_amount = loaders.parse_amount(amt_raw) != 0.0
-        if not has_amount:
-            continue
-        if periods.ledger_row_date(row, year, lcols) is None:
-            rawd = row[c_d] if len(row) > c_d else None
-            rawm = row[c_m] if len(row) > c_m else None
-            if (rawd is not None and str(rawd).strip()) or (rawm is not None and str(rawm).strip()):
-                bad_date.append(rowno)
-        cat_raw = row[c_cat] if len(row) > c_cat else None
-        cat = str(cat_raw).strip() if cat_raw not in (None, "") else ""
-        if cat and cat not in known_cats:
-            bad_cat.setdefault(cat, []).append(rowno)
-    return bad_date, bad_amt, bad_cat
-
-
 def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:
     src = "收单台账"
     if not path.exists():
