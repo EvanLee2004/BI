@@ -46,6 +46,41 @@ def filter_expense_monthly_raw_for_charts(raw: dict | None, cfg: dict | None) ->
     }
 
 
+def _parse_filters_dict(filters) -> dict:
+    """filters（dict 或 JSON 字符串）→ dict；非法→{}。"""
+    import json as _json
+
+    if not filters:
+        return {}
+    if isinstance(filters, dict):
+        return dict(filters)
+    if not isinstance(filters, str):
+        return {}
+    s = filters.strip()
+    if not s:
+        return {}
+    try:
+        raw = _json.loads(s)
+    except (TypeError, ValueError, _json.JSONDecodeError):
+        return {}
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
+def _apply_caliber_in_filter(fdict: dict, cats: list[str]) -> dict:
+    """叠加 对应报表大类 IN 白名单；与用户 in 取交集。"""
+    existing = fdict.get("对应报表大类") if isinstance(fdict.get("对应报表大类"), dict) else {}
+    user_in = existing.get("in") or existing.get("values")
+    if user_in is None:
+        fdict["对应报表大类"] = {**existing, "in": list(cats)}
+        return fdict
+    if isinstance(user_in, str):
+        user_in = [user_in]
+    allowed = set(cats)
+    inter = [str(x) for x in user_in if str(x) in allowed]
+    fdict["对应报表大类"] = {**existing, "in": inter or ["__no_match__"]}
+    return fdict
+
+
 def merge_ledger_caliber_filters(filters, cfg: dict | None, *, show_all: bool):
     """看端明细默认口径：仅期间费用白名单大类（与图表一致）。
 
@@ -60,32 +95,7 @@ def merge_ledger_caliber_filters(filters, cfg: dict | None, *, show_all: bool):
     cats = period_expense_chart_categories(cfg)
     if not cats:
         return filters
-    # parse
-    fdict = {}
-    if filters:
-        if isinstance(filters, str):
-            s = filters.strip()
-            if s:
-                try:
-                    raw = _json.loads(s)
-                    if isinstance(raw, dict):
-                        fdict = dict(raw)
-                except (TypeError, ValueError, _json.JSONDecodeError):
-                    fdict = {}
-        elif isinstance(filters, dict):
-            fdict = dict(filters)
-    existing = fdict.get("对应报表大类") if isinstance(fdict.get("对应报表大类"), dict) else {}
-    # 若用户已 in 筛选，取交集；否则用白名单全集
-    user_in = existing.get("in") or existing.get("values")
-    if user_in is not None:
-        if isinstance(user_in, str):
-            user_in = [user_in]
-        allowed = set(cats)
-        inter = [str(x) for x in user_in if str(x) in allowed]
-        fdict["对应报表大类"] = {**existing, "in": inter or ["__no_match__"]}
-    else:
-        fdict["对应报表大类"] = {**existing, "in": list(cats)}
-    # preserve type
+    fdict = _apply_caliber_in_filter(_parse_filters_dict(filters), cats)
     if isinstance(filters, str) or filters is None:
         return _json.dumps(fdict, ensure_ascii=False)
     return fdict
