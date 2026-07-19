@@ -49,7 +49,7 @@ DRAWER_HTML = tpl.load("partials/drawer.html")
 _PARTICLE_ITEM = tpl.load("partials/particle_item.html")
 _PARTICLES_WRAP = tpl.load("partials/particles_wrap.html")
 PARTICLES_HTML = _PARTICLES_WRAP.format(
-    items="".join(_PARTICLE_ITEM.format(l=l, s=s, d=d, dl=dl, c=c) for l, s, d, dl, c in _PARTICLES)
+    items="".join(_PARTICLE_ITEM.format(l=left, s=s, d=d, dl=dl, c=c) for left, s, d, dl, c in _PARTICLES)
 )
 
 # 看的人自改密码（v8.0）：弹窗文案必须含「密码管理员可见，请勿使用你在其他地方用的密码」

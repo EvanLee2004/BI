@@ -45,17 +45,9 @@ def register(app, d):
 
         return _srv.recompute(cfg, root)
 
-    get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
-    save_settings = d.save_settings
-    read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
-    read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
     _frontend_mode = getattr(d, "frontend_mode", None)
     _vue_index = getattr(d, "vue_index", None)
 

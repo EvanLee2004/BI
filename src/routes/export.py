@@ -49,17 +49,9 @@ def register(app, d):
 
         return _srv.recompute(cfg, root)
 
-    get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
-    save_settings = d.save_settings
-    read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
-    read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     # 截图走 server._screenshot_png（请求时解析，便于测试打桩 server._screenshot_png）
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
 
     def _screenshot_png(html, blk="", width=1440):
         import server as _srv
@@ -96,7 +88,7 @@ def register(app, d):
         except Exception as e:  # noqa: BLE001 chromium 未装/超时等
             raise HTTPException(
                 status_code=503, detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium"
-            )
+            ) from e
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
@@ -129,7 +121,7 @@ def register(app, d):
         except Exception as e:  # noqa: BLE001
             raise HTTPException(
                 status_code=503, detail=f"截图失败（{type(e).__name__}: {e}）；部署机需先 playwright install chromium"
-            )
+            ) from e
         finally:
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")

@@ -47,17 +47,9 @@ def register(app, d):
 
         return _srv.recompute(cfg, root)
 
-    get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
-    save_settings = d.save_settings
-    read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
-    read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
 
     def _require(request: Request) -> str:
         user = _user(request)
@@ -84,7 +76,7 @@ def register(app, d):
                 payload.get("类型", "改值"),
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
         recompute(cfg, root)
@@ -122,7 +114,7 @@ def register(app, d):
         try:
             db.rearm_adjustment(conn, adj_id)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
         recompute(cfg, root)
@@ -162,7 +154,7 @@ def register(app, d):
         try:
             金额 = float(payload.get("金额"))
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="金额须为数字")
+            raise HTTPException(status_code=400, detail="金额须为数字") from None
         scope = str(payload.get("范围") or "全公司").strip() or "全公司"
         conn = _conn()
         try:
@@ -192,7 +184,7 @@ def register(app, d):
                 try:
                     金额 = float((it or {}).get("金额"))
                 except (TypeError, ValueError):
-                    raise HTTPException(status_code=400, detail=f"金额须为数字：{item}")
+                    raise HTTPException(status_code=400, detail=f"金额须为数字：{item}") from None
                 sc = str((it or {}).get("范围") or default_scope).strip() or "全公司"
                 db.set_manual(conn, month, item, 金额, user, 范围=sc)
                 n += 1
@@ -210,7 +202,7 @@ def register(app, d):
             y, m = int(month[:4]), int(month[5:7])
             assert 1 <= m <= 12 and month[4] == "-"
         except (ValueError, AssertionError, IndexError):
-            raise HTTPException(status_code=400, detail="归属月格式须为 YYYY-MM")
+            raise HTTPException(status_code=400, detail="归属月格式须为 YYYY-MM") from None
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         bu_names = [b["name"] for b in bucfg["bus"]]
         # 陆总0714：该月没填 → 回显沿用的最近填写月比例（inherited_from 标来源；保存即固化到本月）
@@ -274,7 +266,7 @@ def register(app, d):
             try:
                 fv = float(v)
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail=f"比例须为数字：{b}")
+                raise HTTPException(status_code=400, detail=f"比例须为数字：{b}") from None
             if not (0 <= fv <= 100):
                 raise HTTPException(status_code=400, detail=f"比例须在 0~100：{b}")
             vals[b] = round(fv, 1)
@@ -345,7 +337,7 @@ def register(app, d):
             try:
                 fv = float(v)
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail=f"去税率须为数字：{cat}")
+                raise HTTPException(status_code=400, detail=f"去税率须为数字：{cat}") from None
             if not (0 <= fv <= 100):
                 raise HTTPException(status_code=400, detail=f"去税率须在 0~100：{cat}")
             vals[cat] = round(fv, 2)
@@ -383,7 +375,7 @@ def register(app, d):
         try:
             金额 = float(payload.get("金额"))
         except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="金额须为数字")
+            raise HTTPException(status_code=400, detail="金额须为数字") from None
         scope = str(payload.get("范围", "全公司")).strip() or "全公司"
         if metric == "费用年预算" and scope == "全公司":
             raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
@@ -417,7 +409,7 @@ def register(app, d):
                 try:
                     金额 = float(it.get("金额"))
                 except (TypeError, ValueError):
-                    raise HTTPException(status_code=400, detail=f"金额须为数字：{metric}")
+                    raise HTTPException(status_code=400, detail=f"金额须为数字：{metric}") from None
                 scope = str(it.get("范围", "全公司")).strip() or "全公司"
                 if metric == "费用年预算" and scope == "全公司":
                     raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")

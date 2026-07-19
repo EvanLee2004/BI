@@ -585,7 +585,7 @@ def query_detail(
     money_cols = set(money.STD_MONEY_COLS.get(table) or ())
     out_rows = []
     for r in rows:
-        d = dict(zip(cols, r))
+        d = dict(zip(cols, r, strict=False))
         for mc in money_cols:
             if mc in d and d[mc] is not None:
                 d[mc] = money.fen_to_yuan(d[mc])
@@ -738,7 +738,7 @@ def list_config_changes(conn: sqlite3.Connection, category: str | None = None, l
         rows = conn.execute(
             f"SELECT {','.join(cols)} FROM manual_配置变更 ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r, strict=False)) for r in rows]
 
 
 def exceptions_summary(conn: sqlite3.Connection) -> dict:
@@ -890,7 +890,7 @@ def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
     """调整列表。金额字段的 原值/新值 库内为分文本 → 返回**元**字符串（与改造前管理端元/元一致）。"""
     cols = ["id", "创建时间", "经手人", "目标表", "定位键", "字段", "原值", "新值", "原因", "类型", "状态"]
     rows = conn.execute(f"SELECT {','.join(cols)} FROM adj_调整记录 ORDER BY id DESC").fetchall()
-    out = [dict(zip(cols, r)) for r in rows]
+    out = [dict(zip(cols, r, strict=False)) for r in rows]
     for d in out:
         if not money.is_amount_field(str(d.get("字段") or "")):
             continue
@@ -1108,7 +1108,7 @@ def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str =
             ).fetchall()
         else:
             rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_手填 ORDER BY 归属月,项目").fetchall()
-        out = [dict(zip(cols, r)) for r in rows]
+        out = [dict(zip(cols, r, strict=False)) for r in rows]
     else:
         cols = ["归属月", "项目", "金额", "填写时间", "经手人", "范围"]
         try:
@@ -1125,7 +1125,7 @@ def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str =
                 ).fetchall()
         except sqlite3.OperationalError:
             return []
-        out = [dict(zip(cols, r)) for r in rows]
+        out = [dict(zip(cols, r, strict=False)) for r in rows]
     for d in out:
         if d.get("金额") is not None:
             d["金额"] = money.fen_to_yuan(d["金额"])
@@ -1196,7 +1196,7 @@ def get_budget(conn: sqlite3.Connection, year: str | None = None) -> list[dict]:
         ).fetchall()
     else:
         rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_预算 ORDER BY 年份,指标").fetchall()
-    out = [dict(zip(cols, r)) for r in rows]
+    out = [dict(zip(cols, r, strict=False)) for r in rows]
     for d in out:
         if d.get("金额") is not None:
             # 管理端：金额→元；比率→百分数

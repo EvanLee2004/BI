@@ -8,13 +8,11 @@
 from __future__ import annotations
 
 import datetime
-import json
 import os
 from pathlib import Path
 
 import columns
 import db
-import schema
 from db_write import (
     db_file_size_bytes,
     disk_free_ratio,

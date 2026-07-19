@@ -13,7 +13,6 @@ import logging
 import socket
 import urllib.error
 import urllib.request
-from typing import Any
 
 log = logging.getLogger("kanban.notify")
 

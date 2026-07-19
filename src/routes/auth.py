@@ -48,17 +48,9 @@ def register(app, d):
 
         return _srv.recompute(cfg, root)
 
-    get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
-    save_settings = d.save_settings
-    read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
-    read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
     _BU_NAV_TPL = d.BU_NAV_TPL
     _BU_NAV_LINK_TPL = d.BU_NAV_LINK_TPL
 
@@ -225,7 +217,7 @@ def register(app, d):
         try:
             saved = accounts.save_accounts(cfg, root, raw)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         _audit(cfg, root, user, _diff_accounts(old_accs, saved))
         rows = [accounts.public_row(a, with_password=True) for a in saved]
         return {"accounts": rows, "count": len(rows), "note": "已保存", "master_account": accounts.MASTER_ACCOUNT}

@@ -339,7 +339,7 @@ def _receipt_insight_totals(
     bud = ""
     rb = (budget or {}).get("receipt") if budget else None
     ob = (budget or {}).get("order") if budget else None
-    for key, title, b in (("receipt", "回款年目标", rb), ("order", "下单年目标", ob)):
+    for _key, title, b in (("receipt", "回款年目标", rb), ("order", "下单年目标", ob)):
         if not (b and b.get("target")):
             continue
         pct = b.get("pct")

@@ -358,7 +358,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         try:
             keep = int(payload.get("backup_keep_days"))
         except (TypeError, ValueError):
-            raise ValueError("备份保留天数须为整数")
+            raise ValueError("备份保留天数须为整数") from None
     else:
         keep = int(cfg.get("backup_keep_days", 30))
     if not (1 <= keep <= 365):
@@ -392,7 +392,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         try:
             rkd = int(payload.get("run_log_keep_days"))
         except (TypeError, ValueError):
-            raise ValueError("运行日志保留天数须为整数")
+            raise ValueError("运行日志保留天数须为整数") from None
         if not (30 <= rkd <= 3650):
             raise ValueError("运行日志保留天数须在 30~3650 之间")
         cfg["run_log_keep_days"] = rkd
@@ -401,7 +401,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         try:
             dfr = float(payload.get("disk_free_min_ratio"))
         except (TypeError, ValueError):
-            raise ValueError("磁盘告警阈值须为 0~1 小数")
+            raise ValueError("磁盘告警阈值须为 0~1 小数") from None
         if not (0.01 <= dfr <= 0.5):
             raise ValueError("磁盘告警阈值须在 1%~50% 之间")
         cfg["disk_free_min_ratio"] = dfr
@@ -987,7 +987,6 @@ def create_app(cfg, root=None) -> FastAPI:
     def docs_admin_only(request: Request):
         if not _user(request):
             from fastapi import HTTPException
-            from fastapi.responses import RedirectResponse
 
             raise HTTPException(status_code=401, detail="仅管理员可查看 API 文档")
         from fastapi.openapi.docs import get_swagger_ui_html

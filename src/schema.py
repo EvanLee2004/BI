@@ -337,7 +337,7 @@ def _migrate_table_money_cols(conn: sqlite3.Connection, table: str, cols: tuple[
         rid = row[0]
         sets = []
         args = []
-        for c, v in zip(use, row[1:]):
+        for c, v in zip(use, row[1:], strict=False):
             sets.append(f"{c}=?")
             args.append(_yuan_cell_to_fen(v))
         conn.execute(f"UPDATE {table} SET {','.join(sets)} WHERE rowid=?", args + [rid])
@@ -376,7 +376,8 @@ def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:
             except sqlite3.OperationalError:
                 pass
 
-        def _side(text):
+        def _side(text, _cur_fen=cur_fen):
+            # _cur_fen 默认参数绑定本轮循环值，避免闭包晚绑定（B023）
             if text is None:
                 return None, False
             s = str(text).strip()
@@ -389,11 +390,11 @@ def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:
                 iv = int(float(s))
             except (ValueError, TypeError):
                 return s, False
-            # 纯整数：若 iv*100 == cur_fen → 元；若 iv == cur_fen → 已是分
-            if cur_fen is not None:
-                if iv == cur_fen:
+            # 纯整数：若 iv*100 == _cur_fen → 元；若 iv == _cur_fen → 已是分
+            if _cur_fen is not None:
+                if iv == _cur_fen:
                     return s, False  # already fen
-                if iv * 100 == cur_fen:
+                if iv * 100 == _cur_fen:
                     return str(iv * 100), True
             # 无锚：按元转分（存量部署机 adj 均为元）
             return money.yuan_text_to_fen_text(s), True

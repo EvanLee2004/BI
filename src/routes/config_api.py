@@ -49,16 +49,12 @@ def register(app, d):
         return _srv.recompute(cfg, root)
 
     get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
     save_settings = d.save_settings
     read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
     read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
     EDITABLE_SETTINGS = d.EDITABLE_SETTINGS
 
     def _require(request: Request) -> str:
@@ -129,7 +125,7 @@ def register(app, d):
         try:
             saved = bu.save_bu_config(cfg, root, bus, 公共费用分摊启用=new_alloc)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         recompute(cfg, root)
         _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))
         return {
@@ -215,7 +211,7 @@ def register(app, d):
         try:
             res = save_settings(cfg, root, payload)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         chg = []  # C3：设置变更留痕（智云账号只记「已更换」不记值）
         if ("schedule_times" in payload or "schedule_time" in payload) and res["schedule_times"] != old_times:
             chg.append(f"更新时间 {'、'.join(old_times) or '—'}→{'、'.join(res['schedule_times'])}")
@@ -254,7 +250,7 @@ def register(app, d):
         try:
             raw = db_write.export_audit_archive_xlsx(conn, y)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
         fname = f"审计归档_{y}.xlsx"

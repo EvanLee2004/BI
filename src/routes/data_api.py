@@ -8,7 +8,6 @@ from urllib.parse import quote
 from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 
-import accounts
 import charts
 import db
 from app_state import _state
@@ -49,17 +48,9 @@ def register(app, d):
 
         return _srv.recompute(cfg, root)
 
-    get_schedule_times = d.get_schedule_times
-    normalize_schedule_times = d.normalize_schedule_times
-    save_settings = d.save_settings
-    read_zhiyun_creds = d.read_zhiyun_creds
-    save_zhiyun_creds = d.save_zhiyun_creds
-    read_zhiyun_conn = d.read_zhiyun_conn
-    save_zhiyun_conn = d.save_zhiyun_conn
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
-    DEFAULT_PW = d.DEFAULT_PW
 
     def _detail_access(request: Request, table: str, bu: str | None):
         """明细鉴权：任务书51·B4 统一走 authz.resolve_expense_view_access(force_whitelist=False)。"""
@@ -115,7 +106,7 @@ def register(app, d):
                 month_to=month_to,
             )
         except KeyError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
         wb = openpyxl.Workbook()
@@ -197,7 +188,7 @@ def register(app, d):
                     )
                 )
             except KeyError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
 
@@ -238,7 +229,7 @@ def register(app, d):
                     )
                 )
             except KeyError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(status_code=400, detail=str(e)) from e
         finally:
             conn.close()
 
@@ -249,7 +240,7 @@ def register(app, d):
         try:
             return {"table": table, "columns": db.detail_columns_meta(table, audience=audience)}
         except KeyError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     @app.get("/api/daily")
     def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
@@ -264,7 +255,7 @@ def register(app, d):
             s = _dt.date.fromisoformat(start)
             e = _dt.date.fromisoformat(end)
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
         if e < s:
             raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
         if (e - s).days > 366:
@@ -340,7 +331,7 @@ def register(app, d):
             s = _dt.date.fromisoformat(start)
             e = _dt.date.fromisoformat(end)
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
         if e < s:
             raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
         if (e - s).days > 366:
@@ -398,7 +389,7 @@ def register(app, d):
             s = _dt.date.fromisoformat(start)
             e = _dt.date.fromisoformat(end)
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
         if e < s:
             raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
         if (e - s).days > 366:

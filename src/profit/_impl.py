@@ -1163,7 +1163,7 @@ def apply_public_expense_allocation_monthly(
     P = summary.get("periods") or {}
     # 「已配置」与「有金额」分开：配置了比例（哪怕当期公共池为 0）也标注口径，别让读者以为没摊
     has_ratio = any((r or {}).get(bu_name) for r in ratios_by_month.values())
-    for key, p in P.items():
+    for _key, p in P.items():
         rng = p.get("range")
         if not rng:
             continue
