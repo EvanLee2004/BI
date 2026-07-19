@@ -66,6 +66,14 @@
       }
     },
     {
+      "r26_paint_1440": {
+        "w": 1358,
+        "h": 340,
+        "svgN": 70,
+        "hasCanvas": false
+      }
+    },
+    {
       "r26_3cells": [
         {
           "label": "3月",
@@ -89,6 +97,27 @@
           "match_disp": true
         }
       ]
+    },
+    {
+      "r26_paint_light": {
+        "w": 1358,
+        "h": 340,
+        "svgN": 70,
+        "hasCanvas": false
+      }
+    },
+    {
+      "r26_paint_375": {
+        "w": 560,
+        "h": 300,
+        "svgN": 70,
+        "hasCanvas": false,
+        "non_bg_pct": 33.3,
+        "size": [
+          560,
+          301
+        ]
+      }
     },
     {
       "r21_admin": [
@@ -143,6 +172,59 @@
         "neg": {
           "min": -6,
           "max": 100
+        }
+      },
+      "r24_shots": {
+        "over": {
+          "bounds": {
+            "min": 0,
+            "max": 130
+          },
+          "series": [
+            10,
+            120,
+            95,
+            80
+          ],
+          "non_bg_pct": 3.0,
+          "size": [
+            720,
+            360
+          ]
+        },
+        "zero": {
+          "bounds": {
+            "min": 0,
+            "max": 100
+          },
+          "series": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "non_bg_pct": 2.6,
+          "size": [
+            720,
+            360
+          ]
+        },
+        "neg": {
+          "bounds": {
+            "min": -6,
+            "max": 100
+          },
+          "series": [
+            -5,
+            20,
+            40,
+            15
+          ],
+          "non_bg_pct": 3.1,
+          "size": [
+            720,
+            360
+          ]
         }
       }
     }

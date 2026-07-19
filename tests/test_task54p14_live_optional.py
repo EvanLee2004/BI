@@ -366,13 +366,50 @@ class Test54p14LiveOptional(unittest.TestCase):
             # ── R-26 热力图 ──
             heat = page.locator("[data-testid=expense-heatmap]")
             self.assertGreater(heat.count(), 0, "热力图 DOM 必须存在")
-            heat.scroll_into_view_if_needed()
-            page.wait_for_timeout(500)
-            page.screenshot(path=str(out / "heatmap.png"))
+
+            def _wait_heat_painted(timeout_ms: int = 8000) -> dict:
+                """等 ECharts 真正画上（svg path / canvas 非空）。"""
+                page.locator("[data-testid=expense-heatmap]").scroll_into_view_if_needed()
+                page.evaluate("() => window.dispatchEvent(new Event('resize'))")
+                page.wait_for_timeout(200)
+                page.evaluate(
+                    """() => {
+                      // 强制宿主 re-render：主题事件会 dispose+setOption
+                      window.dispatchEvent(new CustomEvent('kanban-theme-change', {
+                        detail: { light: document.documentElement.classList.contains('theme-light') }
+                      }));
+                    }"""
+                )
+                page.wait_for_function(
+                    """() => {
+                      const root = document.querySelector('[data-testid=expense-heatmap]');
+                      if (!root) return false;
+                      const svg = root.querySelectorAll('svg path, svg rect').length;
+                      const canvas = root.querySelector('canvas');
+                      if (svg >= 4) return true;
+                      if (canvas && canvas.width > 10 && canvas.height > 10) return true;
+                      return false;
+                    }""",
+                    timeout=timeout_ms,
+                )
+                return page.evaluate(
+                    """() => {
+                      const root = document.querySelector('[data-testid=expense-heatmap]');
+                      const r = root.getBoundingClientRect();
+                      return {
+                        w: r.width, h: r.height,
+                        svgN: root.querySelectorAll('svg path, svg rect').length,
+                        hasCanvas: !!root.querySelector('canvas'),
+                      };
+                    }"""
+                )
+
+            paint0 = _wait_heat_painted()
+            self.assertGreater(paint0["h"], 100, paint0)
+            heat.screenshot(path=str(out / "heatmap.png"))
+            report["steps"].append({"r26_paint_1440": paint0})
 
             # 拉 VM 做 3 格对账（同源 buildExpenseHeatPack）
-            cookies = page.context.cookies()
-            # fetch with page
             vm = page.evaluate(
                 """async () => {
                   const r = await fetch('/api/v1/vm/cockpit', { credentials: 'same-origin' });
@@ -387,7 +424,6 @@ class Test54p14LiveOptional(unittest.TestCase):
             heat_out = _heat_pack_via_shipped(labels, series)
             cells = heat_out.get("cells") or []
             self.assertGreaterEqual(len(cells), 1, "至少 1 个非零热力格")
-            # 对账：每个 cell 的 disp/value == 对应 series.data_disp / data（同源 shipped pack）
             reconciled = []
             for c in cells:
                 s = series[c["yi"]]
@@ -406,7 +442,6 @@ class Test54p14LiveOptional(unittest.TestCase):
                         "match_disp": True,
                     }
                 )
-            # 任务书：抽 3 格；数据不足 3 个非零时以全部非零格为准但至少 1
             need = 3 if len(cells) >= 3 else len(cells)
             self.assertGreaterEqual(len(reconciled), need)
             (out / "heatmap_3cells.json").write_text(
@@ -418,23 +453,58 @@ class Test54p14LiveOptional(unittest.TestCase):
                 encoding="utf-8",
             )
             report["steps"].append({"r26_3cells": reconciled})
-            # heatmap 浅色
+
+            # heatmap 浅色（元素截图，非整页）
             page.evaluate(
                 """() => {
                   document.documentElement.classList.add('theme-light');
                   window.dispatchEvent(new CustomEvent('kanban-theme-change', { detail: { light: true } }));
                 }"""
             )
-            page.wait_for_timeout(600)
-            heat.scroll_into_view_if_needed()
-            page.screenshot(path=str(out / "heatmap_light.png"))
+            paint_l = _wait_heat_painted()
+            heat.screenshot(path=str(out / "heatmap_light.png"))
             page.screenshot(path=str(out / "home_light_1440.png"))
+            report["steps"].append({"r26_paint_light": paint_l})
 
-            # heatmap 375
+            # heatmap 375：先缩视口 → 横滚容器 → 强制 resize/重绘 → 元素截图 + 非空白像素
             page.set_viewport_size({"width": 375, "height": 812})
             page.wait_for_timeout(400)
-            heat.scroll_into_view_if_needed()
-            page.screenshot(path=str(out / "heatmap_375.png"))
+            # 滚到费用区
+            page.locator("#expHeatCard, [data-testid=expense-heatmap]").first.scroll_into_view_if_needed()
+            page.wait_for_timeout(300)
+            # 横滚容器滚到起点，保证格子可见
+            page.evaluate(
+                """() => {
+                  const sc = document.querySelector('[data-testid=expense-heatmap-scroll]');
+                  if (sc) sc.scrollLeft = 0;
+                }"""
+            )
+            paint_375 = _wait_heat_painted(12000)
+            self.assertGreater(paint_375.get("svgN", 0) + (10 if paint_375.get("hasCanvas") else 0), 3, paint_375)
+            heat_path = out / "heatmap_375.png"
+            heat.screenshot(path=str(heat_path))
+            # 像素非空白断言（排除近白/近黑空屏）
+            try:
+                from PIL import Image
+            except ImportError:
+                import subprocess as _sp
+
+                _sp.check_call(
+                    [str(ROOT / ".venv" / "bin" / "pip"), "install", "pillow", "-q"],
+                )
+                from PIL import Image
+            im = Image.open(heat_path).convert("RGB")
+            px = list(im.getdata())
+            non = sum(
+                1
+                for c in px
+                if not (c[0] > 245 and c[1] > 245 and c[2] > 245)
+                and not (c[0] < 20 and c[1] < 25 and c[2] < 35)
+            )
+            pct = 100.0 * non / max(1, len(px))
+            report["steps"].append({"r26_paint_375": {**paint_375, "non_bg_pct": round(pct, 1), "size": im.size}})
+            self.assertGreater(pct, 15.0, f"heatmap_375 仍太空 non_bg={pct}% size={im.size}")
+
             page.locator("[data-testid=period-picker] .pp-trigger").click(force=True)
             page.wait_for_timeout(200)
             page.screenshot(path=str(out / "period_375.png"))
@@ -511,43 +581,108 @@ class Test54p14LiveOptional(unittest.TestCase):
             report["steps"].append({"r21_admin": admin_theme})
             self.assertEqual(len(admin_theme), len(admin_pages))
 
-            # ── R-24 比率边界截图（shipped ratioAxisBounds + echarts） ──
+            # ── R-24 比率边界截图（shipped ratioAxisBounds + 磁盘 HTML + echarts 文件引用） ──
             bounds = _ratio_bounds_via_shipped()
             self.assertGreaterEqual(bounds["over"]["max"], 120)
             self.assertEqual(bounds["zero"]["min"], 0)
             self.assertLessEqual(bounds["neg"]["min"], -5)
-            echarts_js = (FE / "node_modules" / "echarts" / "dist" / "echarts.min.js").read_text(
-                encoding="utf-8"
-            )
-            for key, series, fname in (
+            echarts_path = (FE / "node_modules" / "echarts" / "dist" / "echarts.min.js").resolve()
+            self.assertTrue(echarts_path.is_file(), "echarts.min.js")
+            ratio_dir = SCRATCH / "ratio_html"
+            ratio_dir.mkdir(parents=True, exist_ok=True)
+            # 复制 echarts 到 scratch 便于 file:// 同源
+            echarts_local = ratio_dir / "echarts.min.js"
+            if not echarts_local.exists() or echarts_local.stat().st_size < 1000:
+                echarts_local.write_bytes(echarts_path.read_bytes())
+
+            ratio_cases = (
                 ("over", [10, 120, 95, 80], "ratio_boundary_over100.png"),
                 ("zero", [0, 0, 0, 0], "ratio_boundary_zero.png"),
                 ("neg", [-5, 20, 40, 15], "ratio_boundary_neg.png"),
-            ):
+            )
+            ratio_meta = {}
+            for key, series, fname in ratio_cases:
                 b = bounds[key]
-                html = f"""<!DOCTYPE html><html><head><meta charset=utf-8>
-                <style>html,body{{margin:0;background:#0b1220}}#c{{width:720px;height:360px}}</style>
-                </head><body><div id=c></div>
-                <script>{echarts_js}</script>
-                <script>
-                const chart = echarts.init(document.getElementById('c'));
-                chart.setOption({{
-                  animation:false,
-                  grid:{{left:48,right:48,top:40,bottom:40,containLabel:true}},
-                  xAxis:{{type:'category',data:['1月','2月','3月','4月'],axisLabel:{{color:'#c5d0e8'}}}},
-                  yAxis:{{type:'value',min:{b['min']},max:{b['max']},
-                    axisLabel:{{formatter:'{{value}}%',color:'#c5d0e8'}},
-                    splitLine:{{lineStyle:{{color:'rgba(125,211,252,.16)'}}}}}},
-                  series:[{{type:'line',data:{json.dumps(series)},
-                    itemStyle:{{color:'#fbbf24'}},lineStyle:{{width:2.5,color:'#fbbf24'}},
-                    symbol:'circle',symbolSize:8,
-                    label:{{show:true,formatter:'{{c}}%',color:'#fbbf24'}}}}]
-                }});
-                </script></body></html>"""
-                page.set_content(html, wait_until="networkidle")
-                page.wait_for_timeout(300)
-                page.screenshot(path=str(out / fname))
-            report["steps"].append({"r24_bounds": bounds})
+                # zero 全 0 线：仍用 max>=100，线在底轴可见 + 刻度标签
+                html_path = ratio_dir / f"{key}.html"
+                html_path.write_text(
+                    f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<style>
+  html,body{{margin:0;padding:0;background:#0b1220;}}
+  #c{{width:720px;height:360px;}}
+</style></head>
+<body>
+<div id="c"></div>
+<script src="./echarts.min.js"></script>
+<script>
+  const chart = echarts.init(document.getElementById('c'), null, {{renderer:'canvas'}});
+  chart.setOption({{
+    backgroundColor: '#0b1220',
+    animation: false,
+    grid: {{ left: 56, right: 40, top: 36, bottom: 40, containLabel: true }},
+    xAxis: {{
+      type: 'category',
+      data: ['1月','2月','3月','4月'],
+      axisLabel: {{ color: '#c5d0e8', fontSize: 12 }},
+      axisLine: {{ lineStyle: {{ color: '#334' }} }}
+    }},
+    yAxis: {{
+      type: 'value',
+      min: {b['min']},
+      max: {b['max']},
+      axisLabel: {{ formatter: '{{value}}%', color: '#c5d0e8', fontSize: 12 }},
+      splitLine: {{ lineStyle: {{ color: 'rgba(125,211,252,0.2)' }} }}
+    }},
+    series: [{{
+      type: 'line',
+      data: {json.dumps(series)},
+      showSymbol: true,
+      symbol: 'circle',
+      symbolSize: 10,
+      itemStyle: {{ color: '#fbbf24' }},
+      lineStyle: {{ width: 3, color: '#fbbf24' }},
+      label: {{ show: true, formatter: '{{c}}%', color: '#fbbf24', fontSize: 12 }},
+      areaStyle: {{ color: 'rgba(251,191,36,0.12)' }}
+    }}]
+  }});
+  window.__ready = true;
+</script>
+</body></html>
+""",
+                    encoding="utf-8",
+                )
+                page.set_viewport_size({"width": 760, "height": 400})
+                page.goto(html_path.as_uri(), wait_until="load", timeout=60000)
+                page.wait_for_function("() => window.__ready === true && !!document.querySelector('canvas')", timeout=15000)
+                page.wait_for_timeout(250)
+                # 元素截图
+                shot = out / fname
+                page.locator("#c").screenshot(path=str(shot))
+                # 非空白断言
+                from PIL import Image as _Image
+
+                im = _Image.open(shot).convert("RGB")
+                px = list(im.getdata())
+                bg = (11, 18, 32)
+                non = sum(
+                    1
+                    for c in px
+                    if abs(c[0] - bg[0]) + abs(c[1] - bg[1]) + abs(c[2] - bg[2]) > 50
+                )
+                pct = 100.0 * non / max(1, len(px))
+                ratio_meta[key] = {
+                    "bounds": b,
+                    "series": series,
+                    "non_bg_pct": round(pct, 1),
+                    "size": list(im.size),
+                }
+                self.assertGreater(
+                    pct,
+                    2.0,
+                    f"R-24 {fname} 仍空白 non_bg={pct}% bounds={b}",
+                )
+            report["steps"].append({"r24_bounds": bounds, "r24_shots": ratio_meta})
 
             browser.close()
 

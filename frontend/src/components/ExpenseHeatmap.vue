@@ -126,14 +126,22 @@ const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0)
     panel-class="exp-heat-card"
     style="margin-top: 16px"
   >
-    <div v-if="hasData" class="exp-heat-fill" data-chart="expense-heatmap" data-testid="expense-heatmap">
-      <EchartsHost :option="option" />
+    <div v-if="hasData" class="exp-heat-scroll" data-testid="expense-heatmap-scroll">
+      <div class="exp-heat-fill" data-chart="expense-heatmap" data-testid="expense-heatmap">
+        <EchartsHost :option="option" />
+      </div>
     </div>
-    <div v-else class="ev-empty">本期无费用热力数据</div>
+    <div v-else class="ev-empty" data-testid="expense-heatmap-empty">本期无费用热力数据</div>
   </SciFiPanel>
 </template>
 
 <style scoped>
+/* 外层可横滚（375）；内层保最小绘图宽，避免 ECharts 在窄视口被裁成空 */
+.exp-heat-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .exp-heat-fill {
   min-height: 280px;
   height: 340px;
@@ -142,7 +150,8 @@ const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0)
 }
 @media (max-width: 520px) {
   .exp-heat-fill {
-    min-width: 520px;
+    min-width: 560px;
+    height: 300px;
   }
 }
 </style>
