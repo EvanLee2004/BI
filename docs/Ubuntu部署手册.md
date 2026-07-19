@@ -87,10 +87,16 @@ cd /opt/kanban
 git clone <仓库URL> 看板正式程序
 cd 看板正式程序
 
+# 必须用 ≥3.12 的 python3 建 venv（fastapi 0.139+ 要求；系统 python3 --version 先确认）
 python3 -m venv .venv
 .venv/bin/pip install -U pip
 # 清华镜像（与 config 默认 pip_mirror 一致；也可用官方源）
 .venv/bin/pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 无智云/共享盘的预演（开发机或首次空跑）：
+#   export KANBAN_OFFLINE=1
+#   准备 数据/ 下进料文件（可先拷 _golden_data/ 合成样例，正式环境再换真源）
+#   .venv/bin/python run.py
 ```
 
 ---

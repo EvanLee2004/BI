@@ -1,0 +1,16 @@
+Name                                    Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------
+src/domain/__init__.py                      2      0   100%
+src/domain/config_engine.py                92      5    95%   83, 97-98, 113, 119
+src/domain/expense/__init__.py              4      0   100%
+src/domain/expense/chart_whitelist.py      63     12    81%   57-66, 77, 97
+src/domain/export/__init__.py               3      0   100%
+src/domain/kpi/__init__.py                  2      0   100%
+src/domain/ledger/__init__.py               2      0   100%
+src/domain/pl/__init__.py                   3      0   100%
+src/domain/pl/structure.py                187     41    78%   165, 169, 186, 295, 368, 372, 377, 379, 402-447
+src/domain/rankings/__init__.py             3      0   100%
+src/domain/receipts/__init__.py             3      0   100%
+src/domain/trend/__init__.py                2      0   100%
+---------------------------------------------------------------------
+TOTAL                                     366     58    84%

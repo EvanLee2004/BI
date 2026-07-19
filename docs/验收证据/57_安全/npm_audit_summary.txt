@@ -1,0 +1,33 @@
+# npm audit report
+
+echarts  <6.1.0
+Severity: moderate
+Apache ECharts has a cross-site scripting (XSS) vulnerability - https://github.com/advisories/GHSA-fgmj-fm8m-jvvx
+fix available via `npm audit fix --force`
+Will install echarts@6.1.0, which is a breaking change
+node_modules/echarts
+
+element-plus  <=2.11.0
+Severity: moderate
+Element Plus Link component (el-link) implements insufficient input validation for the href attribute - https://github.com/advisories/GHSA-5m5x-9j46-h678
+fix available via `npm audit fix`
+node_modules/element-plus
+
+esbuild  <=0.24.2
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+fix available via `npm audit fix --force`
+Will install vite@6.4.3, which is outside the stated dependency range
+node_modules/esbuild
+  vite  <=6.4.2
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+
+
+4 vulnerabilities (3 moderate, 1 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force

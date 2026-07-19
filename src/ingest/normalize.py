@@ -39,7 +39,8 @@ def _iso_and_month(raw: Any) -> tuple[str, str | None]:
 
 def _hash(*parts: Any) -> str:
     raw = "|".join("" if p is None else str(p) for p in parts)
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+    # 定位键短指纹，非密码学用途（冲突可接受）；SHA-1 足够稳定短 — bandit B324 误报
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]  # nosec B324
 
 
 def _locator(natural: Any, *hash_parts: Any) -> str:

@@ -79,5 +79,42 @@ if [ "$latest" -gt 0 ]; then
   fi
 fi
 
-echo "$(ts) OK base=$BASE login=200 home=$code2 data_age_ok"
+# 4) 前端错误日志黄灯（B-5）：近 24h 有客户端错误 → YELLOW（不判红，exit 0 仍成功）
+FE_ERR="$DATA_DIR/前端错误.log"
+yellow_fe=0
+if [ -f "$FE_ERR" ]; then
+  # 用 python 解析 JSON 行时间戳，避免依赖 date -d 跨平台差异
+  yellow_fe="$(python3 - <<PY
+import json, time, os
+path = r"$FE_ERR"
+cutoff = time.time() - 24 * 3600
+n = 0
+try:
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                o = json.loads(line)
+                ts = (o.get("ts") or "")[:19]
+                t = time.mktime(time.strptime(ts, "%Y-%m-%d %H:%M:%S")) if len(ts) >= 19 else 0
+                if t >= cutoff:
+                    n += 1
+            except Exception:
+                pass
+except OSError:
+    n = 0
+print(n)
+PY
+)"
+fi
+if [ "${yellow_fe:-0}" -gt 0 ] 2>/dev/null; then
+  echo "$(ts) YELLOW frontend_errors_24h=$yellow_fe path=$FE_ERR" | tee -a "$LOG"
+  echo "YELLOW: frontend_errors_24h=$yellow_fe" >&2
+  # 黄灯不 exit 1；演示/巡检看 YELLOW 行即可
+fi
+
+echo "$(ts) OK base=$BASE login=200 home=$code2 data_age_ok fe_err_24h=${yellow_fe:-0}"
 exit 0
+

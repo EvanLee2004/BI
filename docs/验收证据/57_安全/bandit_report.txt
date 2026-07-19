@@ -1,0 +1,363 @@
+Run started:2026-07-19 09:36:00.650566+00:00
+
+Test results:
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/adjust.py:47:29
+46	        raise ValueError(f"未知类型：{类型}")
+47	    matches = conn.execute(f"SELECT COUNT(*) FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
+48	    if matches == 0:
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/adjust.py:60:36
+59	            raise ValueError(f"字段不可调整：{目标表}.{字段}")
+60	        原值_raw = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()[0]
+61	        # 金额列：原值/新值库内均存**分**文本（管理端录入元→此处转分）
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/adjust.py:105:25
+104	        raise ValueError(f"字段不可调整：{目标表}.{字段}")
+105	    cur = conn.execute(f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
+106	    if cur is None:
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/adjust.py:119:26
+118	    cols = ["id", "创建时间", "经手人", "目标表", "定位键", "字段", "原值", "新值", "原因", "类型", "状态"]
+119	    rows = conn.execute(f"SELECT {','.join(cols)} FROM adj_调整记录 ORDER BY id DESC").fetchall()
+120	    out = [dict(zip(cols, r, strict=False)) for r in rows]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/detail.py:318:27
+317	    wsql = " AND ".join(where)
+318	    total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
+319	    page = max(1, int(page))
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/detail.py:324:10
+323	    rows = conn.execute(
+324	        f"SELECT {coln} FROM {table} WHERE {wsql} ORDER BY id LIMIT ? OFFSET ?", args + [page_size, offset]
+325	    ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/detail.py:397:10
+396	    sql = (
+397	        f"SELECT DISTINCT CAST(COALESCE({column},'') AS TEXT) AS v FROM {table} "
+398	        f"WHERE {wsql} ORDER BY v LIMIT ?"
+399	    )
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/detail.py:402:10
+401	    total = conn.execute(
+402	        f"SELECT COUNT(DISTINCT CAST(COALESCE({column},'') AS TEXT)) FROM {table} WHERE {wsql}", args
+403	    ).fetchone()[0]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/manual_rates.py:217:18
+216	            rows = conn.execute(
+217	                f"SELECT {','.join(cols)} FROM manual_手填 WHERE 归属月=? ORDER BY 项目", (month,)
+218	            ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/manual_rates.py:220:34
+219	        else:
+220	            rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_手填 ORDER BY 归属月,项目").fetchall()
+221	        out = [dict(zip(cols, r, strict=False)) for r in rows]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/meta_lists.py:92:14
+91	        rows = conn.execute(
+92	            f"SELECT {','.join(cols)} FROM manual_配置变更 WHERE 类别=? ORDER BY id DESC LIMIT ?", (category, limit)
+93	        ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/meta_lists.py:96:14
+95	        rows = conn.execute(
+96	            f"SELECT {','.join(cols)} FROM manual_配置变更 ORDER BY id DESC LIMIT ?", (limit,)
+97	        ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/meta_lists.py:104:28
+103	    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/health）。"""
+104	    n_dept = conn.execute(f"SELECT COUNT(*) FROM std_下单 WHERE 已删除=0 AND {UNFILLED_DEPT_WHERE}").fetchone()[0]
+105	    n_uc = conn.execute(f"SELECT COUNT(*) FROM std_费用明细 WHERE 已删除=0 AND {UNCLASSIFIED_WHERE}").fetchone()[0]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/meta_lists.py:105:26
+104	    n_dept = conn.execute(f"SELECT COUNT(*) FROM std_下单 WHERE 已删除=0 AND {UNFILLED_DEPT_WHERE}").fetchone()[0]
+105	    n_uc = conn.execute(f"SELECT COUNT(*) FROM std_费用明细 WHERE 已删除=0 AND {UNCLASSIFIED_WHERE}").fetchone()[0]
+106	    n_exp = conn.execute("SELECT COUNT(*) FROM adj_调整记录 WHERE 状态='过期疑似'").fetchone()[0]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/meta_lists.py:129:18
+128	            rows = conn.execute(
+129	                f"SELECT 定位键, COUNT(*) c FROM {table} WHERE 已删除=0 AND 定位键 IS NOT NULL AND TRIM(定位键)<>'' "
+130	                f"GROUP BY 定位键 HAVING c>1"
+131	            ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/misc.py:67:14
+66	        rows = conn.execute(
+67	            f"SELECT {','.join(cols)} FROM manual_预算 WHERE 年份=? ORDER BY 指标", (str(year),)
+68	        ).fetchall()
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db/misc.py:70:30
+69	    else:
+70	        rows = conn.execute(f"SELECT {','.join(cols)} FROM manual_预算 ORDER BY 年份,指标").fetchall()
+71	    out = [dict(zip(cols, r, strict=False)) for r in rows]
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:61:12
+60	    cols = _STD_INSERT_COLS[table]
+61	    sql = f"INSERT INTO {table}({','.join(cols)}) VALUES({','.join('?' * len(cols))})"
+62	    rows = []
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:169:26
+168	        return []
+169	    return conn.execute(f"SELECT id FROM {table} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchall()
+170	
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:179:25
+178	        return 0
+179	    cur = conn.execute(f"UPDATE {table} SET 已删除=1 WHERE 定位键=? AND 已删除=0", (定位键,))
+180	    return cur.rowcount
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:190:25
+189	        raise KeyError(字段)
+190	    row = conn.execute(f"SELECT {字段} FROM {table} WHERE 定位键=? AND 已删除=0", (定位键,)).fetchone()
+191	    return row[0] if row else None
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:200:19
+199	        raise KeyError(字段)
+200	    conn.execute(f"UPDATE {table} SET {字段}=? WHERE 定位键=? AND 已删除=0", (value, 定位键))
+201	
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/db_write.py:238:14
+237	        rows = conn.execute(
+238	            f"SELECT {coln} FROM {table} WHERE 时间 LIKE ? ORDER BY id",
+239	            (f"{y}-%",),
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak SHA1 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: src/ingest/normalize.py:42:11
+41	    raw = "|".join("" if p is None else str(p) for p in parts)
+42	    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+43	
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: src/notify.py:31:13
+30	    try:
+31	        with urllib.request.urlopen(req, timeout=timeout) as resp:
+32	            return 200 <= getattr(resp, "status", 200) < 300
+
+--------------------------------------------------
+>> Issue: [B610:django_extra_used] Use of extra potential SQL attack vector.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b610_django_extra_used.html
+   Location: src/profit/tax_revenue.py:59:25
+58	    for r in rows:
+59	        if extra and not extra(r):
+60	            continue
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:334:26
+333	        return 0
+334	    rows = conn.execute(f"SELECT rowid, {','.join(use)} FROM {table}").fetchall()
+335	    n = 0
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:343:23
+342	            args.append(_yuan_cell_to_fen(v))
+343	        conn.execute(f"UPDATE {table} SET {','.join(sets)} WHERE rowid=?", args + [rid])
+344	        n += 1
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:354:14
+353	        r = conn.execute(
+354	            f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0 LIMIT 1",
+355	            (定位键,),
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:454:22
+453	    for name in STD_TABLE_NAMES:
+454	        cur.execute(f"DELETE FROM {name}")
+455	    # 释放 AUTOINCREMENT 计数，避免 id 无限增长（sqlite_sequence 可能不存在）
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:458:12
+457	        cur.execute(
+458	            "DELETE FROM sqlite_sequence WHERE name IN (%s)" % ",".join("?" * len(STD_TABLE_NAMES)), STD_TABLE_NAMES
+459	        )
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: src/server.py:261:41
+260	    # 未配置时：绑 127.0.0.1 默认不挂静态（倾向反代）；否则挂（直连兼容）
+261	    host = str(cfg.get("server_host") or "0.0.0.0")
+262	    return host not in ("127.0.0.1", "localhost", "::1")
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: src/server.py:272:49
+271	        return str(env).strip()
+272	    return str((cfg or {}).get("server_host") or "0.0.0.0")
+273	
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: src/server.py:601:60
+600	    print(f"[server] 内网服务 host={host} port={port} 模式={mode}")
+601	    print(f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/   管理员 /admin")
+602	
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 14581
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 26
+		Medium: 33
+		High: 1
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 2
+		Medium: 32
+		High: 26
+Files skipped (0):
