@@ -5,7 +5,7 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.0.0-rc10**（`stage56_final`；打磨中→rc11/`stage57_gold`） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · 费用图白名单 · 明细默认期间费用 · C901 壳仅 8 |
+| **v2.0.0-rc11**（`stage56_final`；打磨中→rc11/`stage57_gold`） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · 费用图白名单 · 明细默认期间费用 · C901 壳仅 8 |
 
 ```bash
 python run.py             # 抓数 → 建库 → 算账 → 出 HTML
@@ -36,7 +36,7 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-19 · v2.0.0-rc10 · stage56_final）**  
+> **图集与代码对齐说明（2026-07-19 · v2.0.0-rc11 · stage56_final）**  
 > 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
 > **看端**仅 Vue；**管理端** Vue SPA + Element Plus 深空主题。  
 > **生产** = nginx 发 dist + 反代（`deploy/linux/nginx-kanban.conf`）；**简易** = `run.py --serve`。  

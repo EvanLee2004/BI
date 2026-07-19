@@ -34,9 +34,9 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.0.0-rc10 · stage56_final · 2026-07-19）
+## 当前状态（2.0.0-rc11 · stage57_gold · 2026-07-19）
 
-- **版本**：`VERSION` / `frontend/package.json` / `src/version.py` = **2.0.0-rc10**；tag **`stage56_final`**（任务书56 终局清尾）；任务书57 打磨中 → 目标 `stage57_gold` / **2.0.0-rc11**。
+- **版本**：`VERSION` / `frontend/package.json` / `src/version.py` = **2.0.0-rc11**；tag **`stage57_gold`**（任务书57 无限打磨收官；前序 `stage56_final`/rc10 清尾）。
 - **看端**：Vue3 + SciFi 深空指挥舱 + ECharts；主题亮暗；费用折线/热力**仅期间费用白名单**（剔成本/非利润表，单一来源 `domain.expense.chart_whitelist`）；费用明细**默认同口径**，开关「显示全部台账记录」开=台账全量，导出随视图（第二 sheet 口径说明）。
 - **管理端**：Vue SPA + Element Plus 对齐深空主题；工资大类全端隐藏（并入其他）。
 - **工程**：C901 仅 8 处纯路由/装配壳；vulture 100% 死码已清；`sh tests/run_verify.sh` 判绿唯一门闩。
@@ -48,6 +48,7 @@
 
 | 版本/tag | 要点 | 指针 |
 |----------|------|------|
+| rc11 / stage57_gold | 无限打磨收官 | `docs/20260719_任务书57交付报告.md` |
 | rc10 / stage56_final | 清尾 R-40~R-46 | `docs/20260719_任务书56交付报告.md` |
 | rc9 / stage55_final | 55 终局封板 | `docs/历史批次/` · CHANGELOG |
 | rc8 / stage55_rc8 | 费用图剔成本+热力 | 54.15 |
