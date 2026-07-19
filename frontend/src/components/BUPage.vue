@@ -7,6 +7,7 @@ import TrendChart from './TrendChart.vue'
 import PLTable from './PLTable.vue'
 import ExpenseSection from './ExpenseSection.vue'
 import ExpenseTrend from './ExpenseTrend.vue'
+import ExpenseHeatmap from './ExpenseHeatmap.vue'
 import ProfitStructure from './ProfitStructure.vue'
 import RankingsDual from './RankingsDual.vue'
 import ReceiptsCard from './ReceiptsCard.vue'
@@ -48,6 +49,7 @@ const store = useCockpitStore()
     <ReceiptsCard />
     <RankingsDual />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
+    <ExpenseHeatmap />
     <LedgerTable />
     </div>
   </div>

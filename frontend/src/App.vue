@@ -9,6 +9,7 @@ import TrendChart from './components/TrendChart.vue'
 import PLTable from './components/PLTable.vue'
 import ExpenseSection from './components/ExpenseSection.vue'
 import ExpenseTrend from './components/ExpenseTrend.vue'
+import ExpenseHeatmap from './components/ExpenseHeatmap.vue'
 import ProfitStructure from './components/ProfitStructure.vue'
 import RankingsDual from './components/RankingsDual.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
@@ -72,6 +73,7 @@ onMounted(async () => {
     <ReceiptsCard />
     <RankingsDual />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
+    <ExpenseHeatmap />
     <LedgerTable />
     </div>
   </div>
