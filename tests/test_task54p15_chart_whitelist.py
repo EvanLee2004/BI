@@ -49,3 +49,30 @@ class TestChartWhitelist(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPackExpenseAreaShipped(unittest.TestCase):
+    """驱动 shipped viewmodels._pack_expense_area + filter：成本不得出现在 area_series 名。"""
+
+    def test_pack_excludes_cost_via_filter(self):
+        import viewmodels
+        from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+        cfg = {
+            "expense_categories_included": ["市场费用", "管理费用", "其他"],
+            "expense_categories_excluded": ["成本", "非利润表"],
+        }
+        raw = {
+            "categories": ["市场费用", "成本", "管理费用"],
+            "months": [
+                {"m": 1, "total": 300, "by_cat": {"市场费用": 100.0, "成本": 150.0, "管理费用": 50.0}},
+                {"m": 2, "total": 0, "by_cat": {"市场费用": 0, "成本": 0, "管理费用": 0}},
+            ],
+        }
+        filtered = filter_expense_monthly_raw_for_charts(raw, cfg)
+        area = viewmodels._pack_expense_area(filtered)
+        names = [s["name"] for s in area.get("area_series") or []]
+        self.assertNotIn("成本", names)
+        self.assertIn("市场费用", names)
+        self.assertIn("管理费用", names)
+

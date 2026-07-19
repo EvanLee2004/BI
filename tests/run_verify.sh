@@ -120,6 +120,9 @@ tests/test_task54p1_visual.py
 tests/test_task54p4_receipts_b4.py
 tests/test_task54p14_r20_no_double_wan.py
 tests/test_task54p14_r21_r26.py
+tests/test_task54p12_export_consistency.py
+tests/test_task54p15_chart_whitelist.py
+tests/test_task55_friendly_error.py
 "
 run_one() {
   f="$1"

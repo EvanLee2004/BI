@@ -71,7 +71,26 @@
 
 - tag `stage54` · `docs/历史批次/20260718_任务书54交付报告.md`
 
+## 2026-07-19 · 2.0.0-rc9 (stage55_final / 任务书55 阶段D)
+
+- 终局封板：友好网络错误（`friendlyError`）、交接包终版、VERSION 三处 2.0.0-rc9
+- 全量 `run_verify` EXIT:0（含 54p12 导出 / 54p15 白名单 / 55 友好错误）；只 commit 不 push
+- 封板报告首行：结论：终局封板通过,交接明昊人审
+
+## 2026-07-19 · 2.0.0-rc8 (stage55_rc8 / 任务书54.15)
+
+- R-30 费用折线/热力公共白名单剔「成本」「非利润表」；环形/PL/golden 零未授权 diff
+- R-31 热力图 tooltip.confine + grid/visMap 留白；R-32 全站主要图 tooltip + 明细表头口径小字
+- 证据：`docs/验收证据/20260719_54p15/` · `tests/test_task54p15_chart_whitelist.py`
+
+## 2026-07-19 · 2.0.0-rc7 (stage55_rc7 / 任务书54.13)
+
+- M1~M10 工程收官：render/server/db/profit 拆分、SettingsView composable、domain 覆盖≥80%
+- 团队五件：需求追溯矩阵、二期草案、演示动线、依赖图、CI 静态核对
+- 证据：`docs/验收证据/20260719_54p13/` · 交付报告 `docs/20260719_任务书54.13交付报告.md`
+
 ## 2026-07-19 · 2.0.0-rc6 (stage55_rc6 / 任务书54.12)
 
 - R-01 工资全端隐藏；R-02~R-05/R-09/R-13/R-14 UI；R-06~R-08 ruff 0；R-15 导出一致性
 - R-10 已由 54.14 修复·复测通过；R-11 口径禁区守住
+- 证据：`docs/验收证据/20260719_54p12/` · `tests/test_task54p12_export_consistency.py`

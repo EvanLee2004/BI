@@ -1,0 +1,15 @@
+/Users/evanlee/Documents/甲骨易实习/项目/利润看板可视化项目（系统）/程序/看板正式程序/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_export_matches_detail_and_no_salary (tests.test_task54p12_export_consistency.TestExportConsistency.test_export_matches_detail_and_no_salary) ... ok
+test_favicon_and_error_html (tests.test_task54p12_export_consistency.TestExportConsistency.test_favicon_and_error_html) ... ok
+test_ban_cost (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_ban_cost) ... ok
+test_filter_raw_recomputes_total (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_filter_raw_recomputes_total) ... ok
+test_single_module_source (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_single_module_source)
+白名单只在 chart_whitelist 一处定义（防两图各写一份）。 ... ok
+test_util_and_wiring (tests.test_task55_friendly_error.TestFriendlyError.test_util_and_wiring) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.089s
+
+OK
+[server] 已生成会话密钥文件：/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/tmpuje8fm99/数据/管理员密钥.json（账号口令见 数据/看板账号.json）

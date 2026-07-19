@@ -1,0 +1,15 @@
+test_ban_cost (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_ban_cost) ... ok
+test_filter_raw_recomputes_total (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_filter_raw_recomputes_total) ... ok
+test_single_module_source (tests.test_task54p15_chart_whitelist.TestChartWhitelist.test_single_module_source)
+白名单只在 chart_whitelist 一处定义（防两图各写一份）。 ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK
+test_pack_excludes_cost_via_filter (tests.test_task54p15_chart_whitelist.TestPackExpenseAreaShipped.test_pack_excludes_cost_via_filter) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.046s
+
+OK

@@ -1,0 +1,102 @@
+用解释器：.venv/bin/python  并行 jobs=4
+[1/5] 语法检查
+[1a/5] ruff check src/
+[1;32mAll checks passed![0m
+[1b/5] 前端 vue-tsc --noEmit
+
+> kanban-cockpit-frontend@2.0.0-rc9 typecheck
+> vue-tsc --noEmit
+
+[2/5] 端到端生成
+[3/5] 回归红线：从库算 == 从文件算（一分不差）
+✓ 回归红线通过：从库算与从文件算 逐数字一致（32 个周期 + 趋势/回款/体检/未分类 全部相同）
+[4/5] 回归测试
+  · 串行（写库/服务态）
+OK  tests/test_cockpit.py
+OK  tests/test_datalayer.py
+OK  tests/test_adjust.py
+OK  tests/test_server.py
+OK  tests/test_admin_edit.py
+OK  tests/test_budget.py
+OK  tests/test_expense_views.py
+OK  tests/test_daily.py
+OK  tests/test_profit_ranking.py
+OK  tests/test_bu.py
+OK  tests/test_auth.py
+OK  tests/test_multibu.py
+OK  tests/test_update.py
+OK  tests/test_alloc_monthly.py
+OK  tests/test_detax.py
+OK  tests/test_api_v1_numbers.py
+OK  tests/test_a2_inhouse_name.py
+OK  tests/test_a5_bu_ledger_isolation.py
+OK  tests/test_b_page_assemble.py
+OK  tests/test_b_p3_cards.py
+OK  tests/test_b_p4_remainder.py
+OK  tests/test_serve_shell.py
+OK  tests/test_b_p5_no_view.py
+OK  tests/test_b_p4_login_static.py
+OK  tests/test_b_bu_shipped_assemble.py
+OK  tests/test_login_cache_p0.py
+OK  tests/test_ranking_monthly_a8.py
+OK  tests/test_publish_once.py
+OK  tests/test_b_p0_shipped_path.py
+OK  tests/test_b_shipped_cards.py
+OK  tests/test_b_http_shipped.py
+OK  tests/test_db_atomic_rebuild.py
+OK  tests/test_money_fen.py
+OK  tests/test_db_a4a7.py
+OK  tests/test_hygiene_b.py
+OK  tests/test_budget_rates_adj_migrate.py
+OK  tests/test_task37_filters.py
+OK  tests/test_task37_expense_perm.py
+OK  tests/test_task37_fetch_banner.py
+OK  tests/test_task39.py
+OK  tests/test_gzip_fragments.py
+OK  tests/test_task41.py
+OK  tests/test_task42_final.py
+OK  tests/test_task43_nginx_mode.py
+OK  tests/test_task43_arch.py
+OK  tests/test_task46_stage0.py
+OK  tests/test_task50_stage_b.py
+OK  tests/test_authz.py
+OK  tests/test_vm_contract.py
+OK  tests/test_config_engine.py
+OK  tests/test_backup_restore.py
+OK  tests/test_domain_reexport.py
+OK  tests/test_echarts_vm_labels.py
+OK  tests/frontend/parity/test_parity_structure.py
+  · 并行（jobs=��
+OK  tests/test_fetch_zhiyun.py
+OK  tests/test_bugfix_0711.py
+OK  tests/test_exceptions.py
+OK  tests/test_iter16.py
+OK  tests/test_iter21.py
+OK  tests/test_version.py
+OK  tests/test_schedule.py
+OK  tests/test_iter22.py
+OK  tests/test_profile.py
+OK  tests/test_admin_static.py
+OK  tests/test_no_html_in_py.py
+OK  tests/test_admin_vue_54d.py
+OK  tests/test_b_p0_rankings_assemble.py
+OK  tests/test_b_p1_contract.py
+OK  tests/test_task37_ui.py
+OK  tests/test_year2027.py
+OK  tests/test_split_static.py
+OK  tests/test_linux_deploy.py
+OK  tests/test_task51_authz_access.py
+OK  tests/test_task51_pl_structure.py
+OK  tests/test_task51_assemble_vm.py
+OK  tests/test_task54_scifi.py
+OK  tests/test_task51_batch5.py
+OK  tests/test_task54p1_visual.py
+OK  tests/test_task52_fixes.py
+OK  tests/test_task51_frontend_types.py
+OK  tests/test_task54p4_receipts_b4.py
+OK  tests/test_task54p12_export_consistency.py
+OK  tests/test_task54p15_chart_whitelist.py
+OK  tests/test_task54p14_r21_r26.py
+OK  tests/test_task54p14_r20_no_double_wan.py
+OK  tests/test_task55_friendly_error.py
+✓ 全部通过
