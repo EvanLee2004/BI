@@ -1,3 +1,4 @@
+import { friendlyError } from '../utils/friendlyError'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchBuVm, fetchCockpitVm } from '../api/client'
@@ -46,7 +47,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = friendlyError(e)
     } finally {
       loading.value = false
     }
@@ -64,7 +65,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = friendlyError(e)
     } finally {
       loading.value = false
     }

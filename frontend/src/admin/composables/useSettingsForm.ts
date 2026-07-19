@@ -4,6 +4,7 @@
 import { inject, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, downloadBlob } from '../api'
+import { friendlyError } from '../../utils/friendlyError'
 import { SRC_MAP, salesArr } from '../utils'
 
 export type Acct = {
@@ -245,7 +246,7 @@ export function useSettingsForm() {
       )
       sArchMsg.value = '✓ 已下载 ' + sArchYear.value + ' 年归档（库内未删）'
     } catch (e) {
-      sArchMsg.value = '失败：' + String(e)
+      sArchMsg.value = '失败：' + friendlyError(e)
     }
   }
 
@@ -418,7 +419,7 @@ export function useSettingsForm() {
       setMsgs.sched = d.note || '已保存'
       return true
     } catch (e) {
-      setMsgs.sched = '失败：' + String(e)
+      setMsgs.sched = '失败：' + friendlyError(e)
       return false
     }
   }
@@ -429,7 +430,7 @@ export function useSettingsForm() {
       setMsgs.backup = d.note || '已保存'
       return true
     } catch (e) {
-      setMsgs.backup = '失败：' + String(e)
+      setMsgs.backup = '失败：' + friendlyError(e)
       return false
     }
   }
@@ -445,7 +446,7 @@ export function useSettingsForm() {
       setMsgs.alert = d.note || '已保存'
       return true
     } catch (e) {
-      setMsgs.alert = '失败：' + String(e)
+      setMsgs.alert = '失败：' + friendlyError(e)
       return false
     }
   }
@@ -470,7 +471,7 @@ export function useSettingsForm() {
       setMsgs.zy = d.note || '已保存'
       return true
     } catch (e) {
-      setMsgs.zy = '失败：' + String(e)
+      setMsgs.zy = '失败：' + friendlyError(e)
       return false
     }
   }
@@ -493,7 +494,7 @@ export function useSettingsForm() {
       setMsgs.acct = (d.note || '已保存') + '（共 ' + d.count + ' 个）'
       return true
     } catch (e) {
-      setMsgs.acct = '保存失败：' + String(e)
+      setMsgs.acct = '保存失败：' + friendlyError(e)
       return false
     }
   }
@@ -520,7 +521,7 @@ export function useSettingsForm() {
       reloadDash()
       return true
     } catch (e) {
-      setMsgs.bu = '保存失败：' + String(e)
+      setMsgs.bu = '保存失败：' + friendlyError(e)
       return false
     }
   }

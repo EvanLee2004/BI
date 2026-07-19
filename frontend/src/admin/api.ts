@@ -1,3 +1,5 @@
+import { friendlyError } from '../utils/friendlyError'
+
 /**
  * 管理端 API 客户端（credentials include · 与 static/admin jget/jpost 对齐）
  * Cookie 会话 kanban_session 由后端 Set-Cookie，前端不碰 token。
@@ -12,7 +14,12 @@ export class AdminApiError extends Error {
 }
 
 async function api(path: string, opts?: RequestInit): Promise<Response> {
-  const r = await fetch(path, { credentials: 'same-origin', ...opts })
+  let r: Response
+  try {
+    r = await fetch(path, { credentials: 'same-origin', ...opts })
+  } catch (e) {
+    throw new AdminApiError(0, friendlyError(e))
+  }
   if (r.status === 401) {
     // 未登录 / 会话失效 → 回登录
     if (!location.pathname.startsWith('/admin/login') && location.pathname.startsWith('/admin')) {
