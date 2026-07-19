@@ -5,25 +5,146 @@
       "ok": true
     },
     {
-      "r21": "theme_toggle",
-      "before": false,
-      "after": true
-    },
-    {
-      "r22_panel": {
-        "ok": true,
-        "z": "60",
-        "kpiZ": "auto",
-        "panelA": 0.97,
-        "top": 54,
-        "height": 104
+      "r21_cockpit": {
+        "before": false,
+        "after": true
       }
     },
     {
-      "r22_months": 7
+      "r22_stack": {
+        "ok": true,
+        "panelA": 0.97,
+        "z": "60",
+        "topbarZ": "40",
+        "wrapZ": "1",
+        "hitsPanel": true,
+        "hitsKpi": false,
+        "elTag": "pp-tab"
+      }
     },
     {
-      "r26": "heatmap_visible"
+      "r22_months_all": [
+        {
+          "label": "1月",
+          "trigger": "2026年1月\n▾"
+        },
+        {
+          "label": "2月",
+          "trigger": "2026年2月\n▾"
+        },
+        {
+          "label": "3月",
+          "trigger": "2026年3月\n▾"
+        },
+        {
+          "label": "4月",
+          "trigger": "2026年4月\n▾"
+        },
+        {
+          "label": "5月",
+          "trigger": "2026年5月\n▾"
+        },
+        {
+          "label": "6月",
+          "trigger": "2026年6月\n▾"
+        },
+        {
+          "label": "7月",
+          "trigger": "2026年7月\n▾"
+        }
+      ],
+      "count": 7
+    },
+    {
+      "r22_custom": {
+        "mode": "apply",
+        "from": "1",
+        "to": "7",
+        "preview": "将选中：2026年1-7月",
+        "before": "2026年7月\n▾",
+        "after": "2026年1-7月\n▾"
+      }
+    },
+    {
+      "r26_3cells": [
+        {
+          "label": "3月",
+          "cat": "成本",
+          "disp": "600.1",
+          "value": 600112221,
+          "match_disp": true
+        },
+        {
+          "label": "1月",
+          "cat": "成本",
+          "disp": "453.1",
+          "value": 453124125,
+          "match_disp": true
+        },
+        {
+          "label": "6月",
+          "cat": "成本",
+          "disp": "401.0",
+          "value": 400953074,
+          "match_disp": true
+        }
+      ]
+    },
+    {
+      "r21_admin": [
+        {
+          "page": "admin_console",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        },
+        {
+          "page": "admin_detail",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        },
+        {
+          "page": "admin_manual",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        },
+        {
+          "page": "admin_budget",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        },
+        {
+          "page": "admin_orderdept",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        },
+        {
+          "page": "admin_settings",
+          "before": false,
+          "after": true,
+          "bg": "rgb(244, 247, 251)"
+        }
+      ]
+    },
+    {
+      "r24_bounds": {
+        "over": {
+          "min": 0,
+          "max": 130
+        },
+        "zero": {
+          "min": 0,
+          "max": 100
+        },
+        "neg": {
+          "min": -6,
+          "max": 100
+        }
+      }
     }
   ]
 }

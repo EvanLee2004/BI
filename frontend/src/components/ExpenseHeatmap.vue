@@ -10,33 +10,17 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import { animBlock, axisLabelStyle, chartMutedColor, chartTextColor } from '../chart-fx'
 import { withWanUnit } from '../utils/disp'
+import { buildExpenseHeatPack } from '../utils/expense-heat'
 import { themeMode } from '../utils/theme'
 import type { ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
 const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
 
-/** 格子数据：[[xIdx, yIdx, value], ...] + 平行 disp 查找表 */
-const heatPack = computed(() => {
-  const e = exp.value
-  const labels = (e.area_labels || []).map(String)
-  const seriesIn = e.area_series || []
-  const cats = seriesIn.map((s) => String(s.name || ''))
-  const data: [number, number, number][] = []
-  const dispMap: Record<string, string> = {}
-  let vmax = 0
-  seriesIn.forEach((s, yi) => {
-    const row = s.data || []
-    const disps = s.data_disp || []
-    row.forEach((v, xi) => {
-      const n = Number(v) || 0
-      data.push([xi, yi, n])
-      dispMap[`${xi},${yi}`] = String(disps[xi] ?? '')
-      if (n > vmax) vmax = n
-    })
-  })
-  return { labels, cats, data, dispMap, vmax }
-})
+/** 格子数据：[[xIdx, yIdx, value], ...] + 平行 disp — 同源 utils/expense-heat */
+const heatPack = computed(() =>
+  buildExpenseHeatPack(exp.value.area_labels, exp.value.area_series),
+)
 
 const option = computed(() => {
   void themeMode.value

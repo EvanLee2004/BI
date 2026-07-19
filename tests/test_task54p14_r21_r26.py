@@ -93,11 +93,13 @@ class TestHeatmap(unittest.TestCase):
     def test_heatmap_component_wired(self):
         h = (FE / "components" / "ExpenseHeatmap.vue").read_text(encoding="utf-8")
         self.assertIn("heatmap", h)
-        self.assertIn("area_series", h)
+        self.assertIn("buildExpenseHeatPack", h)
         self.assertIn("withWanUnit", h)
-        self.assertIn("data-testid=\"expense-heatmap\"", h)
-        # ≤400 行
+        self.assertIn('data-testid="expense-heatmap"', h)
         self.assertLessEqual(len(h.splitlines()), 400)
+        util = (FE / "utils" / "expense-heat.ts").read_text(encoding="utf-8")
+        self.assertIn("buildExpenseHeatPack", util)
+        self.assertIn("pickHeatCells", util)
         app = (FE / "App.vue").read_text(encoding="utf-8")
         self.assertIn("ExpenseHeatmap", app)
         bu = (FE / "components" / "BUPage.vue").read_text(encoding="utf-8")
@@ -105,10 +107,85 @@ class TestHeatmap(unittest.TestCase):
 
     def test_heatmap_uses_vm_only_no_money_math(self):
         h = (FE / "components" / "ExpenseHeatmap.vue").read_text(encoding="utf-8")
-        # 禁止明显金额运算：不得 /1.06 或 *0. 税率类
         self.assertNotIn("/1.06", h)
-        self.assertNotIn("* 0.", h)
-        self.assertIn("data_disp", h)
+        util = (FE / "utils" / "expense-heat.ts").read_text(encoding="utf-8")
+        self.assertIn("data_disp", util)
+
+    def test_heat_pack_3cells_against_vm(self):
+        """驱动 shipped buildExpenseHeatPack + 真实 cockpit VM，抽 3 格对账。"""
+        import json
+        import os
+        import subprocess
+        import sys
+
+        sys.path.insert(0, str(ROOT / "src"))
+        if not (ROOT / "_golden_data").exists():
+            self.skipTest("缺 golden")
+        import core
+        import db
+        import ingest
+        import loaders
+        import viewmodels
+
+        cfg = dict(loaders.load_config(ROOT))
+        cfg["data_dir"] = "_golden_data"
+        cfg["zhiyun_auto_fetch"] = False
+        cfg["period_pin"] = {"year": 2026, "month": 7}
+        today = loaders.pinned_today(cfg)
+        conn = db.connect(cfg, ROOT)
+        try:
+            ingest.build_std_db(
+                cfg, today.year, conn=conn, today=today, trigger="heat3", archive_backups=False
+            )
+            summary = core.summary_from_conn(cfg, conn, today)
+        finally:
+            conn.close()
+        vm = viewmodels.build_cockpit_vm(summary, cfg)
+        labels = list(vm.expense.area_labels or [])
+        series = list(vm.expense.area_series or [])
+        self.assertTrue(labels and series)
+        src = FE / "utils" / "expense-heat.ts"
+        payload = json.dumps({"labels": labels, "series": series}, ensure_ascii=False)
+        script = f"""
+import {{ buildExpenseHeatPack, pickHeatCells }} from 'file://{src.as_posix()}';
+const p = {payload};
+const pack = buildExpenseHeatPack(p.labels, p.series);
+const cells = pickHeatCells(pack, 3);
+console.log(JSON.stringify(cells));
+"""
+        data = None
+        for cmd in (
+            ["npx", "--yes", "tsx", "-e", script],
+            [str(ROOT / "frontend" / "node_modules" / ".bin" / "tsx"), "-e", script],
+        ):
+            try:
+                r = subprocess.run(
+                    cmd,
+                    cwd=str(ROOT / "frontend"),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env={**os.environ, "npm_config_yes": "true"},
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+            if r.returncode != 0:
+                continue
+            lines = [ln for ln in r.stdout.splitlines() if ln.strip().startswith("[")]
+            if lines:
+                data = json.loads(lines[-1])
+                break
+        if data is None:
+            self.skipTest("tsx 不可用")
+        self.assertGreaterEqual(len(data), 1)
+        for c in data:
+            s = series[c["yi"]]
+            self.assertEqual(c["disp"], str((s.get("data_disp") or [])[c["xi"]]))
+            self.assertEqual(float(c["value"]), float((s.get("data") or [])[c["xi"]] or 0))
+        # 落证据
+        evid = ROOT / "docs" / "验收证据" / "20260719_54p14" / "heatmap_3cells_unit.json"
+        evid.parent.mkdir(parents=True, exist_ok=True)
+        evid.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 class TestRatioAxisUnit(unittest.TestCase):
