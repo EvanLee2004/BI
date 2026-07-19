@@ -203,7 +203,7 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
     return out
 
 
-def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
+def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:  # noqa: C901
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
     - 密码：条目带「密码」字段（含空串）则以之为准；不带则沿用已存（新账号无旧值→初始 8888）；

@@ -12,7 +12,7 @@ import profit
 from app_state import _state
 
 
-def register(app, d):
+def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -245,7 +245,7 @@ def register(app, d):
             conn.close()
 
     @app.post("/api/alloc_ratios")
-    def api_alloc_set(request: Request, payload: dict = Body(default={})):
+    def api_alloc_set(request: Request, payload: dict = Body(default={})):  # noqa: C901
         """写某月分摊比例（管理员）。payload={归属月, ratios:{BU:比例%|null}}。
         约束：BU 须在设置页 BU 名单内；单值 0~100；已知 BU 合计 ≤100（容差 0.05）。null=删行不分摊。"""
         user = _require(request)

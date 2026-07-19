@@ -38,7 +38,7 @@ def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
     return None
 
 
-def _values_match(current, 原值: str, 字段: str = "") -> bool:
+def _values_match(current, 原值: str, 字段: str = "") -> bool:  # noqa: C901
     if 原值 is None:
         原值 = ""
     os_ = str(原值).strip()

@@ -19,22 +19,20 @@
 
 from __future__ import annotations
 
-import datetime
 from collections import defaultdict
-from typing import Any
 
 import loaders
 import columns
 import periods
 import money
 
-from .constants import *  # noqa: F403
+from .constants import EXPENSE_GROUP_UNFILLED
 from .tax_revenue import _sum_amount_in_period, compute_ranking
 
 
 # pure-move funcs from _impl.py
 
-def compute_expense_monthly_by_cat(
+def compute_expense_monthly_by_cat(  # noqa: C901
     ledger_rows,
     ledger_year,
     lcols,

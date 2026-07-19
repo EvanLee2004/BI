@@ -27,7 +27,7 @@ def _abs_amt_disp(v) -> str:
     return _wan(abs(float(v or 0))) + "万"
 
 
-def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str, list[dict[str, Any]]]:
+def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str, list[dict[str, Any]]]:  # noqa: C901
     """周期 → KPI 卡数组（主数/副标/峰值/目标条/BU 进度全为显示串）。
 
     任务书51·B2：峰值/目标条消费 domain.pl.structure 公共函数。

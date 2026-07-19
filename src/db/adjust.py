@@ -13,14 +13,10 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
-from typing import Any
 
-import loaders
 import money
 import schema
 
-from .constants import *  # noqa: F403
 
 # pure-move funcs from _impl.py
 
@@ -43,7 +39,6 @@ def add_adjustment(
     """新增一条调整记录（状态=生效）。原值由服务端从库取。目标表/字段严格白名单（防注入）。
     定位键护栏：匹配 0 行拒（键不存在）、匹配多行拒（内容完全相同的重复行，改一条会波及全部——
     真实台账已实测有撞车行；R2 raw 批次层给行级定位后放开）。"""
-    import schema
 
     if 目标表 not in schema.STD_TABLE_NAMES:
         raise ValueError(f"未知目标表：{目标表}")
@@ -96,7 +91,6 @@ def revoke_expired_adjustments(conn: sqlite3.Connection) -> int:
 def rearm_adjustment(conn: sqlite3.Connection, adj_id: int) -> None:
     """坚持我的数：把一条「过期疑似」的改值调整重新生效——用源头当前值刷新「原值」，
     下轮重放即重新套用「新值」。仅限逐条（见 revoke_expired_adjustments 注释）。"""
-    import schema
 
     row = conn.execute("SELECT 目标表,定位键,字段,类型,状态 FROM adj_调整记录 WHERE id=?", (adj_id,)).fetchone()
     if not row:

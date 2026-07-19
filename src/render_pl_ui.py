@@ -3,25 +3,11 @@
 """从 render.py 纯搬家（任务书54.13）；禁止改算法。"""
 from __future__ import annotations
 
-import json
-import charts
 import tpl
-from render_shell import (
-    DRAWER_HTML,
-    PARTICLES_HTML,
-    PW_MODAL_HTML,
-    RK_MODAL_HTML,
-    DAILY_HTML,
-)
 from render_widgets import (
-    _title_version_html,
     _amt,
-    render_basic,
-    render_period_bar,
-    _pv,
     _esc,
 )
-from render_common import GROUP_COLORS, LED_OF
 
 
 def _row(name, impact, kind, src="", total=False, grand=False):
@@ -66,7 +52,7 @@ def _d_ledger(name, amount, src, fine_pairs, limit=8):
 def _detail_block(cat, title, inner):
     return tpl.fill("render/detail_block.html", cat=_esc(cat), title=_esc(title), inner=inner)
 
-def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:
+def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:  # noqa: C901
     """任务书51·B2：结构 → legacy 利润表 HTML（与重构前逐字节对齐）。"""
     row_html: list[str] = []
     for r in struct.get("rows") or []:

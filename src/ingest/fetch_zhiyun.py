@@ -477,7 +477,7 @@ def check_row_drop(prev: int | None, curr: int, ratio: float) -> str | None:
     return None
 
 
-def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy: dict | None = None) -> dict:
+def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy: dict | None = None) -> dict:  # noqa: C901
     """抓一个源到进料口。返回 {status, detail, ...}，三态同 fetch_ledger，永不抛异常。"""
     local = _dest_path(cfg, source, root)
 

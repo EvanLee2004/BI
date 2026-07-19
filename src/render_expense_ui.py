@@ -6,29 +6,16 @@ from __future__ import annotations
 import json
 import charts
 import tpl
-from render_shell import (
-    DRAWER_HTML,
-    PARTICLES_HTML,
-    PW_MODAL_HTML,
-    RK_MODAL_HTML,
-    DAILY_HTML,
-)
 from render_widgets import (
-    _title_version_html,
-    _amt,
-    render_basic,
-    render_period_bar,
-    _pv,
     _esc,
 )
-from render_common import GROUP_COLORS, LED_OF
-from render_pl_ui import _drow, _detail_block, _row, _pct_row, _open_row, _d_ledger
+from render_common import GROUP_COLORS
+from render_pl_ui import _drow, _detail_block
 
 
 def render_trend(trend, hl, *, period_months_map=None, year_key=None):
     # 看端卡头只留「按月」；柱顶/线上说明见图例，不堆运营备注。
     # 迭代：卡根挂 data-rm-map（复用 _period_months_map）供前端只切高亮，柱图全年视角不变。
-    import json
 
     yk = year_key or ""
     rm_map = period_months_map or {}

@@ -20,16 +20,10 @@
 from __future__ import annotations
 
 import datetime
-from collections import defaultdict
-from typing import Any
 
-import loaders
-import columns
 import periods
-import money
 
-from .constants import *  # noqa: F403
-from .constants import _BU_EMPTY_LEDGER_HEADER, _LEDGER_TO_EXPENSE  # underscore constants
+from .constants import _BU_EMPTY_LEDGER_HEADER, _LEDGER_TO_EXPENSE, ALLOC_IN_LABEL, ALLOC_OUT_LABEL
 from .summary import build_summary, filter_rows_by_sales
 
 

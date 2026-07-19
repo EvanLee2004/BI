@@ -13,14 +13,11 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
-from typing import Any
 
-import loaders
 import money
 import schema
 
-from .constants import *  # noqa: F403
+from .constants import DETAIL_TABLES, VIEW_EXPENSE_COLUMNS, VIEW_EXPENSE_COLUMNS_BU, DETAIL_DATE_COLS, UNCLASSIFIED_WHERE, UNFILLED_DEPT_WHERE
 
 # pure-move funcs from _impl.py
 
@@ -80,7 +77,7 @@ def _parse_filters_arg(filters) -> dict:
     return out
 
 
-def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:
+def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:  # noqa: C901
     """白名单列 + 参数化 WHERE 片段。金额筛选用元→分。多列 AND。"""
     fdict = _parse_filters_arg(filters)
     if not fdict:
@@ -155,7 +152,7 @@ def adjustable_fields() -> dict[str, list[str]]:
     return {k: list(schema.ADJUSTABLE_FIELDS[v[0]]) for k, v in DETAIL_TABLES.items()}
 
 
-def _detail_base_where(
+def _detail_base_where(  # noqa: C901
     table_key: str,
     table: str,
     have: set,

@@ -61,6 +61,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 PRODUCT_CHANGELOG: list[dict] = [
     {
         "date": "2026-07-19",
+        "title": "发布候选 v2.0.0-rc7：工程完美收官——胖文件拆分 / 指标量化",
+        "items": [
+            "后端 render/server/db/profit 大文件按职责拆分，单文件≤800 行；对外 import 路径兼容。",
+            "管理端设置页逻辑抽 composable，组件行数≤400；圈复杂度与 ruff 卫生红线保持。",
+            "需求追溯矩阵、二期草案、演示动线齐备；发布候选版本号 2.0.0-rc7。",
+        ],
+    },
+    {
+        "date": "2026-07-19",
         "title": "发布候选 v2.0.0-rc6：人审二轮——工资全隐 / 空态引导 / 卫生清零 / 友好错误页",
         "items": [
             "工资大类全端隐藏并入「其他」，设置页去掉可见工资开关（口径级产品决策）。",

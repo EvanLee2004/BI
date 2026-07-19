@@ -124,7 +124,7 @@ def validate_allocation(bus: list[dict], enabled: bool) -> str | None:
     return None
 
 
-def save_bu_config(cfg: dict, root: Path | None, bus: list[dict], 公共费用分摊启用: bool = False) -> dict:
+def save_bu_config(cfg: dict, root: Path | None, bus: list[dict], 公共费用分摊启用: bool = False) -> dict:  # noqa: C901
     """管理端保存：逐条校验规范化后落盘（纯数据归属，无密码字段）。
     **一人一 BU**：同一销售名若出现在多个 BU，只保留先出现的那个 BU。
     **分摊**：各 BU 比例**全部为空 → 不分摊**（忽略开关）；任一有值 → 启用，

@@ -149,7 +149,7 @@ def clear_rollback_marker(root=None) -> None:
         pass
 
 
-def check_update(root=None, remote="origin", do_fetch=True) -> dict:
+def check_update(root=None, remote="origin", do_fetch=True) -> dict:  # noqa: C901
     """检测远端有没有新版本。do_fetch=True 时先 `git fetch`（只读）拿最新远端引用。
     remote=对标哪个远端（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee，或配 update_remote 指定）。
     返回 available/supported/behind/ahead/dirty/can_update/reason/log(近10条远端提交摘要)。"""

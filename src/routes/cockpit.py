@@ -30,7 +30,7 @@ def _bu_nav_meta(cfg, root, pages: dict | None) -> dict:
     return {"bu_config_count": n_cfg, "bu_nav_hint": hint}
 
 
-def register(app, d):
+def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -390,7 +390,7 @@ def register(app, d):
         )
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
-    def api_v1_cockpit_bu_fragments(name: str, request: Request):
+    def api_v1_cockpit_bu_fragments(name: str, request: Request):  # noqa: C901
         """B-P4：BU 页碎片 + views（shell-bu + rankings.js + page.js）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")

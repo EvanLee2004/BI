@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import time
 from pathlib import Path
 
 import loaders
@@ -100,7 +98,6 @@ def _strip_cron_sentinel(text: str) -> str:
 def _linux_sync_schedule(times: list[str], root=None) -> str:
     """Linux：重写当前用户 crontab 中本程序哨兵段（条目数=时间点数），绝不吞其它行。
     best-effort：失败不打断保存，提示重跑 deploy/linux/register_schedule.sh。"""
-    import subprocess
 
     try:
         r = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=15)
@@ -167,7 +164,7 @@ def read_zhiyun_conn(cfg, root=None) -> dict:
     tables = {s: str(((zy.get("tables") or {}).get(s) or {}).get("worksheetId", "")) for s in fetch_zhiyun.SOURCES}
     return {"base_url": zy.get("base_url", ""), "tables": tables}
 
-def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
+def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:  # noqa: C901
     """保存界面填的服务器地址/四表ID到 数据/智云配置.json 覆盖层。
     与内置默认相同的项**删除覆盖**（文件保持精简、跟着代码默认走）；不同才写覆盖。
     改了服务器地址顺带清旧会话（token 绑服务器）。返回生效值是否发生变更。"""
@@ -210,7 +207,7 @@ def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
     after = read_zhiyun_conn(cfg, root)
     return after != before
 
-def save_settings(cfg, root, payload: dict) -> dict:
+def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
     """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
     改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
     # 更新时间：新字段 schedule_times（列表·②多次更新）优先；兼容旧 schedule_time（单值）

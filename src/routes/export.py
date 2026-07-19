@@ -14,7 +14,7 @@ import loaders
 from app_state import _state, _EXPORT_LOCK
 
 
-def register(app, d):
+def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user

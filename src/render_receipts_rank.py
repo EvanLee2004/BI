@@ -6,25 +6,12 @@ from __future__ import annotations
 import json
 import charts
 import tpl
-from render_shell import (
-    DRAWER_HTML,
-    PARTICLES_HTML,
-    PW_MODAL_HTML,
-    RK_MODAL_HTML,
-    DAILY_HTML,
-)
 from render_widgets import (
-    _title_version_html,
-    _amt,
-    render_basic,
-    render_period_bar,
     _pv,
     _esc,
 )
-from render_common import GROUP_COLORS, LED_OF
 
 
-from render_expense_ui import expense_monthly_from_period_ledgers, apply_expense_salary_hide
 
 def _budget_tag(budget):
     """任务书41·B：回款情况卡头预算小字整行删除（KPI 进度条仍保留 G 钳制）。
@@ -163,7 +150,6 @@ def render_receipts(
     periods=各周期 dict 时：侧栏按 .pv 预渲染随「看哪段」切（数字跟周期，铁律2 前端零运算）；
     年目标条只挂在全年块。delivered_gross 仅兼容旧调用（无 periods 时用）。
     show_delivered_unpaid：陆总#1 默认 False，隐藏「已交付未回款」。"""
-    import json
 
     rb = (budget or {}).get("receipt") if budget else None
     budget_month = (rb["target"] / 12.0) if rb and rb.get("target") else None
@@ -398,7 +384,6 @@ def attach_monthly_to_dual(
 
 def monthly_data_script(store: dict | None) -> str:
     """页面级月度字典脚本（模板 render/rk_monthly_data.html，与 JS 同形）。"""
-    import json
 
     if not store:
         return ""

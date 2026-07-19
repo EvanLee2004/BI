@@ -264,7 +264,7 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     )
 
 
-def receipt_order_chart(
+def receipt_order_chart(  # noqa: C901
     series: list[tuple[str, float, float, float | None]], color: str = BLUE, budget_month: float | None = None
 ) -> str:
     """下单柱 + 回款柱 + 回款/下单比折线（A3·陆总#2：同图逐月下单与回款）。
@@ -409,7 +409,7 @@ _STACK_PALETTE = (
 )
 
 
-def expense_stack_chart(
+def expense_stack_chart(  # noqa: C901
     months: list[dict],
     categories: list[str],
     *,

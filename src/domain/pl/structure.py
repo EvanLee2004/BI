@@ -128,7 +128,7 @@ _EXP_GROUPS = (
 )
 
 
-def pl_structure(
+def pl_structure(  # noqa: C901
     p: dict,
     fine: dict | None = None,
     *,

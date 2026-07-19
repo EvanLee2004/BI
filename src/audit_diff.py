@@ -3,12 +3,8 @@
 """配置变更留痕 / 体检理由 / 抓取 banner（54.13 从 server 纯搬家）。"""
 from __future__ import annotations
 
-import json
-import time
 from pathlib import Path
 
-import accounts
-import bu
 import db
 import loaders
 from app_state import STATIC_DIR
@@ -32,7 +28,7 @@ def _join_summary(prefix: str, items: list[str], cap: int = 8) -> str:
         return prefix + "；".join(items)
     return prefix + "；".join(items[:cap]) + f"；等共 {len(items)} 项"
 
-def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_alloc: bool = False) -> list:
+def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_alloc: bool = False) -> list:  # noqa: C901
     """销售归属/BU 结构/分摊比例变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
 
     def sale_map(bus):
@@ -159,7 +155,7 @@ def admin_ui_source() -> str:
             parts.append(p.read_text(encoding="utf-8"))
     return "\n".join(parts)
 
-def _run_reasons(report: dict) -> list[str]:
+def _run_reasons(report: dict) -> list[str]:  # noqa: C901
     """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
     与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、定位键重复、库检查、备份。
     注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""

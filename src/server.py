@@ -13,9 +13,7 @@
 
 from __future__ import annotations
 
-import json
 import os
-import re
 import threading
 import time
 from pathlib import Path
@@ -28,7 +26,6 @@ from starlette.middleware.gzip import GZipMiddleware
 
 import loaders
 import accounts
-import db
 import tpl
 import auth_session
 import refresh_pipeline
@@ -275,7 +272,7 @@ def resolve_server_host(cfg: dict | None = None) -> str:
     return str((cfg or {}).get("server_host") or "0.0.0.0")
 
 
-def create_app(cfg, root=None) -> FastAPI:
+def create_app(cfg, root=None) -> FastAPI:  # noqa: C901
     """组装 FastAPI：会话/中间件依赖 + 路由注册（路由体见 routes/）。"""
     app = FastAPI(title="甲骨易智能经营罗盘", docs_url=None, redoc_url=None, openapi_url=None)
     # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。

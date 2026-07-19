@@ -84,7 +84,7 @@ def can_see_bu(acc: dict | None, name: str) -> bool:
     return accounts.can_see_bu(acc, name)
 
 
-def resolve_expense_view_access(
+def resolve_expense_view_access(  # noqa: C901
     user: str | None,
     vacc: dict | None,
     bu: str | None,

@@ -194,7 +194,7 @@ def _valid_ymd(y: int, m: int, d: int) -> tuple[int, int, int] | None:
     return int(y), int(m), int(d)
 
 
-def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:
+def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:  # noqa: C901
     """解析日期为 (年,月,日)。支持 datetime、YYYY-MM-DD、YYYY/MM/DD、YYYYMMDD。"""
     if val is None:
         return None
@@ -350,7 +350,7 @@ def load_ledger(cfg: dict, sheet_name: str, root: Path | None = None) -> tuple[l
     return list(rows[0]), rows[1:]
 
 
-def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, float]]:
+def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, float]]:  # noqa: C901
     """手填与调整表（宽表：项目=行、月份=列）→ {月份'YYYY-MM': {项目: 金额float}}。
     表头形如 [项目, 归属, 备注, 2026-01, 2026-02, ...]；某项某月留空=不写入（留给"默认上月/0"逻辑）。
     维护友好：每月只在最右加一列，11 个项目始终整列可见、不会漏填。"""

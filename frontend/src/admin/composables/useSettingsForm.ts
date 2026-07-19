@@ -1,7 +1,7 @@
 /**
- * 设置页状态与保存逻辑（54.13 从 SettingsView 纯搬家，行为不变）。
+ * 设置页状态与保存逻辑（54.13 从 SettingsView 纯搬家）。
  */
-import { inject, onMounted, reactive, ref, type Ref } from 'vue'
+import { inject, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, downloadBlob } from '../api'
 import { SRC_MAP, salesArr } from '../utils'
@@ -585,6 +585,8 @@ export function useSettingsForm() {
     await Promise.all([loadVersion(), loadSettings(), loadAccts(), loadBuCfg()])
   })
   return {
+    reloadDash,
+    health,
     verNum,
     verStage,
     verNext,
@@ -615,7 +617,6 @@ export function useSettingsForm() {
     dirty,
     setMsgs,
     saving,
-    mark,
     acctList,
     acctPwShow,
     masterAccount,
@@ -625,15 +626,23 @@ export function useSettingsForm() {
     buUnassigned,
     buAllocLegacy,
     dragName,
+    poolNames,
+    pickTo,
+    mark,
+    loadVersion,
+    checkUpdate,
+    applyUpdate,
+    loadSettings,
     schedAdd,
     schedDel,
+    exportArchive,
     permType,
     isMaster,
     adminCount,
     acctAdd,
     acctDel,
+    loadAccts,
     claimedSales,
-    poolNames,
     buAdd,
     buDel,
     moveToPool,
@@ -642,13 +651,21 @@ export function useSettingsForm() {
     onDropPool,
     onDropBu,
     togglePick,
-    pickTo,
     applyBatch,
     buAllocEnabled,
+    loadBuCfg,
+    saveSchedule,
+    saveBackup,
+    saveAlert,
+    saveZhiyun,
+    saveAccts,
+    saveBu,
+    saveAll,
     discard,
     ownerStr,
     setOwner,
     onPermType,
     onBuVisible,
+    salesArr,
   }
 }

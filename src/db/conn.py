@@ -14,14 +14,11 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 import loaders
-import money
 import schema
 
-from .constants import *  # noqa: F403
-from .constants import _BUSY_TIMEOUT_MS  # underscore constants
+from .constants import DB_DEFAULT_REL, _BUSY_TIMEOUT_MS
 
 # pure-move funcs from _impl.py
 

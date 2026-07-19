@@ -345,7 +345,7 @@ def _migrate_table_money_cols(conn: sqlite3.Connection, table: str, cols: tuple[
     return n
 
 
-def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:
+def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:  # noqa: C901
     """adj 金额字段 原值/新值：元文本 → 分文本。幂等：已是分（与 std 现值一致）则跳过该侧。
 
     判定：字段∈金额名；有小数点 → 必为元；纯整数则 yuan_to_fen 与 as-fen 双解，

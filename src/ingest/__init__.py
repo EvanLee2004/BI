@@ -26,7 +26,7 @@ from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, arc
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
 
 
-def build_std_db(
+def build_std_db(  # noqa: C901
     cfg: dict,
     ledger_year: int,
     root: Path | None = None,

@@ -60,9 +60,12 @@ class TestOverlayZIndex(unittest.TestCase):
             r"\.wrap,\s*\.topbar,\s*#periodSync,\s*#app\s*\{[^}]*z-index:\s*1",
             re.S,
         )
+        # 54.13：PeriodPicker 样式外置 period-picker.css，z-index token 仍须在位
         pp = (FE / "components" / "PeriodPicker.vue").read_text(encoding="utf-8")
-        self.assertIn("--z-dropdown", pp)
-        self.assertIn("--overlay-panel", pp)
+        pp_css = (FE / "components" / "period-picker.css").read_text(encoding="utf-8")
+        blob = pp + "\n" + pp_css
+        self.assertIn("--z-dropdown", blob)
+        self.assertIn("--overlay-panel", blob)
 
 
 class TestRatioAxisAndBanner(unittest.TestCase):

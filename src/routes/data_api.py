@@ -13,7 +13,7 @@ import db
 from app_state import _state
 
 
-def register(app, d):
+def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -243,7 +243,7 @@ def register(app, d):
             raise HTTPException(status_code=400, detail=str(e)) from e
 
     @app.get("/api/daily")
-    def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
+    def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):  # noqa: C901
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
         v7.8 起要求整体页/管理员会话（全公司口径出口，BU 会话不给——否则 BU 链接持有者可绕过页面隔离）；
         **纯只读**、无任何写路径；金额显示串全部后端算好（铁律2）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
@@ -308,7 +308,7 @@ def register(app, d):
         return {"start": start, "end": end, "dual_rankings": dual, **d}
 
     @app.get("/api/bu_daily")
-    def api_bu_daily(
+    def api_bu_daily(  # noqa: C901
         request: Request,
         bu: str = Query(""),
         start: str = Query(""),

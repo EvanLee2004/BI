@@ -74,7 +74,7 @@ def _open_sheet(rep: Report, source: str, path: Path, expect_sheet: str | None):
     return ws
 
 
-def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: str, required: list[str]) -> None:
+def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: str, required: list[str]) -> None:  # noqa: C901
     """智云导出通用校验：必需列在 + 必需列不重名 + 逐行日期/金额可解析（带 Excel 行号）。"""
     it = ws.iter_rows(values_only=True)
     header = [str(h).strip() if h is not None else "" for h in next(it, [])]
@@ -110,7 +110,7 @@ def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: 
         rep.warn(source, f"「{date_col}」列有 {empty_date} 行为空（行会被剔除；智云导出一般不该有空日期，抽查一下）")
 
 
-def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:
+def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:  # noqa: C901
     src = "收单台账"
     if not path.exists():
         rep.error(src, f"文件不存在：{path.name}")
@@ -166,7 +166,7 @@ def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:
         )
 
 
-def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:
+def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:  # noqa: C901
     src = "手填与调整"
     if not path.exists():
         rep.warn(src, f"文件不存在：{path.name}——全部手填项按 0 计，利润会虚高")

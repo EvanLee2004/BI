@@ -145,7 +145,7 @@ def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
     summary.setdefault("meta", {})["unknown_profit_centers"] = items
 
 
-def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
+def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:  # noqa: C901
     """陆总0714·C1：下单 KPI 卡展示三大 BU 下单进度（虚线=年目标、实线=达成）。
     每周期每 BU：期内下单额 + 全年累计/BU 年目标完成率（目标读该 BU 业绩目标·元）。
     挂 summary.meta.bu_orders={周期key:[{name,amount,year_amount,target,pct}…]}；

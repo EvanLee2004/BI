@@ -3,8 +3,6 @@
 """从 render.py 纯搬家（任务书54.13）；禁止改算法。"""
 from __future__ import annotations
 
-import json
-import charts
 import tpl
 from render_shell import (
     DRAWER_HTML,
@@ -15,18 +13,15 @@ from render_shell import (
 )
 from render_widgets import (
     _title_version_html,
-    _amt,
     render_basic,
     render_period_bar,
     _pv,
     _esc,
 )
-from render_common import GROUP_COLORS, LED_OF
 
 
 from render_expense_ui import (
     render_trend,
-    render_donut,
     render_expense_views,
     render_bu_expense_views,
     render_expense_trend,
@@ -39,8 +34,6 @@ from render_receipts_rank import (
     render_receipts,
     render_rankings,
     render_profit_rankings,
-    dual_rankings_from_daily,
-    attach_monthly_to_dual,
     monthly_data_script,
     _period_months_map,
 )

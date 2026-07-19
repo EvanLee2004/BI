@@ -20,15 +20,10 @@
 from __future__ import annotations
 
 import datetime
-from collections import defaultdict
-from typing import Any
 
 import loaders
-import columns
 import periods
-import money
 
-from .constants import *  # noqa: F403
 from .budget_manual import manual_missing_months
 
 
@@ -97,7 +92,7 @@ def _scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today: datetime.d
     return n, samples
 
 
-def _data_health(
+def _data_health(  # noqa: C901
     cfg,
     cc,
     project,

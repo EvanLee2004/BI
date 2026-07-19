@@ -250,7 +250,7 @@ def _pack_receipt_series(rows) -> dict[str, Any]:
     }
 
 
-def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:
+def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:  # noqa: C901
     """任务书54.4·B4：用 summary 已算好的 orders/receipts/ratio/budget 组装显示串。
 
     - summary_by_period：各周期右侧摘要（总下单/总回款/尚待回款/回款率/年目标条）
