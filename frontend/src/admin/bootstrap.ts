@@ -23,7 +23,7 @@ export function bootAdmin() {
   }
   syncThemeFromDom()
   installThemeListeners()
-  document.title = '管理员控制台 · 甲骨易智能经营罗盘'
+  document.title = '经营罗盘·管理端'
 
   const app = createApp(AdminApp)
   app.use(adminRouter)

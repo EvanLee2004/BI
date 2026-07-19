@@ -471,7 +471,7 @@ def _assemble_vm(
     else:
         exp_raw = render.apply_expense_salary_hide(
             summary.get("expense_monthly_by_cat"),
-            not bool((cfg or {}).get("overall_see_salary", False)),
+            True,  # 54.12 R-01 全端隐工资
         )
     area = _pack_expense_area(exp_raw)
     area_vals: list[float] = []

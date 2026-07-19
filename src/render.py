@@ -796,7 +796,7 @@ def apply_expense_salary_hide(raw: dict | None, hide_salary: bool) -> dict | Non
         m["total"] = round(sum(float(bc.get(c) or 0) for c in cats), 2)
     out["categories"] = cats
     out["salary_merged"] = True
-    out["note"] = "工资大类已并入「其他」（整体账号默认隐工资；管理端可开）"
+    out["note"] = "工资大类已并入「其他」（全端隐藏，不单列）"
     return out
 
 
@@ -1089,7 +1089,7 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
     receipts_budget = tpl.fill("render/period_receipts.html", html=receipts_html)
     trend_html = render_trend(summary["trend"], hl, period_months_map=rm_map, year_key=yk)
     # 任务书39·E：整体费用堆叠（B8 默认隐工资）
-    hide_sal = not bool(cfg.get("overall_see_salary", False))
+    hide_sal = True  # 54.12 R-01 全端隐工资
     exp_raw = apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), hide_sal)
     expense_trend_html = render_expense_trend(exp_raw, title="费用月度趋势 · 按报表大类")
     return {

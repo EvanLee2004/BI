@@ -133,41 +133,54 @@ const option = computed(() => {
     style="margin-top: 16px"
   >
     <div class="ev-tabs" style="display: flex; gap: 6px; padding: 4px 0 8px">
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'donut' }" @click="mode = 'donut'">按大类</button>
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'fine' }" @click="mode = 'fine'">按类别</button>
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'pc' }" @click="mode = 'pc'">按利润中心</button>
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'dept' }" @click="mode = 'dept'">按部门</button>
+      <button type="button" class="ev-tab mini" :class="{ on: mode === 'donut' }" data-testid="exp-tab-donut" @click="mode = 'donut'">按大类</button>
+      <button type="button" class="ev-tab mini" :class="{ on: mode === 'fine' }" data-testid="exp-tab-fine" @click="mode = 'fine'">按类别</button>
+      <button type="button" class="ev-tab mini" :class="{ on: mode === 'pc' }" data-testid="exp-tab-pc" @click="mode = 'pc'">按利润中心</button>
+      <button type="button" class="ev-tab mini" :class="{ on: mode === 'dept' }" data-testid="exp-tab-dept" @click="mode = 'dept'">按部门</button>
     </div>
-    <div v-if="mode === 'donut' && items.length" class="ev-body">
-      <div style="height: 280px">
-        <EchartsHost :option="option" />
-      </div>
-      <div class="ev-legend-row">
-        <span v-for="(it, i) in items" :key="it.name" class="ev-legend-item">
-          <i :style="{ background: legendColors[i], color: legendColors[i] }" />
-          {{ it.name }}
-          <em>{{ withWanUnit(it.value_disp) }}</em>
-        </span>
-      </div>
-    </div>
-    <div v-else-if="mode !== 'donut'" class="ev-list" style="padding: 8px 12px">
-      <div
-        v-for="(row, i) in hbar"
-        :key="i"
-        class="ev-row"
-        @click="openFine = openFine === row.key ? null : row.key"
-      >
-        <span class="ev-name">{{ row.name }}</span>
-        <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
-        <span class="ev-amt">{{ row.amt_disp }}</span>
-        <div v-if="openFine === row.key && row.fine?.length" class="ev-fine" style="width: 100%; padding-left: 12px">
-          <div v-for="(f, j) in row.fine" :key="j" class="pl-drow sub">
-            <span>{{ f.name }}</span><span>{{ f.amt_disp }}</span>
-          </div>
+    <!-- R-04：内容区固定最小高度，切 tab 不带动页面其他区域跳动 -->
+    <div class="exp-body-fixed" data-testid="exp-body-fixed">
+      <div v-if="mode === 'donut' && items.length" class="ev-body">
+        <div style="height: 280px">
+          <EchartsHost :option="option" />
+        </div>
+        <div class="ev-legend-row">
+          <span v-for="(it, i) in items" :key="it.name" class="ev-legend-item">
+            <i :style="{ background: legendColors[i], color: legendColors[i] }" />
+            {{ it.name }}
+            <em>{{ withWanUnit(it.value_disp) }}</em>
+          </span>
         </div>
       </div>
-      <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
+      <div v-else-if="mode !== 'donut'" class="ev-list exp-hbar-scroll" style="padding: 8px 12px">
+        <div
+          v-for="(row, i) in hbar"
+          :key="i"
+          class="ev-row"
+          @click="openFine = openFine === row.key ? null : row.key"
+        >
+          <span class="ev-name">{{ row.name }}</span>
+          <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
+          <span class="ev-amt">{{ row.amt_disp }}</span>
+          <div v-if="openFine === row.key && row.fine?.length" class="ev-fine" style="width: 100%; padding-left: 12px">
+            <div v-for="(f, j) in row.fine" :key="j" class="pl-drow sub">
+              <span>{{ f.name }}</span><span>{{ f.amt_disp }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
+      </div>
+      <div v-else class="ev-empty">本期无数据</div>
     </div>
-    <div v-else class="ev-empty">本期无数据</div>
   </SciFiPanel>
 </template>
+
+<style scoped>
+.exp-body-fixed {
+  min-height: 360px;
+}
+.exp-hbar-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+</style>

@@ -320,8 +320,20 @@ const curTable = computed(() => {
         @click="confirmNav(it.path)"
       >{{ it.t }}</el-button>
       <el-divider direction="vertical" />
-      <el-button size="small" :type="route.path.includes('/manual') ? 'primary' : 'default'" round @click="confirmNav('/admin/edit/manual')">人工填写</el-button>
-      <el-button size="small" :type="route.path.includes('/budget') ? 'primary' : 'default'" round @click="confirmNav('/admin/edit/budget')">业绩目标</el-button>
+      <el-button
+        size="small"
+        data-testid="nav-manual"
+        :type="route.name === 'admin-manual' || route.path.includes('/edit/manual') ? 'primary' : 'default'"
+        round
+        @click="confirmNav('/admin/edit/manual')"
+      >人工填写</el-button>
+      <el-button
+        size="small"
+        data-testid="nav-budget"
+        :type="route.name === 'admin-budget' || route.path.includes('/edit/budget') ? 'primary' : 'default'"
+        round
+        @click="confirmNav('/admin/edit/budget')"
+      >业绩目标</el-button>
     </div>
 
     <div v-if="group === 'review'" class="admin-subnav">

@@ -111,8 +111,25 @@ onMounted(load)
       <el-button size="small" @click="confirmHtml = ''">取消</el-button>
     </el-alert>
 
-    <el-table :data="shown" v-loading="loading" border stripe height="calc(100vh - 280px)"
-      :row-class-name="rowClassName">
+    <div v-if="!loading && !list.length" class="empty-guide" data-testid="ledger-empty">
+      <div class="empty-ico" aria-hidden="true">📋</div>
+      <p class="empty-title">还没有数据调整记录</p>
+      <p class="empty-desc">
+        在「数据调整」改数或删行后，记录会出现在这里，可撤销或处理过期疑似。
+      </p>
+      <el-button type="primary" round @click="$router.push('/admin/edit/detail?table=收入明细')">
+        去数据调整
+      </el-button>
+    </div>
+    <el-table
+      v-else
+      :data="shown"
+      v-loading="loading"
+      border
+      stripe
+      height="calc(100vh - 280px)"
+      :row-class-name="rowClassName"
+    >
       <el-table-column prop="id" label="id" width="70" />
       <el-table-column prop="创建时间" label="时间" width="160" />
       <el-table-column prop="经手人" label="操作账号" width="100" />
@@ -137,4 +154,15 @@ onMounted(load)
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
 .muted { color: var(--admin-mut, #94a3b8); font-size: 13px; }
 :deep(.exp-row) { --el-table-tr-bg-color: #3b1d1d; }
+.empty-guide {
+  margin-top: 48px;
+  text-align: center;
+  padding: 32px 16px;
+  border: 1px dashed var(--admin-line, #2a364d);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+}
+.empty-ico { font-size: 36px; line-height: 1; margin-bottom: 12px; }
+.empty-title { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: var(--admin-ink, #e2e8f0); }
+.empty-desc { margin: 0 auto 16px; max-width: 420px; font-size: 13px; line-height: 1.55; color: var(--admin-mut, #94a3b8); }
 </style>

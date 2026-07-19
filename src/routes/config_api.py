@@ -192,7 +192,7 @@ def register(app, d):
         out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
-        out["overall_see_salary"] = bool(cfg.get("overall_see_salary", False))  # 任务书37·B8 默认关
+        out["overall_see_salary"] = False  # 54.12 R-01 已废止开关
         out["feishu_webhook_url"] = cfg.get("feishu_webhook_url", "") or ""  # 任务书43 告警
         out["run_log_keep_days"] = int(cfg.get("run_log_keep_days", 365) or 365)
         out["disk_free_min_ratio"] = float(cfg.get("disk_free_min_ratio", 0.10) or 0.10)
@@ -207,7 +207,6 @@ def register(app, d):
         old_times = get_schedule_times(cfg)
         old_keep = cfg.get("backup_keep_days")
         old_lsp = cfg.get("ledger_share_path")
-        old_oss = bool(cfg.get("overall_see_salary", False))
         try:
             res = save_settings(cfg, root, payload)
         except ValueError as e:
@@ -227,10 +226,7 @@ def register(app, d):
             and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip()
         ):
             chg.append("收单台账共享盘路径已更改")
-        if "overall_see_salary" in payload and bool(res.get("overall_see_salary")) != old_oss:
-            chg.append(
-                "整体账号可见工资明细：" + ("开" if res.get("overall_see_salary") else "关")
-            )
+        # 54.12 R-01：overall_see_salary 已废止，忽略 payload 中的该字段
         if "feishu_webhook_url" in payload:
             # webhook 含密钥，只记「已更改」
             chg.append("飞书告警 webhook 已更改")

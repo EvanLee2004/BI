@@ -296,7 +296,7 @@ def compute_expense_monthly_by_cat(
     note = ""
     if hide_salary and "工资" in all_cats:
         salary_merged = True
-        note = "工资大类已并入「其他」（整体账号默认隐工资；管理端可开）"
+        note = "工资大类已并入「其他」（全端隐藏，不单列）"
         if "其他" not in all_cats:
             all_cats.append("其他")
         for m in range(1, 13):

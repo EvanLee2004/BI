@@ -12,6 +12,16 @@ JOBS="${KANBAN_VERIFY_JOBS:-4}"
 echo "用解释器：$PY  并行 jobs=$JOBS"
 echo "[1/5] 语法检查"
 $PY -m py_compile src/*.py src/ingest/*.py src/routes/*.py run.py tests/*.py
+# 任务书54.12·R-08：ruff 卫生红线（EXIT 非 0 即 FAIL）
+if [ -x .venv/bin/ruff ]; then
+  echo "[1a/5] ruff check src/"
+  .venv/bin/ruff check src/ || exit 1
+elif command -v ruff >/dev/null 2>&1; then
+  echo "[1a/5] ruff check src/"
+  ruff check src/ || exit 1
+else
+  echo "[1a/5] ruff 未安装，跳过（建议 .venv 装 ruff）"
+fi
 # 任务书51·B8：前端契约类型检查（vue-tsc --noEmit）
 if [ -d frontend/node_modules ] && [ -f frontend/package.json ]; then
   echo "[1b/5] 前端 vue-tsc --noEmit"

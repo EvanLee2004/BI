@@ -103,12 +103,12 @@ class TestOverallExpenseSalary(unittest.TestCase):
         matters = {row.get("事项") for row in d["rows"]}
         self.assertIn("办公", matters)
 
-    def test_overall_see_salary_when_enabled(self):
+    def test_settings_salary_switch_removed(self):
+        """54.12 R-01：开关废止；POST 忽略字段，GET 固定 False。"""
         c = self._login("admin1", admin=True)
         r = c.post("/api/settings", json={"overall_see_salary": True})
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertTrue(r.json().get("overall_see_salary"))
-        # 不得脏写 config.json
+        self.assertFalse(r.json().get("overall_see_salary"))
         cfg_file = ROOT / "config.json"
         text = cfg_file.read_text(encoding="utf-8")
         self.assertNotIn("overall_see_salary", text)
@@ -117,19 +117,17 @@ class TestOverallExpenseSalary(unittest.TestCase):
         r2 = c2.get("/api/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r2.status_code, 200)
         cats = {row.get("对应报表大类") for row in r2.json()["rows"]}
-        self.assertIn("工资", cats)
+        self.assertNotIn("工资", cats)
 
-        # 关回
-        c.post("/api/settings", json={"overall_see_salary": False})
-
-    def test_admin_always_sees_salary(self):
+    def test_admin_also_hides_salary(self):
+        """54.12 R-01：管理端费用明细也不再单列工资。"""
         c = self._login("admin1", admin=True)
-        # 即使开关关
-        self.cfg["overall_see_salary"] = False
         r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r.status_code, 200)
         cats = {row.get("对应报表大类") for row in r.json()["rows"]}
-        self.assertIn("工资", cats)
+        self.assertNotIn("工资", cats)
+        # 非工资行仍可见
+        self.assertIn("管理费用", cats)
 
     def test_bu_cannot_see_other_bu(self):
         c = self._login("bu_a")
@@ -138,11 +136,12 @@ class TestOverallExpenseSalary(unittest.TestCase):
         r2 = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r2.status_code, 200)
         d = r2.json()
-        # 任务书41·D：BU 看端不展示「业务BU」列，隔离用 total/事项 验证（甲 2 行，非乙的 2 行）
+        # 任务书41·D：BU 看端不展示「业务BU」列；54.12 R-01 工资已隐 → 甲BU 仅剩「办公」1 行
         self.assertNotIn("业务BU", d["columns"])
-        self.assertEqual(d["total"], 2)
+        self.assertEqual(d["total"], 1)
         matters = {row.get("事项") for row in d["rows"]}
-        self.assertEqual(matters, {"工资事项", "办公"})
+        self.assertEqual(matters, {"办公"})
+        self.assertNotIn("工资事项", matters)
         self.assertNotIn("乙工资", matters)
         self.assertNotIn("差旅", matters)
 
@@ -193,10 +192,15 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("document.body.appendChild(pop)", open_fn, "打开列筛必须 body.appendChild(pop)")
         self.assertIn("parentElement!==document.body", open_fn)
 
-    def test_settings_ui_has_switch(self):
-        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
-        self.assertIn("sOverallSalary", html)
-        self.assertIn("整体账号可见工资明细", html)
+    def test_settings_ui_salary_switch_gone(self):
+        """54.12 R-01：设置页不再有工资开关；智云表 ID 走抽屉。"""
+        # Vue 源：无 overall_see_salary / 无「可见工资」文案
+        vue = (ROOT / "frontend" / "src" / "admin" / "views" / "SettingsView.vue").read_text(encoding="utf-8")
+        self.assertNotIn("overall_see_salary", vue)
+        self.assertNotIn("可见工资", vue)
+        self.assertIn("zyDrawer", vue)
+        self.assertIn("智云服务器与抓取表", vue)
+
 
 
 if __name__ == "__main__":

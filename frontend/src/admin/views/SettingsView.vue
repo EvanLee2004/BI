@@ -30,12 +30,13 @@ const sBakInfo = ref('')
 const sZyUser = ref('')
 const sZyPwd = ref('')
 const sLedgerPath = ref('')
-const sOverallSalary = ref(false)
 const sZyUrl = ref('')
 const sTblOrders = ref('')
 const sTblReceipts = ref('')
 const sTblProject = ref('')
 const sTblInhouse = ref('')
+/** R-03：智云表 ID 右侧抽屉（不在设置页原地展开） */
+const zyDrawer = ref(false)
 const srcRows = ref<{ name: string; src: string; rows: string }[]>([])
 
 const dirty = reactive(new Set<string>())
@@ -158,7 +159,6 @@ async function loadSettings() {
       zhiyun_username?: string
       zhiyun_password?: string
       ledger_share_path?: string
-      overall_see_salary?: boolean
       feishu_webhook_url?: string
       run_log_keep_days?: number
       disk_free_min_ratio?: number
@@ -171,7 +171,6 @@ async function loadSettings() {
     sZyUser.value = s.zhiyun_username || ''
     sZyPwd.value = s.zhiyun_password || ''
     sLedgerPath.value = s.ledger_share_path || ''
-    sOverallSalary.value = !!s.overall_see_salary
     sFeishuHook.value = s.feishu_webhook_url || ''
     sLogKeep.value = s.run_log_keep_days != null ? s.run_log_keep_days : 365
     sDiskMin.value =
@@ -430,7 +429,7 @@ async function saveAlert() {
 }
 async function saveZhiyun() {
   setMsgs.zy = '保存中…'
-  const p: Record<string, unknown> = { ledger_share_path: sLedgerPath.value, overall_see_salary: !!sOverallSalary.value }
+  const p: Record<string, unknown> = { ledger_share_path: sLedgerPath.value }
   if (sZyUser.value || sZyPwd.value) {
     p.zhiyun_username = sZyUser.value
     p.zhiyun_password = sZyPwd.value
@@ -670,16 +669,19 @@ onMounted(async () => {
             <el-form-item label="收单台账共享盘路径">
               <el-input v-model="sLedgerPath" placeholder="共享盘路径" @input="mark('zy')" />
             </el-form-item>
-            <el-checkbox v-model="sOverallSalary" @change="mark('zy')">整体账号可见工资明细</el-checkbox>
-            <el-collapse style="margin-top: 10px">
-              <el-collapse-item title="智云服务器与抓取表（一般不用改）" name="1">
+            <el-button type="primary" plain style="margin-top: 8px" @click="zyDrawer = true">智云服务器与抓取表（一般不用改）</el-button>
+            <el-drawer v-model="zyDrawer" title="智云服务器与抓取表" direction="rtl" size="420px" append-to-body>
+              <el-form label-position="top">
                 <el-form-item label="智云服务器地址"><el-input v-model="sZyUrl" @input="mark('zy')" /></el-form-item>
                 <el-form-item label="下单 表ID"><el-input v-model="sTblOrders" @input="mark('zy')" /></el-form-item>
                 <el-form-item label="回款记录 表ID"><el-input v-model="sTblReceipts" @input="mark('zy')" /></el-form-item>
                 <el-form-item label="项目明细 表ID"><el-input v-model="sTblProject" @input="mark('zy')" /></el-form-item>
                 <el-form-item label="内部译员 表ID"><el-input v-model="sTblInhouse" @input="mark('zy')" /></el-form-item>
-              </el-collapse-item>
-            </el-collapse>
+              </el-form>
+              <template #footer>
+                <el-button type="primary" @click="zyDrawer = false">完成</el-button>
+              </template>
+            </el-drawer>
           </el-form>
           <div class="muted">{{ setMsgs.zy }}</div>
         </el-card>

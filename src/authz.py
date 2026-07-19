@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """任务书46·阶段1：RBAC 雏形——能力点枚举 + 角色映射。
 
-行为与现状完全一致：
-- 管理员：CAN_ADMIN + CAN_EXPORT + CAN_VIEW_SALARY
-- 整体：CAN_EXPORT；CAN_VIEW_SALARY 仅当配置 overall_see_salary=True（默认否）
-- BU：CAN_EXPORT + CAN_VIEW_SALARY（本 BU 明细含工资行，与现状 hide_salary=False 一致）
+行为（54.12 R-01 起）：
+- 管理员：CAN_ADMIN + CAN_EXPORT（工资大类全端隐藏，不再授予 CAN_VIEW_SALARY）
+- 整体：CAN_EXPORT（工资并入「其他」，无开关）
+- BU：CAN_EXPORT（工资并入「其他」，与整体一致）
 
 散落的 is_admin / can_main 判断收敛到本模块（accounts 仍保留 is_* 兼容别名）。
 """
@@ -24,9 +24,9 @@ ALL_CAPS = frozenset({CAN_EXPORT, CAN_VIEW_SALARY, CAN_ADMIN})
 
 # 静态角色矩阵（不含配置联动的 VIEW_SALARY）
 _ROLE_BASE: dict[str, frozenset[str]] = {
-    accounts.PERM_ADMIN: frozenset({CAN_EXPORT, CAN_VIEW_SALARY, CAN_ADMIN}),
+    accounts.PERM_ADMIN: frozenset({CAN_EXPORT, CAN_ADMIN}),
     accounts.PERM_MAIN: frozenset({CAN_EXPORT}),
-    accounts.PERM_BU: frozenset({CAN_EXPORT, CAN_VIEW_SALARY}),
+    accounts.PERM_BU: frozenset({CAN_EXPORT}),
 }
 
 
@@ -48,15 +48,11 @@ def role_key(acc: dict | None) -> str | None:
 
 
 def caps_of(acc: dict | None, *, cfg: dict | None = None) -> frozenset[str]:
-    """账号能力点集合。cfg 用于整体账号的 overall_see_salary。"""
+    """账号能力点集合。cfg 保留参数兼容旧调用；54.12 起不再因配置授予 CAN_VIEW_SALARY。"""
     rk = role_key(acc)
     if not rk:
         return frozenset()
-    base = set(_ROLE_BASE.get(rk) or ())
-    if rk == accounts.PERM_MAIN and cfg is not None:
-        if bool(cfg.get("overall_see_salary", False)):
-            base.add(CAN_VIEW_SALARY)
-    return frozenset(base)
+    return frozenset(_ROLE_BASE.get(rk) or ())
 
 
 def has_cap(acc: dict | None, cap: str, *, cfg: dict | None = None) -> bool:
@@ -114,45 +110,41 @@ def resolve_expense_view_access(
     bu_s = (bu or "").strip() or None
 
     if force_whitelist:
-        # 看端 ledger：强制白名单列
+        # 看端 ledger：强制白名单列；54.12 R-01 全端隐工资
         if not user and not vacc:
             raise HTTPException(status_code=401, detail="未登录")
         if user:
             force_bu = bu_s
-            hide_salary = False
             audience = "view_bu" if force_bu else "view"
-            return force_bu, hide_salary, audience
+            return force_bu, True, audience
         if accounts.is_main(vacc):
-            force_bu = bu_s
-            hide_salary = not bool(cfg.get("overall_see_salary", False))
-            return force_bu, hide_salary, "view"
+            return bu_s, True, "view"
         names = accounts.bu_names_of(vacc) if vacc else []
         if not names:
             raise HTTPException(status_code=403, detail="无权查看费用明细")
         want = bu_s or (names[0] if len(names) == 1 else "")
         if not want or not accounts.can_see_bu(vacc, want):
             raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-        return want, False, "view_bu"
+        return want, True, "view_bu"
 
-    # /api/detail：管理员全列；看端仅费用明细
+    # /api/detail：管理员全列但仍隐工资；看端仅费用明细
     if user:
-        return bu_s, False, "admin"
+        return bu_s, True, "admin"
     if vacc and table == "费用明细":
         names = accounts.bu_names_of(vacc)
         if accounts.is_main(vacc):
-            hide_salary = not bool(cfg.get("overall_see_salary", False))
-            return bu_s, hide_salary, "view"
+            return bu_s, True, "view"
         if not names:
             raise HTTPException(status_code=403, detail="无权查看费用明细")
         want = bu_s or (names[0] if len(names) == 1 else "")
         if not want or not accounts.can_see_bu(vacc, want):
             raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-        return want, False, "view_bu"
+        return want, True, "view_bu"
     raise HTTPException(status_code=401, detail="需要登录")
 
 
 def role_matrix_for_tests() -> dict[str, dict[str, bool]]:
-    """三角色 × 三能力点（默认配置 overall_see_salary=False）矩阵，供 test_authz 断言。"""
+    """三角色 × 三能力点矩阵（54.12 起无人有 CAN_VIEW_SALARY），供 test_authz 断言。"""
     rows = {
         accounts.PERM_ADMIN: {"账号": "a", "权限": accounts.PERM_ADMIN},
         accounts.PERM_MAIN: {"账号": "m", "权限": accounts.PERM_MAIN},

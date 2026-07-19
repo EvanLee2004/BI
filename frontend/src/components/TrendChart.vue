@@ -121,10 +121,12 @@ const option = computed(() => {
     },
     legend: {
       data: ['收入', '成本', '毛利率'],
-      bottom: 0,
+      bottom: 4,
+      left: 'center',
       textStyle: legendTextStyle(),
     },
-    grid: { left: 56, right: 48, top: 52, bottom: 52, containLabel: true },
+    /* R-05：grid 底边距含图例+月份轴，避免 BU 页底部裁切 */
+    grid: { left: 56, right: 48, top: 48, bottom: 64, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -164,7 +166,7 @@ const option = computed(() => {
 
 <style scoped>
 .trend-fill {
-  min-height: 320px;
-  height: 360px;
+  min-height: 360px;
+  height: 400px;
 }
 </style>

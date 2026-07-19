@@ -451,7 +451,7 @@ class TestBuEndpoints(unittest.TestCase):
 
         r = self.client.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("智能经营罗盘", r.text)  # shell-bu
+        self.assertIn("经营罗盘", r.text)  # shell-bu
         fr = self.client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
         # 无 fragments 时可能 503；有真实 bu 数据时 200
         self.assertIn(fr.status_code, (200, 503, 404))
@@ -468,7 +468,7 @@ class TestBuEndpoints(unittest.TestCase):
     def test_main_page_shell(self):
         r = self.client.get("/")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("智能经营罗盘", r.text)
+        self.assertIn("经营罗盘", r.text)
         self.assertNotIn("USER-MAIN", r.text)
 
     def test_api_requires_login(self):

@@ -21,7 +21,8 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -378,11 +379,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         lsp = str(payload.get("ledger_share_path") or "").strip()
         cfg["ledger_share_path"] = lsp
         updates["ledger_share_path"] = lsp
-    # 任务书37·B8：整体账号是否可见「工资」大类明细（默认关，落本地覆盖层）
-    if "overall_see_salary" in payload:
-        oss = bool(payload.get("overall_see_salary"))
-        cfg["overall_see_salary"] = oss
-        updates["overall_see_salary"] = oss
+    # 54.12 R-01：工资全端隐藏，不再接受 overall_see_salary 开关
     # 任务书43：飞书 webhook / 日志保留 / 磁盘阈值 → 本地覆盖层（不进 git）
     if "feishu_webhook_url" in payload:
         wh = str(payload.get("feishu_webhook_url") or "").strip()
@@ -439,7 +436,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         "backup_keep_days": keep,
         "zhiyun_auto_fetch": auto,
         "ledger_share_path": cfg.get("ledger_share_path", ""),
-        "overall_see_salary": bool(cfg.get("overall_see_salary", False)),
+        "overall_see_salary": False,  # 54.12 R-01 已废止开关，固定 False 兼容旧前端
         "feishu_webhook_url": cfg.get("feishu_webhook_url", "") or "",
         "run_log_keep_days": int(cfg.get("run_log_keep_days", 365) or 365),
         "disk_free_min_ratio": float(cfg.get("disk_free_min_ratio", 0.10) or 0.10),
@@ -799,6 +796,76 @@ def create_app(cfg, root=None) -> FastAPI:
     _fe_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
     if _fe_dist.is_dir():
         app.mount("/app", StaticFiles(directory=str(_fe_dist), html=True), name="frontend")
+
+    # 54.12 R-13 favicon
+    _favicon = STATIC_DIR / "favicon.ico"
+    _favicon_svg = STATIC_DIR / "icons" / "favicon.svg"
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon_ico():
+        if _favicon.is_file():
+            return FileResponse(_favicon, media_type="image/x-icon")
+        if _favicon_svg.is_file():
+            return FileResponse(_favicon_svg, media_type="image/svg+xml")
+        raise HTTPException(status_code=404, detail="favicon missing")
+
+    @app.get("/favicon.svg", include_in_schema=False)
+    def favicon_svg():
+        if _favicon_svg.is_file():
+            return FileResponse(_favicon_svg, media_type="image/svg+xml")
+        raise HTTPException(status_code=404, detail="favicon missing")
+
+    def _wants_html(request: Request) -> bool:
+        accept = (request.headers.get("accept") or "").lower()
+        if "text/html" in accept:
+            return True
+        # 浏览器地址栏直开常带 */* 或空；排除明确 JSON/API
+        if "application/json" in accept and "text/html" not in accept:
+            return False
+        path = request.url.path or ""
+        if path.startswith("/api") or path.startswith("/openapi") or path.endswith(".json"):
+            return False
+        return "text/html" in accept or accept in ("", "*/*") or "text/*" in accept
+
+    def _error_page(status: int, title: str, msg: str) -> HTMLResponse:
+        """54.12 R-14：友好错误页（模板在 static/templates/errors，禁 HTML-in-py）。"""
+        home = "/" if status != 401 else "/login"
+        tpl = STATIC_DIR / "templates" / "errors" / "http_error.html"
+        raw = tpl.read_text(encoding="utf-8") if tpl.is_file() else (
+            "__TITLE__ (__STATUS__) __MSG__ <a href=\"__HOME__\">home</a>"
+        )
+        # 简单占位替换，避免 HTML 字面量进 .py
+        html = (
+            raw.replace("__TITLE__", title)
+            .replace("__STATUS__", str(status))
+            .replace("__MSG__", msg)
+            .replace("__HOME__", home)
+        )
+        return HTMLResponse(html, status_code=status)
+
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_exc_handler(request: Request, exc: StarletteHTTPException):
+        # 保留 API JSON 契约
+        if not _wants_html(request):
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+        code = exc.status_code
+        if code == 404:
+            return _error_page(404, "页面不存在", "找不到这个地址。可能链接已变更，或路径输错了。")
+        if code >= 500:
+            return _error_page(500, "服务暂时出了点问题", "系统开小差了，请稍后重试；若持续出现请联系管理员。")
+        # 其它 4xx 仍给友好页
+        detail = exc.detail if isinstance(exc.detail, str) else "请求无法完成"
+        return _error_page(code, "无法打开", detail)
+
+    @app.exception_handler(Exception)
+    async def _unhandled_exc_handler(request: Request, exc: Exception):
+        import traceback
+        traceback.print_exc()
+        if not _wants_html(request):
+            return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+        return _error_page(500, "服务暂时出了点问题", "系统开小差了，请稍后重试；若持续出现请联系管理员。")
 
     def _session_subject(cookie_val: str) -> str | None:
         """校验 cookie：签名/过期 + 密码版本与账号表一致（改密踢会话）。"""

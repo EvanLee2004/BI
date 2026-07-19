@@ -357,7 +357,7 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         "expense_trend_html": render.render_expense_trend(
             render.apply_expense_salary_hide(
                 summary.get("expense_monthly_by_cat"),
-                not bool(cfg.get("overall_see_salary", False)),
+                True,  # 54.12 R-01 全端隐工资
             ),
             title="费用月度趋势 · 按报表大类",
         ),

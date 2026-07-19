@@ -96,7 +96,7 @@ class TestLoginCacheP0(unittest.TestCase):
         r_home = c_main.get("/")
         self.assertEqual(r_home.status_code, 200)
         self.assertTrue(_has_no_store(r_home), "已登录 / 缺 no-store")
-        self.assertIn("智能经营罗盘", r_home.text)
+        self.assertIn("经营罗盘", r_home.text)
 
         # BU 账号：/bu 为 shell-bu
         c_bu = self._client()
@@ -105,7 +105,7 @@ class TestLoginCacheP0(unittest.TestCase):
         r_bu = c_bu.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(r_bu.status_code, 200)
         self.assertTrue(_has_no_store(r_bu), "已登录 /bu 缺 no-store")
-        self.assertIn("智能经营罗盘", r_bu.text)
+        self.assertIn("经营罗盘", r_bu.text)
 
         # 管理员：/admin → Vue SPA（54.4·D）
         c_adm = self._client()
@@ -125,13 +125,13 @@ class TestLoginCacheP0(unittest.TestCase):
         """模拟：先未登录 GET → 登录 → 再 GET 同 URL；看端 body 须变；管理端 Vue SPA 壳可相同但须带会话 cookie。"""
         # 看端：未登录登录页 → 已登录 SPA
         cases = [
-            ("overall", "/", "/login", {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "智能经营罗盘"),
+            ("overall", "/", "/login", {"account": "overall", "password": server.DEFAULT_VIEW_PW}, "经营罗盘"),
             (
                 "bu",
                 f"/bu/{quote('BU甲')}",
                 "/login",
                 {"account": "user_a", "password": server.DEFAULT_VIEW_PW},
-                "智能经营罗盘",
+                "经营罗盘",
             ),
         ]
         for label, path, login_url, creds, after_marker in cases:

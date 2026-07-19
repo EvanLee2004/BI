@@ -150,7 +150,7 @@ class TestViewerAuth(unittest.TestCase):
         c, ok = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(ok.status_code, 303)
         home = c.get("/").text
-        self.assertIn("智能经营罗盘", home)  # shell
+        self.assertIn("经营罗盘", home)  # shell
         self.assertNotIn("USER-MAIN", home)
         fr = c.get("/api/v1/cockpit/fragments").json()
         self.assertEqual(fr["fragments"].get("kpi_views"), "")
@@ -183,7 +183,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("/bu/", r0.headers.get("location") or "")
         rbu = c.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(rbu.status_code, 200)
-        self.assertIn("智能经营罗盘", rbu.text)  # shell-bu
+        self.assertIn("经营罗盘", rbu.text)  # shell-bu
         fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
         self.assertEqual(fr.status_code, 200)
         j = fr.json()

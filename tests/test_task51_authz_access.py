@@ -20,7 +20,7 @@ class TestResolveExpenseViewAccess(unittest.TestCase):
             "admin", None, None, cfg={}, force_whitelist=False, table="费用明细"
         )
         self.assertIsNone(fb)
-        self.assertFalse(hs)
+        self.assertTrue(hs)  # 54.12 R-01 全端隐工资
         self.assertEqual(aud, "admin")
 
     def test_admin_ledger_whitelist(self):
@@ -28,7 +28,7 @@ class TestResolveExpenseViewAccess(unittest.TestCase):
             "admin", None, None, cfg={}, force_whitelist=True
         )
         self.assertIsNone(fb)
-        self.assertFalse(hs)
+        self.assertTrue(hs)  # R-01
         self.assertEqual(aud, "view")
         fb2, _, aud2 = authz.resolve_expense_view_access(
             "admin", None, "甲BU", cfg={}, force_whitelist=True
@@ -43,10 +43,11 @@ class TestResolveExpenseViewAccess(unittest.TestCase):
         )
         self.assertTrue(hs)
         self.assertEqual(aud, "view")
+        # R-01：配置开关已废止，即使传 overall_see_salary=True 仍隐
         _, hs2, _ = authz.resolve_expense_view_access(
             None, vacc, None, cfg={"overall_see_salary": True}, force_whitelist=False, table="费用明细"
         )
-        self.assertFalse(hs2)
+        self.assertTrue(hs2)
 
     def test_bu_force_own(self):
         vacc = {"账号": "b", "权限": "BU", "可见BU": ["甲BU"]}
@@ -54,7 +55,7 @@ class TestResolveExpenseViewAccess(unittest.TestCase):
             None, vacc, None, cfg={}, force_whitelist=True
         )
         self.assertEqual(fb, "甲BU")
-        self.assertFalse(hs)
+        self.assertTrue(hs)  # R-01 BU 亦隐工资
         self.assertEqual(aud, "view_bu")
 
     def test_anon_401(self):
