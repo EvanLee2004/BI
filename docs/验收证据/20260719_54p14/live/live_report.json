@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "r20": "no_double_wan_body",
+      "ok": true
+    },
+    {
+      "r21": "theme_toggle",
+      "before": false,
+      "after": true
+    },
+    {
+      "r22_panel": {
+        "ok": true,
+        "z": "60",
+        "kpiZ": "auto",
+        "panelA": 0.97,
+        "top": 54,
+        "height": 104
+      }
+    },
+    {
+      "r22_months": 7
+    },
+    {
+      "r26": "heatmap_visible"
+    }
+  ]
+}

@@ -108,6 +108,11 @@ tests/test_task52_fixes.py
 tests/test_task54_scifi.py
 tests/test_task54p1_visual.py
 tests/test_task54p4_receipts_b4.py
+tests/test_task54p11_r01_bu_nav.py
+tests/test_task54p11_r02_period.py
+tests/test_task54p11_r03_overlay.py
+tests/test_task54p14_r20_no_double_wan.py
+tests/test_task54p14_r21_r26.py
 "
 run_one() {
   f="$1"
