@@ -345,7 +345,47 @@ def _migrate_table_money_cols(conn: sqlite3.Connection, table: str, cols: tuple[
     return n
 
 
-def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:  # noqa: C901
+def _lookup_std_fen(conn: sqlite3.Connection, 目标表, 定位键, 字段) -> int | None:
+    """取 std 现值作锚（有则用于判定纯整数是元还是分）。"""
+    if not (目标表 and 定位键 and 字段):
+        return None
+    try:
+        r = conn.execute(
+            f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0 LIMIT 1",
+            (定位键,),
+        ).fetchone()
+        if r is not None and r[0] is not None:
+            return int(r[0])
+    except sqlite3.OperationalError:
+        pass
+    return None
+
+
+def _adj_side_to_fen(text, cur_fen, money) -> tuple:
+    """单侧 原值/新值 元文本→分文本；(new_text, changed)。"""
+    if text is None:
+        return None, False
+    s = str(text).strip()
+    if s == "":
+        return "", False
+    # 有小数 → 元
+    if "." in s or "e" in s.lower():
+        return money.yuan_text_to_fen_text(s), True
+    try:
+        iv = int(float(s))
+    except (ValueError, TypeError):
+        return s, False
+    # 纯整数：若 iv*100 == cur_fen → 元；若 iv == cur_fen → 已是分
+    if cur_fen is not None:
+        if iv == cur_fen:
+            return s, False  # already fen
+        if iv * 100 == cur_fen:
+            return str(iv * 100), True
+    # 无锚：按元转分（存量部署机 adj 均为元）
+    return money.yuan_text_to_fen_text(s), True
+
+
+def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:
     """adj 金额字段 原值/新值：元文本 → 分文本。幂等：已是分（与 std 现值一致）则跳过该侧。
 
     判定：字段∈金额名；有小数点 → 必为元；纯整数则 yuan_to_fen 与 as-fen 双解，
@@ -363,44 +403,9 @@ def _migrate_adj_amount_texts(conn: sqlite3.Connection) -> int:  # noqa: C901
     for aid, 目标表, 定位键, 字段, 原值, 新值 in rows:
         if 字段 not in money.AMOUNT_FIELD_NAMES:
             continue
-        # 取 std 现值作锚（有则用于判定纯整数是元还是分）
-        cur_fen = None
-        if 目标表 and 定位键 and 字段:
-            try:
-                r = conn.execute(
-                    f"SELECT {字段} FROM {目标表} WHERE 定位键=? AND 已删除=0 LIMIT 1",
-                    (定位键,),
-                ).fetchone()
-                if r is not None and r[0] is not None:
-                    cur_fen = int(r[0])
-            except sqlite3.OperationalError:
-                pass
-
-        def _side(text, _cur_fen=cur_fen):
-            # _cur_fen 默认参数绑定本轮循环值，避免闭包晚绑定（B023）
-            if text is None:
-                return None, False
-            s = str(text).strip()
-            if s == "":
-                return "", False
-            # 有小数 → 元
-            if "." in s or "e" in s.lower():
-                return money.yuan_text_to_fen_text(s), True
-            try:
-                iv = int(float(s))
-            except (ValueError, TypeError):
-                return s, False
-            # 纯整数：若 iv*100 == _cur_fen → 元；若 iv == _cur_fen → 已是分
-            if _cur_fen is not None:
-                if iv == _cur_fen:
-                    return s, False  # already fen
-                if iv * 100 == _cur_fen:
-                    return str(iv * 100), True
-            # 无锚：按元转分（存量部署机 adj 均为元）
-            return money.yuan_text_to_fen_text(s), True
-
-        new_o, ch_o = _side(原值)
-        new_n, ch_n = _side(新值)
+        cur_fen = _lookup_std_fen(conn, 目标表, 定位键, 字段)
+        new_o, ch_o = _adj_side_to_fen(原值, cur_fen, money)
+        new_n, ch_n = _adj_side_to_fen(新值, cur_fen, money)
         if ch_o or ch_n:
             conn.execute(
                 "UPDATE adj_调整记录 SET 原值=?, 新值=? WHERE id=?",

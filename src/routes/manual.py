@@ -12,7 +12,44 @@ import profit
 from app_state import _state
 
 
-def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
+def _parse_alloc_ratios_payload(ratios: dict, known: set) -> dict[str, float | None]:
+    vals: dict[str, float | None] = {}
+    for b, v in ratios.items():
+        b = str(b).strip()
+        if b not in known:
+            raise HTTPException(status_code=400, detail=f"未知 BU：{b}（以设置页 BU 名单为准）")
+        if v is None or v == "":
+            vals[b] = None
+            continue
+        try:
+            fv = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"比例须为数字：{b}") from None
+        if not (0 <= fv <= 100):
+            raise HTTPException(status_code=400, detail=f"比例须在 0~100：{b}")
+        vals[b] = round(fv, 1)
+    return vals
+
+
+def _merge_alloc_month(conn, month: str, known: set, vals: dict[str, float | None]) -> dict:
+    """合并基准=该月生效比例（含沿用值）；返回合并后的 {BU:比例}。"""
+    merged, _src = db.effective_alloc_month(conn, month)
+    merged = {b: p for b, p in merged.items() if b in known}
+    for b, v in vals.items():
+        if v is None:
+            merged.pop(b, None)
+        else:
+            merged[b] = v
+    total = sum(p for b, p in merged.items() if b in known)
+    if total > 100.05:
+        raise HTTPException(
+            status_code=400,
+            detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）",
+        )
+    return merged
+
+
+def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -245,7 +282,7 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
             conn.close()
 
     @app.post("/api/alloc_ratios")
-    def api_alloc_set(request: Request, payload: dict = Body(default={})):  # noqa: C901
+    def api_alloc_set(request: Request, payload: dict = Body(default={})):
         """写某月分摊比例（管理员）。payload={归属月, ratios:{BU:比例%|null}}。
         约束：BU 须在设置页 BU 名单内；单值 0~100；已知 BU 合计 ≤100（容差 0.05）。null=删行不分摊。"""
         user = _require(request)
@@ -255,38 +292,12 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
             raise HTTPException(status_code=400, detail="ratios 不能为空")
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         known = {b["name"] for b in bucfg["bus"]}
-        vals: dict[str, float | None] = {}
-        for b, v in ratios.items():
-            b = str(b).strip()
-            if b not in known:
-                raise HTTPException(status_code=400, detail=f"未知 BU：{b}（以设置页 BU 名单为准）")
-            if v is None or v == "":
-                vals[b] = None
-                continue
-            try:
-                fv = float(v)
-            except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail=f"比例须为数字：{b}") from None
-            if not (0 <= fv <= 100):
-                raise HTTPException(status_code=400, detail=f"比例须在 0~100：{b}")
-            vals[b] = round(fv, 1)
+        vals = _parse_alloc_ratios_payload(ratios, known)
         conn = _conn()
         try:
             # 合并基准=该月生效比例（含沿用值·陆总0714）；保存时把生效全集固化进本月，
             # 否则只改一个 BU 会让其余 BU 的沿用比例丢失（本月一旦有行，沿用即不再兜底）
-            merged, _src = db.effective_alloc_month(conn, month)
-            merged = {b: p for b, p in merged.items() if b in known}
-            for b, v in vals.items():
-                if v is None:
-                    merged.pop(b, None)
-                else:
-                    merged[b] = v
-            total = sum(p for b, p in merged.items() if b in known)
-            if total > 100.05:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"该月各 BU 比例合计 {total:g}% 超过 100%，请调整（可以小于 100%，剩余留公司层）",
-                )
+            merged = _merge_alloc_month(conn, month, known, vals)
             for b in known:
                 db.set_alloc_ratio(conn, month, b, merged.get(b), user)
             out = _alloc_month_payload(conn, month)

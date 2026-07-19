@@ -28,17 +28,34 @@ def _join_summary(prefix: str, items: list[str], cap: int = 8) -> str:
         return prefix + "；".join(items)
     return prefix + "；".join(items[:cap]) + f"；等共 {len(items)} 项"
 
-def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_alloc: bool = False) -> list:  # noqa: C901
+def _sale_map(bus: list) -> dict:
+    m = {}
+    for b in bus:
+        for s in b.get("销售") or []:
+            m[str(s).strip()] = b["name"]
+    return m
+
+
+def _fmt_ratio(v) -> str:
+    return "空" if v is None else f"{v:g}%"
+
+
+def _diff_bu_alloc_lines(old_bus, new_bus, old_alloc: bool, new_alloc: bool) -> list[str]:
+    alloc_lines = []
+    if bool(old_alloc) != bool(new_alloc):
+        alloc_lines.append(f"公共费用分摊 {'开' if new_alloc else '关'}←{'开' if old_alloc else '关'}")
+    orat = {b["name"]: b.get("分摊比例") for b in old_bus}
+    nrat = {b["name"]: b.get("分摊比例") for b in new_bus}
+    for nm in sorted(set(orat) | set(nrat)):
+        o, n = orat.get(nm), nrat.get(nm)
+        if o != n:
+            alloc_lines.append(f"{nm} {_fmt_ratio(o)}→{_fmt_ratio(n)}")
+    return alloc_lines
+
+
+def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_alloc: bool = False) -> list:
     """销售归属/BU 结构/分摊比例变化 → [(类别,摘要)]（old/new 均规范化 bus 列表）。"""
-
-    def sale_map(bus):
-        m = {}
-        for b in bus:
-            for s in b.get("销售") or []:
-                m[str(s).strip()] = b["name"]
-        return m
-
-    om, nm = sale_map(old_bus), sale_map(new_bus)
+    om, nm = _sale_map(old_bus), _sale_map(new_bus)
     moves = [
         f"{s} {om.get(s) or '未归属'}→{nm.get(s) or '未归属'}"
         for s in sorted(set(om) | set(nm))
@@ -62,20 +79,7 @@ def _diff_bu_config(old_bus: list, new_bus: list, old_alloc: bool = False, new_a
         out.append(("销售归属", _join_summary("销售归属：", moves)))
     if struct:
         out.append(("BU配置", _join_summary("BU配置：", struct)))
-    # 分摊开关 + 各 BU 比例（不存敏感值，只记百分比数字）
-    alloc_lines = []
-    if bool(old_alloc) != bool(new_alloc):
-        alloc_lines.append(f"公共费用分摊 {'开' if new_alloc else '关'}←{'开' if old_alloc else '关'}")
-    orat = {b["name"]: b.get("分摊比例") for b in old_bus}
-    nrat = {b["name"]: b.get("分摊比例") for b in new_bus}
-    for nm in sorted(set(orat) | set(nrat)):
-        o, n = orat.get(nm), nrat.get(nm)
-        if o != n:
-
-            def _fmt(v):
-                return "空" if v is None else f"{v:g}%"
-
-            alloc_lines.append(f"{nm} {_fmt(o)}→{_fmt(n)}")
+    alloc_lines = _diff_bu_alloc_lines(old_bus, new_bus, old_alloc, new_alloc)
     if alloc_lines:
         out.append(("分摊", _join_summary("分摊：", alloc_lines)))
     return out
@@ -155,19 +159,13 @@ def admin_ui_source() -> str:
             parts.append(p.read_text(encoding="utf-8"))
     return "\n".join(parts)
 
-def _run_reasons(report: dict) -> list[str]:  # noqa: C901
-    """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
-    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、定位键重复、库检查、备份。
-    注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
-    report = report or {}
-    reasons: list[str] = []
+def _run_reasons_fetch(report: dict, reasons: list[str]) -> None:
     fetch = report.get("fetch", {}) or {}
     st = fetch.get("status")
     if st == "no_source":
         reasons.append("收单台账无可用数据源（共享路径与本地副本都没有）→ 判红")
     elif st and st != "fetched":
         reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
-    # 智云：降级 / 行数骤降 / 同名控件观察（任务书35·批次0.5 补做）
     for src, zv in (report.get("fetch_zhiyun") or {}).items():
         if not isinstance(zv, dict):
             continue
@@ -176,6 +174,9 @@ def _run_reasons(report: dict) -> list[str]:  # noqa: C901
             reasons.append(f"智云·{src} 未在线抓到（{zst}：{(zv.get('detail') or '')[:80]}）")
         for w in zv.get("warnings") or []:
             reasons.append(f"智云·{src}：{w}")
+
+
+def _run_reasons_adjust_db_disk(report: dict, reasons: list[str]) -> None:
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
         reasons.append(f"{adj['expired']} 条调整「过期疑似」（源头已改、调整未套用）→ 去『异常处理·数据修正』看")
@@ -202,6 +203,16 @@ def _run_reasons(report: dict) -> list[str]:  # noqa: C901
     bak = report.get("backup") or {}
     if bak.get("status") == "error" or bak.get("ok") is False:
         reasons.append(f"每日备份失败：{bak.get('detail') or bak.get('status')}")
+
+
+def _run_reasons(report: dict) -> list[str]:
+    """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
+    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、定位键重复、库检查、备份。
+    注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
+    report = report or {}
+    reasons: list[str] = []
+    _run_reasons_fetch(report, reasons)
+    _run_reasons_adjust_db_disk(report, reasons)
     # 备份成功不写 run_reasons（避免绿时顶栏堆字）；状态在体检 JSON backup 字段，管理端可查
     return reasons
 
@@ -218,6 +229,7 @@ _ZY_FILE_KEYS = {
     "project_detail": "project_detail_stem",  # 实际文件由 readers 解析；横幅用 mtime 时退回目录内匹配
     "inhouse": "inhouse",
 }
+
 
 def _file_as_of_label(path: Path) -> str:
     """本地文件修改时间 →「M月D日」；无文件→「上次本地」。"""

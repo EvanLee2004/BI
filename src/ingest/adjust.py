@@ -38,29 +38,34 @@ def _ledger_ym(收单日期, 收单月份, ledger_year: int) -> str | None:
     return None
 
 
-def _values_match(current, 原值: str, 字段: str = "") -> bool:  # noqa: C901
+def _amount_field_match(current, os_: str) -> bool:
+    """金额字段：分整数与元文本多种写法对齐。"""
+    if current is None:
+        return os_ == ""
+    try:
+        cur_fen = int(current)
+    except (ValueError, TypeError):
+        return False
+    if os_ == "":
+        return False
+    try:
+        if "." not in os_ and "e" not in os_.lower():
+            if int(float(os_)) == cur_fen:
+                return True
+        yuan_fen = money.yuan_to_fen(os_)
+        if yuan_fen is not None and yuan_fen == cur_fen:
+            return True
+    except (ValueError, TypeError):
+        return False
+    return False
+
+
+def _values_match(current, 原值: str, 字段: str = "") -> bool:
     if 原值 is None:
         原值 = ""
     os_ = str(原值).strip()
     if 字段 in _AMOUNT_FIELDS:
-        if current is None:
-            return os_ == ""
-        try:
-            cur_fen = int(current)
-        except (ValueError, TypeError):
-            return False
-        if os_ == "":
-            return False
-        try:
-            if "." not in os_ and "e" not in os_.lower():
-                if int(float(os_)) == cur_fen:
-                    return True
-            yuan_fen = money.yuan_to_fen(os_)
-            if yuan_fen is not None and yuan_fen == cur_fen:
-                return True
-        except (ValueError, TypeError):
-            return False
-        return False
+        return _amount_field_match(current, os_)
     cs = "" if current is None else str(current).strip()
     try:
         return abs(float(cs) - float(os_)) < 1e-6

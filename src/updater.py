@@ -149,7 +149,30 @@ def clear_rollback_marker(root=None) -> None:
         pass
 
 
-def check_update(root=None, remote="origin", do_fetch=True) -> dict:  # noqa: C901
+def _ahead_behind(root, up: str) -> tuple[int, int]:
+    rc, out, _ = _git(root, "rev-list", "--left-right", "--count", f"HEAD...{up}")
+    ahead = behind = 0
+    if rc == 0 and out:
+        parts = out.split()
+        if len(parts) == 2:
+            try:
+                ahead, behind = int(parts[0]), int(parts[1])
+            except ValueError:
+                pass
+    return ahead, behind
+
+
+def _update_reason(ahead: int, behind: int, dirty: bool) -> str:
+    if behind == 0:
+        return "已是最新版本"
+    if ahead > 0:
+        return f"本地有 {ahead} 个未推送提交（与远端分叉），请人工处理，暂不自动更新"
+    if dirty:
+        return "本地有未提交改动，先提交或还原再更新（避免被覆盖）"
+    return f"有新版本：落后远端 {behind} 个提交，可一键更新"
+
+
+def check_update(root=None, remote="origin", do_fetch=True) -> dict:
     """检测远端有没有新版本。do_fetch=True 时先 `git fetch`（只读）拿最新远端引用。
     remote=对标哪个远端（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee，或配 update_remote 指定）。
     返回 available/supported/behind/ahead/dirty/can_update/reason/log(近10条远端提交摘要)。"""
@@ -181,15 +204,7 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:  # noqa: C9
                 "remote": remote,
                 "reason": f"从远端「{remote}」拉取信息失败（网络/权限/远端不存在？）：{err or '未知错误'}",
             }
-    rc, out, _ = _git(root, "rev-list", "--left-right", "--count", f"HEAD...{up}")
-    ahead = behind = 0
-    if rc == 0 and out:
-        parts = out.split()
-        if len(parts) == 2:
-            try:
-                ahead, behind = int(parts[0]), int(parts[1])
-            except ValueError:
-                pass
+    ahead, behind = _ahead_behind(root, up)
     dirty = _is_dirty(root)
     log = []
     if behind:
@@ -197,14 +212,6 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:  # noqa: C9
         if rc == 0 and out:
             log = [ln for ln in out.splitlines() if ln.strip()]
     can_update = behind > 0 and ahead == 0 and not dirty
-    if behind == 0:
-        reason = "已是最新版本"
-    elif ahead > 0:
-        reason = f"本地有 {ahead} 个未推送提交（与远端分叉），请人工处理，暂不自动更新"
-    elif dirty:
-        reason = "本地有未提交改动，先提交或还原再更新（避免被覆盖）"
-    else:
-        reason = f"有新版本：落后远端 {behind} 个提交，可一键更新"
     return {
         "supported": True,
         "available": behind > 0,
@@ -214,12 +221,11 @@ def check_update(root=None, remote="origin", do_fetch=True) -> dict:  # noqa: C9
         "behind": behind,
         "dirty": dirty,
         "can_update": can_update,
-        "reason": reason,
+        "reason": _update_reason(ahead, behind, dirty),
         "log": log,
         "local": _short(root, "HEAD"),
         "remote_rev": _short(root, up),
     }
-
 
 def apply_update(root=None, remote="origin") -> dict:
     """安全拉取：先复检护栏（只读 fetch+比对），满足才 `git pull --ff-only <remote>`，

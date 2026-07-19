@@ -26,7 +26,57 @@ from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, arc
 _STD_ORDER = ["std_收入明细", "std_下单", "std_回款", "std_内部译员", "std_费用明细"]
 
 
-def build_std_db(  # noqa: C901
+def _normalize_all_sources(cfg, ledger_year, root) -> dict:
+    c = cfg["columns"]
+    proj = normalize.norm_project_detail(readers.read_project_detail(cfg, root), c)
+    orders = normalize.norm_orders(readers.read_orders(cfg, root), c)
+    receipts = normalize.norm_receipts(readers.read_receipts(cfg, root), c)
+    inhouse = normalize.norm_inhouse(readers.read_inhouse(cfg, root), c, cfg)
+    lheader, lrows = readers.read_ledger(cfg, ledger_year, root)
+    lcols = columns.resolve_ledger_columns(lheader)
+    ledger = normalize.norm_ledger(lheader, lrows, ledger_year, lcols)
+    return {
+        "std_收入明细": proj,
+        "std_下单": orders,
+        "std_回款": receipts,
+        "std_内部译员": inhouse,
+        "std_费用明细": ledger,
+    }
+
+
+def _report_disk_and_db(cfg, root, report: dict) -> None:
+    try:
+        data_path = __import__("loaders").data_dir(cfg, root)
+        ratio = disk_free_ratio(data_path)
+        min_r = float(cfg.get("disk_free_min_ratio", 0.10))
+        report["disk"] = {"free_ratio": ratio, "min_ratio": min_r}
+        if ratio is not None and ratio < min_r:
+            report["disk"]["red"] = True
+        report["db_size"] = db_file_size_bytes(cfg, root)
+    except Exception as e:
+        report["disk"] = {"error": f"{type(e).__name__}: {e}"}
+
+
+def _run_archive_backups(cfg, root, conn, today, report: dict) -> None:
+    d = today if isinstance(today, datetime.date) else datetime.date.today()
+    report["backup"] = archive.backup_db(cfg, d, root)
+    report["snapshot"] = archive.snapshot_if_month_end(cfg, d, root)
+    is_me = False
+    try:
+        is_me = bool((report.get("snapshot") or {}).get("done")) or (
+            d.month != (d + datetime.timedelta(days=1)).month
+        )
+    except Exception:
+        pass
+    if is_me:
+        try:
+            vacuum_db(conn)
+            report["vacuum"] = "ok"
+        except Exception as e:
+            report["vacuum"] = f"fail:{type(e).__name__}"
+
+
+def build_std_db(
     cfg: dict,
     ledger_year: int,
     root: Path | None = None,
@@ -40,93 +90,38 @@ def build_std_db(  # noqa: C901
     own = conn is None
     if own:
         conn = db.connect(cfg, root)
-    c = cfg["columns"]
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report: dict = {}
 
     # 1) fetch 收单台账（可达才拉、不可达走本地副本，不中断）
     report["fetch"] = fetch.fetch_ledger(cfg, root)
-
     # 1b) 智云四源在线抓（默认常开=更新必抓，抓不到降级；config.zhiyun_auto_fetch=false 仅应急后门）。
     # KANBAN_OFFLINE=1 强制跳过（测试/回归用：不碰网络、不动进料口，跑得快且可复现）。
     if cfg.get("zhiyun_auto_fetch") and not os.environ.get("KANBAN_OFFLINE"):
         report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root)
 
     # 2) 读原始 + 规范化
-    proj = normalize.norm_project_detail(readers.read_project_detail(cfg, root), c)
-    orders = normalize.norm_orders(readers.read_orders(cfg, root), c)
-    receipts = normalize.norm_receipts(readers.read_receipts(cfg, root), c)
-    inhouse = normalize.norm_inhouse(readers.read_inhouse(cfg, root), c, cfg)
-    lheader, lrows = readers.read_ledger(cfg, ledger_year, root)
-    lcols = columns.resolve_ledger_columns(lheader)
-    ledger = normalize.norm_ledger(lheader, lrows, ledger_year, lcols)
-
-    records = {
-        "std_收入明细": proj,
-        "std_下单": orders,
-        "std_回款": receipts,
-        "std_内部译员": inhouse,
-        "std_费用明细": ledger,
-    }
-
+    records = _normalize_all_sources(cfg, ledger_year, root)
     # 3) 全量重建标准表（人工表不动）
     _rebuild_std(conn, records)
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
-
     # 4) 一次性迁移手填（仅当 manual_手填 为空）
     report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root)
-
     # 5) 重放调整 + 过期校验（改数不改结果、只记指令）
     report["adjust"] = adjust.apply_adjustments(conn, now)
-
-    # 5b) A4 定位键重复审计（不改数，只报告；写调整/重放已拒多行）
     report["duplicate_locators"] = db.audit_duplicate_locators(conn)
-
-    # 5c) A7 库完整性 quick_check（异常 → 体检红）
     report["db_check"] = db.pragma_quick_check(conn)
-
-    # 5d) 磁盘剩余 + db 文件大小（任务书43·数据治理）
-    try:
-        data_path = __import__("loaders").data_dir(cfg, root)
-        ratio = disk_free_ratio(data_path)
-        min_r = float(cfg.get("disk_free_min_ratio", 0.10))
-        report["disk"] = {"free_ratio": ratio, "min_ratio": min_r}
-        if ratio is not None and ratio < min_r:
-            report["disk"]["red"] = True
-        report["db_size"] = db_file_size_bytes(cfg, root)
-    except Exception as e:
-        report["disk"] = {"error": f"{type(e).__name__}: {e}"}
-
+    _report_disk_and_db(cfg, root, report)
     # 6) 写运行日志（结果绿/黄/红；磁盘红并入 _log_run）
     report["result"] = _log_run(conn, now, trigger, report)
-
-    # 6b) 运行日志滚动清理（config.run_log_keep_days 默认 365）
     try:
         keep = int(cfg.get("run_log_keep_days", 365))
         report["run_log_pruned"] = prune_run_logs(conn, keep)
     except Exception as e:
         report["run_log_pruned"] = f"skip:{type(e).__name__}"
-
     # 7) db 每日滚动备份 + 月末快照 + 月末 VACUUM
     if archive_backups:
-        d = today if isinstance(today, datetime.date) else datetime.date.today()
-        report["backup"] = archive.backup_db(cfg, d, root)
-        report["snapshot"] = archive.snapshot_if_month_end(cfg, d, root)
-        # 月末（或快照成功）后 VACUUM
-        is_me = False
-        try:
-            is_me = bool((report.get("snapshot") or {}).get("done")) or (
-                d.month != (d + datetime.timedelta(days=1)).month
-            )
-        except Exception:
-            pass
-        if is_me:
-            try:
-                vacuum_db(conn)
-                report["vacuum"] = "ok"
-            except Exception as e:
-                report["vacuum"] = f"fail:{type(e).__name__}"
-
+        _run_archive_backups(cfg, root, conn, today, report)
     # 8) 可选飞书告警（失败绝不影响主流程）
     try:
         from notify import maybe_alert_pipeline

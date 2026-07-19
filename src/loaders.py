@@ -194,7 +194,26 @@ def _valid_ymd(y: int, m: int, d: int) -> tuple[int, int, int] | None:
     return int(y), int(m), int(d)
 
 
-def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:  # noqa: C901
+def _ymd_from_digits_or_norm(s: str) -> tuple[int, int, int] | None:
+    """从纯数字串或分隔日期串解析 (年,月,日)。"""
+    digits = "".join(c for c in s if c.isdigit())
+    if len(digits) >= 8:
+        try:
+            return _valid_ymd(int(digits[:4]), int(digits[4:6]), int(digits[6:8]))
+        except ValueError:
+            return None
+    norm = s.replace("/", "-").split("-")
+    try:
+        if len(norm) >= 3:
+            return _valid_ymd(int(norm[0]), int(norm[1]), int(norm[2][:2]))
+        if len(norm) >= 2:
+            return _valid_ymd(int(norm[0]), int(norm[1]), 1)
+    except ValueError:
+        return None
+    return None
+
+
+def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:
     """解析日期为 (年,月,日)。支持 datetime、YYYY-MM-DD、YYYY/MM/DD、YYYYMMDD。"""
     if val is None:
         return None
@@ -206,24 +225,7 @@ def _parse_date_parts(val: Any) -> tuple[int, int, int] | None:  # noqa: C901
     s = str(val).strip()
     if not s:
         return None
-    digits = "".join(c for c in s if c.isdigit())
-    if len(digits) >= 8:
-        try:
-            return _valid_ymd(int(digits[:4]), int(digits[4:6]), int(digits[6:8]))
-        except ValueError:
-            return None
-    norm = s.replace("/", "-").split("-")
-    if len(norm) >= 3:
-        try:
-            return _valid_ymd(int(norm[0]), int(norm[1]), int(norm[2][:2]))
-        except ValueError:
-            return None
-    if len(norm) >= 2:
-        try:
-            return _valid_ymd(int(norm[0]), int(norm[1]), 1)
-        except ValueError:
-            return None
-    return None
+    return _ymd_from_digits_or_norm(s)
 
 
 def _header_index(header: list[str], path: Path, required: tuple[str, ...]) -> dict[str, int]:
@@ -350,7 +352,22 @@ def load_ledger(cfg: dict, sheet_name: str, root: Path | None = None) -> tuple[l
     return list(rows[0]), rows[1:]
 
 
-def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, float]]:  # noqa: C901
+def _manual_header_cell(h) -> str:
+    """月份列名归一：datetime / 2026-1 / 2026/1 → YYYY-MM。"""
+    import re
+
+    if h is None:
+        return ""
+    if hasattr(h, "year") and hasattr(h, "month"):
+        return f"{int(h.year):04d}-{int(h.month):02d}"
+    s = str(h).strip()
+    m = re.fullmatch(r"(\d{4})[-/](\d{1,2})", s)
+    if m:
+        return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+    return s
+
+
+def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, float]]:
     """手填与调整表（宽表：项目=行、月份=列）→ {月份'YYYY-MM': {项目: 金额float}}。
     表头形如 [项目, 归属, 备注, 2026-01, 2026-02, ...]；某项某月留空=不写入（留给"默认上月/0"逻辑）。
     维护友好：每月只在最右加一列，11 个项目始终整列可见、不会漏填。"""
@@ -364,21 +381,7 @@ def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, floa
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return {}
-
-    def _hdr(h):
-        # 月份列名可能被 Excel 存成日期单元格(datetime)——统一格式化成 YYYY-MM，否则该月整列会被漏读
-        if h is None:
-            return ""
-        if hasattr(h, "year") and hasattr(h, "month"):
-            return f"{int(h.year):04d}-{int(h.month):02d}"
-        s = str(h).strip()
-        # 手打不补零的月份列名（2026-1 / 2026/1）也归一成 2026-01，否则该月整列被静默漏读
-        m = re.fullmatch(r"(\d{4})[-/](\d{1,2})", s)
-        if m:
-            return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
-        return s
-
-    header = [_hdr(h) for h in rows[0]]
+    header = [_manual_header_cell(h) for h in rows[0]]
     month_cols = {i: h for i, h in enumerate(header) if re.fullmatch(r"\d{4}-\d{2}", h)}
     try:
         i_item = header.index("项目")
@@ -395,3 +398,4 @@ def load_manual(cfg: dict, root: Path | None = None) -> dict[str, dict[str, floa
                 continue
             out.setdefault(month, {})[item] = parse_amount(v)
     return out
+

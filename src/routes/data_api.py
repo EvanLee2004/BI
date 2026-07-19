@@ -13,7 +13,74 @@ import db
 from app_state import _state
 
 
-def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
+def _parse_daily_range(start: str, end: str):
+    """校验 ISO 日期区间；返回 (date_start, date_end)。"""
+    import datetime as _dt
+
+    try:
+        s = _dt.date.fromisoformat(start)
+        e = _dt.date.fromisoformat(end)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
+    if e < s:
+        raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
+    if (e - s).days > 366:
+        raise HTTPException(status_code=400, detail="区间最长 366 天")
+    return s, e
+
+
+def _daily_wan(v) -> str:
+    return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+
+def _format_daily_disp(d: dict, top: int) -> dict:
+    """金额→显示串 + dual_rankings（就地改 d 的 days/totals/rankings）。"""
+    import render as _render
+
+    for row in d["days"]:
+        row["orders_disp"], row["receipts_disp"] = _daily_wan(row.pop("orders")), _daily_wan(row.pop("receipts"))
+    t = d["totals"]
+    t["orders_disp"], t["receipts_disp"] = _daily_wan(t.pop("orders")), _daily_wan(t.pop("receipts"))
+    dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
+    for rk in d["rankings"].values():
+        for it in rk["items"]:
+            it["disp"] = _daily_wan(it.pop("amount"))
+        if rk.get("others"):
+            rk["others"]["disp"] = _daily_wan(rk["others"].pop("amount"))
+        if rk.get("unfilled"):
+            rk["unfilled"]["disp"] = _daily_wan(rk["unfilled"].pop("amount"))
+        rk.pop("total", None)
+    return dual
+
+
+def _load_sales_to_bu(cfg, root):
+    sales_to_bu = None
+    try:
+        import bu as _bu
+
+        bucfg = _bu.load_bu_config(cfg, root)
+        if bucfg and bucfg.get("bus"):
+            sales_to_bu = {}
+            for b in bucfg["bus"]:
+                for sal in b.get("销售") or []:
+                    sales_to_bu.setdefault(str(sal).strip(), b["name"])
+            if not sales_to_bu:
+                sales_to_bu = None
+    except Exception:
+        sales_to_bu = None
+    return sales_to_bu
+
+
+def _bu_sales_set(bucfg: dict, name: str) -> set:
+    sales = set()
+    for b in bucfg.get("bus") or []:
+        if b.get("name") == name:
+            sales = {str(x).strip() for x in (b.get("销售") or []) if str(x).strip()}
+            break
+    return sales
+
+
+def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -243,23 +310,15 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
             raise HTTPException(status_code=400, detail=str(e)) from e
 
     @app.get("/api/daily")
-    def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):  # noqa: C901
+    def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
         v7.8 起要求整体页/管理员会话（全公司口径出口，BU 会话不给——否则 BU 链接持有者可绕过页面隔离）；
         **纯只读**、无任何写路径；金额显示串全部后端算好（铁律2）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
-        import datetime as _dt
+        import profit as _profit
 
-        try:
-            s = _dt.date.fromisoformat(start)
-            e = _dt.date.fromisoformat(end)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
-        if e < s:
-            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
-        if (e - s).days > 366:
-            raise HTTPException(status_code=400, detail="区间最长 366 天")
+        s, e = _parse_daily_range(start, end)
         top = max(1, min(2000, int(top)))  # 排名条数：默认前10，「其余点开看明细」传 2000 拿全量
         conn = db.connect(cfg, root)
         try:
@@ -267,48 +326,14 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
             receipts = db.load_receipts(cfg, conn)
         finally:
             conn.close()
-        import profit as _profit
-
         # 与全年预渲染一致：有销售→BU 映射则多算 orders_by_bu（看端时间段查询统一按 BU）
-        sales_to_bu = None
-        try:
-            import bu as _bu
-
-            bucfg = _bu.load_bu_config(cfg, root)
-            if bucfg and bucfg.get("bus"):
-                sales_to_bu = {}
-                for b in bucfg["bus"]:
-                    for sal in b.get("销售") or []:
-                        sales_to_bu.setdefault(str(sal).strip(), b["name"])
-                if not sales_to_bu:
-                    sales_to_bu = None
-        except Exception:
-            sales_to_bu = None
+        sales_to_bu = _load_sales_to_bu(cfg, root)
         d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top, sales_to_bu=sales_to_bu)
-
-        def _wan(v):  # 显示串：与排名卡一致（负数全角−）
-            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
-
-        for row in d["days"]:
-            row["orders_disp"], row["receipts_disp"] = _wan(row.pop("orders")), _wan(row.pop("receipts"))
-        t = d["totals"]
-        t["orders_disp"], t["receipts_disp"] = _wan(t.pop("orders")), _wan(t.pop("receipts"))
-        # 任务书39·C：双血条就绪结构（前端只拼 DOM）；保留旧 rankings 单卡字段兼容
-        import render as _render
-
-        dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
-        for rk in d["rankings"].values():
-            for it in rk["items"]:
-                it["disp"] = _wan(it.pop("amount"))
-            if rk.get("others"):
-                rk["others"]["disp"] = _wan(rk["others"].pop("amount"))
-            if rk.get("unfilled"):
-                rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
-            rk.pop("total", None)  # 用不到就不下发，防前端拿去做运算
+        dual = _format_daily_disp(d, top)
         return {"start": start, "end": end, "dual_rankings": dual, **d}
 
     @app.get("/api/bu_daily")
-    def api_bu_daily(  # noqa: C901
+    def api_bu_daily(
         request: Request,
         bu: str = Query(""),
         start: str = Query(""),
@@ -322,27 +347,13 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
             raise HTTPException(status_code=400, detail="缺少 bu")
         if not _can_view_bu(request, name):
             raise HTTPException(status_code=401, detail="无权查看该 BU")
-        import datetime as _dt
         import bu as _bu
         import profit as _profit
-        import render as _render
 
-        try:
-            s = _dt.date.fromisoformat(start)
-            e = _dt.date.fromisoformat(end)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
-        if e < s:
-            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
-        if (e - s).days > 366:
-            raise HTTPException(status_code=400, detail="区间最长 366 天")
+        s, e = _parse_daily_range(start, end)
         top = max(1, min(2000, int(top)))
         bucfg = _bu.load_bu_config(cfg, root) or {"bus": []}
-        sales = set()
-        for b in bucfg.get("bus") or []:
-            if b.get("name") == name:
-                sales = {str(x).strip() for x in (b.get("销售") or []) if str(x).strip()}
-                break
+        sales = _bu_sales_set(bucfg, name)
         if not sales and name not in {b.get("name") for b in bucfg.get("bus") or []}:
             raise HTTPException(status_code=404, detail="未知 BU")
         conn = db.connect(cfg, root)
@@ -352,23 +363,7 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
         finally:
             conn.close()
         d = _profit.compute_daily(orders, receipts, cfg["columns"], s, e, top=top, sales_to_bu=None)
-
-        def _wan(v):
-            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
-
-        for row in d["days"]:
-            row["orders_disp"], row["receipts_disp"] = _wan(row.pop("orders")), _wan(row.pop("receipts"))
-        t = d["totals"]
-        t["orders_disp"], t["receipts_disp"] = _wan(t.pop("orders")), _wan(t.pop("receipts"))
-        dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
-        for rk in d["rankings"].values():
-            for it in rk["items"]:
-                it["disp"] = _wan(it.pop("amount"))
-            if rk.get("others"):
-                rk["others"]["disp"] = _wan(rk["others"].pop("amount"))
-            if rk.get("unfilled"):
-                rk["unfilled"]["disp"] = _wan(rk["unfilled"].pop("amount"))
-            rk.pop("total", None)
+        dual = _format_daily_disp(d, top)
         return {"start": start, "end": end, "bu": name, "dual_rankings": dual, **d}
 
     @app.get("/api/profit_ranking")

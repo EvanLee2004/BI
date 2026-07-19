@@ -13,7 +13,7 @@ import updater
 import version as product_version
 
 
-def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
+def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user

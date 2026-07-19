@@ -77,7 +77,67 @@ def _parse_filters_arg(filters) -> dict:
     return out
 
 
-def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:  # noqa: C901
+def _append_number_filter(col: str, spec: dict, money_cols: set, where: list, args: list) -> None:
+    """金额/数值区间筛选 → where/args（就地）。"""
+    lo, hi = spec.get("min"), spec.get("max")
+    if lo is not None and lo != "":
+        try:
+            v = float(lo)
+        except (TypeError, ValueError):
+            v = None
+        if v is not None:
+            if col in money_cols:
+                fen = money.yuan_to_fen(v)
+                if fen is not None:
+                    where.append(f"{col} >= ?")
+                    args.append(fen)
+            else:
+                where.append(f"CAST({col} AS REAL) >= ?")
+                args.append(v)
+    if hi is not None and hi != "":
+        try:
+            v = float(hi)
+        except (TypeError, ValueError):
+            return
+        if col in money_cols:
+            fen = money.yuan_to_fen(v)
+            if fen is not None:
+                where.append(f"{col} <= ?")
+                args.append(fen)
+        else:
+            where.append(f"CAST({col} AS REAL) <= ?")
+            args.append(v)
+
+
+def _append_date_filter(col: str, spec: dict, where: list, args: list) -> None:
+    d0, d1 = spec.get("from") or spec.get("start"), spec.get("to") or spec.get("end")
+    if d0:
+        where.append(f"substr(CAST({col} AS TEXT),1,10) >= ?")
+        args.append(str(d0)[:10])
+    if d1:
+        where.append(f"substr(CAST({col} AS TEXT),1,10) <= ?")
+        args.append(str(d1)[:10])
+
+
+def _append_text_filter(col: str, spec: dict, where: list, args: list) -> None:
+    """关键词 LIKE + 去重值 IN（多选）。"""
+    q = spec.get("q") or spec.get("keyword")
+    if q is not None and str(q).strip():
+        where.append(f"CAST({col} AS TEXT) LIKE ?")
+        args.append("%" + str(q).strip() + "%")
+    vals = spec.get("in") or spec.get("values")
+    if vals is not None:
+        if isinstance(vals, str):
+            vals = [vals]
+        clean = [str(x) for x in vals if x is not None and str(x) != ""]
+        if clean:
+            # 空串多选语义：显式 in 含 "" 时用 COALESCE
+            ph = ",".join("?" * len(clean))
+            where.append(f"CAST(COALESCE({col},'') AS TEXT) IN ({ph})")
+            args.extend(clean)
+
+
+def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:
     """白名单列 + 参数化 WHERE 片段。金额筛选用元→分。多列 AND。"""
     fdict = _parse_filters_arg(filters)
     if not fdict:
@@ -93,57 +153,11 @@ def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | 
             continue
         kind = detail_col_kind(table_key, col)
         if kind == "number":
-            lo, hi = spec.get("min"), spec.get("max")
-            if lo is not None and lo != "":
-                try:
-                    v = float(lo)
-                except (TypeError, ValueError):
-                    continue
-                if col in money_cols:
-                    fen = money.yuan_to_fen(v)
-                    if fen is not None:
-                        where.append(f"{col} >= ?")
-                        args.append(fen)
-                else:
-                    where.append(f"CAST({col} AS REAL) >= ?")
-                    args.append(v)
-            if hi is not None and hi != "":
-                try:
-                    v = float(hi)
-                except (TypeError, ValueError):
-                    continue
-                if col in money_cols:
-                    fen = money.yuan_to_fen(v)
-                    if fen is not None:
-                        where.append(f"{col} <= ?")
-                        args.append(fen)
-                else:
-                    where.append(f"CAST({col} AS REAL) <= ?")
-                    args.append(v)
+            _append_number_filter(col, spec, money_cols, where, args)
         elif kind == "date":
-            d0, d1 = spec.get("from") or spec.get("start"), spec.get("to") or spec.get("end")
-            if d0:
-                where.append(f"substr(CAST({col} AS TEXT),1,10) >= ?")
-                args.append(str(d0)[:10])
-            if d1:
-                where.append(f"substr(CAST({col} AS TEXT),1,10) <= ?")
-                args.append(str(d1)[:10])
+            _append_date_filter(col, spec, where, args)
         else:
-            # text：关键词 LIKE + 去重值 IN（多选）
-            q = spec.get("q") or spec.get("keyword")
-            if q is not None and str(q).strip():
-                where.append(f"CAST({col} AS TEXT) LIKE ?")
-                args.append("%" + str(q).strip() + "%")
-            vals = spec.get("in") or spec.get("values")
-            if vals is not None:
-                if isinstance(vals, str):
-                    vals = [vals]
-                clean = [str(x) for x in vals if x is not None and str(x) != ""]
-                if clean:
-                    # 空串多选语义：显式 in 含 "" 时用 COALESCE
-                    ph = ",".join("?" * len(clean))
-                    where.append(f"CAST(COALESCE({col},'') AS TEXT) IN ({ph})")
-                    args.extend(clean)
+            _append_text_filter(col, spec, where, args)
     return where, args
 
 
@@ -152,27 +166,9 @@ def adjustable_fields() -> dict[str, list[str]]:
     return {k: list(schema.ADJUSTABLE_FIELDS[v[0]]) for k, v in DETAIL_TABLES.items()}
 
 
-def _detail_base_where(  # noqa: C901
-    table_key: str,
-    table: str,
-    have: set,
-    searchable: list[str],
-    month: str | None,
-    q: str | None,
-    unclassified: bool,
-    unfilled_dept: bool,
-    year: str | None,
-    bu: str | None,
-    filters=None,
-    *,
-    hide_salary: bool = False,
-    month_from: str | None = None,
-    month_to: str | None = None,
-) -> tuple[list[str], list]:
-    """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。
-    month_from/month_to：归属月闭区间 YYYY-MM（任务书41·E）；与单月 month 互斥时区间优先。"""
-    where = ["已删除=0"]
-    args: list = []
+def _append_detail_flags(
+    table_key: str, have: set, where: list, args: list, *, unclassified: bool, unfilled_dept: bool, bu, hide_salary: bool
+) -> None:
     if unclassified:
         if table_key != "费用明细":
             raise KeyError("unclassified 仅支持 费用明细 表")
@@ -189,6 +185,10 @@ def _detail_base_where(  # noqa: C901
     if hide_salary and table_key == "费用明细" and "对应报表大类" in have:
         # 任务书37·B8：整体账号默认隐藏「工资」大类（管理员/开关打开不受影响）
         where.append("(对应报表大类 IS NULL OR TRIM(对应报表大类)<>'工资')")
+
+
+def _append_detail_period(where: list, args: list, month, year, month_from, month_to) -> None:
+    """归属月：区间优先于单月/年。"""
     mf = (month_from or "").strip() or None
     mt = (month_to or "").strip() or None
     if mf or mt:
@@ -210,15 +210,44 @@ def _detail_base_where(  # noqa: C901
         else:
             where.append("归属月 <= ?")
             args.append(mt)
-    elif month:
+        return
+    if month:
         where.append("归属月=?")
         args.append(month)
-    elif year:
+        return
+    if year:
         y = str(year).strip()
         if not (y.isdigit() and len(y) == 4):
             raise KeyError("year 须为 4 位数字")
         where.append("归属月 LIKE ?")
         args.append(f"{y}-%")
+
+
+def _detail_base_where(
+    table_key: str,
+    table: str,
+    have: set,
+    searchable: list[str],
+    month: str | None,
+    q: str | None,
+    unclassified: bool,
+    unfilled_dept: bool,
+    year: str | None,
+    bu: str | None,
+    filters=None,
+    *,
+    hide_salary: bool = False,
+    month_from: str | None = None,
+    month_to: str | None = None,
+) -> tuple[list[str], list]:
+    """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。
+    month_from/month_to：归属月闭区间 YYYY-MM（任务书41·E）；与单月 month 互斥时区间优先。"""
+    where = ["已删除=0"]
+    args: list = []
+    _append_detail_flags(
+        table_key, have, where, args, unclassified=unclassified, unfilled_dept=unfilled_dept, bu=bu, hide_salary=hide_salary
+    )
+    _append_detail_period(where, args, month, year, month_from, month_to)
     if q:
         like = "%" + q.strip() + "%"
         use_cols = [c for c in searchable if c in have]

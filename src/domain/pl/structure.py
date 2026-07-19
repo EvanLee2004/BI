@@ -128,7 +128,124 @@ _EXP_GROUPS = (
 )
 
 
-def pl_structure(  # noqa: C901
+def _pl_cost_details(p: dict, man: dict) -> dict[str, Any]:
+    cost_lines = [
+        _dline("系统直接成本", p.get("system_direct_cost"), "system"),
+        _dline("系统内部译员", abs(float(p.get("inhouse_cost") or 0)), "system"),
+        _dline("直接成本增值税", man.get("直接成本增值税", 0.0), "manual"),
+    ]
+    for n in _PROD_MANUAL:
+        cost_lines.append(_dline(n, man.get(n, 0.0), "manual"))
+    return {"title": "交付成本（生产成本）构成", "lines": cost_lines}
+
+
+def _pl_bu_expense_block(p, e, man, led, fine, alloc_meta) -> tuple[str, bool, bool, list, dict]:
+    """BU 费用行 + 抽屉；返回 (tag_note, has_fee, has_manual, rows, details)。"""
+    alloc = alloc_meta or {}
+    on = bool(alloc.get("enabled"))
+    rdisp = alloc.get("ratio_disp") or ""
+    alloc_added = p.get("alloc_added") or {}
+    exp_total = float(e.get("total") or 0)
+    has_fee = exp_total > 0.005 or any(float(led.get(c) or 0) > 0.005 for c in led)
+    man_keys = (
+        "营销人力成本",
+        "管理人力成本",
+        "研发人力成本",
+        "财务费用补充",
+        "PM人力成本",
+        "VM人力成本",
+        "实际内部译员成本",
+        "税费损失",
+        "技术流量成本",
+        "其他（生产成本）",
+        "其他损益",
+    )
+    has_manual = any(abs(float(man.get(k) or 0)) > 0.005 for k in man_keys)
+    if on and rdisp:
+        tag_note = f"含公共分摊 {rdisp}"
+    elif has_fee:
+        tag_note = "本BU直记"
+    else:
+        tag_note = ""
+    rows: list[dict[str, Any]] = []
+    details: dict[str, dict[str, Any]] = {}
+    for cat_key, nm, man_key, led_cat in _EXP_GROUPS:
+        v = float(e.get(nm) or 0)
+        pending = not (has_fee or abs(v) > 0.005)
+        rows.append(_row(nm, -v, open_key=cat_key, pending=pending))
+        alloc_amt = float(alloc_added.get(led_cat) or 0.0)
+        direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
+        lines: list[dict[str, Any]] = []
+        if man_key:
+            lines.append(_dline(man_key, man.get(man_key, 0), "manual"))
+        lines.append(_dline(led_cat, direct_amt, "ledger"))
+        lines.extend(_fine_pairs(fine.get(led_cat)))
+        if nm == "财务费用":
+            lines.append(_dline("财务费用补充", man.get("财务费用补充", 0), "manual"))
+        if alloc_amt > 0.005:
+            lines.append(_dline("分摊自公共", alloc_amt, "ledger"))
+        details[cat_key] = {"title": f"{nm}构成", "lines": lines}
+    return tag_note, has_fee, has_manual, rows, details
+
+
+def _pl_main_expense_block(e, man, led, fine) -> tuple[list, dict]:
+    """整体页五类费用固定行 + 固定抽屉。"""
+    rows: list[dict[str, Any]] = []
+    details: dict[str, dict[str, Any]] = {}
+    for cat_key, nm, _mk, _lc in _EXP_GROUPS:
+        rows.append(_row(nm, -float(e.get(nm) or 0), open_key=cat_key))
+
+    def led_block(title_led, amount, fine_key, extra_before=None, extra_after=None):
+        lines = list(extra_before or [])
+        lines.append(_dline(title_led, amount, "ledger"))
+        lines.extend(_fine_pairs(fine.get(fine_key)))
+        lines.extend(extra_after or [])
+        return lines
+
+    details["sales"] = {
+        "title": "营销费用构成",
+        "lines": led_block(
+            "市场费用",
+            led.get("市场费用", 0),
+            "市场费用",
+            extra_before=[_dline("营销人力成本", man.get("营销人力成本", 0), "manual")],
+        ),
+    }
+    details["admin"] = {
+        "title": "管理费用构成",
+        "lines": led_block(
+            "管理费用",
+            led.get("管理费用", 0),
+            "管理费用",
+            extra_before=[_dline("管理人力成本", man.get("管理人力成本", 0), "manual")],
+        ),
+    }
+    details["fixed"] = {
+        "title": "固定运营费用构成",
+        "lines": led_block("固定运营费用明细", led.get("固定运营费用", 0), "固定运营费用"),
+    }
+    details["rd"] = {
+        "title": "研发费用构成",
+        "lines": led_block(
+            "技术服务费",
+            led.get("技术服务费", 0),
+            "技术服务费",
+            extra_before=[_dline("研发人力成本", man.get("研发人力成本", 0), "manual")],
+        ),
+    }
+    details["fin"] = {
+        "title": "财务费用构成",
+        "lines": led_block(
+            "财务费用",
+            led.get("财务费用", 0),
+            "财务费用",
+            extra_after=[_dline("财务费用补充", man.get("财务费用补充", 0), "manual")],
+        ),
+    }
+    return rows, details
+
+
+def pl_structure(
     p: dict,
     fine: dict | None = None,
     *,
@@ -153,117 +270,19 @@ def pl_structure(  # noqa: C901
     rows.append(_row("交付收入（不含税）", p.get("revenue_net"), kind="system", formula="交付金额÷1.06"))
     rows.append(_row("交付成本（生产成本）", -float(p.get("production_cost") or 0), open_key="cost"))
     rows.append(_row("管理毛利", p.get("gross_profit"), total=True))
-
-    # 成本抽屉（整体 / BU 共用行序；VM 标题固定全称，BU HTML 渲染时再缩短）
-    cost_lines = [
-        _dline("系统直接成本", p.get("system_direct_cost"), "system"),
-        _dline("系统内部译员", abs(float(p.get("inhouse_cost") or 0)), "system"),
-        _dline("直接成本增值税", man.get("直接成本增值税", 0.0), "manual"),
-    ]
-    for n in _PROD_MANUAL:
-        cost_lines.append(_dline(n, man.get(n, 0.0), "manual"))
-    details["cost"] = {"title": "交付成本（生产成本）构成", "lines": cost_lines}
+    details["cost"] = _pl_cost_details(p, man)
 
     tag_note = ""
     has_fee = False
     has_manual = False
-
     if is_bu:
-        alloc = alloc_meta or {}
-        on = bool(alloc.get("enabled"))
-        rdisp = alloc.get("ratio_disp") or ""
-        alloc_added = p.get("alloc_added") or {}
-        exp_total = float(e.get("total") or 0)
-        has_fee = exp_total > 0.005 or any(float(led.get(c) or 0) > 0.005 for c in led)
-        man_keys = (
-            "营销人力成本",
-            "管理人力成本",
-            "研发人力成本",
-            "财务费用补充",
-            "PM人力成本",
-            "VM人力成本",
-            "实际内部译员成本",
-            "税费损失",
-            "技术流量成本",
-            "其他（生产成本）",
-            "其他损益",
-        )
-        has_manual = any(abs(float(man.get(k) or 0)) > 0.005 for k in man_keys)
-        if on and rdisp:
-            tag_note = f"含公共分摊 {rdisp}"
-        elif has_fee:
-            tag_note = "本BU直记"
-        else:
-            tag_note = ""
-
-        for cat_key, nm, man_key, led_cat in _EXP_GROUPS:
-            v = float(e.get(nm) or 0)
-            pending = not (has_fee or abs(v) > 0.005)
-            rows.append(_row(nm, -v, open_key=cat_key, pending=pending))
-            alloc_amt = float(alloc_added.get(led_cat) or 0.0)
-            direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
-            lines: list[dict[str, Any]] = []
-            if man_key:
-                lines.append(_dline(man_key, man.get(man_key, 0), "manual"))
-            lines.append(_dline(led_cat, direct_amt, "ledger"))
-            lines.extend(_fine_pairs(fine.get(led_cat)))
-            if nm == "财务费用":
-                lines.append(_dline("财务费用补充", man.get("财务费用补充", 0), "manual"))
-            if alloc_amt > 0.005:
-                lines.append(_dline("分摊自公共", alloc_amt, "ledger"))
-            details[cat_key] = {"title": f"{nm}构成", "lines": lines}
+        tag_note, has_fee, has_manual, exp_rows, exp_det = _pl_bu_expense_block(p, e, man, led, fine, alloc_meta)
+        rows.extend(exp_rows)
+        details.update(exp_det)
     else:
-        # 整体页：五类费用固定行 + 固定抽屉口径
-        for cat_key, nm, _mk, _lc in _EXP_GROUPS:
-            rows.append(_row(nm, -float(e.get(nm) or 0), open_key=cat_key))
-
-        def led_block(title_led, amount, fine_key, extra_before=None, extra_after=None):
-            lines = list(extra_before or [])
-            lines.append(_dline(title_led, amount, "ledger"))
-            lines.extend(_fine_pairs(fine.get(fine_key)))
-            lines.extend(extra_after or [])
-            return lines
-
-        details["sales"] = {
-            "title": "营销费用构成",
-            "lines": led_block(
-                "市场费用",
-                led.get("市场费用", 0),
-                "市场费用",
-                extra_before=[_dline("营销人力成本", man.get("营销人力成本", 0), "manual")],
-            ),
-        }
-        details["admin"] = {
-            "title": "管理费用构成",
-            "lines": led_block(
-                "管理费用",
-                led.get("管理费用", 0),
-                "管理费用",
-                extra_before=[_dline("管理人力成本", man.get("管理人力成本", 0), "manual")],
-            ),
-        }
-        details["fixed"] = {
-            "title": "固定运营费用构成",
-            "lines": led_block("固定运营费用明细", led.get("固定运营费用", 0), "固定运营费用"),
-        }
-        details["rd"] = {
-            "title": "研发费用构成",
-            "lines": led_block(
-                "技术服务费",
-                led.get("技术服务费", 0),
-                "技术服务费",
-                extra_before=[_dline("研发人力成本", man.get("研发人力成本", 0), "manual")],
-            ),
-        }
-        details["fin"] = {
-            "title": "财务费用构成",
-            "lines": led_block(
-                "财务费用",
-                led.get("财务费用", 0),
-                "财务费用",
-                extra_after=[_dline("财务费用补充", man.get("财务费用补充", 0), "manual")],
-            ),
-        }
+        exp_rows, exp_det = _pl_main_expense_block(e, man, led, fine)
+        rows.extend(exp_rows)
+        details.update(exp_det)
 
     rows.append(_row("附加税费", -float(p.get("surtax") or 0), kind="system", formula="净收入×6%×12%"))
     other_pl = float(p.get("other_pl") or 0)
@@ -275,7 +294,6 @@ def pl_structure(  # noqa: C901
         if unclassified_amt is not None and float(unclassified_amt) > 0:
             rows.append(_row("未计入费用（台账未填大类）", -float(unclassified_amt), kind="ledger"))
 
-    # VM/整体 HTML 用「管理毛利…」；BU HTML 渲染时覆盖为「毛利…」（与重构前一致）
     rows.append(
         _row(
             "税前利润",
@@ -293,16 +311,11 @@ def pl_structure(  # noqa: C901
             formula="税前利润÷交付收入",
         )
     )
-
     return {
         "rows": rows,
         "details": details,
         "tag_note": tag_note,
-        "meta": {
-            "is_bu": is_bu,
-            "has_fee": has_fee,
-            "has_manual": has_manual,
-        },
+        "meta": {"is_bu": is_bu, "has_fee": has_fee, "has_manual": has_manual},
     }
 
 

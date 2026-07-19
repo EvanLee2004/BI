@@ -203,7 +203,44 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
     return out
 
 
-def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:  # noqa: C901
+def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
+    """单条账号规范化；无效返回 None。"""
+    acct = str(raw.get("账号") or "").strip()
+    if not acct:
+        return None
+    perm = str(raw.get("权限") or "").strip()
+    if not perm:
+        return None
+    display = str(raw.get("显示名") or acct).strip() or acct
+    old = existing.get(acct, {})
+    old_pw = str(old.get("密码") or DEFAULT_VIEW_PW)
+    if "密码" in raw and raw["密码"] is not None:
+        pw = str(raw["密码"])
+    else:
+        pw = old_pw
+    if not pw:
+        pw = DEFAULT_VIEW_PW
+    if is_master_account(acct):
+        perm = PERM_ADMIN
+    pw_ver = password_version_of(old)
+    if acct in existing and pw != old_pw:
+        pw_ver = pw_ver + 1
+    row = {
+        "账号": acct,
+        "显示名": display,
+        "权限": perm,
+        "密码": pw,
+        "密码版本": pw_ver,
+    }
+    if perm == PERM_BU:
+        row["可见BU"] = _clean_bu_list(raw.get("可见BU"))
+    last = old.get("最后登录")
+    if last:
+        row["最后登录"] = last
+    return row
+
+
+def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
     - 密码：条目带「密码」字段（含空串）则以之为准；不带则沿用已存（新账号无旧值→初始 8888）；
@@ -216,39 +253,10 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:  
     for raw in accounts if isinstance(accounts, list) else []:
         if not isinstance(raw, dict):
             continue
-        acct = str(raw.get("账号") or "").strip()
-        if not acct or acct in seen:
+        row = _normalize_account_row(raw, existing)
+        if not row or row["账号"] in seen:
             continue
-        perm = str(raw.get("权限") or "").strip()
-        if not perm:
-            continue
-        seen.add(acct)
-        display = str(raw.get("显示名") or acct).strip() or acct
-        old = existing.get(acct, {})
-        old_pw = str(old.get("密码") or DEFAULT_VIEW_PW)
-        if "密码" in raw and raw["密码"] is not None:
-            pw = str(raw["密码"])
-        else:
-            pw = old_pw
-        if not pw:
-            pw = DEFAULT_VIEW_PW
-        if is_master_account(acct):
-            perm = PERM_ADMIN
-        pw_ver = password_version_of(old)
-        if acct in existing and pw != old_pw:
-            pw_ver = pw_ver + 1
-        row = {
-            "账号": acct,
-            "显示名": display,
-            "权限": perm,
-            "密码": pw,
-            "密码版本": pw_ver,
-        }
-        if perm == PERM_BU:
-            row["可见BU"] = _clean_bu_list(raw.get("可见BU"))
-        last = old.get("最后登录")
-        if last:
-            row["最后登录"] = last
+        seen.add(row["账号"])
         out.append(row)
     if not any(a["权限"] == PERM_ADMIN for a in out):
         raise ValueError("至少保留一个「管理员」权限账号")
@@ -256,7 +264,6 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:  
         raise ValueError(f"总账号「{MASTER_ACCOUNT}」不可删除（否则部署后可能无人能进管理端）")
     _write(config_path(cfg, root), out)
     return out
-
 
 def find_account(cfg: dict, root: Path | None, account: str) -> dict | None:
     account = (account or "").strip()

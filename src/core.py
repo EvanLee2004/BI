@@ -145,14 +145,8 @@ def attach_unknown_pc_warnings(cfg, conn, today, summary, root=None) -> None:
     summary.setdefault("meta", {})["unknown_profit_centers"] = items
 
 
-def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:  # noqa: C901
-    """陆总0714·C1：下单 KPI 卡展示三大 BU 下单进度（虚线=年目标、实线=达成）。
-    每周期每 BU：期内下单额 + 全年累计/BU 年目标完成率（目标读该 BU 业绩目标·元）。
-    挂 summary.meta.bu_orders={周期key:[{name,amount,year_amount,target,pct}…]}；
-    只挂全公司 summary——BU 页绝不带其他 BU 数据（铁律12）。没配 BU → 不挂。"""
-    bucfg = bu.load_bu_config(cfg, root)
-    if not bucfg or not bucfg.get("bus"):
-        return
+def _build_bu_orders_meta(cfg, conn, today, bucfg) -> dict[str, list]:
+    """周期 → 各 BU 下单额/年目标完成率。"""
     import periods as _periods
 
     orders = db.load_orders(cfg, conn)
@@ -177,8 +171,16 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:  # noqa: C90
             ya = year_amounts.get(d["name"], 0.0)
             d["year_amount"] = ya
             d["pct"] = round(ya / d["target"] * 100.0, 1) if d["target"] else None
-    summary.setdefault("meta", {})["bu_orders"] = out
-    # C2：板块④「下单·按部门」→「下单·按BU」（销售→BU 映射聚合；未归属销售=（未归属）置底）
+    return out
+
+
+def _attach_orders_by_bu_rankings(cfg, conn, today, summary, bucfg) -> None:
+    """板块④ 下单·按BU 排名挂到各周期 rankings。"""
+    import periods as _periods
+
+    orders = db.load_orders(cfg, conn)
+    cols = cfg["columns"]
+    ranges = _periods.all_period_ranges(today)
     sales_map = {}
     for b in bucfg["bus"]:
         for s in b.get("销售") or []:
@@ -201,6 +203,19 @@ def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:  # noqa: C90
             empty_label="（未归属）",
             name_of=_bu_of,
         )
+
+
+def attach_bu_orders(cfg, conn, today, summary, root=None) -> None:
+    """陆总0714·C1：下单 KPI 卡展示三大 BU 下单进度（虚线=年目标、实线=达成）。
+    每周期每 BU：期内下单额 + 全年累计/BU 年目标完成率（目标读该 BU 业绩目标·元）。
+    挂 summary.meta.bu_orders={周期key:[{name,amount,year_amount,target,pct}…]}；
+    只挂全公司 summary——BU 页绝不带其他 BU 数据（铁律12）。没配 BU → 不挂。"""
+    bucfg = bu.load_bu_config(cfg, root)
+    if not bucfg or not bucfg.get("bus"):
+        return
+    summary.setdefault("meta", {})["bu_orders"] = _build_bu_orders_meta(cfg, conn, today, bucfg)
+    # C2：板块④「下单·按部门」→「下单·按BU」
+    _attach_orders_by_bu_rankings(cfg, conn, today, summary, bucfg)
 
 
 def summary_from_conn(cfg, conn, today):

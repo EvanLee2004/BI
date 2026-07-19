@@ -84,7 +84,22 @@ def can_see_bu(acc: dict | None, name: str) -> bool:
     return accounts.can_see_bu(acc, name)
 
 
-def resolve_expense_view_access(  # noqa: C901
+def _bu_view_access(vacc: dict | None, bu_s: str | None) -> tuple[str | None, bool, str]:
+    """看端/BU 会话解析 force_bu + audience（一律 hide_salary）。"""
+    from fastapi import HTTPException
+
+    if accounts.is_main(vacc):
+        return bu_s, True, "view"
+    names = accounts.bu_names_of(vacc) if vacc else []
+    if not names:
+        raise HTTPException(status_code=403, detail="无权查看费用明细")
+    want = bu_s or (names[0] if len(names) == 1 else "")
+    if not want or not accounts.can_see_bu(vacc, want):
+        raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
+    return want, True, "view_bu"
+
+
+def resolve_expense_view_access(
     user: str | None,
     vacc: dict | None,
     bu: str | None,
@@ -106,7 +121,7 @@ def resolve_expense_view_access(  # noqa: C901
     """
     from fastapi import HTTPException
 
-    cfg = cfg or {}
+    _ = cfg or {}
     bu_s = (bu or "").strip() or None
 
     if force_whitelist:
@@ -114,32 +129,14 @@ def resolve_expense_view_access(  # noqa: C901
         if not user and not vacc:
             raise HTTPException(status_code=401, detail="未登录")
         if user:
-            force_bu = bu_s
-            audience = "view_bu" if force_bu else "view"
-            return force_bu, True, audience
-        if accounts.is_main(vacc):
-            return bu_s, True, "view"
-        names = accounts.bu_names_of(vacc) if vacc else []
-        if not names:
-            raise HTTPException(status_code=403, detail="无权查看费用明细")
-        want = bu_s or (names[0] if len(names) == 1 else "")
-        if not want or not accounts.can_see_bu(vacc, want):
-            raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-        return want, True, "view_bu"
+            return bu_s, True, ("view_bu" if bu_s else "view")
+        return _bu_view_access(vacc, bu_s)
 
     # /api/detail：管理员全列但仍隐工资；看端仅费用明细
     if user:
         return bu_s, True, "admin"
     if vacc and table == "费用明细":
-        names = accounts.bu_names_of(vacc)
-        if accounts.is_main(vacc):
-            return bu_s, True, "view"
-        if not names:
-            raise HTTPException(status_code=403, detail="无权查看费用明细")
-        want = bu_s or (names[0] if len(names) == 1 else "")
-        if not want or not accounts.can_see_bu(vacc, want):
-            raise HTTPException(status_code=403, detail="无权查看该 BU 费用明细")
-        return want, True, "view_bu"
+        return _bu_view_access(vacc, bu_s)
     raise HTTPException(status_code=401, detail="需要登录")
 
 

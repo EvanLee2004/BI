@@ -30,7 +30,45 @@ def _bu_nav_meta(cfg, root, pages: dict | None) -> dict:
     return {"bu_config_count": n_cfg, "bu_nav_hint": hint}
 
 
-def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
+def _empty_bu_views() -> dict:
+    return {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
+
+
+def _ensure_bu_fragments(name: str, page: dict, cfg) -> tuple[dict, dict]:
+    """冷启动或补全 BU 碎片/views；就地写回 page。返回 (fr, views)。"""
+    summary = page.get("summary")
+    fr = page.get("fragments")
+    views = page.get("views")
+    if not fr:
+        if not summary:
+            raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
+        logo = ""
+        try:
+            logo = assets.load_logo_base64(cfg) or ""
+        except OSError as e:
+            print(f"[cockpit] BU logo 加载失败：{e}")
+            logo = ""
+        fr_full = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
+        fr = api_v1.client_strip_fragments(fr_full)
+        views = api_v1.build_bu_cockpit_views(name, summary, cfg)
+        page["fragments"] = fr
+        page["views"] = views
+        return fr, views
+    fr = api_v1.client_strip_fragments(fr)
+    if not views:
+        if summary and (summary.get("meta") or {}).get("year_key"):
+            try:
+                views = api_v1.build_bu_cockpit_views(name, summary, cfg)
+                page["views"] = views
+            except Exception as e:
+                print(f"[cockpit] build_bu_cockpit_views 失败：{type(e).__name__}: {e}")
+                views = _empty_bu_views()
+        else:
+            views = _empty_bu_views()
+    return fr, views or _empty_bu_views()
+
+
+def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
     _user = d.user
@@ -390,7 +428,7 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
         )
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
-    def api_v1_cockpit_bu_fragments(name: str, request: Request):  # noqa: C901
+    def api_v1_cockpit_bu_fragments(name: str, request: Request):
         """B-P4：BU 页碎片 + views（shell-bu + rankings.js + page.js）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
@@ -399,39 +437,7 @@ def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 hand
         page = (_state.get("bu_pages") or {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="BU 不存在或未配置")
-        summary = page.get("summary")
-        fr = page.get("fragments")
-        views = page.get("views")
-        if not fr:
-            # 冷启动：BU 专属 views（禁止整体页构建器）
-            if not summary:
-                raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
-            logo = ""
-            try:
-                logo = assets.load_logo_base64(cfg) or ""
-            except OSError as e:
-                # logo 文件缺失/不可读：页面仍可出，仅无 Logo
-                print(f"[cockpit] BU logo 加载失败：{e}")
-                logo = ""
-            fr_full = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
-            fr = api_v1.client_strip_fragments(fr_full)
-            views = api_v1.build_bu_cockpit_views(name, summary, cfg)
-            page["fragments"] = fr
-            page["views"] = views
-        else:
-            fr = api_v1.client_strip_fragments(fr)
-            if not views:
-                if summary and (summary.get("meta") or {}).get("year_key"):
-                    try:
-                        views = api_v1.build_bu_cockpit_views(name, summary, cfg)
-                        page["views"] = views
-                    except Exception as e:
-                        print(f"[cockpit] build_bu_cockpit_views 失败：{type(e).__name__}: {e}")
-                        views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
-                else:
-                    views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
-        if not views:
-            views = {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
+        fr, views = _ensure_bu_fragments(name, page, cfg)
         return JSONResponse(
             {
                 "api_version": "v1",

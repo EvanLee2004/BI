@@ -477,69 +477,77 @@ def check_row_drop(prev: int | None, curr: int, ratio: float) -> str | None:
     return None
 
 
-def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy: dict | None = None) -> dict:  # noqa: C901
+def _fetch_fallback(local: Path, reason: str) -> dict:
+    if local.exists():
+        return {"status": "local_fallback", "detail": f"{reason}，用数据目录现有文件（体检黄）"}
+    return {"status": "no_source", "detail": f"{reason}，且无本地文件"}
+
+
+def _date_control_dup_warnings(controls, date_col: str) -> list[str]:
+    """同名日期控件多于一个：观察项（黄），防顺序变了无声换列。"""
+    if not date_col:
+        return []
+    dups = controls_with_name(controls, date_col)
+    if len(dups) <= 1:
+        return []
+    ids = ",".join(str(c.get("controlId") or "")[:12] for c in dups)
+    return [
+        f"表模板「{date_col}」同名控件 {len(dups)} 个（controlId≈{ids}…）；"
+        f"过滤/取值用第一个，请确认未换序"
+    ]
+
+
+def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
+    """在线抓取→校验→写盘；失败用 _fetch_fallback。"""
+    info = post(
+        "Worksheet/getWorksheetInfo",
+        {"worksheetId": tbl["worksheetId"], "appId": zy["app_id"], "getTemplate": True},
+    )
+    controls = info["data"]["template"]["controls"]
+    since = cfg.get("zhiyun_since") if cfg.get("zhiyun_since") is not None else "auto"
+    date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
+    warnings = _date_control_dup_warnings(controls, date_col)
+    fc = build_date_since_filter(controls, date_col, since)
+    rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
+    records = rows_to_records(rows, controls)
+    missing = check_required_columns(records, cfg, source)
+    if missing:
+        return _fetch_fallback(local, f"抓到 {len(records)} 行但缺必需列 {missing}（可能无权限/表不对）")
+    # 行数门槛护栏（智云配置.json tables.<源>.min_rows）：抓到的行数异常少=账号行级权限不足
+    min_rows = int(tbl.get("min_rows") or 0)
+    if len(records) < min_rows:
+        return _fetch_fallback(
+            local, f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）"
+        )
+    prev_counts = load_last_row_counts(cfg, root)
+    drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
+    if drop_msg:
+        warnings.append(drop_msg)
+    write_records_xlsx(records, local)
+    save_last_row_count(cfg, source, len(records), root)
+    detail = f"智云抓取 {len(records)} 行 → {local.name}"
+    if warnings:
+        detail += "；" + "；".join(warnings)
+    out = {"status": "fetched", "detail": detail, "rows": len(records)}
+    if warnings:
+        out["warnings"] = warnings
+    return out
+
+
+def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy: dict | None = None) -> dict:
     """抓一个源到进料口。返回 {status, detail, ...}，三态同 fetch_ledger，永不抛异常。"""
     local = _dest_path(cfg, source, root)
-
-    def fallback(reason: str) -> dict:
-        if local.exists():
-            return {"status": "local_fallback", "detail": f"{reason}，用数据目录现有文件（体检黄）"}
-        return {"status": "no_source", "detail": f"{reason}，且无本地文件"}
-
     zy = zy or _load_zhiyun_cfg(cfg, root)
     if not zy.get("base_url"):
-        return fallback("智云服务器地址为空（管理端「设置→智云账号」可填）")
+        return _fetch_fallback(local, "智云服务器地址为空（管理端「设置→智云账号」可填）")
     tbl = (zy.get("tables") or {}).get(source) or {}
     if not tbl.get("worksheetId"):
-        return fallback(f"智云配置缺 tables.{source}.worksheetId")
-
+        return _fetch_fallback(local, f"智云配置缺 tables.{source}.worksheetId")
     try:
         post = post or _make_post(zy, cfg, root)
-        info = post(
-            "Worksheet/getWorksheetInfo",
-            {"worksheetId": tbl["worksheetId"], "appId": zy["app_id"], "getTemplate": True},
-        )
-        controls = info["data"]["template"]["controls"]
-        # 服务器端只抓"归属日期 >= config.zhiyun_since"的行（auto=当年元旦，写死日期仍兼容）
-        since = cfg.get("zhiyun_since") if cfg.get("zhiyun_since") is not None else "auto"
-        date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
-        warnings: list[str] = []
-        # 同名日期控件多于一个：观察项（黄），防顺序变了无声换列
-        if date_col:
-            dups = controls_with_name(controls, date_col)
-            if len(dups) > 1:
-                ids = ",".join(str(c.get("controlId") or "")[:12] for c in dups)
-                warnings.append(
-                    f"表模板「{date_col}」同名控件 {len(dups)} 个（controlId≈{ids}…）；"
-                    f"过滤/取值用第一个，请确认未换序"
-                )
-        fc = build_date_since_filter(controls, date_col, since)
-        rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
-        records = rows_to_records(rows, controls)
-        missing = check_required_columns(records, cfg, source)
-        if missing:
-            return fallback(f"抓到 {len(records)} 行但缺必需列 {missing}（可能无权限/表不对）")
-        # 行数门槛护栏（智云配置.json tables.<源>.min_rows）：抓到的行数异常少=账号行级权限不足
-        # （如亮晶号在「任务」表只看得到『我的任务』85行），当失败降级、绝不用残缺数据覆盖现有文件。
-        min_rows = int(tbl.get("min_rows") or 0)
-        if len(records) < min_rows:
-            return fallback(f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）")
-        # 骤降告警（相对上次成功）：不拦写盘，status 仍 fetched + warnings → 管道黄
-        prev_counts = load_last_row_counts(cfg, root)
-        drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
-        if drop_msg:
-            warnings.append(drop_msg)
-        write_records_xlsx(records, local)
-        save_last_row_count(cfg, source, len(records), root)
-        detail = f"智云抓取 {len(records)} 行 → {local.name}"
-        if warnings:
-            detail += "；" + "；".join(warnings)
-        out = {"status": "fetched", "detail": detail, "rows": len(records)}
-        if warnings:
-            out["warnings"] = warnings
-        return out
+        return _fetch_and_write_source(cfg, source, root, post, zy, tbl, local)
     except Exception as e:  # noqa: BLE001 铁律：抓失败不中断管道
-        return fallback(f"智云抓取失败（{type(e).__name__}: {e}）")
+        return _fetch_fallback(local, f"智云抓取失败（{type(e).__name__}: {e}）")
 
 
 def _server_reachable(base_url: str, timeout: int = 5) -> bool:

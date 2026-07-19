@@ -164,7 +164,23 @@ def read_zhiyun_conn(cfg, root=None) -> dict:
     tables = {s: str(((zy.get("tables") or {}).get(s) or {}).get("worksheetId", "")) for s in fetch_zhiyun.SOURCES}
     return {"base_url": zy.get("base_url", ""), "tables": tables}
 
-def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:  # noqa: C901
+def _apply_zhiyun_table_overrides(over: dict, tables: dict, defaults: dict, sources) -> dict:
+    """按四表ID写覆盖层；与默认相同则删覆盖。"""
+    for s in sources:
+        wid = str((tables or {}).get(s) or "").strip()
+        if not wid:
+            raise ValueError("四张表的表ID都不能为空")
+        if wid == defaults["tables"][s]["worksheetId"]:
+            if s in over:
+                over[s].pop("worksheetId", None)
+                if not over[s]:
+                    over.pop(s)
+        else:
+            over.setdefault(s, {})["worksheetId"] = wid
+    return over
+
+
+def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
     """保存界面填的服务器地址/四表ID到 数据/智云配置.json 覆盖层。
     与内置默认相同的项**删除覆盖**（文件保持精简、跟着代码默认走）；不同才写覆盖。
     改了服务器地址顺带清旧会话（token 绑服务器）。返回生效值是否发生变更。"""
@@ -184,18 +200,7 @@ def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:  # noqa: C
         d.pop("base_url", None)
     else:
         d["base_url"] = base_url
-    over = d.get("tables") or {}
-    for s in fetch_zhiyun.SOURCES:
-        wid = str((tables or {}).get(s) or "").strip()
-        if not wid:
-            raise ValueError("四张表的表ID都不能为空")
-        if wid == defaults["tables"][s]["worksheetId"]:
-            if s in over:
-                over[s].pop("worksheetId", None)
-                if not over[s]:
-                    over.pop(s)
-        else:
-            over.setdefault(s, {})["worksheetId"] = wid
+    over = _apply_zhiyun_table_overrides(d.get("tables") or {}, tables, defaults, fetch_zhiyun.SOURCES)
     if over:
         d["tables"] = over
     else:
@@ -207,10 +212,8 @@ def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:  # noqa: C
     after = read_zhiyun_conn(cfg, root)
     return after != before
 
-def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
-    """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
-    改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
-    # 更新时间：新字段 schedule_times（列表·②多次更新）优先；兼容旧 schedule_time（单值）
+def _parse_schedule_times_payload(cfg, payload: dict) -> tuple[list[str], str, bool]:
+    """解析 schedule_times/schedule_time；返回 (times, st, changed_times)。"""
     changed_times = ("schedule_times" in payload) or ("schedule_time" in payload)
     if "schedule_times" in payload:
         times = normalize_schedule_times(payload["schedule_times"])
@@ -218,7 +221,10 @@ def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
         times = normalize_schedule_times(payload["schedule_time"])
     else:
         times = get_schedule_times(cfg)
-    st = times[0]  # 旧字段镜像=最早的时间点（向后兼容读单值）
+    return times, times[0], changed_times
+
+
+def _parse_backup_keep_days(cfg, payload: dict) -> int:
     if "backup_keep_days" in payload:
         try:
             keep = int(payload.get("backup_keep_days"))
@@ -228,17 +234,11 @@ def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
         keep = int(cfg.get("backup_keep_days", 30))
     if not (1 <= keep <= 365):
         raise ValueError("备份保留天数须在 1~365 之间")
-    auto = (
-        bool(payload.get("zhiyun_auto_fetch", cfg.get("zhiyun_auto_fetch", False)))
-        if "zhiyun_auto_fetch" in payload
-        else bool(cfg.get("zhiyun_auto_fetch", False))
-    )
+    return keep
 
-    cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
-    cfg["schedule_times"] = times
-    # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
-    updates = {"schedule_time": st, "schedule_times": times, "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
-    # 收单台账共享盘路径（部署机专属·界面填）：传了才改，一并落覆盖文件
+
+def _apply_optional_local_settings(cfg, payload: dict, updates: dict) -> None:
+    """收单路径 / 飞书 / 日志保留 / 磁盘阈值 → cfg + updates（就地改）。"""
     if "ledger_share_path" in payload:
         lsp = str(payload.get("ledger_share_path") or "").strip()
         cfg["ledger_share_path"] = lsp
@@ -267,8 +267,10 @@ def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
             raise ValueError("磁盘告警阈值须在 1%~50% 之间")
         cfg["disk_free_min_ratio"] = dfr
         updates["disk_free_min_ratio"] = dfr
-    loaders.write_local_config(cfg, root, updates)
 
+
+def _apply_zhiyun_payload(cfg, root, payload: dict) -> tuple[str, str]:
+    """智云账号+连接配置；返回 (cred_note, conn_note)。"""
     zu, zp = payload.get("zhiyun_username"), payload.get("zhiyun_password")
     cred_note = ""
     if zu is not None and zp is not None:
@@ -277,8 +279,6 @@ def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
             raise ValueError("智云账号和密码都不能为空")
         if save_zhiyun_creds(cfg, root, zu, zp):
             cred_note = "；智云账号已更新（下次更新自动用新账号登录）"
-
-    # 智云连接配置（服务器地址/四表ID·内置默认可界面覆盖）：两键都传才处理（界面总是整组提交）
     conn_note = ""
     if "zhiyun_base_url" in payload or "zhiyun_tables" in payload:
         cur = read_zhiyun_conn(cfg, root)
@@ -289,7 +289,28 @@ def save_settings(cfg, root, payload: dict) -> dict:  # noqa: C901
                 tb[k] = v
         if save_zhiyun_conn(cfg, root, bu, tb):
             conn_note = "；智云连接配置已更新（下次更新生效）"
+    return cred_note, conn_note
 
+
+def save_settings(cfg, root, payload: dict) -> dict:
+    """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
+    改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
+    times, st, changed_times = _parse_schedule_times_payload(cfg, payload)
+    keep = _parse_backup_keep_days(cfg, payload)
+    auto = (
+        bool(payload.get("zhiyun_auto_fetch", cfg.get("zhiyun_auto_fetch", False)))
+        if "zhiyun_auto_fetch" in payload
+        else bool(cfg.get("zhiyun_auto_fetch", False))
+    )
+
+    cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
+    cfg["schedule_times"] = times
+    # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
+    updates = {"schedule_time": st, "schedule_times": times, "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
+    _apply_optional_local_settings(cfg, payload, updates)
+    loaders.write_local_config(cfg, root, updates)
+
+    cred_note, conn_note = _apply_zhiyun_payload(cfg, root, payload)
     note = "已保存" + cred_note + conn_note
     # 仅当本次真的提交了更新时间时才动计划任务/cron（各卡就近保存；平台分支见 sync_schedule）
     if changed_times:

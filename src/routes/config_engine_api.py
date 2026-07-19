@@ -6,6 +6,6 @@
 from __future__ import annotations
 
 
-def register(app, d):  # noqa: C901  # 路由表注册壳，复杂度在子 handler
+def register(app, d):
     """任务书54：不再挂载 /api/config/caliber*（引擎内核保留）。"""
     del app, d  # 接口签名保持 register(app, d) 与其它 routes 一致

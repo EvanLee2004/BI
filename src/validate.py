@@ -74,19 +74,8 @@ def _open_sheet(rep: Report, source: str, path: Path, expect_sheet: str | None):
     return ws
 
 
-def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: str, required: list[str]) -> None:  # noqa: C901
-    """智云导出通用校验：必需列在 + 必需列不重名 + 逐行日期/金额可解析（带 Excel 行号）。"""
-    it = ws.iter_rows(values_only=True)
-    header = [str(h).strip() if h is not None else "" for h in next(it, [])]
-    missing = [c for c in required if c not in header]
-    if missing:
-        rep.error(source, f"缺必需列：{missing}（实际表头：{[h for h in header if h]}）——导出格式变了或导错文件")
-        return
-    dup = [c for c in required if header.count(c) > 1]
-    if dup:
-        rep.error(source, f"必需列重名：{dup}——无法确定读哪一列，先在源文件里改名去重")
-        return
-    i_date, i_amt = header.index(date_col), header.index(amount_col)
+def _scan_sheet_rows(it, i_date, i_amt) -> tuple[list[int], list[int], int]:
+    """逐行扫日期/金额；返回 (坏日期行号, 坏金额行号, 空日期数)。"""
     bad_date: list[int] = []
     bad_amt: list[int] = []
     empty_date = 0
@@ -100,6 +89,23 @@ def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: 
             bad_date.append(rowno)
         if loaders.amount_parse_fails(row[i_amt] if i_amt < len(row) else None):
             bad_amt.append(rowno)
+    return bad_date, bad_amt, empty_date
+
+
+def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: str, required: list[str]) -> None:
+    """智云导出通用校验：必需列在 + 必需列不重名 + 逐行日期/金额可解析（带 Excel 行号）。"""
+    it = ws.iter_rows(values_only=True)
+    header = [str(h).strip() if h is not None else "" for h in next(it, [])]
+    missing = [c for c in required if c not in header]
+    if missing:
+        rep.error(source, f"缺必需列：{missing}（实际表头：{[h for h in header if h]}）——导出格式变了或导错文件")
+        return
+    dup = [c for c in required if header.count(c) > 1]
+    if dup:
+        rep.error(source, f"必需列重名：{dup}——无法确定读哪一列，先在源文件里改名去重")
+        return
+    i_date, i_amt = header.index(date_col), header.index(amount_col)
+    bad_date, bad_amt, empty_date = _scan_sheet_rows(it, i_date, i_amt)
     if bad_date:
         rep.error(
             source, f"「{date_col}」列有日期解析不出的行：{_rows_desc(bad_date)}——这些行会被整条剔除、不计入任何周期"
@@ -110,27 +116,11 @@ def _scan_zhiyun_sheet(rep: Report, source: str, ws, date_col: str, amount_col: 
         rep.warn(source, f"「{date_col}」列有 {empty_date} 行为空（行会被剔除；智云导出一般不该有空日期，抽查一下）")
 
 
-def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:  # noqa: C901
-    src = "收单台账"
-    if not path.exists():
-        rep.error(src, f"文件不存在：{path.name}")
-        return
-    wb = openpyxl.load_workbook(path, data_only=True)
-    if str(year) not in wb.sheetnames:
-        rep.error(src, f"找不到「{year}」sheet（现有：{wb.sheetnames}）——新一年的 sheet 还没建，找总账会计确认")
-        return
-    ws = wb[str(year)]
-    rows = list(ws.iter_rows(values_only=True))
-    try:
-        lcols = columns_mod.resolve_ledger_columns(rows[0])
-    except ValueError as e:
-        rep.error(src, str(e))
-        return
+def _scan_ledger_rows(rows, year: int, lcols, known_cats) -> tuple[list[int], list[int], dict[str, list[int]]]:
     import periods
 
     c_amt, c_cat = lcols["含税金额"], lcols["对应报表大类"]
     c_d, c_m = lcols["收单日期"], lcols["收单月份"]
-    known_cats = set(cfg["expense_categories_included"]) | set(cfg["expense_categories_excluded"])
     bad_date: list[int] = []
     bad_amt: list[int] = []
     bad_cat: dict[str, list[int]] = {}
@@ -152,6 +142,56 @@ def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:  # 
         cat = str(cat_raw).strip() if cat_raw not in (None, "") else ""
         if cat and cat not in known_cats:
             bad_cat.setdefault(cat, []).append(rowno)
+    return bad_date, bad_amt, bad_cat
+
+
+def _scan_ledger_rows(rows, year, lcols, known_cats) -> tuple[list[int], list[int], dict]:
+    import periods
+
+    c_amt, c_cat = lcols["含税金额"], lcols["对应报表大类"]
+    c_d, c_m = lcols["收单日期"], lcols["收单月份"]
+    bad_date: list[int] = []
+    bad_amt: list[int] = []
+    bad_cat: dict[str, list[int]] = {}
+    for rowno, row in enumerate(rows[1:], start=2):
+        if all(v is None for v in row):
+            continue
+        amt_raw = row[c_amt] if len(row) > c_amt else None
+        if loaders.amount_parse_fails(amt_raw):
+            bad_amt.append(rowno)
+        has_amount = loaders.parse_amount(amt_raw) != 0.0
+        if not has_amount:
+            continue
+        if periods.ledger_row_date(row, year, lcols) is None:
+            rawd = row[c_d] if len(row) > c_d else None
+            rawm = row[c_m] if len(row) > c_m else None
+            if (rawd is not None and str(rawd).strip()) or (rawm is not None and str(rawm).strip()):
+                bad_date.append(rowno)
+        cat_raw = row[c_cat] if len(row) > c_cat else None
+        cat = str(cat_raw).strip() if cat_raw not in (None, "") else ""
+        if cat and cat not in known_cats:
+            bad_cat.setdefault(cat, []).append(rowno)
+    return bad_date, bad_amt, bad_cat
+
+
+def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:
+    src = "收单台账"
+    if not path.exists():
+        rep.error(src, f"文件不存在：{path.name}")
+        return
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if str(year) not in wb.sheetnames:
+        rep.error(src, f"找不到「{year}」sheet（现有：{wb.sheetnames}）——新一年的 sheet 还没建，找总账会计确认")
+        return
+    ws = wb[str(year)]
+    rows = list(ws.iter_rows(values_only=True))
+    try:
+        lcols = columns_mod.resolve_ledger_columns(rows[0])
+    except ValueError as e:
+        rep.error(src, str(e))
+        return
+    known_cats = set(cfg["expense_categories_included"]) | set(cfg["expense_categories_excluded"])
+    bad_date, bad_amt, bad_cat = _scan_ledger_rows(rows, year, lcols, known_cats)
     if bad_amt:
         rep.error(src, f"「含税金额」列有非数字：{_rows_desc(bad_amt)}——会被按 0 计")
     if bad_date:
@@ -165,8 +205,29 @@ def _validate_ledger(rep: Report, cfg: dict, path: Path, year: int) -> None:  # 
             f"「对应报表大类」出现口径外的值「{cat}」：{_rows_desc(rs)}——不在 8 大类里（可能是错别字），这些费用不会计入任何科目",
         )
 
+def _scan_manual_rows(rows, header, month_idx, known_items, i_item) -> tuple[list[str], list[str]]:
+    unknown: list[str] = []
+    bad_val: list[str] = []
+    for rowno, r in enumerate(rows[1:], start=2):
+        item = str(r[i_item]).strip() if i_item < len(r) and r[i_item] is not None else ""
+        if not item:
+            continue
+        if item not in known_items:
+            unknown.append(f"第{rowno}行「{item}」")
+            continue
+        for i in month_idx:
+            v = r[i] if i < len(r) else None
+            if loaders.amount_parse_fails(v):
+                bad_val.append(f"第{rowno}行·{header[i]}列")
+    return unknown, bad_val
 
-def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:  # noqa: C901
+
+def _manual_month_idx(header, row0) -> dict:
+    month_pat = re.compile(r"\d{4}[-/]\d{1,2}")
+    return {i: h for i, h in enumerate(header) if month_pat.fullmatch(h) or (hasattr(row0[i], "year"))}
+
+
+def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:
     src = "手填与调整"
     if not path.exists():
         rep.warn(src, f"文件不存在：{path.name}——全部手填项按 0 计，利润会虚高")
@@ -181,26 +242,13 @@ def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:  # 
     if "项目" not in header:
         rep.error(src, f"缺「项目」列（实际表头：{[h for h in header if h]}）——模板格式见 数据/README.md")
         return
-    month_pat = re.compile(r"\d{4}[-/]\d{1,2}")
-    month_idx = {i: h for i, h in enumerate(header) if month_pat.fullmatch(h) or (hasattr(rows[0][i], "year"))}
+    month_idx = _manual_month_idx(header, rows[0])
     if not month_idx:
         rep.error(src, "没有任何 YYYY-MM 月份列——手填数会整表读不进")
         return
     known_items = {it["name"] for it in cfg["manual_items"]}
     i_item = header.index("项目")
-    unknown: list[str] = []
-    bad_val: list[str] = []
-    for rowno, r in enumerate(rows[1:], start=2):
-        item = str(r[i_item]).strip() if i_item < len(r) and r[i_item] is not None else ""
-        if not item:
-            continue
-        if item not in known_items:
-            unknown.append(f"第{rowno}行「{item}」")
-            continue
-        for i in month_idx:
-            v = r[i] if i < len(r) else None
-            if loaders.amount_parse_fails(v):
-                bad_val.append(f"第{rowno}行·{header[i]}列")
+    unknown, bad_val = _scan_manual_rows(rows, header, month_idx, known_items, i_item)
     if unknown:
         rep.warn(
             src,
@@ -208,7 +256,6 @@ def _validate_manual(rep: Report, cfg: dict, path: Path, year: int) -> None:  # 
         )
     if bad_val:
         rep.error(src, f"有非数字的手填值：{'、'.join(bad_val[:MAX_ROWS_SHOWN])}——会被按 0 计")
-
 
 def validate_all(cfg: dict, year: int, root: Path | None = None) -> Report:
     """开算前整体验证 6 个数据源。返回 Report；有 error 就不该往下算。"""

@@ -52,8 +52,7 @@ def _d_ledger(name, amount, src, fine_pairs, limit=8):
 def _detail_block(cat, title, inner):
     return tpl.fill("render/detail_block.html", cat=_esc(cat), title=_esc(title), inner=inner)
 
-def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:  # noqa: C901
-    """任务书51·B2：结构 → legacy 利润表 HTML（与重构前逐字节对齐）。"""
+def _pl_rows_html(struct, *, bu_display: bool = False) -> list[str]:
     row_html: list[str] = []
     for r in struct.get("rows") or []:
         if r.get("pending"):
@@ -80,9 +79,11 @@ def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:  # noqa: 
                     grand=bool(r.get("grand")),
                 )
             )
+    return row_html
 
+
+def _pl_details_html(struct, *, bu_display: bool = False) -> list[str]:
     pending_keys = {r.get("open_key") for r in (struct.get("rows") or []) if r.get("pending") and r.get("open_key")}
-    # 顺序：cost → sales/admin/fixed/rd/fin（与旧 render 一致）
     order = ["cost", "sales", "admin", "fixed", "rd", "fin"]
     details = struct.get("details") or {}
     detail_parts: list[str] = []
@@ -96,15 +97,17 @@ def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:  # noqa: 
         inner = ""
         for ln in block.get("lines") or []:
             kind = ln.get("kind") or ""
-            # 旧 HTML：系统内部译员传正值、其余抽屉行传负值；_drow 最终 abs 显示
             raw = float(ln.get("impact") or 0)
-            if ln.get("name") == "系统内部译员":
-                signed = raw
-            else:
-                signed = -raw
+            signed = raw if ln.get("name") == "系统内部译员" else -raw
             inner += _drow(ln["name"], signed, kind, "", sub=bool(ln.get("sub")))
         detail_parts.append(_detail_block(cat, title, inner))
+    return detail_parts
 
+
+def _pl_structure_to_html(struct, *, bu_display: bool = False) -> str:
+    """任务书51·B2：结构 → legacy 利润表 HTML（与重构前逐字节对齐）。"""
+    row_html = _pl_rows_html(struct, bu_display=bu_display)
+    detail_parts = _pl_details_html(struct, bu_display=bu_display)
     kinds = tpl.load("render/kinds.html")
     return tpl.fill(
         "render/pl_table.html",

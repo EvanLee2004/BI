@@ -32,36 +32,25 @@ from .tax_revenue import _sum_amount_in_period, compute_ranking
 
 # pure-move funcs from _impl.py
 
-def compute_expense_monthly_by_cat(  # noqa: C901
-    ledger_rows,
-    ledger_year,
-    lcols,
-    cfg,
-    *,
-    year: int,
-    profit_center: str | None = None,
-    hide_salary: bool = False,
-    alloc_by_month: dict | None = None,
-):
-    """任务书39·E：全年 1~12 月 × 报表大类 费用矩阵（金额=分）。
-
-    profit_center：BU 页只计「利润归属中心」=该 BU 的直记行；None=全公司。
-    alloc_by_month：{(y,m):{大类:分}} 分摊自公共（BU 页叠加，与利润表费用口径一致）。
-    hide_salary=True：工资并入「其他」并记 note（跟随 B8 工资明细开关）。
-    返回 {categories:[...], months:[{m,total,by_cat:{…}}], salary_merged:bool}。
-    """
+def _expense_all_cats(cfg) -> list:
+    """图用台账大类全集（含成本/工资等排除类，便于领导看构成）。"""
     included = list(cfg.get("expense_categories_included") or [])
     excluded = list(cfg.get("expense_categories_excluded") or [])
-    # 图用台账大类全集（含成本/工资等排除类，便于领导看构成）
     all_cats = []
     for c in included + excluded:
         if c and c not in all_cats and c != "非利润表":
             all_cats.append(c)
-    by_m: dict[int, dict[str, float]] = {m: defaultdict(float) for m in range(1, 13)}
+    return all_cats
+
+
+def _accumulate_ledger_monthly(
+    ledger_rows, ledger_year, lcols, cfg, year, profit_center, all_cats, by_m
+) -> list:
+    """台账行按月累加大类金额；就地改 by_m/all_cats，返回更新后的 all_cats。"""
     c_amt = lcols.get("含税金额")
     c_pc = lcols.get("业务BU")
     if c_amt is None:
-        return {"categories": all_cats, "months": [], "salary_merged": False, "note": ""}
+        return all_cats
     for row in ledger_rows:
         d = periods.ledger_row_date(row, ledger_year, lcols)
         if not d or d[0] != year:
@@ -82,28 +71,67 @@ def compute_expense_monthly_by_cat(  # noqa: C901
         if cat not in all_cats:
             all_cats.append(cat)
         by_m[m][cat] += amt
-    # 叠加分摊
-    if alloc_by_month:
-        for (y, m), cats in alloc_by_month.items():
-            if int(y) != year or m < 1 or m > 12:
-                continue
-            for cat, amt in (cats or {}).items():
-                if cat and cat != "非利润表":
-                    if cat not in all_cats:
-                        all_cats.append(cat)
-                    by_m[m][cat] += float(amt or 0)
-    salary_merged = False
-    note = ""
-    if hide_salary and "工资" in all_cats:
-        salary_merged = True
-        note = "工资大类已并入「其他」（全端隐藏，不单列）"
-        if "其他" not in all_cats:
-            all_cats.append("其他")
-        for m in range(1, 13):
-            sal = float(by_m[m].pop("工资", 0) or 0)
-            if sal:
-                by_m[m]["其他"] += sal
-        all_cats = [c for c in all_cats if c != "工资"]
+    return all_cats
+
+
+def _apply_alloc_monthly(alloc_by_month, year, all_cats, by_m) -> list:
+    """叠加公共池分摊到 by_m。"""
+    if not alloc_by_month:
+        return all_cats
+    for (y, m), cats in alloc_by_month.items():
+        if int(y) != year or m < 1 or m > 12:
+            continue
+        for cat, amt in (cats or {}).items():
+            if cat and cat != "非利润表":
+                if cat not in all_cats:
+                    all_cats.append(cat)
+                by_m[m][cat] += float(amt or 0)
+    return all_cats
+
+
+def _merge_salary_into_other(all_cats, by_m, hide_salary: bool) -> tuple[list, bool, str]:
+    """hide_salary 时工资并入「其他」；返回 (cats, salary_merged, note)。"""
+    if not (hide_salary and "工资" in all_cats):
+        return all_cats, False, ""
+    note = "工资大类已并入「其他」（全端隐藏，不单列）"
+    if "其他" not in all_cats:
+        all_cats.append("其他")
+    for m in range(1, 13):
+        sal = float(by_m[m].pop("工资", 0) or 0)
+        if sal:
+            by_m[m]["其他"] += sal
+    all_cats = [c for c in all_cats if c != "工资"]
+    return all_cats, True, note
+
+
+def compute_expense_monthly_by_cat(
+    ledger_rows,
+    ledger_year,
+    lcols,
+    cfg,
+    *,
+    year: int,
+    profit_center: str | None = None,
+    hide_salary: bool = False,
+    alloc_by_month: dict | None = None,
+):
+    """任务书39·E：全年 1~12 月 × 报表大类 费用矩阵（金额=分）。
+
+    profit_center：BU 页只计「利润归属中心」=该 BU 的直记行；None=全公司。
+    alloc_by_month：{(y,m):{大类:分}} 分摊自公共（BU 页叠加，与利润表费用口径一致）。
+    hide_salary=True：工资并入「其他」并记 note（跟随 B8 工资明细开关）。
+    返回 {categories:[...], months:[{m,total,by_cat:{…}}], salary_merged:bool}。
+    """
+    all_cats = _expense_all_cats(cfg)
+    by_m: dict[int, dict[str, float]] = {m: defaultdict(float) for m in range(1, 13)}
+    c_amt = lcols.get("含税金额")
+    if c_amt is None:
+        return {"categories": all_cats, "months": [], "salary_merged": False, "note": ""}
+    all_cats = _accumulate_ledger_monthly(
+        ledger_rows, ledger_year, lcols, cfg, year, profit_center, all_cats, by_m
+    )
+    all_cats = _apply_alloc_monthly(alloc_by_month, year, all_cats, by_m)
+    all_cats, salary_merged, note = _merge_salary_into_other(all_cats, by_m, hide_salary)
     months = []
     for m in range(1, 13):
         bc = {c: round(float(by_m[m].get(c) or 0), 2) for c in all_cats}

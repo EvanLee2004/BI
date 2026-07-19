@@ -92,7 +92,59 @@ def _scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today: datetime.d
     return n, samples
 
 
-def _data_health(  # noqa: C901
+def _months_of_year(rows, col, year: int) -> list:
+    ms = set()
+    for r in rows:
+        p = loaders.parse_date_parts(r.get(col))
+        if p and p[0] == year:
+            ms.add(p[1])
+    return sorted(ms)
+
+
+def _health_value_warnings(project, orders, receipts, inhouse, ledger_rows, ledger_year, lcols, cc) -> list[str]:
+    warnings = []
+    value_scans = [
+        ("项目明细(智云)", *_scan_dict_source_issues(project, cc["project_delivery_date"], cc["project_revenue"])),
+        ("下单(智云)", *_scan_dict_source_issues(orders, cc["order_date"], cc["order_amount"])),
+        ("回款(智云)", *_scan_dict_source_issues(receipts, cc["receipt_date"], cc["receipt_amount"])),
+        ("内部译员(智云)", *_scan_dict_source_issues(inhouse, cc["inhouse_date"], cc["inhouse_amount"])),
+        ("收单台账", *_scan_ledger_issues(ledger_rows, ledger_year, lcols)),
+    ]
+    for name, date_bad, amt_bad in value_scans:
+        if date_bad:
+            warnings.append(f"{name} 有 {date_bad} 行日期解析不出，已被剔除不计入任何周期（请核对源表日期格式）")
+        if amt_bad:
+            warnings.append(f"{name} 有 {amt_bad} 行金额非数字，按 0 计（请核对源表金额格式）")
+    return warnings
+
+
+def _health_manual_warnings(cfg, manual_raw, today) -> list[str]:
+    if not manual_raw:
+        return ["手填为空或未读到：全部手填项按 0 计（利润可能虚高，请到管理端「人工填写」补录）"]
+    miss = manual_missing_months(cfg, manual_raw, today.year, today.month)
+    if not miss:
+        return []
+    show = "、".join(miss[:4]) + ("…" if len(miss) > 4 else "")
+    return [f"手填缺 {len(miss)} 个月未录（{show}）：缺月按 0 计，请当月补填"]
+
+
+def _health_future_warnings(project, orders, receipts, inhouse_for_future, ledger_rows, ledger_year, lcols, cc, today) -> list[str]:
+    warnings = []
+    future_scans = [
+        ("项目明细(智云)", *_scan_future_dates_dict(project, cc["project_delivery_date"], today)),
+        ("下单(智云)", *_scan_future_dates_dict(orders, cc["order_date"], today)),
+        ("回款(智云)", *_scan_future_dates_dict(receipts, cc["receipt_date"], today)),
+        ("内部译员(智云)", *_scan_future_dates_dict(inhouse_for_future, cc["inhouse_date"], today)),
+        ("收单台账", *_scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today)),
+    ]
+    for name, n_fut, samples in future_scans:
+        if n_fut:
+            samp = "、".join(samples) + ("…" if n_fut > len(samples) else "")
+            warnings.append(f"{name} 有 {n_fut} 行归属日期晚于今天（样例 {samp}），已计入对应未来月、不拦截")
+    return warnings
+
+
+def _data_health(
     cfg,
     cc,
     project,
@@ -110,15 +162,6 @@ def _data_health(  # noqa: C901
 ):
     """数据体检：每个源的覆盖情况 + 关键校验 → 让人信这个数。"""
     year = today.year
-
-    def months_of(rows, col):
-        ms = set()
-        for r in rows:
-            p = loaders.parse_date_parts(r.get(col))
-            if p and p[0] == year:
-                ms.add(p[1])
-        return sorted(ms)
-
     kw = str(cfg.get("inhouse_keyword", "IN-HOUSE")).upper()
     inhouse_hit = sum(1 for r in inhouse if kw in str(r.get(cc["inhouse_type"], "")).upper())
     led_ms = sorted(
@@ -126,40 +169,19 @@ def _data_health(  # noqa: C901
     )
 
     sources = [
-        {"name": "项目明细(智云)", "rows": len(project), "months": months_of(project, cc["project_delivery_date"])},
-        {"name": "下单(智云)", "rows": len(orders), "months": months_of(orders, cc["order_date"])},
-        {"name": "回款(智云)", "rows": len(receipts), "months": months_of(receipts, cc["receipt_date"])},
-        {"name": "内部译员·IN-HOUSE(智云)", "rows": inhouse_hit, "months": months_of(inhouse, cc["inhouse_date"])},
+        {"name": "项目明细(智云)", "rows": len(project), "months": _months_of_year(project, cc["project_delivery_date"], year)},
+        {"name": "下单(智云)", "rows": len(orders), "months": _months_of_year(orders, cc["order_date"], year)},
+        {"name": "回款(智云)", "rows": len(receipts), "months": _months_of_year(receipts, cc["receipt_date"], year)},
+        {"name": "内部译员·IN-HOUSE(智云)", "rows": inhouse_hit, "months": _months_of_year(inhouse, cc["inhouse_date"], year)},
         {"name": "收单台账", "rows": len(ledger_rows), "months": led_ms},
     ]
 
     warnings = []
-    # 某源整表读到 0 行 = 文件空 / 导错
     for s in sources:
         if s["rows"] == 0:
             warnings.append(f"{s['name']} 读到 0 行（文件空或导错，请核对）")
-    # 坏值计数：日期解析不出=整行被剔除、金额解析不出=按0算——都不能无声发生
-    value_scans = [
-        ("项目明细(智云)", *_scan_dict_source_issues(project, cc["project_delivery_date"], cc["project_revenue"])),
-        ("下单(智云)", *_scan_dict_source_issues(orders, cc["order_date"], cc["order_amount"])),
-        ("回款(智云)", *_scan_dict_source_issues(receipts, cc["receipt_date"], cc["receipt_amount"])),
-        ("内部译员(智云)", *_scan_dict_source_issues(inhouse, cc["inhouse_date"], cc["inhouse_amount"])),
-        ("收单台账", *_scan_ledger_issues(ledger_rows, ledger_year, lcols)),
-    ]
-    for name, date_bad, amt_bad in value_scans:
-        if date_bad:
-            warnings.append(f"{name} 有 {date_bad} 行日期解析不出，已被剔除不计入任何周期（请核对源表日期格式）")
-        if amt_bad:
-            warnings.append(f"{name} 有 {amt_bad} 行金额非数字，按 0 计（请核对源表金额格式）")
-    # 手填：未填=0（不再沿用上月）；缺整月提示陆总补录
-    if not manual_raw:
-        warnings.append("手填为空或未读到：全部手填项按 0 计（利润可能虚高，请到管理端「人工填写」补录）")
-    else:
-        miss = manual_missing_months(cfg, manual_raw, today.year, today.month)
-        if miss:
-            show = "、".join(miss[:4]) + ("…" if len(miss) > 4 else "")
-            warnings.append(f"手填缺 {len(miss)} 个月未录（{show}）：缺月按 0 计，请当月补填")
-    # 有收入的月却期间费用为 0 = 收单台账疑似缺该月（活跃月费用不该为0）——比"某月无收入"更可信，不误报淡季
+    warnings.extend(_health_value_warnings(project, orders, receipts, inhouse, ledger_rows, ledger_year, lcols, cc))
+    warnings.extend(_health_manual_warnings(cfg, manual_raw, today))
     for k in month_keys:
         if P[k]["revenue_net"] > 0 and P[k]["expense"]["total"] == 0:
             warnings.append(f"{P[k]['label']}有收入但期间费用为0（疑似收单台账缺该月）")
@@ -173,20 +195,12 @@ def _data_health(  # noqa: C901
         )
     # 任务书37·B10：归属日期 > 今天 → 体检黄（条数+样例），不拦管道。
     # 内部译员只扫 IN-HOUSE（与 norm_inhouse/入库一致，避免文件全表 vs 库过滤后计数对不上红线）。
-    inhouse_for_future = [
-        r for r in inhouse if kw in str(r.get(cc["inhouse_type"], "")).upper()
-    ]
-    future_scans = [
-        ("项目明细(智云)", *_scan_future_dates_dict(project, cc["project_delivery_date"], today)),
-        ("下单(智云)", *_scan_future_dates_dict(orders, cc["order_date"], today)),
-        ("回款(智云)", *_scan_future_dates_dict(receipts, cc["receipt_date"], today)),
-        ("内部译员(智云)", *_scan_future_dates_dict(inhouse_for_future, cc["inhouse_date"], today)),
-        ("收单台账", *_scan_future_dates_ledger(ledger_rows, ledger_year, lcols, today)),
-    ]
-    for name, n_fut, samples in future_scans:
-        if n_fut:
-            samp = "、".join(samples) + ("…" if n_fut > len(samples) else "")
-            warnings.append(f"{name} 有 {n_fut} 行归属日期晚于今天（样例 {samp}），已计入对应未来月、不拦截")
+    inhouse_for_future = [r for r in inhouse if kw in str(r.get(cc["inhouse_type"], "")).upper()]
+    warnings.extend(
+        _health_future_warnings(
+            project, orders, receipts, inhouse_for_future, ledger_rows, ledger_year, lcols, cc, today
+        )
+    )
     return {"sources": sources, "warnings": warnings, "ok": len(warnings) == 0}
 
 def load_manual_safe(cfg):

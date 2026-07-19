@@ -27,7 +27,79 @@ def _abs_amt_disp(v) -> str:
     return _wan(abs(float(v or 0))) + "万"
 
 
-def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str, list[dict[str, Any]]]:  # noqa: C901
+def _kpi_bu_orders_rows(bu_list, charts) -> list[dict[str, Any]]:
+    if not bu_list:
+        return []
+    max_amt = max((float(d.get("amount") or 0.0) for d in bu_list), default=0.0) or 1.0
+    rows = []
+    for d in bu_list:
+        amt_v = float(d.get("amount") or 0.0)
+        pct = d.get("pct")
+        if pct is not None:
+            w = min(max(float(pct), 0.0), 100.0)
+            cls = "ok" if pct >= 100 else ("warn" if pct >= 80 else "low")
+            badge = f"{pct:.0f}%"
+            tip = f"年目标 {charts.fmt_wan(d['target'])}万 · 全年累计 {charts.fmt_wan(d.get('year_amount') or 0)}万"
+        else:
+            w = min(max(amt_v / max_amt * 100.0, 0.0), 100.0) if amt_v else 0.0
+            cls = "soft"
+            badge = "未设目标"
+            tip = "该 BU 未填下单年目标；条长仅为部门间相对大小"
+        rows.append(
+            {
+                "name": d["name"],
+                "amount_disp": charts.fmt_wan(amt_v) + "万",
+                "badge_disp": badge,
+                "bar_w": w,
+                "cls": cls,
+                "tip": tip,
+            }
+        )
+    return rows
+
+
+def _kpi_delta(val: float, prev_key, P, key, up_good, _kpi_val) -> dict[str, Any]:
+    delta = {"show": False, "cls": "", "text": ""}
+    if prev_key is not None and prev_key in P and _kpi_val(P[prev_key], key):
+        pv = float(_kpi_val(P[prev_key], key) or 0.0)
+        if pv:
+            d = (val - pv) / abs(pv) * 100
+            good = (d >= 0) == up_good
+            arrow = "▲" if d >= 0 else "▼"
+            delta = {"show": True, "cls": "up" if good else "down", "text": f"{arrow}{abs(d):.1f}%"}
+    return delta
+
+
+def _kpi_subs(key, pctkey, p, val, charts) -> list[dict[str, str]]:
+    subs: list[dict[str, str]] = []
+    if key == "revenue_gross":
+        subs.append({"label": "交付收入(÷1.06)", "value_disp": charts.fmt_wan(p["revenue_net"]) + "万"})
+        o = float(p.get("orders") or 0.0)
+        if o > 0:
+            subs.append({"label": "交付占下单", "value_disp": f"{val / o * 100:.0f}%"})
+    elif pctkey == "gross_margin_pct":
+        subs.append({"label": "毛利率", "value_disp": f"{p[pctkey]:.1f}%"})
+    elif pctkey == "pretax_margin_pct":
+        subs.append({"label": "利润率", "value_disp": f"{p[pctkey]:.1f}%"})
+    if key == "receipts":
+        r = p.get("receipt_order_ratio_pct")
+        rtxt = f"{r:.1f}%" if r is not None else "—"
+        subs = [{"label": "总回款/下单比", "value_disp": rtxt}]
+    return subs
+
+
+def _kpi_feet(key, p, val, peak, show_ar, charts) -> list[dict[str, str]]:
+    feet: list[dict[str, str]] = []
+    if peak:
+        feet.append({"kind": "peak", "label": peak["label"], "value_disp": peak["value_disp"]})
+    if key == "receipts" and show_ar:
+        ar = float(p.get("revenue_gross") or 0.0) - val
+        ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
+        feet.append({"kind": "ar", "label": "已交付未回款", "value_disp": ar_s + "万"})
+    return feet
+
+
+def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str, list[dict[str, Any]]]:
     """周期 → KPI 卡数组（主数/副标/峰值/目标条/BU 进度全为显示串）。
 
     任务书51·B2：峰值/目标条消费 domain.pl.structure 公共函数。
@@ -45,36 +117,6 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
     show_ar = bool(cfg.get("show_delivered_unpaid", False))
     out: dict[str, list[dict[str, Any]]] = {}
 
-    def bu_orders_rows(bu_list) -> list[dict[str, Any]]:
-        if not bu_list:
-            return []
-        max_amt = max((float(d.get("amount") or 0.0) for d in bu_list), default=0.0) or 1.0
-        rows = []
-        for d in bu_list:
-            amt_v = float(d.get("amount") or 0.0)
-            pct = d.get("pct")
-            if pct is not None:
-                w = min(max(float(pct), 0.0), 100.0)
-                cls = "ok" if pct >= 100 else ("warn" if pct >= 80 else "low")
-                badge = f"{pct:.0f}%"
-                tip = f"年目标 {charts.fmt_wan(d['target'])}万 · 全年累计 {charts.fmt_wan(d.get('year_amount') or 0)}万"
-            else:
-                w = min(max(amt_v / max_amt * 100.0, 0.0), 100.0) if amt_v else 0.0
-                cls = "soft"
-                badge = "未设目标"
-                tip = "该 BU 未填下单年目标；条长仅为部门间相对大小"
-            rows.append(
-                {
-                    "name": d["name"],
-                    "amount_disp": charts.fmt_wan(amt_v) + "万",
-                    "badge_disp": badge,
-                    "bar_w": w,
-                    "cls": cls,
-                    "tip": tip,
-                }
-            )
-        return rows
-
     for pkey, p in P.items():
         if not isinstance(p, dict):
             continue
@@ -83,51 +125,17 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
         cards = []
         for label, key, src, up_good, pctkey, _color, tkey in KPI_CARDS:
             val = float(_kpi_val(p, key) or 0.0)
-            delta = {"show": False, "cls": "", "text": ""}
-            if prev is not None and prev in P and _kpi_val(P[prev], key):
-                pv = float(_kpi_val(P[prev], key) or 0.0)
-                if pv:
-                    d = (val - pv) / abs(pv) * 100
-                    good = (d >= 0) == up_good
-                    arrow = "▲" if d >= 0 else "▼"
-                    delta = {
-                        "show": True,
-                        "cls": "up" if good else "down",
-                        "text": f"{arrow}{abs(d):.1f}%",
-                    }
-            subs = []
-            if key == "revenue_gross":
-                subs.append({"label": "交付收入(÷1.06)", "value_disp": charts.fmt_wan(p["revenue_net"]) + "万"})
-                o = float(p.get("orders") or 0.0)
-                if o > 0:
-                    subs.append({"label": "交付占下单", "value_disp": f"{val / o * 100:.0f}%"})
-            elif pctkey == "gross_margin_pct":
-                subs.append({"label": "毛利率", "value_disp": f"{p[pctkey]:.1f}%"})
-            elif pctkey == "pretax_margin_pct":
-                subs.append({"label": "利润率", "value_disp": f"{p[pctkey]:.1f}%"})
-            if key == "receipts":
-                r = p.get("receipt_order_ratio_pct")
-                rtxt = f"{r:.1f}%" if r is not None else "—"
-                subs = [{"label": "总回款/下单比", "value_disp": rtxt}]
-            peak = kpi_peak_for(summary, key)
-            feet = []
-            if peak:
-                feet.append({"kind": "peak", "label": peak["label"], "value_disp": peak["value_disp"]})
-            if key == "receipts" and show_ar:
-                ar = float(p.get("revenue_gross") or 0.0) - val
-                ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
-                feet.append({"kind": "ar", "label": "已交付未回款", "value_disp": ar_s + "万"})
             cards.append(
                 {
                     "label": label,
                     "period_tag": period_tag,
                     "value_disp": charts.fmt_wan(val),
                     "value_unit": "万",
-                    "delta": delta,
-                    "subs": subs,
+                    "delta": _kpi_delta(val, prev, P, key, up_good, _kpi_val),
+                    "subs": _kpi_subs(key, pctkey, p, val, charts),
                     "target": kpi_target_bar(tkey, pkey, p, budget),
-                    "bu_orders": bu_orders_rows(BUO.get(pkey)) if key == "orders" else [],
-                    "feet": feet,
+                    "bu_orders": _kpi_bu_orders_rows(BUO.get(pkey), charts) if key == "orders" else [],
+                    "feet": _kpi_feet(key, p, val, kpi_peak_for(summary, key), show_ar, charts),
                     "src": src,
                     "data_key": key,
                 }

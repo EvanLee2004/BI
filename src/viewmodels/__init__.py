@@ -250,7 +250,58 @@ def _pack_receipt_series(rows) -> dict[str, Any]:
     }
 
 
-def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:  # noqa: C901
+def _attach_year_budget_bars(row: dict, budget: dict, charts) -> None:
+    for key, title, bkey in (
+        ("receipt_target_disp", "回款年目标", "receipt"),
+        ("order_target_disp", "下单年目标", "order"),
+    ):
+        b = budget.get(bkey) if isinstance(budget, dict) else None
+        if not (b and b.get("target") is not None):
+            continue
+        pct = b.get("pct")
+        if pct is None:
+            pct_txt = "—"
+        elif float(pct) > 999:
+            pct_txt = ">999% · 目标待校准"
+        else:
+            pct_txt = f"{float(pct):.1f}%"
+        bw = max(0.0, min(float(pct or 0), 100.0))
+        row[key] = charts.fmt_wan(float(b["target"]))
+        row[f"{bkey}_pct_disp"] = pct_txt
+        row[f"{bkey}_bar_w"] = f"{bw:.1f}"
+        row[f"{bkey}_title"] = title
+
+
+def _pack_one_period_receipt_row(pk, p, yk, budget, charts) -> dict[str, str] | None:
+    if not isinstance(p, dict):
+        return None
+    tot_o = float(p.get("orders") or 0)
+    tot_r = float(p.get("receipts") or 0)
+    gap = tot_o - tot_r
+    ratio = p.get("receipt_order_ratio_pct")
+    if ratio is None and tot_o:
+        ratio = round(tot_r / tot_o * 100, 2) if tot_o else None
+    ytd_txt = f"{float(ratio):.1f}%" if ratio is not None else "—"
+    try:
+        bar_w = max(0.0, min(float(ratio or 0), 100.0))
+    except (TypeError, ValueError):
+        bar_w = 0.0
+    gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
+    row: dict[str, str] = {
+        "period_label": str(p.get("label") or pk),
+        "orders_disp": charts.fmt_wan(tot_o),
+        "receipts_disp": charts.fmt_wan(tot_r),
+        "gap_disp": charts.fmt_wan(abs(gap)),
+        "gap_hint": gap_hint,
+        "ratio_disp": ytd_txt,
+        "bar_w": f"{bar_w:.1f}",
+    }
+    if pk == yk and budget:
+        _attach_year_budget_bars(row, budget, charts)
+    return row
+
+
+def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:
     """任务书54.4·B4：用 summary 已算好的 orders/receipts/ratio/budget 组装显示串。
 
     - summary_by_period：各周期右侧摘要（总下单/总回款/尚待回款/回款率/年目标条）
@@ -265,72 +316,24 @@ def _pack_receipts_side_and_budget(summary: dict) -> dict[str, Any]:  # noqa: C9
     budget = meta.get("budget") or {}
     periods = summary.get("periods") or {}
     summary_by_period: dict[str, dict[str, str]] = {}
-
     for pk, p in periods.items():
-        if not isinstance(p, dict):
-            continue
-        tot_o = float(p.get("orders") or 0)
-        tot_r = float(p.get("receipts") or 0)
-        gap = tot_o - tot_r
-        ratio = p.get("receipt_order_ratio_pct")
-        if ratio is None and tot_o:
-            # 与 profit 同口径的兜底：仅当字段缺失时用已有 totals 拼显示
-            ratio = round(tot_r / tot_o * 100, 2) if tot_o else None
-        ytd_txt = f"{float(ratio):.1f}%" if ratio is not None else "—"
-        try:
-            bar_w = max(0.0, min(float(ratio or 0), 100.0))
-        except (TypeError, ValueError):
-            bar_w = 0.0
-        gap_hint = "尚待回款" if gap > 0 else ("回款超下单" if gap < 0 else "持平")
-        row: dict[str, str] = {
-            "period_label": str(p.get("label") or pk),
-            "orders_disp": charts.fmt_wan(tot_o),
-            "receipts_disp": charts.fmt_wan(tot_r),
-            "gap_disp": charts.fmt_wan(abs(gap)),
-            "gap_hint": gap_hint,
-            "ratio_disp": ytd_txt,
-            "bar_w": f"{bar_w:.1f}",
-        }
-        # 年目标进度条只挂全年（与 legacy 一致）
-        if pk == yk and budget:
-            for key, title, bkey in (
-                ("receipt_target_disp", "回款年目标", "receipt"),
-                ("order_target_disp", "下单年目标", "order"),
-            ):
-                b = budget.get(bkey) if isinstance(budget, dict) else None
-                if not (b and b.get("target") is not None):
-                    continue
-                pct = b.get("pct")
-                if pct is None:
-                    pct_txt = "—"
-                elif float(pct) > 999:
-                    pct_txt = ">999% · 目标待校准"
-                else:
-                    pct_txt = f"{float(pct):.1f}%"
-                bw = max(0.0, min(float(pct or 0), 100.0))
-                row[key] = charts.fmt_wan(float(b["target"]))
-                row[f"{bkey}_pct_disp"] = pct_txt
-                row[f"{bkey}_bar_w"] = f"{bw:.1f}"
-                row[f"{bkey}_title"] = title
-        summary_by_period[pk] = row
-
+        row = _pack_one_period_receipt_row(pk, p, yk, budget, charts)
+        if row is not None:
+            summary_by_period[pk] = row
     rb = budget.get("receipt") if isinstance(budget, dict) else None
     budget_month = None
     budget_month_disp = ""
     receipts_budget = ""
     if rb and rb.get("target") is not None:
-        # 与 render_receipts 一致：年目标 / 12 作月均预算虚线
         budget_month = float(rb["target"]) / 12.0
         budget_month_disp = charts.fmt_wan(budget_month)
         receipts_budget = f"月均预算 {budget_month_disp}万"
-
     return {
         "summary_by_period": summary_by_period,
         "receipts_budget": receipts_budget,
         "budget_month": budget_month if budget_month is not None else 0.0,
         "budget_month_disp": budget_month_disp,
     }
-
 
 def _pack_expense_area(raw: dict | None) -> dict[str, Any]:
     """费用面积序列。任务书52·F-4：裁到最后一个有数据的月份（后缀空月不拖尾）。"""

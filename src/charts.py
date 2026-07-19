@@ -264,29 +264,8 @@ def combo_bar_line_chart(groups: list[tuple[str, float, float, float]], highligh
     )
 
 
-def receipt_order_chart(  # noqa: C901
-    series: list[tuple[str, float, float, float | None]], color: str = BLUE, budget_month: float | None = None
-) -> str:
-    """下单柱 + 回款柱 + 回款/下单比折线（A3·陆总#2：同图逐月下单与回款）。
-    series=[(label, 回款, 下单, 比率%), ...]；柱顶万；率%在折线点旁。
-    任务书39·A：画布规格与板块二趋势图 combo_bar_line_chart 一致（640×288）。"""
-    w, h = 640, 288
-    pl, pr, pt, pb = 54, 36, 34, 32
-    plot_w, plot_h = w - pl - pr, h - pt - pb
-    n = len(series)
-    if n == 0:
-        return tpl.fill("charts/empty.html", color=MUT2)
-    mx = max((max(rec or 0, order or 0) for _, rec, order, _ in series), default=0) or 1
-    if budget_month:
-        mx = max(mx, budget_month * 1.15)
-    ratios = [r for _, _, _, r in series if r is not None]
-    rmx = max(ratios) if ratios else 0.0
-    rmx_axis = max(rmx, 100.0) if ratios else 100.0
-    bar_h = plot_h * 0.88
-    gw = plot_w / n
-    bw = min(gw * 0.22, 18)
-    parts, hits, line_pts = [], [], []
-    parts.append(
+def _roc_bar_grads(color: str) -> str:
+    return (
         f"<defs>"
         f'<linearGradient id="barGradOrd" x1="0" y1="0" x2="0" y2="1">'
         f'<stop offset="0" stop-color="{PURPLE}" stop-opacity=".95"/>'
@@ -296,6 +275,9 @@ def receipt_order_chart(  # noqa: C901
         f'<stop offset="1" stop-color="{color}" stop-opacity=".25"/></linearGradient>'
         f"</defs>"
     )
+
+
+def _roc_grid_labels(parts, pl, pr, pt, plot_h, w, mx, ratios, rmx_axis) -> None:
     for frac in (0, 0.5, 1.0):
         y = pt + plot_h * (1 - frac)
         parts.append(f'<line x1="{pl}" y1="{y:.1f}" x2="{w - pr}" y2="{y:.1f}" stroke="{LINE}" stroke-width="1"/>')
@@ -308,18 +290,27 @@ def receipt_order_chart(  # noqa: C901
                 f'<text x="{w - pr + 6}" y="{y + 3:.1f}" text-anchor="start" font-size="10" fill="{MUT2}">'
                 f"{rmx_axis * frac:.0f}%</text>"
             )
+
+
+def _roc_month_rm(label, i: int) -> str:
+    rm = str(i + 1)
+    if isinstance(label, str) and label.endswith("月"):
+        head = label[:-1]
+        if head.isdigit():
+            rm = str(int(head))
+    return rm
+
+
+def _roc_draw_bars(
+    parts, hits, line_pts, series, *, pl, pt, plot_h, h, pb, mx, bar_h, gw, bw, rmx_axis, color
+) -> None:
     for i, (label, rec, order, ratio) in enumerate(series):
-        rm = str(i + 1)
-        if isinstance(label, str) and label.endswith("月"):
-            head = label[:-1]
-            if head.isdigit():
-                rm = str(int(head))
+        rm = _roc_month_rm(label, i)
         drm = f' data-rm="{rm}"'
         cx = pl + gw * i + gw / 2
         oh = max(1.0, (order or 0) / mx * bar_h) if order else 0.0
         rh = max(1.0, (rec or 0) / mx * bar_h) if rec else 0.0
         oy, ry0 = pt + plot_h - oh, pt + plot_h - rh
-        # 左=下单 右=回款
         parts.append(
             f'<rect class="bar bar-ord" style="animation-delay:{i * 0.05:.2f}s;filter:drop-shadow(0 0 5px {PURPLE})" '
             f'x="{cx - bw - 2:.1f}" y="{oy:.1f}" width="{bw:.1f}" height="{max(oh, 1.0):.1f}" rx="3" '
@@ -358,6 +349,9 @@ def receipt_order_chart(  # noqa: C901
             f'<rect class="hit" data-tip="{tip}" x="{pl + gw * i:.1f}" y="{pt:.1f}" width="{gw:.1f}" '
             f'height="{plot_h:.1f}" fill="transparent"/>'
         )
+
+
+def _roc_budget_and_line(parts, line_pts, *, pl, pr, pt, plot_h, w, mx, budget_month) -> None:
     if budget_month:
         by = pt + plot_h * (1 - budget_month / mx)
         parts.append(
@@ -388,6 +382,39 @@ def receipt_order_chart(  # noqa: C901
             f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{ORANGE}" stroke="#04101c" '
             f'stroke-width="1.2" data-rm="{rm}"/>'
         )
+
+
+
+def receipt_order_chart(
+    series: list[tuple[str, float, float, float | None]], color: str = BLUE, budget_month: float | None = None
+) -> str:
+    """下单柱 + 回款柱 + 回款/下单比折线（A3·陆总#2：同图逐月下单与回款）。
+    series=[(label, 回款, 下单, 比率%), ...]；柱顶万；率%在折线点旁。
+    任务书39·A：画布规格与板块二趋势图 combo_bar_line_chart 一致（640×288）。"""
+    w, h = 640, 288
+    pl, pr, pt, pb = 54, 36, 34, 32
+    plot_w, plot_h = w - pl - pr, h - pt - pb
+    n = len(series)
+    if n == 0:
+        return tpl.fill("charts/empty.html", color=MUT2)
+    mx = max((max(rec or 0, order or 0) for _, rec, order, _ in series), default=0) or 1
+    if budget_month:
+        mx = max(mx, budget_month * 1.15)
+    ratios = [r for _, _, _, r in series if r is not None]
+    rmx = max(ratios) if ratios else 0.0
+    rmx_axis = max(rmx, 100.0) if ratios else 100.0
+    bar_h = plot_h * 0.88
+    gw = plot_w / n
+    bw = min(gw * 0.22, 18)
+    parts, hits, line_pts = [], [], []
+    parts.append(_roc_bar_grads(color))
+    _roc_grid_labels(parts, pl, pr, pt, plot_h, w, mx, ratios, rmx_axis)
+    _roc_draw_bars(
+        parts, hits, line_pts, series,
+        pl=pl, pt=pt, plot_h=plot_h, h=h, pb=pb, mx=mx, bar_h=bar_h, gw=gw, bw=bw,
+        rmx_axis=rmx_axis, color=color,
+    )
+    _roc_budget_and_line(parts, line_pts, pl=pl, pr=pr, pt=pt, plot_h=plot_h, w=w, mx=mx, budget_month=budget_month)
     budget_span = tpl.fill("charts/legend_budget_span.html", teal=TEAL) if budget_month else ""
     legend = tpl.fill("charts/legend_receipt.html", color=color, orange=ORANGE, purple=PURPLE, budget_span=budget_span)
     return (
@@ -409,7 +436,82 @@ _STACK_PALETTE = (
 )
 
 
-def expense_stack_chart(  # noqa: C901
+def _esc_stack_months(months: list[dict] | None) -> list[dict]:
+    months = list(months or [])
+    if not months:
+        months = [{"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []} for i in range(12)]
+    while len(months) < 12:
+        months.append({"m": len(months) + 1, "total": 0, "total_disp": "0.0", "segs": []})
+    return months
+
+
+def _esc_stack_layers(months: list[dict], categories: list[str]) -> tuple[list, list]:
+    amt_by_cat: list[dict[str, float]] = []
+    for i in range(12):
+        m = months[i]
+        by = {s.get("cat") or "": float(s.get("amount") or 0) for s in (m.get("segs") or [])}
+        amt_by_cat.append(by)
+    bottoms: list[dict[str, float]] = []
+    tops: list[dict[str, float]] = []
+    for i in range(12):
+        bot, top = {}, {}
+        acc = 0.0
+        for c in categories:
+            a = float(amt_by_cat[i].get(c) or 0)
+            bot[c] = acc
+            acc += max(0.0, a)
+            top[c] = acc
+        bottoms.append(bot)
+        tops.append(top)
+    return bottoms, tops
+
+
+def _esc_draw_areas(parts, categories, cat_colors, bottoms, tops, _x, _y) -> None:
+    for c in categories:
+        color = cat_colors.get(c, MUT)
+        top_pts = [f"{_x(i):.1f},{_y(tops[i].get(c, 0)):.1f}" for i in range(12)]
+        bot_pts = [f"{_x(i):.1f},{_y(bottoms[i].get(c, 0)):.1f}" for i in range(11, -1, -1)]
+        d = "M " + " L ".join(top_pts) + " L " + " L ".join(bot_pts) + " Z"
+        parts.append(
+            f'<path class="exp-area" data-cat="{esc(c)}" d="{d}" fill="{color}" fill-opacity="0.72" '
+            f'stroke="{color}" stroke-width="1" stroke-opacity="0.95"/>'
+        )
+
+
+def _esc_draw_month_hits(parts, hits, months, *, pl, pt, plot_h, h, pb, gw, _x, _y) -> None:
+    for i in range(12):
+        m = months[i]
+        cx = _x(i)
+        total = float(m.get("total") or 0)
+        tot_disp = m.get("total_disp") or fmt_wan(total)
+        if total > 0:
+            ty = _y(total) - 5
+            parts.append(
+                f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="9.5" font-weight="700" '
+                f'fill="{INK}">{esc(tot_disp)}</text>'
+            )
+        parts.append(
+            f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11" fill="{MUT}">'
+            f"{i + 1}月</text>"
+        )
+        seg_tips = []
+        for seg in m.get("segs") or []:
+            cat = seg.get("cat") or ""
+            if float(seg.get("amount") or 0) <= 0:
+                continue
+            seg_tips.append(
+                f"{esc(cat)} {esc(seg.get('amount_disp') or fmt_wan(seg.get('amount') or 0))}万"
+                f"（{esc(seg.get('pct_disp') or '—')}）"
+            )
+        tip_detail = "<br>".join(seg_tips)
+        tip = f"{i + 1}月合计 {esc(tot_disp)}万" + (f"<br>{tip_detail}" if tip_detail else "")
+        hits.append(
+            f'<rect class="hit" data-tip="{tip}" x="{pl + gw * i:.1f}" y="{pt:.1f}" '
+            f'width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>'
+        )
+
+
+def expense_stack_chart(
     months: list[dict],
     categories: list[str],
     *,
@@ -423,34 +525,12 @@ def expense_stack_chart(  # noqa: C901
     pl, pr, pt, pb = 54, 36, 34, 40
     plot_w, plot_h = w - pl - pr, h - pt - pb
     n = 12
-    if not months:
-        months = [{"m": i + 1, "total": 0, "total_disp": "0.0", "segs": []} for i in range(12)]
-    # 补齐到 12 月
-    while len(months) < 12:
-        months.append({"m": len(months) + 1, "total": 0, "total_disp": "0.0", "segs": []})
+    months = _esc_stack_months(months)
     mx = max((float(m.get("total") or 0) for m in months[:12]), default=0) or 1
     area_h = plot_h * 0.88
     gw = plot_w / n
     cat_colors = {c: _STACK_PALETTE[i % len(_STACK_PALETTE)] for i, c in enumerate(categories)}
-    # 每月每类金额（分）；累计栈底/栈顶用于面积带
-    amt_by_cat: list[dict[str, float]] = []
-    for i in range(12):
-        m = months[i]
-        by = {s.get("cat") or "": float(s.get("amount") or 0) for s in (m.get("segs") or [])}
-        amt_by_cat.append(by)
-    # bottoms[i][cat] = 该类之下的累计；tops 同理
-    bottoms: list[dict[str, float]] = []
-    tops: list[dict[str, float]] = []
-    for i in range(12):
-        bot, top = {}, {}
-        acc = 0.0
-        for c in categories:
-            a = float(amt_by_cat[i].get(c) or 0)
-            bot[c] = acc
-            acc += max(0.0, a)
-            top[c] = acc
-        bottoms.append(bot)
-        tops.append(top)
+    bottoms, tops = _esc_stack_layers(months, categories)
 
     def _y(val: float) -> float:
         return pt + plot_h - (val / mx * area_h)
@@ -467,50 +547,8 @@ def expense_stack_chart(  # noqa: C901
             f'<text x="{pl - 8}" y="{y + 3:.1f}" text-anchor="end" font-size="10" fill="{MUT2}">'
             f"{'0' if frac == 0 else fmt_wan(mx * frac) + '万'}</text>"
         )
-    # 自底向上画堆叠面积 path（铁律2：坐标全由后端算好）
-    for c in categories:
-        color = cat_colors.get(c, MUT)
-        # 上沿左→右
-        top_pts = [f"{_x(i):.1f},{_y(tops[i].get(c, 0)):.1f}" for i in range(12)]
-        # 下沿右→左（闭合）
-        bot_pts = [f"{_x(i):.1f},{_y(bottoms[i].get(c, 0)):.1f}" for i in range(11, -1, -1)]
-        d = "M " + " L ".join(top_pts) + " L " + " L ".join(bot_pts) + " Z"
-        parts.append(
-            f'<path class="exp-area" data-cat="{esc(c)}" d="{d}" fill="{color}" fill-opacity="0.72" '
-            f'stroke="{color}" stroke-width="1" stroke-opacity="0.95"/>'
-        )
-    # 月标签 + 顶部总额 + 悬浮命中区
-    for i in range(12):
-        m = months[i]
-        cx = _x(i)
-        total = float(m.get("total") or 0)
-        tot_disp = m.get("total_disp") or fmt_wan(total)
-        if total > 0:
-            ty = _y(total) - 5
-            parts.append(
-                f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" font-size="9.5" font-weight="700" '
-                f'fill="{INK}">{esc(tot_disp)}</text>'
-            )
-        parts.append(
-            f'<text x="{cx:.1f}" y="{h - pb + 15:.1f}" text-anchor="middle" font-size="11" fill="{MUT}">'
-            f"{i + 1}月</text>"
-        )
-        # 悬浮：月份合计 + 各大类明细（后端拼好 data-tip）
-        seg_tips = []
-        for seg in m.get("segs") or []:
-            cat = seg.get("cat") or ""
-            if float(seg.get("amount") or 0) <= 0:
-                continue
-            seg_tips.append(
-                f"{esc(cat)} {esc(seg.get('amount_disp') or fmt_wan(seg.get('amount') or 0))}万"
-                f"（{esc(seg.get('pct_disp') or '—')}）"
-            )
-        tip_detail = "<br>".join(seg_tips)
-        tip = f"{i + 1}月合计 {esc(tot_disp)}万" + (f"<br>{tip_detail}" if tip_detail else "")
-        hits.append(
-            f'<rect class="hit" data-tip="{tip}" x="{pl + gw * i:.1f}" y="{pt:.1f}" '
-            f'width="{gw:.1f}" height="{plot_h:.1f}" fill="transparent"/>'
-        )
+    _esc_draw_areas(parts, categories, cat_colors, bottoms, tops, _x, _y)
+    _esc_draw_month_hits(parts, hits, months, pl=pl, pt=pt, plot_h=plot_h, h=h, pb=pb, gw=gw, _x=_x, _y=_y)
     legend_items = "".join(
         tpl.fill("charts/legend_expense_item.html", color=cat_colors[c], name=esc(c)) for c in categories
     )
