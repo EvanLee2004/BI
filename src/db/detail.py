@@ -223,6 +223,56 @@ def _append_detail_period(where: list, args: list, month, year, month_from, mont
         args.append(f"{y}-%")
 
 
+def _receipt_date_compact_sql() -> str:
+    """收单日期 → 8 位 YYYYMMDD 文本，兼容库内两种存法：
+    - 生产/台账原文：20260105
+    - 测试/ISO：2026-01-05 或 2026-01-05 00:00:00
+    """
+    # 去空白后：若前 10 位含 '-' 则去横线取 8 位；否则直接取连续 8 位数字
+    raw = "replace(trim(CAST(收单日期 AS TEXT)), ' ', '')"
+    return (
+        f"(CASE "
+        f"WHEN instr(substr({raw},1,10), '-') > 0 "
+        f"THEN substr(replace(substr({raw},1,10), '-', ''), 1, 8) "
+        f"ELSE substr({raw}, 1, 8) "
+        f"END)"
+    )
+
+
+def _append_receipt_date_range(
+    where: list, args: list, have: set, date_from: str | None, date_to: str | None
+) -> None:
+    """任务书58·R-50：按收单日期日级闭区间（参数 YYYY-MM-DD）；与归属月筛选可并存。
+    两侧统一成 YYYYMMDD 再比较，兼容 20260105 / 2026-01-05 / 带时分秒。"""
+    import re as _re
+
+    d0 = (date_from or "").strip()[:10] or None
+    d1 = (date_to or "").strip()[:10] or None
+    if not d0 and not d1:
+        return
+    if "收单日期" not in have:
+        raise KeyError("当前表无「收单日期」列，无法按日筛选")
+    ymd = _re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    if d0 and not ymd.match(d0):
+        raise KeyError("date_from 须为 YYYY-MM-DD")
+    if d1 and not ymd.match(d1):
+        raise KeyError("date_to 须为 YYYY-MM-DD")
+    if d0 and d1 and d0 > d1:
+        d0, d1 = d1, d0
+    c0 = d0.replace("-", "") if d0 else None
+    c1 = d1.replace("-", "") if d1 else None
+    col_expr = _receipt_date_compact_sql()
+    if c0 and c1:
+        where.append(f"{col_expr} BETWEEN ? AND ?")
+        args.extend([c0, c1])
+    elif c0:
+        where.append(f"{col_expr} >= ?")
+        args.append(c0)
+    else:
+        where.append(f"{col_expr} <= ?")
+        args.append(c1)
+
+
 def _detail_base_where(
     table_key: str,
     table: str,
@@ -239,15 +289,19 @@ def _detail_base_where(
     hide_salary: bool = False,
     month_from: str | None = None,
     month_to: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> tuple[list[str], list]:
     """query_detail / distinct 共用 WHERE（含任务书37 列筛 + 工资大类可选隐藏）。
-    month_from/month_to：归属月闭区间 YYYY-MM（任务书41·E）；与单月 month 互斥时区间优先。"""
+    month_from/month_to：归属月闭区间 YYYY-MM（任务书41·E）；与单月 month 互斥时区间优先。
+    date_from/date_to：收单日期日级闭区间 YYYY-MM-DD（任务书58·R-50）；与归属月可并存。"""
     where = ["已删除=0"]
     args: list = []
     _append_detail_flags(
         table_key, have, where, args, unclassified=unclassified, unfilled_dept=unfilled_dept, bu=bu, hide_salary=hide_salary
     )
     _append_detail_period(where, args, month, year, month_from, month_to)
+    _append_receipt_date_range(where, args, have, date_from, date_to)
     if q:
         like = "%" + q.strip() + "%"
         use_cols = [c for c in searchable if c in have]
@@ -278,6 +332,8 @@ def query_detail(
     audience: str = "admin",
     month_from: str | None = None,
     month_to: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     max_page_size: int = 500,
 ) -> dict:
     """明细分页查询（按年/月 + 关键词 + 可选 BU + 任务书37 列筛）。仅读未删除行。表键白名单防注入。
@@ -285,6 +341,7 @@ def query_detail(
     unfilled_dept=True 仅「下单」：部门为空且金额非零。
     year=YYYY → 归属月 LIKE 'YYYY-%'（A5 年维度）；month 仍为完整归属月 YYYY-MM。
     month_from/month_to：归属月闭区间（任务书41·E 真筛，SQL BETWEEN）。
+    date_from/date_to：收单日期日级闭区间（任务书58·R-50）。
     bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。
     filters：{列: {q/in/min/max/from/to}}，后端 SQL AND，禁止前端拉全表。
     hide_salary：费用明细隐藏对应报表大类=工资（整体账号默认）。
@@ -315,6 +372,8 @@ def query_detail(
         hide_salary=hide_salary,
         month_from=month_from,
         month_to=month_to,
+        date_from=date_from,
+        date_to=date_to,
     )
     wsql = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
@@ -363,6 +422,8 @@ def query_detail_distinct(
     audience: str = "admin",
     month_from: str | None = None,
     month_to: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> dict:
     """文本列去重值（Excel 式多选下拉）。列白名单；limit 默认 200。"""
     if table_key not in DETAIL_TABLES:
@@ -393,6 +454,8 @@ def query_detail_distinct(
         hide_salary=hide_salary,
         month_from=month_from,
         month_to=month_to,
+        date_from=date_from,
+        date_to=date_to,
     )
     wsql = " AND ".join(where)
     limit = max(1, min(1000, int(limit)))

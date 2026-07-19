@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * 费用明细：走 /api/v1/vm/ledger，任何会话白名单列；单元格 text 转义（铁律10）。
- * 翻页 / 月区间 / 列筛胶囊 / 导出 Excel（服务端 xlsx，任务书51·B5）。
- * 周期月区间：VM.ledger.period_months 直接赋值（任务书51·B6）。
+ * 任务书58·R-50：日历起止（收单日期日级）+ 查询/本月/返回本年；默认本年全年。
+ * 只筛明细表本身，不联动上方热力/费用折线；show_all / 关键词 / 分页 / 导出同源。
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
@@ -17,8 +17,9 @@ const page = ref(1)
 const pageSize = ref(50)
 const loading = ref(false)
 const err = ref('')
-const monthFrom = ref('')
-const monthTo = ref('')
+/** 收单日期起止 YYYY-MM-DD（任务书58） */
+const dateFrom = ref('')
+const dateTo = ref('')
 const filterQ = ref('')
 const colFilter = ref('')
 /** R-45：默认期间费用口径；开=台账全量 */
@@ -33,25 +34,80 @@ const info = computed(() => {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
+function yearNum(): number {
+  // 任务书51·B6：不用正则拆周期字符串；字面扫描连续 4 位数字作年
+  const yk = String(store.vm?.year_key || store.period || '')
+  for (let i = 0; i <= yk.length - 4; i++) {
+    const chunk = yk.slice(i, i + 4)
+    let ok = true
+    for (let j = 0; j < 4; j++) {
+      const c = chunk.charCodeAt(j)
+      if (c < 48 || c > 57) {
+        ok = false
+        break
+      }
+    }
+    if (ok) return Number(chunk)
+  }
+  const y = store.vm?.daily?.year
+  if (y) return Number(y)
+  return new Date().getFullYear()
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n)
+}
+
+function todayYmd(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+function yearRange(): { s: string; e: string } {
+  const y = yearNum()
+  return { s: `${y}-01-01`, e: `${y}-12-31` }
+}
+
+function monthRange(): { s: string; e: string } {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  return { s: `${y}-${pad2(m)}-01`, e: todayYmd() }
+}
+
+function applyYearDefault() {
+  const se = yearRange()
+  dateFrom.value = se.s
+  dateTo.value = se.e
+}
+
+function buildParams(forExport = false): URLSearchParams {
+  const params = new URLSearchParams()
+  if (!forExport) {
+    params.set('page', String(page.value))
+    params.set('page_size', String(pageSize.value))
+  }
+  if (dateFrom.value) params.set('date_from', dateFrom.value)
+  if (dateTo.value) params.set('date_to', dateTo.value)
+  if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
+  if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
+  if (colFilter.value && filterQ.value.trim()) {
+    params.set(
+      'filters',
+      JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }),
+    )
+  }
+  params.set('show_all', showAll.value ? '1' : '0')
+  return params
+}
+
 async function load() {
   loading.value = true
   err.value = ''
   try {
-    const params = new URLSearchParams()
-    params.set('page', String(page.value))
-    params.set('page_size', String(pageSize.value))
-    if (monthFrom.value) params.set('month_from', monthFrom.value)
-    if (monthTo.value) params.set('month_to', monthTo.value)
-    if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
-    if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
-    if (colFilter.value && filterQ.value.trim()) {
-      params.set(
-        'filters',
-        JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }),
-      )
-    }
-    params.set('show_all', showAll.value ? '1' : '0')
-    const r = await fetch('/api/v1/vm/ledger?' + params.toString(), { credentials: 'same-origin' })
+    const r = await fetch('/api/v1/vm/ledger?' + buildParams().toString(), {
+      credentials: 'same-origin',
+    })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
       throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
@@ -91,17 +147,22 @@ function applyFilter() {
   load()
 }
 
+function setThisMonth() {
+  const se = monthRange()
+  dateFrom.value = se.s
+  dateTo.value = se.e
+  applyFilter()
+}
+
+function restoreYear() {
+  applyYearDefault()
+  applyFilter()
+}
+
 async function exportXlsx() {
-  const params = new URLSearchParams()
-  if (monthFrom.value) params.set('month_from', monthFrom.value)
-  if (monthTo.value) params.set('month_to', monthTo.value)
-  if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
-  if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
-  if (colFilter.value && filterQ.value.trim()) {
-    params.set('filters', JSON.stringify({ [colFilter.value]: { q: filterQ.value.trim() } }))
-  }
-  params.set('show_all', showAll.value ? '1' : '0')
-  const r = await fetch('/api/v1/vm/ledger/export?' + params.toString(), { credentials: 'same-origin' })
+  const r = await fetch('/api/v1/vm/ledger/export?' + buildParams(true).toString(), {
+    credentials: 'same-origin',
+  })
   if (!r.ok) {
     alert('导出失败')
     return
@@ -116,14 +177,11 @@ async function exportXlsx() {
   URL.revokeObjectURL(a.href)
 }
 
-// 任务书51·B6：周期月区间由 VM 下发，前端只赋值（禁止正则拆中文周期）
+// 进入看端 / 年 key 就绪：默认本年全年（不随全局周期月联动热力无关区间）
 watch(
-  () => [store.period, store.vm?.ledger] as const,
-  ([k]) => {
-    const pm = store.vm?.ledger?.period_months
-    const range = (k && pm && pm[String(k)]) || { month_from: '', month_to: '' }
-    monthFrom.value = range.month_from || ''
-    monthTo.value = range.month_to || ''
+  () => [store.vm?.year_key, store.scope, store.buName] as const,
+  () => {
+    if (!dateFrom.value || !dateTo.value) applyYearDefault()
     page.value = 1
     load()
   },
@@ -141,26 +199,47 @@ function cellText(v: unknown): string {
 <template>
   <SciFiPanel title="费用明细" :tag="info">
     <p class="ledger-caliber-note" data-testid="ledger-caliber-note">{{ caliberNote }}</p>
-    <div class="ledger-tools" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; align-items: center">
+    <div
+      class="ledger-tools"
+      data-testid="ledger-date-tools"
+      style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; align-items: center"
+    >
       <label class="ledger-show-all" data-testid="ledger-show-all">
         <input type="checkbox" v-model="showAll" @change="applyFilter" />
         显示全部台账记录
       </label>
       <label
-        >月起
-        <input v-model="monthFrom" placeholder="2026-01" style="width: 90px" @change="applyFilter"
+        >起
+        <input
+          id="ledgerDateFrom"
+          type="date"
+          v-model="dateFrom"
+          data-testid="ledger-date-from"
       /></label>
       <label
-        >月止
-        <input v-model="monthTo" placeholder="2026-12" style="width: 90px" @change="applyFilter"
+        >止
+        <input
+          id="ledgerDateTo"
+          type="date"
+          v-model="dateTo"
+          data-testid="ledger-date-to"
       /></label>
+      <button type="button" class="mini" data-testid="ledger-query" @click="applyFilter">查询</button>
+      <button type="button" class="ghost mini" data-testid="ledger-this-month" @click="setThisMonth">
+        本月
+      </button>
+      <button type="button" class="ghost mini" data-testid="ledger-restore-year" @click="restoreYear">
+        返回本年
+      </button>
       <select v-model="colFilter" style="max-width: 140px">
         <option value="">全列关键词</option>
         <option v-for="c in columns" :key="c" :value="c">{{ c }}</option>
       </select>
       <input v-model="filterQ" placeholder="筛选" style="width: 120px" @keyup.enter="applyFilter" />
       <button type="button" class="mini" @click="applyFilter">筛选</button>
-      <button type="button" class="ghost mini" @click="exportXlsx">导出 Excel</button>
+      <button type="button" class="ghost mini" data-testid="ledger-export" @click="exportXlsx">
+        导出 Excel
+      </button>
       <button type="button" class="ghost mini" :disabled="page <= 1" @click="prev">上一页</button>
       <button type="button" class="ghost mini" :disabled="page >= totalPages" @click="next">下一页</button>
     </div>

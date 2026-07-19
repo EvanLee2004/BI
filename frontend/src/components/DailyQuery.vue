@@ -86,6 +86,18 @@ function restoreYear() {
   sumText.value = ''
   err.value = ''
 }
+
+/** 任务书58·R-51：本月 = 当月 1 日～今天，并触发查询（只影响本板块） */
+function setThisMonth() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
+  handEdit.value = true
+  start.value = `${y}-${pad(m)}-01`
+  end.value = `${y}-${pad(m)}-${pad(d.getDate())}`
+  runQuery()
+}
 </script>
 <template>
   <SciFiPanel id="dailyPanel" title="按时间段查询" panel-class="daily-card">
@@ -94,6 +106,9 @@ function restoreYear() {
       <label>止 <input type="date" v-model="end" @change="onDateEdit" id="dailyE" /></label>
       <button type="button" class="mini" id="dailyGo" :disabled="loading" @click="runQuery">
         {{ loading ? '查询中…' : '查询' }}
+      </button>
+      <button type="button" class="ghost mini" id="dailyThisMonth" data-testid="daily-this-month" @click="setThisMonth">
+        本月
       </button>
       <button type="button" class="ghost mini" id="dailyClose" @click="restoreYear">返回默认（年）</button>
       <span id="dailySum" class="muted" style="font-size: 12px">{{ sumText }}</span>
