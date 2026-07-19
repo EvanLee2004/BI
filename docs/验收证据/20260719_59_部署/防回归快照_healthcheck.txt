@@ -1,0 +1,42 @@
+HEAD=d4aa73c444924f64851c6a4fd27df788a66f9309
+VER=2.0.0-rc12
+active
+login:200
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 72: [:   File: "/home/lee/kanban/看板正式程序/数据/下单.xlsx"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784477573: integer expected
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 72: [:   File: "/home/lee/kanban/看板正式程序/数据/内部译员.xlsx"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784477716: integer expected
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 72: [:   File: "/home/lee/kanban/看板正式程序/数据/回款记录.xlsx"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784477575: integer expected
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 72: [:   File: "/home/lee/kanban/看板正式程序/数据/收单台账.xlsx"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784169994: integer expected
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 72: [:   File: "/home/lee/kanban/看板正式程序/数据/项目明细.xlsx"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784477634: integer expected
+2026-07-20 00:16:41 OK base=http://127.0.0.1:8018 login=200 home=200 data_age_ok fe_err_24h=0
+EXIT:0
+/home/lee/kanban/看板正式程序/deploy/healthcheck.sh: line 75: [:   File: "/home/lee/kanban/看板正式程序/数据/看板.db"
+    ID: b0ce536d56cacd18 Namelen: 255     Type: ext2/ext3
+Block size: 4096       Fundamental block size: 4096
+Blocks: Total: 122512118  Free: 118715106  Available: 112473455
+Inodes: Total: 31195136   Free: 30994638
+1784477740: integer expected
