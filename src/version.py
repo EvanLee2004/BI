@@ -61,6 +61,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 PRODUCT_CHANGELOG: list[dict] = [
     {
         "date": "2026-07-19",
+        "title": "发布候选 v2.0.0-rc8：费用图口径统一——剔成本大类 / 热力 tooltip 不裁切",
+        "items": [
+            "费用月度折线与热力图只展示期间费用大类，台账「成本」不再混入；明细表仍全量并加口径说明。",
+            "热力图悬停与全站图表 tooltip 加 confine，顶行留白与色条留白复核。",
+            "发布候选版本号 2.0.0-rc8。",
+        ],
+    },
+    {
+        "date": "2026-07-19",
         "title": "发布候选 v2.0.0-rc7：工程完美收官——胖文件拆分 / 指标量化",
         "items": [
             "后端 render/server/db/profit 大文件按职责拆分，单文件≤800 行；对外 import 路径兼容。",

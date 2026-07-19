@@ -152,6 +152,7 @@ const option = computed(() => {
   return {
     tooltip: {
       trigger: 'axis',
+      confine: true,
       formatter: (params: { dataIndex: number; seriesName?: string }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`

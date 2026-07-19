@@ -45,8 +45,11 @@ const option = computed(() => {
       ]
   const maxV = vmax > 0 ? vmax : 1
   return {
+    /* R-31：confine 防卡片裁切；顶行留白 + visMap 底边距 */
     tooltip: {
       position: 'top',
+      confine: true,
+      extraCssText: 'max-width: 240px; z-index: 80;',
       formatter: (p: { value?: number[] }) => {
         const v = p?.value || []
         const xi = Number(v[0])
@@ -59,9 +62,9 @@ const option = computed(() => {
     },
     grid: {
       left: 12,
-      right: 24,
-      top: 16,
-      bottom: 48,
+      right: 28,
+      top: 28,
+      bottom: 56,
       containLabel: true,
     },
     xAxis: {
@@ -82,7 +85,7 @@ const option = computed(() => {
       calculable: false,
       orient: 'horizontal',
       left: 'center',
-      bottom: 0,
+      bottom: 4,
       itemWidth: 12,
       itemHeight: 100,
       textStyle: { color: mut, fontSize: 12 },

@@ -63,6 +63,8 @@ const option = computed(() => {
   return {
     tooltip: {
       trigger: 'axis',
+      confine: true,
+      extraCssText: 'max-width: 280px; z-index: 80;',
       formatter: (params: { seriesName: string; dataIndex: number; value: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         const lines = [`${labels[i] || ''} 合计 ${withWanUnit(totals[i] || '—')}`]

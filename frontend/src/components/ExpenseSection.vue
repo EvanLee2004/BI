@@ -59,6 +59,7 @@ const option = computed(() => {
   return {
     tooltip: {
       trigger: 'item',
+      confine: true,
       formatter: (p: { dataIndex: number; name: string }) => {
         const it = data[p.dataIndex]
         return `${p.name}<br/>${withWanUnit(it?.value_disp || '—')}（${it?.pct_disp || '—'}）`

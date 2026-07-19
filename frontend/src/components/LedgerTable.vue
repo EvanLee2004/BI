@@ -134,6 +134,9 @@ onMounted(() => load())
 </script>
 <template>
   <SciFiPanel title="费用明细" :tag="info">
+    <p class="ledger-caliber-note" data-testid="ledger-caliber-note">
+      表内为台账全部记录（含成本/非利润表类）；上方费用折线与热力图仅计期间费用大类。
+    </p>
     <div class="ledger-tools" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; align-items: center">
       <label
         >月起
@@ -177,3 +180,6 @@ onMounted(() => load())
     </div>
   </SciFiPanel>
 </template>
+<style scoped>
+.ledger-caliber-note{margin:0 0 8px;font-size:12px;color:var(--mut,#94a3b8);line-height:1.45}
+</style>

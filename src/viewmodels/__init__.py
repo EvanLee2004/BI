@@ -473,7 +473,10 @@ def _assemble_vm(
             summary.get("expense_monthly_by_cat"),
             True,  # 54.12 R-01 全端隐工资
         )
-    area = _pack_expense_area(exp_raw)
+    # 54.15 R-30：两图白名单（剔成本/非利润表），与环形同源常量
+    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+    area = _pack_expense_area(filter_expense_monthly_raw_for_charts(exp_raw, cfg))
     area_vals: list[float] = []
     for s in area.get("area_series") or []:
         area_vals.extend(s.get("data") or [])

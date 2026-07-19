@@ -286,6 +286,7 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
             "receipts_budget": "",
             "period_bar": "",
             "daily_html": "",
+            "expense_trend_html": "",
         }
     yk, ordered = _period_keys(summary)
     month_keys = (meta.get("tab_groups") or {}).get("月") or []
@@ -337,6 +338,13 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         for pk, pv in P.items()
         if isinstance(pv, dict)
     }
+    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+    _exp_raw = filter_expense_monthly_raw_for_charts(
+        render.apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), True),
+        cfg,
+    )
+    expense_trend_html = render.render_expense_trend(_exp_raw, title="费用月度趋势 · 按报表大类")
     return {
         "year_key": yk,
         "period_keys": ordered,
@@ -353,14 +361,8 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         "receipts_budget": receipts_budget,
         "period_bar": period_bar,
         "daily_html": render.DAILY_HTML,
-        # 任务书39·E：费用堆叠（B8 默隐工资）
-        "expense_trend_html": render.render_expense_trend(
-            render.apply_expense_salary_hide(
-                summary.get("expense_monthly_by_cat"),
-                True,  # 54.12 R-01 全端隐工资
-            ),
-            title="费用月度趋势 · 按报表大类",
-        ),
+        # 任务书39·E / 54.15
+        "expense_trend_html": expense_trend_html,
     }
 
 
@@ -450,6 +452,9 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
     bu_exp = render.expense_monthly_from_period_ledgers(summary)
     if not any(m.get("total") for m in bu_exp.get("months") or []):
         bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
+    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+    bu_exp = filter_expense_monthly_raw_for_charts(bu_exp, cfg)
     expense_trend_html = render.render_expense_trend(
         bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类"
     )

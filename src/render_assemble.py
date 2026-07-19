@@ -93,6 +93,9 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
     # 任务书39·E：整体费用堆叠（B8 默认隐工资）
     hide_sal = True  # 54.12 R-01 全端隐工资
     exp_raw = apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), hide_sal)
+    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+    exp_raw = filter_expense_monthly_raw_for_charts(exp_raw, cfg)
     expense_trend_html = render_expense_trend(exp_raw, title="费用月度趋势 · 按报表大类")
     return {
         "title": "甲骨易智能经营罗盘",
@@ -191,6 +194,9 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
     bu_exp = expense_monthly_from_period_ledgers(summary)
     if not any(m.get("total") for m in bu_exp.get("months") or []):
         bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
+    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
+
+    bu_exp = filter_expense_monthly_raw_for_charts(bu_exp, cfg)
     expense_trend_html = render_expense_trend(bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类")
     # 任务书39·B：BU 页同款「按时间段看」（查询走 /api/bu_daily；弹窗壳仍走 rk_modal，避免双份）
     daily_html = tpl.load("partials/daily_panel.html")
