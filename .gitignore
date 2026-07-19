@@ -56,3 +56,7 @@ golden/_run_verify_raw.log
 frontend/node_modules/
 frontend/tsconfig.tsbuildinfo
 数据/日志/
+
+# B-5 前端错误日志（运行时）
+数据/前端错误.log
+数据/前端错误.log.1
