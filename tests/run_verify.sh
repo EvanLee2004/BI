@@ -126,6 +126,7 @@ tests/test_task55_friendly_error.py
 tests/test_task56_r45_ledger_caliber.py
 tests/test_task57_b5_frontend_errors.py
 tests/test_task57_b6_domain_coverage.py
+tests/test_task57_c_export_cap.py
 "
 run_one() {
   f="$1"

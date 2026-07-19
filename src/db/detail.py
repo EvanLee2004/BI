@@ -278,6 +278,7 @@ def query_detail(
     audience: str = "admin",
     month_from: str | None = None,
     month_to: str | None = None,
+    max_page_size: int = 500,
 ) -> dict:
     """明细分页查询（按年/月 + 关键词 + 可选 BU + 任务书37 列筛）。仅读未删除行。表键白名单防注入。
     unclassified=True 仅「费用明细」：对应报表大类为空且金额非零。
@@ -287,7 +288,8 @@ def query_detail(
     bu=非空 → 费用明细 业务BU 精确匹配（A5 BU 隔离，调用方负责鉴权后再传入）。
     filters：{列: {q/in/min/max/from/to}}，后端 SQL AND，禁止前端拉全表。
     hide_salary：费用明细隐藏对应报表大类=工资（整体账号默认）。
-    audience：admin=管理端全列；view/view_bu=看端白名单（任务书41·D）。"""
+    audience：admin=管理端全列；view/view_bu=看端白名单（任务书41·D）。
+    max_page_size：列表默认 500；导出可传 5000（防静默截断）。"""
     if table_key not in DETAIL_TABLES:
         raise KeyError(f"未知明细表：{table_key}（可选：{list(DETAIL_TABLES)}）")
     table, _full_cols, searchable = DETAIL_TABLES[table_key]
@@ -317,7 +319,8 @@ def query_detail(
     wsql = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {wsql}", args).fetchone()[0]
     page = max(1, int(page))
-    page_size = max(1, min(500, int(page_size)))
+    cap = max(1, min(10000, int(max_page_size or 500)))
+    page_size = max(1, min(cap, int(page_size)))
     offset = (page - 1) * page_size
     coln = ",".join(cols)
     rows = conn.execute(
