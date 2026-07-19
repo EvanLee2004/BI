@@ -50,12 +50,22 @@ def _truncate(s: Any, n: int) -> str:
     return t
 
 
-def _rate_ok() -> bool:
+_IP_HITS: dict[str, list[float]] = {}
+
+
+def _rate_ok(client_ip: str = "") -> bool:
+    """全局 + 分 IP 简易限流（进程内；重启清零）。"""
     now = time.time()
     while _RATE and now - _RATE[0] > _RATE_WINDOW:
         _RATE.popleft()
     if len(_RATE) >= _RATE_MAX:
         return False
+    ip_key = (client_ip or "unknown")[:64]
+    lst = [x for x in _IP_HITS.get(ip_key, []) if now - x <= _RATE_WINDOW]
+    if len(lst) >= max(10, _RATE_MAX // 2):
+        return False
+    lst.append(now)
+    _IP_HITS[ip_key] = lst
     _RATE.append(now)
     return True
 
@@ -67,7 +77,8 @@ def record_frontend_error(
     root: Path | None = None,
 ) -> dict:
     """写入一条前端错误。返回 {ok, deduped, count} 或 {ok:False, reason}。"""
-    if not _rate_ok():
+    client_ip = str(payload.get("_client_ip") or "")
+    if not _rate_ok(client_ip):
         return {"ok": False, "reason": "rate_limited"}
 
     msg = _truncate(payload.get("message") or payload.get("msg") or "unknown", _MAX_MSG)

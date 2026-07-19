@@ -5,7 +5,7 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.0.0-beta** | nginx → Vue(dist) → API v1(VM) → domain 模块 → 存储(SQLite) | 红线 32 周期 · 明文密码+踢会话 · 口径配置引擎 · 明细白名单 |
+| **v2.0.0-rc10**（`stage56_final`；打磨中→rc11/`stage57_gold`） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · 费用图白名单 · 明细默认期间费用 · C901 壳仅 8 |
 
 ```bash
 python run.py             # 抓数 → 建库 → 算账 → 出 HTML
@@ -36,13 +36,12 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-18 · v2.0.0-beta · stage54p7 终验就绪）**  
+> **图集与代码对齐说明（2026-07-19 · v2.0.0-rc10 · stage56_final）**  
 > 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
-> **看端**仅 Vue（`static/shell*.html` 已删）；**管理端** Vue SPA（`admin.html` 重定向）。  
-> **`KANBAN_FRONTEND`** 默认 `vue`（`config.json`）；`KANBAN_OFFLINE=1` 测回归。  
+> **看端**仅 Vue；**管理端** Vue SPA + Element Plus 深空主题。  
 > **生产** = nginx 发 dist + 反代（`deploy/linux/nginx-kanban.conf`）；**简易** = `run.py --serve`。  
-> 真组件无 v-html；明细白名单；明文密码 + 改密踢会话。Windows 手册已删。  
-> 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · 接口：`方案与文档/软件工程文档/2_设计/07_HTTP接口清单_全端点.md`。
+> 明细默认期间费用口径（可开「显示全部」）；工资并入「其他」；前端错误只写日志（B-5）。  
+> 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · 进度地图：`CLAUDE.md`。
 
 五层单向数据流（展示层 = Vue 真组件 + 版本化结构化 VM）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
 

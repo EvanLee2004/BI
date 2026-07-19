@@ -4,7 +4,7 @@
  * 翻页 / 月区间 / 列筛胶囊 / 导出 Excel（服务端 xlsx，任务书51·B5）。
  * 周期月区间：VM.ledger.period_months 直接赋值（任务书51·B6）。
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
 
@@ -127,6 +127,7 @@ watch(
     page.value = 1
     load()
   },
+  { immediate: true },
 )
 
 /** 54.5：日期列展示去掉无意义的 00:00:00（纯展示串，不改后端/不碰金额） */
@@ -136,7 +137,6 @@ function cellText(v: unknown): string {
   return s.replace(/(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1')
 }
 
-onMounted(() => load())
 </script>
 <template>
   <SciFiPanel title="费用明细" :tag="info">

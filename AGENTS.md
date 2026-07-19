@@ -1,25 +1,43 @@
 # AGENTS.md · 智能经营罗盘（看板正式程序）
 
-> 精简同步自 `CLAUDE.md`（agents.md 开放标准：https://agents.md）。完整铁律与业务口径以 CLAUDE.md 为准。
+> 精简同步自 `CLAUDE.md`（agents.md 开放标准：https://agents.md）。完整铁律与业务口径以 **CLAUDE.md** 为准。
 
 ## 产品
-轻量 BI 经营驾驶舱：读 6 数据源 → 算税前利润 → shell + fragments 组装暗色看板。入口 `python run.py`。
+
+轻量 BI 经营驾驶舱：读 6 数据源 → SQLite 分整数 → profit/domain 算账 → **Vue3 看端 + 管理端 SPA** + API v1 VM。  
+入口：`python run.py` / `python run.py --serve`。  
+**当前版本**：见根目录 `VERSION`（现 **2.0.0-rc10** · tag `stage56_final` / 打磨中 `stage57_*`）。
+
+## 架构（摘要）
+
+```
+抓数 → 数据/ → ingest → SQLite → profit/domain → viewmodels/API → frontend/dist (nginx 或 /app)
+```
+
+- 路由：`src/routes/*`；装配：`server.create_app`
+- 费用图/明细默认口径：`domain.expense.chart_whitelist`（剔成本/非利润表）
+- 工资大类全端隐藏并入「其他」
 
 ## 铁律（摘要）
-1. **前端零金额运算**：JS 只拼 DOM/切 CSS；金额/百分比/宽度 Python 算成显示串。
-2. **BU 隔离**：BU 页零跨界全公司 API；数据预挂本页 views。
-3. **判绿认真实退出码**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh`，禁止 `| tail`。
-4. **无新运行时依赖**：禁 React/npm/新 pip 运行时包；存储键不变；`src/` 零内嵌 HTML、零测试框架名。
-5. **敏感数据**：`数据/`、账号/密钥不进 git；合成测试数据可用。
-6. **铁律6 UNC**：`config.json` 出厂允许内网 UNC 路径。
+
+1. **前端零金额运算**：金额/百分比后端成显示串；`*_disp` 已含单位则禁再拼「万」。
+2. **BU 隔离**：BU 页零跨界全公司敏感数据。
+3. **判绿认真实退出码**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh; echo $?`，禁止 `| tail`。
+4. **依赖**：Python 运行时见 `requirements.txt`；前端 **允许** Vue/npm 构建（产物进 dist）；不引 Docker。
+5. **敏感数据**：`数据/`、账号/密钥、前端错误.log 不进 git；合成测试数据可用。
+6. **铁律6 UNC**：`config.json` 出厂允许内网 UNC / 智云表 ID；密码/token 绝不进库。
+7. **口径计算区禁区**：golden / 32 周期红线零未授权 diff。
+8. **C901 豁免仅纯分发壳**（`routes/*/register`、`create_app`）。
 
 ## 测试
+
 ```bash
 KANBAN_OFFLINE=1 sh tests/run_verify.sh; echo $?
 .venv/bin/python tests/run_test.py tests/test_xxx.py
-# 任务书37：test_task37_ui / test_task37_filters / test_task37_expense_perm / test_task37_fetch_banner
 ```
 
-## 质量闸（开发机）
-- pre-commit：ruff / gitleaks / conventional commits（见 `.pre-commit-config.yaml`）
-- 配置出处：`方案与文档/…/20260716_软工规范落地包_配置与依据.md`
+## 质量闸
+
+- pre-commit：ruff / gitleaks / conventional commits（`.pre-commit-config.yaml`）
+- 安全扫证据：`docs/验收证据/57_安全/`
+- 断点续跑：`docs/57_总控勾选.md`

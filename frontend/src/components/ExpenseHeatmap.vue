@@ -134,7 +134,7 @@ const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0)
         <EchartsHost :option="option" />
       </div>
     </div>
-    <div v-else class="ev-empty" data-testid="expense-heatmap-empty">本期无费用热力数据</div>
+    <div v-else class="ev-empty" data-testid="expense-heatmap-empty">本年无费用热力数据（格子为全年各月，不随顶栏周期切片）</div>
   </SciFiPanel>
 </template>
 

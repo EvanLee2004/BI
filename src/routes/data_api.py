@@ -450,15 +450,22 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             payload = {}
         # 可选附带 UA（截断）
         ua = (request.headers.get("user-agent") or "")[:120]
-        payload = {**payload, "ua": ua}
+        ip = (request.client.host if request.client else "") or ""
+        payload = {**payload, "ua": ua, "_client_ip": ip}
         return frontend_errors.record_frontend_error(payload, cfg=cfg, root=root)
 
     @app.get("/api/v1/client-error/stats")
-    def api_client_error_stats():
-        """供 healthcheck / 管理端：近 24h 前端错误计数（无敏感）。"""
+    def api_client_error_stats(request: Request):
+        """近 24h 前端错误计数；仅管理员。不返回绝对路径。"""
         import frontend_errors
 
-        return frontend_errors.frontend_error_stats(cfg=cfg, root=root)
+        _require(request)
+        st = frontend_errors.frontend_error_stats(cfg=cfg, root=root)
+        return {
+            "count_24h": int(st.get("count_24h") or 0),
+            "yellow": bool(st.get("yellow")),
+            "log_name": "前端错误.log",
+        }
 
     @app.get("/api/health")
     def api_health():
