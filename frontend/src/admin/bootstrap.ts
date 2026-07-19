@@ -10,8 +10,10 @@ import AdminApp from './AdminApp.vue'
 import { adminRouter } from './router'
 import './styles/admin.css'
 
+import { installThemeListeners, syncThemeFromDom } from '../utils/theme'
+
 export function bootAdmin() {
-  // 主题：与驾驶舱共用 cockpit-theme
+  // 主题：与驾驶舱共用 cockpit-theme（响应式 + iframe/storage 同步）
   try {
     if (localStorage.getItem('cockpit-theme') === 'light') {
       document.documentElement.classList.add('theme-light')
@@ -19,6 +21,8 @@ export function bootAdmin() {
   } catch {
     /* ignore */
   }
+  syncThemeFromDom()
+  installThemeListeners()
   document.title = '管理员控制台 · 甲骨易智能经营罗盘'
 
   const app = createApp(AdminApp)

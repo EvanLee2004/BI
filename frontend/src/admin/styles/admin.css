@@ -197,14 +197,50 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
 .admin-pill.y { background: #713f12; color: #fde68a; }
 .admin-pill.r { background: #7f1d1d; color: #fca5a5; }
 
+/* 54.14 R-25：与看端 banner token 对齐；浅色深字 ≥4.5:1 */
 .admin-fetch-banner {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.45;
-  background: linear-gradient(90deg, rgba(251, 191, 36, 0.28), rgba(251, 191, 36, 0.1));
-  border-bottom: 1px solid #f59e0b66;
-  color: #fde68a;
+  background: var(--banner-warn-bg, linear-gradient(90deg, rgba(251, 191, 36, 0.28), rgba(251, 191, 36, 0.1)));
+  border-bottom: 1px solid var(--banner-warn-border, #f59e0b66);
+  color: var(--banner-warn-fg, #fde68a);
+}
+html.theme-light .admin-fetch-banner {
+  background: linear-gradient(90deg, #fde68a, #fef3c7);
+  border-bottom-color: #d97706;
+  color: #78350f;
+}
+html.theme-light .admin-root {
+  --el-bg-color-overlay: #ffffff;
+  --el-mask-color: rgba(15, 23, 42, 0.45);
+  --el-fill-color-blank: var(--admin-panel2);
+  --el-bg-color: var(--admin-panel);
+  --el-text-color-primary: var(--admin-fg);
+  --el-text-color-regular: var(--admin-fg);
+  --el-text-color-secondary: var(--admin-mut);
+}
+/* 浅色告警 pill 对比度 */
+html.theme-light .admin-pill.y {
+  background: #fef3c7;
+  color: #78350f;
+}
+html.theme-light .admin-pill.g {
+  background: #d1fae5;
+  color: #065f46;
+}
+html.theme-light .admin-pill.r {
+  background: #fee2e2;
+  color: #991b1b;
+}
+/* 管理端子导航/分组在浅色下即时变色（不靠整页刷新） */
+html.theme-light .admin-groups .gtab.on {
+  background: var(--admin-panel);
+  color: var(--admin-fg);
+}
+html.theme-light .admin-subnav {
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .admin-iframe {

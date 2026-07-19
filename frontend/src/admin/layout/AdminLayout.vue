@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost } from '../api'
+import { syncThemeFromDom, themeMode, toggleTheme as applyToggleTheme } from '../../utils/theme'
 
 const route = useRoute()
 const router = useRouter()
@@ -201,21 +202,15 @@ async function pollRefresh() {
 }
 
 function toggleTheme() {
-  const light = !document.documentElement.classList.contains('theme-light')
-  document.documentElement.classList.toggle('theme-light', light)
-  try {
-    localStorage.setItem('cockpit-theme', light ? 'light' : 'dark')
-  } catch {
-    /* ignore */
-  }
-  window.dispatchEvent(
-    new CustomEvent('admin-theme', { detail: { theme: light ? 'light' : 'dark' } }),
-  )
+  applyToggleTheme({ source: 'AdminLayout' })
+  isLight.value = themeMode.value === 'light'
+  // iframe 控制台另听 admin-theme（applyTheme 已派发）
 }
 
 const isLight = ref(false)
 function syncThemeFlag() {
-  isLight.value = document.documentElement.classList.contains('theme-light')
+  syncThemeFromDom()
+  isLight.value = themeMode.value === 'light'
 }
 
 function onBeforeUnload(e: BeforeUnloadEvent) {

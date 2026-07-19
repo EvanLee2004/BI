@@ -15,7 +15,9 @@ import {
   lineGlowStyle,
   pointGlowStyle,
 } from '../chart-fx'
-import { axisMaxCover, padYearMonths } from '../chart-months'
+import { axisMaxCover, padYearMonths, ratioAxisBounds } from '../chart-months'
+import { withWanUnit } from '../utils/disp'
+import { themeMode } from '../utils/theme'
 import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -30,6 +32,7 @@ function tickLabel(ticks: AxisTick[], val: number): string {
 }
 
 const option = computed(() => {
+  void themeMode.value
   const t = trend.value
   const rawLabels = (t.labels || []).map((x) => String(x))
   const rawRev = (t.revenue || []).map((x) => Number(x) || 0)
@@ -60,6 +63,7 @@ const option = computed(() => {
     t.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = t.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...rev, ...cost])
+  const marBounds = ratioAxisBounds(marPlot)
   /* 54.2 对照基准：收入青柱 / 成本灰柱 / 毛利率金黄线 */
   const cRev = '#22d3ee'
   const cCost = '#64769e'
@@ -112,7 +116,7 @@ const option = computed(() => {
       formatter: (params: { dataIndex: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`
-        return `${labels[i] || ''}<br/>收入 ${revD[i] || '—'}万<br/>成本 ${costD[i] || '—'}万<br/>毛利率 ${marD[i] || '—'}`
+        return `${labels[i] || ''}<br/>收入 ${withWanUnit(revD[i] || '—')}<br/>成本 ${withWanUnit(costD[i] || '—')}<br/>毛利率 ${marD[i] || '—'}`
       },
     },
     legend: {
@@ -120,7 +124,7 @@ const option = computed(() => {
       bottom: 0,
       textStyle: legendTextStyle(),
     },
-    grid: { left: 64, right: 48, top: 48, bottom: 48 },
+    grid: { left: 56, right: 48, top: 52, bottom: 52, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -139,7 +143,8 @@ const option = computed(() => {
       },
       {
         type: 'value',
-        max: 100,
+        min: marBounds.min,
+        max: marBounds.max,
         axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
       },
     ],
@@ -150,9 +155,16 @@ const option = computed(() => {
 </script>
 <template>
   <SciFiPanel id="trendChartCard" title="收入 · 毛利趋势" panel-class="trend-chart-card">
-    <!-- 54.3：图区随面板高自适应填充（禁固定高溢出被压缩面板 overflow:hidden 裁掉月份轴，营销等小值BU踩过） -->
+    <!-- 54.3 / 54.14 R-23：图区随面板高自适应填充 -->
     <div class="rc-body trend-fill" data-chart="trend">
       <EchartsHost :option="option" />
     </div>
   </SciFiPanel>
 </template>
+
+<style scoped>
+.trend-fill {
+  min-height: 320px;
+  height: 360px;
+}
+</style>

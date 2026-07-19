@@ -16,6 +16,8 @@ import {
   pointGlowStyle,
   SERIES_PALETTE,
 } from '../chart-fx'
+import { withWanUnit } from '../utils/disp'
+import { themeMode } from '../utils/theme'
 import type { AxisTick, ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -29,6 +31,7 @@ function tickLabel(ticks: AxisTick[], val: number): string {
 }
 
 const option = computed(() => {
+  void themeMode.value
   const e = exp.value
   const labels = e.area_labels || []
   const seriesIn = e.area_series || []
@@ -62,11 +65,11 @@ const option = computed(() => {
       trigger: 'axis',
       formatter: (params: { seriesName: string; dataIndex: number; value: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
-        const lines = [`${labels[i] || ''} 合计 ${totals[i] || '—'}万`]
+        const lines = [`${labels[i] || ''} 合计 ${withWanUnit(totals[i] || '—')}`]
         for (const p of params || []) {
           const s = seriesIn.find((x) => x.name === p.seriesName)
           const d = s?.data_disp?.[i] || String(p.value)
-          lines.push(`${p.seriesName}: ${d}万`)
+          lines.push(`${p.seriesName}: ${withWanUnit(d)}`)
         }
         return lines.join('<br/>')
       },
@@ -77,7 +80,8 @@ const option = computed(() => {
       type: 'scroll',
       top: 0,
     },
-    grid: { left: 54, right: 28, top: 44, bottom: 36, containLabel: false },
+    /* R-23：containLabel + 更大边距，图例/轴标签不被裁 */
+    grid: { left: 48, right: 28, top: 52, bottom: 40, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -106,8 +110,15 @@ const option = computed(() => {
     tag="按有数月份 · 多系列折线"
     panel-class="exp-trend-card"
   >
-    <div class="rc-body" data-chart="expense-trend">
+    <div class="rc-body exp-trend-fill" data-chart="expense-trend">
       <EchartsHost :option="option" />
     </div>
   </SciFiPanel>
 </template>
+
+<style scoped>
+.exp-trend-fill {
+  min-height: 320px;
+  height: 360px;
+}
+</style>

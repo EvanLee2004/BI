@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { adminLogin } from '../api'
+import { themeMode, toggleTheme as applyToggleTheme } from '../../utils/theme'
 
 const route = useRoute()
 const account = ref('lushasha')
@@ -34,19 +35,13 @@ async function submit() {
 }
 
 function toggleTheme() {
-  const light = !document.documentElement.classList.contains('theme-light')
-  document.documentElement.classList.toggle('theme-light', light)
-  try {
-    localStorage.setItem('cockpit-theme', light ? 'light' : 'dark')
-  } catch {
-    /* ignore */
-  }
+  applyToggleTheme({ source: 'AdminLogin' })
 }
 </script>
 
 <template>
   <div class="admin-login-page">
-    <el-button class="theme-btn" text @click="toggleTheme">◑ 浅色</el-button>
+    <el-button class="theme-btn" text @click="toggleTheme">{{ themeMode === 'light' ? '◐ 深色' : '◑ 浅色' }}</el-button>
     <el-card class="login-card" shadow="always">
       <h1>管理员端登录</h1>
       <el-alert v-if="err" :title="err" type="error" show-icon :closable="false" style="margin-bottom: 12px" />

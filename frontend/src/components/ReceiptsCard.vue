@@ -16,7 +16,9 @@ import {
   lineGlowStyle,
   pointGlowStyle,
 } from '../chart-fx'
-import { axisMaxCover, padYearMonths } from '../chart-months'
+import { axisMaxCover, padYearMonths, ratioAxisBounds } from '../chart-months'
+import { withWanUnit } from '../utils/disp'
+import { themeMode } from '../utils/theme'
 import type { AxisTick, ReceiptsVM } from '../types/vm'
 
 const store = useCockpitStore()
@@ -36,6 +38,7 @@ const side = computed(() => {
 })
 
 const option = computed(() => {
+  void themeMode.value
   const rawLabels = (r.value.labels || []).map((x) => String(x))
   const rawRecs = (r.value.receipts || []).map((x) => Number(x) || 0)
   const rawOrds = (r.value.orders || []).map((x) => Number(x) || 0)
@@ -69,11 +72,17 @@ const option = computed(() => {
     r.value.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = r.value.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords])
+  const ratioBounds = ratioAxisBounds(ratioPlot)
   const cOrd = '#a78bfa'
   const cRec = '#22d3ee'
   const cRatio = '#fbbf24'
   const bud = Number(r.value.budget_month) || 0
-  const budDisp = String(r.value.budget_month_disp || r.value.receipts_budget || '')
+  // budget_month_disp 为裸数字；receipts_budget 已含「月均预算 X万」整句——勿双拼
+  const budRaw = String(r.value.budget_month_disp || '').trim()
+  const budFallback = String(r.value.receipts_budget || '').trim()
+  const budLabel = budRaw
+    ? `月均预算 ${withWanUnit(budRaw)}`
+    : budFallback || '月均预算'
   const series: Record<string, unknown>[] = [
     {
       name: '下单',
@@ -132,7 +141,7 @@ const option = computed(() => {
       label: {
         show: true,
         position: 'end',
-        formatter: () => (budDisp ? `月均预算 ${budDisp}万` : '月均预算'),
+        formatter: () => budLabel,
         color: '#2dd4bf',
         fontSize: 12,
       },
@@ -147,8 +156,8 @@ const option = computed(() => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`
         const tail = ratioD[i] ? `<br/>回款率 ${ratioD[i]}` : ''
-        const budLine = budDisp ? `<br/>月均预算 ${budDisp}万` : ''
-        return `${labels[i] || ''}<br/>下单 ${od[i] || '—'}万<br/>回款 ${rd[i] || '—'}万${tail}${budLine}`
+        const budLine = budLabel && budLabel !== '月均预算' ? `<br/>${budLabel}` : ''
+        return `${labels[i] || ''}<br/>下单 ${withWanUnit(od[i] || '—')}<br/>回款 ${withWanUnit(rd[i] || '—')}${tail}${budLine}`
       },
     },
     legend: {
@@ -156,7 +165,8 @@ const option = computed(() => {
       bottom: 0,
       textStyle: legendTextStyle(),
     },
-    grid: { left: 64, right: 52, top: 40, bottom: 48 },
+    /* R-23：加高 top/bottom 给图例与轴标签留空，containLabel 防裁 */
+    grid: { left: 56, right: 52, top: 48, bottom: 56, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -180,8 +190,8 @@ const option = computed(() => {
       },
       {
         type: 'value',
-        min: 0,
-        max: 100,
+        min: ratioBounds.min,
+        max: ratioBounds.max,
         splitLine: { show: false },
         axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
       },
@@ -202,15 +212,15 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
         <div class="rc-hero">
           <div class="rc-hero-row">
             <span class="rc-k">总下单</span>
-            <span class="rc-v">{{ side.orders_disp }}<em>万</em></span>
+            <span class="rc-v">{{ withWanUnit(side.orders_disp) }}</span>
           </div>
           <div class="rc-hero-row">
             <span class="rc-k">总回款</span>
-            <span class="rc-v rc-v-rec">{{ side.receipts_disp }}<em>万</em></span>
+            <span class="rc-v rc-v-rec">{{ withWanUnit(side.receipts_disp) }}</span>
           </div>
           <div class="rc-hero-row rc-gap">
             <span class="rc-k">{{ side.gap_hint }}</span>
-            <span class="rc-v">{{ side.gap_disp }}<em>万</em></span>
+            <span class="rc-v">{{ withWanUnit(side.gap_disp) }}</span>
           </div>
           <div v-if="side.period_label" class="rc-pl">{{ side.period_label }}</div>
         </div>
@@ -226,7 +236,7 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
             <span>{{ side.receipt_title || '回款年目标' }}</span>
             <strong>{{ side.receipt_pct_disp }}</strong>
           </div>
-          <div class="rc-bud-sub">目标 {{ side.receipt_target_disp }}万</div>
+          <div class="rc-bud-sub">目标 {{ withWanUnit(side.receipt_target_disp) }}</div>
           <div class="rc-bud-bar"><i :style="{ width: (side.receipt_bar_w || '0') + '%' }" /></div>
         </div>
         <div v-if="side.order_target_disp" class="rc-bud">
@@ -234,7 +244,7 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
             <span>{{ side.order_title || '下单年目标' }}</span>
             <strong>{{ side.order_pct_disp }}</strong>
           </div>
-          <div class="rc-bud-sub">目标 {{ side.order_target_disp }}万</div>
+          <div class="rc-bud-sub">目标 {{ withWanUnit(side.order_target_disp) }}</div>
           <div class="rc-bud-bar"><i :style="{ width: (side.order_bar_w || '0') + '%' }" /></div>
         </div>
       </aside>
@@ -249,11 +259,12 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
   gap: 12px;
   align-items: stretch;
-  min-height: 280px;
+  min-height: 320px;
 }
 .rc-body {
   min-width: 0;
-  min-height: 280px;
+  min-height: 320px;
+  height: 100%;
 }
 .rc-side {
   display: flex;
