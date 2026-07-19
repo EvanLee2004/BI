@@ -85,7 +85,11 @@ class TestTask42Final(unittest.TestCase):
             v.endswith("-beta") or "rc" in v.lower() or v >= "1.6.0",
             v,
         )
-        self.assertIn(v, ("1.6.0-beta", "2.0.0-beta", "2.0.0-rc1", "2.0.0-rc2"))
+        # 允许 2.0.0-rcN 递增（54.14→rc5）；勿写死仅 rc1/rc2
+        self.assertTrue(
+            v in ("1.6.0-beta", "2.0.0-beta") or (v.startswith("2.0.0-rc") and v[len("2.0.0-rc"):].isdigit()),
+            v,
+        )
         self.assertTrue(version.PRODUCT_CHANGELOG)
         self.assertTrue(version.PRODUCT_CHANGELOG[0].get("items"))
         blob = " ".join(str(it) for it in version.PRODUCT_CHANGELOG[0]["items"])
