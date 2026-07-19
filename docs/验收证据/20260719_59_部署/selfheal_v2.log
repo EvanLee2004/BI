@@ -1,0 +1,119 @@
+=== SELFHEAL_V2 2026-07-20T00:21:19+08:00 ===
+before_active=active
+warm_try=1 code=200
+kill_python_pid=74029 t0=1784478079
+t=1s active=active py= code=0000
+t=2s active=active py= code=0000
+PROC_REVIVE_AT=3s new_pid=74481
+t=3s active=active py=74481 code=0000
+t=4s active=active py=74481 code=0000
+t=5s active=active py=74481 code=0000
+t=6s active=active py=74481 code=0000
+t=7s active=active py=74481 code=0000
+t=8s active=active py=74481 code=0000
+t=9s active=active py=74481 code=0000
+t=10s active=active py=74481 code=0000
+t=11s active=active py=74481 code=0000
+t=12s active=active py=74481 code=0000
+t=13s active=active py=74481 code=0000
+t=14s active=active py=74481 code=0000
+t=15s active=active py=74481 code=0000
+t=16s active=active py=74481 code=0000
+t=17s active=active py=74481 code=0000
+t=18s active=active py=74481 code=0000
+t=19s active=active py=74481 code=0000
+t=20s active=active py=74481 code=0000
+t=21s active=active py=74481 code=0000
+t=22s active=active py=74481 code=0000
+t=23s active=active py=74481 code=0000
+t=24s active=active py=74481 code=0000
+t=25s active=active py=74481 code=0000
+t=26s active=active py=74481 code=0000
+t=27s active=active py=74481 code=0000
+t=28s active=active py=74481 code=0000
+t=29s active=active py=74481 code=0000
+t=30s active=active py=74481 code=0000
+t=31s active=active py=74481 code=0000
+t=32s active=active py=74481 code=0000
+t=33s active=active py=74481 code=0000
+t=34s active=active py=74481 code=0000
+t=35s active=active py=74481 code=0000
+t=36s active=active py=74481 code=0000
+t=37s active=active py=74481 code=0000
+t=38s active=active py=74481 code=0000
+t=39s active=active py=74481 code=0000
+t=40s active=active py=74481 code=0000
+t=41s active=active py=74481 code=0000
+t=42s active=active py=74481 code=0000
+t=43s active=active py=74481 code=0000
+t=44s active=active py=74481 code=0000
+t=45s active=active py=74481 code=0000
+t=46s active=active py=74481 code=0000
+t=47s active=active py=74481 code=0000
+t=48s active=active py=74481 code=0000
+t=49s active=active py=74481 code=0000
+t=50s active=active py=74481 code=0000
+t=51s active=active py=74481 code=0000
+t=52s active=active py=74481 code=0000
+t=53s active=active py=74481 code=0000
+t=54s active=active py=74481 code=0000
+t=55s active=active py=74481 code=0000
+t=56s active=active py=74481 code=0000
+t=57s active=active py=74481 code=0000
+t=58s active=active py=74481 code=0000
+t=59s active=active py=74481 code=0000
+t=60s active=active py=74481 code=0000
+t=61s active=active py=74481 code=0000
+t=62s active=active py=74481 code=0000
+t=63s active=active py=74481 code=0000
+t=64s active=active py=74481 code=0000
+t=65s active=active py=74481 code=0000
+t=66s active=active py=74481 code=0000
+t=67s active=active py=74481 code=0000
+t=68s active=active py=74481 code=0000
+t=69s active=active py=74481 code=0000
+t=70s active=active py=74481 code=0000
+t=71s active=active py=74481 code=0000
+t=72s active=active py=74481 code=0000
+t=73s active=active py=74481 code=0000
+t=74s active=active py=74481 code=0000
+t=75s active=active py=74481 code=0000
+t=76s active=active py=74481 code=0000
+t=77s active=active py=74481 code=0000
+t=78s active=active py=74481 code=0000
+t=79s active=active py=74481 code=0000
+t=80s active=active py=74481 code=0000
+t=81s active=active py=74481 code=0000
+t=82s active=active py=74481 code=0000
+t=83s active=active py=74481 code=0000
+t=84s active=active py=74481 code=0000
+t=85s active=active py=74481 code=0000
+t=86s active=active py=74481 code=0000
+t=87s active=active py=74481 code=0000
+t=88s active=active py=74481 code=0000
+t=89s active=active py=74481 code=0000
+t=90s active=active py=74481 code=0000
+elapsed_s=94
+PROC_REVIVE_AT=3
+HTTP_REVIVE_AT=NONE
+after_active=active
+● kanban.service - 甲骨易智能经营罗盘 (kanban user)
+     Loaded: loaded (/home/lee/.config/systemd/user/kanban.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2026-07-20 00:09:07 CST; 13min ago
+ Invocation: 58f9a24cdcc34979aabecaa101efed9f
+   Main PID: 74024 (bash)
+      Tasks: 2 (limit: 18118)
+     Memory: 246.9M (peak: 2.6G)
+        CPU: 1min 56.431s
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/kanban.service
+             ├─74024 /bin/bash /home/lee/kanban/看板正式程序/deploy/linux/start_with_rollback.sh
+             └─74481 /home/lee/kanban/看板正式程序/.venv/bin/python run.py --serve
+
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53086 - "GET /api/v1/vm/cockpit HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53102 - "GET /api/cockpit HTTP/1.1" 404 Not Found
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53114 - "GET /api/v1/health HTTP/1.1" 404 Not Found
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53120 - "GET /api/health HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53126 - "GET /api/v1/cockpit/fragments HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53138 - "GET /api/health HTTP/1.1" 200 OK
+SELFHEAL_HTTP_LE20=NO SELFHEAL_PROC_LE20=YES (HTTP after cold rebuild)
+SELFHEAL_V2_DONE

@@ -1,0 +1,26 @@
+active
+login:200
+login_as overall
+login 200 {"ok":true,"redirect":"/","session":{"account":"overall","display":"整体账号","perm":"整体","bus":[],"is_admin":fa
+GET /api/v1/cockpit/fragments 200 len 4981133
+GET /api/v1/cockpit/view 404 len 22
+GET /api/v1/vm/cockpit 200 len 4405662
+GET /api/cockpit 404 len 22
+GET /api/v1/health 404 len 22
+GET /api/health 200 len 1075
+fragments_status 200
+fragment_keys ['api_version', 'chrome_prefix', 'data_assembled', 'fragments', 'mode', 'views']
+numeric_token_count 947 nonzero_sample ['4,300.2', '4,300.2', '2,762.8', '1,111.2', '2,835.1', '2,646.7', '2,762.8', '1,111.2', '1,331.3', '1,331.3', '1,012.0', '1,116.2', '1,059.8', '1,012.0', '2,732.2']
+pl_markers {'收入': True, '成本': True, '毛利': True, '税前利润': True, '期间费用': True, '管理费用': True, '财务费用': True, '利润': True}
+key kpi_views missing
+key kpi_body missing
+key pl_views missing
+key pl_body missing
+key trend_html missing
+key rank_views missing
+key donut_views missing
+health_result 黄
+sources [('项目明细(智云)', 5243), ('下单(智云)', 4241), ('回款(智云)', 1037), ('内部译员·IN-HOUSE(智云)', 3734), ('收单台账', 1473)]
+source_rows_total 15728
+NUMBERS_PROOF_OK True
+PROOF_DONE

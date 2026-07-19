@@ -1,0 +1,56 @@
+=== post selfheal HTTP wait 2026-07-20T00:23:10+08:00 ===
+active
+  74481       01:48  9.2 399856 /home/lee/kanban/??????????????????/.venv/bin/python run.py --serve
+Jul 20 00:15:41 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:48798 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:15:41 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:48800 - "GET / HTTP/1.1" 200 OK
+Jul 20 00:16:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:55718 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:16:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:55728 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:16:41 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:55734 - "GET / HTTP/1.1" 200 OK
+Jul 20 00:17:37 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:52376 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:18:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:42632 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:19:15 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:56158 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:19:15 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:56168 - "GET /api/version HTTP/1.1" 401 Unauthorized
+Jul 20 00:19:15 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:56176 - "POST /api/login HTTP/1.1" 404 Not Found
+Jul 20 00:19:15 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:56190 - "GET /api/health HTTP/1.1" 200 OK
+Jul 20 00:19:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:43436 - "GET /api/health HTTP/1.1" 200 OK
+Jul 20 00:19:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:43446 - "GET /api/v1/cockpit/fragments HTTP/1.1" 401 Unauthorized
+Jul 20 00:19:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:43462 - "GET /api/cockpit/fragments HTTP/1.1" 404 Not Found
+Jul 20 00:19:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:43478 - "GET /api/dashboard HTTP/1.1" 404 Not Found
+Jul 20 00:19:40 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:43486 - "GET /api/v1/views/cockpit HTTP/1.1" 404 Not Found
+Jul 20 00:20:46 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53060 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:20:46 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53072 - "POST /api/v1/login HTTP/1.1" 200 OK
+Jul 20 00:20:46 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53078 - "GET /api/v1/cockpit/fragments HTTP/1.1" 200 OK
+Jul 20 00:20:46 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53084 - "GET /api/v1/cockpit/view HTTP/1.1" 404 Not Found
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53086 - "GET /api/v1/vm/cockpit HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53102 - "GET /api/cockpit HTTP/1.1" 404 Not Found
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53114 - "GET /api/v1/health HTTP/1.1" 404 Not Found
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53120 - "GET /api/health HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53126 - "GET /api/v1/cockpit/fragments HTTP/1.1" 200 OK
+Jul 20 00:20:47 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:53138 - "GET /api/health HTTP/1.1" 200 OK
+Jul 20 00:21:19 lee-ThinkCentre-M755e-D182 bash[74029]: INFO:     127.0.0.1:52828 - "GET /login HTTP/1.1" 200 OK
+Jul 20 00:21:19 lee-ThinkCentre-M755e-D182 bash[74024]: /home/lee/kanban/看板正式程序/deploy/linux/start_with_rollback.sh: line 66: 74029 Killed                     "$PY" run.py --serve
+Jul 20 00:21:19 lee-ThinkCentre-M755e-D182 bash[74024]: [看门狗] 服务退出码=137 (第 1 次异常退出)
+Jul 20 00:21:22 lee-ThinkCentre-M755e-D182 bash[74024]: [看门狗] 启动服务 2026-07-20 00:21:22
+t=1 code=0000
+t=2 code=0000
+t=3 code=0000
+t=4 code=0000
+t=5 code=0000
+t=6 code=0000
+t=7 code=0000
+t=8 code=0000
+t=9 code=0000
+t=10 code=0000
+t=11 code=0000
+t=12 code=0000
+t=13 code=0000
+t=14 code=0000
+t=15 code=0000
+t=16 code=0000
+t=17 code=0000
+t=18 code=0000
+t=19 code=0000
+t=20 code=0000
+t=21 code=0000
+t=22 code=200
+HTTP_OK_AT=22s_from_this_wait
