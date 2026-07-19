@@ -11,8 +11,11 @@ import { adminRouter } from './router'
 import './styles/admin.css'
 
 import { installThemeListeners, syncThemeFromDom } from '../utils/theme'
+import { installFrontendErrorReporter } from '../utils/frontendErrorReporter'
 
 export function bootAdmin() {
+  // B-5：管理端与看端同一套全局错误钩子 → POST /api/v1/client-error
+  installFrontendErrorReporter()
   // 主题：与驾驶舱共用 cockpit-theme（响应式 + iframe/storage 同步）
   try {
     if (localStorage.getItem('cockpit-theme') === 'light') {

@@ -1,8 +1,8 @@
-# 部署执行单 · 给 Claude / 部署执行方（v2.0.0-rc10）
+# 部署执行单 · 给 Claude / 部署执行方（v2.0.0-rc11）
 
 > 仅在**明昊人审签字**后执行。本单**不**代替人审。  
 > 工作目录：`程序/看板正式程序/`。双远端：GitHub `origin` + Gitee（见 README / config `update_remote`）。  
-> **当前封板锚点**：`stage56_final` / VERSION `2.0.0-rc10`（2026-07-19；任务书57 打磨中目标 `stage57_gold`/`rc11`）。
+> **当前封板锚点**：`stage57_gold` / VERSION `2.0.0-rc11`（2026-07-19；任务书57 已收官）。
 
 ---
 
@@ -12,14 +12,14 @@
 cd 程序/看板正式程序
 git status
 git log -1 --oneline
-git tag -l stage56_final
+git tag -l stage57_gold
 
 # 1) 无未提交必交物
 # 2) diff 无真实客户名 / 真实金额明细 / 内网账号密码（种子默认账号 README 除外）
 git diff origin/main..HEAD --stat | head -40
 
 # 3) 禁止：push --tags 误推开发 tag 策略按项目规矩——本项目只推 main 内容，tag 是否推送以明昊当次指示为准
-# 4) 确认 VERSION 为 2.0.0-rc10（或当次授权的 rc）
+# 4) 确认 VERSION 为 2.0.0-rc11（或当次授权的 rc）
 cat VERSION
 ```
 
@@ -36,7 +36,7 @@ git push origin main
 # git push gitee main
 
 # tag（若当次授权推 tag）
-# git push origin stage56_final
+# git push origin stage57_gold
 ```
 
 ---
@@ -46,7 +46,7 @@ git push origin main
 权威细节：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · `deploy/linux/` · `deploy/healthcheck_cron说明.md`。
 
 1. **备份**：数据目录与当前 `看板.db`（路径在 `数据/` 或部署约定目录）  
-2. **拉取**：`git pull` 到含 `2.0.0-rc10` 的 commit / 或 checkout `stage56_final`  
+2. **拉取**：`git pull` 到含 `2.0.0-rc11` 的 commit / 或 checkout `stage57_gold`  
 3. **venv**：须 **python3 ≥ 3.12**；`pip install -r requirements.txt`（可走国内镜像）  
 4. **前端**：若部署用 dist，确认 `frontend/dist` 已随仓或本机 `npm run build`  
 5. **systemd / 服务**：重启看板服务（`run.py --serve` 或 unit 文件）  
@@ -66,7 +66,7 @@ git push origin main
 | 2 | 管理端进入；下单未填部门秒开 |
 | 3 | 管理端「更新数据」能跑通或黄条降级可解释 |
 | 4 | `bash deploy/healthcheck.sh` EXIT 0 |
-| 5 | 版本显示 `2.0.0-rc10` / 当次发布候选 |
+| 5 | 版本显示 `2.0.0-rc11` / 当次发布候选 |
 
 ---
 
@@ -74,7 +74,7 @@ git push origin main
 
 | tag | 含义 |
 |-----|------|
-| **`stage56_final`** | 清尾封板点（先回到这里再诊断） |
+| **`stage57_gold`** | 无限打磨收官点（先回到这里再诊断） |
 | `stage55_final` | 55 终局封板 |
 | `stage55_rc1` | 交接包初版 |
 | `stage54p9` | 美学终修末 |

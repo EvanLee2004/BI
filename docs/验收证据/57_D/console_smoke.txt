@@ -1,0 +1,4 @@
+view_url http://127.0.0.1:8018/
+admin_url http://127.0.0.1:8018/admin
+console_error_count 0
+EXIT 0

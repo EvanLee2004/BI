@@ -25,7 +25,8 @@ SKIP_LONG = os.environ.get("PERF_SKIP_LONG", "1") == "1"
 
 
 def load_accounts():
-    for p in (ROOT / "_golden_data" / "看板账号.json", ROOT / "数据" / "看板账号.json"):
+    # 优先本机 数据/（部署/开发机真实口令）；golden 仅兜底
+    for p in (ROOT / "数据" / "看板账号.json", ROOT / "_golden_data" / "看板账号.json"):
         if p.is_file():
             return json.loads(p.read_text(encoding="utf-8")).get("accounts") or []
     return []
@@ -38,6 +39,9 @@ def pick(kind: str):
             if a.get("权限") == "管理员" and a.get("密码"):
                 return str(a["账号"]), str(a["密码"])
         return "lushasha", "kanban2026"
+    for a in rows:
+        if a.get("权限") in ("整体",) and a.get("密码"):
+            return str(a["账号"]), str(a["密码"])
     for a in rows:
         if a.get("账号") in ("overall", "123") and a.get("密码"):
             return str(a["账号"]), str(a["密码"])
@@ -130,10 +134,18 @@ def main() -> int:
             }
         )
 
-        # orderdept 打开
+        # orderdept 打开（Vue SPA：等 hash/history 路由 + 工具条）
         t0 = time.perf_counter()
-        page.goto(f"{BASE}/admin/review/orderdept", wait_until="domcontentloaded", timeout=90000)
-        page.wait_for_selector(".toolbar, .el-table", timeout=15000)
+        page.goto(f"{BASE}/admin/review/orderdept", wait_until="networkidle", timeout=90000)
+        page.wait_for_load_state("networkidle")
+        # 兼容：.toolbar（OrderDeptView）或 el-table / admin 布局
+        page.wait_for_selector(".toolbar, .el-table, .admin-layout, #app", timeout=30000)
+        # 若仍在登录页则再填一次
+        if page.locator("input[type=password]").count() and page.locator(".toolbar").count() == 0:
+            fill_login(page, aacc, apw, enter=True)
+            page.wait_for_load_state("networkidle")
+            page.goto(f"{BASE}/admin/review/orderdept", wait_until="networkidle", timeout=90000)
+            page.wait_for_selector(".toolbar, .el-table", timeout=30000)
         ms = (time.perf_counter() - t0) * 1000
         ok = ms < 2000
         hard_fail = hard_fail or not ok
@@ -173,7 +185,7 @@ def main() -> int:
     for r in rows:
         print(f"| {r['指标']} | {r['阈值']} | {r['实测']} | {r['结论']} |")
 
-    out = ROOT / "docs" / "验收证据" / "20260718_54p8"
+    out = Path(os.environ.get("PERF_OUT_DIR") or (ROOT / "docs" / "验收证据" / "20260718_54p8"))
     out.mkdir(parents=True, exist_ok=True)
     (out / "perf_check.json").write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
 
