@@ -256,7 +256,7 @@ const displayLabel = computed(() => current.value || store.vm?.year_key || '选�
 <style scoped>
 .pp {
   position: relative;
-  z-index: 40;
+  z-index: var(--z-dropdown, 60);
 }
 .pp-trigger {
   display: inline-flex;
@@ -285,19 +285,20 @@ const displayLabel = computed(() => current.value || store.vm?.year_key || '选�
   top: calc(100% + 6px);
   right: 0;
   width: min(320px, calc(100vw - 24px));
-  max-height: min(420px, 70vh);
+  max-height: min(520px, 78vh);
   overflow: auto;
   padding: 10px;
   border-radius: 12px;
   border: 1px solid var(--line, rgba(34, 211, 238, 0.35));
-  /* R-03 将再统一 token；此处先保证可读 */
-  background: rgba(8, 14, 28, 0.97);
+  background: var(--overlay-panel, rgba(8, 14, 28, 0.97));
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  z-index: 50;
+  z-index: var(--z-dropdown, 60);
+  pointer-events: auto;
 }
+:global(html.theme-light) .pp-panel,
 :global(html[data-theme='light']) .pp-panel,
 :global(body.theme-light) .pp-panel {
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--overlay-panel, rgba(255, 255, 255, 0.98));
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
 }
 .pp-tabs {

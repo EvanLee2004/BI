@@ -447,12 +447,21 @@ html.theme-light body::after {
     linear-gradient(90deg, rgba(8, 145, 178, 0.05) 1px, transparent 1px);
 }
 /* scifiStarTwinkle 已删（54.4·A6 静态星空） */
-.wrap,
-.topbar,
-#periodSync,
+/* 54.14 R-22：顶栏必须高于内容区，否则周期弹层被 KPI 卡盖住
+ * （此前 topbar 与 wrap 同为 z-index:1，后出现的 wrap 叠在弹层上） */
 #app {
   position: relative;
+  z-index: 0;
+}
+.wrap,
+#periodSync {
+  position: relative;
   z-index: 1;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar, 40);
 }
 /* A8：prefers-reduced-motion 彻底静止（星空已无动画，再保险） */
 @media (prefers-reduced-motion: reduce) {
@@ -750,8 +759,22 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
   min-height: 320px;
 }
 .rc-card .rc-body {
-  min-height: 360px;
-  height: 380px;
+  min-height: 340px;
+  height: min(42vh, 400px);
+}
+.exp-trend-card .rc-body,
+.exp-trend-card .exp-trend-fill {
+  min-height: 320px;
+  height: min(40vh, 380px);
+}
+.trend-chart-card .trend-fill {
+  min-height: 320px;
+  height: min(40vh, 380px);
+}
+.exp-heat-card .exp-heat-fill {
+  min-height: 280px;
+  height: min(38vh, 360px);
+  overflow-x: auto;
 }
 
 /* 顶栏 HUD */

@@ -4,6 +4,11 @@
   /* 54.11 R-03：弹层内容近实色(≥0.95) + 遮罩隔离底层叠字 */
   --overlay-panel:rgba(8,14,28,.97); --overlay-panel-solid:#0b1222;
   --overlay-mask:rgba(0,0,0,.45);
+  /* 54.14 R-22：全站弹层 z-index token（禁魔法数字） */
+  --z-base:1; --z-topbar:40; --z-sticky:20; --z-dropdown:60; --z-drawer:80; --z-modal:90; --z-toast:100;
+  /* 54.14 R-25：告警/体检黄条双套 token */
+  --banner-warn-bg:linear-gradient(90deg,rgba(251,191,36,.22),rgba(251,191,36,.08));
+  --banner-warn-fg:#fde68a; --banner-warn-border:rgba(251,191,36,.35);
   --line:rgba(125,211,252,.16); --line-2:rgba(125,211,252,.30);
   --ink:#eaf1ff; --mut:#93a1c0; --mut2:#5f6d92; --note:#b6c3e0;
   --blue:#22d3ee; --cost:#64769e; --pos:#34d399; --neg:#fb7185; --orange:#fbbf24;
@@ -41,6 +46,9 @@
   --kind-system:#0891b2; --kind-ledger:#6d28d9; --kind-manual:#c2410c;
   --accent:#0891b2; --tb:rgba(255,255,255,.92);
   --glow:0 1px 3px rgba(8,145,178,.06),0 4px 16px rgba(15,42,70,.06);
+  /* R-25：浅色黄条深字 ≥4.5:1（黄底 #fef3c7 上 #78350f ≈ 8:1） */
+  --banner-warn-bg:linear-gradient(90deg,#fde68a,#fef3c7);
+  --banner-warn-fg:#78350f; --banner-warn-border:#d97706;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -66,8 +74,8 @@ body{
 /* 宽屏用满：原 1180 在管理端 iframe / 大屏右侧空一大截 */
 .wrap{max-width:min(1680px,100%);margin:0 auto;padding:0 24px 48px;box-sizing:border-box}
 
-/* 顶栏 */
-.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+/* 顶栏 · 54.14 R-22：z 用 token，高于内容区 */
+.topbar{position:sticky;top:0;z-index:var(--z-topbar,40);display:flex;align-items:center;gap:16px;
   padding:12px 24px;margin:0 0 8px;background:var(--tb);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line)}
 .tb-logo{height:40px;width:auto;border-radius:6px}
@@ -400,15 +408,15 @@ body{
 .hbar-f{height:100%;border-radius:6px}
 .hbar-v{width:70px;flex:0 0 70px;text-align:right;font-size:12px;color:var(--mut);font-weight:600}
 
-/* banner · 任务书37·B9 抓数降级顶栏 */
-.banner{background:linear-gradient(90deg,rgba(251,191,36,.14),transparent);border:1px solid rgba(251,191,36,.3);
-  border-radius:10px;padding:8px 12px;font-size:12.5px;color:var(--ink);margin:8px 0}
-.banner b{color:var(--orange)}
+/* banner · 任务书37·B9 抓数降级顶栏 · 54.14 R-25 双套 token */
+.banner{background:var(--banner-warn-bg);border:1px solid var(--banner-warn-border);
+  border-radius:10px;padding:8px 12px;font-size:12.5px;color:var(--banner-warn-fg);margin:8px 0}
+.banner b{color:var(--banner-warn-fg);font-weight:700}
 .fetch-banner{margin:0;border-radius:0;border-left:0;border-right:0;border-top:0;
-  padding:8px 16px;font-size:13.5px;font-weight:600;background:linear-gradient(90deg,rgba(251,191,36,.22),rgba(251,191,36,.08));
-  color:#fde68a;display:flex;flex-direction:column;gap:4px}
-.theme-light .fetch-banner{color:#92400e;background:linear-gradient(90deg,rgba(251,191,36,.35),rgba(251,191,36,.12))}
-.fetch-banner .fb-line{line-height:1.45}
+  padding:8px 16px;font-size:13.5px;font-weight:600;background:var(--banner-warn-bg);
+  color:var(--banner-warn-fg);border-bottom:1px solid var(--banner-warn-border);
+  display:flex;flex-direction:column;gap:4px}
+.fetch-banner .fb-line{line-height:1.45;color:var(--banner-warn-fg)}
 /* 任务书37·B8 整体页费用明细：Excel 式列筛弹层（与管理端同能力） */
 .ml-filter-pop{position:fixed;z-index:80;min-width:240px;max-width:320px;max-height:70vh;overflow:auto;
   background:var(--panel-solid,var(--panel));border:1px solid var(--line);border-radius:10px;padding:12px;
