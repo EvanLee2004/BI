@@ -71,7 +71,7 @@ def _title_version_html() -> str:
     return tpl.fill("render/title_version.html", text=_esc(text))
 
 
-def _amt(v, colored=False, muted=False):
+def _amt(v, colored=False):
     s = ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
     cls = "pl-amt"
     if colored:

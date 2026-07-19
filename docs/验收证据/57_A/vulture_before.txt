@@ -1,0 +1,4 @@
+src/audit_diff.py:125: unused variable 'dash_html' (100% confidence)
+src/render_expense_ui.py:133: unused variable 'dept_budget' (100% confidence)
+src/render_widgets.py:74: unused variable 'muted' (100% confidence)
+src/routes/admin_pages.py:150: unused variable 'spa_path' (100% confidence)

@@ -122,9 +122,11 @@ def _manual_items_json(cfg: dict | None = None) -> str:
     ]
     return _json.dumps(items, ensure_ascii=False, separators=(",", ":"))
 
-def _admin_page(dash_html: str, summary: dict, cfg: dict | None = None) -> str:  # noqa: ARG001
+def _admin_page(_dash_html: str, summary: dict, cfg: dict | None = None) -> str:
     """管道跑通后标记「管理端可进完整台」（truthy 写入 _state['admin_html']）。
-    页面本体只在 static/admin/，此处不再生成整页 HTML。"""
+    页面本体只在 static/admin/，此处不再生成整页 HTML。
+    签名保留 _dash_html/summary/cfg 兼容历史调用方；返回值恒为 ready。"""
+    _ = (_dash_html, summary, cfg)
     return "ready"
 
 def _admin_static_html() -> str:

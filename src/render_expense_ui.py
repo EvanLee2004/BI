@@ -130,8 +130,9 @@ def render_bu_expense_views(p, fine_k):
         subtotal=_ledger_subtotal(rows),
     )
 
-def render_dept_budget(dept_budget):
+def render_dept_budget(_dept_budget=None):
     """部门费用预算执行卡。迭代19 陆总拍板：界面下线（半吊子汇总无意义）；函数保留给旧测试/兼容，恒返回空。"""
+    _ = _dept_budget
     return ""
 
 def expense_monthly_from_period_ledgers(summary: dict) -> dict:
