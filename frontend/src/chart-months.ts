@@ -87,3 +87,41 @@ export function axisMaxCover(
   }
   return maxV
 }
+
+/**
+ * 54.14 R-24：比率轴（% 线）上限自适应数据最大值，线永远在绘图区内。
+ * - 负值：min 随数据下探并留边
+ * - 0：min=0
+ * - 超 100%：max 抬到 ceil(max*1.08) 至少盖住峰值
+ * 不改显示串；仅视觉刻度。
+ */
+export function ratioAxisBounds(
+  vals: Array<number | null | undefined>,
+  opts?: { floorMax?: number },
+): { min: number; max: number } {
+  const floorMax = opts?.floorMax ?? 100
+  let lo = 0
+  let hi = 0
+  let any = false
+  for (const v of vals) {
+    if (v == null) continue
+    const n = Number(v)
+    if (!Number.isFinite(n)) continue
+    if (!any) {
+      lo = hi = n
+      any = true
+    } else {
+      lo = Math.min(lo, n)
+      hi = Math.max(hi, n)
+    }
+  }
+  if (!any) return { min: 0, max: floorMax }
+  let min = lo < 0 ? Math.floor(lo * 1.08) : 0
+  let max = Math.max(floorMax, hi)
+  if (hi > 0) {
+    max = Math.max(max, Math.ceil(hi * 1.08))
+  }
+  // 至少一格视觉余量：全 0 时仍给 100
+  if (max <= min) max = min + Math.max(floorMax, 1)
+  return { min, max }
+}
