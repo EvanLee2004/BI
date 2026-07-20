@@ -6,6 +6,7 @@
 #   - Restart=always + RestartSec=3：进程退出（含一键更新码 42）后自动再起
 #   - ExecStart 走 start_with_rollback.sh：坏版本 (.update_rollback) 自动 git reset 一次
 #   - StartLimitBurst=5 / StartLimitIntervalSec=120：短时反复崩则停下报警（对齐看门狗 5 次）
+#     注意：StartLimit* 必须在 [Unit]（Ubuntu 26 / systemd 新版放 [Service] 会被忽略）
 #
 # 安装示例（部署目录=/opt/kanban/看板正式程序）：
 #   生产机实际 User/Group=lee（数据目录属主）；模板默认也用 lee，勿盲改 kanban 除非先 chown。
@@ -17,6 +18,8 @@
 Description=甲骨易智能经营罗盘 (kanban)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -27,8 +30,6 @@ WorkingDirectory=/opt/kanban/看板正式程序
 ExecStart=/bin/bash /opt/kanban/看板正式程序/deploy/linux/start_with_rollback.sh
 Restart=always
 RestartSec=3
-StartLimitIntervalSec=120
-StartLimitBurst=5
 # 日志走 journald：journalctl -u kanban -n 200 --no-pager
 StandardOutput=journal
 StandardError=journal

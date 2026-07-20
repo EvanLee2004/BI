@@ -47,6 +47,10 @@ class TestLinuxDeployAssets(unittest.TestCase):
         self.assertIn("RestartSec=3", text)
         self.assertIn("start_with_rollback.sh", text)
         self.assertIn("StartLimitBurst=5", text)
+        # StartLimit* 须在 [Unit]（勿落 [Service]）
+        unit = text.split("[Service]")[0]
+        self.assertIn("StartLimitIntervalSec=120", unit)
+        self.assertIn("StartLimitBurst=5", unit)
 
     def test_service_unit_prod_harden_lee_sandbox(self):
         """生产加固：User=lee（数据属主）+ 回环 env + D8 沙箱路径。"""
