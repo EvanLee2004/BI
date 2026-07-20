@@ -54,8 +54,8 @@ class TestDbDetax(unittest.TestCase):
 
     def test_set_load_delete(self):
         db.set_detax_rate(self.conn, "房租", 9, "t")
-        db.set_detax_rate(self.conn, "物业费", 6.005, "t")  # 四舍五入到 0.01
-        self.assertEqual(db.load_detax_rates(self.conn), {"房租": 9.0, "物业费": 6.0})
+        db.set_detax_rate(self.conn, "物业费", 6.005, "t")  # Decimal ROUND_HALF_UP → 6.01
+        self.assertEqual(db.load_detax_rates(self.conn), {"房租": 9.0, "物业费": 6.01})
         db.set_detax_rate(self.conn, "房租", None, "t")  # None=删行
         self.assertEqual(db.load_detax_rates(self.conn), {"物业费": 6.0})
         db.set_detax_rate(self.conn, "物业费", 0, "t")  # 0=删行（默认不去税）
@@ -102,12 +102,13 @@ class TestDbDetax(unittest.TestCase):
 
 class TestDetaxLedgerRows(unittest.TestCase):
     def test_rate_divides(self):
+        """任务书66·A：去税结果写回 int 分（109 元=10900 分 ÷1.09 → 10000 分）。"""
         out = profit.detax_ledger_rows(HDR, ROWS, {"房租": 9})
         lcols = columns.resolve_ledger_columns(HDR)
         ci = lcols["含税金额"]
-        self.assertAlmostEqual(out[0][ci], 100.0, places=6)  # 109 ÷ 1.09
-        self.assertAlmostEqual(out[1][ci], 100.0, places=6)  # 办公用品未填率=不动
-        self.assertAlmostEqual(out[2][ci], 999.0, places=6)  # 白名单外行也不动（率没配到）
+        self.assertEqual(out[0][ci], 10000)  # 10900 ÷ 1.09 ROUND_HALF_UP
+        self.assertEqual(out[1][ci], 100.0)  # 办公用品未填率=不动（仍为元 float 输入）
+        self.assertEqual(out[2][ci], 999.0)  # 白名单外行也不动（率没配到）
         self.assertEqual(len(out), len(ROWS))  # 行数不变
 
     def test_empty_is_identity(self):
@@ -124,7 +125,7 @@ class TestDetaxLedgerRows(unittest.TestCase):
     def test_zero_rate_no_change(self):
         out = profit.detax_ledger_rows(HDR, ROWS, {"房租": 0})
         lcols = columns.resolve_ledger_columns(HDR)
-        self.assertAlmostEqual(out[0][lcols["含税金额"]], 109.0, places=6)
+        self.assertEqual(out[0][lcols["含税金额"]], 109.0)
 
 
 class TestDetaxComputeIntegration(unittest.TestCase):
