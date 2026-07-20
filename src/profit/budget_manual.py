@@ -125,8 +125,8 @@ def build_period(
     fixed_exp = int(led["固定运营费用"] + mac.get("固定运营费用", 0))
     rd_exp = int(man["研发人力成本"] + led["技术服务费"] + mac.get("技术服务费", 0))
     fin_exp = int(led["财务费用"] + man["财务费用补充"] + mac.get("财务费用", 0))
-    # 附加税费=不含税收入×增值税率×附加率；在元上 round(2) 再回分（与旧 float 口径一致）
-    surtax = money.yuan_to_fen(round(money.fen_to_yuan(net) * vat * surtax_rate, 2)) or 0
+    # 附加税费=不含税收入×增值税率×附加率；任务书66·A：分上 Decimal 连乘 + ROUND_HALF_UP
+    surtax = money.mul_rates_fen(int(net), vat, surtax_rate)
     other_pl = int(man["其他损益"])
     period_expense = int(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp)
     pretax = int(gross_profit - period_expense - surtax + other_pl)

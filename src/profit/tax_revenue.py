@@ -30,17 +30,19 @@ import money
 def split_tax(gross_fen: int, vat_rate: float) -> dict[str, int]:
     """增值税拆分。入参/出参均为**分**。
 
-    舍入与旧「元 float + round(…,2)」对齐：先 fen→元 算 net，再元→分，保证 golden 显示串一致。
+    任务书66·A：在分上 Decimal 除法 + ROUND_HALF_UP（弃 fen→元 float→round→分）。
+    net = gross / (1+vat_rate)；vat = gross - net（守恒）。
     """
     if not gross_fen:
         return {"revenue_gross": 0, "revenue_net": 0, "vat": 0}
-    gy = money.fen_to_yuan(gross_fen)
-    net_y = round(gy / (1 + vat_rate), 2) if gy else 0.0
-    vat_y = round(gy - net_y, 2)
+    from decimal import Decimal
+
+    g = int(gross_fen)
+    net = money.divide_fen(g, Decimal(1) + Decimal(str(vat_rate)))
     return {
-        "revenue_gross": int(gross_fen),
-        "revenue_net": money.yuan_to_fen(net_y) or 0,
-        "vat": money.yuan_to_fen(vat_y) or 0,
+        "revenue_gross": g,
+        "revenue_net": net,
+        "vat": g - net,
     }
 
 

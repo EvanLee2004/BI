@@ -347,8 +347,11 @@ def detax_ledger_rows(ledger_header, ledger_rows, detax_rates):
             amt_fen = money.as_fen(row[c_amt])
             if amt_fen:
                 lst = list(row)
-                # 去税在元上除，结果仍以元 float 写回行（下游 as_fen 再入分）——与旧「元路径」舍入一致
-                lst[c_amt] = money.fen_to_yuan(amt_fen) / (1.0 + float(r) / 100.0)
+                # 任务书66·A：分上 Decimal ÷ (1+税率/100)，ROUND_HALF_UP；写回 int 分
+                from decimal import Decimal
+
+                factor = Decimal(1) + Decimal(str(r)) / Decimal(100)
+                lst[c_amt] = money.divide_fen(int(amt_fen), factor)
                 row = tuple(lst)
         out.append(row)
     return out

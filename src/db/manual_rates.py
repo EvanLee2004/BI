@@ -107,10 +107,10 @@ def set_alloc_ratio(
         新值 = None
         conn.execute("DELETE FROM manual_分摊比例 WHERE 归属月=? AND BU=?", (month, bu))
     else:
-        v = float(pct)
+        v = money.quantize_rate(pct, places=1)
         if not (0 <= v <= 100):
             raise ValueError(f"比例须在 0~100：{bu}={pct}")
-        新值 = round(v, 1)
+        新值 = v
         conn.execute(
             "INSERT OR REPLACE INTO manual_分摊比例(归属月,BU,比例,填写时间,经手人) VALUES(?,?,?,?,?)",
             (month, bu, 新值, now, user),
@@ -163,14 +163,20 @@ def set_detax_rate(
         "SELECT 税率 FROM manual_费用去税率 WHERE 费用类别=?", (category,)
     ).fetchone()
     旧值 = float(old_row[0]) if old_row and old_row[0] is not None else None
-    if rate is None or rate == "" or float(rate) == 0:
-        新值 = None
+    新值 = None
+    if rate is not None and rate != "":
+        try:
+            zv = money.parse_decimal(rate)
+        except ValueError as e:
+            raise ValueError(f"去税率须为数字：{category}={rate}") from e
+        if zv is not None and zv != 0:
+            v = money.quantize_rate(zv, places=2)
+            if not (0 <= v <= 100):
+                raise ValueError(f"去税率须在 0~100：{category}={rate}")
+            新值 = v
+    if 新值 is None:
         conn.execute("DELETE FROM manual_费用去税率 WHERE 费用类别=?", (category,))
     else:
-        v = float(rate)
-        if not (0 <= v <= 100):
-            raise ValueError(f"去税率须在 0~100：{category}={rate}")
-        新值 = round(v, 2)
         conn.execute(
             "INSERT OR REPLACE INTO manual_费用去税率(费用类别,税率,填写时间,经手人) VALUES(?,?,?,?)",
             (category, 新值, now, user),

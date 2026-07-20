@@ -12,7 +12,19 @@ import profit
 from app_state import _state
 
 
+def _parse_money_yuan(v) -> float:
+    """手填/预算金额：Decimal(str) 解析，返回元 float（db 层再 yuan_to_fen）。"""
+    import money as _money
+
+    d = _money.parse_decimal(v)
+    if d is None:
+        raise ValueError("空金额")
+    return float(d)
+
+
 def _parse_alloc_ratios_payload(ratios: dict, known: set) -> dict[str, float | None]:
+    import money as _money
+
     vals: dict[str, float | None] = {}
     for b, v in ratios.items():
         b = str(b).strip()
@@ -22,12 +34,12 @@ def _parse_alloc_ratios_payload(ratios: dict, known: set) -> dict[str, float | N
             vals[b] = None
             continue
         try:
-            fv = float(v)
+            fv = _money.quantize_rate(v, places=1)
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail=f"比例须为数字：{b}") from None
         if not (0 <= fv <= 100):
             raise HTTPException(status_code=400, detail=f"比例须在 0~100：{b}")
-        vals[b] = round(fv, 1)
+        vals[b] = fv
     return vals
 
 
@@ -57,7 +69,7 @@ def _prepare_manual_batch_items(items: list, names: set, default_scope: str) -> 
         if item not in names:
             raise HTTPException(status_code=400, detail=f"未知手填项目：{item}")
         try:
-            金额 = float((it or {}).get("金额"))
+            金额 = _parse_money_yuan((it or {}).get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail=f"金额须为数字：{item}") from None
         sc = str((it or {}).get("范围") or default_scope).strip() or "全公司"
@@ -77,7 +89,7 @@ def _prepare_budget_batch_items(items: list) -> list[tuple[str, str, float, str]
         if not (year.isdigit() and len(year) == 4):
             raise HTTPException(status_code=400, detail="年份须为4位数字")
         try:
-            金额 = float(it.get("金额"))
+            金额 = _parse_money_yuan(it.get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail=f"金额须为数字：{metric}") from None
         scope = str(it.get("范围", "全公司")).strip() or "全公司"
@@ -245,7 +257,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if item not in {it["name"] for it in cfg["manual_items"]}:
             raise HTTPException(status_code=400, detail=f"未知手填项目：{item}")
         try:
-            金额 = float(payload.get("金额"))
+            金额 = _parse_money_yuan(payload.get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="金额须为数字") from None
         scope = str(payload.get("范围") or "全公司").strip() or "全公司"
@@ -404,12 +416,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 vals[cat] = None
                 continue
             try:
-                fv = float(v)
+                import money as _money
+
+                fv = _money.quantize_rate(v, places=2)
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail=f"去税率须为数字：{cat}") from None
             if not (0 <= fv <= 100):
                 raise HTTPException(status_code=400, detail=f"去税率须在 0~100：{cat}")
-            vals[cat] = round(fv, 2)
+            vals[cat] = fv
         conn = _conn()
         try:
             for cat, v in vals.items():
@@ -442,7 +456,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if not (year.isdigit() and len(year) == 4):
             raise HTTPException(status_code=400, detail="年份须为4位数字")
         try:
-            金额 = float(payload.get("金额"))
+            金额 = _parse_money_yuan(payload.get("金额"))
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="金额须为数字") from None
         scope = str(payload.get("范围", "全公司")).strip() or "全公司"

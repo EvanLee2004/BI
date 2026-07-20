@@ -64,7 +64,10 @@ def budget_value_to_store(metric: str, val: Any) -> int:
         if val is None or val == "":
             return 0
         try:
-            return int(round(float(val) * 100))
+            d = parse_decimal(val)
+            if d is None:
+                return 0
+            return int((d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
         except (TypeError, ValueError):
             return 0
     fen = yuan_to_fen(val)
@@ -146,13 +149,68 @@ def as_fen(val: Any) -> int:
 
 
 def fen_to_yuan(fen: Any) -> float:
-    """分 → 元 float（供 profit/显示与历史路径兼容）。None → 0.0。"""
+    """分 → 元 float（**仅显示层/兼容**；profit 算账路径禁止调用，见任务书66·A）。
+
+    None → 0.0。
+    """
     if fen is None:
         return 0.0
     try:
         return float(Decimal(int(fen)) / Decimal(100))
     except (InvalidOperation, ValueError, TypeError):
         return 0.0
+
+
+def parse_decimal(val: Any) -> Decimal | None:
+    """API/手填入参 → Decimal（兼容 int/float/str）。None/空 → None；非法 → 抛 ValueError。"""
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return Decimal(int(val))
+    if isinstance(val, Decimal):
+        return val
+    if isinstance(val, int):
+        return Decimal(val)
+    if isinstance(val, float):
+        # 避免 float 二进制噪声：经 str 再进 Decimal
+        return Decimal(str(val))
+    s = str(val).strip().replace(",", "").replace("，", "").replace("¥", "").replace("￥", "")
+    if s == "" or s == "-":
+        return None
+    try:
+        return Decimal(s)
+    except (InvalidOperation, ValueError) as e:
+        raise ValueError(f"非数字：{val!r}") from e
+
+
+def divide_fen(amount_fen: int, divisor: Decimal | float | str | int, *, places: int = 0) -> int:
+    """分整数 ÷ divisor，ROUND_HALF_UP 到 places 位（默认 0=整分）。"""
+    if not amount_fen:
+        return 0
+    d = divisor if isinstance(divisor, Decimal) else Decimal(str(divisor))
+    if d == 0:
+        raise ZeroDivisionError("divide_fen divisor=0")
+    q = (Decimal(int(amount_fen)) / d).quantize(Decimal(10) ** -places, rounding=ROUND_HALF_UP)
+    return int(q)
+
+
+def mul_rates_fen(amount_fen: int, *rates: Decimal | float | str | int) -> int:
+    """分 × 若干比率（如 vat×surtax），ROUND_HALF_UP 到整分。"""
+    if not amount_fen:
+        return 0
+    acc = Decimal(int(amount_fen))
+    for r in rates:
+        acc *= r if isinstance(r, Decimal) else Decimal(str(r))
+    return int(acc.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def quantize_rate(val: Any, places: int = 1) -> float:
+    """比例/税率百分数：Decimal 解析 + ROUND_HALF_UP 到 places 位，返回 float 供库 REAL。"""
+    d = parse_decimal(val)
+    if d is None:
+        raise ValueError("空比例")
+    q = d.quantize(Decimal(10) ** -places, rounding=ROUND_HALF_UP)
+    return float(q)
 
 
 def fen_to_yuan_or_none(fen: Any) -> float | None:
