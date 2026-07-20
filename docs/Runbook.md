@@ -6,10 +6,11 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | 2.0.0-rc12（`stage58_ui` 线） |
+| 版本 | 2.0.0-rc13（`stage60_prod_fix` 线；功能基线含 `stage58_ui`） |
 | 进程托管 | **systemd 单元 `kanban`**（active + enabled，Restart=always，重启/崩溃/重机自愈）；app 只绑 `127.0.0.1:8018` |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server，发 `frontend/dist` 静态 + `proxy_pass` API→127.0.0.1:8018）；内网 `http://<机内网IP>/` |
-| 定时 | cron：每日更新 09:30、healthcheck 每小时、备份 03:30 |
+| 每日更新 | **服务内 ScheduleLoop**（`serve` 启动的 daemon，按 `schedule_times` 调 `start_refresh_async(trigger=schedule)`，写进程内存 `_state`/`built_at`） |
+| 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled`（任务书60 退役 cron 刷新线） |
 | 远程运维 | 家里 Linux 跳板 + Tailscale：`ssh kanban-home`（细节见 `公司电脑（部署机）/`） |
 
 > 连机：本机 `ssh kanban-home`。sudo 操作需 TTY（`ssh -t kanban-home` 或机上 opencode 代跑）。
@@ -22,6 +23,7 @@
 4. 重启：`sudo systemctl restart kanban`（**别手动裸跑 run.py**，会和 systemd 抢端口）
 5. 对外不通但 app 活：查 nginx —— `systemctl status nginx`、`sudo nginx -t`、`curl -s -o/dev/null -w '%{http_code}' http://localhost/login`
 6. 若 503 数据未生成：管理端「更新数据」或机上 `sudo -u lee .venv/bin/python run.py`
+7. **`built_at` 不走 / 到点页面不刷新**：先看服务日志是否有 `schedule_loop started times=…`；再看 `/api/refresh_status` 的 `refreshing` 是否卡住；确认管理端 `schedule_times` 与机上本地时区。**勿**指望 cron `run.py --scheduled` 更新页面内存（独立进程不写 `_state`）
 
 ## 2. 回滚版本
 

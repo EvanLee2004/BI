@@ -239,11 +239,14 @@ class TestCronSentinel(unittest.TestCase):
         block = server._cron_block_for_times(["09:30", "12:00", "17:30"], root=ROOT)
         self.assertIn(server.CRON_BEGIN, block)
         self.assertIn(server.CRON_END, block)
-        # 三条 scheduled
-        self.assertEqual(block.count("--scheduled"), 3)
-        self.assertIn("30 9 * * *", block)
-        self.assertIn("0 12 * * *", block)
-        self.assertIn("30 17 * * *", block)
+        # 任务书60：哨兵段无刷新命令行（注释可提 --scheduled；禁止实际 cron 命令）
+        cmd_lines = [ln for ln in block.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+        self.assertEqual(cmd_lines, [], msg=f"哨兵应无命令行，实际: {cmd_lines}")
+        self.assertFalse(
+            any((not ln.strip().startswith("#")) and "--scheduled" in ln for ln in block.splitlines())
+        )
+        # 时间点可出现在注释备忘中
+        self.assertTrue("09:30" in block or "9:30" in block)
 
     def test_linux_sync_schedule_stubbed(self):
         import server
@@ -272,12 +275,16 @@ class TestCronSentinel(unittest.TestCase):
             note = server._linux_sync_schedule(["09:00", "18:00"], root=ROOT)
         finally:
             sp.run = real
-        self.assertIn("cron 已同步", note)
-        self.assertIn("2 个时间点", note)
+        self.assertIn("cron", note.lower())
+        self.assertTrue("ScheduleLoop" in note or "哨兵" in note or "同步" in note, note)
         text = calls["in"] or ""
         self.assertIn("keepme", text)
         self.assertIn("/bin/echo keep", text)
-        self.assertEqual(text.count("--scheduled"), 2)
+        # 任务书60：同步后哨兵内无非注释的 --scheduled 刷新命令
+        self.assertFalse(
+            any((not ln.strip().startswith("#")) and "--scheduled" in ln for ln in text.splitlines()),
+            msg=text,
+        )
         self.assertNotIn("old\n", text.replace(server.CRON_BEGIN, "").replace(server.CRON_END, ""))
 
     def test_register_script_uses_loaders(self):

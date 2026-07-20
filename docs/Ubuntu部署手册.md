@@ -182,16 +182,20 @@ journalctl -u kanban -n 100 --no-pager
 
 ---
 
-## 7. cron 注册多时间点
+## 7. 每日更新与 cron 哨兵（任务书60）
+
+**页面/API 数据的每日到点刷新**由服务进程内 **ScheduleLoop** 完成（`python run.py --serve` / systemd `kanban` 启动后自动起 daemon）。  
+`bash deploy/linux/register_schedule.sh` 只同步 `kanban-schedule` 哨兵段：**不再**注册 `run.py --scheduled`；上线/升级后重跑一次用于**清掉旧刷新 cron 行**。备份与 healthcheck 等其它 cron 不在本段内。
 
 ```bash
 cd /opt/kanban/看板正式程序
 bash deploy/linux/register_schedule.sh
 crontab -l | sed -n '/BEGIN kanban-schedule/,/END kanban-schedule/p'
+# 期望：段内仅注释，无 run.py --scheduled 命令行
 ```
 
-管理端改「自动更新时间」保存时，Linux 上会 best-effort 重写哨兵段；失败提示重跑本脚本。  
-选型理由：`docs/madr/0001_cron_vs_timer.md`。
+管理端改「自动更新时间」保存时，Linux 上会 best-effort 重写哨兵段（清旧行）；时间点热读进 ScheduleLoop，无需重启即可按新时间触发。  
+`run.py --scheduled` 仍保留为 CLI 离线批跑，**不**刷新 `--serve` 内存。
 
 ---
 
@@ -253,7 +257,7 @@ sudo systemctl restart kanban
 
 1. `systemctl enable --now kanban` 开机自启  
 2. 真实 CIFS `mount -a` 与掉挂载后的体检黄  
-3. 真实用户 `crontab` 到点执行 `--scheduled`  
+3. 服务内 ScheduleLoop 到点刷新：`built_at` 前进且日志有 `schedule_loop` / `trigger=schedule`（勿再依赖 cron `--scheduled` 更新页面）  
 4. `systemd-analyze verify /etc/systemd/system/kanban.service`  
 5. ufw 从同事机访问 8018  
 6. Playwright 导出 PNG 中文清晰  

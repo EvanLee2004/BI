@@ -265,6 +265,42 @@ class TestViewerAuth(unittest.TestCase):
         c2, _ = self._login("overall", "kickme1")
         self.assertEqual(c2.get("/api/v1/session").status_code, 200)
 
+    def test_t60_3_cookie_mutual_clear_admin_then_view(self):
+        """T-60-3：同 Client 管理员→看端登录后 session 非管理员；cookie 侧无有效管理员会话。"""
+        from fastapi.testclient import TestClient
+
+        c = TestClient(self.app, follow_redirects=False)
+        # 管理员登录
+        r = c.post("/api/v1/login", json={"account": "lushasha", "password": server.DEFAULT_PW})
+        self.assertEqual(r.status_code, 200, r.text)
+        sess = c.get("/api/v1/session").json()
+        self.assertTrue(sess.get("is_admin"), sess)
+        # 同 Client 看端/BU 登录 → 必须互清管理员 cookie
+        r2 = c.post("/api/v1/login", json={"account": "user_a", "password": server.DEFAULT_VIEW_PW})
+        self.assertEqual(r2.status_code, 200, r2.text)
+        sess2 = c.get("/api/v1/session")
+        self.assertEqual(sess2.status_code, 200)
+        body = sess2.json()
+        self.assertFalse(body.get("is_admin"), body)
+        self.assertEqual(body.get("account"), "user_a")
+        # 管理端路径不应仍认管理员
+        self.assertIn(c.get("/api/accounts").status_code, (401, 403))
+
+    def test_t60_3_cookie_mutual_clear_view_then_admin(self):
+        """T-60-3 反向：看端→管理员后为管理员。"""
+        from fastapi.testclient import TestClient
+
+        c = TestClient(self.app, follow_redirects=False)
+        r = c.post("/api/v1/login", json={"account": "overall", "password": server.DEFAULT_VIEW_PW})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = c.get("/api/v1/session").json()
+        self.assertFalse(body.get("is_admin"), body)
+        r2 = c.post("/api/v1/login", json={"account": "lushasha", "password": server.DEFAULT_PW})
+        self.assertEqual(r2.status_code, 200, r2.text)
+        sess = c.get("/api/v1/session").json()
+        self.assertTrue(sess.get("is_admin"), sess)
+        self.assertEqual(sess.get("account"), "lushasha")
+
     def test_admin_change_password_via_accounts_api(self):
         a = self._admin()
         rows = a.get("/api/accounts").json()["accounts"]

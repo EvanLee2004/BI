@@ -15,6 +15,7 @@ import json
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -222,6 +223,102 @@ class TestRegisterScheduleScriptReadsMergedConfig(unittest.TestCase):
         self.assertIn("loaders.load_config", sh)
         self.assertNotIn("json.load(open('config.json'))", sh)
         self.assertNotIn("schtasks", sh)
+
+    def test_register_script_no_scheduled_command(self):
+        """任务书60：register_schedule.sh 不得注册 run.py --scheduled 命令行。"""
+        sh = (ROOT / "deploy" / "linux" / "register_schedule.sh").read_text(encoding="utf-8")
+        # 允许注释提及 --scheduled；禁止拼出 crontab 命令
+        bad = []
+        for ln in sh.splitlines():
+            s = ln.strip()
+            if s.startswith("#"):
+                continue
+            if "--scheduled" in s and "run.py" in s:
+                bad.append(ln)
+            # 旧脚本 for 循环拼 cron 行的特征
+            if 'LINES="${LINES}' in s or "LINES=${LINES}" in s:
+                bad.append(ln)
+        self.assertEqual(bad, [], msg=f"不应再注册刷新 cron: {bad}")
+        self.assertIn("ScheduleLoop", sh)
+
+
+class TestScheduleLoop(unittest.TestCase):
+    """任务书60：进程内 ScheduleLoop（假时钟 + mock，无真等）。"""
+
+    def test_t60_1_fires_once_per_minute(self):
+        """T-60-1：命中 schedule_times → 调 start_refresh_async(trigger=schedule)；同分钟不二次。"""
+        import schedule_loop as sl
+
+        calls = []
+
+        def mock_start(cfg, root, trigger="manual"):
+            calls.append({"cfg": cfg, "root": root, "trigger": trigger})
+            return True
+
+        cfg = {"_mark": "same-cfg-object"}
+        # 2026-07-20 09:30 本地
+        fixed = time.struct_time((2026, 7, 20, 9, 30, 0, 0, 201, -1))
+        loop = sl.ScheduleLoop(
+            cfg,
+            None,
+            mock_start,
+            clock=lambda: fixed,
+            load_times_fn=lambda: ["09:30", "17:30"],
+        )
+        self.assertTrue(loop.tick())
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["trigger"], "schedule")
+        self.assertIs(calls[0]["cfg"], cfg)  # 同源 cfg 对象
+        # 同分钟再 tick → 不重复
+        self.assertFalse(loop.tick())
+        self.assertEqual(len(calls), 1)
+
+    def test_t60_2_busy_not_registered(self):
+        """T-60-2：返回 False（锁占用）不登记去重键，下 tick 可重试。"""
+        import schedule_loop as sl
+
+        calls = []
+        results = [False, True]
+
+        def mock_start(cfg, root, trigger="manual"):
+            calls.append(trigger)
+            return results.pop(0)
+
+        fixed = time.struct_time((2026, 7, 20, 12, 0, 0, 0, 201, -1))
+        loop = sl.ScheduleLoop(
+            {},
+            None,
+            mock_start,
+            clock=lambda: fixed,
+            load_times_fn=lambda: ["12:00"],
+        )
+        self.assertFalse(loop.tick())
+        self.assertEqual(calls, ["schedule"])
+        self.assertEqual(loop.fired, set())
+        # 重试成功并登记
+        self.assertTrue(loop.tick())
+        self.assertEqual(calls, ["schedule", "schedule"])
+        self.assertEqual(loop.fired, {("2026-07-20", "12:00")})
+
+    def test_t60_2b_create_app_no_schedule_thread(self):
+        """T-60-2b：create_app 后无 schedule loop 线程；启动仅在 serve()。"""
+        import schedule_loop as sl
+        import loaders
+
+        cfg = loaders.load_config()
+        app = server.create_app(cfg, root=ROOT)
+        self.assertIsNotNone(app)
+        self.assertFalse(sl.schedule_loop_thread_running())
+        src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
+        self.assertIn("start_schedule_loop", src)
+        # 唯一启动应在 serve() 体内（create_app 禁止）
+        create_idx = src.find("def create_app")
+        serve_idx = src.find("def serve")
+        self.assertGreater(serve_idx, create_idx)
+        create_body = src[create_idx:serve_idx]
+        serve_body = src[serve_idx:]
+        self.assertNotIn("start_schedule_loop", create_body)
+        self.assertIn("start_schedule_loop", serve_body)
 
 
 if __name__ == "__main__":

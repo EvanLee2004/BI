@@ -68,17 +68,21 @@ CRON_BEGIN = "# BEGIN kanban-schedule"
 CRON_END = "# END kanban-schedule"
 
 def _cron_block_for_times(times: list[str], root=None) -> str:
-    """生成 crontab 哨兵段正文（含 BEGIN/END）。times 已规范为 HH:MM 列表。"""
-    import sys
+    """生成 crontab 哨兵段正文（含 BEGIN/END）。
 
-    py = sys.executable or "python3"
-    runpy = str((root or loaders.ROOT) / "run.py")
-    lines = [CRON_BEGIN, "# managed by 看板正式程序 _linux_sync_schedule / register_schedule.sh"]
-    for t in times:
-        hh, mm = t.split(":")
-        # 去前导零：避免部分 cron 把 08 当八进制
-        lines.append(f'{int(mm)} {int(hh)} * * * "{py}" "{runpy}" --scheduled')
-    lines.append(CRON_END)
+    任务书60：刷新已迁入服务进程 ScheduleLoop，本段**不再**注册 run.py --scheduled。
+    保留哨兵 + 注释，便于 register_schedule.sh / sync_schedule 清掉旧机器上的刷新 cron 行。
+    times 参数保留签名兼容（管理端仍传时间点列表），仅写入注释展示。
+    """
+    times_s = "、".join(times) if times else "—"
+    lines = [
+        CRON_BEGIN,
+        "# managed by 看板正式程序 _linux_sync_schedule / register_schedule.sh",
+        "# 任务书60：每日刷新已迁入服务进程 ScheduleLoop（serve 内 daemon），",
+        f"# 本段故意无命令；当前配置时间点仅作备忘：{times_s}",
+        "# 勿再添加 run.py --scheduled（独立进程不写 serve 内存 _state）。",
+        CRON_END,
+    ]
     return "\n".join(lines) + "\n"
 
 def _strip_cron_sentinel(text: str) -> str:
@@ -96,7 +100,7 @@ def _strip_cron_sentinel(text: str) -> str:
     return "\n".join(out).rstrip("\n")
 
 def _linux_sync_schedule(times: list[str], root=None) -> str:
-    """Linux：重写当前用户 crontab 中本程序哨兵段（条目数=时间点数），绝不吞其它行。
+    """Linux：重写 crontab 哨兵段（清旧 --scheduled；段内无刷新命令）。
     best-effort：失败不打断保存，提示重跑 deploy/linux/register_schedule.sh。"""
 
     try:
@@ -111,19 +115,22 @@ def _linux_sync_schedule(times: list[str], root=None) -> str:
             return f"；⚠cron 同步失败（{err or '未知'}）——请重跑 bash deploy/linux/register_schedule.sh"
     except Exception as e:
         return f"；⚠cron 同步出错（{e}）——请重跑 bash deploy/linux/register_schedule.sh"
-    return f"；cron 已同步（{len(times)} 个时间点：{'、'.join(times)}）"
+    return (
+        f"；cron 哨兵已同步（刷新改进程内 ScheduleLoop；配置时间点 "
+        f"{'、'.join(times) if times else '—'} 仅备忘）"
+    )
 
 def sync_schedule(times: list[str], root=None) -> str:
-    """任务书54·D：仅 Linux crontab 哨兵段；其它平台（含 macOS 开发机）no-op 提示。
-    Windows 定时载体已退役。部署主线=Ubuntu cron。"""
+    """任务书54·D / 60：Linux 重写哨兵（清旧刷新 cron）；其它平台 no-op 提示。
+    生产每日刷新 = 服务内 ScheduleLoop；cron 哨兵仅作迁移清场，无 --scheduled 命令。"""
     import sys
 
     if sys.platform.startswith("linux"):
         return _linux_sync_schedule(times, root)
     times_s = "、".join(times) if times else "—"
     return (
-        f"（本机非 Linux 部署平台：{len(times)} 个时间点（{times_s}）在 Ubuntu 上由 cron 生效；"
-        "请跑 deploy/linux/register_schedule.sh）"
+        f"（本机非 Linux 部署平台：{len(times)} 个时间点（{times_s}）由服务内 ScheduleLoop 生效；"
+        "上 Ubuntu 后请跑 deploy/linux/register_schedule.sh 清旧 cron 刷新行）"
     )
 
 def _zhiyun_cfg_file(cfg, root=None) -> Path:

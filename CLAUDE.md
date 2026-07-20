@@ -66,8 +66,8 @@
 
 ```
 python run.py            # 更新一次：建库→算→出 HTML/JSON
-python run.py --serve    # 内网双端（用户 / + 管理 /admin）
-python run.py --scheduled# Linux cron
+python run.py --serve    # 内网双端（用户 / + 管理 /admin）；进程内 ScheduleLoop 按 schedule_times 刷新
+python run.py --scheduled# CLI 离线批跑（不写 serve 内存；生产勿靠 cron 当页面更新）
 sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 ```
 

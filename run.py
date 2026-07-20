@@ -4,7 +4,10 @@
 
 用法：
   python run.py                 更新一次（跑管道→算利润→写 output/HTML+JSON），默认手动触发
-  python run.py --scheduled     同上，触发方式记为 schedule（供 Linux cron 调用）
+  python run.py --scheduled     同上，触发方式记为 schedule（**仅 CLI/离线批跑**；
+                                **不**刷新 --serve 进程内存 _state。生产每日更新靠
+                                serve 内 ScheduleLoop 或管理端「更新数据」按钮，
+                                勿再靠 cron 调本开关当作页面自动更新。）
   python run.py --serve         起 FastAPI 内网服务（用户端 / + 管理员端 /admin），端口见 config
 切换测试/正式数据：改 config.json 的 data_dir（+ period_pin），代码不动。
 """

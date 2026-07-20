@@ -8,7 +8,7 @@ Python：系统 `python3`（≥3.12）建 venv，见 `docs/madr/0010_python_vers
 |------|------|---------------------------|
 | `kanban.service` | systemd 单元（改 WorkingDirectory/User 后 install；生产仅回环 8018） | systemd 语法通用；注释标 26.04 |
 | `start_with_rollback.sh` | 看门狗：码 42 重启 / `.update_rollback` 回滚一次 / 5 次停下 | 解释器=` .venv/bin/python` 否则 `python3` |
-| `register_schedule.sh` | 按合并配置 `schedule_times` 写用户 crontab 哨兵段 | cron 语法通用；同上 python 解析 |
+| `register_schedule.sh` | 同步 crontab `kanban-schedule` 哨兵（**无** `--scheduled`；清旧刷新行；每日更新=服务内 ScheduleLoop） | cron 语法通用；同上 python 解析 |
 | `nginx-kanban.conf` | **生产标准**：nginx 发 `frontend/dist` + 反代 `127.0.0.1:8018` | nginx 语法通用；root 指 dist |
 | `README.md` | 本文件 | 部署目标与 MADR 指针 |
 

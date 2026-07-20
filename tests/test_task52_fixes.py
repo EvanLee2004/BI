@@ -199,7 +199,9 @@ class TestF5PasswordOutOfGit(unittest.TestCase):
     def test_task50_report_no_password_table(self):
         """50 交付报告不得含密码表；现役明文只许在本机账号文件。"""
         p = ROOT / "docs" / "历史批次" / "20260717_任务书50交付报告.md"
-        self.assertTrue(p.is_file(), f"任务书50交付报告须在历史批次: {p}")
+        # 产品仓瘦身（4c87bf3）已将历史批次迁出 git；无文件=产品仓无泄漏面，守卫仍扫残留副本
+        if not p.is_file():
+            self.skipTest("任务书50交付报告已迁出产品仓（施工归档），无本地副本")
         t = p.read_text(encoding="utf-8")
         self.assertIn("看板账号.json", t)
         # 不得再出现「账号 | 明文密码」表格头/行（任务书52·F-5 出库）
