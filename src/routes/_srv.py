@@ -19,5 +19,5 @@ def start_refresh_async(cfg, root=None, trigger="manual"):
     return srv().start_refresh_async(cfg, root, trigger)
 
 
-def recompute(cfg, root=None):
-    return srv().recompute(cfg, root)
+def recompute(cfg, root=None, *, rebuild_std: bool = False):
+    return srv().recompute(cfg, root, rebuild_std=rebuild_std)

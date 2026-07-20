@@ -67,10 +67,47 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
     _state.update(snap)
 
 
+def source_data_fingerprint(cfg, root=None) -> str:
+    """数据源指纹：喂 std 的本地文件 mtime+size（任务书66·B）。
+
+    未变 → 手填/预算等可跳过 std 重建；变了 → 走全量 do_full。
+    """
+    from pathlib import Path
+
+    try:
+        data = loaders.data_dir(cfg, root)
+    except Exception:
+        data = Path(cfg.get("data_dir") or "数据")
+    paths: list[Path] = []
+    files_cfg = (cfg or {}).get("files") or {}
+    for key in ("ledger", "orders", "receipts", "inhouse", "project", "project_detail"):
+        name = files_cfg.get(key)
+        if name:
+            p = data / name
+            if p.is_file():
+                paths.append(p)
+    # 智云缓存 / 其它 xlsx
+    if data.is_dir():
+        for p in sorted(data.glob("*.xlsx")):
+            if p not in paths:
+                paths.append(p)
+        for p in sorted(data.glob("zhiyun_*.json")):
+            paths.append(p)
+    parts = []
+    for p in paths:
+        try:
+            st = p.stat()
+            parts.append(f"{p.name}:{st.st_mtime_ns}:{st.st_size}")
+        except OSError:
+            parts.append(f"{p.name}:missing")
+    return "|".join(parts) if parts else "empty"
+
+
 def do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
     _state["records"] = ing.get("records")
+    _state["source_fp"] = source_data_fingerprint(cfg, root)
     publish(
         cfg,
         summary,
@@ -82,8 +119,19 @@ def do_full(cfg, root, trigger) -> dict:
     return ing
 
 
-def do_recompute(cfg, root) -> None:
+def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
+    """手填/配置后重算。
+
+    任务书66·B：
+    - 源文件指纹变了 → 全量 do_full
+    - rebuild_std=True（调整写入）→ reapply（重建 std+重放调整）→ summary
+    - 默认（手填/预算/分摊/去税）→ **跳过 std 重建**，只 summary→publish
+    """
     if not _state.get("records"):
+        do_full(cfg, root, "manual")
+        return
+    fp = source_data_fingerprint(cfg, root)
+    if fp != _state.get("source_fp"):
         do_full(cfg, root, "manual")
         return
     import api_v1
@@ -92,14 +140,14 @@ def do_recompute(cfg, root) -> None:
     logo = assets.load_logo_base64(cfg)
     conn = db.connect(cfg, root)
     try:
-        ingest.reapply(cfg, conn, _state["records"], today)
+        if rebuild_std:
+            ingest.reapply(cfg, conn, _state["records"], today)
         summary = core.summary_from_conn(cfg, conn, today)
         bu_pages = core.build_bu_pages(cfg, conn, today, logo, root)
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
     frags_full = render.build_dashboard_fragments(summary, cfg, logo)
-    # 不预装整页；仅 client 碎片 + views
     views = api_v1.build_cockpit_views(summary, cfg)
     publish(
         cfg,
@@ -111,10 +159,10 @@ def do_recompute(cfg, root) -> None:
     )
 
 
-def recompute(cfg, root=None) -> None:
-    """同步重算。完整 refresh / start_refresh_async 仅挂在 server 模块（可打桩 _do_full）。"""
+def recompute(cfg, root=None, *, rebuild_std: bool = False) -> None:
+    """同步重算。调整类写入传 rebuild_std=True；手填默认 False。"""
     with _LOCK:
-        do_recompute(cfg, root)
+        do_recompute(cfg, root, rebuild_std=rebuild_std)
 
 
 def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:  # noqa: C901
