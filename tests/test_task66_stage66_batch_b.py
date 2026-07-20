@@ -79,14 +79,25 @@ class TestIncrementalRecompute(unittest.TestCase):
         self.assertLessEqual(t_inc, t_std * 3 + 1.0)
 
     def test_manual_then_both_paths(self):
-        """手填写入后：增量与强制 rebuild 结果一致。"""
+        """手填写入后：增量与强制 rebuild 结果一致（写独立临时库，不污染 golden）。"""
         import db
+        import loaders
+        import shutil
 
-        cfg, root = self.cfg, self.root
+        tmp = Path(tempfile.mkdtemp(prefix="t66b_"))
+        # 最小：复制 golden db 到 tmp
+        (tmp / "_golden_data").mkdir()
+        shutil.copy2(ROOT / "_golden_data" / "看板.db", tmp / "_golden_data" / "看板.db")
+        cfg = dict(self.cfg)
+        cfg["data_dir"] = "_golden_data"
+        cfg["db_path"] = str((tmp / "_golden_data" / "看板.db").resolve())
+        root = tmp
         rp, st = self.rp, self._state
+        # 先全量到该库
+        rp.do_full(cfg, root, "test-b-manual")
         conn = db.connect(cfg, root)
         try:
-            db.set_manual(conn, "2026-06", "PM人力成本", 12345.67, "test66b", 范围="全公司")
+            db.set_manual(conn, "2026-06", "其他损益", 100.0, "test66b", 范围="全公司")
         finally:
             conn.close()
         rp.do_recompute(cfg, root, rebuild_std=False)
@@ -94,6 +105,7 @@ class TestIncrementalRecompute(unittest.TestCase):
         rp.do_recompute(cfg, root, rebuild_std=True)
         full = _num_key(st["summary"])
         self.assertEqual(inc, full)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":
