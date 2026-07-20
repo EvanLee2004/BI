@@ -505,6 +505,11 @@
       "additionalProperties": true,
       "title": "Numbers",
       "type": "object"
+    },
+    "chart_month_max": {
+      "default": 12,
+      "title": "Chart Month Max",
+      "type": "integer"
     }
   },
   "title": "CockpitVM",

@@ -260,9 +260,9 @@ def _merge_dual_rank(o_rk, r_rk, top=10):
             seen.add(n)
             names.append(n)
 
-    # 排序：按 max(下单,回款) 降序
+    # 任务书61·D3：按下单额降序（陆总 2026-07-20）；回款仅展示、不参与排序键
     def score(n):
-        return max(float((o_map.get(n) or {}).get("amount") or 0), float((r_map.get(n) or {}).get("amount") or 0))
+        return float((o_map.get(n) or {}).get("amount") or 0)
 
     names.sort(key=score, reverse=True)
     full = []

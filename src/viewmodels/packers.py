@@ -384,13 +384,35 @@ def pack_period_month_ranges(summary: dict) -> dict[str, dict[str, str]]:
     return out
 
 
+def _chart_month_max_from_meta(meta: dict) -> int:
+    """任务书61·C-2：当前系统月上界（1–12），尊重 period_pin 驱动的 today。"""
+    for key in ("current_month_key", "current_month_label"):
+        s = str(meta.get(key) or "")
+        if "年" in s and "月" in s:
+            try:
+                part = s.split("年", 1)[1].replace("月", "").strip()
+                if part.isdigit():
+                    m = int(part)
+                    if 1 <= m <= 12:
+                        return m
+            except (IndexError, ValueError):
+                pass
+    return 12
+
+
 def pack_daily_defaults(summary: dict) -> dict[str, Any]:
-    """按时间段查询默认日期与年。"""
+    """按时间段查询默认日期与年。任务书61：default_end 落到当前系统月（便于前端裁未来空月）。"""
     meta = summary.get("meta") or {}
     y = meta.get("year") or 2026
+    m = _chart_month_max_from_meta(meta)
+    # 月末日：简单用 28+ 即可（仅作区间默认上界，非账期口径）
+    import calendar
+
+    last = calendar.monthrange(int(y), int(m))[1]
     return {
         "year": y,
         "default_start": f"{y}-01-01",
-        "default_end": f"{y}-12-31",
+        "default_end": f"{y}-{int(m):02d}-{last:02d}",
         "year_key": meta.get("year_key") or f"{y}年",
+        "chart_month_max": int(m),
     }

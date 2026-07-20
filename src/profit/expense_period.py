@@ -32,6 +32,47 @@ from .tax_revenue import _sum_amount_in_period, compute_ranking
 
 # pure-move funcs from _impl.py
 
+def manual_alloc_fine_types(cfg) -> set[str]:
+    """任务书61·J：改人工按 BU×月分摊、默认台账口径剔除的「预算明细费用类型」名单。"""
+    return {str(x).strip() for x in (cfg or {}).get("manual_alloc_fine_types") or [] if str(x).strip()}
+
+
+def manual_alloc_category_map(cfg) -> dict[str, str]:
+    """细类 → 对应报表大类（人工分摊归回利润表结构）。"""
+    raw = (cfg or {}).get("manual_alloc_category_map") or {}
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k).strip(): str(v).strip() for k, v in raw.items() if str(k).strip() and str(v).strip()}
+
+
+def row_fine_type(row, lcols) -> str:
+    c_fine = (lcols or {}).get("预算明细费用类型")
+    if c_fine is None:
+        return ""
+    try:
+        raw = row[c_fine] if len(row) > c_fine else None
+    except (TypeError, IndexError):
+        return ""
+    return str(raw).strip() if raw not in (None, "") else ""
+
+
+def is_manual_alloc_ledger_row(row, cfg, lcols) -> bool:
+    """台账行是否属人工分摊细类（默认统计应剔除）。"""
+    ban = manual_alloc_fine_types(cfg)
+    if not ban:
+        return False
+    return row_fine_type(row, lcols) in ban
+
+
+def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
+    """手填三类分摊 → 按报表大类汇总（分）。未填项=0。"""
+    man = man or {}
+    out: dict[str, int] = defaultdict(int)
+    for fine, cat in manual_alloc_category_map(cfg).items():
+        out[cat] += int(money.as_fen(man.get(fine, 0)) or 0)
+    return {k: int(v) for k, v in out.items()}
+
+
 def _expense_all_cats(cfg) -> list:
     """图用台账大类全集（含成本/工资等排除类，便于领导看构成）。"""
     included = list(cfg.get("expense_categories_included") or [])
@@ -43,6 +84,29 @@ def _expense_all_cats(cfg) -> list:
     return all_cats
 
 
+def _row_month_cat_amt(row, ledger_year, lcols, cfg, year, profit_center, c_amt, c_pc):
+    """单行 → (月, 大类, 分) 或 None（跳过）。任务书61·J 剔除人工分摊细类。"""
+    if is_manual_alloc_ledger_row(row, cfg, lcols):
+        return None
+    d = periods.ledger_row_date(row, ledger_year, lcols)
+    if not d or d[0] != year:
+        return None
+    m = int(d[1])
+    if m < 1 or m > 12:
+        return None
+    if profit_center is not None and c_pc is not None:
+        pc = str(row[c_pc] if len(row) > c_pc else "").strip()
+        if pc != profit_center:
+            return None
+    amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
+    if not amt:
+        return None
+    cat, is_unc = columns.classify_expense_category(row, cfg, lcols)
+    if is_unc or not cat or cat == "非利润表":
+        return None
+    return m, cat, amt
+
+
 def _accumulate_ledger_monthly(
     ledger_rows, ledger_year, lcols, cfg, year, profit_center, all_cats, by_m
 ) -> list:
@@ -52,22 +116,10 @@ def _accumulate_ledger_monthly(
     if c_amt is None:
         return all_cats
     for row in ledger_rows:
-        d = periods.ledger_row_date(row, ledger_year, lcols)
-        if not d or d[0] != year:
+        hit = _row_month_cat_amt(row, ledger_year, lcols, cfg, year, profit_center, c_amt, c_pc)
+        if not hit:
             continue
-        m = int(d[1])
-        if m < 1 or m > 12:
-            continue
-        if profit_center is not None and c_pc is not None:
-            pc = str(row[c_pc] if len(row) > c_pc else "").strip()
-            if pc != profit_center:
-                continue
-        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
-        if not amt:
-            continue
-        cat, is_unc = columns.classify_expense_category(row, cfg, lcols)
-        if is_unc or not cat or cat == "非利润表":
-            continue
+        m, cat, amt = hit
         if cat not in all_cats:
             all_cats.append(cat)
         by_m[m][cat] += amt
@@ -104,6 +156,27 @@ def _merge_salary_into_other(all_cats, by_m, hide_salary: bool) -> tuple[list, b
     return all_cats, True, note
 
 
+def inject_manual_alloc_monthly(by_m: dict, filled_manual: dict | None, cfg, year: int, all_cats: list) -> list:
+    """任务书61·J：把手填三类分摊（按月·分）叠进 by_m 大类矩阵。filled_manual={(y,m):{项目:分}}。"""
+    if not filled_manual:
+        return all_cats
+    cat_map = manual_alloc_category_map(cfg)
+    if not cat_map:
+        return all_cats
+    cats = list(all_cats)
+    for (y, m), row in filled_manual.items():
+        if int(y) != int(year) or m not in by_m:
+            continue
+        for fine, cat in cat_map.items():
+            amt = int(money.as_fen((row or {}).get(fine, 0)) or 0)
+            if not amt:
+                continue
+            if cat not in cats:
+                cats.append(cat)
+            by_m[m][cat] += amt
+    return cats
+
+
 def compute_expense_monthly_by_cat(
     ledger_rows,
     ledger_year,
@@ -114,11 +187,13 @@ def compute_expense_monthly_by_cat(
     profit_center: str | None = None,
     hide_salary: bool = False,
     alloc_by_month: dict | None = None,
+    filled_manual: dict | None = None,
 ):
     """任务书39·E：全年 1~12 月 × 报表大类 费用矩阵（金额=分）。
 
     profit_center：BU 页只计「利润归属中心」=该 BU 的直记行；None=全公司。
     alloc_by_month：{(y,m):{大类:分}} 分摊自公共（BU 页叠加，与利润表费用口径一致）。
+    filled_manual：任务书61·J 手填三类分摊（按月注入对应大类）。
     hide_salary=True：工资并入「其他」并记 note（跟随 B8 工资明细开关）。
     返回 {categories:[...], months:[{m,total,by_cat:{…}}], salary_merged:bool}。
     """
@@ -131,6 +206,7 @@ def compute_expense_monthly_by_cat(
         ledger_rows, ledger_year, lcols, cfg, year, profit_center, all_cats, by_m
     )
     all_cats = _apply_alloc_monthly(alloc_by_month, year, all_cats, by_m)
+    all_cats = inject_manual_alloc_monthly(by_m, filled_manual, cfg, year, all_cats)
     all_cats, salary_merged, note = _merge_salary_into_other(all_cats, by_m, hide_salary)
     months = []
     for m in range(1, 13):
@@ -248,6 +324,8 @@ def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
     count = 0
     c_amt = lcols["含税金额"]
     for row in ledger_rows:
+        if is_manual_alloc_ledger_row(row, cfg, lcols):
+            continue  # 任务书61·J
         amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
@@ -268,6 +346,8 @@ def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lco
     c_amt, c_fine = lcols["含税金额"], lcols["预算明细费用类型"]
     out: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in ledger_rows:
+        if is_manual_alloc_ledger_row(row, cfg, lcols):
+            continue  # 任务书61·J
         amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
@@ -296,6 +376,8 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
     agg: dict[str, float] = defaultdict(float)
     fine: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in ledger_rows:
+        if is_manual_alloc_ledger_row(row, cfg, lcols):
+            continue  # 任务书61·J
         amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue

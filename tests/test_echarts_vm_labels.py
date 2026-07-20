@@ -41,7 +41,8 @@ class TestEchartsVmLabels(unittest.TestCase):
         cls.summary, cls.cfg = _build_summary()
 
     def test_components_use_echarts_host(self):
-        for name in ("TrendChart.vue", "ExpenseTrend.vue", "ExpenseSection.vue", "ReceiptsCard.vue"):
+        # 任务书61·C：ExpenseTrend 已删；热力 ExpenseHeatmap 仍用 EchartsHost
+        for name in ("TrendChart.vue", "ExpenseHeatmap.vue", "ExpenseSection.vue", "ReceiptsCard.vue"):
             text = (FE / "components" / name).read_text(encoding="utf-8")
             self.assertIn("EchartsHost", text, name)
             self.assertIn("option", text)

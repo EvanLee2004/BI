@@ -28,7 +28,7 @@ class TestThemeReactive(unittest.TestCase):
     def test_charts_depend_on_theme_mode(self):
         for name in (
             "ExpenseSection.vue",
-            "ExpenseTrend.vue",
+            "ExpenseHeatmap.vue",
             "TrendChart.vue",
             "ReceiptsCard.vue",
             "ExpenseHeatmap.vue",
@@ -77,10 +77,13 @@ class TestRatioAxisAndBanner(unittest.TestCase):
         self.assertIn("Math.ceil(hi * 1.08)", t)
 
     def test_receipts_and_trend_use_ratio_bounds(self):
-        for name in ("ReceiptsCard.vue", "TrendChart.vue"):
-            t = (FE / "components" / name).read_text(encoding="utf-8")
-            self.assertIn("ratioAxisBounds", t, name)
-            self.assertNotRegex(t, r"max:\s*100\s*,\s*\n\s*splitLine", name)
+        # 任务书61·A：回款卡已删黄「回款率」线，不再需要 ratioAxisBounds；趋势毛利率线仍要
+        t_trend = (FE / "components" / "TrendChart.vue").read_text(encoding="utf-8")
+        self.assertIn("ratioAxisBounds", t_trend, "TrendChart.vue")
+        self.assertNotRegex(t_trend, r"max:\s*100\s*,\s*\n\s*splitLine")
+        t_rc = (FE / "components" / "ReceiptsCard.vue").read_text(encoding="utf-8")
+        self.assertNotIn("回款率", t_rc.split("<template>")[-1])
+        self.assertIn("clipToCurrentMonth", t_rc)
 
     def test_banner_tokens(self):
         t = THEME_CSS.read_text(encoding="utf-8")

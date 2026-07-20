@@ -89,6 +89,18 @@
     "工资",
     "非利润表"
   ],
+  "manual_alloc_fine_types": [
+    "房租",
+    "物业费",
+    "装修费"
+  ],
+  "_manual_alloc_fine_types_note": "任务书61·J：台账默认口径剔除这三类（季度支付畸高），改由人工按BU按月分摊；未填=0。台账核名：房租/物业费/装修费。",
+  "manual_alloc_category_map": {
+    "房租": "固定运营费用",
+    "物业费": "固定运营费用",
+    "装修费": "管理费用"
+  },
+  "_manual_alloc_category_map_note": "人工分摊额归回台账原对应报表大类（2026-07-20 台账核：房租/物业费→固定运营费用，装修费→管理费用）。",
   "unclassified_label_expense": "未分类",
   "unclassified_label_bu": "未分类BU",
   "unclassified_label_fine_type": "未标注明细类型",
@@ -102,6 +114,24 @@
       "name": "管理人力成本",
       "role": "管理费用",
       "default": "zero"
+    },
+    {
+      "name": "房租",
+      "role": "固定运营费用",
+      "default": "zero",
+      "manual_alloc": true
+    },
+    {
+      "name": "物业费",
+      "role": "固定运营费用",
+      "default": "zero",
+      "manual_alloc": true
+    },
+    {
+      "name": "装修费",
+      "role": "管理费用",
+      "default": "zero",
+      "manual_alloc": true
     },
     {
       "name": "研发人力成本",

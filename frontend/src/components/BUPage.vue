@@ -6,7 +6,6 @@ import KpiCards from './KpiCards.vue'
 import TrendChart from './TrendChart.vue'
 import PLTable from './PLTable.vue'
 import ExpenseSection from './ExpenseSection.vue'
-import ExpenseTrend from './ExpenseTrend.vue'
 import ExpenseHeatmap from './ExpenseHeatmap.vue'
 import ProfitStructure from './ProfitStructure.vue'
 import RankingsDual from './RankingsDual.vue'
@@ -41,7 +40,6 @@ const store = useCockpitStore()
       </div>
       <PLTable />
     </div>
-    <ExpenseTrend />
     <section class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></section>
     <ProfitStructure />
     <section class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款</span></section>

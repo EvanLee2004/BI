@@ -30,7 +30,7 @@ REQUIRED = [
     "components/ReceiptsCard.vue",
     "components/DailyQuery.vue",
     "components/LedgerTable.vue",
-    "components/ExpenseTrend.vue",
+    "components/ExpenseHeatmap.vue",
     "components/PeriodPicker.vue",
     "components/ThemeToggle.vue",
     "components/LoginView.vue",

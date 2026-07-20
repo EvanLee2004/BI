@@ -132,14 +132,44 @@ onMounted(load)
     >
       <el-table-column prop="id" label="id" width="70" />
       <el-table-column prop="创建时间" label="时间" width="160" />
-      <el-table-column prop="经手人" label="操作账号" width="100" />
-      <el-table-column prop="目标表" label="目标表" width="120" />
-      <el-table-column prop="字段" label="字段" width="100" />
+      <el-table-column
+        prop="经手人"
+        label="操作账号"
+        width="100"
+        :filters="[...new Set(shown.map((r) => String(r['经手人'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Adj) => String(row['经手人'] || '') === v"
+      />
+      <el-table-column
+        prop="目标表"
+        label="目标表"
+        width="120"
+        :filters="[...new Set(shown.map((r) => String(r['目标表'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Adj) => String(row['目标表'] || '') === v"
+      />
+      <el-table-column
+        prop="字段"
+        label="字段"
+        width="100"
+        :filters="[...new Set(shown.map((r) => String(r['字段'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Adj) => String(row['字段'] || '') === v"
+      />
       <el-table-column label="原值→新值" min-width="160">
         <template #default="{ row }">{{ row['原值'] }} → {{ row['新值'] }}</template>
       </el-table-column>
-      <el-table-column prop="类型" label="类型" width="80" />
-      <el-table-column prop="状态" label="状态" width="100" />
+      <el-table-column
+        prop="类型"
+        label="类型"
+        width="80"
+        :filters="[...new Set(shown.map((r) => String(r['类型'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Adj) => String(row['类型'] || '') === v"
+      />
+      <el-table-column
+        prop="状态"
+        label="状态"
+        width="100"
+        :filters="[...new Set(shown.map((r) => String(r['状态'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Adj) => String(row['状态'] || '') === v"
+      />
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row['状态'] === '过期疑似' && row['类型'] === '改值'" size="small" @click="rearm(row.id)">坚持我的数</el-button>

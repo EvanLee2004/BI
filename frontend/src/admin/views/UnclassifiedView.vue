@@ -40,13 +40,25 @@ onMounted(load)
     </div>
     <div class="admin-note">收单（费用）台账明细还没填「对应报表大类」→ 暂未计入费用。请在源头补填，下次更新自动计入。</div>
     <el-table :data="rows" v-loading="loading" border stripe height="calc(100vh - 260px)">
-      <el-table-column label="收单日期" width="140">
+      <el-table-column
+        label="收单日期"
+        width="140"
+        prop="收单日期"
+        :filters="[...new Set(rows.map((r) => String(r['收单日期'] || r['收单月份'] || '')).filter(Boolean))].slice(0, 40).map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Record<string, unknown>) => String(row['收单日期'] || row['收单月份'] || '') === v"
+      >
         <template #default="{ row }">{{ row['收单日期'] || row['收单月份'] }}</template>
       </el-table-column>
-      <el-table-column label="金额" width="120">
+      <el-table-column label="金额" width="120" prop="含税金额">
         <template #default="{ row }">{{ row['含税金额'] }}</template>
       </el-table-column>
-      <el-table-column label="预算明细费用类型" min-width="200">
+      <el-table-column
+        label="预算明细费用类型"
+        min-width="200"
+        prop="预算明细费用类型"
+        :filters="[...new Set(rows.map((r) => String(r['预算明细费用类型'] || '')).filter(Boolean))].slice(0, 40).map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Record<string, unknown>) => String(row['预算明细费用类型'] || '') === v"
+      >
         <template #default="{ row }">{{ row['预算明细费用类型'] }}</template>
       </el-table-column>
     </el-table>

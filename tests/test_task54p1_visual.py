@@ -55,7 +55,7 @@ class TestV4V6ChartFx(unittest.TestCase):
     def test_charts_import_fx(self):
         for name in (
             "TrendChart.vue",
-            "ExpenseTrend.vue",
+            "ExpenseHeatmap.vue",
             "ExpenseSection.vue",
             "ReceiptsCard.vue",
         ):
@@ -95,7 +95,7 @@ class Test54p4PerfA(unittest.TestCase):
         self.assertIn("rgba(8, 16, 32, 0.92)", css)
 
     def test_no_breath_calls_in_charts(self):
-        for name in ("TrendChart.vue", "ExpenseTrend.vue", "ReceiptsCard.vue"):
+        for name in ("TrendChart.vue", "ExpenseHeatmap.vue", "ReceiptsCard.vue"):
             src = (FE / "components" / name).read_text(encoding="utf-8")
             self.assertNotIn("breathScatterSeries", src, name)
             self.assertNotIn("effectScatter", src, name)

@@ -37,7 +37,7 @@ onMounted(load)
 
 <template>
   <div v-loading="loading">
-    <div class="admin-note">分诊台：0=绿=不用管；有数=点卡片进对应清单。处理动作与「数据调整」同一套调整机制。</div>
+    <div class="admin-note">分诊台：0=绿=不用管；有数=点卡片进对应清单。处理动作与「数据调整」同一套调整机制。清单页表头带 Excel 式列筛选。</div>
     <div class="ov-grid">
       <div
         v-for="c in cards"
@@ -59,6 +59,37 @@ onMounted(load)
         </template>
       </div>
     </div>
+    <!-- 任务书61·E2：总览表（卡片外补一览表+列筛选；子页 OrderDept/Unclassified/Ledger 已加列筛选） -->
+    <el-table
+      class="ov-table"
+      :data="cards.filter((c) => !c.disabled)"
+      border
+      stripe
+      size="small"
+      style="margin-top: 16px; width: 100%"
+    >
+      <el-table-column
+        prop="label"
+        label="异常类型"
+        min-width="160"
+        :filters="cards.filter((c) => !c.disabled).map((c) => ({ text: c.label, value: c.label }))"
+        :filter-method="(v: string, row: (typeof cards)[0]) => row.label === v"
+      />
+      <el-table-column label="待处理数" width="120">
+        <template #default="{ row }">{{ ex[row.key] || 0 }}</template>
+      </el-table-column>
+      <el-table-column
+        prop="desc"
+        label="说明"
+        min-width="240"
+        show-overflow-tooltip
+      />
+      <el-table-column label="操作" width="100">
+        <template #default="{ row }">
+          <el-button size="small" link type="primary" @click="go(row)">进入</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
     <div class="admin-note" style="margin-top: 14px">
       闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「数据修正」选听源头或坚持我的数。
     </div>

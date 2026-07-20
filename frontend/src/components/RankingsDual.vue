@@ -33,7 +33,11 @@ const blkPair = computed((): (DualBlk | undefined)[] => {
 const visible = computed(() => dailyOn.value || !!(view.value && view.value.visible !== false))
 function blkTitle(blk: DualBlk | undefined): string {
   const t = blk?.title || ''
-  return dailyOn.value ? `${t} · 区间 ${rangeLabel.value}` : t
+  const base = dailyOn.value ? `${t} · 区间 ${rangeLabel.value}` : t
+  // 任务书61·D2：标注前 N 名（按后端 items 实际条数，常见 top10）
+  const n = (blk?.items || []).length
+  if (!n) return base
+  return `${base} · 前${n}名`
 }
 
 const monthly = computed(() => {
@@ -111,18 +115,20 @@ function pct(v: unknown): string {
           </span>
         </template>
         <div v-if="!blk || blk.empty || !(blk.items && blk.items.length)" class="ev-empty">本期无数据</div>
-        <div v-else>
+        <div v-else class="rk-card-body">
           <div class="rank-chart-host" :style="{ height: chartH(blk) + 'px', minHeight: '420px' }">
             <EchartsHost
               :option="barOption(blk)"
               @click="(p) => onChartClick(blk, p)"
             />
           </div>
-          <div
+          <!-- 任务书61·D1：其余入口完整可见可点，禁止被容器裁切露半行 -->
+          <button
             v-if="blk.others"
-            class="ev-row rk-row rk-others rk-more"
-            title="点开看 10 名以后的完整明细"
-            style="cursor: pointer; padding: 8px 12px"
+            type="button"
+            class="rk-others-btn"
+            data-testid="rk-others-btn"
+            title="点开看前 N 名以后的完整明细"
             @click="openOthers(blk)"
           >
             <span class="rk-no">…</span>
@@ -130,14 +136,14 @@ function pct(v: unknown): string {
               >其余 {{ blk.others.names }} 个 <span class="rk-open">点开看明细 ›</span></span
             >
             <span class="ev-amt">{{ blk.others.amt }}</span>
-          </div>
+          </button>
         </div>
       </SciFiPanel>
     </div>
 
     <Teleport to="body">
       <div v-if="modal" id="rkModal" class="rkm-mask" style="display: flex" @click.self="closeModal">
-        <div class="rkm">
+        <div class="rkm" role="dialog" aria-modal="true">
           <div class="rkm-h">
             <b id="rkmTitle">{{ modalTitle }}</b>
             <span id="rkmTag" class="tag">{{ modalTag }}</span>
@@ -165,3 +171,46 @@ function pct(v: unknown): string {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.rk-card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+.rk-others-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 8px;
+  background: rgba(34, 211, 238, 0.06);
+  color: var(--ink, #e8eef8);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  flex-shrink: 0;
+}
+.rk-others-btn:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.12);
+}
+.rk-others-btn .ev-name {
+  flex: 1;
+  min-width: 0;
+}
+.rk-others-btn .rk-open {
+  color: #22d3ee;
+  font-weight: 600;
+}
+.rk-others-btn .ev-amt {
+  font-family: var(--num-font, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--note, #8b9bb4);
+  white-space: nowrap;
+}
+</style>

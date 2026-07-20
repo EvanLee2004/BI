@@ -57,24 +57,21 @@ class TestSciFiVendor54(unittest.TestCase):
 
 
 class TestExpenseMultiLine54p1(unittest.TestCase):
-    """54.1·V7：费用月度 = 多系列发光折线（仍用 area_* 数据，零口径变化）。"""
+    """54.1 曾为多系列折线；任务书61·C 删 ExpenseTrend，热力承接 area_*。"""
 
-    def test_expense_trend_is_multi_line_not_stack_bar(self):
-        src = (FE / "components" / "ExpenseTrend.vue").read_text(encoding="utf-8")
-        self.assertIn("type: 'line'", src)
-        self.assertNotIn("areaStyle", src)
+    def test_expense_heatmap_uses_area_not_stack_bar(self):
+        src = (FE / "components" / "ExpenseHeatmap.vue").read_text(encoding="utf-8")
+        self.assertIn("type: 'heatmap'", src)
         self.assertNotIn("stack: 'total'", src)
         self.assertNotIn("堆叠柱", src)
-        self.assertIn("area_totals_disp", src)
         self.assertIn("area_labels", src)
         self.assertIn("area_series", src)
-        self.assertIn("多系列折线", src)
-        # 54.4：删呼吸特效，保留折线样式
+        self.assertIn("buildExpenseHeatPack", src)
         self.assertNotIn("breathScatterSeries", src)
-        self.assertIn("lineGlowStyle", src)
-        self.assertNotIn("var(--ink", src)
         self.assertNotIn("CanvasGraphPanel", src)
         self.assertNotIn("TrueCanvasGraph", src)
+        # 折线卡已删
+        self.assertFalse((FE / "components" / "ExpenseTrend.vue").exists())
 
     def test_theme_ink_helper_exported(self):
         src = (FE / "echarts-theme.ts").read_text(encoding="utf-8")
@@ -88,7 +85,7 @@ class TestCardsUseSciFiShell(unittest.TestCase):
             "TrendChart.vue",
             "PLTable.vue",
             "ExpenseSection.vue",
-            "ExpenseTrend.vue",
+            "ExpenseHeatmap.vue",
             "ReceiptsCard.vue",
             "RankingsDual.vue",
             "ProfitStructure.vue",

@@ -120,7 +120,7 @@ def _append_date_filter(col: str, spec: dict, where: list, args: list) -> None:
 
 
 def _append_text_filter(col: str, spec: dict, where: list, args: list) -> None:
-    """关键词 LIKE + 去重值 IN（多选）。"""
+    """关键词 LIKE + 去重值 IN（多选）+ not_in（任务书61·J 默认口径剔人工分摊细类）。"""
     q = spec.get("q") or spec.get("keyword")
     if q is not None and str(q).strip():
         where.append(f"CAST({col} AS TEXT) LIKE ?")
@@ -135,6 +135,15 @@ def _append_text_filter(col: str, spec: dict, where: list, args: list) -> None:
             ph = ",".join("?" * len(clean))
             where.append(f"CAST(COALESCE({col},'') AS TEXT) IN ({ph})")
             args.extend(clean)
+    not_in = spec.get("not_in") or spec.get("exclude")
+    if not_in is not None:
+        if isinstance(not_in, str):
+            not_in = [not_in]
+        clean_ex = [str(x) for x in not_in if x is not None and str(x) != ""]
+        if clean_ex:
+            ph = ",".join("?" * len(clean_ex))
+            where.append(f"CAST(COALESCE({col},'') AS TEXT) NOT IN ({ph})")
+            args.extend(clean_ex)
 
 
 def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | None) -> tuple[list[str], list]:

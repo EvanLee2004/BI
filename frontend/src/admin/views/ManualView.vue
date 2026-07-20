@@ -124,12 +124,13 @@ async function loadAlloc() {
     return
   }
   try {
+    // 任务书61·G：后端路由 /api/alloc_ratios，字段 ratios（勿用旧 alloc_rates/rates）
     const d0 = await jget<{
       bus?: string[]
-      rates?: Record<string, number>
+      ratios?: Record<string, number | null>
       month_total_disp?: string
-      inherited_from?: string
-    }>(`/api/alloc_rates?month=${encodeURIComponent(m)}`)
+      inherited_from?: string | null
+    }>(`/api/alloc_ratios?month=${encodeURIComponent(m)}`)
     if (!d0.bus?.length) {
       showAlloc.value = false
       return
@@ -140,7 +141,8 @@ async function loadAlloc() {
       ? `本月未单独填写，当前沿用 ${d0.inherited_from} 的比例（改动保存后从本月起生效）`
       : ''
     allocRows.value = d0.bus.map((bn) => {
-      const v = d0.rates && d0.rates[bn] != null ? String(d0.rates[bn]) : ''
+      const raw = d0.ratios ? d0.ratios[bn] : null
+      const v = raw != null && raw !== ('' as unknown) ? String(raw) : ''
       return { bu: bn, orig: v, val: v }
     })
   } catch {
@@ -253,7 +255,7 @@ async function saveAll() {
   saving.value = true
   try {
     if (manuals.length) await jpost('/api/manual_batch', { 归属月: m, 范围: scope.value, items: manuals })
-    if (allocChanged) await jpost('/api/alloc_rates', { 归属月: m, rates: allocs })
+    if (allocChanged) await jpost('/api/alloc_ratios', { 归属月: m, ratios: allocs })
     if (detaxChanged) await jpost('/api/detax_rates', { rates: detax })
     dirtyApi?.setFormDirty(0)
     ElMessage.success(`✓ 已保存 ${manuals.length + allocChanged + detaxChanged} 项并重算`)

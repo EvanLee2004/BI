@@ -54,7 +54,7 @@ class TestAdminVueStructure(unittest.TestCase):
             "控制台 iframe": ('src="/"', "ConsoleView"),
             "更新数据": ("/api/refresh", "doRefresh"),
             "手填": ("/api/manual", "manual_batch"),
-            "分摊": ("/api/alloc_rates",),
+            "分摊": ("/api/alloc_ratios", "/api/alloc_rates"),  # 61·G：前端已对齐 ratios
             "去税": ("/api/detax_rates",),
             "预算": ("/api/budget", "budget_batch"),
             "明细调整": ("/api/detail", "/api/adjust"),

@@ -154,7 +154,13 @@ def build_summary(
             }
     # 任务书39·E：全年费用×大类矩阵（显示层再按 B8 隐工资；算账口径不改）
     expense_monthly_by_cat = compute_expense_monthly_by_cat(
-        ledger_rows, ledger_year, lcols, cfg, year=today.year, hide_salary=False
+        ledger_rows,
+        ledger_year,
+        lcols,
+        cfg,
+        year=today.year,
+        hide_salary=False,
+        filled_manual=filled_manual,
     )
     return {
         "meta": {

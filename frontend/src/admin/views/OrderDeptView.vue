@@ -164,13 +164,25 @@ onMounted(() => load(true))
     </div>
 
     <el-table :data="shown" v-loading="loading" border stripe height="calc(100vh - 300px)">
-      <el-table-column prop="下单日期" label="下单日期" width="120">
+      <el-table-column
+        prop="下单日期"
+        label="下单日期"
+        width="120"
+        :filters="[...new Set(shown.map((r) => String(r['下单日期'] || '')).filter(Boolean))].slice(0, 40).map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Record<string, unknown>) => String(row['下单日期'] || '') === v"
+      >
         <template #default="{ row }">{{ row['下单日期'] }}</template>
       </el-table-column>
       <el-table-column prop="订单号" label="订单号" min-width="120">
         <template #default="{ row }">{{ row['订单号'] }}</template>
       </el-table-column>
-      <el-table-column prop="销售" label="销售" width="100">
+      <el-table-column
+        prop="销售"
+        label="销售"
+        width="100"
+        :filters="[...new Set(shown.map((r) => String(r['销售'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filter-method="(v: string, row: Record<string, unknown>) => String(row['销售'] || '') === v"
+      >
         <template #default="{ row }">{{ row['销售'] }}</template>
       </el-table-column>
       <el-table-column prop="下单预估额" label="金额" width="120">

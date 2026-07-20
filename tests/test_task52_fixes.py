@@ -151,11 +151,13 @@ class TestF4AreaAxisTrim(unittest.TestCase):
         for s in self.vm.expense.area_series or []:
             self.assertEqual(len(s.get("data") or []), len(labs))
 
-    def test_expense_trend_vue_uses_tick_label(self):
-        src = (ROOT / "frontend" / "src" / "components" / "ExpenseTrend.vue").read_text(encoding="utf-8")
-        self.assertIn("tickLabel", src)
-        self.assertIn("area_y_axis_ticks", src)
-        self.assertNotIn("String(v)", src)
+    def test_expense_heatmap_uses_area_vm(self):
+        """任务书61·C：ExpenseTrend 已删；热力仍消费 area_*（无前端金额运算）。"""
+        src = (ROOT / "frontend" / "src" / "components" / "ExpenseHeatmap.vue").read_text(encoding="utf-8")
+        self.assertIn("buildExpenseHeatPack", src)
+        self.assertIn("area_labels", src)
+        self.assertIn("area_series", src)
+        self.assertNotIn("ExpenseTrend", src)
 
 
 class TestF5PasswordOutOfGit(unittest.TestCase):

@@ -23,7 +23,7 @@ from __future__ import annotations
 import periods
 import money
 
-from .expense_period import compute_inhouse_cost, compute_ledger_expenses
+from .expense_period import compute_inhouse_cost, compute_ledger_expenses, manual_alloc_amounts_by_cat
 from .tax_revenue import build_rankings_monthly, compute_orders, compute_profit_ranking, compute_ranking, compute_receipts, compute_revenue_cost
 
 
@@ -118,11 +118,13 @@ def build_period(
     gross_profit = int(net - production_cost)
 
     led, led_count = compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols)
-    sales_exp = int(man["营销人力成本"] + led["市场费用"])
-    admin_exp = int(man["管理人力成本"] + led["管理费用"])
-    fixed_exp = int(led["固定运营费用"])
-    rd_exp = int(man["研发人力成本"] + led["技术服务费"])
-    fin_exp = int(led["财务费用"] + man["财务费用补充"])
+    # 任务书61·J：房租/物业费/装修费 台账已剔，手填分摊归回对应报表大类（未填=0）
+    mac = manual_alloc_amounts_by_cat(man, cfg)
+    sales_exp = int(man["营销人力成本"] + led["市场费用"] + mac.get("市场费用", 0))
+    admin_exp = int(man["管理人力成本"] + led["管理费用"] + mac.get("管理费用", 0))
+    fixed_exp = int(led["固定运营费用"] + mac.get("固定运营费用", 0))
+    rd_exp = int(man["研发人力成本"] + led["技术服务费"] + mac.get("技术服务费", 0))
+    fin_exp = int(led["财务费用"] + man["财务费用补充"] + mac.get("财务费用", 0))
     # 附加税费=不含税收入×增值税率×附加率；在元上 round(2) 再回分（与旧 float 口径一致）
     surtax = money.yuan_to_fen(round(money.fen_to_yuan(net) * vat * surtax_rate, 2)) or 0
     other_pl = int(man["其他损益"])

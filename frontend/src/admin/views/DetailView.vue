@@ -182,6 +182,24 @@ function cellText(v: unknown): string {
   return String(v)
 }
 
+/** 任务书61·E1：Excel 式列筛选——用已载入行构造 filters，filter-method 前端过滤当前页 */
+function colFilterOptions(col: string): { text: string; value: string }[] {
+  const seen = new Set<string>()
+  const out: { text: string; value: string }[] = []
+  for (const r of rows.value) {
+    const t = cellText(r[col]).trim()
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push({ text: t.length > 40 ? t.slice(0, 40) + '…' : t, value: t })
+    if (out.length >= 80) break
+  }
+  return out
+}
+
+function colFilterMethod(value: string, row: Record<string, unknown>, col: string): boolean {
+  return cellText(row[col]).trim() === String(value)
+}
+
 watch(
   () => route.query.table,
   () => {
@@ -211,10 +229,20 @@ onMounted(async () => {
       <el-button @click="exportExcel">导出 Excel</el-button>
       <span class="muted grow">共{{ total }}行（已载入{{ rows.length }}）</span>
     </div>
-    <div class="admin-note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。滚动加载更多。</div>
+    <div class="admin-note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。表头漏斗=Excel 式列筛选（当前已载入行）。</div>
 
     <el-table :data="rows" v-loading="loading" border stripe height="calc(100vh - 280px)" style="width: 100%">
-      <el-table-column v-for="c in columns" :key="c" :prop="c" :label="c" min-width="120" show-overflow-tooltip>
+      <el-table-column
+        v-for="c in columns"
+        :key="c"
+        :prop="c"
+        :label="c"
+        min-width="120"
+        show-overflow-tooltip
+        :filters="colFilterOptions(c)"
+        :filter-method="(val: string, row: Record<string, unknown>) => colFilterMethod(val, row, c)"
+        filter-placement="bottom-end"
+      >
         <template #default="{ row }">{{ cellText(row[c]) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="140" fixed="right">

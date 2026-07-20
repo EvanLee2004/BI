@@ -15,7 +15,7 @@ import {
   lineGlowStyle,
   pointGlowStyle,
 } from '../chart-fx'
-import { axisMaxCover, padYearMonths, ratioAxisBounds } from '../chart-months'
+import { axisMaxCover, clipToCurrentMonth, padYearMonths, ratioAxisBounds, resolveMonthCap } from '../chart-months'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { AxisTick, TrendVM } from '../types/vm'
@@ -46,13 +46,19 @@ const option = computed(() => {
     [rawRev, rawCost, rawMar],
     [rawRevD, rawCostD, rawMarD],
   )
-  const labels = padded.labels
-  const rev = padded.series[0]
-  const cost = padded.series[1]
-  const margin = padded.series[2]
-  const revD = padded.disps[0]
-  const costD = padded.disps[1]
-  const marD = padded.disps[2]
+  const monthCap = resolveMonthCap({
+    chartMonthMax: (t as { chart_month_max?: number }).chart_month_max
+      ?? (store.vm as { chart_month_max?: number } | null)?.chart_month_max,
+    defaultEnd: store.vm?.daily?.default_end,
+  })
+  const clipped = clipToCurrentMonth(padded.labels, padded.series, padded.disps, monthCap)
+  const labels = clipped.labels
+  const rev = clipped.series[0]
+  const cost = clipped.series[1]
+  const margin = clipped.series[2]
+  const revD = clipped.disps[0]
+  const costD = clipped.disps[1]
+  const marD = clipped.disps[2]
   const empty = (i: number) => !revD[i] && !costD[i] && !marD[i]
   const revPlot = rev.map((v, i) => (empty(i) ? null : v))
   const costPlot = cost.map((v, i) => (empty(i) ? null : v))

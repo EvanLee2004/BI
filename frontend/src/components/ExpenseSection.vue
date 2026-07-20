@@ -1,8 +1,9 @@
 <script setup lang="ts">
-/** 期间费用构成：环形 + 构成四态。54.2：饼周无标签、图例横排底部（色点+名+金额）。
- *  54.14 R-20：center.total_disp 已含「万」，禁止再拼单位（整体页/BU 页共用本组件）。
+/** 期间费用构成：环形 + 构成四态。
+ *  任务书61·F：按部门改 master-detail 左右布局（左列表 / 右明细），不内嵌左框。
+ *  54.14 R-20：center.total_disp 已含「万」，禁止再拼单位。
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
@@ -41,20 +42,37 @@ const hbar = computed((): ExpenseHBar[] => {
   return []
 })
 
+/** 按类别/利润中心：仍用内嵌展开；按部门：master-detail 选中行 */
 const openFine = ref<string | null>(null)
+const selectedDeptKey = ref<string | null>(null)
+
+const selectedDept = computed((): ExpenseHBar | null => {
+  if (mode.value !== 'dept' || !selectedDeptKey.value) return null
+  return hbar.value.find((r) => r.key === selectedDeptKey.value) || null
+})
+
+watch(mode, () => {
+  openFine.value = null
+  selectedDeptKey.value = null
+})
+watch(
+  () => store.period,
+  () => {
+    openFine.value = null
+    selectedDeptKey.value = null
+  },
+)
 
 const legendColors = computed(() =>
   items.value.map((_, i) => SERIES_PALETTE[i % SERIES_PALETTE.length]),
 )
 
 const option = computed(() => {
-  // 依赖主题 tick：亮暗切换后 option 重算，graphic 文字色即时更新（R-21）
   void themeMode.value
   const data = items.value
   const c = center.value
   const ink = chartTextColor()
   const mut = chartMutedColor()
-  // VM 约定：donut_center.total_disp 已含「万」整串；扇区 value_disp 为裸数字串
   const centerText = withWanUnit(c.total_disp || '')
   return {
     tooltip: {
@@ -77,7 +95,6 @@ const option = computed(() => {
           value: d.value,
           itemStyle: { color: SERIES_PALETTE[i % SERIES_PALETTE.length] },
         })),
-        /* 54.2：图例在下方，饼周不挤字 */
         label: { show: false },
         labelLine: { show: false },
         itemStyle: {
@@ -125,6 +142,14 @@ const option = computed(() => {
     ...animBlock(),
   }
 })
+
+function onHbarClick(row: ExpenseHBar) {
+  if (mode.value === 'dept') {
+    selectedDeptKey.value = selectedDeptKey.value === row.key ? null : row.key
+    return
+  }
+  openFine.value = openFine.value === row.key ? null : row.key
+}
 </script>
 <template>
   <SciFiPanel
@@ -139,7 +164,6 @@ const option = computed(() => {
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'pc' }" data-testid="exp-tab-pc" @click="mode = 'pc'">按利润中心</button>
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'dept' }" data-testid="exp-tab-dept" @click="mode = 'dept'">按部门</button>
     </div>
-    <!-- R-04：内容区固定最小高度，切 tab 不带动页面其他区域跳动 -->
     <div class="exp-body-fixed" data-testid="exp-body-fixed">
       <div v-if="mode === 'donut' && items.length" class="ev-body">
         <div style="height: 280px">
@@ -153,12 +177,42 @@ const option = computed(() => {
           </span>
         </div>
       </div>
+      <!-- F：按部门 master-detail -->
+      <div v-else-if="mode === 'dept'" class="exp-md" data-testid="exp-dept-md">
+        <div class="exp-md-list exp-hbar-scroll">
+          <div
+            v-for="(row, i) in hbar"
+            :key="'d' + i"
+            class="ev-row exp-md-row"
+            :class="{ on: selectedDeptKey === row.key }"
+            data-testid="exp-dept-row"
+            @click="onHbarClick(row)"
+          >
+            <span class="ev-name">{{ row.name }}</span>
+            <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
+            <span class="ev-amt">{{ row.amt_disp }}</span>
+          </div>
+          <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
+        </div>
+        <div class="exp-md-detail" data-testid="exp-dept-detail">
+          <template v-if="selectedDept">
+            <div class="exp-md-detail-h">{{ selectedDept.name }} · 费用明细</div>
+            <div v-if="selectedDept.fine?.length" class="exp-md-fine">
+              <div v-for="(f, j) in selectedDept.fine" :key="j" class="pl-drow sub exp-md-fine-row">
+                <span>{{ f.name }}</span><span>{{ f.amt_disp }}</span>
+              </div>
+            </div>
+            <div v-else class="ev-empty">该部门无细类明细</div>
+          </template>
+          <div v-else class="ev-empty exp-md-hint">← 点左侧部门查看明细</div>
+        </div>
+      </div>
       <div v-else-if="mode !== 'donut'" class="ev-list exp-hbar-scroll" style="padding: 8px 12px">
         <div
           v-for="(row, i) in hbar"
           :key="i"
           class="ev-row"
-          @click="openFine = openFine === row.key ? null : row.key"
+          @click="onHbarClick(row)"
         >
           <span class="ev-name">{{ row.name }}</span>
           <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
@@ -183,5 +237,56 @@ const option = computed(() => {
 .exp-hbar-scroll {
   max-height: 360px;
   overflow-y: auto;
+}
+.exp-md {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 320px;
+  padding: 4px 0;
+}
+.exp-md-list {
+  border: 1px solid rgba(125, 211, 252, 0.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.exp-md-row {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.exp-md-row.on {
+  background: rgba(34, 211, 238, 0.12);
+  outline: 1px solid rgba(34, 211, 238, 0.35);
+}
+.exp-md-detail {
+  border: 1px solid rgba(125, 211, 252, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 200px;
+}
+.exp-md-detail-h {
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--ink, #e8eef8);
+}
+.exp-md-fine-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(125, 211, 252, 0.1);
+  font-size: 12.5px;
+}
+.exp-md-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+}
+@media (max-width: 700px) {
+  .exp-md {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

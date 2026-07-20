@@ -128,19 +128,29 @@ class TestDetaxLedgerRows(unittest.TestCase):
 
 
 class TestDetaxComputeIntegration(unittest.TestCase):
-    """去税后走真实计算：该细类缩小、其余不动、大类合计==细类合计（守恒）。"""
+    """去税后走真实计算：该细类缩小、其余不动、大类合计==细类合计（守恒）。
+
+    任务书61·J 后 config 含 manual_alloc_fine_types=房租等，默认台账统计会剔房租；
+    本用例验证「去税→算账」管道本身，故临时关掉 J 剔除名单（与去税机制正交）。
+    """
 
     def _l(self):
         return columns.resolve_ledger_columns(HDR)
 
+    def _cfg_no_manual_alloc(self):
+        c = dict(CFG)
+        c["manual_alloc_fine_types"] = []
+        return c
+
     def test_detax_shrinks_and_conserves(self):
         lcols = self._l()
-        base_fine = profit.compute_expenses_by_fine_type(ROWS, 2026, START, END, CFG, lcols)
+        cfg = self._cfg_no_manual_alloc()
+        base_fine = profit.compute_expenses_by_fine_type(ROWS, 2026, START, END, cfg, lcols)
         self.assertAlmostEqual(dict(base_fine["固定运营费用"])["房租"], 10900, places=2)
 
         dtx = profit.detax_ledger_rows(HDR, ROWS, {"房租": 9})
-        by_cat, _ = profit.compute_ledger_expenses(dtx, 2026, START, END, CFG, lcols)
-        fine = profit.compute_expenses_by_fine_type(dtx, 2026, START, END, CFG, lcols)
+        by_cat, _ = profit.compute_ledger_expenses(dtx, 2026, START, END, cfg, lcols)
+        fine = profit.compute_expenses_by_fine_type(dtx, 2026, START, END, cfg, lcols)
         # 房租去税后 100；办公用品不动 100（compute_*_fine_type 返回 {大类:[(细类,金额),...]}）
         self.assertAlmostEqual(dict(fine["固定运营费用"])["房租"], 10000, places=2)
         self.assertAlmostEqual(dict(fine["管理费用"])["办公用品"], 10000, places=2)

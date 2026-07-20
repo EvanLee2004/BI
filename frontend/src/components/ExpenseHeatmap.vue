@@ -11,16 +11,21 @@ import SciFiPanel from './SciFiPanel.vue'
 import { animBlock, axisLabelStyle, chartMutedColor, chartTextColor } from '../chart-fx'
 import { withWanUnit } from '../utils/disp'
 import { buildExpenseHeatPack } from '../utils/expense-heat'
+import { resolveMonthCap } from '../chart-months'
 import { themeMode } from '../utils/theme'
 import type { ExpenseVM } from '../types/vm'
 
 const store = useCockpitStore()
 const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
 
-/** 格子数据：[[xIdx, yIdx, value], ...] + 平行 disp — 同源 utils/expense-heat */
-const heatPack = computed(() =>
-  buildExpenseHeatPack(exp.value.area_labels, exp.value.area_series),
-)
+/** 格子数据：[[xIdx, yIdx, value], ...] + 平行 disp — 同源 utils/expense-heat；C-2 裁未来月 */
+const heatPack = computed(() => {
+  const cap = resolveMonthCap({
+    chartMonthMax: (store.vm as { chart_month_max?: number } | null)?.chart_month_max,
+    defaultEnd: store.vm?.daily?.default_end,
+  })
+  return buildExpenseHeatPack(exp.value.area_labels, exp.value.area_series, cap)
+})
 
 const option = computed(() => {
   void themeMode.value

@@ -228,6 +228,8 @@ export type CockpitVM = {
   daily_html: string
   daily: DailyDefaults
   numbers: Record<string, unknown>
+  /** 任务书61·C-2：图表 x 轴月上界 1–12 */
+  chart_month_max?: number
   /** 路由层注入的 BU 导航（非 pydantic 核心字段，extra allow） */
   bu_names?: string[]
   bu_nav_label?: string
@@ -253,6 +255,7 @@ export type BUPageVM = {
   daily_html: string
   daily: DailyDefaults
   numbers: Record<string, unknown>
+  chart_month_max?: number
   bu_names?: string[]
   bu_nav_label?: string
   bu_nav_hint?: string

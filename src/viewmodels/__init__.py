@@ -173,6 +173,8 @@ class BUPageVM(BaseModel):
     daily: dict[str, Any] = Field(default_factory=dict)
     # 与 fragments 数字对齐用：extract_numbers 快照
     numbers: dict[str, Any] = Field(default_factory=dict)
+    # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
+    chart_month_max: int = 12
 
 
 class CockpitVM(BaseModel):
@@ -192,6 +194,8 @@ class CockpitVM(BaseModel):
     daily_html: str = ""  # deprecated
     daily: dict[str, Any] = Field(default_factory=dict)
     numbers: dict[str, Any] = Field(default_factory=dict)
+    # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
+    chart_month_max: int = 12
 
 
 def _pack_trend_series(trend_rows) -> dict[str, Any]:
@@ -537,6 +541,7 @@ def _assemble_vm(
     daily_html = html.get("daily_html") or ""
     daily = packers.pack_daily_defaults(summary)
 
+    chart_month_max = int(daily.get("chart_month_max") or 12)
     if is_bu:
         return BUPageVM(
             bu_name=bu_name or views.get("bu_name") or "",
@@ -553,6 +558,7 @@ def _assemble_vm(
             daily_html=daily_html,
             daily=daily,
             numbers=numbers,
+            chart_month_max=chart_month_max,
         )
     return CockpitVM(
         year_key=yk,
@@ -568,6 +574,7 @@ def _assemble_vm(
         daily_html=daily_html,
         daily=daily,
         numbers=numbers,
+        chart_month_max=chart_month_max,
     )
 
 

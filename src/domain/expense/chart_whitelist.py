@@ -81,11 +81,23 @@ def _apply_caliber_in_filter(fdict: dict, cats: list[str]) -> dict:
     return fdict
 
 
+def _apply_manual_alloc_exclude(fdict: dict, cfg: dict | None) -> dict:
+    """任务书61·J：默认口径排除 manual_alloc_fine_types 台账行（显示全部时不排除）。"""
+    ban = [str(x).strip() for x in ((cfg or {}).get("manual_alloc_fine_types") or []) if str(x).strip()]
+    if not ban:
+        return fdict
+    existing = fdict.get("预算明细费用类型") if isinstance(fdict.get("预算明细费用类型"), dict) else {}
+    # not_in 语义：query_detail 若支持；否则用兼容键
+    fdict["预算明细费用类型"] = {**existing, "not_in": ban}
+    return fdict
+
+
 def merge_ledger_caliber_filters(filters, cfg: dict | None, *, show_all: bool):
     """看端明细默认口径：仅期间费用白名单大类（与图表一致）。
 
     show_all=True → 原样返回 filters（台账全量，仍受列白名单/隐工资约束）。
-    show_all=False → 在 filters 上叠加 对应报表大类 IN 白名单（与用户筛选项 AND）。
+    show_all=False → 在 filters 上叠加 对应报表大类 IN 白名单（与用户筛选项 AND）；
+    并排除 manual_alloc_fine_types（房租/物业费/装修费等改人工分摊）。
     返回可直接传给 db.query_detail 的 filters（dict 或 JSON 字符串，与入参同型）。
     """
     if show_all:
@@ -96,6 +108,7 @@ def merge_ledger_caliber_filters(filters, cfg: dict | None, *, show_all: bool):
     if not cats:
         return filters
     fdict = _apply_caliber_in_filter(_parse_filters_dict(filters), cats)
+    fdict = _apply_manual_alloc_exclude(fdict, cfg)
     if isinstance(filters, str) or filters is None:
         return _json.dumps(fdict, ensure_ascii=False)
     return fdict

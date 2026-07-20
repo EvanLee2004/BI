@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * 回款情况：紫柱下单 + 青柱回款 + 金黄回款率线 + 月均预算虚线 + 右侧摘要条。
- * 显示串全 VM；前端零金额运算（铁律2）。
+ * 回款情况：紫柱下单 + 青柱回款 + 月均预算虚线 + 右侧摘要（本年下单/回款 + 年目标进度条）。
+ * 任务书61·A：删尚待回款/年标签/回款占下单/黄回款率线；目标进度条有则显。
+ * 任务书61·C-2：x 轴裁到当前系统月。显示串全 VM；前端零金额运算（铁律2）。
  */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
@@ -13,10 +14,8 @@ import {
   barGlowStyle,
   dataLabelStyle,
   legendTextStyle,
-  lineGlowStyle,
-  pointGlowStyle,
 } from '../chart-fx'
-import { axisMaxCover, padYearMonths, ratioAxisBounds } from '../chart-months'
+import { axisMaxCover, clipToCurrentMonth, padYearMonths, resolveMonthCap } from '../chart-months'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { AxisTick, ReceiptsVM } from '../types/vm'
@@ -37,6 +36,15 @@ const side = computed(() => {
   return map[pk] || map[store.vm?.year_key || ''] || null
 })
 
+/** 右侧摘要：有本年下单/回款 或 任一年目标条才显示 */
+const sideVisible = computed(() => {
+  const s = side.value
+  if (!s) return false
+  if (s.orders_disp || s.receipts_disp) return true
+  if (s.receipt_target_disp || s.order_target_disp) return true
+  return false
+})
+
 const option = computed(() => {
   void themeMode.value
   const rawLabels = (r.value.labels || []).map((x) => String(x))
@@ -44,38 +52,29 @@ const option = computed(() => {
   const rawOrds = (r.value.orders || []).map((x) => Number(x) || 0)
   const rawRd = (r.value.receipts_disp || []).map((x) => String(x ?? ''))
   const rawOd = (r.value.orders_disp || []).map((x) => String(x ?? ''))
-  // 回款率金黄线：几何取自后端已下发的百分比显示串，标签用该串——前端不做比率运算
-  const rawRatioD = (r.value.ratio_pct_disp || []).map((x) => String(x ?? ''))
-  const rawRatio = rawRatioD.map((s) => {
-    const n = parseFloat(s)
-    return Number.isFinite(n) ? n : 0
+  const padded = padYearMonths(rawLabels, [rawRecs, rawOrds], [rawRd, rawOd])
+  const monthCap = resolveMonthCap({
+    chartMonthMax: (r.value as { chart_month_max?: number }).chart_month_max
+      ?? (store.vm as { chart_month_max?: number } | null)?.chart_month_max,
+    defaultEnd: store.vm?.daily?.default_end,
   })
-  const padded = padYearMonths(
-    rawLabels,
-    [rawRecs, rawOrds, rawRatio],
-    [rawRd, rawOd, rawRatioD],
-  )
-  const labels = padded.labels
-  const recs = padded.series[0]
-  const ords = padded.series[1]
-  const ratio = padded.series[2]
-  const rd = padded.disps[0]
-  const od = padded.disps[1]
-  const ratioD = padded.disps[2]
+  const clipped = clipToCurrentMonth(padded.labels, padded.series, padded.disps, monthCap)
+  const labels = clipped.labels
+  const recs = clipped.series[0]
+  const ords = clipped.series[1]
+  const rd = clipped.disps[0]
+  const od = clipped.disps[1]
   const empty = (i: number) => !rd[i] && !od[i]
   const recPlot = recs.map((v, i) => (empty(i) ? null : v))
   const ordPlot = ords.map((v, i) => (empty(i) ? null : v))
-  const ratioPlot = ratio.map((v, i) => (empty(i) || !ratioD[i] ? null : v))
   const ticks = r.value.y_axis_ticks || []
   const maxV0 = r.value.y_axis_max || (ticks.length ? ticks[ticks.length - 1].value : undefined)
   const interval =
     r.value.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = r.value.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords])
-  const ratioBounds = ratioAxisBounds(ratioPlot)
   const cOrd = '#a78bfa'
   const cRec = '#22d3ee'
-  const cRatio = '#fbbf24'
   const bud = Number(r.value.budget_month) || 0
   // budget_month_disp 为裸数字；receipts_budget 已含「月均预算 X万」整句——勿双拼
   const budRaw = String(r.value.budget_month_disp || '').trim()
@@ -107,22 +106,6 @@ const option = computed(() => {
         formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
         fontSize: 12,
       }),
-    },
-    {
-      name: '回款率',
-      type: 'line',
-      yAxisIndex: 1,
-      data: ratioPlot,
-      symbol: 'circle',
-      symbolSize: 8,
-      connectNulls: false,
-      z: 5,
-      itemStyle: pointGlowStyle(cRatio),
-      lineStyle: lineGlowStyle(cRatio, 2.5),
-      label: dataLabelStyle({
-        formatter: (p: { dataIndex: number }) => ratioD[p.dataIndex] || '',
-      }),
-      emphasis: { focus: 'series', scale: true },
     },
   ]
   // 月均预算虚线（后端 budget_month 已下发；标签用 budget_month_disp）
@@ -156,18 +139,16 @@ const option = computed(() => {
       formatter: (params: { dataIndex: number; seriesName?: string }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`
-        const tail = ratioD[i] ? `<br/>回款率 ${ratioD[i]}` : ''
         const budLine = budLabel && budLabel !== '月均预算' ? `<br/>${budLabel}` : ''
-        return `${labels[i] || ''}<br/>下单 ${withWanUnit(od[i] || '—')}<br/>回款 ${withWanUnit(rd[i] || '—')}${tail}${budLine}`
+        return `${labels[i] || ''}<br/>下单 ${withWanUnit(od[i] || '—')}<br/>回款 ${withWanUnit(rd[i] || '—')}${budLine}`
       },
     },
     legend: {
-      data: bud > 0 ? ['下单', '回款', '回款率', '月均预算'] : ['下单', '回款', '回款率'],
+      data: bud > 0 ? ['下单', '回款', '月均预算'] : ['下单', '回款'],
       bottom: 0,
       textStyle: legendTextStyle(),
     },
-    /* R-23：加高 top/bottom 给图例与轴标签留空，containLabel 防裁 */
-    grid: { left: 56, right: 52, top: 48, bottom: 56, containLabel: true },
+    grid: { left: 56, right: 28, top: 48, bottom: 56, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -189,13 +170,6 @@ const option = computed(() => {
           ...axisLabelStyle(),
         },
       },
-      {
-        type: 'value',
-        min: ratioBounds.min,
-        max: ratioBounds.max,
-        splitLine: { show: false },
-        axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
-      },
     ],
     series,
     ...animBlock(),
@@ -205,34 +179,22 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
 </script>
 <template>
   <SciFiPanel id="receiptsCard" title="回款情况" panel-class="rc-card">
-    <div v-if="hasSeries" class="rc-layout">
+    <div v-if="hasSeries" class="rc-layout" :class="{ 'rc-solo': !sideVisible }">
       <div class="rc-body" data-chart="receipts">
         <EchartsHost :option="option" />
       </div>
-      <aside v-if="side" class="rc-side" aria-label="回款摘要">
+      <aside v-if="sideVisible && side" class="rc-side" aria-label="回款摘要">
         <div class="rc-hero">
           <div class="rc-hero-row">
-            <span class="rc-k">总下单</span>
+            <span class="rc-k">本年下单</span>
             <span class="rc-v">{{ withWanUnit(side.orders_disp) }}</span>
           </div>
           <div class="rc-hero-row">
-            <span class="rc-k">总回款</span>
+            <span class="rc-k">本年回款</span>
             <span class="rc-v rc-v-rec">{{ withWanUnit(side.receipts_disp) }}</span>
           </div>
-          <div class="rc-hero-row rc-gap">
-            <span class="rc-k">{{ side.gap_hint }}</span>
-            <span class="rc-v">{{ withWanUnit(side.gap_disp) }}</span>
-          </div>
-          <div v-if="side.period_label" class="rc-pl">{{ side.period_label }}</div>
         </div>
-        <div class="rc-rate">
-          <div class="rc-rate-h">
-            <span>回款占下单</span>
-            <strong>{{ side.ratio_disp }}</strong>
-          </div>
-          <div class="rc-rate-bar"><i :style="{ width: (side.bar_w || '0') + '%' }" /></div>
-        </div>
-        <div v-if="side.receipt_target_disp" class="rc-bud">
+        <div v-if="side.receipt_target_disp" class="rc-bud" data-testid="rc-bud-receipt">
           <div class="rc-bud-h">
             <span>{{ side.receipt_title || '回款年目标' }}</span>
             <strong>{{ side.receipt_pct_disp }}</strong>
@@ -240,7 +202,7 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
           <div class="rc-bud-sub">目标 {{ withWanUnit(side.receipt_target_disp) }}</div>
           <div class="rc-bud-bar"><i :style="{ width: (side.receipt_bar_w || '0') + '%' }" /></div>
         </div>
-        <div v-if="side.order_target_disp" class="rc-bud">
+        <div v-if="side.order_target_disp" class="rc-bud" data-testid="rc-bud-order">
           <div class="rc-bud-h">
             <span>{{ side.order_title || '下单年目标' }}</span>
             <strong>{{ side.order_pct_disp }}</strong>
@@ -261,6 +223,9 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   gap: 12px;
   align-items: stretch;
   min-height: 320px;
+}
+.rc-layout.rc-solo {
+  grid-template-columns: 1fr;
 }
 .rc-body {
   min-width: 0;
@@ -291,22 +256,9 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   font-weight: 700;
   color: var(--ink, #e8eef8);
 }
-.rc-v em {
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.75;
-  margin-left: 1px;
-}
 .rc-v-rec {
   color: #22d3ee;
 }
-.rc-pl {
-  font-size: 12px;
-  color: var(--note, #8b9bb4);
-  margin-top: 2px;
-}
-.rc-rate-h,
 .rc-bud-h {
   display: flex;
   justify-content: space-between;
@@ -314,14 +266,12 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   margin-bottom: 4px;
   font-weight: 600;
 }
-.rc-rate-bar,
 .rc-bud-bar {
   height: 6px;
   border-radius: 3px;
   background: rgba(125, 211, 252, 0.12);
   overflow: hidden;
 }
-.rc-rate-bar i,
 .rc-bud-bar i {
   display: block;
   height: 100%;

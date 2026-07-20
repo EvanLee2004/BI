@@ -1,6 +1,7 @@
 /**
  * 年视图 X 轴铺满 1~12 月：有数月保留 VM 值/显示串，无数月占位空串（前端不造金额）。
  * 仅当已有标签全部像「N月」且不足 12 时启用。
+ * 任务书61·C-2：pad 后可用 clipToCurrentMonth 裁掉未来空月（仅显示层，不改数值）。
  */
 
 const MONTH_RE = /^(\d{1,2})月$/
@@ -8,6 +9,59 @@ const MONTH_RE = /^(\d{1,2})月$/
 export function isMonthAxis(labels: string[]): boolean {
   if (!labels.length) return false
   return labels.every((l) => MONTH_RE.test(String(l).trim()))
+}
+
+/**
+ * 当前系统月上界（1–12）。优先用后端下发的 chart_month_max / daily.default_end（尊重 period_pin）。
+ */
+export function resolveMonthCap(opts?: {
+  chartMonthMax?: number | null
+  defaultEnd?: string | null
+  now?: Date
+}): number {
+  const raw = opts?.chartMonthMax
+  if (raw != null && Number.isFinite(Number(raw))) {
+    const n = Math.trunc(Number(raw))
+    if (n >= 1 && n <= 12) return n
+  }
+  const de = String(opts?.defaultEnd || '').trim()
+  if (/^\d{4}-\d{2}/.test(de)) {
+    const m = Number(de.slice(5, 7))
+    if (m >= 1 && m <= 12) return m
+  }
+  const d = opts?.now || new Date()
+  return Math.min(12, Math.max(1, d.getMonth() + 1))
+}
+
+/**
+ * 裁 x 轴到「当前系统月」：只保留 1..cap 月（如 7 月 → 1–7），未来月整段不画。
+ * 仅裁显示；不改任何已有数值/显示串。
+ */
+export function clipToCurrentMonth(
+  labels: string[],
+  series: number[][],
+  disps: string[][],
+  monthCap: number,
+): { labels: string[]; series: number[][]; disps: string[][] } {
+  const cap = Math.min(12, Math.max(1, Math.trunc(Number(monthCap) || 12)))
+  if (!isMonthAxis(labels)) {
+    return { labels: [...labels], series: series.map((s) => [...s]), disps: disps.map((d) => [...d]) }
+  }
+  const keepIdx: number[] = []
+  labels.forEach((lab, i) => {
+    const m = MONTH_RE.exec(String(lab).trim())
+    if (m && Number(m[1]) <= cap) keepIdx.push(i)
+  })
+  if (!keepIdx.length || keepIdx.length === labels.length) {
+    if (keepIdx.length === labels.length) {
+      return { labels: [...labels], series: series.map((s) => [...s]), disps: disps.map((d) => [...d]) }
+    }
+  }
+  return {
+    labels: keepIdx.map((i) => labels[i]),
+    series: series.map((s) => keepIdx.map((i) => s[i] ?? 0)),
+    disps: disps.map((d) => keepIdx.map((i) => (d[i] != null ? String(d[i]) : ''))),
+  }
 }
 
 /**

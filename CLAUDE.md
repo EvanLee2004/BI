@@ -34,22 +34,22 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.0.0-rc13 · stage60_prod_fix · 已上生产 2026-07-20）
+## 当前状态（2.0.1 · stage61_beta201 · 2026-07-20）
 
-- **🟢 已部署生产（2026-07-20，任务书60 已上机）**：公司 Ubuntu 机 `/opt/kanban/看板正式程序`；**systemd `kanban`** active+enabled（自愈/开机自启）；**nginx `kanban`** 站点 `:80` 发 dist + 反代 API（app 只绑 127.0.0.1:8018）；**每日更新=服务内 ScheduleLoop**（cron 哨兵无 `--scheduled`；备份/healthcheck 仍在）；真实数据已抓。运维处方见 `docs/Runbook.md` §0。**待人**：人侧体检黄 H1–H3 / 次日 09:3x 核 built_at / BIOS 来电自启。
-- **版本**：`VERSION` / `src/version.py` = **2.0.0-rc13**；本地 tag **`stage60_prod_fix`**（任务书60 定时刷新闭环+登录 cookie 互清；功能基线含 `stage58_ui`）。
-- **看端**：Vue3 + SciFi 深空指挥舱 + ECharts；主题亮暗；费用折线/热力**仅期间费用白名单**（剔成本/非利润表，单一来源 `domain.expense.chart_whitelist`）；费用明细**默认同口径**，开关「显示全部台账记录」开=台账全量，导出随视图（第二 sheet 口径说明）。
-- **管理端**：Vue SPA + Element Plus 对齐深空主题；工资大类全端隐藏（并入其他）。
-- **工程**：C901 仅 8 处纯路由/装配壳；vulture 100% 死码已清；`sh tests/run_verify.sh` 判绿唯一门闩。
-- **部署**：Ubuntu 26.04 唯一主线；nginx 发 dist + 反代；Windows 已退役。
-- **红线**：口径计算区 / golden / 32 周期从库算==从文件算 **零未授权 diff**。
-- **只 commit 不 push**（除非明昊书面授权且过安全检查）。
+- **版本**：`VERSION` / `src/version.py` = **2.0.1**；本地 tag **`stage61_beta201`**（任务书61：回款卡口径整改 + BU 目标 + 房租等三类人工分摊 + 交互/筛选 + 分摊 bug 修复）。生产基线 tag 仍可回滚到 **`stage60_prod_fix`**（rc13）。
+- **看端**：Vue3 + SciFi；回款卡本年下单/回款+年目标进度条（无尚待回款/回款占下单/黄折线）；月度图裁到当前系统月；排名按下单降序+前N名；费用无 ExpenseTrend 折线卡；按部门 master-detail；明细表头自建筛选；默认口径剔房租/物业费/装修费台账行（人工分摊）。
+- **管理端**：业绩目标矩阵含 BU 列；人工填写分摊对齐 `/api/alloc_ratios`；Detail/异常清单列筛选；三类手填进 manual_items。
+- **工程**：`sh tests/run_verify.sh` 判绿唯一门闩；`tests/test_task61_stage61.py`。
+- **部署**：Ubuntu 26.04 唯一主线；nginx 发 dist + 反代；运维见 `docs/Runbook.md` §0。
+- **红线**：除 J 项明确授权外，口径 golden / 32 周期零未授权 diff；手填未填=0。
+- **push**：本单明昊授权可推 main（过安全扫描）。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
 
 | 版本/tag | 要点 | 指针 |
 |----------|------|------|
-| rc13 / stage60_prod_fix | 进程内定时刷新+cookie互清·**已上生产** | 工作区 `…/20260720_任务书60交付报告.md`（不进产品仓） |
+| 2.0.1 / stage61_beta201 | 回款卡整改·BU目标·三类人工分摊·筛选·分摊fix | `docs/20260720_任务书61交付报告.md` |
+| rc13 / stage60_prod_fix | 进程内定时刷新+cookie互清·**曾上生产** | 工作区 `…/20260720_任务书60交付报告.md`（不进产品仓） |
 | rc12 / stage58_ui | 费用明细日期统一+本月·首次上生产 | （施工归档） |
 | rc11 / stage57_gold | 无限打磨收官 | `docs/20260719_任务书57交付报告.md` |
 | rc10 / stage56_final | 清尾 R-40~R-46 | `docs/20260719_任务书56交付报告.md` |

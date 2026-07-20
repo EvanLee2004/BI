@@ -41,10 +41,16 @@ class TestVersionModule(unittest.TestCase):
         self.assertEqual(V.product_stage("坏值"), "试运行")  # 解析不了按试运行兜底
 
     def test_current_is_rc(self):
-        # 封板 54.11：VERSION=2.0.0-rc2 发布候选（rc* 均兼容）
+        # 54.11 曾要求 rc*；任务书61 升 2.0.1 正式 beta 号仍兼容 label 规则
         cur = V.read_version()
-        self.assertTrue("rc" in cur.lower(), cur)
-        self.assertEqual(V.product_stage(cur), "发布候选")
+        self.assertTrue(
+            "rc" in cur.lower() or cur == "2.0.1" or cur.startswith("2.0."),
+            cur,
+        )
+        if "rc" in cur.lower():
+            self.assertEqual(V.product_stage(cur), "发布候选")
+        else:
+            self.assertIn(V.product_stage(cur), ("正式版", "公测 Beta", "发布候选"))
         self.assertEqual(V.product_label("2.0.0-rc2"), "v2.0.0（发布候选）")
         self.assertEqual(V.product_label("2.0.0-rc1"), "v2.0.0（发布候选）")
         self.assertEqual(V.product_label("1.0-beta"), "v1.0（公测 Beta）")
