@@ -60,3 +60,21 @@ frontend/tsconfig.tsbuildinfo
 # B-5 前端错误日志（运行时）
 数据/前端错误.log
 数据/前端错误.log.1
+
+# —— 施工过程物不进产品仓（2026-07-20 瘦身）——
+# 任务书/交付/验收/pixel 等只留工作区：方案与文档/软件工程文档/4_管理过程/施工过程归档_*
+docs/pixel/
+docs/验收证据/
+docs/历史批次/
+docs/上线交接包/
+docs/*任务书*
+docs/*交付报告*
+docs/*验收报告*
+docs/*总控*
+docs/opencode部署提示词*
+docs/自主运行日志.md
+docs/bench_scale_*.json
+# 本地再落施工证据时的通配
+docs/验收证据/**
+docs/pixel/**
+docs/历史批次/**
