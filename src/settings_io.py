@@ -159,8 +159,9 @@ def save_zhiyun_creds(cfg, root, username: str, password: str) -> bool:
     d["username"], d["password"] = username, password
     d["md_pss_id"] = ""  # 旧会话作废，强制新账号重登
     d["account_id"] = ""  # 登录时从页面全局变量自动取新账号的 GUID
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    from secure_io import write_private_text
+
+    write_private_text(p, json.dumps(d, ensure_ascii=False, indent=2))
     return True
 
 def read_zhiyun_conn(cfg, root=None) -> dict:
@@ -214,8 +215,9 @@ def save_zhiyun_conn(cfg, root, base_url: str, tables: dict) -> bool:
         d.pop("tables", None)
     if base_url != before["base_url"]:
         d["md_pss_id"] = ""  # 换服务器旧 token 必失效，强制重登
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    from secure_io import write_private_text
+
+    write_private_text(p, json.dumps(d, ensure_ascii=False, indent=2))
     after = read_zhiyun_conn(cfg, root)
     return after != before
 

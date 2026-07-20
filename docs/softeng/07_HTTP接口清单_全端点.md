@@ -44,8 +44,8 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET/POST | `/api/accounts` | 账号表管理（**永不下发密码/哈希**；任务书63·H-05） |
-| POST | `/api/accounts/{账号}/reset_passwd` | 管理员重置密码；body `{new?}`；明文仅本次响应一次 |
+| GET/POST | `/api/accounts` | 账号表管理（管理员会话**下发明文密码**；任务书64·P / MADR-0020） |
+| POST | `/api/accounts/{账号}/reset_passwd` | 管理员重置密码（可选快捷入口）；body `{new?}`；列表亦可直接编辑明文 |
 | POST | `/api/my_passwd` | 看的人自改密码（非管理员看端） |
 | GET | `/api/detail` | 明细分页；看端费用明细列=白名单（audience）；`month` 或 `month_from`+`month_to` 归属月区间；可 unfilled_dept / unclassified |
 | GET | `/api/detail_export` | 明细导出 xlsx（列与当前会话明细一致：看端白名单/管理端全列） |

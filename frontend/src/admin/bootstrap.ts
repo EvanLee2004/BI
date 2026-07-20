@@ -14,8 +14,6 @@ import { installThemeListeners, syncThemeFromDom } from '../utils/theme'
 import { installFrontendErrorReporter } from '../utils/frontendErrorReporter'
 
 export function bootAdmin() {
-  // B-5：管理端与看端同一套全局错误钩子 → POST /api/v1/client-error
-  installFrontendErrorReporter()
   // 主题：与驾驶舱共用 cockpit-theme（响应式 + iframe/storage 同步）
   try {
     if (localStorage.getItem('cockpit-theme') === 'light') {
@@ -29,6 +27,8 @@ export function bootAdmin() {
   document.title = '经营罗盘·管理端'
 
   const app = createApp(AdminApp)
+  // 任务书64·D5：管理端与看端同一套全局错误钩子 + 顶部错误条
+  installFrontendErrorReporter(app)
   app.use(adminRouter)
   app.use(ElementPlus, { locale: zhCn, size: 'default' })
   for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

@@ -98,7 +98,12 @@ def build_std_db(
     # 1b) 智云四源在线抓（默认常开=更新必抓，抓不到降级；config.zhiyun_auto_fetch=false 仅应急后门）。
     # KANBAN_OFFLINE=1 强制跳过（测试/回归用：不碰网络、不动进料口，跑得快且可复现）。
     if cfg.get("zhiyun_auto_fetch") and not os.environ.get("KANBAN_OFFLINE"):
-        report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root)
+        # 跨年：写盘前归档旧年四源（只一次；不污染 fetch_zhiyun 源键）
+        try:
+            report["year_archive"] = archive.maybe_year_archive_zhiyun(cfg, root, today=today)
+        except Exception as e:
+            report["year_archive"] = {"status": "error", "detail": f"{type(e).__name__}: {e}", "ok": False}
+        report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root, today=today)
 
     # 2) 读原始 + 规范化
     records = _normalize_all_sources(cfg, ledger_year, root)

@@ -1,8 +1,9 @@
 # MADR-0019：看板账号密码 PBKDF2-HMAC-SHA256 哈希存储
 
-- **状态**：Accepted
+- **状态**：Superseded by [0020_password_plaintext_by_product_decision.md](./0020_password_plaintext_by_product_decision.md)
 - **日期**：2026-07-20
 - **任务书**：63 · H-05
+- **废止原因**：2026-07-20 晚明昊拍板——管理员必须可查看所有账号密码（产品硬需求），回退明文；见 MADR-0020
 
 ## 背景
 

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import loaders
 from app_state import SESSION_TTL
+from secure_io import write_private_text
 
 
 def secret_path(cfg, root=None) -> Path:
@@ -35,16 +36,14 @@ def load_or_init_secret(cfg, root=None) -> dict:
         except (OSError, ValueError):
             pass
     sec = {"cookie_key": os.urandom(32).hex()}
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(sec, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_private_text(p, json.dumps(sec, ensure_ascii=False, indent=2))
     print(f"[server] 已生成会话密钥文件：{p}（账号口令见 数据/看板账号.json）")
     return sec
 
 
 def save_secret(cfg, root, sec: dict) -> None:
     p = secret_path(cfg, root)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(sec, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_private_text(p, json.dumps(sec, ensure_ascii=False, indent=2))
 
 
 def make_token(sec: dict, user: str, now: float | None = None, pw_ver: int = 0) -> str:

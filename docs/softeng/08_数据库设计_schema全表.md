@@ -144,3 +144,8 @@ erDiagram
 | `manual_*` 历史/配置变更 | 全量保留；可导出归档，不自动删 |
 | `数据/备份/` | `backup_keep_days`（默认 365） |
 | 共享盘台账 | **只读**拷入本地；绝不回写共享盘 |
+
+## 索引（任务书64·D2）
+
+std 五表在 `schema.create_all` 建覆盖索引：`定位键`、`(已删除, 归属月)`，以及部门/销售/客户/业务BU 等明细筛选列（`CREATE INDEX IF NOT EXISTS`）。**只改速度不改结果**（golden 零 diff）。
+

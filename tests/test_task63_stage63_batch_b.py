@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""任务书63 批次B：H-05 密码哈希 / 迁移 / reset_passwd / 接口无密码字段。
+"""任务书64·P 反向适配：明文密码为真相源 / 管理员可见 / 0600 / reset 踢会话。
 
+原任务书63·B 哈希/迁移/不下发明文 断言已按产品拍板改回明文口径。
 跑：.venv/bin/python tests/run_test.py tests/test_task63_stage63_batch_b.py
 """
 
@@ -18,15 +19,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import accounts  # noqa: E402
 import loaders  # noqa: E402
+import secure_io  # noqa: E402
 import server  # noqa: E402
 
 
-class TestPasswordHashCore(unittest.TestCase):
-    def test_hash_roundtrip_and_format(self):
-        h = accounts.hash_password("中文口令甲")
-        self.assertTrue(h.startswith("pbkdf2_sha256$600000$"))
-        self.assertTrue(accounts.verify_password_hash(h, "中文口令甲"))
-        self.assertFalse(accounts.verify_password_hash(h, "中文口令乙"))
+class TestPasswordPlainCore(unittest.TestCase):
+    def test_compare_digest_plaintext(self):
+        self.assertTrue(accounts.verify_password("中文口令甲", "中文口令甲"))
+        self.assertFalse(accounts.verify_password("中文口令甲", "中文口令乙"))
 
     def test_random_password_charset(self):
         p = accounts.generate_random_password(10)
@@ -34,7 +34,7 @@ class TestPasswordHashCore(unittest.TestCase):
         self.assertTrue(all(c.isalnum() for c in p))
 
 
-class TestMigrationAndApi(unittest.TestCase):
+class TestPlaintextApiAndPerms(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
 
@@ -44,7 +44,6 @@ class TestMigrationAndApi(unittest.TestCase):
         server.recompute = lambda cfg, root=None: None
         server._state["user_html"] = "<html>U</html>"
         server._state["admin_html"] = "<html>A</html>"
-        # 先写明文文件模拟存量
         p = accounts.config_path(self.cfg, self.tmp)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(
@@ -75,34 +74,76 @@ class TestMigrationAndApi(unittest.TestCase):
     def tearDown(self):
         server.recompute = self._orig
 
-    def test_migrate_backup_and_old_password_works(self):
-        self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "v1", "plain777"))
-        raw = json.loads(accounts.config_path(self.cfg, self.tmp).read_text(encoding="utf-8"))
+    def test_seed_chmod_600_and_plaintext_on_disk(self):
+        """seed / 保存后盘上明文 + 权限 0o600（非 Windows）。"""
+        # 触发一次保存以走 write_private_text
+        rows = accounts.load_accounts(self.cfg, self.tmp)
+        accounts.save_accounts(self.cfg, self.tmp, rows)
+        path = accounts.config_path(self.cfg, self.tmp)
+        raw = json.loads(path.read_text(encoding="utf-8"))
         row = next(x for x in raw["accounts"] if x["账号"] == "v1")
-        self.assertTrue(str(row.get("密码哈希") or "").startswith("pbkdf2_sha256$"))
-        self.assertFalse(str(row.get("密码") or "").strip())
-        self.assertTrue(list(self.tmp.joinpath("数据").glob("看板账号.json.bak-明文迁移-*")))
+        self.assertEqual(row.get("密码"), "plain777")
+        self.assertNotIn("密码哈希", row)
+        mode = secure_io.is_private_mode(path)
+        if mode is not None:
+            self.assertTrue(mode, f"期望 0o600，path={path}")
 
-    def test_accounts_api_no_password_fields(self):
+    def test_accounts_api_returns_plaintext_password(self):
+        """任务书64·P：管理员 /api/accounts 下发明文密码。"""
         r = self.client.get("/api/accounts", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         for row in r.json()["accounts"]:
-            self.assertNotIn("密码", row)
+            self.assertIn("密码", row)
             self.assertNotIn("密码哈希", row)
             self.assertIn("初始密码", row)
+        v1 = next(x for x in r.json()["accounts"] if x["账号"] == "v1")
+        self.assertEqual(v1["密码"], "plain777")
+
+    def test_full_chain_seed_login_see_change_kick(self):
+        """全新 seed→登录→管理端见明文→改密→旧会话失效。"""
+        from fastapi.testclient import TestClient
+
+        tmp2 = Path(tempfile.mkdtemp())
+        # 无账号文件 → seed
+        app2 = server.create_app(self.cfg, root=tmp2)
+        c = TestClient(app2, follow_redirects=False)
+        r = c.post(
+            "/admin/login",
+            data={"account": accounts.MASTER_ACCOUNT, "password": accounts.DEFAULT_ADMIN_PW},
+        )
+        self.assertIn(r.status_code, (200, 303), r.text)
+        hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        rows = c.get("/api/accounts", headers=hdr).json()["accounts"]
+        overall = next(x for x in rows if x["账号"] == "overall")
+        self.assertEqual(overall["密码"], accounts.DEFAULT_VIEW_PW)
+        # 看端登录
+        viewer = TestClient(app2, follow_redirects=False)
+        r0 = viewer.post("/api/v1/login", json={"account": "overall", "password": accounts.DEFAULT_VIEW_PW})
+        self.assertEqual(r0.status_code, 200, r0.text)
+        self.assertEqual(viewer.get("/api/v1/session").status_code, 200)
+        # 管理员改密
+        overall["密码"] = "newplain99"
+        r_save = c.post("/api/accounts", headers=hdr, json={"accounts": rows})
+        self.assertEqual(r_save.status_code, 200, r_save.text)
+        # 旧会话踢
+        self.assertEqual(viewer.get("/api/v1/session").status_code, 401)
+        r_ok = c.post("/api/v1/login", json={"account": "overall", "password": "newplain99"})
+        self.assertEqual(r_ok.status_code, 200)
+        # 权限位
+        path = accounts.config_path(self.cfg, tmp2)
+        mode = secure_io.is_private_mode(path)
+        if mode is not None:
+            self.assertTrue(mode)
 
     def test_reset_passwd_once_and_kicks_old(self):
         from fastapi.testclient import TestClient
 
-        # 独立客户端：旧密码登录，保留看端会话 cookie（与管理员 client 分离）
         viewer = TestClient(self.app, follow_redirects=False)
         r0 = viewer.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
         self.assertEqual(r0.status_code, 200, r0.text)
-        # 重置前会话有效
         self.assertEqual(viewer.get("/api/v1/session").status_code, 200)
         old_vcookie = viewer.cookies.get(server.VCOOKIE)
         self.assertTrue(old_vcookie, "应拿到看端 cookie")
-        # 管理员重置
         r = self.client.post(
             "/api/accounts/v1/reset_passwd",
             headers=self.hdr,
@@ -110,7 +151,6 @@ class TestMigrationAndApi(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json().get("password"), "reset9999")
-        # 任务书63·B3：旧 cookie 因密码版本+1 必须 401（不只是旧密码不能再登）
         r_sess = viewer.get("/api/v1/session")
         self.assertEqual(r_sess.status_code, 401, r_sess.text)
         r_sess2 = TestClient(self.app, follow_redirects=False).get(
@@ -118,12 +158,13 @@ class TestMigrationAndApi(unittest.TestCase):
             headers={"Cookie": f"{server.VCOOKIE}={old_vcookie}"},
         )
         self.assertEqual(r_sess2.status_code, 401, r_sess2.text)
-        # 旧密码登录 401；新密码 200
         r_bad = self.client.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
         self.assertEqual(r_bad.status_code, 401)
         r_ok = self.client.post("/api/v1/login", json={"account": "v1", "password": "reset9999"})
         self.assertEqual(r_ok.status_code, 200)
-        # 随机重置
+        # 管理端列表可见新明文
+        rows = self.client.get("/api/accounts", headers=self.hdr).json()["accounts"]
+        self.assertEqual(next(x for x in rows if x["账号"] == "v1")["密码"], "reset9999")
         r2 = self.client.post("/api/accounts/v1/reset_passwd", headers=self.hdr, json={})
         self.assertEqual(r2.status_code, 200)
         plain = r2.json().get("password") or ""

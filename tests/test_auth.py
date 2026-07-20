@@ -247,11 +247,11 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn(old.status_code, (401, 303))
         _, new = self._login("overall", "newpw1")
         self.assertEqual(new.status_code, 303)
-        # 任务书63·H-05：管理员端不再下发明文；新密码可登录、初始标清除
+        # 任务书64·P：管理员端下发明文；新密码可登录、初始标清除
         a = self._admin()
         rows = a.get("/api/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
-        self.assertNotIn("密码", row)
+        self.assertEqual(row.get("密码"), "newpw1")
         self.assertNotIn("密码哈希", row)
         self.assertFalse(row["初始密码"])
 
@@ -315,8 +315,8 @@ class TestViewerAuth(unittest.TestCase):
         _, new = self._login("user_a", "adminset1")
         self.assertEqual(new.status_code, 303)
 
-    def test_plaintext_migrates_to_hash_on_load(self):
-        """任务书63·H-05：旧明文盘文件读入即哈希写回，旧密码仍可登录。"""
+    def test_plaintext_stays_plaintext_on_load(self):
+        """任务书64·P：明文盘文件保持明文，可登录；不写哈希、不迁备份。"""
         p = accounts.config_path(self.cfg, self.tmp)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(
@@ -332,13 +332,15 @@ class TestViewerAuth(unittest.TestCase):
             encoding="utf-8",
         )
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "plainu", "plain888"))
+        # 保存写回后仍为明文 + 0600
+        rows = accounts.load_accounts(self.cfg, self.tmp)
+        accounts.save_accounts(self.cfg, self.tmp, rows)
         raw = json.loads(p.read_text(encoding="utf-8"))
         row = next(x for x in raw["accounts"] if x["账号"] == "plainu")
-        self.assertFalse(str(row.get("密码") or "").strip())
-        self.assertTrue(str(row.get("密码哈希") or "").startswith("pbkdf2_sha256$"))
-        # 备份存在
+        self.assertEqual(row.get("密码"), "plain888")
+        self.assertNotIn("密码哈希", row)
         baks = list(p.parent.glob("看板账号.json.bak-明文迁移-*"))
-        self.assertTrue(baks)
+        self.assertFalse(baks)
 
     def test_no_legacy_reset_password_path(self):
         """旧路径 /api/accounts/reset_password 仍 404；新路径 reset_passwd 可用。"""
@@ -398,13 +400,14 @@ class TestViewerAuth(unittest.TestCase):
         for b in a.get("/api/bu_config").json()["bus"]:
             self.assertNotIn("密码", b)
             self.assertNotIn("密码hash", b)
-        # 管理员 accounts：任务书63·H-05 永不下发密码字段
+        # 管理员 accounts：任务书64·P 下发明文密码；非管理员/设置接口仍无
         rows = a.get("/api/accounts").json()["accounts"]
         self.assertTrue(rows)
         for r in rows:
-            self.assertNotIn("密码", r)
+            self.assertIn("密码", r)
             self.assertNotIn("密码哈希", r)
         overall = next(x for x in rows if x["账号"] == "overall")
+        self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
         self.assertIn("初始密码", overall)
         # 自改密码弹窗仍在 HTML 壳（看的人可自改）
         import render
@@ -413,12 +416,17 @@ class TestViewerAuth(unittest.TestCase):
         _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", _js)
         self.assertIn("/api/my_passwd", _js)
-        # Vue 管理端：重置密码（旧 static/admin 化石可不含 reset_passwd）
+        # Vue 管理端：明文密码列 + 可选重置
         vue_settings = (
             Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "composables" / "useSettingsForm.ts"
         ).read_text(encoding="utf-8")
-        self.assertIn("reset_passwd", vue_settings)
+        self.assertIn("acctPwShow", vue_settings)
         self.assertIn("resetAcctPasswd", vue_settings)
+        vue_view = (
+            Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "views" / "SettingsView.vue"
+        ).read_text(encoding="utf-8")
+        self.assertIn("row.密码", vue_view)
+        self.assertIn("acctPwShow", vue_view)
 
     def test_initial_password_yellow_flag(self):
         a = self._admin()

@@ -7,16 +7,43 @@
 set -u
 BASE="${BASE:-http://127.0.0.1:8018}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOG="${HEALTH_ALERT_LOG:-$ROOT/deploy/health_alerts.log}"
+# 任务书60 后：cron 输出优先 数据/日志；兼容旧 deploy 路径
+LOG_DIR="$ROOT/数据/日志"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+LOG="${HEALTH_ALERT_LOG:-$LOG_DIR/healthcheck_alerts.log}"
+if [ ! -d "$(dirname "$LOG")" ]; then
+  LOG="${HEALTH_ALERT_LOG:-$ROOT/deploy/health_alerts.log}"
+fi
 MAX_STALE_DAYS="${MAX_STALE_DAYS:-2}"
+# 磁盘余量：低于该比例（默认 0.10=10%）告警；可用 DISK_FREE_MIN_RATIO 覆盖
+DISK_FREE_MIN_RATIO="${DISK_FREE_MIN_RATIO:-0.10}"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
+
+# 任务书64·D8：失败时尝试飞书 webhook（读 本地配置/config 合并；未配置则只写本地 log）
+notify_feishu() {
+  local reason="$1"
+  python3 - <<PY 2>/dev/null || true
+import json, sys
+from pathlib import Path
+root = Path(r"$ROOT")
+sys.path.insert(0, str(root / "src"))
+try:
+    import loaders
+    import notify
+    cfg = loaders.load_config(root, strict=False)
+    notify.maybe_alert_text(cfg, f"【经营罗盘健康检查失败】{reason}")
+except Exception:
+    pass
+PY
+}
 
 alert() {
   local reason="$1"
   mkdir -p "$(dirname "$LOG")"
   echo "$(ts) ALERT $reason" >>"$LOG"
   echo "ALERT: $reason" >&2
+  notify_feishu "$reason"
   exit 1
 }
 
@@ -124,6 +151,31 @@ if [ "${yellow_fe:-0}" -gt 0 ] 2>/dev/null; then
   # 黄灯不 exit 1；演示/巡检看 YELLOW 行即可
 fi
 
-echo "$(ts) OK base=$BASE login=200 home=$code2 data_age_ok fe_err_24h=${yellow_fe:-0}"
+# 5) 磁盘余量（任务书64·D8）：数据目录所在盘低于阈值 → 红
+disk_ratio="$(python3 - <<PY
+import os, shutil
+from pathlib import Path
+p = Path(r"$DATA_DIR")
+if not p.is_dir():
+    p = Path(r"$ROOT")
+try:
+    u = shutil.disk_usage(str(p))
+    print(f"{u.free / u.total:.6f}" if u.total else "1")
+except Exception:
+    print("1")
+PY
+)"
+# bash 无浮点：用 python 比较
+disk_bad="$(python3 - <<PY
+r = float("$disk_ratio" or "1")
+thr = float("$DISK_FREE_MIN_RATIO" or "0.10")
+print("1" if r < thr else "0")
+PY
+)"
+if [ "$disk_bad" = "1" ]; then
+  alert "disk_free_low ratio=$disk_ratio min=$DISK_FREE_MIN_RATIO path=$DATA_DIR"
+fi
+
+echo "$(ts) OK base=$BASE login=200 home=$code2 data_age_ok fe_err_24h=${yellow_fe:-0} disk_free=$disk_ratio"
 exit 0
 

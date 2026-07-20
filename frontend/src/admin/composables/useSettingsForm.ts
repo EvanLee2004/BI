@@ -264,8 +264,8 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    // 新账号默认初始口令由后端 seed/保存时哈希；UI 不持有明文
-    acctList.value.push({ 账号: '', 显示名: '', 权限: '整体', 初始密码: true, 最后登录: '' })
+    // 新账号默认初始口令 8888；管理端明文可见可改（任务书64·P）
+    acctList.value.push({ 账号: '', 显示名: '', 权限: '整体', 密码: '8888', 初始密码: true, 最后登录: '' })
     mark('acct')
   }
 
@@ -277,7 +277,7 @@ export function useSettingsForm() {
     }
     try {
       const { value } = await ElMessageBox.prompt(
-        '输入新密码，或留空由系统随机生成 10 位。明文只显示一次。',
+        '输入新密码，或留空由系统随机生成 10 位。重置后列表会显示新明文。',
         '重置密码 · ' + acct,
         {
           inputPlaceholder: '新密码（可选，留空=随机）',
@@ -295,18 +295,12 @@ export function useSettingsForm() {
         body,
       )
       const plain = d.password || ''
+      row.密码 = plain
       row.初始密码 = false
-      await ElMessageBox.alert(
-        `新密码（请立即抄录，关闭后不再显示）：\n\n${plain}\n\n${d.note || ''}`,
-        '重置成功',
-        {
-          confirmButtonText: '已抄录',
-          dangerouslyUseHTMLString: false,
-        },
-      )
+      mark('acct')
+      ElMessage.success('已重置；密码列已更新为新明文')
       try {
         await navigator.clipboard.writeText(plain)
-        ElMessage.success('已复制到剪贴板')
       } catch {
         /* 浏览器可能禁剪贴板 */
       }

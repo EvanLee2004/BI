@@ -8,10 +8,11 @@ import { installThemeListeners, syncThemeFromDom } from './utils/theme'
 import { installFrontendErrorReporter } from './utils/frontendErrorReporter'
 
 export function bootCockpit() {
-  installFrontendErrorReporter()
   syncThemeFromDom()
   installThemeListeners()
   const app = createApp(App)
+  // 任务书64·D5：errorHandler + window 钩子 + 顶部错误条
+  installFrontendErrorReporter(app)
   app.use(createPinia())
   app.mount('#app')
 }

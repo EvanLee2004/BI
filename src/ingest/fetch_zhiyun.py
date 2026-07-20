@@ -342,8 +342,9 @@ def _save_session(cfg: dict, root: Path | None, token: str, account_id: str | No
         data["md_pss_id"] = token
         if account_id:
             data["account_id"] = account_id
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        from secure_io import write_private_text
+
+        write_private_text(p, json.dumps(data, ensure_ascii=False, indent=2))
     except OSError:
         pass
 
@@ -561,17 +562,22 @@ def _server_reachable(base_url: str, timeout: int = 5) -> bool:
         return False
 
 
-def fetch_all(cfg: dict, root: Path | None = None) -> dict[str, dict]:
+def fetch_all(cfg: dict, root: Path | None = None, today=None) -> dict[str, dict]:
     """抓全部四源，返回 {source: {status, detail}}。供 pipeline/体检使用。
 
     token 为空时先自动登录一次；四源共享同一个带自动重登的 post（不重复登录）。
     内网不可达/登录失败则各源自然降级为 local_fallback（体检黄），不中断管道。
+    任务书64·E：写盘前若跨年会截断旧年 xlsx，先做年度归档（只一次）。
     """
+    # 跨年归档由管道入口 ingest.build_std_db 在抓取前单独调用（不污染本 dict 的源键）
     zy = _load_zhiyun_cfg(cfg, root)
     if zy and zy.get("base_url") and not _server_reachable(zy["base_url"]):
         det = "智云服务器不可达（不在公司内网？），用数据目录现有文件（体检黄）"
         return {
-            s: {"status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source", "detail": det}
+            s: {
+                "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+                "detail": det,
+            }
             for s in SOURCES
         }
     post = None
@@ -584,7 +590,10 @@ def fetch_all(cfg: dict, root: Path | None = None) -> dict[str, dict]:
                 # 四个源各重试一次登录（慢+密码错时反复试有锁号风险）。直接全部降级。
                 det = f"智云自动登录失败（{type(e).__name__}: {e}），用数据目录现有文件（体检黄）"
                 return {
-                    s: {"status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source", "detail": det}
+                    s: {
+                        "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+                        "detail": det,
+                    }
                     for s in SOURCES
                 }
         post = _make_post(zy, cfg, root)

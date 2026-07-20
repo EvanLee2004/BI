@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, onErrorCaptured } from 'vue'
+import { onVueErrorCaptured } from './utils/frontendErrorReporter'
 import { useCockpitStore } from './stores/cockpit'
 import LoginView from './components/LoginView.vue'
 import PeriodPicker from './components/PeriodPicker.vue'
@@ -23,6 +24,8 @@ const isBuRoute = computed(() => {
   const m = location.pathname.match(/^\/bu\/(.+)/)
   return m ? decodeURIComponent(m[1]) : ''
 })
+
+onErrorCaptured((err) => onVueErrorCaptured(err))
 
 onMounted(async () => {
   // 注意：条件须拆开写，避免打包器把 === 与 || 折叠成 ==(a||b) 语义错误

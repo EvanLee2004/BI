@@ -33,7 +33,7 @@
 4. `sudo systemctl start kanban`，curl `/api/health` 绿/黄可接受
 5. 一键更新（管理端按钮）走 `git pull --ff-only` + 依赖同步 + `.update_rollback` 自愈（铁律18）；坏版本看门狗自动回滚
 6. 口径配置：管理端 UI/API 已下线；引擎默认直通。紧急改口径仅运维层（代码默认值 / DB，见 MADR-0012）
-7. **账号密码（任务书63·H-05）**：`看板账号.json` 只存 PBKDF2 哈希；**首启/升级后读到旧明文会自动迁移**并备份 `看板账号.json.bak-明文迁移-<日期>`。管理员在设置页「重置密码」抄录一次明文；接口永不回发明文列表。会话 TTL=12h。
+7. **账号密码（任务书64·P / MADR-0020）**：`看板账号.json` **明文为真相源**（管理员设置页可见可改）；写盘 `chmod 0o600`。保留：防爆破、改密踢会话、SESSION_TTL=12h、审计不记明文。生产若从未上过 63 哈希版则零迁移。
 
 ## 3. 备份恢复
 
@@ -41,3 +41,10 @@
 2. 恢复：拷贝 `看板.db` 到 `数据/`（先停服务）
 3. 演练：`python tests/run_test.py tests/test_backup_restore.py`
 4. 起服后 `/api/health` + 登录抽查 KPI
+
+## 任务书64 运维要点（2.0.3）
+
+- 备份：每日 `VACUUM INTO` 一致快照（失败回退 copy2 + 体检黄）；`数据/快照存档/` 与 `数据/年度归档/` **永久保留**，不进 30 天滚动清理。
+- 跨年：智云 auto 首抓前自动归档上年四源 xlsx+库；台账 sheet 由亮晶新建当年名。
+- 部署：nginx 安全头 + systemd `NoNewPrivileges`/`ProtectSystem=strict`/`PrivateTmp`；healthcheck 失败可飞书（未配 webhook 则只写 log）+ 磁盘余量检查。
+- 密码：明文 + 文件 0600；**禁止猜生产口令**。

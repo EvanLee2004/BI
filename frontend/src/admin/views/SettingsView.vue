@@ -36,6 +36,7 @@ const {
   setMsgs,
   saving,
   acctList,
+  acctPwShow,
   masterAccount,
   resetAcctPasswd,
   buList,
@@ -257,10 +258,18 @@ import './settings-view.css'
                 </template>
               </template>
             </el-table-column>
-            <el-table-column label="密码" width="200">
-              <template #default="{ row }">
-                <el-button size="small" @click="resetAcctPasswd(row)" :disabled="!String(row.账号 || '').trim()">重置密码</el-button>
-                <el-tag v-if="row.初始密码" type="warning" size="small" style="margin-left: 6px">初始</el-tag>
+            <el-table-column label="密码" width="220">
+              <template #default="{ row, $index }">
+                <el-input
+                  v-model="row.密码"
+                  size="small"
+                  :type="acctPwShow[$index] ? 'text' : 'password'"
+                  style="width: 100px"
+                  @input="() => { row.初始密码 = false; mark('acct') }"
+                />
+                <el-button text size="small" @click="acctPwShow[$index] = !acctPwShow[$index]">{{ acctPwShow[$index] ? '🙈' : '👁' }}</el-button>
+                <el-button size="small" text @click="resetAcctPasswd(row)" :disabled="!String(row.账号 || '').trim()">重置</el-button>
+                <el-tag v-if="row.初始密码" type="warning" size="small">初始</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="最后登录" label="最后登录" width="140" />

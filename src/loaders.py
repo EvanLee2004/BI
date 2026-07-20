@@ -59,6 +59,7 @@ def validate_config(cfg: dict) -> None:
         "project_delivery_date",
         "project_revenue",
         "project_cost",
+        "project_line",  # 任务书64·D4：主线必需列（业务线映射）
         "order_date",
         "order_amount",
         "receipt_date",

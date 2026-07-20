@@ -39,6 +39,11 @@ Environment=LC_ALL=C.UTF-8
 Environment=KANBAN_SERVER_HOST=127.0.0.1
 Environment=KANBAN_SERVE_STATIC=0
 # 离线抓数开关可由本地配置控制；此处不强行设 KANBAN_OFFLINE
+# 任务书64·D8：进程沙箱（路径按部署目录改；ReadWritePaths 须含程序/数据/日志）
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/kanban/看板正式程序 /opt/kanban/看板正式程序/数据 /opt/kanban/看板正式程序/数据/日志
 
 [Install]
 WantedBy=multi-user.target

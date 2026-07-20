@@ -20,6 +20,9 @@ import schema
 
 from .constants import DB_DEFAULT_REL, _BUSY_TIMEOUT_MS
 
+# 任务书64·D9：进程内 schema.create_all 只跑一次（按库路径）
+_SCHEMA_READY: set[str] = set()
+
 # pure-move funcs from _impl.py
 
 def db_path(cfg: dict, root: Path | None = None) -> Path:
@@ -36,6 +39,7 @@ def connect(cfg: dict, root: Path | None = None, *, readonly: bool = False) -> s
 
     readonly=True：URI mode=ro（任务书46·5 读写分离语义——读路径不写盘）。
     只读连接跳过 schema.create_all（避免写库）。
+    写连接：schema.create_all 进程内同路径只跑一次（首连标志位）。
     """
     path = db_path(cfg, root)
     if readonly:
@@ -54,7 +58,10 @@ def connect(cfg: dict, root: Path | None = None, *, readonly: bool = False) -> s
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
     conn.execute("PRAGMA synchronous=NORMAL")
-    schema.create_all(conn)
+    key = str(path.resolve())
+    if key not in _SCHEMA_READY:
+        schema.create_all(conn)
+        _SCHEMA_READY.add(key)
     return conn
 
 

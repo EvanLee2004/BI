@@ -56,3 +56,24 @@ echo EXIT:$?
 
 - Playwright 像素/任务书证据：`tests/frontend/playwright_*.py`
 - 前端结构守卫：`tests/frontend/parity/`
+
+---
+
+## golden 重锚（何时允许、怎么做）
+
+**默认禁止**改 `golden/baseline_numbers.json`。仅当以下**全部**成立才可重锚：
+
+1. 产品/口径**书面确认**利润数字应变（不是 bug 修复误伤 golden）；
+2. 已用 `scripts/reanchor_golden.py`（**不加** `--write`）审过 diff 报告，每条 diff 有业务解释；
+3. 明昊（或任务书）明确授权本次重锚。
+
+流程：
+
+```bash
+KANBAN_OFFLINE=1 .venv/bin/python scripts/reanchor_golden.py          # 只打印 diff
+# 人工审 diff 通过后：
+KANBAN_OFFLINE=1 .venv/bin/python scripts/reanchor_golden.py --write
+KANBAN_OFFLINE=1 sh tests/run_verify.sh
+```
+
+任务书64 **不执行重锚**。

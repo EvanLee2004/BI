@@ -221,11 +221,39 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
 
+# 任务书64·D2：std 表覆盖性索引（只加速查询，不改结果）
+STD_INDEXES: list[str] = [
+    # 定位键（调整/重放/重复审计）
+    "CREATE INDEX IF NOT EXISTS idx_std_收入明细_定位键 ON std_收入明细(定位键)",
+    "CREATE INDEX IF NOT EXISTS idx_std_下单_定位键 ON std_下单(定位键)",
+    "CREATE INDEX IF NOT EXISTS idx_std_回款_定位键 ON std_回款(定位键)",
+    "CREATE INDEX IF NOT EXISTS idx_std_内部译员_定位键 ON std_内部译员(定位键)",
+    "CREATE INDEX IF NOT EXISTS idx_std_费用明细_定位键 ON std_费用明细(定位键)",
+    # (已删除, 归属月) 利润扫描主路径
+    "CREATE INDEX IF NOT EXISTS idx_std_收入明细_删月 ON std_收入明细(已删除, 归属月)",
+    "CREATE INDEX IF NOT EXISTS idx_std_下单_删月 ON std_下单(已删除, 归属月)",
+    "CREATE INDEX IF NOT EXISTS idx_std_回款_删月 ON std_回款(已删除, 归属月)",
+    "CREATE INDEX IF NOT EXISTS idx_std_内部译员_删月 ON std_内部译员(已删除, 归属月)",
+    "CREATE INDEX IF NOT EXISTS idx_std_费用明细_删月 ON std_费用明细(已删除, 归属月)",
+    # 明细筛选高频列
+    "CREATE INDEX IF NOT EXISTS idx_std_收入明细_销售 ON std_收入明细(已删除, 销售)",
+    "CREATE INDEX IF NOT EXISTS idx_std_收入明细_客户 ON std_收入明细(已删除, 客户)",
+    "CREATE INDEX IF NOT EXISTS idx_std_下单_部门 ON std_下单(已删除, 部门)",
+    "CREATE INDEX IF NOT EXISTS idx_std_下单_销售 ON std_下单(已删除, 销售)",
+    "CREATE INDEX IF NOT EXISTS idx_std_回款_销售 ON std_回款(已删除, 销售)",
+    "CREATE INDEX IF NOT EXISTS idx_std_回款_客户 ON std_回款(已删除, 客户)",
+    "CREATE INDEX IF NOT EXISTS idx_std_费用明细_BU ON std_费用明细(已删除, 业务BU)",
+    "CREATE INDEX IF NOT EXISTS idx_std_费用明细_部门 ON std_费用明细(已删除, 预算归属部门)",
+]
+
+
 def create_all(conn: sqlite3.Connection) -> None:
-    """建齐所有表（幂等）+ 给存量库补后加的列 + 金额分迁移 + 清掉已废弃表。"""
+    """建齐所有表（幂等）+ 索引 + 给存量库补后加的列 + 金额分迁移 + 清掉已废弃表。"""
     cur = conn.cursor()
     for ddl in {**STD_TABLES, **HUMAN_TABLES}.values():
         cur.execute(ddl)
+    for idx in STD_INDEXES:
+        cur.execute(idx)
     _ensure_columns(conn)
     cur.execute("DROP TABLE IF EXISTS suspect_待确认")  # R0：可疑单机制整套删除，存量库顺手清表
     migrate_money_to_fen_if_needed(conn)

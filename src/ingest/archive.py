@@ -20,9 +20,31 @@ import loaders
 import db
 
 
+def _vacuum_into(src: Path, dst: Path) -> None:
+    """SQLite ≥3.27：VACUUM INTO 产出单文件一致快照（含 WAL 视图）。"""
+    import sqlite3
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        dst.unlink()
+    conn = sqlite3.connect(str(src), timeout=30.0)
+    try:
+        # 安全字面量路径：仅接受本机 Path 解析后的绝对路径
+        target = str(dst.resolve())
+        if "'" in target:
+            raise OSError("backup path contains quote")
+        conn.execute(f"VACUUM INTO '{target}'")
+    finally:
+        conn.close()
+
+
 def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None = None, keep: int | None = None) -> dict:
     """拷 看板.db → 数据/备份/看板_YYYYMMDD.db，滚动保留最近 keep 份（每天一份≈保留 keep 天）。
-    keep 不传 → 读 config.backup_keep_days（缺省 30），管理员端「设置」页可改。"""
+
+    任务书64·D1：优先 VACUUM INTO 一致快照；失败回退 copy2 并体检黄（status=degraded）。
+    keep 不传 → 读 config.backup_keep_days（缺省 30），管理员端「设置」页可改。
+    注意：仅清理 备份/看板_*.db；**不触及** 快照存档/ 与 年度归档/（永久保留）。
+    """
     if keep is None:
         keep = max(1, int(cfg.get("backup_keep_days", 30) or 30))
     src = db.db_path(cfg, root)
@@ -32,17 +54,33 @@ def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None =
     bdir = loaders.data_dir(cfg, root) / "备份"
     bdir.mkdir(parents=True, exist_ok=True)
     dst = bdir / f"看板_{day:%Y%m%d}.db"
+    method = "vacuum_into"
     try:
-        shutil.copy2(src, dst)
-    except OSError as e:
-        return {"status": "error", "detail": str(e), "ok": False}
+        _vacuum_into(src, dst)
+    except Exception as e:
+        method = "copy2_fallback"
+        try:
+            shutil.copy2(src, dst)
+        except OSError as e2:
+            return {"status": "error", "detail": f"VACUUM INTO 失败({type(e).__name__}: {e}); copy2 失败({e2})", "ok": False}
     backups = sorted(bdir.glob("看板_*.db"))
     pruned = 0
     while len(backups) > keep:
         backups[0].unlink()
         backups.pop(0)
         pruned += 1
-    return {"status": "ok", "path": str(dst), "kept": len(backups), "pruned": pruned, "ok": True}
+    out = {
+        "status": "ok" if method == "vacuum_into" else "degraded",
+        "path": str(dst),
+        "kept": len(backups),
+        "pruned": pruned,
+        "ok": True,
+        "method": method,
+    }
+    if method != "vacuum_into":
+        out["detail"] = "VACUUM INTO 失败，已回退 copy2（体检黄）"
+        out["yellow"] = True
+    return out
 
 
 def restore_db_from_backup(
@@ -72,6 +110,81 @@ def restore_db_from_backup(
     except OSError as e:
         return {"status": "error", "detail": str(e), "pre": str(pre) if pre else None}
     return {"status": "ok", "path": str(dst), "from": str(src), "pre": str(pre) if pre else None}
+
+
+def maybe_year_archive_zhiyun(  # noqa: C901  # 跨年归档分支：存在/跳过/拷贝/失败
+    cfg: dict,
+    root: Path | None = None,
+    today: datetime.date | None = None,
+) -> dict:
+    """跨年自动归档（任务书64·E）：zhiyun_since=auto 切到新年后首抓前，
+    若 数据/年度归档/<旧年>/ 尚不存在，则把四源现有 xlsx + 当日 db 完整拷入后返回。
+
+    归档只做一次（目录已存在即跳过）；**永久保留**，backup_keep 清理不得触及。
+    """
+    from ingest import fetch_zhiyun
+
+    day = today or datetime.date.today()
+    since_raw = cfg.get("zhiyun_since") if cfg.get("zhiyun_since") is not None else "auto"
+    resolved = fetch_zhiyun.resolve_zhiyun_since(since_raw, today=day)
+    if not resolved:
+        return {"status": "skip", "detail": "zhiyun_since 全量/空，不触发跨年归档"}
+    try:
+        y = int(resolved[:4])
+    except (TypeError, ValueError):
+        return {"status": "skip", "detail": f"无法解析 since 年份：{resolved}"}
+    # 仅当 since 落在「当年元旦」（auto 或写死同年）且我们即将按新年过滤覆盖时
+    if y != day.year:
+        return {"status": "skip", "detail": f"since 年 {y} ≠ today 年 {day.year}"}
+    prev = y - 1
+    if prev < 2000:
+        return {"status": "skip", "detail": "prev year 无效"}
+    base = loaders.data_dir(cfg, root)
+    arch = base / "年度归档" / str(prev)
+    if arch.is_dir() and any(arch.iterdir()):
+        return {"status": "exists", "path": str(arch), "year": prev, "ok": True}
+    # 有任一源文件才归档
+    stems = []
+    files_cfg = cfg.get("files") or {}
+    for key in ("orders", "receipts", "project_detail_stem", "inhouse"):
+        name = files_cfg.get(key)
+        if not name:
+            continue
+        if key == "project_detail_stem":
+            p = base / f"{name}.xlsx"
+        else:
+            p = base / name
+        if p.is_file():
+            stems.append(p)
+    if not stems:
+        return {"status": "skip", "detail": "无本地四源 xlsx，跳过归档", "year": prev}
+    arch.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for p in stems:
+        try:
+            shutil.copy2(p, arch / p.name)
+            copied.append(p.name)
+        except OSError as e:
+            return {"status": "error", "detail": str(e), "ok": False, "year": prev}
+    dbp = db.db_path(cfg, root)
+    if dbp.is_file():
+        try:
+            # 优先一致快照
+            try:
+                _vacuum_into(dbp, arch / f"看板_{prev}.db")
+            except Exception:
+                shutil.copy2(dbp, arch / f"看板_{prev}.db")
+            copied.append(f"看板_{prev}.db")
+        except OSError:
+            pass
+    return {
+        "status": "archived",
+        "path": str(arch),
+        "year": prev,
+        "files": copied,
+        "ok": True,
+        "detail": f"已归档 {prev}",
+    }
 
 
 def snapshot_page(

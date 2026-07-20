@@ -8,6 +8,20 @@
 
 ---
 
+## [2.0.3] - 2026-07-20
+
+本地 tag：`stage64_ship`（完成后打；只本地不推 tags）
+
+### Changed / Security
+- **批次 P**：密码口径回退明文（管理员可见可改，MADR-0020）；`chmod 0o600` 私密写盘；保留防爆破/12h 会话/改密踢会话/审计不记明文
+- **批次 D**：备份 VACUUM INTO；std 索引；`_state` 原子发布；normalize 业务线走配置；Vue 全局错误条；golden 重锚脚本；清理死 golden；nginx/systemd/healthcheck 加固；工程一致（create_all 一次、routes 共享 server helper、package 钉版本）
+- **批次 E**：智云跨年年度归档 + 台账跨年 SOP 文档
+
+### Fixed
+- 外部审查 H-05 按产品拍板回退并如实记录「风险已知悉、接受」
+
+---
+
 ## [2.0.2] - 2026-07-20
 
 本地 tag：`stage63_security`（完成后打；本段随 A/B/C 批次累加）

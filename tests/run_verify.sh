@@ -132,6 +132,7 @@ tests/test_task58_ledger_date_range.py
 tests/test_task61_stage61.py
 tests/test_task63_stage63_batch_a.py
 tests/test_task63_stage63_batch_b.py
+tests/test_task64_stage64.py
 "
 run_one() {
   f="$1"
