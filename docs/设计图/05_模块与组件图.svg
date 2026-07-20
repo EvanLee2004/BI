@@ -1,133 +1,145 @@
-<svg viewBox="0 0 900 700" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
-<title>模块与组件图（v1.5.0-beta · 对齐 src/）</title>
-<desc>代码目录职责与依赖方向：run → ingest/profit → render/server/static</desc>
+<svg viewBox="0 0 960 740" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>模块与组件图 v2.0 · 对齐 src/ + frontend/</title>
 <style>
-.h{fill:#1f2937;font-size:13px;font-weight:700}
-.t{fill:#1f2937;font-size:12px;font-weight:600}
-.s{fill:#4b5563;font-size:10.5px}
-.xs{fill:#6b7280;font-size:9.5px}
-.lbl{fill:#6b7280;font-size:11px;font-weight:600}
+.h{fill:#0f172a;font-size:14px;font-weight:700}
+.t{fill:#0f172a;font-size:11.5px;font-weight:600}
+.s{fill:#334155;font-size:10.5px}
+.xs{fill:#64748b;font-size:9.5px}
+.lbl{fill:#475569;font-size:11px;font-weight:700}
 </style>
-<rect x="0" y="0" width="900" height="700" fill="#ffffff"/>
-<text x="450" y="24" class="h" text-anchor="middle" font-size="14">模块与组件图 · 对齐当前代码树</text>
-<text x="450" y="42" class="xs" text-anchor="middle">产品 v1.5.0-beta · 箭头=调用/依赖方向 · 计算层不依赖展示层</text>
+<rect width="960" height="740" fill="#ffffff"/>
+<text x="480" y="24" class="h" text-anchor="middle">模块与组件图 · 对齐当前代码树</text>
+<text x="480" y="42" class="xs" text-anchor="middle">产品 v2.0.0-rc12 · 箭头=依赖方向 · 计算层不依赖展示层 · 前端零金额运算</text>
 
-<!-- 入口 -->
-<rect x="300" y="56" width="300" height="48" rx="8" fill="#1f2937"/>
-<text x="450" y="78" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">run.py</text>
-<text x="450" y="94" fill="#d1d5db" font-size="10" text-anchor="middle">更新 | --serve | --scheduled</text>
+<!-- 入口行 -->
+<rect x="320" y="58" width="320" height="48" rx="8" fill="#0f172a"/>
+<text x="480" y="80" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">run.py</text>
+<text x="480" y="96" fill="#cbd5e1" font-size="10" text-anchor="middle">更新 | --serve | --scheduled</text>
 
-<!-- 配置 -->
-<rect x="40" y="56" width="200" height="48" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
-<text x="140" y="78" class="t" text-anchor="middle">config.json + VERSION</text>
-<text x="140" y="94" class="xs" text-anchor="middle">口径唯一源 · 产品号唯一源</text>
+<rect x="40" y="58" width="220" height="48" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+<text x="150" y="80" class="t" text-anchor="middle">config.json + VERSION</text>
+<text x="150" y="96" class="xs" text-anchor="middle">口径 · 产品号</text>
 
-<rect x="660" y="56" width="200" height="48" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
-<text x="760" y="78" class="t" text-anchor="middle">数据/（运行时）</text>
-<text x="760" y="94" class="xs" text-anchor="middle">xlsx · db · 账号/BU JSON</text>
+<rect x="700" y="58" width="220" height="48" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+<text x="810" y="80" class="t" text-anchor="middle">数据/（运行时）</text>
+<text x="810" y="96" class="xs" text-anchor="middle">xlsx · db · 账号/BU JSON</text>
 
-<!-- 管道层 -->
-<text x="40" y="140" class="lbl">抓数 + 清洗管道 src/ingest/</text>
-<rect x="40" y="150" width="820" height="100" rx="10" fill="#3b82f61a" stroke="#3b82f6"/>
-<rect x="56" y="168" width="110" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="111" y="192" class="t" text-anchor="middle">login/fetch</text>
-<text x="111" y="210" class="xs" text-anchor="middle">zhiyun · SMB</text>
-<rect x="180" y="168" width="100" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="230" y="192" class="t" text-anchor="middle">readers</text>
-<text x="230" y="210" class="xs" text-anchor="middle">读 xlsx</text>
-<rect x="294" y="168" width="100" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="344" y="192" class="t" text-anchor="middle">normalize</text>
-<text x="344" y="210" class="xs" text-anchor="middle">定位键</text>
-<rect x="408" y="168" width="100" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="458" y="192" class="t" text-anchor="middle">adjust</text>
-<text x="458" y="210" class="xs" text-anchor="middle">重放调整</text>
-<rect x="522" y="168" width="100" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="572" y="192" class="t" text-anchor="middle">archive</text>
-<text x="572" y="210" class="xs" text-anchor="middle">备份快照</text>
-<rect x="636" y="168" width="100" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="686" y="192" class="t" text-anchor="middle">migrate</text>
-<text x="686" y="210" class="xs" text-anchor="middle">手填迁移</text>
-<rect x="750" y="168" width="90" height="64" rx="6" fill="#fff" stroke="#3b82f6"/>
-<text x="795" y="192" class="t" text-anchor="middle">__init__</text>
-<text x="795" y="210" class="xs" text-anchor="middle">串管道</text>
+<!-- 抓数 -->
+<text x="40" y="132" class="lbl">抓数 + 清洗 · src/ingest/</text>
+<rect x="40" y="142" width="880" height="88" rx="10" fill="#eff6ff" stroke="#3b82f6"/>
+<rect x="56" y="158" width="115" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="113" y="182" class="t" text-anchor="middle">login/fetch</text>
+<text x="113" y="198" class="xs" text-anchor="middle">zhiyun · SMB</text>
+<rect x="184" y="158" width="100" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="234" y="182" class="t" text-anchor="middle">readers</text>
+<text x="234" y="198" class="xs" text-anchor="middle">读 xlsx</text>
+<rect x="298" y="158" width="100" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="348" y="182" class="t" text-anchor="middle">normalize</text>
+<text x="348" y="198" class="xs" text-anchor="middle">定位键</text>
+<rect x="412" y="158" width="100" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="462" y="182" class="t" text-anchor="middle">adjust</text>
+<text x="462" y="198" class="xs" text-anchor="middle">重放调整</text>
+<rect x="526" y="158" width="100" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="576" y="182" class="t" text-anchor="middle">archive</text>
+<text x="576" y="198" class="xs" text-anchor="middle">备份快照</text>
+<rect x="640" y="158" width="100" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="690" y="182" class="t" text-anchor="middle">migrate</text>
+<text x="690" y="198" class="xs" text-anchor="middle">手填迁移</text>
+<rect x="754" y="158" width="148" height="56" rx="6" fill="#fff" stroke="#3b82f6"/>
+<text x="828" y="182" class="t" text-anchor="middle">refresh_pipeline</text>
+<text x="828" y="198" class="xs" text-anchor="middle">串管道 / 锁</text>
 
-<!-- 存储与计算 -->
-<text x="40" y="280" class="lbl">存储 · 计算 · 身份</text>
-<rect x="40" y="290" width="200" height="90" rx="8" fill="#10b9811a" stroke="#059669"/>
-<text x="140" y="315" class="t" text-anchor="middle">schema.py + db.py</text>
-<text x="140" y="335" class="s" text-anchor="middle">DDL 唯一源 · 读写层</text>
-<text x="140" y="353" class="xs" text-anchor="middle">调整/手填/分摊/去税/预算</text>
-<text x="140" y="368" class="xs" text-anchor="middle">看板.db</text>
+<!-- 存储计算身份 -->
+<text x="40" y="256" class="lbl">存储 · 计算 · 身份</text>
+<rect x="40" y="266" width="200" height="90" rx="8" fill="#ecfdf5" stroke="#059669"/>
+<text x="140" y="292" class="t" text-anchor="middle">schema · db · db_pkg</text>
+<text x="140" y="312" class="s" text-anchor="middle">DDL · 读写 · WAL</text>
+<text x="140" y="332" class="xs" text-anchor="middle">看板.db</text>
 
-<rect x="260" y="290" width="200" height="90" rx="8" fill="#8b5cf61a" stroke="#7c3aed"/>
-<text x="360" y="315" class="t" text-anchor="middle">profit.py ★</text>
-<text x="360" y="335" class="s" text-anchor="middle">只读库 · 纯函数</text>
-<text x="360" y="353" class="xs" text-anchor="middle">32 周期 summary · BU 过滤</text>
-<text x="360" y="368" class="xs" text-anchor="middle">分摊 · 去税 · 排名</text>
+<rect x="256" y="266" width="200" height="90" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
+<text x="356" y="292" class="t" text-anchor="middle">domain / profit ★</text>
+<text x="356" y="312" class="s" text-anchor="middle">纯函数 · 32 周期</text>
+<text x="356" y="332" class="xs" text-anchor="middle">BU 过滤 · 分摊去税</text>
 
-<rect x="480" y="290" width="180" height="90" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
-<text x="570" y="315" class="t" text-anchor="middle">accounts.py</text>
-<text x="570" y="335" class="s" text-anchor="middle">看板账号.json</text>
-<text x="570" y="353" class="xs" text-anchor="middle">管理员/整体/多 BU</text>
-<text x="570" y="368" class="xs" text-anchor="middle">鉴权 · 改密</text>
+<rect x="472" y="266" width="160" height="90" rx="8" fill="#fff7ed" stroke="#ea580c"/>
+<text x="552" y="292" class="t" text-anchor="middle">accounts</text>
+<text x="552" y="312" class="s" text-anchor="middle">账号 JSON</text>
+<text x="552" y="332" class="xs" text-anchor="middle">鉴权 · 改密</text>
 
-<rect x="680" y="290" width="180" height="90" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
-<text x="770" y="315" class="t" text-anchor="middle">bu.py</text>
-<text x="770" y="335" class="s" text-anchor="middle">BU配置.json</text>
-<text x="770" y="353" class="xs" text-anchor="middle">销售名单归属</text>
-<text x="770" y="368" class="xs" text-anchor="middle">与账号解耦</text>
+<rect x="648" y="266" width="140" height="90" rx="8" fill="#fff7ed" stroke="#ea580c"/>
+<text x="718" y="292" class="t" text-anchor="middle">bu.py</text>
+<text x="718" y="312" class="s" text-anchor="middle">BU 配置</text>
+<text x="718" y="332" class="xs" text-anchor="middle">销售归属</text>
 
-<!-- 展示 -->
-<text x="40" y="410" class="lbl">展示层（v1.4：资源外置 + JSON API）</text>
-<rect x="40" y="420" width="160" height="90" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="120" y="445" class="t" text-anchor="middle">core.py</text>
-<text x="120" y="465" class="s" text-anchor="middle">generate / summary</text>
-<text x="120" y="483" class="xs" text-anchor="middle">run↔server 共用</text>
-<text x="120" y="498" class="xs" text-anchor="middle">BU pages 装配</text>
+<rect x="804" y="266" width="116" height="90" rx="8" fill="#fef2f2" stroke="#ef4444"/>
+<text x="862" y="292" class="t" text-anchor="middle">login_guard</text>
+<text x="862" y="312" class="s" text-anchor="middle">防爆破</text>
+<text x="862" y="332" class="xs" text-anchor="middle">N 次锁 M 分</text>
 
-<rect x="220" y="420" width="160" height="90" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="300" y="445" class="t" text-anchor="middle">render.py</text>
-<text x="300" y="465" class="s" text-anchor="middle">预渲染 HTML 块</text>
-<text x="300" y="483" class="xs" text-anchor="middle">零金额运算</text>
-<text x="300" y="498" class="xs" text-anchor="middle">charts · periods</text>
+<!-- 后端服务 -->
+<text x="40" y="384" class="lbl">后端服务 · FastAPI</text>
+<rect x="40" y="394" width="160" height="88" rx="8" fill="#fdf2f8" stroke="#db2777"/>
+<text x="120" y="420" class="t" text-anchor="middle">server.py</text>
+<text x="120" y="440" class="s" text-anchor="middle">应用组装</text>
+<text x="120" y="458" class="xs" text-anchor="middle">中间件 · 静态</text>
 
-<rect x="400" y="420" width="160" height="90" rx="8" fill="#6366f11a" stroke="#6366f1"/>
-<text x="480" y="445" class="t" text-anchor="middle">api_v1.py</text>
-<text x="480" y="465" class="s" text-anchor="middle">cockpit JSON</text>
-<text x="480" y="483" class="xs" text-anchor="middle">numbers≡golden</text>
-<text x="480" y="498" class="xs" text-anchor="middle">不算账只序列化</text>
+<rect x="216" y="394" width="160" height="88" rx="8" fill="#fdf2f8" stroke="#db2777"/>
+<text x="296" y="420" class="t" text-anchor="middle">routes/*</text>
+<text x="296" y="440" class="s" text-anchor="middle">auth · admin</text>
+<text x="296" y="458" class="xs" text-anchor="middle">detail · export</text>
 
-<rect x="580" y="420" width="160" height="90" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="660" y="445" class="t" text-anchor="middle">server.py</text>
-<text x="660" y="465" class="s" text-anchor="middle">FastAPI 路由</text>
-<text x="660" y="483" class="xs" text-anchor="middle">页面 + /api/*</text>
-<text x="660" y="498" class="xs" text-anchor="middle">管理端 static/admin</text>
+<rect x="392" y="394" width="160" height="88" rx="8" fill="#eef2ff" stroke="#6366f1"/>
+<text x="472" y="420" class="t" text-anchor="middle">api_v1 · VM</text>
+<text x="472" y="440" class="s" text-anchor="middle">序列化 only</text>
+<text x="472" y="458" class="xs" text-anchor="middle">numbers≡golden</text>
 
-<rect x="760" y="420" width="100" height="90" rx="8" fill="#6366f11a" stroke="#6366f1"/>
-<text x="810" y="445" class="t" text-anchor="middle">static/</text>
-<text x="810" y="465" class="xs" text-anchor="middle">theme.css</text>
-<text x="810" y="480" class="xs" text-anchor="middle">cockpit.js</text>
-<text x="810" y="495" class="xs" text-anchor="middle">shell.html</text>
+<rect x="568" y="394" width="160" height="88" rx="8" fill="#fdf2f8" stroke="#db2777"/>
+<text x="648" y="420" class="t" text-anchor="middle">core · render_*</text>
+<text x="648" y="440" class="s" text-anchor="middle">summary 装配</text>
+<text x="648" y="458" class="xs" text-anchor="middle">遗留预渲染块</text>
 
-<!-- 运维 -->
-<text x="40" y="540" class="lbl">运维与质量</text>
-<rect x="40" y="550" width="200" height="70" rx="8" fill="#10b9811a" stroke="#059669"/>
-<text x="140" y="575" class="t" text-anchor="middle">updater.py</text>
-<text x="140" y="595" class="xs" text-anchor="middle">一键更新 · pip 镜像 · 回滚</text>
+<rect x="744" y="394" width="176" height="88" rx="8" fill="#ecfdf5" stroke="#059669"/>
+<text x="832" y="420" class="t" text-anchor="middle">updater · version</text>
+<text x="832" y="440" class="s" text-anchor="middle">一键更新/回滚</text>
+<text x="832" y="458" class="xs" text-anchor="middle">pip 镜像 · 版本号</text>
 
-<rect x="260" y="550" width="200" height="70" rx="8" fill="#10b9811a" stroke="#059669"/>
-<text x="360" y="575" class="t" text-anchor="middle">version.py</text>
-<text x="360" y="595" class="xs" text-anchor="middle">VERSION · 用户更新日志</text>
+<!-- 前端 -->
+<text x="40" y="510" class="lbl">前端 · frontend/（Vue3 · 生产产物 dist）</text>
+<rect x="40" y="520" width="220" height="88" rx="8" fill="#0f766e"/>
+<text x="150" y="548" fill="#ecfeff" font-size="12" font-weight="700" text-anchor="middle">看端 SPA</text>
+<text x="150" y="568" fill="#ccfbf1" font-size="10" text-anchor="middle">views/components</text>
+<text x="150" y="584" fill="#ccfbf1" font-size="10" text-anchor="middle">ECharts · SciFi 主题</text>
 
-<rect x="480" y="550" width="200" height="70" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
-<text x="580" y="575" class="t" text-anchor="middle">tests/</text>
-<text x="580" y="595" class="xs" text-anchor="middle">run_verify · 回归红线 · golden</text>
+<rect x="280" y="520" width="220" height="88" rx="8" fill="#134e4a"/>
+<text x="390" y="548" fill="#ecfeff" font-size="12" font-weight="700" text-anchor="middle">管理端 SPA</text>
+<text x="390" y="568" fill="#ccfbf1" font-size="10" text-anchor="middle">admin/ · Element Plus</text>
+<text x="390" y="584" fill="#ccfbf1" font-size="10" text-anchor="middle">改数 · 设置 · 账号</text>
 
-<rect x="700" y="550" width="160" height="70" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
-<text x="780" y="575" class="t" text-anchor="middle">loaders · validate</text>
-<text x="780" y="595" class="xs" text-anchor="middle">配置 · 列解析 · 体检</text>
+<rect x="520" y="520" width="200" height="88" rx="8" fill="#eef2ff" stroke="#6366f1"/>
+<text x="620" y="548" class="t" text-anchor="middle">api/ · stores/</text>
+<text x="620" y="568" class="s" text-anchor="middle">VM 类型契约</text>
+<text x="620" y="584" class="xs" text-anchor="middle">session · cockpit</text>
 
-<rect x="40" y="638" width="820" height="48" rx="8" fill="#f9fafb" stroke="#e5e7eb"/>
-<text x="56" y="658" class="s">依赖纪律：profit / ingest 不 import render·server · api_v1 只序列化已算好的 summary · 前端 JS 不做金额运算</text>
-<text x="56" y="676" class="xs">theme.py 历史 CSS 变量仍在；主路径主题已外置 static/css/theme.css · 管理端 v1.5：static/admin + /admin/app.js</text>
+<rect x="740" y="520" width="180" height="88" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+<text x="830" y="548" class="t" text-anchor="middle">static/ 残留</text>
+<text x="830" y="568" class="s" text-anchor="middle">重定向壳 / 资产</text>
+<text x="830" y="584" class="xs" text-anchor="middle">非主路径</text>
+
+<!-- 运维质量 -->
+<text x="40" y="638" class="lbl">运维 · 质量 · 部署模板</text>
+<rect x="40" y="648" width="200" height="56" rx="8" fill="#ecfdf5" stroke="#059669"/>
+<text x="140" y="672" class="t" text-anchor="middle">deploy/linux/</text>
+<text x="140" y="690" class="xs" text-anchor="middle">systemd · nginx · 看门狗</text>
+
+<rect x="260" y="648" width="200" height="56" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="360" y="672" class="t" text-anchor="middle">tests/</text>
+<text x="360" y="690" class="xs" text-anchor="middle">run_verify · 红线 · golden</text>
+
+<rect x="480" y="648" width="200" height="56" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="580" y="672" class="t" text-anchor="middle">docs/</text>
+<text x="580" y="690" class="xs" text-anchor="middle">Runbook · Ubuntu 手册</text>
+
+<rect x="700" y="648" width="220" height="56" rx="8" fill="#fef3c7" stroke="#d97706"/>
+<text x="810" y="672" class="t" text-anchor="middle">依赖纪律</text>
+<text x="810" y="690" class="xs" text-anchor="middle">profit ↛ render/server</text>
 </svg>

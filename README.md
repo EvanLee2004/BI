@@ -5,7 +5,7 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.0.0-rc11**（`stage56_final`；打磨中→rc11/`stage57_gold`） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · 费用图白名单 · 明细默认期间费用 · C901 壳仅 8 |
+| **v2.0.0-rc12**（`stage58_ui` · 2026-07-20 生产上线） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · Ubuntu systemd+nginx · 真实数据已抓 |
 
 ```bash
 python run.py             # 抓数 → 建库 → 算账 → 出 HTML
@@ -36,11 +36,11 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-19 · v2.0.0-rc11 · stage56_final）**  
+> **图集与代码对齐说明（2026-07-20 · v2.0.0-rc12 · 生产实核）**  
 > 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
 > **看端**仅 Vue；**管理端** Vue SPA + Element Plus 深空主题。  
-> **生产** = nginx 发 dist + 反代（`deploy/linux/nginx-kanban.conf`）；**简易** = `run.py --serve`。  
-> 明细默认期间费用口径（可开「显示全部」）；工资并入「其他」；前端错误只写日志（B-5）。  
+> **生产** = 公司 Ubuntu 26.04 · systemd `kanban` · nginx:80 发 dist + 反代 `127.0.0.1:8018` · cron 日更/体检/备份。  
+> **简易** = `run.py --serve`（开发）。Windows 线已退役。  
 > 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · 进度地图：`CLAUDE.md`。
 
 五层单向数据流（展示层 = Vue 真组件 + 版本化结构化 VM）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
@@ -78,7 +78,7 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ![部署拓扑](docs/images/deploy.png)
 
-Ubuntu：`deploy/linux/start_with_rollback.sh` 看门狗常驻 `--serve` · cron `--scheduled` · 浏览器访问。
+生产：`systemd kanban` + `nginx :80` 发 dist 反代 API · cron 日更/体检/备份 · 入口 `http://<内网IP>/`（勿对外直连 :8018）。
 
 ### 3. 模块与组件（对齐 `src/`）
 
@@ -245,15 +245,16 @@ tests/  docs/  golden/
 
 | 图 | 软工类型 | 文件 | 对齐状态 |
 |----|----------|------|----------|
-| 系统逻辑架构 | 架构 / 上下文 | [architecture.png](docs/images/architecture.png) | ✅ v1.5 = v1.4.0-beta |
-| 部署运行拓扑 | 部署图 | [deploy.png](docs/images/deploy.png) | ✅ 看门狗·计划任务·内网 |
-| 模块与组件 | 组件图 | [modules.png](docs/images/modules.png) | ✅ 对齐 `src/` + `static/` |
-| 登录权限分流 | 用例 / 时序 | [auth.png](docs/images/auth.png) | ✅ 账号·BU 解耦 |
-| 运行逻辑（白话） | 流程说明 | [howto-run.png](docs/images/howto-run.png) | ✅ |
-| 关键时序 | 时序图 | [sequence.png](docs/images/sequence.png) | ✅ 日更 + 改数重算 |
+| 系统逻辑架构 | 架构 / 上下文 | [architecture.png](docs/images/architecture.png) | ✅ v2.0 · Vue+nginx 五层 |
+| 部署运行拓扑 | 部署图 | [deploy.png](docs/images/deploy.png) | ✅ Ubuntu·systemd·nginx·cron |
+| 模块与组件 | 组件图 | [modules.png](docs/images/modules.png) | ✅ 对齐 `src/` + `frontend/` |
+| 登录权限分流 | 用例 / 时序 | [auth.png](docs/images/auth.png) | ✅ 账号·BU·login_guard |
+| 运行逻辑（白话） | 流程说明 | [howto-run.png](docs/images/howto-run.png) | ✅ cron+systemd 白话 |
+| 关键时序 | 时序图 | [sequence.png](docs/images/sequence.png) | ✅ 日更 + 改数重算 → VM |
 | 数据库 ER | 数据模型 | [er.png](docs/images/er.png) | ✅ v1.2 = `schema.py` 全表 |
 
-矢量源（编辑用）：[docs/设计图/](docs/设计图/)（SVG 在 Gitee README 里不渲染，故主 README 用 PNG）。
+矢量源（编辑用）：[docs/设计图/](docs/设计图/)（SVG 在 Gitee README 里不渲染，故主 README 用 PNG）。  
+旧 Windows 图已归档：`docs/设计图/归档_Windows时代_20260715/`。
 
 ### 文字文档
 

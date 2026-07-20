@@ -1,0 +1,103 @@
+<svg viewBox="0 0 760 1000" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>利润看板·小白版运行逻辑（v1.5 · 2026-07-15）</title>
+<desc>系统每天怎么跑、财务经理怎么用的大白话流程</desc>
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7a8699"/></marker>
+<marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d97706"/></marker>
+</defs>
+<style>
+.big{fill:#1f2937;font-size:15px;font-weight:700}
+.t{fill:#1f2937;font-size:13px;font-weight:600}
+.s{fill:#4b5563;font-size:12px}
+.step{fill:#ffffff;font-size:13px;font-weight:700}
+.ln{stroke:#7a8699;stroke-width:2;fill:none;marker-end:url(#a)}
+.lo{stroke:#d97706;stroke-width:2;fill:none;marker-end:url(#o);stroke-dasharray:6 4}
+.ot{fill:#d97706;font-size:12px;font-weight:600}
+</style>
+<rect x="0" y="0" width="760" height="1000" fill="#ffffff"/>
+
+<text x="380" y="30" class="big" text-anchor="middle">这个系统一天是怎么转起来的</text>
+<text x="380" y="48" class="s" text-anchor="middle">对齐产品 v1.4.0-beta · 账号登录 · 智云自动抓 · 前端只负责显示</text>
+
+<circle cx="50" cy="90" r="14" fill="#059669"/><text x="50" y="95" class="step" text-anchor="middle">1</text>
+<rect x="80" y="65" width="640" height="50" rx="10" fill="#10b9811a" stroke="#059669"/>
+<text x="95" y="87" class="t">到点了，电脑自己醒来干活（设置页可配多个时间，比如 9:30 / 12:00）</text>
+<text x="95" y="105" class="s">管理员急了也可以在网页上点「立即更新」，效果一样；还能「一键更新」拉新代码</text>
+
+<path class="ln" d="M400 115 L400 135"/>
+
+<circle cx="50" cy="165" r="14" fill="#3b82f6"/><text x="50" y="170" class="step" text-anchor="middle">2</text>
+<rect x="80" y="140" width="640" height="50" rx="10" fill="#3b82f61a" stroke="#3b82f6"/>
+<text x="95" y="162" class="t">去把最新的数搬回来</text>
+<text x="95" y="180" class="s">智云4表(下单/回款/项目/译员)自动登录去抓 + 收单台账从共享盘取；抓不到就用上次的并亮黄灯</text>
+
+<path class="ln" d="M400 190 L400 210"/>
+
+<circle cx="50" cy="240" r="14" fill="#0891b2"/><text x="50" y="245" class="step" text-anchor="middle">3</text>
+<rect x="80" y="215" width="640" height="50" rx="10" fill="#06b6d41a" stroke="#0891b2"/>
+<text x="95" y="237" class="t">洗数：金额、日期、归属月对齐，给每行打上稳定定位键</text>
+<text x="95" y="255" class="s">同名列空值不盖有值；异常行进「异常处理」清单，绝不静默算成 0</text>
+
+<path class="ln" d="M400 265 L400 285"/>
+
+<circle cx="50" cy="315" r="14" fill="#d97706"/><text x="50" y="320" class="step" text-anchor="middle">4</text>
+<rect x="80" y="290" width="640" height="66" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="95" y="312" class="t">把财务经理以前改过的数，全部重新改一遍（最关键的一步）</text>
+<text x="95" y="330" class="s">她改过的每一笔都记在「调整小本本」上；新数搬回来后照着小本本再改一遍，</text>
+<text x="95" y="348" class="s">所以不管重新取多少次数，她的修改永远不会丢；源头变了会标黄让人复核</text>
+
+<path class="ln" d="M400 356 L400 376"/>
+
+<circle cx="50" cy="406" r="14" fill="#7c3aed"/><text x="50" y="411" class="step" text-anchor="middle">5</text>
+<rect x="80" y="381" width="640" height="50" rx="10" fill="#8b5cf61a" stroke="#7c3aed"/>
+<text x="95" y="403" class="t">算账：利润表、毛利率、回款下单率、预算完成%、按客户/销售的收入毛利……</text>
+<text x="95" y="421" class="s">公共费用按月分摊到 BU；顺便自我体检：数对不上就亮黄/红灯，绝不装作没事</text>
+
+<path class="ln" d="M400 431 L400 451"/>
+
+<circle cx="50" cy="486" r="14" fill="#db2777"/><text x="50" y="491" class="step" text-anchor="middle">6</text>
+<rect x="80" y="456" width="640" height="78" rx="10" fill="#ec48991a" stroke="#db2777"/>
+<text x="95" y="478" class="t">生成网页 + JSON（手机连公司 WiFi 也能看）</text>
+<text x="95" y="496" class="s">· 同一入口登录：整体账号看全公司 · BU 账号只看本 BU · 管理员进控制台</text>
+<text x="95" y="514" class="s">· 样式和交互在 static/ 文件夹（CSS/JS 外置），页面壳子 fetch 同源 HTML</text>
+<text x="95" y="532" class="s">· 另有 /api/v1/cockpit JSON，数字与测试金标准全等，外部系统可直接读</text>
+
+<text x="380" y="568" class="big" text-anchor="middle">财务经理打开管理页面后，能做的四件事</text>
+
+<rect x="30" y="588" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="45" y="610" class="t">① 发现某笔数不对 → 直接改</text>
+<text x="45" y="628" class="s">在明细里点开、改月份或金额、点保存，</text>
+<text x="45" y="646" class="s">几秒后所有图表数字自动变过来；</text>
+<text x="45" y="664" class="s">改的是「指令」，不是改原始文件</text>
+
+<rect x="390" y="588" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="405" y="610" class="t">② 处理异常与未分类</text>
+<text x="405" y="628" class="s">下单没填部门、台账费用未归类、</text>
+<text x="405" y="646" class="s">过期调整、未归属销售……系统列清单，</text>
+<text x="405" y="664" class="s">在「异常处理」页逐条消化</text>
+
+<rect x="30" y="691" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="45" y="713" class="t">③ 填只有她知道的数</text>
+<text x="45" y="731" class="s">人力成本、分摊比例、去税率、预算等，</text>
+<text x="45" y="749" class="s">在表单里按月填；当月没填按 0（不沿用上月），</text>
+<text x="45" y="767" class="s">缺月会在体检里提示</text>
+
+<rect x="390" y="691" width="340" height="88" rx="10" fill="#f59e0b1a" stroke="#d97706"/>
+<text x="405" y="713" class="t">④ 管账号、归属与更新</text>
+<text x="405" y="731" class="s">配谁能看哪个 BU、销售归哪个 BU、</text>
+<text x="405" y="749" class="s">智云账号、一键更新代码；顶上有红绿灯：</text>
+<text x="405" y="767" class="s">绿=可信 · 黄=有事看一眼 · 红=今天别用</text>
+
+<path class="lo" d="M200 676 L200 686"/>
+<path class="lo" d="M560 676 L560 686"/>
+<path class="lo" d="M380 779 L380 803"/>
+<rect x="80" y="808" width="600" height="46" rx="10" fill="#ffffff" stroke="#d97706"/>
+<text x="380" y="828" class="ot" text-anchor="middle">①②③ 任何一个动作点完 → 系统立刻自动重算 → 刷新就能看到新数字</text>
+<text x="380" y="846" class="s" text-anchor="middle">修改都记在「小本本」上，明天重新取数也冲不掉（回到第 4 步）</text>
+
+<rect x="80" y="880" width="600" height="90" rx="10" fill="#10b9811a" stroke="#059669"/>
+<text x="95" y="902" class="t">还有三件系统默默干的事</text>
+<text x="95" y="920" class="s">· 每月最后一天：把当天的数据整体拷一份存档——以后想查「6 月底报的到底是多少」随时有</text>
+<text x="95" y="938" class="s">· 哪天出错了：保留昨天的正常页面 + 亮红灯，绝不静默给你一堆错数</text>
+<text x="95" y="956" class="s">· 一键更新装依赖走国内镜像；坏版本启动即崩会自动回滚上一版一次</text>
+</svg>

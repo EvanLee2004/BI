@@ -1,23 +1,17 @@
-%% 任务书43 · Ubuntu 台式机部署拓扑
+%% 部署拓扑 · Ubuntu 26.04 生产（2026-07-20）
 flowchart LR
-  subgraph Desktop["Ubuntu 22.04 台式机"]
-    NGX[nginx :80]
+  subgraph Desktop["Ubuntu 26.04 台式机 /opt/kanban"]
+    NGX[nginx :80\ndist + 反代]
     SYS[systemd kanban.service]
-    CRON[cron 哨兵段]
-    PY[venv python<br/>127.0.0.1:8018]
-    DB[(数据/看板.db)]
-    LOG[数据/日志/ 滚动]
-    BAK[数据/备份/]
+    CRON[cron 日更/体检/备份]
+    PY[venv python\n127.0.0.1:8018]
+    DATA[数据/ xlsx+db+JSON]
+    NGX --> PY
+    SYS --> PY
+    CRON --> PY
+    PY --> DATA
   end
-  CIFS["//财务共享 CIFS<br/>/mnt/caiwu 只读"]
-  FS[飞书 webhook 可选]
-  LAN[内网同事手机/PC]
-  LAN --> NGX
-  NGX --> PY
-  SYS --> PY
-  CRON -->|--scheduled| PY
-  PY --> DB
-  PY --> LOG
-  PY --> BAK
-  CIFS -.->|fetch 只读拷入| PY
-  PY -.->|体检红| FS
+  ZY[智云 API] --> CRON
+  SMB[收单台账 共享盘] --> CRON
+  GIT[Gitee/GitHub] --> SYS
+  BROWSER[内网浏览器/手机] --> NGX

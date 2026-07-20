@@ -1,27 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 420" font-family="system-ui,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 420" font-family="system-ui,sans-serif" role="img">
+  <title>经营罗盘架构 v2.0 · nginx 生产双进程</title>
   <rect width="920" height="420" fill="#0b1220"/>
-  <text x="24" y="36" fill="#e2e8f0" font-size="18" font-weight="700">经营罗盘架构 v1.6（任务书43 · nginx 双进程）</text>
-  <rect x="40" y="70" width="160" height="70" rx="10" fill="#1e293b" stroke="#38bdf8"/>
-  <text x="120" y="110" text-anchor="middle" fill="#e2e8f0" font-size="13">浏览器/手机</text>
-  <rect x="260" y="60" width="200" height="90" rx="10" fill="#0f766e" stroke="#2dd4bf"/>
-  <text x="360" y="95" text-anchor="middle" fill="#ecfeff" font-size="13" font-weight="600">nginx :80</text>
-  <text x="360" y="118" text-anchor="middle" fill="#ccfbf1" font-size="11">static + reverse proxy</text>
-  <rect x="520" y="60" width="220" height="90" rx="10" fill="#1e3a5f" stroke="#60a5fa"/>
-  <text x="630" y="95" text-anchor="middle" fill="#e0f2fe" font-size="13" font-weight="600">FastAPI 127.0.0.1:8018</text>
-  <text x="630" y="118" text-anchor="middle" fill="#bae6fd" font-size="11">API · 算账 · 渲染</text>
-  <rect x="300" y="200" width="180" height="70" rx="10" fill="#312e81" stroke="#a78bfa"/>
-  <text x="390" y="240" text-anchor="middle" fill="#ede9fe" font-size="13">static/ 目录</text>
-  <rect x="540" y="200" width="200" height="70" rx="10" fill="#14532d" stroke="#4ade80"/>
-  <text x="640" y="240" text-anchor="middle" fill="#dcfce7" font-size="13">SQLite 看板.db</text>
+  <text x="24" y="36" fill="#e2e8f0" font-size="18" font-weight="700">经营罗盘架构 v2.0（nginx 发 dist + 反代 API）</text>
+  <text x="24" y="58" fill="#64748b" font-size="12">产品 v2.0.0-rc12 · Ubuntu 26.04 · 2026-07-20 生产</text>
+
+  <rect x="40" y="80" width="160" height="70" rx="10" fill="#1e293b" stroke="#38bdf8"/>
+  <text x="120" y="112" text-anchor="middle" fill="#e2e8f0" font-size="13">浏览器/手机</text>
+  <text x="120" y="132" text-anchor="middle" fill="#94a3b8" font-size="11">内网 Wi‑Fi</text>
+
+  <rect x="260" y="70" width="200" height="90" rx="10" fill="#0f766e" stroke="#2dd4bf"/>
+  <text x="360" y="105" text-anchor="middle" fill="#ecfeff" font-size="14" font-weight="600">nginx :80</text>
+  <text x="360" y="128" text-anchor="middle" fill="#ccfbf1" font-size="11">frontend/dist 静态</text>
+  <text x="360" y="146" text-anchor="middle" fill="#ccfbf1" font-size="11">/api 等反代</text>
+
+  <rect x="520" y="70" width="220" height="90" rx="10" fill="#1e3a5f" stroke="#60a5fa"/>
+  <text x="630" y="105" text-anchor="middle" fill="#e0f2fe" font-size="14" font-weight="600">FastAPI 127.0.0.1:8018</text>
+  <text x="630" y="128" text-anchor="middle" fill="#bae6fd" font-size="11">API · domain 算账</text>
+  <text x="630" y="146" text-anchor="middle" fill="#bae6fd" font-size="11">systemd kanban</text>
+
+  <rect x="280" y="200" width="180" height="70" rx="10" fill="#312e81" stroke="#a78bfa"/>
+  <text x="370" y="232" text-anchor="middle" fill="#ede9fe" font-size="13">Vue dist / admin SPA</text>
+  <text x="370" y="252" text-anchor="middle" fill="#c4b5fd" font-size="11">ECharts · Element Plus</text>
+
+  <rect x="520" y="200" width="200" height="70" rx="10" fill="#14532d" stroke="#4ade80"/>
+  <text x="620" y="232" text-anchor="middle" fill="#dcfce7" font-size="13">SQLite 看板.db</text>
+  <text x="620" y="252" text-anchor="middle" fill="#86efac" font-size="11">数据/ 目录</text>
+
   <rect x="40" y="300" width="200" height="70" rx="10" fill="#422006" stroke="#fbbf24"/>
-  <text x="140" y="340" text-anchor="middle" fill="#fef3c7" font-size="12">CIFS 台账只读拷入</text>
-  <rect x="300" y="300" width="200" height="70" rx="10" fill="#1f2937" stroke="#94a3b8"/>
-  <text x="400" y="340" text-anchor="middle" fill="#e2e8f0" font-size="12">飞书 webhook 可选</text>
-  <path d="M200 105 H260" stroke="#64748b" stroke-width="2" marker-end="url(#a)"/>
-  <path d="M460 105 H520" stroke="#64748b" stroke-width="2" marker-end="url(#a)"/>
-  <path d="M360 150 V200" stroke="#64748b" stroke-width="2" marker-end="url(#a)"/>
-  <path d="M630 150 V200" stroke="#64748b" stroke-width="2" marker-end="url(#a)"/>
-  <path d="M140 300 V175 H260" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
-  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker></defs>
-  <text x="24" y="400" fill="#64748b" font-size="11">直连模式：跳过 nginx，FastAPI 0.0.0.0:8018 自挂 /static（开发/兼容）</text>
+  <text x="140" y="332" text-anchor="middle" fill="#fef3c7" font-size="12">智云 + CIFS 台账</text>
+  <text x="140" y="352" text-anchor="middle" fill="#fcd34d" font-size="11">cron 日更进料</text>
+
+  <rect x="280" y="300" width="200" height="70" rx="10" fill="#1f2937" stroke="#94a3b8"/>
+  <text x="380" y="332" text-anchor="middle" fill="#e2e8f0" font-size="12">GitHub / Gitee</text>
+  <text x="380" y="352" text-anchor="middle" fill="#94a3b8" font-size="11">一键更新 pull</text>
+
+  <rect x="520" y="300" width="200" height="70" rx="10" fill="#1f2937" stroke="#64748b"/>
+  <text x="620" y="332" text-anchor="middle" fill="#cbd5e1" font-size="12">healthcheck · 备份</text>
+  <text x="620" y="352" text-anchor="middle" fill="#94a3b8" font-size="11">cron 小时/日</text>
+
+  <path d="M200 115 H260" stroke="#64748b" stroke-width="2"/>
+  <path d="M460 115 H520" stroke="#64748b" stroke-width="2"/>
+  <path d="M360 160 V200" stroke="#64748b" stroke-width="2"/>
+  <path d="M630 160 V200" stroke="#64748b" stroke-width="2"/>
+  <text x="24" y="400" fill="#64748b" font-size="11">简易/开发：可跳过 nginx，FastAPI 0.0.0.0:8018 自挂 dist（非生产）。生产唯一线 = nginx + systemd + 回环 8018。</text>
 </svg>

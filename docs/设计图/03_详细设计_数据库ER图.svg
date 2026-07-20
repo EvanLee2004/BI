@@ -11,7 +11,7 @@
 </style>
 <rect x="0" y="0" width="920" height="780" fill="#ffffff"/>
 
-<text x="460" y="22" class="h" text-anchor="middle" font-size="14">看板.db · 数据模型 v1.2（src/schema.py 唯一源 · 产品 v1.4.0-beta）</text>
+<text x="460" y="22" class="h" text-anchor="middle" font-size="14">看板.db · 数据模型 v1.2（src/schema.py 唯一源 · 产品 v2.0.0-rc12）</text>
 <text x="460" y="38" class="xs" text-anchor="middle">标准表每次全量重建永不手改 · 人工表重建永不清 · 无 FK（逻辑关联）· PK=自增 id（定位键=内容哈希索引）</text>
 
 <!-- 标准表区 -->
@@ -144,5 +144,5 @@
 <text x="28" y="688" class="f">· 调整逻辑关联：adj 用 (目标表 + 定位键 + 字段) 套到 std_*；原值≠库中现值 → 状态「过期疑似」；剔除=已删除=1 软删</text>
 <text x="28" y="706" class="f">· profit 只读库：std + manual_手填(+BU) + 分摊比例 + 去税率 + 预算 → summary；账号/BU 配置在 JSON 不在库</text>
 <text x="28" y="724" class="f">· 已废弃：suspect_待确认（R0 删除，连接时 DROP）· 旧 ER 写「PK=订单号」已作废 → 现为自增 id</text>
-<text x="28" y="744" class="rt">v1.2 · 2026-07-15 对齐 schema.py 全表（补 手填BU / 分摊比例 / 去税率 / 配置变更 / 历史 · 去掉 suspect 占位框）</text>
+<text x="28" y="744" class="rt">v1.2 · 对齐 schema · 图注 2026-07-20 对齐 schema.py 全表（补 手填BU / 分摊比例 / 去税率 / 配置变更 / 历史 · 去掉 suspect 占位框）</text>
 </svg>

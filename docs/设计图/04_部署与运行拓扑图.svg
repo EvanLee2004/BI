@@ -1,108 +1,105 @@
-<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
-<title>部署与运行拓扑（v1.4.0-beta · 2026-07-15）</title>
-<desc>Windows 单机内网：看门狗常驻 + 计划任务更新 + 外源 + 浏览器端</desc>
+<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>部署与运行拓扑（v2.0 生产 · Ubuntu 26.04）</title>
+<desc>公司 Ubuntu 台式机：nginx:80 + systemd kanban + cron + 真实数据源</desc>
 <style>
-.h{fill:#1f2937;font-size:13px;font-weight:700}
-.t{fill:#1f2937;font-size:12px;font-weight:600}
-.s{fill:#4b5563;font-size:11px}
-.xs{fill:#6b7280;font-size:10px}
-.lbl{fill:#6b7280;font-size:11px;font-weight:600}
-.ln{stroke:#7a8699;stroke-width:1.5;fill:none;marker-end:url(#ar)}
-.ld{stroke:#059669;stroke-width:1.5;fill:none;marker-end:url(#ag);stroke-dasharray:4 3}
+.h{fill:#0f172a;font-size:15px;font-weight:700}
+.t{fill:#0f172a;font-size:12px;font-weight:600}
+.s{fill:#334155;font-size:11px}
+.xs{fill:#64748b;font-size:10px}
+.lbl{fill:#475569;font-size:11px;font-weight:700}
 </style>
-<defs>
-<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7a8699"/></marker>
-<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#059669"/></marker>
-</defs>
-<rect x="0" y="0" width="900" height="620" fill="#ffffff"/>
-<text x="450" y="24" class="h" text-anchor="middle" font-size="14">部署与运行拓扑 · Windows 内网单机</text>
-<text x="450" y="42" class="xs" text-anchor="middle">产品 v1.4.0-beta · 无 Docker / 无公网 · 看门狗常驻 + 计划任务日更 + 浏览器访问</text>
+<rect width="960" height="640" fill="#ffffff"/>
+<text x="480" y="28" class="h" text-anchor="middle">部署与运行拓扑 · Ubuntu 生产（财务部内网）</text>
+<text x="480" y="48" class="xs" text-anchor="middle">产品 v2.0.0-rc12 · 2026-07-20 首次上线 · nginx:80 发 dist + 反代 API · systemd 自愈 · 无公网 · 无 Docker</text>
 
 <!-- 外部系统 -->
-<text x="20" y="68" class="lbl">外部系统（公司内网）</text>
-<rect x="20" y="78" width="160" height="70" rx="8" fill="#3b82f61a" stroke="#3b82f6"/>
-<text x="100" y="105" class="t" text-anchor="middle">智云（明道云）</text>
-<text x="100" y="124" class="xs" text-anchor="middle">四源 API · 账号密码登录</text>
-<text x="100" y="138" class="xs" text-anchor="middle">login_zhiyun + fetch_zhiyun</text>
+<text x="40" y="78" class="lbl">外部系统（公司内网）</text>
+<rect x="40" y="90" width="200" height="72" rx="10" fill="#eff6ff" stroke="#3b82f6"/>
+<text x="140" y="118" class="t" text-anchor="middle">智云（明道云）</text>
+<text x="140" y="138" class="xs" text-anchor="middle">四源 API · 账号登录抓数</text>
+<text x="140" y="152" class="xs" text-anchor="middle">login_zhiyun + fetch</text>
 
-<rect x="200" y="78" width="160" height="70" rx="8" fill="#3b82f61a" stroke="#3b82f6"/>
-<text x="280" y="105" class="t" text-anchor="middle">SMB 共享盘</text>
-<text x="280" y="124" class="xs" text-anchor="middle">收单台账 Excel</text>
-<text x="280" y="138" class="xs" text-anchor="middle">ingest/fetch.py</text>
+<rect x="260" y="90" width="200" height="72" rx="10" fill="#eff6ff" stroke="#3b82f6"/>
+<text x="360" y="118" class="t" text-anchor="middle">SMB / CIFS 共享盘</text>
+<text x="360" y="138" class="xs" text-anchor="middle">收单台账 Excel</text>
+<text x="360" y="152" class="xs" text-anchor="middle">gvfs 或 /mnt 只读拷入</text>
 
-<rect x="380" y="78" width="160" height="70" rx="8" fill="#8b5cf61a" stroke="#7c3aed"/>
-<text x="460" y="105" class="t" text-anchor="middle">代码远端</text>
-<text x="460" y="124" class="xs" text-anchor="middle">GitHub / Gitee</text>
-<text x="460" y="138" class="xs" text-anchor="middle">一键更新 git pull --ff-only</text>
+<rect x="480" y="90" width="200" height="72" rx="10" fill="#f5f3ff" stroke="#8b5cf6"/>
+<text x="580" y="118" class="t" text-anchor="middle">代码远端</text>
+<text x="580" y="138" class="xs" text-anchor="middle">GitHub + Gitee 双推</text>
+<text x="580" y="152" class="xs" text-anchor="middle">一键更新 git pull --ff-only</text>
 
-<!-- 部署机 -->
-<rect x="20" y="180" width="860" height="280" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
-<text x="36" y="204" class="h">Windows 部署机（财务部 / 内网）</text>
-<text x="36" y="222" class="xs">唯一常驻进程 = 看门狗循环跑 --serve · 管道跑完即退 · 崩了昨日页仍可看（若有页面缓存）</text>
+<rect x="700" y="90" width="220" height="72" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+<text x="810" y="118" class="t" text-anchor="middle">运维入口（可选）</text>
+<text x="810" y="138" class="xs" text-anchor="middle">SSH 内网 / Tailscale 回家</text>
+<text x="810" y="152" class="xs" text-anchor="middle">不进业务数据面</text>
 
-<!-- 进程 -->
-<rect x="40" y="240" width="200" height="100" rx="8" fill="#10b9811a" stroke="#059669"/>
-<text x="140" y="265" class="t" text-anchor="middle">看门狗启动.bat</text>
-<text x="140" y="285" class="s" text-anchor="middle">循环：python run.py --serve</text>
-<text x="140" y="303" class="xs" text-anchor="middle">退出码 42 → 用新代码重启</text>
-<text x="140" y="321" class="xs" text-anchor="middle">坏版本 → 自动回滚一次</text>
+<!-- 部署机大框 -->
+<rect x="40" y="190" width="880" height="320" rx="14" fill="#f8fafc" stroke="#0f172a" stroke-width="1.5"/>
+<text x="56" y="216" class="lbl">Ubuntu 26.04 部署机 · /opt/kanban/看板正式程序</text>
+<text x="56" y="234" class="xs">主机名含 ThinkCentre · 用户 lee · Wi‑Fi 内网 · app 只绑 127.0.0.1:8018</text>
 
-<rect x="260" y="240" width="200" height="100" rx="8" fill="#10b9811a" stroke="#059669"/>
-<text x="360" y="265" class="t" text-anchor="middle">Windows 计划任务</text>
-<text x="360" y="285" class="s" text-anchor="middle">可多时段（设置页）</text>
-<text x="360" y="303" class="xs" text-anchor="middle">run.py --scheduled</text>
-<text x="360" y="321" class="xs" text-anchor="middle">抓数→建库→算→出页</text>
+<!-- 进程层 -->
+<rect x="60" y="250" width="200" height="100" rx="10" fill="#ecfdf5" stroke="#059669"/>
+<text x="160" y="278" class="t" text-anchor="middle">systemd · kanban</text>
+<text x="160" y="298" class="xs" text-anchor="middle">active + enabled</text>
+<text x="160" y="314" class="xs" text-anchor="middle">Restart=always 自愈</text>
+<text x="160" y="330" class="xs" text-anchor="middle">开机自启</text>
 
-<rect x="480" y="240" width="380" height="100" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="670" y="265" class="t" text-anchor="middle">FastAPI 服务 :8018（默认）</text>
-<text x="670" y="285" class="s" text-anchor="middle">/ 账号分流 · /admin · /bu/{name}</text>
-<text x="670" y="303" class="xs" text-anchor="middle">/static/* · /api/* · /api/v1/* · /export.png</text>
-<text x="670" y="321" class="xs" text-anchor="middle">KANBAN_PORT / KANBAN_OFFLINE 可覆盖</text>
+<rect x="280" y="250" width="220" height="100" rx="10" fill="#ecfdf5" stroke="#059669"/>
+<text x="390" y="278" class="t" text-anchor="middle">cron 三套</text>
+<text x="390" y="298" class="xs" text-anchor="middle">09:30 日更 --scheduled</text>
+<text x="390" y="314" class="xs" text-anchor="middle">每小时 healthcheck</text>
+<text x="390" y="330" class="xs" text-anchor="middle">03:30 备份 → 数据/备份/</text>
 
-<!-- 磁盘 -->
-<rect x="40" y="360" width="260" height="80" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
-<text x="170" y="385" class="t" text-anchor="middle">数据/（gitignore）</text>
-<text x="170" y="405" class="xs" text-anchor="middle">6×xlsx · 看板.db · 账号/BU/智云配置</text>
-<text x="170" y="423" class="xs" text-anchor="middle">本地配置.json · 备份/快照</text>
+<rect x="520" y="250" width="240" height="100" rx="10" fill="#0f766e" stroke="#0f766e"/>
+<text x="640" y="278" fill="#ecfeff" font-size="12" font-weight="700" text-anchor="middle">nginx 站点 kanban :80</text>
+<text x="640" y="298" fill="#ccfbf1" font-size="10" text-anchor="middle">default_server · 发 frontend/dist</text>
+<text x="640" y="314" fill="#ccfbf1" font-size="10" text-anchor="middle">/api /login /admin /bu 反代</text>
+<text x="640" y="330" fill="#ccfbf1" font-size="10" text-anchor="middle">→ 127.0.0.1:8018</text>
 
-<rect x="320" y="360" width="240" height="80" rx="8" fill="#06b6d41a" stroke="#0891b2"/>
-<text x="440" y="385" class="t" text-anchor="middle">代码目录（git）</text>
-<text x="440" y="405" class="xs" text-anchor="middle">src/ · static/ · config.json · tests/</text>
-<text x="440" y="423" class="xs" text-anchor="middle">.venv · requirements.txt · VERSION</text>
+<rect x="780" y="250" width="120" height="100" rx="10" fill="#1e3a5f" stroke="#60a5fa"/>
+<text x="840" y="288" fill="#e0f2fe" font-size="11" font-weight="700" text-anchor="middle">FastAPI</text>
+<text x="840" y="308" fill="#bae6fd" font-size="10" text-anchor="middle">:8018</text>
+<text x="840" y="324" fill="#bae6fd" font-size="9" text-anchor="middle">仅回环</text>
 
-<rect x="580" y="360" width="280" height="80" rx="8" fill="#8b5cf61a" stroke="#7c3aed"/>
-<text x="720" y="385" class="t" text-anchor="middle">output/ + 页面缓存</text>
-<text x="720" y="405" class="xs" text-anchor="middle">经营驾驶舱.html · 历史快照</text>
-<text x="720" y="423" class="xs" text-anchor="middle">导出 PNG 临时产物</text>
+<!-- 数据与代码 -->
+<rect x="60" y="370" width="260" height="88" rx="10" fill="#fff7ed" stroke="#ea580c"/>
+<text x="190" y="398" class="t" text-anchor="middle">数据/（gitignore）</text>
+<text x="190" y="418" class="xs" text-anchor="middle">xlsx · 看板.db · 账号/BU JSON</text>
+<text x="190" y="434" class="xs" text-anchor="middle">智云配置 · 本地配置 · 日志</text>
+<text x="190" y="448" class="xs" text-anchor="middle">备份/ 日拷贝</text>
+
+<rect x="340" y="370" width="260" height="88" rx="10" fill="#faf5ff" stroke="#7c3aed"/>
+<text x="470" y="398" class="t" text-anchor="middle">代码目录（git）</text>
+<text x="470" y="418" class="xs" text-anchor="middle">src/ · frontend/dist · tests/</text>
+<text x="470" y="434" class="xs" text-anchor="middle">config.json · VERSION · .venv</text>
+<text x="470" y="448" class="xs" text-anchor="middle">deploy/linux/ systemd+nginx 模板</text>
+
+<rect x="620" y="370" width="280" height="88" rx="10" fill="#f1f5f9" stroke="#64748b"/>
+<text x="760" y="398" class="t" text-anchor="middle">自愈与更新</text>
+<text x="760" y="418" class="xs" text-anchor="middle">start_with_rollback · 退出码 42</text>
+<text x="760" y="434" class="xs" text-anchor="middle">管理端「一键更新」→ pull+pip</text>
+<text x="760" y="448" class="xs" text-anchor="middle">坏版本自动回滚</text>
 
 <!-- 客户端 -->
-<text x="20" y="490" class="lbl">内网客户端（浏览器 · 手机连公司 Wi‑Fi 也可）</text>
-<rect x="20" y="500" width="200" height="56" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="120" y="522" class="t" text-anchor="middle">整体账号</text>
-<text x="120" y="540" class="xs" text-anchor="middle">全公司驾驶舱 · 导出</text>
+<text x="40" y="540" class="lbl">内网客户端（浏览器 / 手机 Wi‑Fi）</text>
+<rect x="40" y="552" width="200" height="60" rx="10" fill="#fce7f3" stroke="#db2777"/>
+<text x="140" y="578" class="t" text-anchor="middle">整体账号</text>
+<text x="140" y="596" class="xs" text-anchor="middle">全公司驾驶舱</text>
 
-<rect x="240" y="500" width="200" height="56" rx="8" fill="#ec48991a" stroke="#db2777"/>
-<text x="340" y="522" class="t" text-anchor="middle">BU 账号</text>
-<text x="340" y="540" class="xs" text-anchor="middle">仅本 BU · 严格隔离</text>
+<rect x="260" y="552" width="200" height="60" rx="10" fill="#fce7f3" stroke="#db2777"/>
+<text x="360" y="578" class="t" text-anchor="middle">BU 账号</text>
+<text x="360" y="596" class="xs" text-anchor="middle">仅本 BU · 严格隔离</text>
 
-<rect x="460" y="500" width="200" height="56" rx="8" fill="#f59e0b1a" stroke="#d97706"/>
-<text x="560" y="522" class="t" text-anchor="middle">管理员账号</text>
-<text x="560" y="540" class="xs" text-anchor="middle">/admin 改数 · 设置 · 更新</text>
+<rect x="480" y="552" width="200" height="60" rx="10" fill="#fef3c7" stroke="#d97706"/>
+<text x="580" y="578" class="t" text-anchor="middle">管理员</text>
+<text x="580" y="596" class="xs" text-anchor="middle">/admin 改数·更新</text>
 
-<rect x="680" y="500" width="200" height="56" rx="8" fill="#6366f11a" stroke="#6366f1"/>
-<text x="780" y="522" class="t" text-anchor="middle">外部系统（可选）</text>
-<text x="780" y="540" class="xs" text-anchor="middle">GET /api/v1/cockpit JSON</text>
+<rect x="700" y="552" width="220" height="60" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="810" y="578" class="t" text-anchor="middle">入口 URL</text>
+<text x="810" y="596" class="xs" text-anchor="middle">http://&lt;内网IP&gt;/ （:80）</text>
 
-<!-- 箭头说明 -->
-<path class="ld" d="M100 148 L100 180"/>
-<path class="ld" d="M280 148 L280 180"/>
-<path class="ln" d="M460 148 L600 240"/>
-<path class="ln" d="M140 340 L140 360"/>
-<path class="ln" d="M670 340 L720 360"/>
-<path class="ln" d="M450 480 L120 500"/>
-<path class="ln" d="M500 480 L340 500"/>
-<path class="ln" d="M600 480 L560 500"/>
-
-<text x="20" y="590" class="s">绿虚线=抓数进料 · 灰实线=进程/访问关系 · 不暴露公网 · 装机步骤见 docs/Windows部署手册.md</text>
-<text x="20" y="608" class="xs">可选：前置 Caddy basicauth（手册有两档访问控制说明）· 本图画默认「看板自带账号」形态</text>
+<!-- 箭头说明脚注 -->
+<text x="40" y="630" class="xs">蓝虚线外源进料 · 绿=进程托管 · 生产禁止直连 :8018 对外 · 手册 docs/Ubuntu部署手册.md · 运维 docs/Runbook.md §0 · Windows 线已退役（任务书54）</text>
 </svg>
