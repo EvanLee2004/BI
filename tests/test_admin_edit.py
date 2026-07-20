@@ -50,7 +50,7 @@ class TestAdminWrite(unittest.TestCase):
         _seed(cls.cfg, cls.root)
         # 轻量桩：只翻 built_at，避免测试跑重渲染/重管道
         cls._orig_recompute = server.recompute
-        server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
+        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
@@ -550,7 +550,7 @@ class TestExpiredBatch(unittest.TestCase):
         conn.commit()
         conn.close()
         cls._orig_recompute = server.recompute
-        server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
+        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)

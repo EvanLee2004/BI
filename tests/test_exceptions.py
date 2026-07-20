@@ -189,7 +189,7 @@ class TestExceptionEndpoints(unittest.TestCase):
         cls.cfg = loaders.load_config()
         _seed_orders(cls.cfg, cls.root).close()
         cls._orig_recompute = server.recompute
-        server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
+        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "ready"
         cls.app = server.create_app(cls.cfg, root=cls.root)

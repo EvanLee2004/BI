@@ -141,7 +141,7 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         conn.close()
         # 桩重算：只验写库与读回，不跑完整管道
         cls._orig_recompute = server.recompute
-        server.recompute = lambda cfg, root=None: server._state.__setitem__("built_at", "RECOMPUTED")
+        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
         server._state["user_html"] = "<html>u</html>"
         server._state["admin_html"] = server._admin_page("<html>u</html>", {}, cls.cfg)
         server._state["summary"] = {"meta": {}, "periods": {}}

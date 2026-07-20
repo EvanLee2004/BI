@@ -41,7 +41,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         self._orig = server.recompute
-        server.recompute = lambda cfg, root=None: None
+        server.recompute = lambda cfg, root=None, **k: None
         server._state["user_html"] = "<html>U</html>"
         server._state["admin_html"] = "<html>A</html>"
         p = accounts.config_path(self.cfg, self.tmp)
