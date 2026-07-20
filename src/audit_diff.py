@@ -95,7 +95,10 @@ def _diff_accounts(old_accs: list, new_accs: list) -> list:
         chg = []
         if o.get("权限") != n.get("权限"):
             chg.append(f"权限 {o.get('权限')}→{n.get('权限')}")
-        if str(o.get("密码")) != str(n.get("密码")):
+        # 任务书63·H-05：比哈希或密码版本，不比明文（盘内已无 密码 字段）
+        if (o.get("密码哈希") or o.get("密码")) != (n.get("密码哈希") or n.get("密码")) or int(
+            o.get("密码版本") or 0
+        ) != int(n.get("密码版本") or 0):
             chg.append("改密码")
         if (o.get("显示名") or "") != (n.get("显示名") or ""):
             chg.append("改显示名")

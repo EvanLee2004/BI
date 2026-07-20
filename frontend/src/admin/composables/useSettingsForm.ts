@@ -264,8 +264,56 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    acctList.value.push({ 账号: '', 显示名: '', 权限: '整体', 密码: '8888', 初始密码: true, 最后登录: '' })
+    // 新账号默认初始口令由后端 seed/保存时哈希；UI 不持有明文
+    acctList.value.push({ 账号: '', 显示名: '', 权限: '整体', 初始密码: true, 最后登录: '' })
     mark('acct')
+  }
+
+  async function resetAcctPasswd(row: Acct) {
+    const acct = String(row.账号 || '').trim()
+    if (!acct) {
+      ElMessage.warning('请先填写账号名并保存')
+      return
+    }
+    try {
+      const { value } = await ElMessageBox.prompt(
+        '输入新密码，或留空由系统随机生成 10 位。明文只显示一次。',
+        '重置密码 · ' + acct,
+        {
+          inputPlaceholder: '新密码（可选，留空=随机）',
+          inputValue: '',
+          confirmButtonText: '重置',
+          cancelButtonText: '取消',
+          inputType: 'password',
+        },
+      )
+      const body: { new?: string } = {}
+      const typed = String(value || '').trim()
+      if (typed) body.new = typed
+      const d = await jpost<{ password?: string; note?: string }>(
+        `/api/accounts/${encodeURIComponent(acct)}/reset_passwd`,
+        body,
+      )
+      const plain = d.password || ''
+      row.初始密码 = false
+      await ElMessageBox.alert(
+        `新密码（请立即抄录，关闭后不再显示）：\n\n${plain}\n\n${d.note || ''}`,
+        '重置成功',
+        {
+          confirmButtonText: '已抄录',
+          dangerouslyUseHTMLString: false,
+        },
+      )
+      try {
+        await navigator.clipboard.writeText(plain)
+        ElMessage.success('已复制到剪贴板')
+      } catch {
+        /* 浏览器可能禁剪贴板 */
+      }
+      await loadAccts()
+    } catch {
+      /* 取消 */
+    }
   }
   function acctDel(i: number) {
     const a = acctList.value[i]
@@ -621,6 +669,7 @@ export function useSettingsForm() {
     acctList,
     acctPwShow,
     masterAccount,
+    resetAcctPasswd,
     buList,
     salesPool,
     buPicked,

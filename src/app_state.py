@@ -18,7 +18,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"
-SESSION_TTL = 24 * 3600
+SESSION_TTL = 12 * 3600  # 任务书63·H-05/H-06 过渡：管理端会话 ≤12h
 
 # 服务内存态：汇总 + 渲染页 + 碎片 + 原始记录（秒级重算）+ 刷新状态
 # publish-once：fragments=已 strip 的 client 碎片；views=client-ready（HTTP 直接取，不再 rebuild）

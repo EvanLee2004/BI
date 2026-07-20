@@ -52,7 +52,7 @@ PARTICLES_HTML = _PARTICLES_WRAP.format(
     items="".join(_PARTICLE_ITEM.format(l=left, s=s, d=d, dl=dl, c=c) for left, s, d, dl, c in _PARTICLES)
 )
 
-# 看的人自改密码（v8.0）：弹窗文案必须含「密码管理员可见，请勿使用你在其他地方用的密码」
+# 看的人自改密码（v8.0）：弹窗文案须提醒勿复用他处密码（任务书63 起管理员不可见明文）
 PW_MODAL_HTML = tpl.load("partials/pw_modal.html")
 
 # ---------- 按天明细（迭代17 批次A：常显 + 跟顶 + 返回默认全年）----------
