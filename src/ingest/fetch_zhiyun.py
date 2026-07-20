@@ -350,7 +350,11 @@ def _save_session(cfg: dict, root: Path | None, token: str, account_id: str | No
 
 
 def _login_cooldown_path(cfg: dict, root: Path | None) -> Path:
-    return loaders.data_dir(cfg, root) / "智云登录冷却.json"
+    try:
+        return loaders.data_dir(cfg or {}, root) / "智云登录冷却.json"
+    except Exception:
+        base = Path(root) if root else Path(".")
+        return base / "智云登录冷却.json"
 
 
 def load_login_cooldown(cfg: dict, root: Path | None = None) -> dict:

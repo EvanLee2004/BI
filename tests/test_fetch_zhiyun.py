@@ -431,7 +431,7 @@ class TestFetchSourceStates(unittest.TestCase):
         import tempfile
 
         orig = fz._server_reachable
-        fz._server_reachable = lambda base_url, timeout=5: False
+        fz._server_reachable = lambda base_url, timeout=5, **k: False
         try:
             with tempfile.TemporaryDirectory() as td:
                 cfg = self._cfg(Path(td))
@@ -470,7 +470,7 @@ class TestFetchSourceStates(unittest.TestCase):
             raise login_zhiyun.LoginError("账号或密码错误")
 
         orig_login, orig_reach = login_zhiyun.login, fz._server_reachable
-        login_zhiyun.login, fz._server_reachable = boom, (lambda b, timeout=5: True)
+        login_zhiyun.login, fz._server_reachable = boom, (lambda b, timeout=5, **k: True)
         try:
             with tempfile.TemporaryDirectory() as td:
                 cfg = self._cfg(Path(td))

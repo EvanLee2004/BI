@@ -44,7 +44,11 @@ class TestVersionModule(unittest.TestCase):
         # 54.11 曾要求 rc*；任务书61 升 2.0.1 正式 beta 号仍兼容 label 规则
         cur = V.read_version()
         self.assertTrue(
-            "rc" in cur.lower() or cur == "2.0.1" or cur.startswith("2.0.") or cur.startswith("2.1."),
+            "rc" in cur.lower()
+            or cur == "2.0.1"
+            or cur.startswith("2.0.")
+            or cur.startswith("2.1.")
+            or cur.startswith("2.2."),
             cur,
         )
         if "rc" in cur.lower():
