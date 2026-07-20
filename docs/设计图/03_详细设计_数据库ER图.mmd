@@ -1,0 +1,28 @@
+%% 数据库 ER 要点 v2.2.0 · 金额分 · stage66
+erDiagram
+  STD_ORDERS ||--o{ ADJ : "定位键"
+  STD_RECEIPTS ||--o{ ADJ : "定位键"
+  STD_PROJECT ||--o{ ADJ : "定位键"
+  MANUAL ||--|| SUMMARY : "手填元→分入库"
+  DETAX ||--o{ STD_LEDGER : "去税分上 ROUND_HALF_UP"
+  META_RUN ||--o{ HEALTH : "结果绿黄红 info"
+
+  STD_ORDERS {
+    int 下单预估额_分
+    text 定位键
+  }
+  STD_RECEIPTS {
+    int 到账金额_分
+    text 定位键
+  }
+  ADJ {
+    text 原值_分
+    text 新值_分
+  }
+  MANUAL {
+    int 金额_分
+  }
+  META_RUN {
+    text 结果
+    text 体检JSON_含info
+  }

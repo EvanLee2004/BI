@@ -1,19 +1,19 @@
-%% 部署拓扑 · Ubuntu 26.04 生产（2026-07-20）
+%% 部署拓扑 v2.2.0 · Ubuntu 生产 · stage66 · 2026-07-21
 flowchart LR
-  subgraph Desktop["Ubuntu 26.04 台式机 /opt/kanban"]
-    NGX[nginx :80\ndist + 反代]
-    SYS[systemd kanban.service]
-    CRON[cron 日更/体检/备份]
-    PY[venv python\n127.0.0.1:8018]
-    DATA[数据/ xlsx+db+JSON]
+  subgraph Desktop["Ubuntu /opt/kanban · VERSION 2.2.0"]
+    NGX[nginx :80<br/>dist + 反代]
+    SYS[systemd kanban<br/>自愈/开机自启]
+    LOOP[ScheduleLoop<br/>09:30 12:00 17:00]
+    CRON[cron 体检/备份<br/>无 run.py --scheduled]
+    PY[venv python<br/>127.0.0.1:8018]
+    DATA[数据/ xlsx+db<br/>gitignore]
     NGX --> PY
     SYS --> PY
+    LOOP --> PY
     CRON --> PY
     PY --> DATA
   end
-  ZY[智云 API] --> CRON
-  SMB[收单台账 共享盘] --> CRON
-  GIT[Gitee/GitHub] --> SYS
+  ZY[智云 API<br/>冷却/7日基线] --> LOOP
+  SMB[收单台账 共享盘] --> LOOP
+  GIT[Gitee/GitHub main] --> SYS
   BROWSER[内网浏览器/手机] --> NGX
-
-%% stage66: admin Vue-only, export on-demand HTML, fen Decimal, incremental recompute

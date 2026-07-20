@@ -1,0 +1,22 @@
+%% 模块与组件 v2.2.0 · stage66
+flowchart TB
+  subgraph FE["frontend/"]
+    VU[Vue 看端 cockpit]
+    AD[Vue 管理端 SPA<br/>无 admin.js]
+    VMTS["types/vm.ts<br/>GEN 块 gen_vm_ts"]
+  end
+  subgraph BE["src/"]
+    RT[routes]
+    RP[refresh_pipeline<br/>指纹/增量/全量]
+    PR[profit<br/>split_tax Decimal 分]
+    MY[money.py]
+    IG[ingest fetch_zhiyun<br/>冷却 7日 探活]
+    GEN[scripts/gen_vm_ts.py]
+  end
+  VU --> RT
+  AD --> RT
+  GEN --> VMTS
+  RT --> RP
+  RP --> PR
+  PR --> MY
+  RP --> IG

@@ -249,13 +249,13 @@ tests/  docs/  golden/
 
 | 图 | 软工类型 | 文件 | 对齐状态 |
 |----|----------|------|----------|
-| 系统逻辑架构 | 架构 / 上下文 | [architecture.png](docs/images/architecture.png) | ✅ v2.0 · Vue+nginx 五层 |
-| 部署运行拓扑 | 部署图 | [deploy.png](docs/images/deploy.png) | ✅ Ubuntu·systemd·nginx·cron |
-| 模块与组件 | 组件图 | [modules.png](docs/images/modules.png) | ✅ 对齐 `src/` + `frontend/` |
-| 登录权限分流 | 用例 / 时序 | [auth.png](docs/images/auth.png) | ✅ 账号·BU·login_guard |
-| 运行逻辑（白话） | 流程说明 | [howto-run.png](docs/images/howto-run.png) | ✅ cron+systemd 白话 |
-| 关键时序 | 时序图 | [sequence.png](docs/images/sequence.png) | ✅ 日更 + 改数重算 → VM |
-| 数据库 ER | 数据模型 | [er.png](docs/images/er.png) | ✅ v1.2 = `schema.py` 全表 |
+| 系统逻辑架构 | 架构 / 上下文 | [architecture.png](docs/images/architecture.png) | ✅ v2.2.0 · stage66 · 分整数/Decimal · 增量重算 · gen_vm_ts · 冷却护栏 |
+| 部署运行拓扑 | 部署图 | [deploy.png](docs/images/deploy.png) | ✅ v2.2.0 · Ubuntu·systemd·nginx·cron · 智云冷却/7日基线 |
+| 模块与组件 | 组件图 | [modules.png](docs/images/modules.png) | ✅ v2.2.0 · profit 分 · fingerprint · gen_vm_ts |
+| 登录权限分流 | 用例 / 时序 | [auth.png](docs/images/auth.png) | ✅ v2.2.0 · 手填增量 · 智云冷却24h |
+| 运行逻辑（白话） | 流程说明 | [howto-run.png](docs/images/howto-run.png) | ✅ v2.2.0 · 分整数 · 指纹跳过重建 |
+| 关键时序 | 时序图 | [sequence.png](docs/images/sequence.png) | ✅ v2.2.0 · Decimal 分 · 手填增量 · 日更全量 |
+| 数据库 ER | 数据模型 | [er.png](docs/images/er.png) | ✅ v2.2.0 · 金额 INTEGER 分 · schema 全表 |
 
 矢量源（编辑用）：[docs/设计图/](docs/设计图/)（SVG 在 Gitee README 里不渲染，故主 README 用 PNG）。  
 旧 Windows 图已归档：`docs/设计图/归档_Windows时代_20260715/`。
@@ -278,7 +278,7 @@ tests/  docs/  golden/
 
 ---
 
-**产品阶段**：v2.0.0-beta（stage54p7 终验「上线就绪」）；配套文档见任务书 54.8。
+**产品阶段**：v2.2.0（`stage66_debtfree` · 四大技术债清偿 + 文档图对齐）；54.7 起生产在线，见顶部版本卡。
 
 ### 教学与软工
 

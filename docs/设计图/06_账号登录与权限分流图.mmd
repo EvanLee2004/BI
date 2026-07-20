@@ -1,0 +1,11 @@
+%% 登录权限分流 v2.2.0 stage66
+flowchart TD
+  L["登录 API account+password"] --> G{权限}
+  G -->|管理员| ADM["管理端 Vue 单轨"]
+  G -->|整体| MAIN["全公司驾驶舱"]
+  G -->|BU| BU["仅本 BU 页"]
+  ADM --> SET["密码列明文可见"]
+  ADM --> MAN["手填增量重算"]
+  MAIN --> EXP["导出 PNG 按需装配"]
+  BU --> ISO["跨 BU 隔离"]
+  ZY["智云抓数登录"] -->|连败3次| CD["冷却24h 体检红"]
