@@ -1,19 +1,21 @@
 # Runbook：三张处方卡
 
-## 0. 生产环境实况（2026-07-21 任务书66 · 以机上为准）
+## 0. 生产环境实况（2026-07-21 加固后 · 以机上为准）
 
 | 项 | 值 |
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **2.2.0**（`stage66_debtfree` 本地 tag；金额分整数 / 增量重算 / VM 闸 / 抓数护栏） |
-| 进程托管 | **systemd 单元 `kanban`**（active + enabled，Restart=always，重启/崩溃/重机自愈）；app 只绑 `127.0.0.1:8018` |
-| 对外入口 | **nginx** 站点 `kanban`（`:80` default_server，发 `frontend/dist` 静态 + `proxy_pass` API→127.0.0.1:8018）；内网 `http://<机内网IP>/` |
-| 每日更新 | **服务内 ScheduleLoop**（`serve` 启动的 daemon，按 `schedule_times` 调 `start_refresh_async(trigger=schedule)`，写进程内存 `_state`/`built_at`） |
-| 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled`（任务书60 退役 cron 刷新线） |
-| 远程运维 | 家里 Linux 跳板 + Tailscale：`ssh kanban-home`（细节见 `公司电脑（部署机）/`） |
+| 版本 | **2.2.0**（`stage66_debtfree`；金额分整数 / 增量重算 / VM 闸 / 抓数护栏） |
+| 进程托管 | **systemd `kanban`**：User=**lee**（与数据目录属主一致，非模板占位 kanban）、enabled+active、Restart=always、StartLimit 5/120s；**沙箱** NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths（程序树/数据/备份/归档/`/run/user/1000`/`/home/lee`）；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0` |
+| 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**server_tokens off**；安全头 `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy`（含子 location 重复，防 nginx 继承清空） |
+| 休眠 | `sleep`/`suspend`/`hibernate`/`hybrid-sleep` **target 已 mask**（不会睡死断服） |
+| 每日更新 | **服务内 ScheduleLoop**（09:30 / 12:00 / 17:00 备忘；以机上 `schedule_times` 为准） |
+| 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled` |
+| 远程运维 | `ssh kanban-home`（家）/ `kanban-lan`（公司内网）；细节见 `公司电脑（部署机）/` |
+| 人侧残留 | BIOS「来电自启」需进固件菜单（软件层做不到） |
 
-> 连机：本机 `ssh kanban-home`。sudo 操作需 TTY（`ssh -t kanban-home` 或机上 opencode 代跑）。
+> 连机：`ssh kanban-home`。sudo：交互 `ssh -t … sudo …`，或非交互管道 `sudo -S`（密码**不进仓库/文档**）。
 
 ## 1. 服务挂了
 
