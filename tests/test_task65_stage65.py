@@ -48,6 +48,82 @@ class TestL2PublishNoFullHtml(unittest.TestCase):
         h = assemble_export_html({}, bu_name=None)
         self.assertIn("INJECT", h)
 
+    def test_assemble_export_from_real_summary(self):
+        """诚实单测：golden summary → assemble_export_html 产出可导出整页（非注入捷径）。"""
+        import shutil
+        from datetime import date
+
+        import core
+        import db
+        import render
+        from app_state import _state
+        from refresh_pipeline import assemble_export_html, publish
+
+        tmp = Path(tempfile.mkdtemp(prefix="t65_assemble_"))
+        try:
+            db_copy = tmp / "golden.db"
+            shutil.copy2(ROOT / "_golden_data" / "看板.db", db_copy)
+            cfg = dict(loaders.load_config(ROOT))
+            cfg["data_dir"] = "_golden_data"
+            cfg["db_path"] = str(db_copy.resolve())
+            cfg["zhiyun_auto_fetch"] = False
+            conn = db.connect(cfg)
+            summary = core.summary_from_conn(cfg, conn, date(2026, 6, 30))
+            conn.close()
+            self.assertTrue(summary and summary.get("periods"))
+            import assets
+
+            logo = assets.load_logo_base64(cfg) or ""
+            baseline = render.render_dashboard(summary, cfg, logo)
+            self.assertIn("基本情况", baseline)
+            # publish 后清空 user_html，走真实 summary 装配（与 assemble 同源 logo）
+            publish(cfg, summary, html=None, fragments={"x": 1}, views={"v": 1})
+            _state["user_html"] = ""
+            _state["export_html_cache"] = None
+            h = assemble_export_html(cfg, bu_name=None)
+            self.assertIn("基本情况", h)
+            self.assertGreater(len(h), 500)
+
+            def _n(s: str) -> str:
+                return "".join(s.split())
+
+            self.assertEqual(_n(h), _n(baseline))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_build_bu_pages_omits_html_key(self):
+        """build_bu_pages 返回体无 html 键（L2 成本目标）。"""
+        import shutil
+        from datetime import date
+
+        import core
+        import db
+
+        tmp = Path(tempfile.mkdtemp(prefix="t65_bu_nohtml_"))
+        try:
+            db_copy = tmp / "golden.db"
+            shutil.copy2(ROOT / "_golden_data" / "看板.db", db_copy)
+            cfg = dict(loaders.load_config(ROOT))
+            cfg["data_dir"] = "_golden_data"
+            cfg["db_path"] = str(db_copy.resolve())
+            cfg["zhiyun_auto_fetch"] = False
+            # 若 golden 无 BU 配置，写最小配置
+            bucfg = tmp / "_golden_data"
+            bucfg.mkdir(parents=True, exist_ok=True)
+            (bucfg / "BU配置.json").write_text(
+                '{"bus":[{"name":"测试BU","销售":["员工001"]}]}',
+                encoding="utf-8",
+            )
+            conn = db.connect(cfg)
+            pages = core.build_bu_pages(cfg, conn, date(2026, 6, 30), "", root=tmp)
+            conn.close()
+            self.assertTrue(pages)
+            for name, page in pages.items():
+                self.assertNotIn("html", page, name)
+                self.assertIn("summary", page)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 
 class TestArchGuards(unittest.TestCase):
     def test_routes_no_direct_import_server(self):

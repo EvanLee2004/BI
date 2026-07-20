@@ -325,11 +325,25 @@ class TestBuConservation(_Base):
 
 
 class TestBuPages(_Base):
+    def _bu_html(self, pages, name):
+        """65·L2：build_bu_pages 不预装 html；导出/断言按需 render_bu_page。"""
+        return render.render_bu_page(name, pages[name]["summary"], self.cfg, "")
+
+    def test_build_bu_pages_no_prebuilt_html(self):
+        """刷新路径零 html 键（导出另装）。"""
+        _write_bucfg(self.cfg, self.root, _two_bus())
+        pages = self._pages()
+        for name, page in pages.items():
+            self.assertNotIn("html", page, name)
+            self.assertIn("summary", page)
+            self.assertIn("fragments", page)
+            self.assertIn("views", page)
+
     def test_pages_secrecy(self):
         """严格保密：BU 页不含其他 BU 的 BU名/负责人/销售名。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         pages = self._pages()
-        ha, hb = pages["BU甲"]["html"], pages["BU乙"]["html"]
+        ha, hb = self._bu_html(pages, "BU甲"), self._bu_html(pages, "BU乙")
         self.assertIn("BU甲", ha)
         for leak in ("BU乙", "负责人乙", "销售B", "客户乙"):
             self.assertNotIn(leak, ha, f"BU甲页泄漏了 {leak}")
@@ -340,7 +354,7 @@ class TestBuPages(_Base):
     def test_page_labels(self):
         """分摊关：有返回整体 + 基本情况；看端不展示口径长文；不含全公司出口。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
-        h = self._pages()["BU甲"]["html"]
+        h = self._bu_html(self._pages(), "BU甲")
         self.assertIn("当前 BU", h)
         self.assertNotIn("仅含", h)  # 用户端不展示范围说明长文
         self.assertNotIn("利润归属中心", h)
@@ -371,7 +385,7 @@ class TestBuPages(_Base):
         conn.commit()
         conn.close()
         _write_bucfg(self.cfg, self.root, _two_bus())
-        h = self._pages()["BU甲"]["html"]
+        h = self._bu_html(self._pages(), "BU甲")
         self.assertNotIn("公共费用·暂不分摊", h)
         self.assertIn("营销费用", h)
         # 5万 → 5.0万 展示（有台账费用必须露数，不得藏）
@@ -391,7 +405,7 @@ class TestBuPages(_Base):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         # 旧静态比例已停用：无按月比例记录 → 页面不出现 40% 分摊标注
-        h0 = self._pages()["BU甲"]["html"]
+        h0 = self._bu_html(self._pages(), "BU甲")
         self.assertNotIn("公共×40%", h0)
         # 写按月比例（manual_分摊比例）→ 生效并标「按月比例」
         conn = db.connect(self.cfg, self.root)
@@ -400,7 +414,7 @@ class TestBuPages(_Base):
             db.set_alloc_ratio(conn, f"{TODAY.year}-{TODAY.month:02d}", "BU乙", 60, "t")
         finally:
             conn.close()
-        h = self._pages()["BU甲"]["html"]
+        h = self._bu_html(self._pages(), "BU甲")
         self.assertIn("按月比例", h)
         self.assertNotIn("BU乙", h)
         self.assertNotIn("按60%", h)
@@ -411,7 +425,7 @@ class TestBuPages(_Base):
         """XSS：BU 名含 HTML 特殊字符必转义（铁律10）。"""
         evil = '<script>alert("x")</script>'
         _write_bucfg(self.cfg, self.root, [{"name": evil, "负责人": [], "销售": ['销售"A<b>']}])
-        h = self._pages()[evil]["html"]
+        h = self._bu_html(self._pages(), evil)
         self.assertNotIn("<script>alert", h)
         self.assertIn("&lt;script&gt;", h)
 

@@ -73,15 +73,14 @@ class TestP4Remainder(unittest.TestCase):
         self.assertFalse((ROOT / "static" / "shell.html").is_file())
 
     def test_bu_pages_have_fragments_for_shell(self):
-        """BU 页与整体同源碎片（shell-bu 组装）；有 summary + fragments。"""
+        """BU 页有 summary + fragments + views；65·L2 不预装 html。"""
         self.assertIsInstance(self.bu_pages, dict)
         for name, page in (self.bu_pages or {}).items():
-            self.assertIn("html", page)
+            self.assertNotIn("html", page, name)
             self.assertIn("fragments", page)
-            self.assertTrue(page["html"])
+            self.assertIn("summary", page)
             self.assertTrue(page["fragments"].get("kpi_views") is not None)
-            self.assertIn(name, page["html"])
-            self.assertIn(name, page["fragments"].get("name", "") or page["html"])
+            self.assertIn(name, page["fragments"].get("name", "") or name)
 
 
 if __name__ == "__main__":

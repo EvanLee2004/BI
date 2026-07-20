@@ -82,18 +82,19 @@ class TestBuShippedAssemble(unittest.TestCase):
         for m in range(1, 7):
             db.set_alloc_ratio(conn, f"2026-{m:02d}", _BU, 35.0, "b-bu-test")
         logo = assets.load_logo_base64(cfg) or ""
+        import render
+
         pages = core.build_bu_pages(cfg, conn, date(2026, 6, 30), logo, root=cls.tmp)
         conn.close()
 
         if _BU not in pages:
             raise unittest.SkipTest(f"BU 页未生成: keys={list(pages)}")
         cls.page = pages[_BU]
-        cls.py_html = cls.page["html"]
-        fr_full = cls.page["fragments"]
         summary = cls.page["summary"]
-
-        # client 路径：strip + BU views（与 server BU fragments 一致）
-        cls.fr_client = api_v1.client_strip_fragments(fr_full)
+        # 65·L2：build_bu_pages 不预装 html；Python 真源 = render_bu_page(summary)
+        cls.py_html = render.render_bu_page(_BU, summary, cfg, logo)
+        # page.fragments 已是 client_strip；再 strip 幂等
+        cls.fr_client = api_v1.client_strip_fragments(cls.page["fragments"])
         cls.views = api_v1.build_bu_cockpit_views(_BU, summary, cfg)
 
         # 前置条件：本用例依赖的业务特征必须存在

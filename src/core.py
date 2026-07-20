@@ -243,10 +243,10 @@ def summary_from_conn(cfg, conn, today):
 
 
 def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
-    """BU 分页（迭代 14·v7.9 账号制 · 迭代17 分摊）：读 BU 配置 → 每 BU 按销售名单过滤四源行
-    → 独立 summary（分摊开时注入全公司台账公共×比例）→ 独立 HTML。
-    返回 {BU名: {"name": BU名, "html": 页面}}；没配置/配置无效 → {}（功能不启用，主看板照旧）。
-    严格保密由此保证：每页只吃本 BU 过滤后的行，渲染层拿不到其他 BU 的任何数据。"""
+    """BU 分页（迭代 14·v7.9 账号制 · 迭代17 分摊 · 65·L2 按需）：读 BU 配置 → 每 BU 按销售名单
+    过滤四源行 → 独立 summary（分摊开时注入全公司台账公共×比例）→ fragments + views（不装 html）。
+    返回 {BU名: {name, summary, fragments, views}}；没配置/配置无效 → {}。
+    导出 PNG 在 export 路由按需 render_bu_page；严格保密：每页只吃本 BU 过滤后的行。"""
     bucfg = bu.load_bu_config(cfg, root)
     if not bucfg:
         return {}
@@ -283,16 +283,14 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
             profit.apply_public_expense_allocation_monthly(
                 s, ctx["public_month_led"], ctx["ratios"], bu_name, today, cfg=cfg
             )
-        # summary + fragments + views：publish-once（HTTP 直接取 client-ready，不再请求时 rebuild）
-        # html 仍用全量 fr 组装，供导出/快照
+        # summary + fragments + views：publish-once（HTTP 直接取 client-ready）
+        # 任务书65·L2 真·按需：刷新路径不装配整页 html；导出走 assemble_export_html / render_bu_page
         import api_v1
 
         fr_full = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
         views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
-        # html 仍计算（单测/导出可取）；publish 落 state 时剥离（65·L2 运行态不预装）
         pages[b["name"]] = {
             "name": b["name"],
-            "html": render.assemble_bu_dashboard_html(fr_full),
             "fragments": api_v1.client_strip_fragments(fr_full),
             "views": views,
             "summary": s,
