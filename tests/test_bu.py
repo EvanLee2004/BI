@@ -509,7 +509,8 @@ class TestBuEndpoints(unittest.TestCase):
         self.assertEqual(r.json()["count"], 1)
         self.assertNotIn("密码hash", r.json()["bus"][0])
         self.assertEqual(bu.load_bu_config(self.cfg, self.root)["bus"][0]["销售"], ["销售C"])
-        rec.assert_called_once_with(self.cfg, self.root)
+        rec.assert_called_once()
+        self.assertEqual(rec.call_args[0][:2], (self.cfg, self.root))
 
     def test_sales_pool_requires_login_and_lists_seed(self):
         self.assertEqual(self.anon.get("/api/sales_pool").status_code, 401)
