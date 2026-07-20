@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""任务书66·D：登录冷却 / 行数护栏 / 重复键不黄。"""
+"""任务书66·D：登录冷却 / 行数护栏 / 重复键不黄（真调 _log_run）。"""
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 import time
@@ -20,9 +19,6 @@ class TestLoginCooldown(unittest.TestCase):
         from ingest import fetch_zhiyun as fz
 
         tmp = Path(tempfile.mkdtemp())
-        cfg = {"data_dir": str(tmp), "zhiyun_login_max_failures": 3, "zhiyun_login_cooldown_hours": 24}
-        # data_dir expects relative under root — monkey via write path
-        # use root=tmp and data_dir='.'
         cfg = {"data_dir": ".", "zhiyun_login_max_failures": 3, "zhiyun_login_cooldown_hours": 24}
         for i in range(3):
             st = fz.register_login_failure(cfg, tmp, f"err{i}")
@@ -39,32 +35,56 @@ class TestRowDrop(unittest.TestCase):
         from ingest.fetch_zhiyun import check_row_drop
 
         self.assertIsNone(check_row_drop(None, 10, 0.3))
-        self.assertIsNone(check_row_drop(100, 80, 0.3))  # 20% < 30%
-        self.assertIsNotNone(check_row_drop(100, 60, 0.3))  # 40%
+        self.assertIsNone(check_row_drop(100, 80, 0.3))
+        self.assertIsNotNone(check_row_drop(100, 60, 0.3))
 
 
 class TestLogRunNoDupYellow(unittest.TestCase):
-    def test_dups_not_yellow(self):
-        from ingest import __init__ as ing
+    def test_dups_not_yellow_via_log_run(self):
+        """真调 ingest._log_run：仅有定位键重复 → 结果绿 + info 含重复文案。"""
+        import loaders
+        from ingest import _log_run
 
-        # _log_run needs conn — unit test yellow formula by importing logic
-        # direct: duplicate alone must not force yellow when we reimplement check
-        report = {
-            "fetch": {"status": "fetched"},
-            "adjust": {"expired": 0, "missing": 0},
-            "fetch_zhiyun": {"orders": {"status": "fetched"}},
-            "duplicate_locators": {"std_回款": ["a"]},
-            "db_check": {"ok": True},
-            "disk": {},
-        }
-        # simulate yellow expression from source
-        fetch_ok = report["fetch"]["status"] == "fetched"
-        adj = report.get("adjust", {})
-        zy = report.get("fetch_zhiyun") or {}
-        zy_degraded = any(v.get("status") != "fetched" for v in zy.values() if isinstance(v, dict))
-        zy_warn = any(bool(v.get("warnings")) for v in zy.values() if isinstance(v, dict))
-        yellow = (not fetch_ok) or adj.get("expired", 0) > 0 or adj.get("missing", 0) > 0 or zy_degraded or zy_warn
-        self.assertFalse(yellow)
+        import db
+
+        tmp = Path(tempfile.mkdtemp(prefix="t66d_"))
+        cfg = dict(loaders.load_config(ROOT))
+        cfg["data_dir"] = str(tmp)
+        cfg["db_path"] = str((tmp / "看板.db").resolve())
+        # 空库也有 meta 表
+        conn = db.connect(cfg, tmp)
+        try:
+            report = {
+                "fetch": {"status": "fetched"},
+                "adjust": {"expired": 0, "missing": 0, "applied": 0},
+                "fetch_zhiyun": {
+                    "orders": {"status": "fetched"},
+                    "receipts": {"status": "fetched"},
+                    "project_detail": {"status": "fetched"},
+                    "inhouse": {"status": "fetched"},
+                },
+                "duplicate_locators": {"std_回款": ["k1", "k2", "k3"]},
+                "db_check": {"ok": True},
+                "disk": {},
+            }
+            now = time.strftime("%Y-%m-%d %H:%M:%S")
+            result = _log_run(conn, now, "test66d", report)
+            self.assertEqual(result, "绿", f"dups alone must not yellow/red, got {result}")
+            info = report.get("info") or []
+            self.assertTrue(any("定位键重复" in str(x) for x in info), info)
+            # 对照：local_fallback 仍黄
+            report2 = {
+                "fetch": {"status": "local_fallback"},
+                "adjust": {"expired": 0, "missing": 0},
+                "fetch_zhiyun": {"orders": {"status": "fetched"}},
+                "duplicate_locators": {},
+                "db_check": {"ok": True},
+                "disk": {},
+            }
+            r2 = _log_run(conn, now, "test66d2", report2)
+            self.assertEqual(r2, "黄")
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":

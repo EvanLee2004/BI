@@ -1,9 +1,9 @@
 # 07 · HTTP 接口清单（权威 · 从 server.py 数出）
 
-> **产品 v1.6.0-beta**（`程序/看板正式程序` HEAD 以仓库为准）  
-> **统计方法**：对 `src/server.py` 用正则提取 `@app.get|post|…`，共 **55** 个注册路由；另挂载 `StaticFiles` 于 `/static/*`（不计入 55）。  
-> **鉴权**：从路由函数前几行是否调用 `_require` / `_user` / `_vacct` / `_can_view_*` 归纳；细节以源码为准。  
-> 页面返回 HTML；`/api/*` 多为 JSON。更细的 cockpit 字段见程序仓 `docs/api-v1-cockpit.md`。
+> **产品 v2.2.0**（2026-07-21 · stage66；`VERSION` 为准）  
+> **统计方法**：对 `src/routes/*` + `server.py` 注册路由扫描；另挂载 dist/`/static/*`。  
+> **鉴权**：`_require` / `_user` / `_vacct` / `_can_view_*`；细节以源码为准。  
+> 页面 HTML；`/api/*` JSON。VM 字段闸：`scripts/gen_vm_ts.py --check`。cockpit 字段见 `docs/api-v1-cockpit.md`。
 
 ## 一、页面与静态
 

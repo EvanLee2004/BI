@@ -1,3 +1,4 @@
+<!-- stage66 2026-07-21: Vue-only admin, export on-demand, fen Decimal, incremental recompute, gen_vm_ts -->
 <svg viewBox="0 0 960 680" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
 <title>账号登录与权限分流 v2.0</title>
 <style>

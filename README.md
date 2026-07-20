@@ -5,7 +5,7 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.0.1**（`stage61_beta201` · 2026-07-20） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 红线 32 周期 · Ubuntu systemd+nginx · 真实数据已抓 |
+| **v2.2.0**（`stage66_debtfree` · 2026-07-21） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 金额分整数 · 手填增量重算 · VM 生成闸 · 抓数护栏 · 红线 32 周期 |
 
 > **版本以根目录 `VERSION` 文件为准**；版本史见根目录 [`CHANGELOG.md`](./CHANGELOG.md)。  
 > git tag 因数据安全策略**只存本地、不推远端**（公开仓零 tag / 零 Release 属有意为之，不代表无版本管理）。
@@ -39,16 +39,16 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 
 ## 系统架构
 
-> **图集与代码对齐说明（2026-07-20 · v2.0.1 · 生产架构）**  
+> **图集与代码对齐说明（2026-07-21 · v2.2.0 · stage66）**  
 > 逻辑链 **nginx → Vue(dist) → API v1(VM) → domain/profit·db → SQLite**。  
-> **看端**仅 Vue；**管理端** Vue SPA + Element Plus 深空主题。  
-> **生产** = 公司 Ubuntu 26.04 · systemd `kanban` · nginx:80 发 dist + 反代 `127.0.0.1:8018` · cron 日更/体检/备份。  
-> **简易** = `run.py --serve`（开发）。Windows 线已退役。  
+> **看端**仅 Vue；**管理端** Vue 单轨（无 legacy admin.js）；**导出 PNG** 按需装配 HTML（刷新不预装整页）。  
+> **金额** 分上 Decimal `ROUND_HALF_UP`；**手填** 源指纹未变时跳过 std 重建；**VM** `scripts/gen_vm_ts.py` 字段清单闸。  
+> **生产** = 公司 Ubuntu · systemd `kanban` · nginx:80 发 dist + 反代 `127.0.0.1:8018` · 进程内 ScheduleLoop + cron 体检/备份。  
 > 手册：`docs/Ubuntu部署手册.md` · `docs/Runbook.md` · 进度地图：`CLAUDE.md`。
 
 五层单向数据流（展示层 = Vue 真组件 + 版本化结构化 VM）。换数据源只动抓数层；库只给后端碰；抓失败永不中断管道。
 
-**`static/` 是什么（与 Vue dist 并存的双路径之一）**：服务端 HTML 模板（`static/templates/` · `python run.py` 出单文件 HTML）、登录/错误页、主题 CSS 唯一源（`static/css/theme.css`）、管理端重定向与首次部署引导（`static/admin/`）。不是废弃目录——MADR 0014 删的是 legacy shell，不等于整棵 `static/` 可删。细节见 `docs/softeng/09_部署架构说明.md`。
+**`static/` 是什么（与 Vue dist 并存的双路径之一）**：服务端 HTML 模板（`static/templates/` · 导出/历史快照装配）、登录/错误页、主题 CSS、管理端 bootstrap 引导与重定向。任务书65 已删 legacy `admin.js`。细节见 `docs/softeng/09_部署架构说明.md`。
 
 ### 开发 vs 部署
 
@@ -63,14 +63,13 @@ KANBAN_OFFLINE=1 sh tests/run_verify.sh   # 一键全绿验证
 ![系统架构图](docs/images/architecture.png)
 
 ```
-① 抓数    智云四源自动登录抓 + 收单台账 SMB + 管理端表单手填
+① 抓数    智云四源（登录冷却/7日行数/Worksheet探活）+ 台账 SMB + 管理端手填
     ↓ 进料口：数据/ 目录（6 个 xlsx + 配置，不进 git）
-② 清洗    规范化 → 行哈希定位键 → 重放人工调整
+② 清洗    规范化 → 行哈希定位键 → 重放人工调整（手填可跳过 std 重建）
 ③ 存储    SQLite（std_/adj_/manual_/meta_/cfg_）· 读连接 mode=ro
-④ 计算    domain / profit·db 包 re-export · summary（32 周期红线）
-⑤ 展示    看端：Vue dist only（无 shell.html）← GET /api/v1/vm/*
-          管理端：Vue SPA（Element Plus）；static/admin/admin.html 仅重定向 /admin
-          账号明文管理端👁 · 口径配置 UI 已于任务书54 下线
+④ 计算    profit 分整数 ROUND_HALF_UP · summary（32 周期红线）
+⑤ 展示    看端：Vue dist ← GET /api/v1/vm/*（gen_vm_ts 字段闸）
+          管理端：Vue 单轨；导出 PNG 按需装配；定位键重复仅体检 info
 ```
 
 | 契约 | 含义 |

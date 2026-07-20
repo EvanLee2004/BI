@@ -1,3 +1,4 @@
+<!-- stage66 2026-07-21: Vue-only admin, export on-demand, fen Decimal, incremental recompute, gen_vm_ts -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" font-family="system-ui,sans-serif" role="img">
   <title>Ubuntu 台式机部署拓扑 v2.0</title>
   <rect width="900" height="360" fill="#0b1220"/>

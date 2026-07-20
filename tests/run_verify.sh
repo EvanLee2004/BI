@@ -91,6 +91,7 @@ tests/test_backup_restore.py
 tests/test_domain_reexport.py
 tests/test_echarts_vm_labels.py
 tests/frontend/parity/test_parity_structure.py
+tests/test_task66_stage66_batch_b.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
@@ -137,6 +138,9 @@ tests/test_task63_stage63_batch_a.py
 tests/test_task63_stage63_batch_b.py
 tests/test_task64_stage64.py
 tests/test_task65_stage65.py
+tests/test_task66_stage66_batch_a.py
+tests/test_task66_stage66_batch_c.py
+tests/test_task66_stage66_batch_d.py
 "
 run_one() {
   f="$1"

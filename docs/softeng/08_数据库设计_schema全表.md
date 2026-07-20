@@ -1,10 +1,10 @@
 # 08 · 数据库设计（对齐 `src/schema.py` · 任务书33 修订）
 
-> **产品 v1.5.0-beta** · 唯一 DDL 源：`程序/看板正式程序/src/schema.py`  
-> **SCHEMA_VERSION = 3**（1→2：金额 REAL 元 → INTEGER **分**；2→3：adj 金额 原值/新值 元 TEXT → **分 TEXT**）  
-> **统计**：标准表 **5** + 人工/元数据表 **13**（含 `meta_schema` + 任务书63 两张历史表）= **18** 张。  
+> **产品 v2.2.0**（2026-07-21）· 唯一 DDL 源：`src/schema.py`  
+> **SCHEMA_VERSION = 3**（金额库内 INTEGER **分**；算账路径 Decimal ROUND_HALF_UP，见 MADR-0022）  
+> **统计**：标准表 **5** + 人工/元数据表（含历史表）以 schema 为准。  
 > **库文件**：`数据/看板.db`（gitignore）。无独立 DB 服务。  
-> 配图：`docs/images/er.png`（金额单位以本文为准）。
+> 配图：`docs/images/er.png`。
 
 ## 一、三类哲学
 

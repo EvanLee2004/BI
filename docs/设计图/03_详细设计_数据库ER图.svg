@@ -1,3 +1,4 @@
+<!-- stage66 2026-07-21: Vue-only admin, export on-demand, fen Decimal, incremental recompute, gen_vm_ts -->
 <svg viewBox="0 0 920 780" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
 <title>看板.db ER图（v1.2 · 对齐 schema.py · 2026-07-15）</title>
 <desc>std_ 五表 + adj_/manual_/meta_ 人工表；无物理外键，调整靠(目标表+定位键)逻辑关联</desc>

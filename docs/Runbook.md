@@ -1,12 +1,12 @@
 # Runbook：三张处方卡
 
-## 0. 生产环境实况（2026-07-20 首次上线·SSH 实核）
+## 0. 生产环境实况（2026-07-21 任务书66 · 以机上为准）
 
 | 项 | 值 |
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | 2.0.0-rc13（`stage60_prod_fix` 线；功能基线含 `stage58_ui`） |
+| 版本 | **2.2.0**（`stage66_debtfree` 本地 tag；金额分整数 / 增量重算 / VM 闸 / 抓数护栏） |
 | 进程托管 | **systemd 单元 `kanban`**（active + enabled，Restart=always，重启/崩溃/重机自愈）；app 只绑 `127.0.0.1:8018` |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server，发 `frontend/dist` 静态 + `proxy_pass` API→127.0.0.1:8018）；内网 `http://<机内网IP>/` |
 | 每日更新 | **服务内 ScheduleLoop**（`serve` 启动的 daemon，按 `schedule_times` 调 `start_refresh_async(trigger=schedule)`，写进程内存 `_state`/`built_at`） |
