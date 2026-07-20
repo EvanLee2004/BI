@@ -48,6 +48,33 @@ class TestLinuxDeployAssets(unittest.TestCase):
         self.assertIn("start_with_rollback.sh", text)
         self.assertIn("StartLimitBurst=5", text)
 
+    def test_service_unit_prod_harden_lee_sandbox(self):
+        """生产加固：User=lee（数据属主）+ 回环 env + D8 沙箱路径。"""
+        text = (LINUX / "kanban.service").read_text(encoding="utf-8")
+        self.assertIn("User=lee", text)
+        self.assertIn("Group=lee", text)
+        self.assertIn("KANBAN_SERVER_HOST=127.0.0.1", text)
+        self.assertIn("KANBAN_SERVE_STATIC=0", text)
+        self.assertIn("NoNewPrivileges=true", text)
+        self.assertIn("PrivateTmp=true", text)
+        self.assertIn("ProtectSystem=strict", text)
+        self.assertIn("ReadWritePaths=", text)
+        self.assertIn("/opt/kanban/看板正式程序/数据", text)
+
+    def test_nginx_security_headers_survive_cache_locations(self):
+        """nginx 子 location 写 add_header 会冲掉 server 级头——入口与静态必须自带安全头。"""
+        t = (LINUX / "nginx-kanban.conf").read_text(encoding="utf-8")
+        self.assertIn("server_tokens off", t)
+        self.assertIn("X-Content-Type-Options", t)
+        self.assertIn("X-Frame-Options", t)
+        self.assertIn("Referrer-Policy", t)
+        # SPA 入口 location 内须重复（非仅 server 块）
+        idx = t.find("location = /")
+        self.assertGreater(idx, 0)
+        chunk = t[idx : idx + 450]
+        self.assertIn("X-Content-Type-Options", chunk)
+        self.assertIn("Cache-Control", chunk)
+
     def test_ubuntu26_python_strategy_docs_and_scripts(self):
         """任务书50·D.6：26.04 + 系统 python3；脚本不写死 deadsnakes/python3.12 路径。"""
         readme = (LINUX / "README.md").read_text(encoding="utf-8")

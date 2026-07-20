@@ -78,6 +78,8 @@ class TestNginxConfTemplate(unittest.TestCase):
         self.assertIn("location /static/", t)
         self.assertIn("no-store", t)
         self.assertIn("X-Real-IP", t)
+        self.assertIn("server_tokens off", t)
+        self.assertIn("X-Content-Type-Options", t)
         # 动态路径
         self.assertRegex(t, r"api\|admin\|login\|bu")
 
