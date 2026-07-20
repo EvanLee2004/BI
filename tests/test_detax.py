@@ -57,7 +57,7 @@ class TestDbDetax(unittest.TestCase):
         db.set_detax_rate(self.conn, "物业费", 6.005, "t")  # Decimal ROUND_HALF_UP → 6.01
         self.assertEqual(db.load_detax_rates(self.conn), {"房租": 9.0, "物业费": 6.01})
         db.set_detax_rate(self.conn, "房租", None, "t")  # None=删行
-        self.assertEqual(db.load_detax_rates(self.conn), {"物业费": 6.0})
+        self.assertEqual(db.load_detax_rates(self.conn), {"物业费": 6.01})
         db.set_detax_rate(self.conn, "物业费", 0, "t")  # 0=删行（默认不去税）
         self.assertEqual(db.load_detax_rates(self.conn), {})
         db.set_detax_rate(self.conn, "房租", "", "t")  # 空串=删行（幂等）
