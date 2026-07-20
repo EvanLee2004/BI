@@ -280,7 +280,9 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
             bu_name=bu_name,
         )
         if ctx:
-            profit.apply_public_expense_allocation_monthly(s, ctx["public_month_led"], ctx["ratios"], bu_name, today)
+            profit.apply_public_expense_allocation_monthly(
+                s, ctx["public_month_led"], ctx["ratios"], bu_name, today, cfg=cfg
+            )
         # summary + fragments + views：publish-once（HTTP 直接取 client-ready，不再请求时 rebuild）
         # html 仍用全量 fr 组装，供导出/快照
         import api_v1

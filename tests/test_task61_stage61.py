@@ -160,6 +160,82 @@ class TestManualAllocJ(unittest.TestCase):
         f2 = merge_ledger_caliber_filters(None, cfg, show_all=True)
         self.assertTrue(f2 is None or f2 == {} or f2 is None)
 
+    def test_bu_public_alloc_keeps_manual_rent(self):
+        """shipped 路径：BU + 公共分摊重算后，房租手填仍在固定运营费用（防 apply_public 漏 mac）。"""
+        from profit.bu_alloc import apply_public_expense_allocation, build_bu_summary
+        from profit.expense_period import expense_totals_from_man_led
+
+        cfg = self._cfg()
+        # 补全 columns 中 inhouse 等键，避免 build 崩
+        cfg["columns"].update(
+            {
+                "inhouse_type": "译员类型",
+                "inhouse_amount": "结算金额",
+                "inhouse_date": "结算日期",
+            }
+        )
+        cfg["inhouse_keyword"] = "IN-HOUSE"
+        today = datetime.date(2026, 3, 15)
+        # 手填：3 月房租 12000 元 = 1200000 分（库内分；manual_for_period 吃分）
+        # build_manual_monthly 读 manual_raw 元或分：load 路径是分 int
+        manual_raw = {
+            "2026-03": {
+                "营销人力成本": 0,
+                "管理人力成本": 0,
+                "研发人力成本": 0,
+                "财务费用补充": 0,
+                "PM人力成本": 0,
+                "VM人力成本": 0,
+                "实际内部译员成本": 0,
+                "税费损失": 0,
+                "技术流量成本": 0,
+                "其他（生产成本）": 0,
+                "直接成本增值税": 0,
+                "其他损益": 0,
+                "房租": 12000_00,  # 分
+                "物业费": 0,
+                "装修费": 0,
+            }
+        }
+        s = build_bu_summary(
+            cfg,
+            [],
+            [],
+            [],
+            [],
+            today,
+            {"张三"},
+            manual_raw=manual_raw,
+            bu_name="语言",
+            alloc_enabled=False,
+        )
+        yk = f"{today.year}年"
+        # 无公共分摊时 build_period 已含 mac
+        self.assertEqual(s["periods"][yk]["expense"]["固定运营费用"], 12000_00)
+
+        # 模拟公共池叠加后重算（生产 alloc 路径）
+        company_led = {k: {"固定运营费用": 0, "管理费用": 0, "市场费用": 0, "技术服务费": 0, "财务费用": 0} for k in s["periods"]}
+        # 给 3 月周期塞一点公共池费用，强制走重算
+        for k, p in s["periods"].items():
+            company_led[k] = {"固定运营费用": 1000_00, "管理费用": 0, "市场费用": 0, "技术服务费": 0, "财务费用": 0}
+        apply_public_expense_allocation(s, company_led, 50.0, cfg=cfg)  # 50% → 加 500_00
+        fixed = s["periods"][yk]["expense"]["固定运营费用"]
+        # 房租 12000_00 + 公共分摊 500_00
+        self.assertEqual(fixed, 12000_00 + 500_00, f"expected rent+alloc, got {fixed}")
+
+        # 纯函数守卫：expense_totals_from_man_led 含 mac
+        man = s["periods"][yk]["manual"]
+        exp = expense_totals_from_man_led(man, {"固定运营费用": 0}, cfg)
+        self.assertEqual(exp["固定运营费用"], 12000_00)
+
+    def test_expense_totals_helper_includes_mac_without_cfg_map(self):
+        """cfg 无 map 时仍用默认三类 map（bu_alloc 未传 cfg 不丢房租）。"""
+        from profit.expense_period import expense_totals_from_man_led
+
+        man = {"房租": 100_00, "营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0}
+        exp = expense_totals_from_man_led(man, {"固定运营费用": 50_00}, cfg=None)
+        self.assertEqual(exp["固定运营费用"], 150_00)
+
 
 class TestStage61SourceGuards(unittest.TestCase):
     def test_frontend_marks(self):

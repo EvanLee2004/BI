@@ -65,12 +65,48 @@ def is_manual_alloc_ledger_row(row, cfg, lcols) -> bool:
 
 
 def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
-    """手填三类分摊 → 按报表大类汇总（分）。未填项=0。"""
+    """手填三类分摊 → 按报表大类汇总（分）。未填项=0。
+
+    cfg 缺 map 时回退默认（房租/物业费→固定运营费用，装修费→管理费用），
+    避免 BU 分摊重算路径因未传 cfg 丢掉人工分摊（任务书61·J 补丁）。
+    """
     man = man or {}
+    cmap = manual_alloc_category_map(cfg)
+    if not cmap:
+        cmap = {
+            "房租": "固定运营费用",
+            "物业费": "固定运营费用",
+            "装修费": "管理费用",
+        }
     out: dict[str, int] = defaultdict(int)
-    for fine, cat in manual_alloc_category_map(cfg).items():
+    for fine, cat in cmap.items():
         out[cat] += int(money.as_fen(man.get(fine, 0)) or 0)
     return {k: int(v) for k, v in out.items()}
+
+
+def expense_totals_from_man_led(man: dict | None, led: dict | None, cfg=None) -> dict[str, float]:
+    """台账 led + 手填 man + 任务书61·J 三类人工分摊 → 期间费用五类与 total。
+
+    与 budget_manual.build_period 同口径；供 bu_alloc 公共分摊重算复用，禁止只写 man+led 漏 mac。
+    返回 float 分（与 bu_alloc 现有 round 路径兼容）。
+    """
+    man = man or {}
+    led = led or {}
+    mac = manual_alloc_amounts_by_cat(man, cfg)
+    sales = float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0) + float(mac.get("市场费用") or 0)
+    admin = float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0) + float(mac.get("管理费用") or 0)
+    fixed = float(led.get("固定运营费用") or 0) + float(mac.get("固定运营费用") or 0)
+    rd = float(man.get("研发人力成本") or 0) + float(led.get("技术服务费") or 0) + float(mac.get("技术服务费") or 0)
+    fin = float(led.get("财务费用") or 0) + float(man.get("财务费用补充") or 0) + float(mac.get("财务费用") or 0)
+    total = sales + admin + fixed + rd + fin
+    return {
+        "营销费用": sales,
+        "管理费用": admin,
+        "固定运营费用": fixed,
+        "研发费用": rd,
+        "财务费用": fin,
+        "total": total,
+    }
 
 
 def _expense_all_cats(cfg) -> list:

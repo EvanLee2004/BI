@@ -24,10 +24,32 @@ import datetime
 import periods
 
 from .constants import _BU_EMPTY_LEDGER_HEADER, _LEDGER_TO_EXPENSE, ALLOC_IN_LABEL, ALLOC_OUT_LABEL
+from .expense_period import expense_totals_from_man_led
 from .summary import build_summary, filter_rows_by_sales
 
 
 # pure-move funcs from _impl.py
+
+def _apply_expense_and_pretax(p: dict, led: dict, cfg=None) -> None:
+    """led 已含直记+公共分摊后：叠 J 类人工分摊，写 expense / pretax（与 build_period 同口径）。"""
+    man = p.get("manual") or {}
+    exp = expense_totals_from_man_led(man, led, cfg)
+    p["ledger_expenses"] = led
+    p["expense"] = {
+        "营销费用": round(float(exp["营销费用"]), 2),
+        "管理费用": round(float(exp["管理费用"]), 2),
+        "固定运营费用": round(float(exp["固定运营费用"]), 2),
+        "研发费用": round(float(exp["研发费用"]), 2),
+        "财务费用": round(float(exp["财务费用"]), 2),
+        "total": round(float(exp["total"]), 2),
+    }
+    total = float(p["expense"]["total"])
+    p["pretax_profit"] = round(
+        float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2
+    )
+    net = float(p.get("revenue_net") or 0)
+    p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
+
 
 def build_bu_summary(
     cfg,
@@ -74,45 +96,29 @@ def build_bu_summary(
     if bu_name:
         s.setdefault("meta", {})["bu_name"] = bu_name
     if alloc_enabled and alloc_ratio_pct is not None and company_ledger_by_period:
-        apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct))
+        apply_public_expense_allocation(s, company_ledger_by_period, float(alloc_ratio_pct), cfg=cfg)
     else:
         s.setdefault("meta", {})["public_allocation"] = {"enabled": False, "ratio_pct": None, "ratio_disp": ""}
     return s
 
 
-def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dict, ratio_pct: float) -> None:
+def apply_public_expense_allocation(
+    summary: dict, company_ledger_by_period: dict, ratio_pct: float, cfg=None
+) -> None:
     """就地：把「公共池」台账 5 类 × 比例 **叠加** 进 BU 已有直记费用（不覆盖直记）。
     company_ledger_by_period 应为公共归属中心的费用；若传入全公司（旧测），则按比例拆全额——
-    与「仅公共池」在无直记时数值等价。手填不摊；附加税按 BU 自身收入。"""
+    与「仅公共池」在无直记时数值等价。手填不摊；附加税按 BU 自身收入。
+    任务书61·J：重算费用时必须叠 manual_alloc（房租/物业费/装修费），禁止 man+led 漏 mac。
+    cfg 可选；缺省时 expense_totals_from_man_led 用内置三类 map。"""
     factor = float(ratio_pct) / 100.0
     P = summary.get("periods") or {}
     for key, p in P.items():
         led_src = company_ledger_by_period.get(key) or {}
-        man = p.get("manual") or {}
         led = dict(p.get("ledger_expenses") or {})
         for cat in _LEDGER_TO_EXPENSE:
             add = round(float(led_src.get(cat) or 0.0) * factor, 2)
             led[cat] = round(float(led.get(cat) or 0.0) + add, 2)
-        sales_exp = round(float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0), 2)
-        admin_exp = round(float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0), 2)
-        fixed_exp = round(float(led.get("固定运营费用") or 0), 2)
-        rd_exp = round(float(man.get("研发人力成本") or 0) + float(led.get("技术服务费") or 0), 2)
-        fin_exp = round(float(led.get("财务费用") or 0) + float(man.get("财务费用补充") or 0), 2)
-        total = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
-        p["ledger_expenses"] = led
-        p["expense"] = {
-            "营销费用": sales_exp,
-            "管理费用": admin_exp,
-            "固定运营费用": fixed_exp,
-            "研发费用": rd_exp,
-            "财务费用": fin_exp,
-            "total": total,
-        }
-        p["pretax_profit"] = round(
-            float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2
-        )
-        net = float(p.get("revenue_net") or 0)
-        p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
+        _apply_expense_and_pretax(p, led, cfg)
     summary.setdefault("meta", {})["public_allocation"] = {
         "enabled": True,
         "ratio_pct": float(ratio_pct),
@@ -120,32 +126,14 @@ def apply_public_expense_allocation(summary: dict, company_ledger_by_period: dic
     }
 
 
-def _merge_alloc_into_period(p: dict, add_by_cat: dict[str, float]) -> None:
-    """就地把分摊额（按台账 5 类）叠加进单周期的费用与税前（与整比例版同一套公式）。"""
-    man = p.get("manual") or {}
+def _merge_alloc_into_period(p: dict, add_by_cat: dict[str, float], cfg=None) -> None:
+    """就地把分摊额（按台账 5 类）叠加进单周期的费用与税前（与整比例版同一套公式 + J mac）。"""
     led = dict(p.get("ledger_expenses") or {})
     for cat in _LEDGER_TO_EXPENSE:
         led[cat] = round(float(led.get(cat) or 0.0) + float(add_by_cat.get(cat) or 0.0), 2)
     # 记下本周期各类实际叠加的分摊额（迭代22·D4：BU 利润表抽屉把「直记」与「分摊自公共」分开展示）
     p["alloc_added"] = {cat: round(float(add_by_cat.get(cat) or 0.0), 2) for cat in _LEDGER_TO_EXPENSE}
-    sales_exp = round(float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0), 2)
-    admin_exp = round(float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0), 2)
-    fixed_exp = round(float(led.get("固定运营费用") or 0), 2)
-    rd_exp = round(float(man.get("研发人力成本") or 0) + float(led.get("技术服务费") or 0), 2)
-    fin_exp = round(float(led.get("财务费用") or 0) + float(man.get("财务费用补充") or 0), 2)
-    total = round(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp, 2)
-    p["ledger_expenses"] = led
-    p["expense"] = {
-        "营销费用": sales_exp,
-        "管理费用": admin_exp,
-        "固定运营费用": fixed_exp,
-        "研发费用": rd_exp,
-        "财务费用": fin_exp,
-        "total": total,
-    }
-    p["pretax_profit"] = round(float(p["gross_profit"]) - total - float(p["surtax"]) + float(p.get("other_pl") or 0), 2)
-    net = float(p.get("revenue_net") or 0)
-    p["pretax_margin_pct"] = round(p["pretax_profit"] / net * 100, 2) if net else 0.0
+    _apply_expense_and_pretax(p, led, cfg)
 
 
 def _alloc_cats_for_range(
@@ -164,11 +152,12 @@ def _alloc_cats_for_range(
 
 
 def apply_public_expense_allocation_monthly(
-    summary: dict, public_month_led: dict, ratios_by_month: dict, bu_name: str, today
+    summary: dict, public_month_led: dict, ratios_by_month: dict, bu_name: str, today, cfg=None
 ) -> None:
     """就地：按月比例把公共池费用叠加进单 BU summary 各周期（迭代20）。
     public_month_led={(y,m):{5类:金额}}；ratios_by_month={'YYYY-MM':{BU:比例%}}；
-    当月合计可 <100%（剩余留公司层）。没有任何生效比例 → meta 标 enabled=False。"""
+    当月合计可 <100%（剩余留公司层）。没有任何生效比例 → meta 标 enabled=False。
+    cfg：任务书61·J 重算费用时叠人工三类分摊；缺省用内置 map。"""
     P = summary.get("periods") or {}
     # 「已配置」与「有金额」分开：配置了比例（哪怕当期公共池为 0）也标注口径，别让读者以为没摊
     has_ratio = any((r or {}).get(bu_name) for r in ratios_by_month.values())
@@ -181,7 +170,7 @@ def apply_public_expense_allocation_monthly(
         add = _alloc_cats_for_range(public_month_led, ratios_by_month, bu_name, start, end, today)
         if not any(add.values()):
             continue
-        _merge_alloc_into_period(p, add)
+        _merge_alloc_into_period(p, add, cfg=cfg)
     summary.setdefault("meta", {})["public_allocation"] = {
         "enabled": has_ratio,
         "mode": "monthly",
