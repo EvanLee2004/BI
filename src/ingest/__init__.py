@@ -104,6 +104,15 @@ def build_std_db(
         except Exception as e:
             report["year_archive"] = {"status": "error", "detail": f"{type(e).__name__}: {e}", "ok": False}
         report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root, today=today)
+        # 任务书66·D：登录冷却元信息（不占源键）
+        if isinstance(report["fetch_zhiyun"], dict) and report["fetch_zhiyun"].get("_meta_cooldown"):
+            report["zhiyun_login_cooldown"] = report["fetch_zhiyun"].pop("_meta_cooldown")
+            try:
+                from notify import alert_event
+
+                alert_event("zhiyun_login_cooldown", "智云凭据疑似失效需人工检查")
+            except Exception:
+                pass
 
     # 2) 读原始 + 规范化
     records = _normalize_all_sources(cfg, ledger_year, root)
@@ -164,7 +173,7 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
     zy_warn = any(bool(v.get("warnings")) for v in zy.values() if isinstance(v, dict))
     dups = report.get("duplicate_locators") or {}
-    has_dups = any(dups.values())
+    # 任务书66·D / 明昊拍板：定位键重复不再使体检黄，仅信息展示
     db_bad = not (report.get("db_check") or {}).get("ok", True)
     yellow = (
         (not fetch_ok)
@@ -172,11 +181,25 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
         or adj.get("missing", 0) > 0
         or zy_degraded
         or zy_warn
-        or has_dups
     )
+    # 登录冷却 → 红（见 fetch_zhiyun 写入 report 标记）
+    if any(
+        isinstance(v, dict) and v.get("login_cooldown")
+        for v in (report.get("fetch_zhiyun") or {}).values()
+    ):
+        yellow = True  # at least yellow; red set below if flag
+    if (report.get("zhiyun_login_cooldown") or {}).get("active"):
+        pass  # red handled below
     disk_red = bool((report.get("disk") or {}).get("red"))
-    red = report["fetch"]["status"] == "no_source" or db_bad or disk_red
+    login_cd = bool((report.get("zhiyun_login_cooldown") or {}).get("active"))
+    red = report["fetch"]["status"] == "no_source" or db_bad or disk_red or login_cd
     结果 = "红" if red else ("黄" if yellow else "绿")
+    # 信息行：定位键重复计数（不影响绿黄红）
+    n_dup_keys = sum(len(v) for v in dups.values()) if isinstance(dups, dict) else 0
+    if n_dup_keys:
+        report.setdefault("info", []).append(
+            f"{n_dup_keys} 组定位键重复（按现状计入·明昊拍板不判黄；写调整仍拒/重放过期疑似）"
+        )
     log_body = {k: v for k, v in report.items() if k != "records"}
     insert_run_log(conn, now, trigger, 结果, log_body)
     return 结果

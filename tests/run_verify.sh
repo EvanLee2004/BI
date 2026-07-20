@@ -27,6 +27,9 @@ if [ -d frontend/node_modules ] && [ -f frontend/package.json ]; then
   echo "[1b/5] 前端 vue-tsc --noEmit"
   (cd frontend && npm run typecheck) || exit 1
 fi
+# 任务书66·C：VM 字段 GEN 块与 pydantic 对齐
+echo "[1c/5] scripts/gen_vm_ts.py --check"
+$PY scripts/gen_vm_ts.py --check || exit 1
 echo "[2/5] 端到端生成"
 $PY run.py >/dev/null
 echo "[3/5] 回归红线：从库算 == 从文件算（一分不差）"

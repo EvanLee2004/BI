@@ -349,11 +349,73 @@ def _save_session(cfg: dict, root: Path | None, token: str, account_id: str | No
         pass
 
 
+def _login_cooldown_path(cfg: dict, root: Path | None) -> Path:
+    return loaders.data_dir(cfg, root) / "智云登录冷却.json"
+
+
+def load_login_cooldown(cfg: dict, root: Path | None = None) -> dict:
+    """{fails, until_ts, last_error}；until_ts 为 epoch 秒。"""
+    p = _login_cooldown_path(cfg, root)
+    if not p.is_file():
+        return {}
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def clear_login_cooldown(cfg: dict, root: Path | None = None) -> None:
+    p = _login_cooldown_path(cfg, root)
+    try:
+        if p.is_file():
+            p.unlink()
+    except OSError:
+        pass
+
+
+def register_login_failure(cfg: dict, root: Path | None, err: str) -> dict:
+    """连败累计；达阈（默认 3）→ 冷却 24h。返回冷却状态 dict。"""
+    import time
+
+    max_f = int(cfg.get("zhiyun_login_max_failures", 3) or 3)
+    cool_h = float(cfg.get("zhiyun_login_cooldown_hours", 24) or 24)
+    st = load_login_cooldown(cfg, root)
+    fails = int(st.get("fails") or 0) + 1
+    out = {"fails": fails, "last_error": str(err)[:200], "until_ts": st.get("until_ts") or 0}
+    if fails >= max_f:
+        out["until_ts"] = time.time() + cool_h * 3600
+        out["active"] = True
+    p = _login_cooldown_path(cfg, root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out
+
+
+def login_cooldown_active(cfg: dict, root: Path | None = None) -> dict | None:
+    import time
+
+    st = load_login_cooldown(cfg, root)
+    until = float(st.get("until_ts") or 0)
+    if until and time.time() < until:
+        st = dict(st)
+        st["active"] = True
+        return st
+    return None
+
+
 def _auto_login(zy: dict, cfg: dict, root: Path | None) -> str:
     """账号密码登录换新 token（顺带取 account_id→换账号零配置），回写配置 + 更新内存 zy。返回 token。"""
     from ingest import login_zhiyun
 
-    token, account_id = login_zhiyun.login(zy)
+    if login_cooldown_active(cfg, root):
+        raise RuntimeError("智云登录冷却中（连续失败达阈，24h 内不再真实登录；请人工检查凭据）")
+    try:
+        token, account_id = login_zhiyun.login(zy)
+    except Exception as e:
+        register_login_failure(cfg, root, f"{type(e).__name__}: {e}")
+        raise
+    clear_login_cooldown(cfg, root)
     zy["md_pss_id"] = token
     if account_id:
         zy["account_id"] = account_id
@@ -425,6 +487,11 @@ def _last_counts_path(cfg: dict, root: Path | None) -> Path:
     return loaders.data_dir(cfg, root) / "智云抓数上次行数.json"
 
 
+def _baseline7_path(cfg: dict, root: Path | None) -> Path:
+    """7 日滚动基线：{source: {ts, rows}}。任务书66·D。"""
+    return loaders.data_dir(cfg, root) / "智云抓数7日基线.json"
+
+
 def load_last_row_counts(cfg: dict, root: Path | None = None) -> dict[str, int]:
     p = _last_counts_path(cfg, root)
     if not p.is_file():
@@ -445,11 +512,52 @@ def load_last_row_counts(cfg: dict, root: Path | None = None) -> dict[str, int]:
 
 
 def save_last_row_count(cfg: dict, source: str, n: int, root: Path | None = None) -> None:
+    import time
+
     counts = load_last_row_counts(cfg, root)
     counts[source] = int(n)
     p = _last_counts_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(counts, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 7 日基线：若无基线或已超过 7 天则刷新快照
+    bpath = _baseline7_path(cfg, root)
+    try:
+        base = json.loads(bpath.read_text(encoding="utf-8")) if bpath.is_file() else {}
+    except (OSError, ValueError, TypeError):
+        base = {}
+    if not isinstance(base, dict):
+        base = {}
+    now = time.time()
+    ent = base.get(source) if isinstance(base.get(source), dict) else {}
+    ts = float(ent.get("ts") or 0)
+    if not ts or (now - ts) >= 7 * 86400:
+        base[source] = {"ts": now, "rows": int(n)}
+        bpath.write_text(json.dumps(base, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_baseline7_rows(cfg: dict, source: str, root: Path | None = None) -> int | None:
+    """7 日前左右基线行数；无/过旧返回 None（首跑不误报）。"""
+    import time
+
+    p = _baseline7_path(cfg, root)
+    if not p.is_file():
+        return None
+    try:
+        base = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    ent = base.get(source) if isinstance(base, dict) else None
+    if not isinstance(ent, dict):
+        return None
+    try:
+        rows = int(ent.get("rows"))
+        ts = float(ent.get("ts") or 0)
+    except (TypeError, ValueError):
+        return None
+    # 基线至少 6 天前才参与「7 日」对比；过新当无
+    if not ts or (time.time() - ts) < 6 * 86400:
+        return None
+    return rows
 
 
 def row_drop_ratio(cfg: dict) -> float:
@@ -520,10 +628,28 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
         return _fetch_fallback(
             local, f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）"
         )
+    # 新年 1 月 0 行：信息级，不当地抓取失败黄
+    import datetime as _dt
+
+    mon = _dt.date.today().month
+    if len(records) == 0 and mon == 1:
+        write_records_xlsx(records, local)
+        save_last_row_count(cfg, source, 0, root)
+        return {
+            "status": "fetched",
+            "detail": f"新年正常空：1 月抓到 0 行 → {local.name}",
+            "rows": 0,
+            "info": ["新年正常空（1 月 0 行，不判抓取失败）"],
+        }
     prev_counts = load_last_row_counts(cfg, root)
     drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
     if drop_msg:
         warnings.append(drop_msg)
+    # 任务书66·D：与约 7 天前基线累计对比（同阈值）
+    b7 = load_baseline7_rows(cfg, source, root)
+    drop7 = check_row_drop(b7, len(records), row_drop_ratio(cfg))
+    if drop7:
+        warnings.append("相对7日基线·" + drop7)
     write_records_xlsx(records, local)
     save_last_row_count(cfg, source, len(records), root)
     detail = f"智云抓取 {len(records)} 行 → {local.name}"
@@ -551,14 +677,29 @@ def fetch_source(cfg: dict, source: str, root: Path | None = None, post=None, zy
         return _fetch_fallback(local, f"智云抓取失败（{type(e).__name__}: {e}）")
 
 
-def _server_reachable(base_url: str, timeout: int = 5) -> bool:
-    """5秒连通性探测：内网不可达（在家/断网）快速降级，别让每源各自等 2 分钟超时。"""
+def _server_reachable(base_url: str, timeout: int = 5, *, worksheet_probe: dict | None = None) -> bool:
+    """连通性探测：优先轻量 POST Worksheet API（任务书66·D），否则回落 GET 根 URL。"""
     import requests
 
+    if worksheet_probe and worksheet_probe.get("worksheetId") and worksheet_probe.get("app_id"):
+        try:
+            r = requests.post(
+                f"{base_url.rstrip('/')}/wwwapi/Worksheet/getWorksheetInfo",
+                json={
+                    "worksheetId": worksheet_probe["worksheetId"],
+                    "appId": worksheet_probe["app_id"],
+                    "getTemplate": True,
+                },
+                timeout=timeout,
+            )
+            # 401/业务鉴权失败也算「服务器可达」
+            return r.status_code < 500
+        except Exception:  # noqa: BLE001
+            return False
     try:
         requests.get(base_url, timeout=timeout)
         return True
-    except Exception:  # noqa: BLE001 连不上就是连不上，原因不重要
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -571,7 +712,26 @@ def fetch_all(cfg: dict, root: Path | None = None, today=None) -> dict[str, dict
     """
     # 跨年归档由管道入口 ingest.build_std_db 在抓取前单独调用（不污染本 dict 的源键）
     zy = _load_zhiyun_cfg(cfg, root)
-    if zy and zy.get("base_url") and not _server_reachable(zy["base_url"]):
+    # 冷却中：不真登，四源降级 + 标记红
+    cd = login_cooldown_active(cfg, root) if zy else None
+    if cd:
+        det = "智云凭据疑似失效（登录冷却中，需人工检查账号密码）"
+        out = {
+            s: {
+                "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+                "detail": det,
+                "login_cooldown": True,
+            }
+            for s in SOURCES
+        }
+        out["_meta_cooldown"] = cd  # type: ignore[assignment]
+        return out
+    probe = None
+    if zy:
+        tbl0 = next(iter((zy.get("tables") or {}).values()), None) or {}
+        if tbl0.get("worksheetId"):
+            probe = {"worksheetId": tbl0["worksheetId"], "app_id": zy.get("app_id")}
+    if zy and zy.get("base_url") and not _server_reachable(zy["base_url"], worksheet_probe=probe):
         det = "智云服务器不可达（不在公司内网？），用数据目录现有文件（体检黄）"
         return {
             s: {

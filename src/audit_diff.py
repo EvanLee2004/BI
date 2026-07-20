@@ -185,12 +185,7 @@ def _run_reasons_adjust_db_disk(report: dict, reasons: list[str]) -> None:
         reasons.append(
             f"{adj['missing']} 条调整定位键失配未套用（源头行删了/改了金额，剔除或改值没生效）→ 去『异常处理·数据修正』人工复核"
         )
-    dups = report.get("duplicate_locators") or {}
-    n_dup_keys = sum(len(v) for v in dups.values()) if isinstance(dups, dict) else 0
-    if n_dup_keys:
-        reasons.append(
-            f"{n_dup_keys} 组定位键重复（内容完全相同行）→ 写调整拒、重放标过期疑似；请在源表区分"
-        )
+    # 任务书66·D：定位键重复不进 run_reasons（不驱动黄灯）；信息见 report.info / health.info
     dbc = report.get("db_check") or {}
     if dbc and not dbc.get("ok", True):
         reasons.append(f"数据库 quick_check 异常：{dbc.get('detail') or 'unknown'} → 判红")

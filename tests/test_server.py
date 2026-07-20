@@ -126,6 +126,18 @@ class TestRunReasons(unittest.TestCase):
         rs = server._run_reasons({"fetch": {"status": "fetched"}, "adjust": {"expired": 0}})
         self.assertEqual(rs, [])
 
+    def test_duplicate_locators_not_in_run_reasons(self):
+        """任务书66·D：定位键重复不进 run_reasons（不驱动黄）。"""
+        rs = server._run_reasons(
+            {
+                "fetch": {"status": "fetched"},
+                "adjust": {"expired": 0},
+                "duplicate_locators": {"std_回款": ["k1", "k2"]},
+            }
+        )
+        self.assertEqual(rs, [])
+        self.assertFalse(any("定位键重复" in r for r in rs))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
