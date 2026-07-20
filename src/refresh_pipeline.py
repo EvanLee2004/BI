@@ -67,32 +67,7 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
     _state.update(snap)
 
 
-def source_data_fingerprint(cfg, root=None) -> str:
-    """数据源指纹：喂 std 的本地文件 mtime+size（任务书66·B）。
-
-    未变 → 手填/预算等可跳过 std 重建；变了 → 走全量 do_full。
-    """
-    from pathlib import Path
-
-    try:
-        data = loaders.data_dir(cfg, root)
-    except Exception:
-        data = Path(cfg.get("data_dir") or "数据")
-    paths: list[Path] = []
-    files_cfg = (cfg or {}).get("files") or {}
-    for key in ("ledger", "orders", "receipts", "inhouse", "project", "project_detail"):
-        name = files_cfg.get(key)
-        if name:
-            p = data / name
-            if p.is_file():
-                paths.append(p)
-    # 智云缓存 / 其它 xlsx
-    if data.is_dir():
-        for p in sorted(data.glob("*.xlsx")):
-            if p not in paths:
-                paths.append(p)
-        for p in sorted(data.glob("zhiyun_*.json")):
-            paths.append(p)
+def _fp_parts(paths) -> list[str]:
     parts = []
     for p in paths:
         try:
@@ -100,6 +75,34 @@ def source_data_fingerprint(cfg, root=None) -> str:
             parts.append(f"{p.name}:{st.st_mtime_ns}:{st.st_size}")
         except OSError:
             parts.append(f"{p.name}:missing")
+    return parts
+
+
+def source_data_fingerprint(cfg, root=None) -> str:
+    """数据源指纹：喂 std 的本地文件 mtime+size（任务书66·B）。"""
+    from pathlib import Path
+
+    try:
+        data = loaders.data_dir(cfg, root)
+    except Exception:
+        data = Path(cfg.get("data_dir") or "数据")
+    seen: set[Path] = set()
+    paths: list[Path] = []
+    for key in ("ledger", "orders", "receipts", "inhouse", "project", "project_detail"):
+        name = ((cfg or {}).get("files") or {}).get(key)
+        if not name:
+            continue
+        p = data / name
+        if p.is_file() and p not in seen:
+            seen.add(p)
+            paths.append(p)
+    if data.is_dir():
+        for pat in ("*.xlsx", "zhiyun_*.json"):
+            for p in sorted(data.glob(pat)):
+                if p not in seen:
+                    seen.add(p)
+                    paths.append(p)
+    parts = _fp_parts(paths)
     return "|".join(parts) if parts else "empty"
 
 
