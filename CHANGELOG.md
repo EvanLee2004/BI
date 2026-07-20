@@ -8,6 +8,24 @@
 
 ---
 
+## [2.2.0] - 2026-07-21
+
+本地 tag：`stage66_debtfree`（只本地不推 tags）
+
+### Changed
+- **A 金额整数化**：split_tax / 去税 / 附加税费 / 手填入口 Decimal 分上 ROUND_HALF_UP；golden 对账数值零 diff
+- **B 增量重算**：源指纹未变时手填跳过 std 重建；调整类 `rebuild_std=True`
+- **C VM 契约**：`scripts/gen_vm_ts.py` 生成字段清单；verify `--check` 防漂移
+- **D 抓数护栏**：登录连败冷却 24h（体检红）；7 日行数基线；Worksheet 探活；1 月 0 行信息级
+- **D 回款重复口径（明昊拍板）**：定位键重复不判黄，体检 `info` 展示
+
+### Added
+- MADR 整数分 / 增量重算 / VM 生成 / 回款黄灯口径
+- tests `test_task66_stage66_batch_{a,b,c,d}`
+
+---
+
+
 ## [2.1.0] - 2026-07-20
 
 本地 tag：`stage65_clean` / `stage65_clean_fix`（只本地不推 tags）
