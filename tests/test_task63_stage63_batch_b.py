@@ -92,11 +92,17 @@ class TestMigrationAndApi(unittest.TestCase):
             self.assertIn("初始密码", row)
 
     def test_reset_passwd_once_and_kicks_old(self):
-        # 旧密码登录拿看端 cookie
-        r0 = self.client.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
+        from fastapi.testclient import TestClient
+
+        # 独立客户端：旧密码登录，保留看端会话 cookie（与管理员 client 分离）
+        viewer = TestClient(self.app, follow_redirects=False)
+        r0 = viewer.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
         self.assertEqual(r0.status_code, 200, r0.text)
-        old_cookie = r0.cookies.get(server.VCOOKIE) or r0.cookies.get(server.COOKIE)
-        # 重置
+        # 重置前会话有效
+        self.assertEqual(viewer.get("/api/v1/session").status_code, 200)
+        old_vcookie = viewer.cookies.get(server.VCOOKIE)
+        self.assertTrue(old_vcookie, "应拿到看端 cookie")
+        # 管理员重置
         r = self.client.post(
             "/api/accounts/v1/reset_passwd",
             headers=self.hdr,
@@ -104,10 +110,17 @@ class TestMigrationAndApi(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json().get("password"), "reset9999")
-        # 旧密码 401
+        # 任务书63·B3：旧 cookie 因密码版本+1 必须 401（不只是旧密码不能再登）
+        r_sess = viewer.get("/api/v1/session")
+        self.assertEqual(r_sess.status_code, 401, r_sess.text)
+        r_sess2 = TestClient(self.app, follow_redirects=False).get(
+            "/api/v1/session",
+            headers={"Cookie": f"{server.VCOOKIE}={old_vcookie}"},
+        )
+        self.assertEqual(r_sess2.status_code, 401, r_sess2.text)
+        # 旧密码登录 401；新密码 200
         r_bad = self.client.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
         self.assertEqual(r_bad.status_code, 401)
-        # 新密码 200
         r_ok = self.client.post("/api/v1/login", json={"account": "v1", "password": "reset9999"})
         self.assertEqual(r_ok.status_code, 200)
         # 随机重置
