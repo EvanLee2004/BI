@@ -78,3 +78,6 @@ docs/bench_scale_*.json
 docs/验收证据/**
 docs/pixel/**
 docs/历史批次/**
+
+# 禁止把工作区相对路径误嵌进本仓（2026-07-20 事故）
+/项目/

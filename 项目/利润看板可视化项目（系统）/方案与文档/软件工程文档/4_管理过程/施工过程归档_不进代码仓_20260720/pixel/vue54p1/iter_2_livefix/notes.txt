@@ -1,7 +1,0 @@
-pl_drawer: {'ok': True, 'w': 334.25, 'h': 18.890625, 'writingMode': 'horizontal-tb', 'text': '系统直接成本'}
-PASS pl name horizontal-ish
-receipts shot ok
-rank_chart_h=468
-PASS rank height
-daily_has_echarts=True
-PASS daily echarts
