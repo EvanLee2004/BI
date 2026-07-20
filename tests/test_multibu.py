@@ -189,7 +189,7 @@ class TestServerMultiBu(unittest.TestCase):
 
     def test_console_has_multibu_ui(self):
         html = server.admin_ui_source()
-        for anchor in ("acct-bus", "acctToggleBu", "acctSetType", "按 BU"):
+        for anchor in ("按 BU", "可见BU", "onPermType"):
             self.assertIn(anchor, html)
 
 

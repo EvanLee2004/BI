@@ -126,13 +126,19 @@ class TestCaliberApiOffline54(unittest.TestCase):
     """任务书54·A：口径配置 HTTP 面下线；引擎内核仍可用。"""
 
     def test_admin_html_no_caliber_card(self):
-        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
-        self.assertNotIn("setCardCaliber", html)
-        self.assertNotIn("口径配置", html)
-        self.assertNotIn("caliberKey", html)
-        js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
-        self.assertNotIn("caliberLoad", js)
-        self.assertNotIn("/api/config/caliber", js)
+        """任务书65：扫 Vue 管理端源，确认口径配置卡已下线。"""
+        admin_src = ROOT / "frontend" / "src" / "admin"
+        parts = []
+        for pth in admin_src.rglob("*"):
+            if pth.suffix in (".vue", ".ts") and pth.is_file():
+                parts.append(pth.read_text(encoding="utf-8"))
+        blob = "\n".join(parts)
+        self.assertNotIn("setCardCaliber", blob)
+        self.assertNotIn("caliberLoad", blob)
+        self.assertNotIn("/api/config/caliber", blob)
+        # 「口径配置」整卡名不得出现在设置页（其它文案可含「口径」）
+        settings = (admin_src / "views" / "SettingsView.vue").read_text(encoding="utf-8")
+        self.assertNotIn("口径配置", settings)
 
     def test_golden_admin_no_caliber_card(self):
         g = (ROOT / "golden" / "admin_baseline.html").read_text(encoding="utf-8")

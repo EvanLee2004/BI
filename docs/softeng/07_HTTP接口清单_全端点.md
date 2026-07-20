@@ -12,10 +12,10 @@
 | GET | `/` | 未登录→登录页；已登录按权限分流 | 看板统一入口 | 浏览器 |
 | POST | `/login` | 公开 | 账号+密码表单登录 | 看端登录表单 |
 | GET | `/bu/{name}` | 已登录且可看该 BU | BU 独立页 HTML | BU/整体/管理员 |
-| GET | `/admin` | 未登录→管理员登录页；已登录管理员→控制台 | v1.5 默认 `static/admin/admin.html` | 管理员 |
+| GET | `/admin` | 未登录→管理员登录页；已登录管理员→控制台 | Vue SPA（65 单轨） | 管理员 |
 | POST | `/admin/login` | 公开 | 管理员登录 | 管理端登录表单 |
 | GET | `/admin/logout` | 清 cookie | 退出管理端 | 管理端 |
-| GET | `/admin/app.js` | 公开（壳资源） | 读 `static/admin/admin.js` 并注入 `__MANUAL_ITEMS__` | 管理端页面 |
+| GET | `/admin/app.js` | 公开（壳资源） | 410 已下线（65·L1） | 管理端页面 |
 | GET | `/static/*` | 公开 | CSS/JS/壳（看端+管理端） | 浏览器 |
 | GET | `/export.png` | 整体/管理员会话 | 整页 PNG 导出 | 整体页 |
 | GET | `/bu/{name}/export.png` | 可看该 BU 的会话 | BU 页 PNG | BU 页 |

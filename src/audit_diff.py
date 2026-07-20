@@ -126,27 +126,12 @@ def _manual_items_json(cfg: dict | None = None) -> str:
     return _json.dumps(items, ensure_ascii=False, separators=(",", ":"))
 
 def _admin_page(_dash_html: str, summary: dict, cfg: dict | None = None) -> str:
-    """管道跑通后标记「管理端可进完整台」（truthy 写入 _state['admin_html']）。
-    页面本体只在 static/admin/，此处不再生成整页 HTML。
-    签名保留 _dash_html/summary/cfg 兼容历史调用方；返回值恒为 ready。"""
+    """管道跑通后标记「管理端可进完整台」（写入 has_data；兼容旧键 admin_html）。
+
+    任务书65·L1/L2：不再生成/依赖 legacy 整页 HTML。签名保留兼容历史调用。
+    """
     _ = (_dash_html, summary, cfg)
     return "ready"
-
-def _admin_static_html() -> str:
-    """管理端完整台骨架（legacy 模式）。
-
-    54.4·D4：static/admin/admin.html 为 Vue 重定向页；完整骨架在 admin.html.legacy。
-    """
-    for name in ("admin.html.legacy", "admin.html"):
-        p = STATIC_DIR / "admin" / name
-        if p.is_file() and "location.replace('/admin')" not in p.read_text(encoding="utf-8")[:500]:
-            return p.read_text(encoding="utf-8")
-        if p.is_file() and name.endswith(".legacy"):
-            return p.read_text(encoding="utf-8")
-    p = STATIC_DIR / "admin" / "admin.html"
-    if not p.is_file():
-        raise FileNotFoundError(f"缺少管理端静态页：{p}")
-    return p.read_text(encoding="utf-8")
 
 def _bootstrap_page() -> str:
     """首次部署引导页（F-02）：仅 static/admin/bootstrap.html。"""
@@ -156,12 +141,23 @@ def _bootstrap_page() -> str:
     return p.read_text(encoding="utf-8")
 
 def admin_ui_source() -> str:
-    """供测试搜锚点：admin 骨架 + admin.js + admin.css 拼接（非运行路径）。"""
-    parts = []
-    for name in ("admin.html.legacy", "admin.html", "admin.js", "admin.css", "bootstrap.html"):
-        p = STATIC_DIR / "admin" / name
-        if p.is_file():
-            parts.append(p.read_text(encoding="utf-8"))
+    """供测试搜锚点：Vue 管理端源码 + 引导页拼接（任务书65 单轨后；非运行路径）。"""
+    from pathlib import Path
+
+    parts: list[str] = []
+    # 引导页仍在 static
+    boot = STATIC_DIR / "admin" / "bootstrap.html"
+    if boot.is_file():
+        parts.append(boot.read_text(encoding="utf-8"))
+    # Vue 管理端
+    admin_src = Path(__file__).resolve().parent.parent / "frontend" / "src" / "admin"
+    if admin_src.is_dir():
+        for p in sorted(admin_src.rglob("*")):
+            if p.suffix in (".vue", ".ts", ".css", ".js") and p.is_file():
+                try:
+                    parts.append(p.read_text(encoding="utf-8"))
+                except OSError:
+                    pass
     return "\n".join(parts)
 
 def _run_reasons_fetch(report: dict, reasons: list[str]) -> None:

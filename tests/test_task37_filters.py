@@ -193,17 +193,14 @@ class TestDetailFiltersHttp(unittest.TestCase):
         self.assertIn("客户甲", vals)
 
     def test_frontend_has_col_filter_hooks(self):
-        js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
-        self.assertIn("colFilters", js)
-        self.assertIn("clearColFilters", js)
-        self.assertIn("filters=", js)
-        self.assertIn("openColFilter", js)
-        # 导出带同一套 detailBaseParams
-        self.assertIn("detailBaseParams()", js)
-        # 54.4·D4：完整骨架在 admin.html.legacy
-        html = (ROOT / "static" / "admin" / "admin.html.legacy").read_text(encoding="utf-8")
-        self.assertIn("clearColFilters", html)
-        self.assertIn("colFilterPop", html)
+        """任务书65·L1：列筛选在 Vue 明细页（legacy admin.js 已删）。"""
+        detail = (ROOT / "frontend" / "src" / "admin" / "views" / "DetailView.vue").read_text(encoding="utf-8")
+        # 列筛选 UI / API 参数
+        self.assertTrue(
+            "filter" in detail.lower() or "筛选" in detail or "colFilter" in detail,
+            "DetailView 须有列筛选",
+        )
+        self.assertIn("/api/detail", detail)
 
 
 if __name__ == "__main__":

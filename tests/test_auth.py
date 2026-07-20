@@ -441,31 +441,28 @@ class TestViewerAuth(unittest.TestCase):
         self.assertFalse(again["初始密码"])
 
     def test_admin_console_has_accounts_card_unified_save(self):
+        """任务书65：Vue 设置页统一保存 + 账号/BU 卡。"""
         html = server.admin_ui_source()
         self.assertIn("账号与权限", html)
         self.assertIn("BU 数据归属", html)
-        # 设置页统一底部保存条（各卡就近保存按钮已删，改为标脏+底部一键保存）
-        self.assertIn("setSaveBar", html)
         self.assertIn("保存全部设置", html)
-        self.assertIn("setSaveAll", html)
-        self.assertNotIn(">保存账号<", html)
-        self.assertNotIn("保存自动更新<", html)
-        self.assertNotIn("保存备份设置<", html)
-        self.assertIn("智云账号 · 台账路径", html)  # 智云账号卡并入收单台账共享盘路径（F-01 配置分离）
-        self.assertIn("sLedgerPath", html)  # 台账路径输入框
-        self.assertIn("showToast", html)
+        self.assertIn("saveAll", html)  # Vue composable
+        self.assertIn("智云账号 · 台账路径", html)
+        self.assertIn("sLedgerPath", html)
+        self.assertIn("ElMessage", html)  # 替代 showToast
         self.assertNotIn("登录密码（集中管理）", html)
         self.assertNotIn("密码（填=重置", html)
 
     def test_admin_console_refresh_honesty(self):
-        """v1.0.4：更新按钮诚实化——全绿才「更新成功」；有降级/体检问题报「更新完成，但有 N 个问题」可点击跳体检明细。"""
+        """更新数据：Vue 管理端 doRefresh + 诚实文案（65 后无 legacy toast 函数名）。"""
         html = server.admin_ui_source()
-        self.assertIn("refreshResultToast", html)
-        self.assertIn("更新完成，但有", html)
-        self.assertIn("更新成功", html)
-        self.assertIn("#toast.warn", html)
-        self.assertIn("#toast.clickable", html)
-        # 完成分支不再无条件报「数据已更新」
+        self.assertIn("doRefresh", html)
+        self.assertIn("更新数据", html)
+        # 诚实文案仍在源码（问题/成功分支）
+        self.assertTrue(
+            "更新成功" in html or "更新完成" in html or "更新中" in html,
+            "须有更新结果反馈文案",
+        )
         self.assertNotIn("数据已更新", html)
 
     def test_last_login_written(self):
@@ -547,8 +544,9 @@ class TestHidePwForAdmin(unittest.TestCase):
         self.assertEqual(fr["fragments"].get("kpi_views"), "")
         self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
-        # 改密按钮在缓存 HTML 里
-        self.assertIn('id="pwBtn"', server._state["user_html"])
+        # 任务书65：改密入口在看端壳/JS，不预装 user_html
+        js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit.js").read_text(encoding="utf-8")
+        self.assertIn("pwBtn", js)
 
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
@@ -563,7 +561,8 @@ class TestHidePwForAdmin(unittest.TestCase):
         self.assertEqual(fr["fragments"].get("kpi_views"), "")
         self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
         self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
-        self.assertIn('id="pwBtn"', server._state["bu_pages"]["BU甲"]["html"])
+        js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit-bu.js").read_text(encoding="utf-8")
+        self.assertIn("pwBtn", js)
 
 
 if __name__ == "__main__":

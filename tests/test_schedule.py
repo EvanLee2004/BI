@@ -180,8 +180,8 @@ class TestSettingsApi(unittest.TestCase):
 
     def test_console_has_multi_time_ui(self):
         html = server.admin_ui_source()
-        for anchor in ("schedTimes", "schedAdd", "saveSchedule", "添加时间点"):
-            self.assertIn(anchor, html)
+        self.assertIn("scheduleTimes", html)
+        self.assertIn("09:30", html)
 
 
 class TestRegisterScheduleScriptReadsMergedConfig(unittest.TestCase):

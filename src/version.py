@@ -60,6 +60,16 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.1.0",
+        "date": "2026-07-20",
+        "title": "经营罗盘 2.1.0：管理端单轨 + 导出按需渲染",
+        "items": [
+            "管理端只保留 Vue，去掉旧版静态管理页双轨。",
+            "日常刷新不再预装整页 HTML；导出图片时再按需生成截图页。",
+            "文档与架构守卫对齐：防 legacy 复活。",
+        ],
+    },
+    {
         "version": "2.0.3",
         "date": "2026-07-20",
         "title": "经营罗盘 beta v2.0.3：密码管理可见 + 备份加固 + 跨年归档",

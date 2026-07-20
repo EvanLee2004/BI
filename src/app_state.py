@@ -20,19 +20,23 @@ COOKIE = "kanban_session"
 VCOOKIE = "kanban_view"
 SESSION_TTL = 12 * 3600  # 任务书63·H-05/H-06 过渡：管理端会话 ≤12h
 
-# 服务内存态：汇总 + 渲染页 + 碎片 + 原始记录（秒级重算）+ 刷新状态
+# 服务内存态：汇总 + 碎片 + 原始记录（秒级重算）+ 刷新状态
 # publish-once：fragments=已 strip 的 client 碎片；views=client-ready（HTTP 直接取，不再 rebuild）
+# 任务书65·L2：不再每次刷新预装整页 HTML；user_html 仅兼容/测试缓存；导出按需装配。
 _state: dict = {
     "summary": None,
-    "user_html": "",
-    "admin_html": "",
+    "user_html": "",  # 默认空；导出按需装配；测试可注入短串
+    "admin_html": "",  # 兼容旧「有数据」标记；以 has_data 为准
+    "has_data": False,
     "built_at": None,
     "records": None,
     "refreshing": None,
     "last_refresh": None,
-    "bu_pages": {},
+    "bu_pages": {},  # {name: {summary,fragments,views}}；html 按需
     "fragments": None,
     "views": None,
+    # 导出 HTML 缓存：同 built_at 复用，防连点
+    "export_html_cache": None,  # {"built_at": str, "main": str, "bu": {name: html}}
 }
 _LOCK = threading.Lock()
 _EXPORT_LOCK = threading.Lock()

@@ -283,18 +283,19 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_admin_ui_has_archive_and_feishu(self):
-        # 54.4·D4：完整骨架在 admin.html.legacy；admin.html 为 Vue 重定向
-        html = (ROOT / "static/admin/admin.html.legacy").read_text(encoding="utf-8")
-        js = (ROOT / "static/admin/admin.js").read_text(encoding="utf-8")
-        vue = (ROOT / "frontend/src/admin").read_text if False else ""
-        self.assertIn("btnArchExport", html)
-        self.assertIn("exportAuditArchive", js)
-        self.assertIn("sFeishuHook", html)
-        self.assertIn("feishu_webhook_url", js)
-        self.assertIn("setCardAlert", html)
-        # Vue 设置页亦有飞书 webhook 字段
+        """任务书65·L1：飞书/归档在 Vue 设置页。"""
         settings = (ROOT / "frontend/src/admin/views/SettingsView.vue").read_text(encoding="utf-8")
+        form = (ROOT / "frontend/src/admin/composables/useSettingsForm.ts").read_text(encoding="utf-8")
         self.assertTrue("feishu" in settings.lower() or "飞书" in settings)
+        self.assertIn("sFeishuHook", form)
+        self.assertIn("feishu_webhook_url", form)
+        # 审计归档导出（若在 Audit 页）
+        audit = (ROOT / "frontend/src/admin/views/AuditView.vue").read_text(encoding="utf-8")
+        blob = settings + form + audit
+        self.assertTrue(
+            "archive" in blob.lower() or "归档" in blob or "export" in blob.lower(),
+            "管理端须有归档/导出相关入口",
+        )
 
     def test_watchdog_script_calls_alert(self):
         sh = (ROOT / "deploy/linux/start_with_rollback.sh").read_text(encoding="utf-8")

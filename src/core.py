@@ -289,6 +289,7 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
 
         fr_full = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
         views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
+        # html 仍计算（单测/导出可取）；publish 落 state 时剥离（65·L2 运行态不预装）
         pages[b["name"]] = {
             "name": b["name"],
             "html": render.assemble_bu_dashboard_html(fr_full),
@@ -316,6 +317,7 @@ def generate(cfg, today, trigger="manual"):
     attach_unassigned(cfg, conn, today, summary)
     conn.close()
     frags_full = render.build_dashboard_fragments(summary, cfg, logo)
+    # 历史回看快照仍需整页；运行态 _state 不预装（65·L2）
     html = render.assemble_dashboard_html(frags_full)
     views = api_v1.build_cockpit_views(summary, cfg)
     # attach for server publish（client-ready，已 strip）

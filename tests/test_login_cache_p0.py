@@ -172,9 +172,7 @@ class TestLoginCacheP0(unittest.TestCase):
             "401" in client and ("/login" in client or "login" in client.lower()),
             "Vue client 须处理 401/登录",
         )
-        # admin 端（static 保留至 D 下线；Vue admin 亦须 401）
-        admin_js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
-        self.assertIn("status===401", admin_js.replace(" ", "").replace("\n", "") or admin_js)
+        # 任务书65·L1：Vue admin 须处理 401
         admin_api = (ROOT / "frontend" / "src" / "admin" / "api.ts").read_text(encoding="utf-8")
         self.assertIn("401", admin_api)
 

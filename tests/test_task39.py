@@ -193,8 +193,9 @@ class TestEExpenseTrend(unittest.TestCase):
 
 class TestFFetchBannerViewerGone(unittest.TestCase):
     def test_admin_keeps_banner_hook(self):
-        self.assertIn("fetchBanner", (ROOT / "static/admin/admin.html.legacy").read_text(encoding="utf-8"))
-        self.assertIn("paintFetchBanners", (ROOT / "static/admin/admin.js").read_text(encoding="utf-8"))
+        vue_admin = (ROOT / "frontend" / "src" / "admin" / "layout" / "AdminLayout.vue").read_text(encoding="utf-8")
+        self.assertIn("fetchBanners", vue_admin)
+        self.assertIn("admin-fetch-banner", vue_admin)
 
 
 class TestGPctClamp(unittest.TestCase):

@@ -241,12 +241,10 @@ class TestAllocApi(unittest.TestCase):
 
     def test_ui_anchors(self):
         html = server.admin_ui_source()
-        self.assertIn("allocBlock", html)  # 人工填写页分摊区块
-        self.assertIn("公共费用分摊比例（按月）", html)
-        self.assertIn("allocTotal", html)  # 本月公共费用总额
-        self.assertIn("/api/alloc_ratios", html)
-        self.assertNotIn("buAllocRows", html)  # 设置页旧输入区已撤
-        self.assertIn("buAllocLegacy", html)  # 旧全年比例停用提示
+        self.assertIn("公共费用分摊", html)
+        self.assertIn("buAllocLegacy", html)
+        self.assertNotIn("buAllocRows", html)
+
 
 
 if __name__ == "__main__":

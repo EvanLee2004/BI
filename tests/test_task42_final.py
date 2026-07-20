@@ -85,11 +85,12 @@ class TestTask42Final(unittest.TestCase):
             v.endswith("-beta") or "rc" in v.lower() or v >= "1.6.0",
             v,
         )
-        # 允许 2.0.0-rcN、2.0.1 正式 beta 递增（任务书61 → 2.0.1）
+        # 允许 2.0.0-rcN、2.0.x / 2.1.x 正式号递增（任务书65 → 2.1.0）
         ok = (
-            v in ("1.6.0-beta", "2.0.0-beta", "2.0.1")
+            v in ("1.6.0-beta", "2.0.0-beta", "2.0.1", "2.1.0")
             or (v.startswith("2.0.0-rc") and v[len("2.0.0-rc") :].isdigit())
             or (v.startswith("2.0.") and all(p.isdigit() for p in v.split(".")[1:]))
+            or (v.startswith("2.1.") and all(p.isdigit() for p in v.split(".")[1:]))
         )
         self.assertTrue(ok, v)
         self.assertTrue(version.PRODUCT_CHANGELOG)

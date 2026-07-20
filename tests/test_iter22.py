@@ -386,20 +386,19 @@ class TestManualItemsInjected(unittest.TestCase):
     """迭代22修：管理端手填清单从 config 注入（曾硬编码致「直接成本增值税」不出现在填写页）。"""
 
     def test_admin_page_contains_new_item(self):
+        """任务书65：手填项来自 config，API/引擎仍含「直接成本增值税」；Vue 不再 __MANUAL_ITEMS__ 注入。"""
         import server
 
         cfg = loaders.load_config()
-        # 手填清单由 /admin/app.js 注入；此处模拟注入结果
-        js = server.admin_ui_source()
-        self.assertIn("__MANUAL_ITEMS__", js)  # 磁盘模板占位
-        injected = js.replace("__MANUAL_ITEMS__", server._manual_items_json(cfg))
-        self.assertIn("直接成本增值税", injected)
-        self.assertNotIn("__MANUAL_ITEMS__", injected)
+        items = server._manual_items_json(cfg)
+        self.assertIn("直接成本增值税", items)
 
     def test_placeholder_exists_in_template(self):
+        # legacy 注入位已删；配置引擎仍能列出手填项
         import server
 
-        self.assertIn("__MANUAL_ITEMS__", server.admin_ui_source())  # 别名→static/admin
+        cfg = loaders.load_config()
+        self.assertIn("直接成本增值税", server._manual_items_json(cfg))
 
 
 class TestReceiptDeliveredUnpaid(unittest.TestCase):

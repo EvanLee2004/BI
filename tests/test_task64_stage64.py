@@ -69,32 +69,33 @@ class TestD2StdIndexes(unittest.TestCase):
 
 class TestD3PublishAtomic(unittest.TestCase):
     def test_no_mixed_keys_during_publish(self):
-        # 预置
+        # 预置（65·L2：publish 不再写 user_html；看 summary/fragments/built_at 一致性）
         _state["summary"] = {"old": 1}
-        _state["user_html"] = "OLD"
         _state["fragments"] = {"a": 1}
         _state["views"] = {"v": 1}
         _state["built_at"] = "old"
+        _state["has_data"] = False
         mixed = []
         stop = threading.Event()
 
         def reader():
             while not stop.is_set():
                 s = _state.get("summary")
-                h = _state.get("user_html")
-                # 若 summary 已是新且 html 仍是旧 → 撕裂
-                if isinstance(s, dict) and s.get("new") and h == "OLD":
-                    mixed.append((s, h))
+                f = _state.get("fragments")
+                # summary 已是新且 fragments 仍是旧 a→撕裂
+                if isinstance(s, dict) and s.get("new") and isinstance(f, dict) and f.get("a") == 1:
+                    mixed.append((s, f))
                 time.sleep(0)
 
         th = threading.Thread(target=reader, daemon=True)
         th.start()
         for i in range(50):
-            publish(None, {"new": True, "i": i}, f"NEW{i}", fragments={"f": i}, views={"v": i})
+            publish(None, {"new": True, "i": i}, None, fragments={"f": i}, views={"v": i})
         stop.set()
         th.join(timeout=1)
         self.assertEqual(mixed, [], f"检测到新旧混合: {mixed[:3]}")
-        self.assertTrue(str(_state.get("user_html") or "").startswith("NEW"))
+        self.assertTrue(_state.get("has_data"))
+        self.assertEqual(_state.get("user_html"), "")
 
 
 class TestD4NormalizeProjectLine(unittest.TestCase):

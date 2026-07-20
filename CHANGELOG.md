@@ -8,6 +8,20 @@
 
 ---
 
+## [2.1.0] - 2026-07-20
+
+本地 tag：`stage65_clean`（只本地不推 tags）
+
+### Changed
+- **L1 管理端 Vue 单轨**：删除 legacy `static/admin/admin.js` / `admin.html.legacy` / `admin.css`；`/admin` 仅 Vue SPA + 首次引导 bootstrap；`/admin/app.js` 恒 410
+- **L2 渲染按需**：刷新路径不预装整页 HTML；`has_data` 显式标志；`/export*.png` 按需装配 HTML（同 built_at 缓存）；`build_bu_pages` 不再预装 html
+- **L4 架构守卫**：routes 不得直连 import server；static/admin 白名单
+
+### Removed
+- legacy 管理端静态骨架与双轨分支 `_admin_is_vue`
+
+---
+
 ## [2.0.3] - 2026-07-20
 
 本地 tag：`stage64_ship`（完成后打；只本地不推 tags）

@@ -64,8 +64,8 @@ class TestStaticServableOnOtherPort(unittest.TestCase):
         t.start()
         try:
             base = f"http://127.0.0.1:{port}"
-            # 54.4·C：看端 shell 已删；shared 资产 theme / admin 仍可静态服务
-            for path in ("/css/theme.css", "/admin/admin.css"):
+            # 54.4·C + 65·L1：看端 shell / legacy admin.css 已删；theme + bootstrap 可静态服务
+            for path in ("/css/theme.css", "/admin/bootstrap.html"):
                 with urlopen(base + path, timeout=5) as r:  # noqa: S310 本机测试
                     self.assertEqual(r.status, 200, path)
                     body = r.read()

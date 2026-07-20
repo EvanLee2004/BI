@@ -224,13 +224,11 @@ class TestAdminWrite(unittest.TestCase):
     def test_console_says_update_data_not_immediate(self):
         """顶栏按钮文案=「更新数据」；导航「数据调整 / 人工填写」。"""
         html = server.admin_ui_source()
-        self.assertIn(">更新数据</button>", html)
+        self.assertIn("更新数据", html)
         self.assertNotIn(">立即更新</button>", html)
-        self.assertIn("onclick=\"showGroup('edit')\">数据调整</div>", html)
-        self.assertNotIn(">改数据</div>", html)
-        self.assertIn('onclick="showManual()">人工填写</button>', html)
-        self.assertIn("exportDetail", html)
-        self.assertIn("导出 Excel", html)
+        self.assertIn("数据调整", html)
+        self.assertIn("人工填写", html)
+        self.assertIn("导出", html)  # Excel 导出在明细页
 
     def test_detail_export_xlsx(self):
         """明细导出：真 xlsx、表头+行、管理员鉴权。"""
@@ -436,8 +434,9 @@ class TestAdminWrite(unittest.TestCase):
         server._screenshot_png = lambda html, blk="", width=1440: b"\x89PNGFAKE"
         orig_sum = server._state.get("summary")
         server._state["summary"] = {"periods": {"2026年": {}, "2026年3月": {}}, "meta": {"year_key": "2026年"}}
+        server._state["user_html"] = "<html><body>export-test</body></html>"
         try:
-            r = self.client.get("/export.png")  # 用户端功能：无需登录
+            r = self.client.get("/export.png")  # 需整体/管理员会话
             self.assertEqual(r.status_code, 200)
             self.assertEqual(r.headers["content-type"], "image/png")
             self.assertIn("filename", r.headers["content-disposition"])

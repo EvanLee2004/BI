@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""v1.5 管理端 static/admin 抽取守卫。"""
+"""任务书65·L1：管理端 Vue 单轨守卫（legacy static admin 已下线）。
+
+原 test_admin_static 锁定 admin.js/admin.html.legacy 的用例已删除；
+Vue 等价覆盖见 test_admin_vue_54d.py / frontend 管理端组件。
+"""
 
 from __future__ import annotations
 
-import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,207 +17,76 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 ADMIN_DIR = ROOT / "static" / "admin"
-GOLDEN = ROOT / "golden" / "admin_baseline.html"
 
 
-class TestAdminStaticFiles(unittest.TestCase):
-    def test_files_exist(self):
-        for name in ("admin.html", "admin.css", "admin.js", "bootstrap.html"):
-            p = ADMIN_DIR / name
-            self.assertTrue(p.is_file(), f"missing {p}")
+class TestAdminVueOnly(unittest.TestCase):
+    def test_legacy_files_gone(self):
+        for name in ("admin.js", "admin.html.legacy", "admin.css"):
+            self.assertFalse((ADMIN_DIR / name).is_file(), f"legacy 应已删: {name}")
 
-    def test_js_core_markers(self):
-        js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
-        for token in (
-            "showGroup",
-            "showManual",
-            "pickTable",
-            "checkUpdate",
-            "doRefresh",
-            "loadHealth",
-            "loadSettings",
-            "loadAccts",
-            "loadVersion",
-            "showReview",
-            "dxTbl",
-            "MANUAL_ITEMS",
-            "/api/update/apply",
-            "/api/update/check",
-            "/api/alloc_ratios",
-            "/api/detax_rates",
-            "setSaveAll",
-            "openVerDrawer",
-        ):
-            self.assertIn(token, js, token)
+    def test_bootstrap_kept(self):
+        """首次部署引导 F-02 仍保留。"""
+        p = ADMIN_DIR / "bootstrap.html"
+        self.assertTrue(p.is_file())
+        self.assertIn("首次取数", p.read_text(encoding="utf-8"))
 
-    def test_no_duplicate_ids_in_admin_html(self):
-        html = (ADMIN_DIR / "admin.html.legacy").read_text(encoding="utf-8")
-        ids = re.findall(r'\bid=["\']([^"\']+)["\']', html)
-        from collections import Counter
-
-        dups = {k: v for k, v in Counter(ids).items() if v > 1}
-        self.assertEqual(dups, {}, f"duplicate ids: {dups}")
-
-    def test_no_client_money_math(self):
-        js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
-        # 管理端允许 parseAmount 等表单辅助；禁止 toFixed/parseFloat 做金额展示运算
-        for bad in ("toFixed(", "parseFloat("):
-            self.assertNotIn(bad, js, bad)
-
-    def test_static_admin_complete(self):
-        """static/admin 四件齐全；D4 后 admin.html=重定向，完整骨架在 .legacy。"""
-        for name in ("admin.html", "admin.css", "admin.js", "bootstrap.html"):
-            self.assertTrue((ADMIN_DIR / name).is_file(), name)
-        # 主入口已是 Vue 重定向
-        redir = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
-        self.assertIn("/admin", redir)
-        # legacy 骨架保留
-        leg = ADMIN_DIR / "admin.html.legacy"
-        self.assertTrue(leg.is_file(), "admin.html.legacy 须保留完整骨架")
-        html = leg.read_text(encoding="utf-8")
-        self.assertIn("/static/admin/admin.css", html)
-        self.assertIn("/admin/app.js", html)
-        js = (ADMIN_DIR / "admin.js").read_text(encoding="utf-8")
-        self.assertIn("__MANUAL_ITEMS__", js)
-
-    def test_external_html_links(self):
-        html = (ADMIN_DIR / "admin.html.legacy").read_text(encoding="utf-8")
-        self.assertIn('href="/static/admin/admin.css"', html)
-        self.assertIn('src="/admin/app.js"', html)
-        self.assertNotIn("<style>", html)
-        self.assertNotIn("function showGroup", html)
-
-
-class TestAdminStaticHttp(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        import tempfile
-        import accounts
-        import server
+    def test_admin_app_js_gone(self):
+        """GET /admin/app.js → 410，绝不下发旧业务 JS。"""
         import loaders
-
-        cls.tmp = Path(tempfile.mkdtemp())
-        cls.cfg = loaders.load_config(ROOT)
-        accounts.save_accounts(
-            cls.cfg,
-            cls.tmp,
-            [
-                {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW},
-            ],
-        )
-        # 标记「已取数成功」即可进完整台（页面读 static）
-        server._state["admin_html"] = server._admin_page("", {}, cls.cfg)
-        server._state["user_html"] = "<html>u</html>"
-        server._state["summary"] = {"meta": {}, "periods": {}}
-        cls.app = server.create_app(cls.cfg, root=cls.tmp)
-        cls.server = server
-
-    def _client(self):
+        import server
         from fastapi.testclient import TestClient
 
-        return TestClient(self.app, follow_redirects=False)
+        tmp = Path(tempfile.mkdtemp())
+        cfg = loaders.load_config()
+        orig = server.recompute
+        server.recompute = lambda *a, **k: None
+        server._state["user_html"] = "<html>u</html>"
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
+        try:
+            app = server.create_app(cfg, root=tmp)
+            c = TestClient(app, follow_redirects=False)
+            r = c.get("/admin/app.js")
+            self.assertEqual(r.status_code, 410)
+            self.assertNotIn("showGroup", r.text)
+            self.assertNotIn("doRefresh", r.text)
+        finally:
+            server.recompute = orig
 
-    def test_unauthenticated_admin_is_login(self):
-        r = self._client().get("/admin")
-        self.assertEqual(r.status_code, 200)
-        body = r.text
-        # legacy static 登录 或 vue SPA（登录在客户端渲染「管理员端登录」）
-        is_static_login = "管理员端登录" in body and ("/api/v1/login" in body or 'action="/admin/login"' in body)
-        is_vue_spa = "/app/assets/" in body or 'id="app"' in body
-        self.assertTrue(is_static_login or is_vue_spa, "expected admin login page or Vue SPA shell")
+    def test_admin_serves_vue_not_legacy_shell(self):
+        """已登录且有数据 → Vue dist（含 #app / module），不含 legacy admin 骨架。"""
+        import loaders
+        import server
+        from fastapi.testclient import TestClient
 
-    def test_static_admin_html_is_shell_without_session_data(self):
-        """D4：/static/admin/admin.html 为重定向页，无会话态数据。"""
-        r = self._client().get("/static/admin/admin.html")
-        self.assertEqual(r.status_code, 200)
-        self.assertTrue(
-            "/admin" in r.text or "location.replace" in r.text or "管理员控制台" in r.text,
-            "应为重定向到 /admin 或 legacy 壳",
-        )
-        self.assertNotIn("营销人力成本", r.text)
-
-    def test_app_js_injects_manual_items(self):
-        r = self._client().get("/admin/app.js")
-        # vue: 410 offline；legacy: 200 + 注入
-        self.assertIn(r.status_code, (200, 410))
-        if r.status_code == 200:
-            self.assertIn("function showGroup", r.text)
-            self.assertNotIn("__MANUAL_ITEMS__", r.text)
-            self.assertIn("营销人力成本", r.text)
-        else:
-            self.assertIn("offline", r.text.lower() or "offline")
-
-    def test_logged_in_serves_static_admin(self):
-        """登录后 /admin：legacy 走 static 骨架；vue 走 dist SPA（批次 D）。
-        本类不强制 KANBAN_FRONTEND，两种模式均接受。"""
-        c = self._client()
-        c.post("/admin/login", data={"account": "lushasha", "password": self.server.DEFAULT_PW})
-        r = c.get("/admin")
-        self.assertEqual(r.status_code, 200)
-        body = r.text
-        is_static = "/static/admin/admin.css" in body and "/admin/app.js" in body
-        is_vue = "/app/assets/" in body or 'id="app"' in body
-        self.assertTrue(is_static or is_vue, "expected static admin shell or Vue SPA")
-        if is_static:
-            self.assertIn("管理员控制台", body)
-            self.assertNotIn("function showGroup", body)
-
-
-
-class TestAdminGoldenSkeleton(unittest.TestCase):
-    def test_external_skeleton_matches_golden_normalized(self):
-        """54.4·D4：admin.html 已改为 Vue 重定向；骨架对照用 admin.html.legacy。"""
-        if not GOLDEN.exists():
-            self.skipTest("no golden")
-        golden = GOLDEN.read_text(encoding="utf-8")
-        leg = ADMIN_DIR / "admin.html.legacy"
-        self.assertTrue(leg.is_file(), "admin.html.legacy 须存在")
-        ext = leg.read_text(encoding="utf-8")
-        # 重定向页不参与骨架对照
-        redir = (ADMIN_DIR / "admin.html").read_text(encoding="utf-8")
-        self.assertIn("/admin", redir)
-
-        def body_core(h: str) -> str:
-            h = re.sub(r"<style>.*?</style>", "", h, flags=re.S)
-            h = re.sub(r"<link[^>]*>", "", h)
-            h = re.sub(r"<script[^>]*>.*?</script>", "", h, flags=re.S)
-            h = re.sub(r"<script[^>]*src=[^>]*>\s*</script>", "", h)
-            h = re.sub(r"\s+", " ", h).strip()
-            return h
-
-        g, e = body_core(golden), body_core(ext)
-        self.assertEqual(g, e, "admin.legacy body skeleton differs from golden after asset strip")
-
-
-class TestAdminToolbarSticky(unittest.TestCase):
-    """人工填写等子页工具栏 sticky 吸顶（贴在 #chrome 下方，实色底）。"""
-
-    def test_toolbar_sticky_css(self):
-        css = (ADMIN_DIR / "admin.css").read_text(encoding="utf-8")
-        self.assertIn("--admin-chrome-sticky", css)
-        self.assertIn("position:sticky", css)
-        self.assertIn("top:var(--admin-chrome-sticky)", css)
-        # 浅色主题同样实色背景
-        self.assertIn("html.theme-light .toolbar", css)
-        self.assertIn("background:var(--panel)", css)
-
-
-class TestBuDelMarksDirty(unittest.TestCase):
-    """A1：删 BU 后必须标脏，底部出现「保存全部设置」（与 buAdd 一致）。"""
-
-    def test_bu_del_calls_set_mark(self):
-        js = (ROOT / "static" / "admin" / "admin.js").read_text(encoding="utf-8")
-        # 取 buDel 函数体到下一个顶层 function
-        m = re.search(r"function buDel\([^)]*\)\{([\s\S]*?)\nfunction ", js)
-        self.assertIsNotNone(m, "找不到 buDel 函数")
-        body = m.group(1)
-        self.assertIn("buList.splice", body)
-        self.assertIn('setMark("bu")', body, "buDel 删除后未 setMark('bu')——设置页不会出现保存键")
-        # 对照：buAdd 也必须标脏（防回归）
-        m2 = re.search(r"function buAdd\(\)\{([\s\S]*?)\nfunction ", js)
-        self.assertIsNotNone(m2)
-        self.assertIn('setMark("bu")', m2.group(1))
+        tmp = Path(tempfile.mkdtemp())
+        cfg = loaders.load_config()
+        orig = server.recompute
+        server.recompute = lambda *a, **k: None
+        server._state["has_data"] = True
+        server._state["admin_html"] = "ready"
+        try:
+            app = server.create_app(cfg, root=tmp)
+            c = TestClient(app, follow_redirects=False)
+            # 管理员登录
+            r = c.post(
+                "/admin/login",
+                data={"account": "lushasha", "password": server.DEFAULT_PW},
+            )
+            self.assertIn(r.status_code, (200, 303), r.text[:200])
+            r2 = c.get("/admin")
+            self.assertEqual(r2.status_code, 200)
+            body = r2.text
+            self.assertNotIn("onclick=\"showGroup", body)
+            self.assertNotIn("/admin/app.js", body)
+            # Vue index 特征
+            self.assertTrue(
+                'id="app"' in body or "type=\"module\"" in body or "/assets/" in body,
+                body[:300],
+            )
+        finally:
+            server.recompute = orig
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

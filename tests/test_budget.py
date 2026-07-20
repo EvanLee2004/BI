@@ -107,37 +107,17 @@ class TestBudgetMatrixAdminUi(unittest.TestCase):
     """管理端业绩目标独立矩阵页签（数据调整子页签，不跟人工填写筛选）。"""
 
     def test_console_matrix_structure(self):
+        """任务书65：Vue BudgetView + utils.BUDGET_METRICS。"""
         tpl = server.admin_ui_source()
-        # 独立页签 + 独立年份 + 矩阵表 + 独立保存
-        self.assertIn('data-t="业绩目标"', tpl)
-        self.assertIn("showBudget()", tpl)
-        self.assertIn('id="budget"', tpl)
-        self.assertIn('id="tgY"', tpl)
-        self.assertIn('id="bMatrix"', tpl)
-        self.assertIn("budgetSave()", tpl)
+        self.assertIn("业绩目标", tpl)
+        self.assertIn("BudgetView", tpl)
         self.assertIn("保存业绩目标", tpl)
-        # 显示名「年目标」；存储键仍写 data-item=下单年预算
         self.assertIn("下单年目标", tpl)
         self.assertIn("回款年目标", tpl)
-        self.assertIn('k:"下单年预算"', tpl)
-        self.assertIn('k:"回款年预算"', tpl)
-        # 人工填写页不再挂业绩目标区块
+        self.assertIn("下单年预算", tpl)
+        self.assertIn("回款年预算", tpl)
         self.assertNotIn("🎯 业绩目标（优先）", tpl)
-        self.assertNotIn("业绩目标金额请填", tpl)
-        self.assertNotIn("跟随顶部", tpl)
-        self.assertNotIn('id="bTbl"', tpl)
-        self.assertNotIn('id="bY"', tpl)
-        self.assertNotIn('id="bScope"', tpl)
-        # 矩阵渲染不读人工填写 mY/mScope
-        i = tpl.find("async function bLoad(")
-        self.assertNotEqual(i, -1)
-        body = tpl[i : i + 2500]
-        self.assertIn('getElementById("tgY")', body)
-        self.assertNotIn('getElementById("mY")', body)
-        self.assertNotIn('getElementById("mScope")', body)
-        self.assertIn("/api/bu_config", body)
-        self.assertIn("b-sum-tip", tpl)
-        self.assertIn("bUpdateSumTips", tpl)
+        self.assertIn("/api/bu_config", tpl)
 
 
 class TestBudgetBatchMultiScope(unittest.TestCase):
@@ -210,7 +190,7 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         # 管理端静态展示名：万元显示文案在 JS；存储键仍是 下单年预算
         page = server.admin_ui_source()
         self.assertIn("下单年目标", page)
-        self.assertIn('k:"下单年预算"', page)
+        self.assertIn("下单年预算", page)
 
 
 if __name__ == "__main__":

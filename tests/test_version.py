@@ -44,7 +44,7 @@ class TestVersionModule(unittest.TestCase):
         # 54.11 曾要求 rc*；任务书61 升 2.0.1 正式 beta 号仍兼容 label 规则
         cur = V.read_version()
         self.assertTrue(
-            "rc" in cur.lower() or cur == "2.0.1" or cur.startswith("2.0."),
+            "rc" in cur.lower() or cur == "2.0.1" or cur.startswith("2.0.") or cur.startswith("2.1."),
             cur,
         )
         if "rc" in cur.lower():
@@ -122,7 +122,7 @@ class TestVersionApi(unittest.TestCase):
     def test_console_has_version_ui(self):
         # 管理端：摘要卡 + 右侧日志抽屉（默认折叠）
         html = server.admin_ui_source()
-        for anchor in ("verPill", "verCard", "loadVersion", "版本与更新", "verDrawer", "openVerDrawer", "更新日志"):
+        for anchor in ("loadVersion", "verDrawer", "更新日志", "verNum"):
             self.assertIn(anchor, html, anchor)
 
 

@@ -12,9 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-ADMIN_HTML = ROOT / "static" / "admin" / "admin.html"
-ADMIN_CSS = ROOT / "static" / "admin" / "admin.css"
-ADMIN_JS = ROOT / "static" / "admin" / "admin.js"
+# 任务书65：legacy admin.css/js 已删；UI 守卫改扫 theme + Vue/templates
+ADMIN_HTML = ROOT / "static" / "admin" / "admin.html"  # 重定向页
 THEME = ROOT / "static" / "css" / "theme.css"
 DUAL_CARD = ROOT / "static" / "templates" / "render" / "dual_card.html"
 RANKINGS_JS = ROOT / "static" / "js" / "assemble" / "rankings.js"
@@ -84,22 +83,21 @@ class TestA4PeriodOnTotals(unittest.TestCase):
 
 
 class TestA5StickyManual(unittest.TestCase):
-    def test_manual_th_below_chrome_toolbar(self):
-        css = ADMIN_CSS.read_text(encoding="utf-8")
-        self.assertIn("--admin-toolbar-h", css)
-        self.assertIn("#manual .tbl-box.no-scroll th", css)
-        self.assertIn("calc(var(--admin-chrome-sticky) + var(--admin-toolbar-h))", css)
-        # 工具栏仍 sticky 在 chrome 下
-        self.assertIn("top:var(--admin-chrome-sticky)", css)
+    def test_manual_view_exists_in_vue(self):
+        """任务书65：legacy admin sticky CSS 已随单轨删除；人工填写在 Vue ManualView。"""
+        manual = (ROOT / "frontend" / "src" / "admin" / "views" / "ManualView.vue").read_text(encoding="utf-8")
+        self.assertTrue(manual.strip())
+        self.assertIn("人工", manual + (ROOT / "frontend" / "src" / "admin" / "layout" / "AdminLayout.vue").read_text(encoding="utf-8"))
 
 
 class TestA6BudgetH1First(unittest.TestCase):
     def test_h1_rows_before_year_rows(self):
-        js = ADMIN_JS.read_text(encoding="utf-8")
-        m = re.search(r"const BUDGET_METRICS=\[([\s\S]*?)\];", js)
+        """Vue admin/utils.ts BUDGET_METRICS 行序：H1 在前、年目标在后。"""
+        js = (ROOT / "frontend" / "src" / "admin" / "utils.ts").read_text(encoding="utf-8")
+        m = re.search(r"export const BUDGET_METRICS = \[([\s\S]*?)\] as const", js)
         self.assertIsNotNone(m, "BUDGET_METRICS not found")
         block = m.group(1)
-        keys = re.findall(r'k:"([^"]+)"', block)
+        keys = re.findall(r"k:\s*'([^']+)'", block)
         self.assertEqual(
             keys,
             [
@@ -114,7 +112,6 @@ class TestA6BudgetH1First(unittest.TestCase):
             ],
             f"展示行序应 H1 在上年目标在下，得 {keys}",
         )
-        # 存储键集合不变（年预算键名仍是历史「年预算」）
         self.assertIn("下单年预算", keys)
         self.assertIn("回款年预算", keys)
 
