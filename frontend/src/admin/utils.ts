@@ -17,15 +17,17 @@ export function parseAmount(v: unknown): number {
   return Number(s)
 }
 
-// 元 → 万元显示（预算表单录入辅助；用 1e-4 规避金额运算字面量守卫）
+// 元 → 万元显示（预算表单录入单位换算；非展示权威金额，提交后以后端为准）
+// 守卫白名单：tests/frontend/parity/parity_allow.json · yuanToWan
 export function yuanToWan(y: unknown): string {
   if (y == null || y === '') return ''
-  return String(Number(y) * 1e-4)
+  return String(Number(y) / 10000)
 }
 
-// 万元 → 元（提交预算）
+// 万元 → 元（提交预算；录入辅助）
+// 守卫白名单：tests/frontend/parity/parity_allow.json · wanToYuan
 export function wanToYuan(w: number): number {
-  return Number(w) * 1e4
+  return Number(w) * 10000
 }
 
 export function pad2(n: number | string): string {

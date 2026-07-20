@@ -73,16 +73,46 @@ class TestFrontendScaffold(unittest.TestCase):
         self.assertTrue((ROOT / "frontend" / "dist" / "index.html").is_file())
 
     def test_no_amount_math_in_vue(self):
+        """铁律2 金额字面量守卫 + 任务书63·M-01 显式豁免白名单（parity_allow.amount_math_allow）。"""
         bad = re.compile(r"(/\s*10000|/\s*100\b|\*\s*0\.0)")
+        allow_rows = ALLOW.get("amount_math_allow") or []
+        allow_res = []
+        for row in allow_rows:
+            try:
+                allow_res.append(
+                    (
+                        str(row.get("file") or "").replace("\\", "/"),
+                        re.compile(str(row.get("pattern") or "")),
+                        str(row.get("reason") or ""),
+                    )
+                )
+            except re.error:
+                self.fail(f"amount_math_allow 正则非法: {row}")
+
+        def _allowed(rel: str, line: str) -> bool:
+            rel_n = rel.replace("\\", "/")
+            for file_pat, rx, _reason in allow_res:
+                if file_pat and file_pat not in rel_n:
+                    continue
+                if rx.search(line):
+                    return True
+            return False
+
+        hits = []
         for p in FE.rglob("*"):
             if p.suffix not in (".vue", ".ts") or not p.is_file():
                 continue
+            rel = str(p.relative_to(FE))
             for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
                 s = line.strip()
-                if s.startswith("//") or s.startswith("*"):
+                if s.startswith("//") or s.startswith("*") or s.startswith("#"):
                     continue
-                if bad.search(line):
-                    self.fail(f"疑似金额运算 {p}:{i}: {s}")
+                if "1e-4" in line or "1e-4" in s:
+                    hits.append(f"{rel}:{i}: 禁止用 1e-4 规避守卫 → {s}")
+                    continue
+                if bad.search(line) and not _allowed(rel, line):
+                    hits.append(f"{rel}:{i}: {s}")
+        self.assertEqual(hits, [], "疑似金额运算（未登记白名单）:\n" + "\n".join(hits[:30]))
 
     def test_app_section_order(self):
         app = (FE / "App.vue").read_text(encoding="utf-8")

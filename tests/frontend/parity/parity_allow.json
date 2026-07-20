@@ -12,5 +12,25 @@
       "pattern": "is-period-enter|riseIn|barBreathe|auroraDrift",
       "reason": "科技风动画 class，任务书允许白名单登记"
     }
+  ],
+  "amount_math_allow": [
+    {
+      "file": "admin/utils.ts",
+      "func": "yuanToWan",
+      "pattern": "/\\s*10000",
+      "reason": "预算录入元→万元单位换算，不产出看端展示权威金额"
+    },
+    {
+      "file": "admin/utils.ts",
+      "func": "wanToYuan",
+      "pattern": "\\*\\s*10000",
+      "reason": "预算提交万元→元单位换算，权威校验在后端 budget_batch"
+    },
+    {
+      "file": "admin/views/BudgetView.vue",
+      "func": "sum hint",
+      "pattern": "(/\\s*10000|\\*\\s*10000|/\\s*100\\b|\\*\\s*0\\.0)",
+      "reason": "管理端预算表录入合计提示，提交后以后端为准"
+    }
   ]
 }
