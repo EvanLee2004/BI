@@ -62,13 +62,22 @@ DATA_DIR="$ROOT/数据"
 if [ ! -d "$DATA_DIR" ]; then
   DATA_DIR="$ROOT/_golden_data"
 fi
+# mtime：Linux 先 stat -c %Y；macOS 用 stat -f %m。
+# 注意：GNU stat 的 -f 是 filesystem，不会失败却吐非数字 → 不能写「mac 在前 || linux」。
+mtime_of() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+}
 latest=0
 if [ -f "$DATA_DIR/看板.db" ]; then
-  latest=$(stat -f %m "$DATA_DIR/看板.db" 2>/dev/null || stat -c %Y "$DATA_DIR/看板.db" 2>/dev/null || echo 0)
+  latest=$(mtime_of "$DATA_DIR/看板.db")
 fi
 for f in "$DATA_DIR"/*.xlsx; do
   [ -f "$f" ] || continue
-  m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+  m=$(mtime_of "$f")
+  # 只接受纯数字，避免脏 stdout 弄炸 -gt
+  case "$m" in
+    ''|*[!0-9]*) m=0 ;;
+  esac
   if [ "$m" -gt "$latest" ]; then latest=$m; fi
 done
 now=$(date +%s)

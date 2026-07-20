@@ -1,1 +1,4 @@
 health_alerts.log
+# cron 重定向日志（勿进 git，否则一键更新判脏）
+healthcheck_cron.out
+*.out

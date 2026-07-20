@@ -17,7 +17,7 @@
 ## 1. 服务挂了
 
 1. 看服务：`systemctl status kanban`（active=正常；failed 看 `journalctl -u kanban -n50`）
-2. 看日志：`/opt/kanban/看板正式程序/数据/日志/`；healthcheck 输出 `deploy/healthcheck_cron.out`
+2. 看日志：`/opt/kanban/看板正式程序/数据/日志/`；healthcheck 输出 `数据/日志/healthcheck_cron.out`（勿写 `deploy/`，否则 git 判脏挡一键更新）
 3. 健康：`curl -s http://127.0.0.1:8018/api/health | head` 或 `bash deploy/healthcheck.sh; echo $?`
 4. 重启：`sudo systemctl restart kanban`（**别手动裸跑 run.py**，会和 systemd 抢端口）
 5. 对外不通但 app 活：查 nginx —— `systemctl status nginx`、`sudo nginx -t`、`curl -s -o/dev/null -w '%{http_code}' http://localhost/login`

@@ -10,7 +10,8 @@
 
 ```bash
 # 每小时整点
-0 * * * * BASE=http://127.0.0.1:8018 /path/to/看板正式程序/deploy/healthcheck.sh >>/path/to/看板正式程序/deploy/healthcheck_cron.out 2>&1
+# 日志务必写到 数据/日志/（已 gitignore）。写到 deploy/*.out 会让工作区变脏 → 一键更新被拒。
+0 * * * * BASE=http://127.0.0.1:8018 /path/to/看板正式程序/deploy/healthcheck.sh >>/path/to/看板正式程序/数据/日志/healthcheck_cron.out 2>&1
 ```
 
 建议 `BASE` 指向本机反代或直连 API（仅本机环回）。
