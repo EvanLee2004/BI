@@ -1,0 +1,5 @@
+# 开发/测试依赖（不进生产运行必需集）
+# 安装：pip install -r requirements.txt -r requirements-dev.txt
+# 日常验证：KANBAN_OFFLINE=1 sh tests/run_verify.sh
+
+httpx==0.28.1

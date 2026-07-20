@@ -41,13 +41,20 @@ async function load() {
 }
 
 async function revoke(id: number) {
+  let reason = ''
   try {
-    await ElMessageBox.confirm('撤销该调整？（=认可源头新值）', '确认')
+    // 任务书63·H-03：可选理由（可留空）
+    const { value } = await ElMessageBox.prompt(
+      '撤销该调整？（=认可源头新值）。理由可选，可留空。',
+      '确认撤销',
+      { inputPlaceholder: '理由（可选）', inputValue: '', confirmButtonText: '确认撤销', cancelButtonText: '取消' },
+    )
+    reason = String(value || '').trim()
   } catch {
     return
   }
   try {
-    await jpost(`/api/adjust/${id}/revoke`, {})
+    await jpost(`/api/adjust/${id}/revoke`, { reason })
     ElMessage.success('已撤销')
     reloadDash()
     await load()
@@ -58,16 +65,19 @@ async function revoke(id: number) {
 
 async function rearm(id: number) {
   const a: Adj = list.value.find((x) => x.id === id) || { id }
+  let reason = ''
   try {
-    await ElMessageBox.confirm(
-      `坚持我的数？\n${a['目标表'] || ''} · ${a['字段'] || ''}：将继续使用「${a['新值'] || ''}」`,
-      '确认',
+    const { value } = await ElMessageBox.prompt(
+      `坚持我的数？\n${a['目标表'] || ''} · ${a['字段'] || ''}：将继续使用「${a['新值'] || ''}」\n理由可选，可留空。`,
+      '确认坚持',
+      { inputPlaceholder: '理由（可选）', inputValue: '', confirmButtonText: '坚持我的数', cancelButtonText: '取消' },
     )
+    reason = String(value || '').trim()
   } catch {
     return
   }
   try {
-    await jpost(`/api/adjust/${id}/rearm`, {})
+    await jpost(`/api/adjust/${id}/rearm`, { reason })
     ElMessage.success('已重新生效')
     reloadDash()
     await load()
@@ -83,8 +93,20 @@ function batchAsk() {
 
 async function batchDo() {
   confirmHtml.value = ''
+  let reason = ''
   try {
-    const r = await jpost<{ revoked?: number }>('/api/adjust/expired/revoke_all', {})
+    const { value } = await ElMessageBox.prompt('批量撤销过期疑似。理由可选，可留空。', '批量听源头', {
+      inputPlaceholder: '理由（可选）',
+      inputValue: '',
+      confirmButtonText: '确认批量撤销',
+      cancelButtonText: '取消',
+    })
+    reason = String(value || '').trim()
+  } catch {
+    return
+  }
+  try {
+    const r = await jpost<{ revoked?: number }>('/api/adjust/expired/revoke_all', { reason })
     ElMessage.success('已批量撤销 ' + (r.revoked || 0) + ' 条')
     reloadDash()
     await load()

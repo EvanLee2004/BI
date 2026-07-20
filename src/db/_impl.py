@@ -68,4 +68,5 @@ from .misc import (  # noqa: F401
     get_budget,
     set_budget,
     latest_run,
+    commit_immediate,
 )

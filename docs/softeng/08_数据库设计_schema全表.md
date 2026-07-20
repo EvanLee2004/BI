@@ -2,7 +2,7 @@
 
 > **产品 v1.5.0-beta** · 唯一 DDL 源：`程序/看板正式程序/src/schema.py`  
 > **SCHEMA_VERSION = 3**（1→2：金额 REAL 元 → INTEGER **分**；2→3：adj 金额 原值/新值 元 TEXT → **分 TEXT**）  
-> **统计**：标准表 **5** + 人工/元数据表 **11**（含 `meta_schema`）= **16** 张。  
+> **统计**：标准表 **5** + 人工/元数据表 **13**（含 `meta_schema` + 任务书63 两张历史表）= **18** 张。  
 > **库文件**：`数据/看板.db`（gitignore）。无独立 DB 服务。  
 > 配图：`docs/images/er.png`（金额单位以本文为准）。
 
@@ -74,10 +74,12 @@
 | `manual_历史` | 旧值/新值 分 | |
 | `manual_预算` / `manual_预算历史` | 金额：分；比率：百分位点 | 见 `BUDGET_RATE_METRICS`；`get_budget` 金额→元、比率→百分数 |
 | `manual_分摊比例` | 比例 REAL | 非金额 |
+| `manual_分摊比例历史` | 旧值/新值 REAL | 任务书63·H-04：写/删只追加；删除记 新值=NULL；生效表仍可 DELETE |
 | `manual_费用去税率` | 税率 REAL | 非金额 |
+| `manual_去税率历史` | 旧值/新值 REAL | 任务书63·H-04：写/删只追加；删除记 新值=NULL |
 | `meta_schema` | key/value | `version`=SCHEMA_VERSION |
 | `meta_运行日志` | 体检JSON | 含 backup / db_check / duplicate_locators |
-| `manual_配置变更` | — | 不存密码 |
+| `manual_配置变更` | — | 不存密码；任务书63·H-03 起含调整撤销/坚持/批量撤销理由 |
 
 ## 六、库外配置（非 SQLite）
 

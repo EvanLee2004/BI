@@ -137,6 +137,19 @@ HUMAN_TABLES: dict[str, str] = {
             时间 TEXT, 经手人 TEXT,
             归属月 TEXT, 项目 TEXT, 旧值 INTEGER, 新值 INTEGER
         )""",
+    # 任务书63·H-04：分摊比例/去税率写删只追加历史（对齐 manual_历史；生效表仍可 DELETE）
+    "manual_分摊比例历史": """
+        CREATE TABLE IF NOT EXISTS manual_分摊比例历史 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 经手人 TEXT,
+            归属月 TEXT, BU TEXT, 旧值 REAL, 新值 REAL
+        )""",
+    "manual_去税率历史": """
+        CREATE TABLE IF NOT EXISTS manual_去税率历史 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 经手人 TEXT,
+            费用类别 TEXT, 旧值 REAL, 新值 REAL
+        )""",
     "manual_预算": """
         CREATE TABLE IF NOT EXISTS manual_预算 (
             年份 TEXT, 指标 TEXT, 范围 TEXT DEFAULT '全公司',

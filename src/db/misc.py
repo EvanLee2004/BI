@@ -13,11 +13,34 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
+from typing import TypeVar
 
 import money
 
 from .constants import BUDGET_RATE_METRICS
 from .adjust import _now
+
+_T = TypeVar("_T")
+
+
+def commit_immediate(conn: sqlite3.Connection, write_fn: Callable[[], _T]) -> _T:
+    """单事务写：BEGIN IMMEDIATE → write_fn() → commit；失败 rollback 后抛出。
+
+    任务书63·F-02：批量手填/预算由调用方在 write_fn 内用 commit=False 逐条写。
+    路由层不得出现裸 SQL 字面量（见 tests/test_task43_arch.py）。
+    """
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        result = write_fn()
+        conn.commit()
+        return result
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
 
 
 # pure-move funcs from _impl.py
@@ -78,8 +101,20 @@ def get_budget(conn: sqlite3.Connection, year: str | None = None) -> list[dict]:
     return out
 
 
-def set_budget(conn: sqlite3.Connection, 年份: str, 指标: str, 金额: float, 经手人: str, 范围: str = "全公司") -> None:
-    """写年度预算。金额入参元→分；比率入参百分数→百分位点（绝不用 yuan_to_fen）。"""
+def set_budget(
+    conn: sqlite3.Connection,
+    年份: str,
+    指标: str,
+    金额: float,
+    经手人: str,
+    范围: str = "全公司",
+    *,
+    commit: bool = True,
+) -> None:
+    """写年度预算。金额入参元→分；比率入参百分数→百分位点（绝不用 yuan_to_fen）。
+
+    commit=False 时不提交，供 budget_batch 原子事务（任务书63·F-02）。
+    """
     old = conn.execute("SELECT 金额 FROM manual_预算 WHERE 年份=? AND 指标=? AND 范围=?", (年份, 指标, 范围)).fetchone()
     旧值 = old[0] if old else None
     now = _now()
@@ -92,7 +127,8 @@ def set_budget(conn: sqlite3.Connection, 年份: str, 指标: str, 金额: float
         "INSERT OR REPLACE INTO manual_预算(年份,指标,范围,金额,填写时间,经手人) VALUES(?,?,?,?,?,?)",
         (年份, 指标, 范围, stored, now, 经手人),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def latest_run(conn: sqlite3.Connection) -> dict | None:

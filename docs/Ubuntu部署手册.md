@@ -93,6 +93,8 @@ python3 -m venv .venv
 .venv/bin/pip install -U pip
 # 清华镜像（与 config 默认 pip_mirror 一致；也可用官方源）
 .venv/bin/pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 开发机/跑全量验证时另装测试依赖（httpx 等，生产运行不必装）：
+#   .venv/bin/pip install -r requirements-dev.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 无智云/共享盘的预演（开发机或首次空跑）：
 #   export KANBAN_OFFLINE=1

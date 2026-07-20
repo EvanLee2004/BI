@@ -1,5 +1,12 @@
 # 测试怎么跑
 
+## 依赖
+
+```bash
+# 运行依赖 + 测试依赖（TestClient 需 httpx）
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
 ## 日常全量（每个代码批次收口）
 
 ```bash
