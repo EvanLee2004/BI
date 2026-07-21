@@ -3,9 +3,9 @@
 """收单台账 fetch：从内网 SMB/UNC 共享（或 Linux CIFS 挂载点）拉到本地数据目录。
 
 铁律（03 详细设计 七 + 用户交代）：
-- 路径写 config.ledger_share_path：
-  - Windows：UNC 如 \\\\192.168.10.151\\财务部\\…\\收单台账.xlsx
-  - Linux：CIFS 挂载后的 POSIX 路径如 /mnt/caiwu/lara.zhao/收单台账.xlsx（见 docs/Ubuntu部署手册）
+- 路径写 config.ledger_share_path（**真实内网路径不进 git**，部署机写 本地配置.json）：
+  - Windows：UNC 如 \\\\文件服务器\\共享名\\…\\收单台账.xlsx
+  - Linux：CIFS/gvfs 挂载后的 POSIX 路径（见 docs/Ubuntu部署手册；具体路径见机上运维笔记）
 - **路径可达才拉、不可达走上次本地副本 + 体检黄，绝不中断管道**。
 - 本机（macOS）读不到该路径属正常：exists() 为假即走本地副本；开发期直接用数据目录里现有台账。
 - 一律 pathlib，不硬编码反斜杠拼接；UNC 与 POSIX 均走 Path(share_raw).exists()。

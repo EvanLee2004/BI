@@ -20,7 +20,7 @@
 | 机器 | 财务部 Ubuntu 26.04，内网，建议常开 |
 | 权限 | sudo（装包、fstab、systemd、ufw） |
 | 账号 | 智云全量只读号；看板管理员口令；**CIFS 共享盘账号密码（手填，不进 git）** |
-| 网络 | 智云内网、共享盘 `//192.168.10.151/财务部`、Gitee（或 GitHub） |
+| 网络 | 智云内网、收单台账 SMB 共享（**具体 IP/路径不进 git，见部署机运维笔记**）、Gitee（或 GitHub） |
 | 代码 | **git clone**（一键更新才可用） |
 
 ---
@@ -106,35 +106,39 @@ python3 -m venv .venv
 
 ---
 
-## 4. 收单台账 CIFS 挂载（最高风险项）
+## 4. 收单台账 CIFS / gvfs 挂载（最高风险项）
 
-共享源：`//192.168.10.151/财务部` → 挂到 `/mnt/caiwu`。
+> **真实共享 IP、共享名、子目录、文件名不写进本仓库（GitHub）**。  
+> 部署时对照机上 `/opt/kanban/运维笔记/收单台账路径.md` 或工作区「公司电脑（部署机）」夹（不上公开仓）。
+
+共享源：`//【文件服务器】/【共享名】` → 挂到例如 `/mnt/caiwu`（或桌面 gvfs）。
 
 ```bash
 sudo mkdir -p /mnt/caiwu
 sudo tee /etc/kanban-cifs.cred >/dev/null <<'EOF'
-username=【明昊部署时手填】
-password=【明昊部署时手填】
+username=【部署时手填】
+password=【部署时手填】
 domain=【若有】
 EOF
 sudo chmod 600 /etc/kanban-cifs.cred
 # 凭证绝不进 git
 
-# fstab（_netdev = 等网络再挂）
-echo '//192.168.10.151/财务部 /mnt/caiwu cifs credentials=/etc/kanban-cifs.cred,iocharset=utf8,uid=kanban,gid=kanban,file_mode=0640,dir_mode=0750,_netdev,vers=3.0 0 0' | sudo tee -a /etc/fstab
+# fstab（_netdev = 等网络再挂；【】处换成机上运维笔记里的真实值）
+echo '//【文件服务器】/【共享名】 /mnt/caiwu cifs credentials=/etc/kanban-cifs.cred,iocharset=utf8,uid=kanban,gid=kanban,file_mode=0640,dir_mode=0750,_netdev,vers=3.0 0 0' | sudo tee -a /etc/fstab
 
 sudo mount -a
 mount | grep caiwu
-ls /mnt/caiwu/lara.zhao/   # 按实际子路径
+ls /mnt/caiwu/   # 再进入运维笔记写明的子目录
 ```
 
-**看板配置**：管理端「设置 → 台账路径」填 **POSIX 路径**，例如：
+**看板配置**：管理端「设置 → 台账路径」填 **完整可达路径**（POSIX / gvfs / UNC 均可），**只落** `数据/本地配置.json`（gitignore）。
 
 ```text
-/mnt/caiwu/lara.zhao/收单台账.xlsx
+# 示例形态（占位，非真实地址）
+/mnt/caiwu/【子目录】/收单台账.xlsx
 ```
 
-落 `数据/本地配置.json`（gitignore），**不要改** `config.json` 里的 Windows UNC 出厂默认。
+`config.json` 出厂 `ledger_share_path` **留空**——真实路径不得写进 git。
 
 **挂不上时看板表现**：`fetch_ledger` 走上次本地副本 + 体检黄，管道不中断。自查：
 
