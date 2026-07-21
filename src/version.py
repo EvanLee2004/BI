@@ -60,6 +60,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.2.2",
+        "date": "2026-07-21",
+        "title": "经营罗盘 2.2.2：收入毛利左右对齐 + 按部门不再误报红条",
+        "items": [
+            "「收入与毛利结构」改为左按销售、右按客户，与下方「下单与回款」一致。",
+            "点费用「按部门」时不再因浏览器 ResizeObserver 提示误弹顶部红条。",
+        ],
+    },
+    {
         "version": "2.2.0",
         "date": "2026-07-21",
         "title": "经营罗盘 2.2.0：金额整数化 + 手填加速 + 抓数护栏",

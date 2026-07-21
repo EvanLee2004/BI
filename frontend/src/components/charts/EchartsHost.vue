@@ -96,11 +96,17 @@ function onWinResize() {
   chart?.resize()
 }
 
+/** rAF 合并 resize，降低 reflow 时 Chrome ResizeObserver loop 噪声 */
+let roRaf = 0
 function setupResizeObserver() {
   if (typeof ResizeObserver === 'undefined' || !el.value) return
   if (!ro) {
     ro = new ResizeObserver(() => {
-      chart?.resize()
+      if (roRaf) cancelAnimationFrame(roRaf)
+      roRaf = requestAnimationFrame(() => {
+        roRaf = 0
+        chart?.resize()
+      })
     })
   }
   ro.observe(el.value)
@@ -140,6 +146,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onWinResize)
   window.removeEventListener('kanban-theme-change', onTheme)
+  if (roRaf) {
+    cancelAnimationFrame(roRaf)
+    roRaf = 0
+  }
   if (io) {
     io.disconnect()
     io = null

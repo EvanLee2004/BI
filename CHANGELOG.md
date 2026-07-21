@@ -8,6 +8,17 @@
 
 ---
 
+## [2.2.2] - 2026-07-21
+
+### Fixed
+- **收入与毛利结构左右顺序**：左「按销售」、右「按客户」，与「下单与回款」双卡一致（此前左右反了）
+- **点费用「按部门」误弹红条**：全局错误上报忽略 Chrome 无害 `ResizeObserver loop…`；ECharts resize 经 rAF 合并降噪
+
+### Added
+- tests `test_ui_sales_customer_order_and_ro_filter.py`（顺序 + 过滤 + dist 门禁）
+
+---
+
 ## [2.2.1] - 2026-07-21
 
 本地 tag：`stage66_ship`（只本地不推 tags）。**性质：2.2.0 生产封板（`stage66_debtfree` / `9e50868`）之后的收尾补丁包**——封板后又叠加 9 个 commit 但版本号一直停在 2.2.0，本次收口为 2.2.1，让版本号与代码一一对应。

@@ -142,6 +142,7 @@ tests/test_task65_stage65.py
 tests/test_task66_stage66_batch_a.py
 tests/test_task66_stage66_batch_c.py
 tests/test_task66_stage66_batch_d.py
+tests/test_ui_sales_customer_order_and_ro_filter.py
 "
 run_one() {
   f="$1"

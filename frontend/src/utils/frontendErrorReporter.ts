@@ -1,12 +1,25 @@
 /**
  * B-5 / 任务书64·D5：全局前端错误 → 顶部友好条 + POST /api/v1/client-error。
  * 不发送 cookie 外的敏感字段；消息/栈截断。
+ *
+ * 2026-07-21：Chrome 在布局 reflow（如费用「按部门」master-detail）时
+ * ResizeObserver 常抛无害 “loop completed with undelivered notifications”，
+ * 不得当作用户可见异常。
  */
 
 import type { App } from 'vue'
 
 let installed = false
 const BANNER_ID = 'kanban-global-error-banner'
+
+/**
+ * 浏览器无害噪声：不弹红条、不上报。
+ * Chrome: "ResizeObserver loop completed with undelivered notifications."
+ * 旧版: "ResizeObserver loop limit exceeded"
+ */
+export function isIgnorableClientError(message: string): boolean {
+  return /ResizeObserver loop/i.test(String(message || ''))
+}
 
 function postError(payload: Record<string, string>) {
   try {
@@ -32,6 +45,7 @@ function postError(payload: Record<string, string>) {
 /** 页面顶部友好错误条（不白屏；可关闭）。 */
 export function showFriendlyErrorBanner(message: string) {
   if (typeof document === 'undefined') return
+  if (isIgnorableClientError(message)) return
   let el = document.getElementById(BANNER_ID)
   if (!el) {
     el = document.createElement('div')
@@ -59,6 +73,7 @@ export function showFriendlyErrorBanner(message: string) {
 }
 
 function reportAndBanner(message: string, stack: string) {
+  if (isIgnorableClientError(message)) return
   showFriendlyErrorBanner(message)
   postError({
     message: message.slice(0, 500),

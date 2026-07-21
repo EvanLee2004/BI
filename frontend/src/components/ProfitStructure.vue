@@ -35,7 +35,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
   <div>
     <div v-if="pack" id="profitRankViews" class="pr-grid grid-2e" :data-start="pack.start" :data-end="pack.end">
       <SciFiPanel
-        v-for="side in [pack.customer, pack.sales]"
+        v-for="side in [pack.sales, pack.customer]"
         :key="side?.dim"
         :data-dim="side?.dim"
       >
