@@ -210,9 +210,6 @@ class TestLedgerInFilterDb(unittest.TestCase):
 
     def test_number_col_in_via_cast_text(self):
         """金额列 in 走 CAST 文本 IN（分串），不得静默忽略。"""
-        d_all = db.query_detail(self.conn, "费用明细", page_size=50, audience="view")
-        # 取一行金额的库内展示（读回可能是元 float）；用 CAST 文本匹配库内分
-        # 直接 SQL 看分值
         fen = self.conn.execute(
             "SELECT 含税金额 FROM std_费用明细 WHERE 定位键='xf-1'"
         ).fetchone()[0]
@@ -220,6 +217,37 @@ class TestLedgerInFilterDb(unittest.TestCase):
             self.conn,
             "费用明细",
             filters={"含税金额": {"in": [str(fen)]}},
+            page_size=50,
+            audience="view",
+        )
+        self.assertEqual(d["total"], 1)
+        self.assertIn("甲事项", str(d["rows"]))
+
+    def test_number_col_q_keyword_like_narrows(self):
+        """金额列 filters.q 必须 CAST LIKE 收窄，不得只亮筛却全量。"""
+        d_all = db.query_detail(self.conn, "费用明细", page_size=50, audience="view")
+        self.assertGreaterEqual(d_all["total"], 2)
+        fen = self.conn.execute(
+            "SELECT 含税金额 FROM std_费用明细 WHERE 定位键='xf-1'"
+        ).fetchone()[0]
+        # 库内分值全文 LIKE（xf-1=1000 分，xf-2=2000，xf-3=3000 → "1000" 仅命中一行）
+        d = db.query_detail(
+            self.conn,
+            "费用明细",
+            filters={"含税金额": {"q": str(fen)}},
+            page_size=50,
+            audience="view",
+        )
+        self.assertEqual(d["total"], 1, msg=f"q={fen!r} 应收窄到 1 行，得 {d['total']}（全量 {d_all['total']}）")
+        self.assertIn("甲事项", str(d["rows"]))
+        self.assertNotIn("乙事项", str(d["rows"]))
+
+    def test_date_col_q_keyword_like_narrows(self):
+        """日期列 q 亦走 CAST LIKE。"""
+        d = db.query_detail(
+            self.conn,
+            "费用明细",
+            filters={"收单日期": {"q": "2026-06-01"}},
             page_size=50,
             audience="view",
         )

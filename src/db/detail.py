@@ -162,14 +162,21 @@ def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | 
         if not isinstance(spec, dict):
             continue
         kind = detail_col_kind(table_key, col)
-        # Excel 多选 in/values：一律 CAST 文本 IN（含空串 + 金额分串/日期串）；min/max、from/to 仍走类型专用
+        # Excel 多选 in/values：一律 CAST 文本 IN（含空串 + 金额分串/日期串）
         if spec.get("in") is not None or spec.get("values") is not None:
             _append_text_filter(col, spec, where, args)
             continue
+        # number/date：min/max 或 from/to 走类型专用；关键词 q 仍走 CAST LIKE（看端漏斗）
         if kind == "number":
             _append_number_filter(col, spec, money_cols, where, args)
+            qv = spec.get("q") or spec.get("keyword")
+            if qv is not None and str(qv).strip():
+                _append_text_filter(col, {"q": qv}, where, args)
         elif kind == "date":
             _append_date_filter(col, spec, where, args)
+            qv = spec.get("q") or spec.get("keyword")
+            if qv is not None and str(qv).strip():
+                _append_text_filter(col, {"q": qv}, where, args)
         else:
             _append_text_filter(col, spec, where, args)
     return where, args
