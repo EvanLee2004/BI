@@ -135,6 +135,97 @@ class TestLedgerInFilterDb(unittest.TestCase):
         self.assertIn("张三", vals)
         self.assertNotIn("李四", vals)
 
+    def test_in_empty_string_matches_null_or_blank(self):
+        """勾选 (空)：in 含 '' 须命中空/NULL 行。"""
+        import db_write
+
+        db_write.insert_std_records(
+            self.conn,
+            "std_费用明细",
+            [
+                {
+                    "定位键": "xf-empty",
+                    "收单月份": "2026-06",
+                    "收单日期": "2026-06-04",
+                    "含税金额": 1.0,
+                    "业务BU": "数据",
+                    "对应报表大类": "管理费用",
+                    "预算明细费用类型": "办公费",
+                    "预算归属部门": "财务",
+                    "事项": "空业务员行",
+                    "业务员": "",
+                    "归属月": "2026-06",
+                    "原值_归属月": "2026-06",
+                },
+            ],
+        )
+        self.conn.commit()
+        d = db.query_detail(
+            self.conn,
+            "费用明细",
+            filters={"业务员": {"in": [""]}},
+            page_size=50,
+            audience="view",
+        )
+        self.assertGreaterEqual(d["total"], 1)
+        for r in d["rows"]:
+            self.assertEqual(str(r.get("业务员") or ""), "")
+
+    def test_in_empty_plus_named(self):
+        """(空)+张三：两行都要，不能因 strip 空串而丢掉空。"""
+        import db_write
+
+        db_write.insert_std_records(
+            self.conn,
+            "std_费用明细",
+            [
+                {
+                    "定位键": "xf-e2",
+                    "收单月份": "2026-06",
+                    "收单日期": "2026-06-05",
+                    "含税金额": 2.0,
+                    "业务BU": "数据",
+                    "对应报表大类": "管理费用",
+                    "预算明细费用类型": "办公费",
+                    "预算归属部门": "财务",
+                    "事项": "空2",
+                    "业务员": None,
+                    "归属月": "2026-06",
+                    "原值_归属月": "2026-06",
+                },
+            ],
+        )
+        self.conn.commit()
+        d = db.query_detail(
+            self.conn,
+            "费用明细",
+            filters={"业务员": {"in": ["", "张三"]}},
+            page_size=50,
+            audience="view",
+        )
+        names = {str(r.get("业务员") or "") for r in d["rows"]}
+        self.assertIn("", names)
+        self.assertIn("张三", names)
+        self.assertNotIn("李四", names)
+
+    def test_number_col_in_via_cast_text(self):
+        """金额列 in 走 CAST 文本 IN（分串），不得静默忽略。"""
+        d_all = db.query_detail(self.conn, "费用明细", page_size=50, audience="view")
+        # 取一行金额的库内展示（读回可能是元 float）；用 CAST 文本匹配库内分
+        # 直接 SQL 看分值
+        fen = self.conn.execute(
+            "SELECT 含税金额 FROM std_费用明细 WHERE 定位键='xf-1'"
+        ).fetchone()[0]
+        d = db.query_detail(
+            self.conn,
+            "费用明细",
+            filters={"含税金额": {"in": [str(fen)]}},
+            page_size=50,
+            audience="view",
+        )
+        self.assertEqual(d["total"], 1)
+        self.assertIn("甲事项", str(d["rows"]))
+
 
 class TestLedgerValuesHttp(unittest.TestCase):
     """GET /api/v1/vm/ledger/values + filters.in 列表。"""
@@ -248,12 +339,15 @@ class TestLedgerTableUiStructure(unittest.TestCase):
         self.assertIn("ledger-col-option-list", t)
         self.assertIn("ledger-col-option-cb", t)
         self.assertIn('type="checkbox"', t)
-        # filters 拼装用 in 语义（TypeScript: { in: string[] } / { in: clean }）
-        compact = t.replace(" ", "").replace("\n", "")
-        self.assertTrue("in:string[]" in compact or "in:clean" in compact or '{in:' in compact)
         self.assertIn("colIns", t)
-        # 不再是唯一交互：仅 colQs 文本盲筛
-        self.assertNotIn("const colQs", t)
+        self.assertIn("isTextCol", t)
+        self.assertIn("column_meta", t)
+        # 空串须保留进 in（不得 filter 掉 ''）
+        self.assertNotIn(".filter((x) => x !== '')", t)
+        self.assertNotIn('.filter((x) => x !== "")', t)
+        # text 才拉 values；number/date 走关键词
+        self.assertIn("isTextCol(c)", t)
+        self.assertIn("ledger-col-q", t)
 
 
 if __name__ == "__main__":

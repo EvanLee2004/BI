@@ -129,9 +129,10 @@ def _append_text_filter(col: str, spec: dict, where: list, args: list) -> None:
     if vals is not None:
         if isinstance(vals, str):
             vals = [vals]
-        clean = [str(x) for x in vals if x is not None and str(x) != ""]
+        # 保留显式空串 ""（Excel「(空)」）；仅丢弃 None
+        clean = [str(x) for x in vals if x is not None]
         if clean:
-            # 空串多选语义：显式 in 含 "" 时用 COALESCE
+            # COALESCE：NULL 与 '' 都算空，可被 in 含 "" 命中
             ph = ",".join("?" * len(clean))
             where.append(f"CAST(COALESCE({col},'') AS TEXT) IN ({ph})")
             args.extend(clean)
@@ -161,6 +162,10 @@ def _build_column_filters(table_key: str, phys: str, have: set, filters: dict | 
         if not isinstance(spec, dict):
             continue
         kind = detail_col_kind(table_key, col)
+        # Excel 多选 in/values：一律 CAST 文本 IN（含空串 + 金额分串/日期串）；min/max、from/to 仍走类型专用
+        if spec.get("in") is not None or spec.get("values") is not None:
+            _append_text_filter(col, spec, where, args)
+            continue
         if kind == "number":
             _append_number_filter(col, spec, money_cols, where, args)
         elif kind == "date":

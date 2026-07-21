@@ -12,6 +12,8 @@ import SciFiPanel from './SciFiPanel.vue'
 const store = useCockpitStore()
 
 const columns = ref<string[]>([])
+/** name → kind：text=Excel 多选；number|date=关键词 q（防金额分串误导） */
+const colKinds = ref<Record<string, string>>({})
 const rows = ref<Record<string, unknown>[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -26,9 +28,12 @@ const filterQ = ref('')
 const showAll = ref(false)
 const caliberNote = ref('仅期间费用大类（与上方图表口径一致；已剔成本/非利润表）')
 
-/** 每列已选取值（Excel 多选）；空数组/缺键=该列不筛 */
+/** 每列已选取值（Excel 多选，可含 ""）；空数组/缺键=该列不筛 */
 const colIns = ref<Record<string, string[]>>({})
-/** 漏斗草稿（打开时拷贝，确定才写入 colIns） */
+/** number/date 列关键词草稿与已应用 */
+const colQs = ref<Record<string, string>>({})
+const draftQ = ref('')
+/** 漏斗草稿（打开时拷贝，确定才写入 colIns）；可含 "" */
 const draftIns = ref<string[]>([])
 const openCol = ref<string | null>(null)
 /** 当前漏斗可选值（来自 /api/v1/vm/ledger/values） */
@@ -47,13 +52,27 @@ const info = computed(() => {
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 const activeColFilters = computed(() => {
-  const o: Record<string, { in: string[] }> = {}
+  const o: Record<string, { in?: string[]; q?: string }> = {}
   for (const [k, v] of Object.entries(colIns.value)) {
-    const clean = (v || []).map((x) => String(x)).filter((x) => x !== '')
-    if (clean.length) o[k] = { in: clean }
+    // 保留 ""（空值多选）；仅当数组有长度才下发
+    if (Array.isArray(v) && v.length > 0) {
+      o[k] = { ...(o[k] || {}), in: v.map((x) => (x == null ? '' : String(x))) }
+    }
+  }
+  for (const [k, v] of Object.entries(colQs.value)) {
+    const q = String(v || '').trim()
+    if (q) o[k] = { ...(o[k] || {}), q }
   }
   return o
 })
+
+function colKind(c: string): string {
+  return colKinds.value[c] || 'text'
+}
+
+function isTextCol(c: string): boolean {
+  return colKind(c) === 'text'
+}
 
 const visibleOptions = computed(() => {
   const q = optionSearch.value.trim().toLowerCase()
@@ -134,11 +153,17 @@ function buildValuesParams(column: string): URLSearchParams {
   if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
   if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
   params.set('show_all', showAll.value ? '1' : '0')
-  const others: Record<string, { in: string[] }> = {}
+  const others: Record<string, { in?: string[]; q?: string }> = {}
   for (const [k, v] of Object.entries(colIns.value)) {
     if (k === column) continue
-    const clean = (v || []).map((x) => String(x)).filter((x) => x !== '')
-    if (clean.length) others[k] = { in: clean }
+    if (Array.isArray(v) && v.length > 0) {
+      others[k] = { ...(others[k] || {}), in: v.map((x) => (x == null ? '' : String(x))) }
+    }
+  }
+  for (const [k, v] of Object.entries(colQs.value)) {
+    if (k === column) continue
+    const q = String(v || '').trim()
+    if (q) others[k] = { ...(others[k] || {}), q }
   }
   if (Object.keys(others).length) {
     params.set('filters', JSON.stringify(others))
@@ -160,6 +185,11 @@ async function load() {
     }
     const d = await r.json()
     columns.value = d.columns || []
+    const km: Record<string, string> = {}
+    for (const m of d.column_meta || []) {
+      if (m && m.name) km[String(m.name)] = String(m.kind || 'text')
+    }
+    colKinds.value = km
     rows.value = d.rows || []
     total.value = d.total || 0
     if (d.caliber_note) caliberNote.value = String(d.caliber_note)
@@ -236,8 +266,14 @@ async function toggleColFilter(c: string) {
   }
   openCol.value = c
   optionSearch.value = ''
+  draftQ.value = colQs.value[c] || ''
   draftIns.value = [...(colIns.value[c] || [])]
-  await loadColumnOptions(c)
+  if (isTextCol(c)) await loadColumnOptions(c)
+  else {
+    optionList.value = []
+    optionsErr.value = ''
+    optionsLoading.value = false
+  }
 }
 
 function isDraftChecked(v: string): boolean {
@@ -266,10 +302,25 @@ function clearDraft() {
 function applyColFilter() {
   const c = openCol.value
   if (!c) return
-  const next = { ...colIns.value }
-  if (draftIns.value.length) next[c] = [...draftIns.value]
-  else delete next[c]
-  colIns.value = next
+  if (isTextCol(c)) {
+    const next = { ...colIns.value }
+    if (draftIns.value.length) next[c] = [...draftIns.value]
+    else delete next[c]
+    colIns.value = next
+    // 文本列清关键词，避免混用
+    const nq = { ...colQs.value }
+    delete nq[c]
+    colQs.value = nq
+  } else {
+    const nq = { ...colQs.value }
+    const q = draftQ.value.trim()
+    if (q) nq[c] = q
+    else delete nq[c]
+    colQs.value = nq
+    const next = { ...colIns.value }
+    delete next[c]
+    colIns.value = next
+  }
   applyFilter()
 }
 
@@ -278,6 +329,10 @@ function clearColFilter(c: string) {
   delete next[c]
   colIns.value = next
   draftIns.value = []
+  const nq = { ...colQs.value }
+  delete nq[c]
+  colQs.value = nq
+  draftQ.value = ''
   applyFilter()
 }
 
@@ -331,8 +386,8 @@ function cellText(v: unknown): string {
   return s.replace(/(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1')
 }
 
-function hasColIn(c: string): boolean {
-  return !!(colIns.value[c] && colIns.value[c].length)
+function hasColFilter(c: string): boolean {
+  return !!(colIns.value[c] && colIns.value[c].length) || !!String(colQs.value[c] || '').trim()
 }
 </script>
 <template>
@@ -386,7 +441,7 @@ function hasColIn(c: string): boolean {
               <button
                 type="button"
                 class="ld-th-btn"
-                :class="{ on: hasColIn(c) || openCol === c }"
+                :class="{ on: hasColFilter(c) || openCol === c }"
                 data-testid="ledger-col-filter-btn"
                 @click.stop="toggleColFilter(c)"
               >
@@ -399,39 +454,59 @@ function hasColIn(c: string): boolean {
                 data-testid="ledger-col-filter-pop"
                 @click.stop
               >
-                <input
-                  v-model="optionSearch"
-                  type="text"
-                  class="ld-opt-search"
-                  data-testid="ledger-col-option-search"
-                  placeholder="搜索可选值…"
-                />
-                <div v-if="optionsLoading" class="ld-opt-hint">加载可选值…</div>
-                <div v-else-if="optionsErr" class="ld-opt-err">{{ optionsErr }}</div>
-                <div v-else class="ld-opt-list" data-testid="ledger-col-option-list">
-                  <label v-for="v in visibleOptions" :key="v === '' ? '__empty__' : v" class="ld-opt-row">
-                    <input
-                      type="checkbox"
-                      :checked="isDraftChecked(v)"
-                      data-testid="ledger-col-option-cb"
-                      @change="toggleDraft(v)"
-                    />
-                    <span :title="v">{{ optionLabel(v) }}</span>
-                  </label>
-                  <div v-if="!visibleOptions.length" class="ld-opt-hint">无匹配可选值</div>
-                </div>
-                <div class="ld-col-actions">
-                  <button type="button" class="ghost mini" data-testid="ledger-col-select-all" @click="selectAllVisible">
-                    全选
-                  </button>
-                  <button type="button" class="ghost mini" data-testid="ledger-col-clear-draft" @click="clearDraft">
-                    清空勾选
-                  </button>
-                  <button type="button" class="mini" data-testid="ledger-col-apply" @click="applyColFilter">确定</button>
-                  <button type="button" class="ghost mini" data-testid="ledger-col-clear" @click="clearColFilter(c)">
-                    清除筛选
-                  </button>
-                </div>
+                <!-- text：Excel 可选值多选（含空） -->
+                <template v-if="isTextCol(c)">
+                  <input
+                    v-model="optionSearch"
+                    type="text"
+                    class="ld-opt-search"
+                    data-testid="ledger-col-option-search"
+                    placeholder="搜索可选值…"
+                  />
+                  <div v-if="optionsLoading" class="ld-opt-hint">加载可选值…</div>
+                  <div v-else-if="optionsErr" class="ld-opt-err">{{ optionsErr }}</div>
+                  <div v-else class="ld-opt-list" data-testid="ledger-col-option-list">
+                    <label v-for="v in visibleOptions" :key="v === '' ? '__empty__' : v" class="ld-opt-row">
+                      <input
+                        type="checkbox"
+                        :checked="isDraftChecked(v)"
+                        data-testid="ledger-col-option-cb"
+                        @change="toggleDraft(v)"
+                      />
+                      <span :title="v">{{ optionLabel(v) }}</span>
+                    </label>
+                    <div v-if="!visibleOptions.length" class="ld-opt-hint">无匹配可选值</div>
+                  </div>
+                  <div class="ld-col-actions">
+                    <button type="button" class="ghost mini" data-testid="ledger-col-select-all" @click="selectAllVisible">
+                      全选
+                    </button>
+                    <button type="button" class="ghost mini" data-testid="ledger-col-clear-draft" @click="clearDraft">
+                      清空勾选
+                    </button>
+                    <button type="button" class="mini" data-testid="ledger-col-apply" @click="applyColFilter">确定</button>
+                    <button type="button" class="ghost mini" data-testid="ledger-col-clear" @click="clearColFilter(c)">
+                      清除筛选
+                    </button>
+                  </div>
+                </template>
+                <!-- number/date：关键词（不展示分/误导多选） -->
+                <template v-else>
+                  <input
+                    v-model="draftQ"
+                    type="text"
+                    class="ld-opt-search"
+                    data-testid="ledger-col-q"
+                    :placeholder="colKind(c) === 'date' ? '日期含…' : '数值/文本含…'"
+                    @keyup.enter="applyColFilter"
+                  />
+                  <div class="ld-col-actions">
+                    <button type="button" class="mini" data-testid="ledger-col-apply" @click="applyColFilter">确定</button>
+                    <button type="button" class="ghost mini" data-testid="ledger-col-clear" @click="clearColFilter(c)">
+                      清除筛选
+                    </button>
+                  </div>
+                </template>
               </div>
             </th>
           </tr>

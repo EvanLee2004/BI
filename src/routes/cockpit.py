@@ -244,10 +244,18 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             if not isinstance(r, dict):
                 continue
             rows.append({c: r.get(c, "") for c in cols})
+        # 列 kind：看端漏斗 text=多选值；number/date=关键词/区间（防金额分串误导）
+        try:
+            meta = db.detail_columns_meta("费用明细", audience=audience)
+            kind_by = {m["name"]: m["kind"] for m in meta if isinstance(m, dict)}
+            column_meta = [{"name": c, "kind": kind_by.get(c, "text")} for c in cols]
+        except Exception:
+            column_meta = [{"name": c, "kind": "text"} for c in cols]
         # 任务书52·F-6：响应不带 forbidden 元数据（列已裁剪，名单不下发）
         return JSONResponse(
             {
                 "columns": cols,
+                "column_meta": column_meta,
                 "rows": rows,
                 "total": data.get("total") or 0,
                 "page": data.get("page") or page,
