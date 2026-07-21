@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { fetchProductVersion } from '../api/client'
 import PeriodPicker from './PeriodPicker.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import KpiCards from './KpiCards.vue'
@@ -16,16 +18,28 @@ import BuNav from './BuNav.vue'
 import TopBarActions from './TopBarActions.vue'
 
 const store = useCockpitStore()
+const productVer = ref('')
+onMounted(async () => {
+  try {
+    const v = await fetchProductVersion()
+    const num = String(v.version || '').trim()
+    productVer.value = num ? 'v' + num : ''
+  } catch {
+    productVer.value = ''
+  }
+})
 </script>
 <template>
   <div>
     <header class="topbar">
       <div class="tb-left">
+        <img class="tb-logo" src="/logo.png" alt="甲骨易" width="28" height="28" />
         <a class="bu-back" href="/">← 整体</a>
         <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
         <PeriodPicker />
       </div>
       <div class="tb-right">
+        <span v-if="productVer" class="tb-ver" :title="productVer">{{ productVer }}</span>
         <ThemeToggle />
         <TopBarActions />
       </div>

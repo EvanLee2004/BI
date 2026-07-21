@@ -790,6 +790,16 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
   flex-wrap: wrap;
   min-width: 0;
 }
+/* 2.2.5·③ 甲骨易 logo */
+.tb-logo {
+  height: 28px;
+  width: auto;
+  max-width: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: block;
+}
 .tb-title b {
   color: var(--dsdk-accent-color-secondary);
   text-shadow: 0 0 14px rgba(var(--dsdk-rgb-accent-secondary), 0.4);

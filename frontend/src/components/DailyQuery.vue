@@ -67,7 +67,7 @@ async function runQuery() {
     const o = d.orders_disp || d.orders_total_disp || ''
     const rc = d.receipts_disp || d.receipts_total_disp || ''
     sumText.value =
-      (start.value === end.value ? '只看 ' + start.value : start.value + ' ~ ' + end.value) +
+      (start.value === end.value ? '仅 ' + start.value : start.value + ' ~ ' + end.value) +
       (o || rc ? ` · 下单 ${o || '—'} / 回款 ${rc || '—'}` : '')
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)

@@ -130,7 +130,7 @@ const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0)
   <SciFiPanel
     id="expHeatCard"
     title="费用热力 · 月份×报表大类"
-    tag="格子深浅=金额 · 悬停看数"
+    tag="格子深浅=金额 · 悬停显示"
     panel-class="exp-heat-card"
     style="margin-top: 16px"
   >

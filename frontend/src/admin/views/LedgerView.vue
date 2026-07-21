@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost } from '../api'
+import { useClientPager } from '../composables/useClientPager'
 
 const reloadDash = inject<() => void>('reloadDash', () => {})
 
@@ -24,6 +25,8 @@ const loading = ref(false)
 
 const shown = computed(() => (expOnly.value ? list.value.filter((a) => a['状态'] === '过期疑似') : list.value))
 const nExp = computed(() => list.value.filter((a) => a['状态'] === '过期疑似').length)
+const { page, pages, pageRows, pageInfo, resetPage, prevPage, nextPage } = useClientPager(shown)
+watch(expOnly, () => resetPage())
 
 function rowClassName({ row }: { row: Adj }) {
   return row['状态'] === '过期疑似' ? 'exp-row' : ''
@@ -33,6 +36,7 @@ async function load() {
   loading.value = true
   try {
     list.value = await jget('/api/adjustments')
+    resetPage()
   } catch (e) {
     ElMessage.error(String(e))
   } finally {
@@ -122,9 +126,11 @@ onMounted(load)
   <div>
     <div class="toolbar">
       <el-button @click="load">刷新台账</el-button>
-      <el-checkbox v-model="expOnly">只看过期疑似</el-checkbox>
+      <el-checkbox v-model="expOnly">只显示过期疑似</el-checkbox>
       <el-button v-if="nExp" type="warning" size="small" @click="batchAsk">一键听源头新值（批量撤销过期疑似）</el-button>
-      <span class="muted">共 {{ list.length }} 条（过期疑似 {{ nExp }}）</span>
+      <span class="muted">{{ pageInfo }}（过期疑似 {{ nExp }}）</span>
+      <el-button size="small" :disabled="page <= 1 || loading" @click="prevPage">上一页</el-button>
+      <el-button size="small" :disabled="page >= pages || loading" @click="nextPage">下一页</el-button>
     </div>
     <div class="admin-note">过期疑似（红）= 源头已改、我的调整未套用，页面现用源头新值。处理：「坚持我的数」或「撤销」。</div>
     <el-alert v-if="confirmHtml" type="warning" :closable="false" style="margin-bottom: 10px">
@@ -145,7 +151,7 @@ onMounted(load)
     </div>
     <el-table
       v-else
-      :data="shown"
+      :data="pageRows"
       v-loading="loading"
       border
       stripe

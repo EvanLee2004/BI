@@ -64,11 +64,9 @@ async function loadAdjFields() {
   }
 }
 
+/** 2.2.5：真翻页（每页 50），不再「加载更多」累积 */
 async function query(reset = true) {
-  if (reset) {
-    page.value = 1
-    rows.value = []
-  }
+  if (reset) page.value = 1
   loading.value = true
   try {
     const p = page.value
@@ -80,11 +78,10 @@ async function query(reset = true) {
       rows: Record<string, unknown>[]
     }>(`/api/detail?table=${encodeURIComponent(tableName.value)}&page=${p}&page_size=50${baseParams()}`)
     page.value = d.page
-    pages.value = d.pages
+    pages.value = Math.max(1, Number(d.pages) || 1)
     total.value = d.total
     columns.value = d.columns || []
-    if (reset) rows.value = d.rows || []
-    else rows.value = rows.value.concat(d.rows || [])
+    rows.value = d.rows || []
   } catch (e) {
     ElMessage.error('查询失败:' + String(e))
   } finally {
@@ -92,10 +89,15 @@ async function query(reset = true) {
   }
 }
 
-function loadMore() {
+function prevPage() {
+  if (loading.value || page.value <= 1) return
+  page.value -= 1
+  void query(false)
+}
+function nextPage() {
   if (loading.value || page.value >= pages.value) return
   page.value += 1
-  query(false)
+  void query(false)
 }
 
 function openEdit(row: Record<string, unknown>) {
@@ -227,9 +229,11 @@ onMounted(async () => {
       <el-input v-model="q" placeholder="订单号/定位键/客户…" style="width: 200px" clearable @keyup.enter="query(true)" />
       <el-button type="primary" @click="query(true)">查询</el-button>
       <el-button @click="exportExcel">导出 Excel</el-button>
-      <span class="muted grow">共{{ total }}行（已载入{{ rows.length }}）</span>
+      <span class="muted grow">共 {{ total }} 条 · 第 {{ page }}/{{ pages }} 页</span>
+      <el-button size="small" :disabled="page <= 1 || loading" @click="prevPage">上一页</el-button>
+      <el-button size="small" :disabled="page >= pages || loading" @click="nextPage">下一页</el-button>
     </div>
-    <div class="admin-note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。表头漏斗=Excel 式列筛选（当前已载入行）。</div>
+    <div class="admin-note">改数=写一条调整记录（重抓不丢）；剔除=软删（可在「数据修正」撤销）。表头漏斗=Excel 式列筛选（当前页）。</div>
 
     <el-table :data="rows" v-loading="loading" border stripe height="calc(100vh - 280px)" style="width: 100%">
       <el-table-column
@@ -252,11 +256,6 @@ onMounted(async () => {
         </template>
       </el-table-column>
     </el-table>
-    <div style="margin-top: 10px; text-align: center">
-      <el-button v-if="page < pages" :loading="loading" @click="loadMore">加载更多</el-button>
-      <span v-else class="muted">已全部加载</span>
-    </div>
-
     <el-dialog v-model="editVisible" title="改数" width="480px">
       <p>定位键 <code>{{ editKey }}</code></p>
       <el-form label-width="72px">

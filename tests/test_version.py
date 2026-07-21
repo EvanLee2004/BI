@@ -108,10 +108,12 @@ class TestVersionApi(unittest.TestCase):
         # 未登录 → 401
         c = self._client()
         self.assertEqual(c.get("/api/version").status_code, 401)
-        # 查看端（整体）会话也 401（管理员专属）
+        # 2.2.5：展示端会话也可读版本号（顶栏展示用；非敏感）
         cv = self._client()
         cv.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
-        self.assertEqual(cv.get("/api/version").status_code, 401)
+        rv = cv.get("/api/version")
+        self.assertEqual(rv.status_code, 200)
+        self.assertEqual(rv.json().get("version"), V.PRODUCT_VERSION)
 
     def test_admin_gets_version(self):
         c = self._client()

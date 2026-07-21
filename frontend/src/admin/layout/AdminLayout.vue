@@ -304,7 +304,7 @@ import './admin-layout.css'
     </div>
 
     <nav class="admin-groups">
-      <div class="gtab" :class="{ on: group === 'see' }" @click="showGroup('see')">看</div>
+      <div class="gtab" :class="{ on: group === 'see' }" @click="showGroup('see')">展示</div>
       <div class="gtab" :class="{ on: group === 'edit' }" @click="showGroup('edit')">数据调整</div>
       <div class="gtab" :class="{ on: group === 'review' }" @click="showGroup('review')">异常处理</div>
       <div class="gtab" :class="{ on: group === 'cfg' }" @click="showGroup('cfg')">设置</div>

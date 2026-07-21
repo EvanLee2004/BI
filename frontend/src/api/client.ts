@@ -28,4 +28,9 @@ export async function fetchSession() {
   return apiGet<Record<string, unknown>>('/api/v1/session')
 }
 
+/** 2.2.5：产品版本号（任意登录会话可读；前端不硬编码 VERSION） */
+export async function fetchProductVersion(): Promise<{ version?: string; stage?: string; label?: string }> {
+  return apiGet('/api/version')
+}
+
 export type { PageVM }

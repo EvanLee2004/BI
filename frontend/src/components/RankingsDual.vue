@@ -128,12 +128,12 @@ function pct(v: unknown): string {
             type="button"
             class="rk-others-btn"
             data-testid="rk-others-btn"
-            title="点开看前 N 名以后的完整明细"
+            title="点开展示前 N 名以后的完整明细"
             @click="openOthers(blk)"
           >
             <span class="rk-no">…</span>
             <span class="ev-name"
-              >其余 {{ blk.others.names }} 个 <span class="rk-open">点开看明细 ›</span></span
+              >其余 {{ blk.others.names }} 个 <span class="rk-open">点开展示明细 ›</span></span
             >
             <span class="ev-amt">{{ blk.others.amt }}</span>
           </button>

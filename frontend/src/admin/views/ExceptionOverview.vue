@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { jget } from '../api'
+import { useClientPager } from '../composables/useClientPager'
 
 const router = useRouter()
 
@@ -12,6 +13,9 @@ const cards = [
   { key: 'adjust_missing', label: '调整失配', desc: '调整定位键在源头找不到了（行删了/键变了）', path: '/admin/review/ledger' },
   { key: '__conflict', label: '冲突待确认', desc: '智云改了 vs 这里改了（R4 上线后启用）', disabled: true },
 ]
+
+const tableRows = computed(() => cards.filter((c) => !c.disabled))
+const { page, pages, pageRows, pageInfo, prevPage, nextPage } = useClientPager(tableRows)
 
 const ex = ref<Record<string, number>>({})
 const loading = ref(false)
@@ -59,14 +63,19 @@ onMounted(load)
         </template>
       </div>
     </div>
-    <!-- 任务书61·E2：总览表（卡片外补一览表+列筛选；子页 OrderDept/Unclassified/Ledger 已加列筛选） -->
+    <!-- 任务书61·E2：总览表；2.2.5 统一翻页控件（行数少时恒为 1 页） -->
+    <div class="toolbar" style="margin-top: 14px">
+      <span class="muted">{{ pageInfo }}</span>
+      <el-button size="small" :disabled="page <= 1" @click="prevPage">上一页</el-button>
+      <el-button size="small" :disabled="page >= pages" @click="nextPage">下一页</el-button>
+    </div>
     <el-table
       class="ov-table"
-      :data="cards.filter((c) => !c.disabled)"
+      :data="pageRows"
       border
       stripe
       size="small"
-      style="margin-top: 16px; width: 100%"
+      style="margin-top: 8px; width: 100%"
     >
       <el-table-column
         prop="label"

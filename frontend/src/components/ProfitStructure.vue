@@ -60,7 +60,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           >
             <span class="rk-no">…</span>
             <span class="ev-name"
-              >其余 {{ side.others.names }} 个 <span class="rk-open">点开看明细 ›</span></span
+              >其余 {{ side.others.names }} 个 <span class="rk-open">点开展示明细 ›</span></span
             >
             <span class="ev-track"></span>
             <span class="ev-amt">{{ side.others.amt_disp }}</span>

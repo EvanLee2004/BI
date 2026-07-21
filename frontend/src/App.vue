@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, computed, onErrorCaptured } from 'vue'
+import { onMounted, computed, onErrorCaptured, ref } from 'vue'
 import { onVueErrorCaptured } from './utils/frontendErrorReporter'
 import { useCockpitStore } from './stores/cockpit'
+import { fetchProductVersion } from './api/client'
 import LoginView from './components/LoginView.vue'
 import PeriodPicker from './components/PeriodPicker.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
@@ -20,6 +21,7 @@ import BUPage from './components/BUPage.vue'
 import TopBarActions from './components/TopBarActions.vue'
 
 const store = useCockpitStore()
+const productVer = ref('')
 const isBuRoute = computed(() => {
   const m = location.pathname.match(/^\/bu\/(.+)/)
   return m ? decodeURIComponent(m[1]) : ''
@@ -39,6 +41,13 @@ onMounted(async () => {
   const onLogin = path === '/login'
   const onAdmin = path.startsWith('/admin')
   if (onLogin || onAdmin) return
+  try {
+    const v = await fetchProductVersion()
+    const num = String(v.version || '').trim()
+    productVer.value = num ? 'v' + num : ''
+  } catch {
+    productVer.value = ''
+  }
   const bu = isBuRoute.value
   if (bu) await store.loadBu(bu)
   else await store.loadMain()
@@ -55,10 +64,12 @@ onMounted(async () => {
   <div v-else-if="store.vm" id="periodSync">
     <header class="topbar">
       <div class="tb-left">
+        <img class="tb-logo" src="/logo.png" alt="甲骨易" width="28" height="28" />
         <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
         <PeriodPicker />
       </div>
       <div class="tb-right">
+        <span v-if="productVer" class="tb-ver" :title="productVer">{{ productVer }}</span>
         <ThemeToggle />
         <TopBarActions />
       </div>

@@ -154,7 +154,7 @@ onMounted(() => load(true))
         <el-option v-for="d in depts" :key="d" :label="d" :value="d" />
       </el-select>
       <el-button size="small" type="primary" @click="batchSave">对本页筛选批量归类</el-button>
-      <span class="muted">待归类共 {{ total }} 笔 · 第 {{ page }}/{{ pages }} 页 · 本页显示 {{ shown.length }}</span>
+      <span class="muted">共 {{ total }} 条 · 第 {{ page }}/{{ pages }} 页 · 本页 {{ shown.length }}</span>
       <el-button size="small" :disabled="page <= 1 || loading" @click="prevPage">上一页</el-button>
       <el-button size="small" :disabled="page >= pages || loading" @click="nextPage">下一页</el-button>
     </div>

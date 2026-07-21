@@ -244,7 +244,7 @@ import './settings-view.css'
                     @change="(v: string | number | boolean) => onPermType(row, String(v))"
                   >
                     <el-option label="管理员" value="管理员" />
-                    <el-option label="整体（看全部）" value="整体" />
+                    <el-option label="整体（展示全部）" value="整体" />
                     <el-option label="按 BU（可多选）" value="BU" />
                   </el-select>
                   <div v-if="permType(row) === 'BU'" class="bu-checks">
