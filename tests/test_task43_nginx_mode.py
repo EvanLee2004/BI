@@ -80,6 +80,13 @@ class TestNginxConfTemplate(unittest.TestCase):
         self.assertIn("X-Real-IP", t)
         self.assertIn("server_tokens off", t)
         self.assertIn("X-Content-Type-Options", t)
+        self.assertIn('X-Frame-Options "SAMEORIGIN"', t)
+        # 禁止把管理端 iframe 嵌 / 打死
+        for line in t.splitlines():
+            if line.strip().startswith("#"):
+                continue
+            if "X-Frame-Options" in line:
+                self.assertNotIn("DENY", line)
         # 动态路径
         self.assertRegex(t, r"api\|admin\|login\|bu")
 

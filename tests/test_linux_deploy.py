@@ -79,6 +79,23 @@ class TestLinuxDeployAssets(unittest.TestCase):
         self.assertIn("X-Content-Type-Options", chunk)
         self.assertIn("Cache-Control", chunk)
 
+    def test_nginx_frame_options_sameorigin_not_deny(self):
+        """管理端「看」iframe 嵌 /：禁止 DENY，必须 SAMEORIGIN（读真实 conf）。"""
+        t = (LINUX / "nginx-kanban.conf").read_text(encoding="utf-8")
+        # 真实 header 行不得再写 DENY
+        for line in t.splitlines():
+            s = line.strip()
+            if s.startswith("#"):
+                continue
+            if "X-Frame-Options" in s:
+                self.assertIn("SAMEORIGIN", s, msg=f"frame header 须 SAMEORIGIN: {s}")
+                self.assertNotIn("DENY", s, msg=f"frame header 禁止 DENY: {s}")
+        self.assertGreaterEqual(t.count('X-Frame-Options "SAMEORIGIN"'), 1)
+        # 入口 location 也要带（子 location 覆盖 server 头）
+        idx = t.find("location = /")
+        self.assertGreater(idx, 0)
+        self.assertIn("SAMEORIGIN", t[idx : idx + 500])
+
     def test_ubuntu26_python_strategy_docs_and_scripts(self):
         """任务书50·D.6：26.04 + 系统 python3；脚本不写死 deadsnakes/python3.12 路径。"""
         readme = (LINUX / "README.md").read_text(encoding="utf-8")
