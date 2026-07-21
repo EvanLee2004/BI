@@ -43,6 +43,10 @@ class TestSourceGuards224(unittest.TestCase):
         src = (ROOT / "frontend/src/components/ReceiptsCard.vue").read_text(encoding="utf-8")
         self.assertIn("axisMaxCover(maxV0, interval, [...recs, ...ords, bud])", src)
         self.assertIn('title="下单/回款情况"', src)
+        # D：legacy 服务端模板同步改名（导出/legacy 路径）
+        rc = (ROOT / "static/templates/render/rc_card.html").read_text(encoding="utf-8")
+        self.assertIn("下单/回款情况", rc)
+        self.assertNotIn(">回款情况 <", rc)
 
     def test_admin_logout_moved_to_settings(self):
         layout = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
