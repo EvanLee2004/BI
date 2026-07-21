@@ -2,7 +2,7 @@
 /**
  * 费用明细：走 /api/v1/vm/ledger，任何会话白名单列；单元格 text 转义（铁律10）。
  * 任务书58·R-50：日历起止 + 查询/本月/返回本年。
- * 任务书61·E3：Excel 式每列表头筛选（自建轻量 UI，禁 Element Plus）；
+ * 任务书61·E3 / 产品改：Excel 式每列表头筛选——可选值多选（对齐数据调整漏斗），非盲输。
  * 任务书61·J-3：默认口径不显人工分摊三类台账行（后端 merge_ledger_caliber_filters）。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -26,9 +26,17 @@ const filterQ = ref('')
 const showAll = ref(false)
 const caliberNote = ref('仅期间费用大类（与上方图表口径一致；已剔成本/非利润表）')
 
-/** 任务书61·E3：每列关键词（表头弹层） */
-const colQs = ref<Record<string, string>>({})
+/** 每列已选取值（Excel 多选）；空数组/缺键=该列不筛 */
+const colIns = ref<Record<string, string[]>>({})
+/** 漏斗草稿（打开时拷贝，确定才写入 colIns） */
+const draftIns = ref<string[]>([])
 const openCol = ref<string | null>(null)
+/** 当前漏斗可选值（来自 /api/v1/vm/ledger/values） */
+const optionList = ref<string[]>([])
+const optionsLoading = ref(false)
+const optionsErr = ref('')
+/** 在可选值列表内缩窄显示 */
+const optionSearch = ref('')
 
 const info = computed(() => {
   if (loading.value) return '加载中…'
@@ -39,12 +47,18 @@ const info = computed(() => {
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 const activeColFilters = computed(() => {
-  const o: Record<string, { q: string }> = {}
-  for (const [k, v] of Object.entries(colQs.value)) {
-    const q = String(v || '').trim()
-    if (q) o[k] = { q }
+  const o: Record<string, { in: string[] }> = {}
+  for (const [k, v] of Object.entries(colIns.value)) {
+    const clean = (v || []).map((x) => String(x)).filter((x) => x !== '')
+    if (clean.length) o[k] = { in: clean }
   }
   return o
+})
+
+const visibleOptions = computed(() => {
+  const q = optionSearch.value.trim().toLowerCase()
+  if (!q) return optionList.value
+  return optionList.value.filter((v) => v.toLowerCase().includes(q))
 })
 
 function yearNum(): number {
@@ -111,6 +125,28 @@ function buildParams(forExport = false): URLSearchParams {
   return params
 }
 
+/** 拉可选值时：带其它列筛，但不带本列（后端也会剔本列 in） */
+function buildValuesParams(column: string): URLSearchParams {
+  const params = new URLSearchParams()
+  params.set('column', column)
+  if (dateFrom.value) params.set('date_from', dateFrom.value)
+  if (dateTo.value) params.set('date_to', dateTo.value)
+  if (filterQ.value.trim()) params.set('q', filterQ.value.trim())
+  if (store.scope === 'bu' && store.buName) params.set('bu', store.buName)
+  params.set('show_all', showAll.value ? '1' : '0')
+  const others: Record<string, { in: string[] }> = {}
+  for (const [k, v] of Object.entries(colIns.value)) {
+    if (k === column) continue
+    const clean = (v || []).map((x) => String(x)).filter((x) => x !== '')
+    if (clean.length) others[k] = { in: clean }
+  }
+  if (Object.keys(others).length) {
+    params.set('filters', JSON.stringify(others))
+  }
+  params.set('limit', '200')
+  return params
+}
+
 async function load() {
   loading.value = true
   err.value = ''
@@ -137,6 +173,29 @@ async function load() {
     rows.value = []
   } finally {
     loading.value = false
+  }
+}
+
+async function loadColumnOptions(column: string) {
+  optionsLoading.value = true
+  optionsErr.value = ''
+  optionList.value = []
+  try {
+    const r = await fetch('/api/v1/vm/ledger/values?' + buildValuesParams(column).toString(), {
+      credentials: 'same-origin',
+    })
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}))
+      throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
+    }
+    const d = await r.json()
+    const vals = Array.isArray(d.values) ? d.values.map((x: unknown) => String(x ?? '')) : []
+    // 空串也展示为「(空)」可选
+    optionList.value = vals
+  } catch (e) {
+    optionsErr.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    optionsLoading.value = false
   }
 }
 
@@ -170,19 +229,61 @@ function restoreYear() {
   applyFilter()
 }
 
-function toggleColFilter(c: string) {
-  openCol.value = openCol.value === c ? null : c
+async function toggleColFilter(c: string) {
+  if (openCol.value === c) {
+    openCol.value = null
+    return
+  }
+  openCol.value = c
+  optionSearch.value = ''
+  draftIns.value = [...(colIns.value[c] || [])]
+  await loadColumnOptions(c)
+}
+
+function isDraftChecked(v: string): boolean {
+  return draftIns.value.includes(v)
+}
+
+function toggleDraft(v: string) {
+  const i = draftIns.value.indexOf(v)
+  if (i >= 0) {
+    draftIns.value = draftIns.value.filter((x) => x !== v)
+  } else {
+    draftIns.value = [...draftIns.value, v]
+  }
+}
+
+function selectAllVisible() {
+  const set = new Set(draftIns.value)
+  for (const v of visibleOptions.value) set.add(v)
+  draftIns.value = [...set]
+}
+
+function clearDraft() {
+  draftIns.value = []
 }
 
 function applyColFilter() {
+  const c = openCol.value
+  if (!c) return
+  const next = { ...colIns.value }
+  if (draftIns.value.length) next[c] = [...draftIns.value]
+  else delete next[c]
+  colIns.value = next
   applyFilter()
 }
 
 function clearColFilter(c: string) {
-  const next = { ...colQs.value }
+  const next = { ...colIns.value }
   delete next[c]
-  colQs.value = next
+  colIns.value = next
+  draftIns.value = []
   applyFilter()
+}
+
+function optionLabel(v: string): string {
+  if (v === '') return '(空)'
+  return v.length > 48 ? v.slice(0, 48) + '…' : v
 }
 
 function onDocClick(e: MouseEvent) {
@@ -230,8 +331,8 @@ function cellText(v: unknown): string {
   return s.replace(/(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1')
 }
 
-function hasColQ(c: string): boolean {
-  return !!String(colQs.value[c] || '').trim()
+function hasColIn(c: string): boolean {
+  return !!(colIns.value[c] && colIns.value[c].length)
 }
 </script>
 <template>
@@ -285,23 +386,51 @@ function hasColQ(c: string): boolean {
               <button
                 type="button"
                 class="ld-th-btn"
-                :class="{ on: hasColQ(c) || openCol === c }"
+                :class="{ on: hasColIn(c) || openCol === c }"
                 data-testid="ledger-col-filter-btn"
                 @click.stop="toggleColFilter(c)"
               >
                 {{ c }}
                 <span class="ld-funnel" aria-hidden="true">▾</span>
               </button>
-              <div v-if="openCol === c" class="ld-col-filter" data-testid="ledger-col-filter-pop">
+              <div
+                v-if="openCol === c"
+                class="ld-col-filter"
+                data-testid="ledger-col-filter-pop"
+                @click.stop
+              >
                 <input
-                  v-model="colQs[c]"
+                  v-model="optionSearch"
                   type="text"
-                  :placeholder="'筛选 ' + c"
-                  @keyup.enter="applyColFilter"
+                  class="ld-opt-search"
+                  data-testid="ledger-col-option-search"
+                  placeholder="搜索可选值…"
                 />
+                <div v-if="optionsLoading" class="ld-opt-hint">加载可选值…</div>
+                <div v-else-if="optionsErr" class="ld-opt-err">{{ optionsErr }}</div>
+                <div v-else class="ld-opt-list" data-testid="ledger-col-option-list">
+                  <label v-for="v in visibleOptions" :key="v === '' ? '__empty__' : v" class="ld-opt-row">
+                    <input
+                      type="checkbox"
+                      :checked="isDraftChecked(v)"
+                      data-testid="ledger-col-option-cb"
+                      @change="toggleDraft(v)"
+                    />
+                    <span :title="v">{{ optionLabel(v) }}</span>
+                  </label>
+                  <div v-if="!visibleOptions.length" class="ld-opt-hint">无匹配可选值</div>
+                </div>
                 <div class="ld-col-actions">
-                  <button type="button" class="mini" @click="applyColFilter">确定</button>
-                  <button type="button" class="ghost mini" @click="clearColFilter(c)">清除</button>
+                  <button type="button" class="ghost mini" data-testid="ledger-col-select-all" @click="selectAllVisible">
+                    全选
+                  </button>
+                  <button type="button" class="ghost mini" data-testid="ledger-col-clear-draft" @click="clearDraft">
+                    清空勾选
+                  </button>
+                  <button type="button" class="mini" data-testid="ledger-col-apply" @click="applyColFilter">确定</button>
+                  <button type="button" class="ghost mini" data-testid="ledger-col-clear" @click="clearColFilter(c)">
+                    清除筛选
+                  </button>
                 </div>
               </div>
             </th>
@@ -336,14 +465,26 @@ function hasColQ(c: string): boolean {
 .ld-funnel{opacity:.65;font-size:10px}
 .ld-col-filter{
   position:absolute;z-index:var(--z-popover, 40);left:0;top:100%;
-  min-width:160px;padding:8px;border-radius:8px;
+  min-width:200px;max-width:280px;padding:8px;border-radius:8px;
   background:var(--overlay-panel, rgba(8,14,28,.97));
   border:1px solid rgba(125,211,252,.25);
   box-shadow:0 8px 24px rgba(0,0,0,.35);
 }
-.ld-col-filter input{
-  width:100%;box-sizing:border-box;padding:4px 6px;border-radius:4px;
+.ld-opt-search{
+  width:100%;box-sizing:border-box;padding:4px 6px;border-radius:4px;margin-bottom:6px;
   border:1px solid rgba(125,211,252,.2);background:rgba(0,0,0,.25);color:var(--ink,#e8eef8);
 }
-.ld-col-actions{display:flex;gap:6px;margin-top:6px}
+.ld-opt-list{
+  max-height:220px;overflow:auto;margin-bottom:6px;
+  border:1px solid rgba(125,211,252,.12);border-radius:6px;padding:4px;
+}
+.ld-opt-row{
+  display:flex;align-items:flex-start;gap:6px;padding:3px 4px;font-size:12px;font-weight:400;
+  cursor:pointer;line-height:1.35;
+}
+.ld-opt-row:hover{background:rgba(125,211,252,.08)}
+.ld-opt-row span{word-break:break-all}
+.ld-opt-hint,.ld-opt-err{font-size:12px;padding:6px 2px;color:var(--mut,#94a3b8)}
+.ld-opt-err{color:#f87171}
+.ld-col-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 </style>

@@ -262,6 +262,65 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             }
         )
 
+    @app.get("/api/v1/vm/ledger/values")
+    def api_v1_vm_ledger_values(
+        request: Request,
+        column: str,
+        month_from: str | None = None,
+        month_to: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        filters: str | None = None,
+        bu: str | None = None,
+        q: str | None = None,
+        show_all: int = 0,
+        limit: int = 200,
+    ):
+        """看端费用明细：列去重可选值（Excel 式多选漏斗）。
+
+        鉴权/白名单/口径与 GET /api/v1/vm/ledger 一致；query_detail_distinct 会排除本列自身 in，避免下拉自锁。
+        """
+        import authz
+        import db
+        from domain.expense.chart_whitelist import merge_ledger_caliber_filters
+
+        user = _user(request)
+        vacc = _vacc_row(request)
+        force_bu, hide_salary, audience = authz.resolve_expense_view_access(
+            user,
+            vacc,
+            bu,
+            cfg=cfg,
+            force_whitelist=True,
+        )
+        caliber_all = bool(int(show_all or 0))
+        filters_eff = merge_ledger_caliber_filters(filters, cfg, show_all=caliber_all)
+        conn = db.connect(cfg, root)
+        try:
+            try:
+                data = db.query_detail_distinct(
+                    conn,
+                    "费用明细",
+                    column,
+                    month=None,
+                    q=q,
+                    year=None,
+                    bu=force_bu,
+                    filters=filters_eff,
+                    hide_salary=hide_salary,
+                    limit=limit,
+                    audience=audience,
+                    month_from=month_from,
+                    month_to=month_to,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+            except KeyError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+        finally:
+            conn.close()
+        return JSONResponse(data)
+
     @app.get("/api/v1/vm/ledger/export")
     def api_v1_vm_ledger_export(
         request: Request,

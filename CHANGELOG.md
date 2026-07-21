@@ -18,10 +18,12 @@
 - **C VM 契约**：`scripts/gen_vm_ts.py` 生成字段清单；verify `--check` 防漂移
 - **D 抓数护栏**：登录连败冷却 24h（体检红）；7 日行数基线；Worksheet 探活；1 月 0 行信息级
 - **D 回款重复口径（明昊拍板）**：定位键重复不判黄，体检 `info` 展示
+- **看端费用明细表头筛选**：Excel/数据调整式可选值多选（`filters.in` + `/api/v1/vm/ledger/values`），不再盲输
 
 ### Added
 - MADR 整数分 / 增量重算 / VM 生成 / 回款黄灯口径
 - tests `test_task66_stage66_batch_{a,b,c,d}`
+- tests `test_ledger_excel_filter.py`；API `GET /api/v1/vm/ledger/values`
 
 ---
 

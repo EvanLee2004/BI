@@ -133,6 +133,7 @@ tests/test_task57_b5_admin_hook.py
 tests/test_task57_b6_domain_coverage.py
 tests/test_task57_c_export_cap.py
 tests/test_task58_ledger_date_range.py
+tests/test_ledger_excel_filter.py
 tests/test_task61_stage61.py
 tests/test_task63_stage63_batch_a.py
 tests/test_task63_stage63_batch_b.py
