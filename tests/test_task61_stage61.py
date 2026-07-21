@@ -257,7 +257,7 @@ class TestStage61SourceGuards(unittest.TestCase):
         rk = (root / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
         self.assertIn("rk-others-btn", rk)
         exp = (root / "components" / "ExpenseSection.vue").read_text(encoding="utf-8")
-        self.assertIn("exp-dept-md", exp)
+        self.assertIn("exp-drawer-panel", exp)
         lt = (root / "components" / "LedgerTable.vue").read_text(encoding="utf-8")
         self.assertIn("ld-col-filter", lt)
         cfg = (ROOT / "config.json").read_text(encoding="utf-8")

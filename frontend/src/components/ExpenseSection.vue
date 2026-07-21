@@ -1,9 +1,11 @@
 <script setup lang="ts">
-/** 期间费用构成：环形 + 构成四态。
- *  任务书61·F：按部门改 master-detail 左右布局（左列表 / 右明细），不内嵌左框。
+/** 期间费用构成：环形（按大类） + 三态进度条列表（按类别 / 按利润中心 / 按部门）。
+ *  2026-07-21：三态列表点某一行 → 右侧抽屉展开该项「费用明细」，与「管理利润表」(PLTable) 同一交互；
+ *  取代早前的左右分栏 master-detail 与行内嵌展开。
  *  54.14 R-20：center.total_disp 已含「万」，禁止再拼单位。
+ *  铁律17：抽屉 position:fixed，必须 Teleport to body（与 PLTable 一致）。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
@@ -18,9 +20,11 @@ import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
+type ListMode = 'fine' | 'pc' | 'dept'
+
 const store = useCockpitStore()
 const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
-const mode = ref<'donut' | 'fine' | 'pc' | 'dept'>('donut')
+const mode = ref<'donut' | ListMode>('donut')
 
 const items = computed(() => {
   const by = exp.value.donut_by_period || {}
@@ -35,6 +39,10 @@ const views = computed(() => {
   return by[store.period] || { total_disp: '', by_category: [], by_pc: [], by_dept: [] }
 })
 
+const isListMode = computed(
+  () => mode.value === 'fine' || mode.value === 'pc' || mode.value === 'dept',
+)
+
 const hbar = computed((): ExpenseHBar[] => {
   if (mode.value === 'fine') return views.value.by_category || []
   if (mode.value === 'pc') return views.value.by_pc || []
@@ -42,24 +50,40 @@ const hbar = computed((): ExpenseHBar[] => {
   return []
 })
 
-/** 按类别/利润中心：仍用内嵌展开；按部门：master-detail 选中行 */
-const openFine = ref<string | null>(null)
-const selectedDeptKey = ref<string | null>(null)
-
-const selectedDept = computed((): ExpenseHBar | null => {
-  if (mode.value !== 'dept' || !selectedDeptKey.value) return null
-  return hbar.value.find((r) => r.key === selectedDeptKey.value) || null
+/** 右侧抽屉：选中行 key；切 tab / 切周期都关闭清空（开合模型与 PLTable 抽屉一致）。 */
+const openKey = ref<string | null>(null)
+const drawerOpen = computed(() => isListMode.value && !!openKey.value)
+const openRow = computed((): ExpenseHBar | null => {
+  if (!openKey.value) return null
+  return hbar.value.find((r) => r.key === openKey.value) || null
 })
 
+const entityLabel = computed(() => {
+  if (mode.value === 'fine') return '类别'
+  if (mode.value === 'pc') return '利润中心'
+  return '部门'
+})
+const emptyFineText = computed(() => `该${entityLabel.value}无细类明细`)
+
+function openDrawer(row: ExpenseHBar) {
+  openKey.value = row.key
+}
+function closeDrawer() {
+  openKey.value = null
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeDrawer()
+}
+onMounted(() => document.addEventListener('keydown', onKey))
+onUnmounted(() => document.removeEventListener('keydown', onKey))
+
 watch(mode, () => {
-  openFine.value = null
-  selectedDeptKey.value = null
+  openKey.value = null
 })
 watch(
   () => store.period,
   () => {
-    openFine.value = null
-    selectedDeptKey.value = null
+    openKey.value = null
   },
 )
 
@@ -142,14 +166,6 @@ const option = computed(() => {
     ...animBlock(),
   }
 })
-
-function onHbarClick(row: ExpenseHBar) {
-  if (mode.value === 'dept') {
-    selectedDeptKey.value = selectedDeptKey.value === row.key ? null : row.key
-    return
-  }
-  openFine.value = openFine.value === row.key ? null : row.key
-}
 </script>
 <template>
   <SciFiPanel
@@ -177,56 +193,52 @@ function onHbarClick(row: ExpenseHBar) {
           </span>
         </div>
       </div>
-      <!-- F：按部门 master-detail -->
-      <div v-else-if="mode === 'dept'" class="exp-md" data-testid="exp-dept-md">
-        <div class="exp-md-list exp-hbar-scroll">
-          <div
-            v-for="(row, i) in hbar"
-            :key="'d' + i"
-            class="ev-row exp-md-row"
-            :class="{ on: selectedDeptKey === row.key }"
-            data-testid="exp-dept-row"
-            @click="onHbarClick(row)"
-          >
-            <span class="ev-name">{{ row.name }}</span>
-            <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
-            <span class="ev-amt">{{ row.amt_disp }}</span>
-          </div>
-          <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
-        </div>
-        <div class="exp-md-detail" data-testid="exp-dept-detail">
-          <template v-if="selectedDept">
-            <div class="exp-md-detail-h">{{ selectedDept.name }} · 费用明细</div>
-            <div v-if="selectedDept.fine?.length" class="exp-md-fine">
-              <div v-for="(f, j) in selectedDept.fine" :key="j" class="pl-drow sub exp-md-fine-row">
-                <span>{{ f.name }}</span><span>{{ f.amt_disp }}</span>
-              </div>
-            </div>
-            <div v-else class="ev-empty">该部门无细类明细</div>
-          </template>
-          <div v-else class="ev-empty exp-md-hint">← 点左侧部门查看明细</div>
-        </div>
-      </div>
-      <div v-else-if="mode !== 'donut'" class="ev-list exp-hbar-scroll" style="padding: 8px 12px">
+      <!-- 按类别 / 按利润中心 / 按部门：进度条列表，点行开右侧抽屉 -->
+      <div
+        v-else-if="isListMode"
+        class="ev-list exp-hbar-scroll"
+        style="padding: 8px 12px"
+        data-testid="exp-list"
+        :data-mode="mode"
+      >
         <div
           v-for="(row, i) in hbar"
-          :key="i"
-          class="ev-row"
-          @click="onHbarClick(row)"
+          :key="mode + '-' + i + '-' + row.key"
+          class="ev-row exp-bar-row"
+          :class="{ on: openKey === row.key }"
+          data-testid="exp-bar-row"
+          @click="openDrawer(row)"
         >
           <span class="ev-name">{{ row.name }}</span>
           <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
           <span class="ev-amt">{{ row.amt_disp }}</span>
-          <div v-if="openFine === row.key && row.fine?.length" class="ev-fine" style="width: 100%; padding-left: 12px">
-            <div v-for="(f, j) in row.fine" :key="j" class="pl-drow sub">
-              <span>{{ f.name }}</span><span>{{ f.amt_disp }}</span>
-            </div>
-          </div>
         </div>
         <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
       </div>
       <div v-else class="ev-empty">本期无数据</div>
     </div>
+
+    <!-- 右侧抽屉：与 PLTable 同一套 body 直下 fixed（Teleport）；复用全局 drawer/pl-drow 样式 -->
+    <Teleport to="body">
+      <div v-if="drawerOpen && openRow" class="drawer open" aria-hidden="false">
+        <div class="drawer-mask" data-testid="exp-drawer-mask" @click="closeDrawer"></div>
+        <div class="drawer-panel" data-testid="exp-drawer-panel">
+          <div class="drawer-h">
+            <b>{{ openRow.name }} · 费用明细</b>
+            <button type="button" class="ghost mini" data-close @click="closeDrawer">关闭</button>
+          </div>
+          <div class="drawer-body">
+            <template v-if="openRow.fine && openRow.fine.length">
+              <div v-for="(f, j) in openRow.fine" :key="j" class="pl-drow sub">
+                <span class="pl-name">{{ f.name }}</span>
+                <span class="pl-amt">{{ f.amt_disp }}</span>
+              </div>
+            </template>
+            <div v-else class="ev-empty">{{ emptyFineText }}</div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </SciFiPanel>
 </template>
 
@@ -238,55 +250,16 @@ function onHbarClick(row: ExpenseHBar) {
   max-height: 360px;
   overflow-y: auto;
 }
-.exp-md {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  min-height: 320px;
-  padding: 4px 0;
-}
-.exp-md-list {
-  border: 1px solid rgba(125, 211, 252, 0.12);
-  border-radius: 8px;
-  padding: 6px 8px;
-}
-.exp-md-row {
+.exp-bar-row {
   cursor: pointer;
   border-radius: 6px;
-  padding: 6px 8px;
+  transition: background 0.15s ease;
 }
-.exp-md-row.on {
+.exp-bar-row:hover {
+  background: rgba(34, 211, 238, 0.08);
+}
+.exp-bar-row.on {
   background: rgba(34, 211, 238, 0.12);
   outline: 1px solid rgba(34, 211, 238, 0.35);
-}
-.exp-md-detail {
-  border: 1px solid rgba(125, 211, 252, 0.12);
-  border-radius: 8px;
-  padding: 10px 12px;
-  min-height: 200px;
-}
-.exp-md-detail-h {
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: var(--ink, #e8eef8);
-}
-.exp-md-fine-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0;
-  border-bottom: 1px dashed rgba(125, 211, 252, 0.1);
-  font-size: 12.5px;
-}
-.exp-md-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 160px;
-}
-@media (max-width: 700px) {
-  .exp-md {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

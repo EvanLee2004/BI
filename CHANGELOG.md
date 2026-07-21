@@ -8,6 +8,19 @@
 
 ---
 
+## [2.2.3] - 2026-07-21
+
+### Changed
+- **期间费用三态交互**：按类别 / 按利润中心 / 按部门 由左右分栏（及行内嵌展开）改为「进度条列表 + 点击行右侧抽屉展开明细」，复用管理利润表同套抽屉；口径/数据零改
+
+### Added
+- tests `test_expense_drawer.py`（抽屉门禁）
+
+### Removed
+- tests `test_expense_md_unified.py`（master-detail 门禁下线；本版未入库）
+
+---
+
 ## [2.2.2] - 2026-07-21
 
 ### Fixed

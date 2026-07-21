@@ -44,6 +44,7 @@ tests/test_server.py
 tests/test_admin_edit.py
 tests/test_budget.py
 tests/test_expense_views.py
+tests/test_expense_drawer.py
 tests/test_daily.py
 tests/test_profit_ranking.py
 tests/test_bu.py
