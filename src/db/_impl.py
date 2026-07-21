@@ -43,6 +43,7 @@ from .meta_lists import (  # noqa: F401
 from .adjust import (  # noqa: F401
     _now,
     add_adjustment,
+    add_adjustments_batch,
     revoke_adjustment,
     revoke_expired_adjustments,
     rearm_adjustment,

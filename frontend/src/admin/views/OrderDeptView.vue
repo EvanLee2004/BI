@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * 下单未填部门 · 54.7 R-00a：禁止一次拉满/渲满万级行（旧逻辑 page_size=200×50 页 concat 卡死）。
- * 服务端分页，每页 50 行；真分页控件；2s 内可交互。
+ * 下单未填部门 · 2.2.6：表头筛选驱动本页批量归类；确认框明示「仅当前页」+笔数+金额。
+ * 服务端分页每页 50；顶栏无销售筛选（防两套筛选脱节）。
  */
 import { computed, inject, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { TableInstance } from 'element-plus'
 import { jget, jpost } from '../api'
 
 const reloadDash = inject<() => void>('reloadDash', () => {})
@@ -12,33 +13,84 @@ const refreshExceptions = inject<() => Promise<void>>('refreshExceptions', async
 
 const rows = ref<Record<string, unknown>[]>([])
 const depts = ref<string[]>([])
-const salesFilter = ref('')
 const batchDept = ref('')
 const loading = ref(false)
+const bulkLoading = ref(false)
 const rowDept = ref<Record<string, string>>({})
 const page = ref(1)
 const pageSize = 50
 const total = ref(0)
 const pages = ref(1)
+const tableRef = ref<TableInstance>()
+/** el-table 列筛选生效值：columnKey → 选中值列表 */
+const activeFilters = ref<Record<string, string[]>>({})
 
-const salesList = computed(() => {
-  const s = new Set(
-    rows.value
-      .map((r) => String(r['销售'] || '').trim())
-      .filter(Boolean),
-  )
-  return [...s].sort()
+/** 本页 × 表头当前筛选（与表格可见行同一数据源） */
+const filteredRows = computed(() => {
+  let list = rows.value
+  for (const [prop, vals] of Object.entries(activeFilters.value)) {
+    if (!vals || vals.length === 0) continue
+    list = list.filter((r) => vals.includes(String(r[prop] ?? '')))
+  }
+  return list
 })
 
-/** 当前页内销售筛选（不二次请求；全库筛在后续迭代可加 query 参数） */
-const shown = computed(() => {
-  if (!salesFilter.value) return rows.value
-  return rows.value.filter((r) => String(r['销售'] || '').trim() === salesFilter.value)
+const filterSummary = computed(() => {
+  const parts: string[] = []
+  for (const [prop, vals] of Object.entries(activeFilters.value)) {
+    if (!vals || vals.length === 0) continue
+    parts.push(`${prop}=${vals.join('、')}`)
+  }
+  return parts.length ? parts.join('；') : '本页全部待归类'
 })
+
+function sumOrderAmt(list: Record<string, unknown>[]): number {
+  let s = 0
+  for (const r of list) {
+    const raw = r['下单预估额']
+    if (raw == null || raw === '') continue
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, ''))
+    if (!Number.isNaN(n)) s += n
+  }
+  return s
+}
+
+function fmtYuan(n: number): string {
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function dateFilterOptions() {
+  return [...new Set(rows.value.map((r) => String(r['下单日期'] || '')).filter(Boolean))]
+    .slice(0, 40)
+    .map((t) => ({ text: t, value: t }))
+}
+function salesFilterOptions() {
+  return [...new Set(rows.value.map((r) => String(r['销售'] || '')).filter(Boolean))]
+    .map((t) => ({ text: t, value: t }))
+}
+
+function onFilterChange(filters: Record<string, string[]>) {
+  // Element Plus：key 为 column-key / prop
+  const next: Record<string, string[]> = {}
+  for (const [k, v] of Object.entries(filters || {})) {
+    if (Array.isArray(v) && v.length) next[k] = v.map(String)
+  }
+  activeFilters.value = next
+}
+
+function clearColFilters() {
+  activeFilters.value = {}
+  try {
+    tableRef.value?.clearFilter()
+  } catch {
+    /* ignore */
+  }
+}
 
 async function load(resetPage = false) {
   if (resetPage) page.value = 1
   loading.value = true
+  clearColFilters()
   try {
     if (!depts.value.length) {
       try {
@@ -59,7 +111,6 @@ async function load(resetPage = false) {
   } finally {
     loading.value = false
   }
-  // 不阻塞首屏：计数刷新放后
   void refreshExceptions()
 }
 
@@ -102,42 +153,55 @@ async function saveOne(row: Record<string, unknown>) {
 
 async function batchSave() {
   if (!batchDept.value) {
-    ElMessage.warning('先选批量部门')
+    ElMessage.warning('先选批量归入的部门')
     return
   }
-  const list = shown.value
+  const list = filteredRows.value
   if (!list.length) {
-    ElMessage.warning('没有可归类的行')
+    ElMessage.warning('本页当前筛选下没有可归类的行')
     return
   }
+  const n = list.length
+  const amt = fmtYuan(sumOrderAmt(list))
+  const cond = filterSummary.value
+  const dept = batchDept.value
   try {
     await ElMessageBox.confirm(
-      `将把本页筛选结果 ${list.length} 笔${salesFilter.value ? '（销售=' + salesFilter.value + '）' : ''} 归到「${batchDept.value}」？`,
-      '批量归类（仅当前页）',
+      `【仅当前页】将把下表当前筛选结果归入「${dept}」\n\n` +
+        `筛选条件：${cond}\n` +
+        `笔数：${n} 笔\n` +
+        `金额合计：¥${amt}\n\n` +
+        `不会处理其它页的待归类订单。`,
+      '批量归入（仅当前页）',
+      {
+        confirmButtonText: '确认归入',
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      },
     )
   } catch {
     return
   }
-  let ok = 0
-  let fail = 0
-  for (const r of list) {
-    try {
-      await jpost('/api/adjust', {
-        目标表: 'std_下单',
-        定位键: r['定位键'],
-        字段: '部门',
-        新值: batchDept.value,
-        原因: '异常处理·批量归类' + (salesFilter.value ? '·' + salesFilter.value : ''),
-        类型: '改值',
-      })
-      ok++
-    } catch {
-      fail++
-    }
+  const keys = list.map((r) => String(r['定位键'] ?? '')).filter(Boolean)
+  bulkLoading.value = true
+  try {
+    const res = await jpost<{ count?: number }>('/api/adjust/batch', {
+      目标表: 'std_下单',
+      字段: '部门',
+      新值: dept,
+      原因: '异常处理·批量归类·本页表筛',
+      类型: '改值',
+      定位键列表: keys,
+    })
+    ElMessage.success(`✓ 已归入「${dept}」${res.count ?? keys.length} 笔（仅当前页）`)
+    reloadDash()
+    await load(false)
+  } catch (e) {
+    ElMessage.error('批量失败：' + String(e))
+  } finally {
+    bulkLoading.value = false
   }
-  ElMessage.success(`✓ 批量完成：成功 ${ok}${fail ? '，失败 ' + fail : ''}`)
-  reloadDash()
-  await load(false)
 }
 
 onMounted(() => load(true))
@@ -147,28 +211,39 @@ onMounted(() => load(true))
   <div>
     <div class="toolbar">
       <el-button @click="load(true)">刷新清单</el-button>
-      <el-select v-model="salesFilter" clearable placeholder="本页销售筛选" style="width: 140px">
-        <el-option v-for="s in salesList" :key="s" :label="s" :value="s" />
-      </el-select>
-      <el-select v-model="batchDept" clearable placeholder="批量部门" style="width: 140px">
+      <el-select v-model="batchDept" clearable placeholder="批量归入部门" style="width: 160px" filterable>
         <el-option v-for="d in depts" :key="d" :label="d" :value="d" />
       </el-select>
-      <el-button size="small" type="primary" @click="batchSave">对本页筛选批量归类</el-button>
-      <span class="muted">共 {{ total }} 条 · 第 {{ page }}/{{ pages }} 页 · 本页 {{ shown.length }}</span>
+      <el-button size="small" type="primary" :loading="bulkLoading" @click="batchSave">
+        对本页表筛结果批量归入
+      </el-button>
+      <span class="muted">
+        待归类共 {{ total }} 笔 · 第 {{ page }}/{{ pages }} 页 · 本页 {{ rows.length }} 笔 · 表筛后
+        {{ filteredRows.length }} 笔
+      </span>
       <el-button size="small" :disabled="page <= 1 || loading" @click="prevPage">上一页</el-button>
       <el-button size="small" :disabled="page >= pages || loading" @click="nextPage">下一页</el-button>
     </div>
     <div class="admin-note">
-      智云下单源头没填「部门」→ 排名灰显「（未填）」。列表<strong>分页加载</strong>（每页 {{ pageSize }}
-      行），避免大数字徽章点进后全量渲染卡死。
+      智云下单源头没填「部门」→ 排名灰显「（未填）」。请用<strong>表头筛选</strong>缩小本页范围，再点批量归入；
+      确认框会写明<strong>仅当前页</strong>的笔数与金额，不会处理其它页。
     </div>
 
-    <el-table :data="shown" v-loading="loading" border stripe height="calc(100vh - 300px)">
+    <el-table
+      ref="tableRef"
+      :data="rows"
+      v-loading="loading || bulkLoading"
+      border
+      stripe
+      height="calc(100vh - 300px)"
+      @filter-change="onFilterChange"
+    >
       <el-table-column
         prop="下单日期"
+        column-key="下单日期"
         label="下单日期"
         width="120"
-        :filters="[...new Set(shown.map((r) => String(r['下单日期'] || '')).filter(Boolean))].slice(0, 40).map((t) => ({ text: t, value: t }))"
+        :filters="dateFilterOptions()"
         :filter-method="(v: string, row: Record<string, unknown>) => String(row['下单日期'] || '') === v"
       >
         <template #default="{ row }">{{ row['下单日期'] }}</template>
@@ -178,9 +253,10 @@ onMounted(() => load(true))
       </el-table-column>
       <el-table-column
         prop="销售"
+        column-key="销售"
         label="销售"
         width="100"
-        :filters="[...new Set(shown.map((r) => String(r['销售'] || '')).filter(Boolean))].map((t) => ({ text: t, value: t }))"
+        :filters="salesFilterOptions()"
         :filter-method="(v: string, row: Record<string, unknown>) => String(row['销售'] || '') === v"
       >
         <template #default="{ row }">{{ row['销售'] }}</template>

@@ -147,6 +147,7 @@ tests/test_ui_sales_customer_order_and_ro_filter.py
 tests/test_task_2_2_4.py
 tests/test_expense_zhuangxiu_alloc.py
 tests/test_task_2_2_5.py
+tests/test_task_2_2_6.py
 "
 run_one() {
   f="$1"
