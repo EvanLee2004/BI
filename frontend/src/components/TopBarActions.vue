@@ -1,14 +1,17 @@
 <script setup lang="ts">
-/** 顶栏：退出（全角色）+ 非管理员自改密码。 */
+/** 顶栏：导出 PNG + 退出（全角色）+ 非管理员自改密码。 */
 import { onMounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
+import { useCockpitStore } from '../stores/cockpit'
 
+const store = useCockpitStore()
 const isAdmin = ref(true) // 默认隐藏改密，等 session
 const showPw = ref(false)
 const oldPw = ref('')
 const newPw = ref('')
 const msg = ref('')
 const msgCls = ref('')
+const exporting = ref(false)
 
 onMounted(async () => {
   try {
@@ -26,6 +29,42 @@ async function logout() {
     /* ignore */
   }
   location.replace('/login')
+}
+
+/** ③ 导出：请求后端 Playwright PNG，按 X-Filename 下载（不改后端导出口径）。 */
+async function exportPng() {
+  if (exporting.value) return
+  if (location.protocol === 'file:') {
+    alert('图片导出需在看板服务页面使用')
+    return
+  }
+  const blk = store.period || ''
+  const url =
+    store.scope === 'bu' && store.buName
+      ? `/bu/${encodeURIComponent(store.buName)}/export.png?blk=${encodeURIComponent(blk)}`
+      : `/export.png?blk=${encodeURIComponent(blk)}`
+  exporting.value = true
+  try {
+    const r = await fetch(url, { credentials: 'same-origin' })
+    if (!r.ok) {
+      const t = await r.text().catch(() => '')
+      throw new Error(t || `HTTP ${r.status}`)
+    }
+    const fn =
+      decodeURIComponent(r.headers.get('X-Filename') || '') || '甲骨易智能经营罗盘.png'
+    const b = await r.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(b)
+    a.download = fn
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    alert('导出失败：' + (e instanceof Error ? e.message : String(e)))
+  } finally {
+    exporting.value = false
+  }
 }
 
 async function savePw() {
@@ -62,6 +101,15 @@ async function savePw() {
 }
 </script>
 <template>
+  <button
+    type="button"
+    class="toggle export-png-btn"
+    id="exportBtn"
+    :disabled="exporting"
+    @click="exportPng"
+  >
+    <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
+  </button>
   <button type="button" class="toggle" id="logoutBtn" @click="logout">退出</button>
   <button v-if="!isAdmin" type="button" class="toggle" id="pwBtn" @click="showPw = true">
     <span>🔑</span> 密码

@@ -323,23 +323,29 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             start = _dt.date(y, m, 1)
             end = _dt.date(y, m + 1, 1) - _dt.timedelta(days=1) if m < 12 else _dt.date(y, 12, 31)
             led, _ = profit.compute_ledger_expenses(public_rows, y, start, end, cfg, lcols)
+            # led 值为分；汇总仍用分做比例拆分，显示层再 ÷100 转元（2.2.4·E）
             month_total = round(sum(float(v or 0) for v in led.values()), 2)
         known = {b: p for b, p in ratios.items() if b in set(bu_names)}
         sum_pct = round(sum(known.values()), 1)
         remain_pct = round(max(0.0, 100.0 - sum_pct), 1)
         remain_amt = round(month_total * remain_pct / 100.0, 2)
         orphans = sorted(set(ratios) - set(bu_names))
+        # 显示串：分 → 元（铁律2：前端零运算；用 money.fen_to_yuan）
+        import money as _money
+
+        month_total_yuan = _money.fen_to_yuan(month_total)
+        remain_amt_yuan = _money.fen_to_yuan(remain_amt)
         return {
             "month": month,
             "bus": bu_names,
             "ratios": known,
             "inherited_from": inherited_from,
             "orphans": orphans,
-            "month_total": month_total,
-            "month_total_disp": f"{month_total:,.2f}",
+            "month_total": month_total,  # 分（内部/兼容）
+            "month_total_disp": f"{month_total_yuan:,.2f}",  # 元
             "sum_pct": sum_pct,
             "remain_pct": remain_pct,
-            "remain_amt_disp": f"{remain_amt:,.2f}",
+            "remain_amt_disp": f"{remain_amt_yuan:,.2f}",  # 元
         }
 
     @app.get("/api/alloc_ratios")

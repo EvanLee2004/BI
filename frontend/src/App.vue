@@ -24,6 +24,12 @@ const isBuRoute = computed(() => {
   const m = location.pathname.match(/^\/bu\/(.+)/)
   return m ? decodeURIComponent(m[1]) : ''
 })
+/** 2.2.4·G：无数据空态提示（后端 empty_message） */
+const emptyHint = computed(() => {
+  const v = store.vm as { empty?: boolean; empty_message?: string } | null
+  if (!v?.empty) return ''
+  return v.empty_message || '暂无数据'
+})
 
 onErrorCaptured((err) => onVueErrorCaptured(err))
 
@@ -48,15 +54,20 @@ onMounted(async () => {
   <BUPage v-else-if="store.scope === 'bu'" />
   <div v-else-if="store.vm" id="periodSync">
     <header class="topbar">
-      <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
-      <div class="tb-right">
+      <div class="tb-left">
+        <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
         <PeriodPicker />
+      </div>
+      <div class="tb-right">
         <ThemeToggle />
         <TopBarActions />
       </div>
     </header>
     <BuNav />
     <div class="wrap">
+    <div v-if="emptyHint" class="muted" style="padding:16px 0;color:var(--mut)">
+      {{ emptyHint }}
+    </div>
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>

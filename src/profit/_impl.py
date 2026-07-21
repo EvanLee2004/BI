@@ -25,6 +25,10 @@ from .expense_period import (  # noqa: F401
     compute_expenses_by_fine_type,
     compute_expenses_by_group,
     build_dept_budget_block,
+    manual_alloc_category_map,
+    manual_alloc_amounts_by_cat,
+    inject_manual_alloc_into_breakdowns,
+    MANUAL_ALLOC_GROUP,
 )
 from .budget_manual import (  # noqa: F401
     build_manual_monthly,

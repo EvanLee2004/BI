@@ -29,7 +29,14 @@ import money
 
 from .constants import _PC_TO_BU, _PUBLIC_PC
 from .budget_manual import _month_num, build_budget_block, build_manual_monthly, build_period
-from .expense_period import build_dept_budget_block, compute_expense_monthly_by_cat, compute_expenses_by_fine_type, compute_expenses_by_group, detax_ledger_rows
+from .expense_period import (
+    build_dept_budget_block,
+    compute_expense_monthly_by_cat,
+    compute_expenses_by_fine_type,
+    compute_expenses_by_group,
+    detax_ledger_rows,
+    inject_manual_alloc_into_breakdowns,
+)
 from .misc import _data_health
 from .tax_revenue import compute_orders
 from .misc import load_manual_safe
@@ -87,6 +94,10 @@ def build_summary(
         fine[key] = compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lcols)
         by_dept[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "预算归属部门")
         by_pc[key] = compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, "业务BU")
+        # 2.2.4·② 手填三类补进费用三视图（分；不改核心 expense total/pretax）
+        fine[key], by_pc[key], by_dept[key] = inject_manual_alloc_into_breakdowns(
+            P[key].get("manual"), cfg, fine[key], by_pc[key], by_dept[key]
+        )
         tab_groups[group].append(key)
 
     year_key = f"{today.year}年"

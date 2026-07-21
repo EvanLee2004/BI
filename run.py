@@ -33,11 +33,25 @@ def run_batch(trigger="manual") -> int:
     today = loaders.pinned_today(cfg)
     print(f"数据目录：{cfg['data_dir']}  周期基准：{today}")
 
-    # 进门验证：格式不对先拦下，报"哪个源、哪一列、第几行"，不出一份算错的报表
+    # 进门验证：格式不对先报；2.2.4·G 数据源缺失/未配置不再硬拦（体检黄+继续用现有/空数据）
     rep = validate.validate_all(cfg, today.year)
     validate.print_report(rep)
-    if rep.errors:
-        print(f"\n✗ 数据格式有 {len(rep.errors)} 处问题，先修源文件再跑（定位见上）。本次不生成报表。")
+    missing_like = ("不存在", "未配置", "缺 base", "缺账号", "缺密码")
+    hard_errors = [
+        e
+        for e in rep.errors
+        if not any(k in (e.message or "") for k in missing_like)
+    ]
+    soft_missing = [e for e in rep.errors if e not in hard_errors]
+    if soft_missing and not hard_errors:
+        print(
+            f"\n⚠ 数据源缺失/未配置 {len(soft_missing)} 处（体检黄）："
+            "继续用现有/空数据构建，不挡看端。"
+        )
+    elif hard_errors:
+        print(
+            f"\n✗ 数据格式有 {len(hard_errors)} 处问题，先修源文件再跑（定位见上）。本次不生成报表。"
+        )
         return 1
 
     # BU 分页只经 --serve 的 /bu/{token} 出，不落盘 output/（避免 token 命名文件散落）

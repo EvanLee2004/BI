@@ -782,6 +782,14 @@ html.theme-light .scifi-panel.pl-card .pl-row.grand .pl-amt {
   border-bottom: 1px solid rgba(var(--dsdk-rgb-accent-secondary), 0.22);
   box-shadow: 0 4px 28px rgba(0, 0, 0, 0.35);
 }
+/* 2.2.4·① 时间选择器归左上（标题旁）；窄屏换行不叠 */
+.tb-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .tb-title b {
   color: var(--dsdk-accent-color-secondary);
   text-shadow: 0 0 14px rgba(var(--dsdk-rgb-accent-secondary), 0.4);

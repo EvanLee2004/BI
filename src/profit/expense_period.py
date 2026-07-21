@@ -67,7 +67,7 @@ def is_manual_alloc_ledger_row(row, cfg, lcols) -> bool:
 def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
     """手填三类分摊 → 按报表大类汇总（分）。未填项=0。
 
-    cfg 缺 map 时回退默认（房租/物业费→固定运营费用，装修费→管理费用），
+    cfg 缺 map 时回退默认（房租/物业费/装修费→固定运营费用，2026-07-21 陆总口径），
     避免 BU 分摊重算路径因未传 cfg 丢掉人工分摊（任务书61·J 补丁）。
     """
     man = man or {}
@@ -76,12 +76,94 @@ def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
         cmap = {
             "房租": "固定运营费用",
             "物业费": "固定运营费用",
-            "装修费": "管理费用",
+            "装修费": "固定运营费用",
         }
     out: dict[str, int] = defaultdict(int)
     for fine, cat in cmap.items():
         out[cat] += int(money.as_fen(man.get(fine, 0)) or 0)
     return {k: int(v) for k, v in out.items()}
+
+
+# 2.2.4·② 三视图：利润中心/部门视角并入同一「人工分摊(公共)」组（明昊拍板）
+MANUAL_ALLOC_GROUP = "人工分摊(公共)"
+
+_DEFAULT_MANUAL_ALLOC_CMAP = {
+    "房租": "固定运营费用",
+    "物业费": "固定运营费用",
+    "装修费": "固定运营费用",
+}
+
+
+def _manual_alloc_items(pman, cfg) -> list[tuple[str, str, int]]:
+    """手填三类 → [(细类, 大类, 分), ...] 仅 >0。"""
+    man = pman or {}
+    cmap = manual_alloc_category_map(cfg) or dict(_DEFAULT_MANUAL_ALLOC_CMAP)
+    items: list[tuple[str, str, int]] = []
+    for fine, cat in cmap.items():
+        amt = int(money.as_fen(man.get(fine, 0)) or 0)
+        if amt:
+            items.append((fine, cat, amt))
+    return items
+
+
+def _merge_fine_into_cat(fine_by_cat: dict | None, items: list[tuple[str, str, int]]) -> dict:
+    """把 items 并入 {大类:[(细,分)]}。"""
+    fine_out: dict = {k: list(v) for k, v in (fine_by_cat or {}).items()}
+    for fine, cat, amt in items:
+        lst = list(fine_out.get(cat) or [])
+        for i, (f, a) in enumerate(lst):
+            if f == fine:
+                lst[i] = (f, int(a) + amt)
+                break
+        else:
+            lst.append((fine, amt))
+        fine_out[cat] = sorted(lst, key=lambda x: -x[1])
+    return fine_out
+
+
+def _inject_manual_group(groups, items: list[tuple[str, str, int]]):
+    """None 保持 None；否则并入 MANUAL_ALLOC_GROUP 再降序。"""
+    if groups is None:
+        return None
+    fine_map: dict[str, int] = defaultdict(int)
+    for fine, _cat, amt in items:
+        fine_map[fine] += amt
+    total = int(sum(fine_map.values()))
+    new_groups = []
+    found = False
+    for g, tot, fines in groups:
+        if g == MANUAL_ALLOC_GROUP:
+            fm = defaultdict(int)
+            for f, a in fines:
+                fm[f] += int(a)
+            for f, a in fine_map.items():
+                fm[f] += a
+            new_groups.append((g, int(tot) + total, sorted(fm.items(), key=lambda x: -x[1])))
+            found = True
+        else:
+            new_groups.append((g, tot, fines))
+    if not found:
+        new_groups.append((MANUAL_ALLOC_GROUP, total, sorted(fine_map.items(), key=lambda x: -x[1])))
+    new_groups.sort(key=lambda x: -x[1])
+    return new_groups
+
+
+def inject_manual_alloc_into_breakdowns(pman, cfg, fine_by_cat, by_pc, by_dept):
+    """把手填三类（房租/物业费/装修费，分）注入费用三视图明细。
+
+    - fine_by_cat: {大类: [(细类, 分), ...]} 按 manual_alloc_category_map 归大类补进
+    - by_pc / by_dept: [(组名, 合计, [(细, 分), ...]), ...] 或 None
+      → 并入一个 MANUAL_ALLOC_GROUP，再按合计降序；None 保持 None
+    单位=分，零换算（pman 已是分·int）。范式照 inject_manual_alloc_monthly。
+    """
+    items = _manual_alloc_items(pman, cfg)
+    if not items:
+        return fine_by_cat, by_pc, by_dept
+    return (
+        _merge_fine_into_cat(fine_by_cat, items),
+        _inject_manual_group(by_pc, items),
+        _inject_manual_group(by_dept, items),
+    )
 
 
 def expense_totals_from_man_led(man: dict | None, led: dict | None, cfg=None) -> dict[str, float]:

@@ -78,7 +78,8 @@ def _kpi_subs(key, pctkey, p, val, charts) -> list[dict[str, str]]:
         if o > 0:
             subs.append({"label": "交付占下单", "value_disp": f"{val / o * 100:.0f}%"})
     elif pctkey == "gross_margin_pct":
-        subs.append({"label": "毛利率", "value_disp": f"{p[pctkey]:.1f}%"})
+        # 2.2.4·B：大数字已是毛利率%，副信息改为毛利额
+        subs.append({"label": "毛利额", "value_disp": charts.fmt_wan(val) + "万"})
     elif pctkey == "pretax_margin_pct":
         subs.append({"label": "利润率", "value_disp": f"{p[pctkey]:.1f}%"})
     if key == "receipts":
@@ -125,12 +126,19 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
         cards = []
         for label, key, src, up_good, pctkey, _color, tkey in KPI_CARDS:
             val = float(_kpi_val(p, key) or 0.0)
+            # 2.2.4·B：毛利率卡大数字=毛利率%；key 仍 gross_profit（delta/peak/target 逻辑不断）
+            if key == "gross_profit" and pctkey:
+                headline = f"{float(p.get(pctkey) or 0.0):.1f}"
+                unit = "%"
+            else:
+                headline = charts.fmt_wan(val)
+                unit = "万"
             cards.append(
                 {
                     "label": label,
                     "period_tag": period_tag,
-                    "value_disp": charts.fmt_wan(val),
-                    "value_unit": "万",
+                    "value_disp": headline,
+                    "value_unit": unit,
                     "delta": _kpi_delta(val, prev, P, key, up_good, _kpi_val),
                     "subs": _kpi_subs(key, pctkey, p, val, charts),
                     "target": kpi_target_bar(tkey, pkey, p, budget),

@@ -86,7 +86,8 @@ body{
   background:rgba(34,211,238,.10);white-space:nowrap;vertical-align:middle}
 .theme-light .tb-ver{background:rgba(8,145,178,.10);color:var(--blue)}
 .tb-sub{font-size:12px;color:var(--mut2);margin-left:4px}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.tb-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .tb-time{font-size:12px;color:var(--mut2)}
 .toggle{cursor:pointer;border:1px solid var(--line-2);background:var(--panel);color:var(--mut);
   border-radius:999px;padding:4px 12px;font-size:12px;display:flex;align-items:center;gap:4px;

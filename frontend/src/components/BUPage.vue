@@ -20,10 +20,12 @@ const store = useCockpitStore()
 <template>
   <div>
     <header class="topbar">
-      <a class="bu-back" href="/">← 整体</a>
-      <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
-      <div class="tb-right">
+      <div class="tb-left">
+        <a class="bu-back" href="/">← 整体</a>
+        <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
         <PeriodPicker />
+      </div>
+      <div class="tb-right">
         <ThemeToggle />
         <TopBarActions />
       </div>

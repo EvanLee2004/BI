@@ -271,7 +271,6 @@ import './admin-layout.css'
       <span class="muted">{{ refreshMsg }}</span>
       <span style="margin-left: auto" />
       <el-button text @click="toggleTheme">{{ isLight ? '◐ 深色' : '◑ 浅色' }}</el-button>
-      <a class="logout" href="/admin/logout">退出</a>
     </header>
 
     <div v-if="healthOpen && health" class="health-pop">

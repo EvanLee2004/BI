@@ -98,9 +98,9 @@
   "manual_alloc_category_map": {
     "房租": "固定运营费用",
     "物业费": "固定运营费用",
-    "装修费": "管理费用"
+    "装修费": "固定运营费用"
   },
-  "_manual_alloc_category_map_note": "人工分摊额归回台账原对应报表大类（2026-07-20 台账核：房租/物业费→固定运营费用，装修费→管理费用）。",
+  "_manual_alloc_category_map_note": "人工分摊额归回报表大类（2026-07-21 陆总口径：装修与房租/物业同归固定运营费用；重分类中性·期间费用total/pretax不变）。",
   "unclassified_label_expense": "未分类",
   "unclassified_label_bu": "未分类BU",
   "unclassified_label_fine_type": "未标注明细类型",
@@ -129,7 +129,7 @@
     },
     {
       "name": "装修费",
-      "role": "管理费用",
+      "role": "固定运营费用",
       "default": "zero",
       "manual_alloc": true
     },

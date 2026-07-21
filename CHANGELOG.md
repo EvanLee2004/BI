@@ -8,6 +8,27 @@
 
 ---
 
+## [2.2.4] - 2026-07-21
+
+### Changed
+- **① 时间选择器左上**：整体页/BU 页 `PeriodPicker` 归 `.tb-left`（标题旁）；主题/退出/导出在右上
+- **B 毛利率卡**：KPI「管理毛利」→ 标题「毛利率」、大数字=`gross_margin_pct`%、毛利额副行（key 仍 `gross_profit`）
+- **D 回款卡改名**：「回款情况」→「下单/回款情况」
+- **A 装修费归固定运营**：`manual_alloc_category_map` 装修费→固定运营费用（重分类中性·total/pretax 不变）
+- **F 管理端退出**：顶栏移除；设置页底部「退出登录」
+
+### Fixed
+- **C 回款基准线**：`ReceiptsCard` y 轴 `axisMaxCover` 纳入 `budget_month`，游戏等低量 BU 虚线不再被裁
+- **E 公共费用总额**：`manual.py` `_alloc_month_payload` 显示前分÷100 转元
+- **G 进入门槛**：数据源缺失/未配置不再硬拦 `run.py`；无 summary 返回友好空态（保留登录鉴权）
+
+### Added
+- **② 手填三类进三视图**：`inject_manual_alloc_into_breakdowns`；利润中心/部门组「人工分摊(公共)」
+- **③ 导出 PNG 按钮**：`TopBarActions` → `/export.png` / `/bu/{name}/export.png`（后端截图链路不动）
+- tests `test_task_2_2_4.py`、`test_expense_zhuangxiu_alloc.py`
+
+---
+
 ## [2.2.3] - 2026-07-21
 
 ### Changed

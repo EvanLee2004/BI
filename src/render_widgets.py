@@ -15,7 +15,7 @@ import tpl
 KPI_CARDS = [
     ("下单", "orders", "智云·下单预估额", True, None, "var(--purple)", "order"),
     ("交付金额", "revenue_gross", "智云直接抓·含税 · 确认口径÷1.06见脚注", True, None, "var(--blue)", None),
-    ("管理毛利", "gross_profit", "完整口径·交付收入−生产成本", True, "gross_margin_pct", "var(--orange)", "margin"),
+    ("毛利率", "gross_profit", "完整口径·交付收入−生产成本", True, "gross_margin_pct", "var(--orange)", "margin"),
     (
         "税前利润",
         "pretax_profit",

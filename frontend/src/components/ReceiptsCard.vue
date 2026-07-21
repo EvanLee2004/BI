@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * 回款情况：紫柱下单 + 青柱回款 + 月均预算虚线 + 右侧摘要（本年下单/回款 + 年目标进度条）。
+ * 下单/回款情况：紫柱下单 + 青柱回款 + 月均预算虚线 + 右侧摘要（本年下单/回款 + 年目标进度条）。
  * 任务书61·A：删尚待回款/年标签/回款占下单/黄回款率线；目标进度条有则显。
  * 任务书61·C-2：x 轴裁到当前系统月。显示串全 VM；前端零金额运算（铁律2）。
+ * 2.2.4·C：y 轴 max 覆盖 budget_month，月均预算虚线不再被裁。
  */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
@@ -72,10 +73,11 @@ const option = computed(() => {
   const interval =
     r.value.y_axis_interval || (ticks.length >= 2 ? ticks[1].value - ticks[0].value : undefined)
   const minV = r.value.y_axis_min ?? 0
-  const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords])
+  // 2.2.4·C：先算 bud，再纳入 y 轴上限（游戏等低量 BU 的月均预算虚线不再被裁出画面）
+  const bud = Number(r.value.budget_month) || 0
+  const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords, bud])
   const cOrd = '#a78bfa'
   const cRec = '#22d3ee'
-  const bud = Number(r.value.budget_month) || 0
   // budget_month_disp 为裸数字；receipts_budget 已含「月均预算 X万」整句——勿双拼
   const budRaw = String(r.value.budget_month_disp || '').trim()
   const budFallback = String(r.value.receipts_budget || '').trim()
@@ -178,12 +180,12 @@ const option = computed(() => {
 const hasSeries = computed(() => (r.value.labels || []).length > 0)
 </script>
 <template>
-  <SciFiPanel id="receiptsCard" title="回款情况" panel-class="rc-card">
+  <SciFiPanel id="receiptsCard" title="下单/回款情况" panel-class="rc-card">
     <div v-if="hasSeries" class="rc-layout" :class="{ 'rc-solo': !sideVisible }">
       <div class="rc-body" data-chart="receipts">
         <EchartsHost :option="option" />
       </div>
-      <aside v-if="sideVisible && side" class="rc-side" aria-label="回款摘要">
+      <aside v-if="sideVisible && side" class="rc-side" aria-label="下单/回款摘要">
         <div class="rc-hero">
           <div class="rc-hero-row">
             <span class="rc-k">本年下单</span>

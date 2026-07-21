@@ -380,6 +380,12 @@ import './settings-view.css'
       <el-button type="primary" :loading="saving" @click="saveAll">保存全部设置</el-button>
     </div>
 
+    <!-- 2.2.4·F：退出从顶栏移到设置页最下 -->
+    <div class="admin-logout-foot" style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--el-border-color, #334155); text-align: center">
+      <div class="muted" style="margin-bottom: 10px; font-size: 12px">退出登录</div>
+      <a class="logout" href="/admin/logout" style="display: inline-block; padding: 8px 24px; border-radius: 8px; border: 1px solid var(--el-border-color, #475569); color: var(--el-text-color-regular, #e2e8f0); text-decoration: none">退出</a>
+    </div>
+
     <el-drawer v-model="verDrawer" title="更新日志" size="400px">
       <p class="muted">按时间倒序（最新在最上面）</p>
       <div v-for="(e, i) in verLog" :key="i" class="vl">
