@@ -5,7 +5,9 @@ Python · SQLite · FastAPI · **Vue3(dist) + API v1(VM)** · ECharts/SVG 双路
 
 | 版本 | 架构 | 质量 |
 |:---:|:---:|:---:|
-| **v2.2.0**（`stage66_debtfree` · 2026-07-21） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 金额分整数 · 手填增量重算 · VM 生成闸 · 抓数护栏 · 红线 32 周期 |
+| **v2.2.1**（`stage66_ship` · 2026-07-21） | nginx → Vue(dist) → API v1(VM) → domain/profit → SQLite | 金额分整数 · 手填增量重算 · VM 生成闸 · 抓数护栏 · 生产加固+明细多选 · 红线 32 周期 |
+
+> v2.2.1 = v2.2.0（`stage66_debtfree`·四大技术债清偿）生产封板后的收尾补丁（部署加固/nginx iframe 修复/费用明细多选筛选）；版本号收口，与代码一一对应。
 
 > **版本以根目录 `VERSION` 文件为准**；版本史见根目录 [`CHANGELOG.md`](./CHANGELOG.md)。  
 > git tag 因数据安全策略**只存本地、不推远端**（公开仓零 tag / 零 Release 属有意为之，不代表无版本管理）。

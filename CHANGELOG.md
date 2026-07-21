@@ -8,6 +8,24 @@
 
 ---
 
+## [2.2.1] - 2026-07-21
+
+本地 tag：`stage66_ship`（只本地不推 tags）。**性质：2.2.0 生产封板（`stage66_debtfree` / `9e50868`）之后的收尾补丁包**——封板后又叠加 9 个 commit 但版本号一直停在 2.2.0，本次收口为 2.2.1，让版本号与代码一一对应。
+
+### Added
+- **看端费用明细表头筛选**：Excel/数据调整式可选值多选（`filters.in` + `/api/v1/vm/ledger/values`），不再盲输
+- tests `test_ledger_excel_filter.py`；API `GET /api/v1/vm/ledger/values`
+
+### Changed
+- **生产加固**：nginx 入口安全头继承修复 + `systemd` 模板 `User=lee` 沙箱；`StartLimit*` 移入 `[Unit]`（新版 systemd 兼容）
+- 明细筛选 number/date 列 `filters.q` 走 `CAST LIKE` 收窄；空串 `in` 可筛、text 列多选
+
+### Fixed
+- **nginx `X-Frame-Options` DENY→SAMEORIGIN**：恢复管理端「看」页 iframe（之前 DENY 把内嵌看端挡了）
+- stage66 skeptic 缺口：随机重算等价、`_log_run` 真路径、文档七图重导可见 2.2.0 内容
+
+---
+
 ## [2.2.0] - 2026-07-21
 
 本地 tag：`stage66_debtfree`（只本地不推 tags）
@@ -18,12 +36,10 @@
 - **C VM 契约**：`scripts/gen_vm_ts.py` 生成字段清单；verify `--check` 防漂移
 - **D 抓数护栏**：登录连败冷却 24h（体检红）；7 日行数基线；Worksheet 探活；1 月 0 行信息级
 - **D 回款重复口径（明昊拍板）**：定位键重复不判黄，体检 `info` 展示
-- **看端费用明细表头筛选**：Excel/数据调整式可选值多选（`filters.in` + `/api/v1/vm/ledger/values`），不再盲输
 
 ### Added
 - MADR 整数分 / 增量重算 / VM 生成 / 回款黄灯口径
 - tests `test_task66_stage66_batch_{a,b,c,d}`
-- tests `test_ledger_excel_filter.py`；API `GET /api/v1/vm/ledger/values`
 
 ---
 
