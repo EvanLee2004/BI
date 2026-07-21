@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { fetchProductVersion } from '../api/client'
+/** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
+import logoUrl from '../assets/logo.png'
 import PeriodPicker from './PeriodPicker.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import KpiCards from './KpiCards.vue'
@@ -33,7 +35,7 @@ onMounted(async () => {
   <div>
     <header class="topbar">
       <div class="tb-left">
-        <img class="tb-logo" src="/logo.png" alt="甲骨易" width="28" height="28" />
+        <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
         <a class="bu-back" href="/">← 整体</a>
         <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
         <PeriodPicker />

@@ -16,8 +16,11 @@
 - **`/api/version`**：任意登录会话可读（展示端顶栏版本号）
 
 ### Added
-- 展示页顶栏甲骨易 logo（`frontend/public/logo.png`）+ 产品版本号（拉 `/api/version`）
-- tests `test_task_2_2_5.py`；`useClientPager` 客户端分页 composable
+- 展示页顶栏甲骨易 logo（`import` → `/app/assets/*.png`，兼容 nginx 只缓存 assets）+ 产品版本号（拉 `/api/version`）
+- tests `test_task_2_2_5.py`（含构建产物 PNG 门禁）；`useClientPager` 客户端分页 composable
+
+### Fixed
+- logo 路径：禁止裸 `/logo.png`（Vite base 写成 `/app/logo.png` 时 nginx 回 SPA html）；改为 assets 指纹路径
 
 ---
 

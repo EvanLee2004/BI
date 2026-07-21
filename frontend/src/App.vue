@@ -3,6 +3,8 @@ import { onMounted, computed, onErrorCaptured, ref } from 'vue'
 import { onVueErrorCaptured } from './utils/frontendErrorReporter'
 import { useCockpitStore } from './stores/cockpit'
 import { fetchProductVersion } from './api/client'
+/** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
+import logoUrl from './assets/logo.png'
 import LoginView from './components/LoginView.vue'
 import PeriodPicker from './components/PeriodPicker.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
@@ -64,7 +66,7 @@ onMounted(async () => {
   <div v-else-if="store.vm" id="periodSync">
     <header class="topbar">
       <div class="tb-left">
-        <img class="tb-logo" src="/logo.png" alt="甲骨易" width="28" height="28" />
+        <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
         <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
         <PeriodPicker />
       </div>

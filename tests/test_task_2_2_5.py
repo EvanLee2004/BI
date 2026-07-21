@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.2.5 门禁：管理端翻页 / 看→展示 / logo+版本（结构源码守卫，驱动 shipped 路径）。"""
+"""2.2.5 门禁：管理端翻页 / 看→展示 / logo+版本（结构 + 构建产物真实 PNG）。"""
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -19,6 +20,7 @@ ADMIN_LIST_VIEWS = [
     "ExceptionOverview.vue",
     "DetailView.vue",
 ]
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 class TestAdminPagination225(unittest.TestCase):
@@ -43,7 +45,6 @@ class TestSeeToDisplay225(unittest.TestCase):
         self.assertIn(">展示<", layout)
         self.assertIn("showGroup('see')", layout)
         self.assertIn("group === 'see'", layout)
-        # 页签不再显示单独一个「看」字
         self.assertNotIn(">看<", layout)
 
     def test_router_group_see_unchanged(self):
@@ -52,17 +53,47 @@ class TestSeeToDisplay225(unittest.TestCase):
 
 
 class TestLogoVersion225(unittest.TestCase):
-    def test_public_logo_exists(self):
-        p = ROOT / "frontend/public/logo.png"
-        self.assertTrue(p.is_file(), "frontend/public/logo.png 缺失")
-        self.assertGreater(p.stat().st_size, 1000)
-
-    def test_app_and_bu_have_logo_and_version_api(self):
+    def test_source_logo_asset_and_import(self):
+        """源码：logo 经 import 进 assets（经得住 base=/app/ + nginx /app/assets/）。"""
+        asset = ROOT / "frontend/src/assets/logo.png"
+        self.assertTrue(asset.is_file(), "frontend/src/assets/logo.png 缺失")
+        self.assertGreater(asset.stat().st_size, 1000)
+        self.assertEqual(asset.read_bytes()[:8], PNG_MAGIC)
         for rel in ("frontend/src/App.vue", "frontend/src/components/BUPage.vue"):
             src = (ROOT / rel).read_text(encoding="utf-8")
-            self.assertIn("/logo.png", src, rel)
+            self.assertIn("import logoUrl from", src, rel)
+            self.assertIn("assets/logo.png", src, rel)
+            self.assertIn(":src=\"logoUrl\"", src, rel)
             self.assertIn("fetchProductVersion", src, rel)
             self.assertIn("tb-logo", src, rel)
+            # 禁止裸 /logo.png（会被写成 /app/logo.png，nginx 回 SPA html）
+            self.assertNotIn('src="/logo.png"', src, rel)
+
+    def test_built_dist_logo_url_is_real_png(self):
+        """构建产物：boot-cockpit 引用的 /app/assets/*.png 必须是真实 PNG 文件。"""
+        dist = ROOT / "frontend/dist"
+        assets = dist / "assets"
+        self.assertTrue(assets.is_dir(), "frontend/dist/assets 缺失（请先 npm run build）")
+        boots = list(assets.glob("boot-cockpit-*.js"))
+        self.assertTrue(boots, "缺 boot-cockpit-*.js")
+        text = boots[0].read_text(encoding="utf-8", errors="replace")
+        urls = re.findall(r'["\'](/app/assets/[^"\']+\.png)["\']', text)
+        self.assertTrue(urls, f"{boots[0].name} 未引用 /app/assets/*.png")
+        found = False
+        for u in urls:
+            # /app/assets/foo.png → dist/assets/foo.png
+            rel = u[len("/app/") :]  # assets/foo.png
+            p = dist / rel
+            if not p.is_file():
+                continue
+            raw = p.read_bytes()
+            if raw[:8] == PNG_MAGIC and p.stat().st_size > 1000:
+                found = True
+                # 与源 logo 同量级（防误指小图标）
+                src_sz = (ROOT / "frontend/src/assets/logo.png").stat().st_size
+                self.assertGreater(p.stat().st_size, src_sz * 0.5)
+                break
+        self.assertTrue(found, f"无可用 logo PNG；urls={urls}")
 
     def test_client_fetches_api_version(self):
         src = (ROOT / "frontend/src/api/client.ts").read_text(encoding="utf-8")
@@ -70,7 +101,6 @@ class TestLogoVersion225(unittest.TestCase):
         self.assertIn("fetchProductVersion", src)
 
     def test_api_version_allows_viewer_session(self):
-        """shipped：config_api /api/version 不再仅限管理员。"""
         src = (ROOT / "src/routes/config_api.py").read_text(encoding="utf-8")
         self.assertIn("_vacct(request)", src)
         self.assertIn("def api_version", src)
