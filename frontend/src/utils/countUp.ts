@@ -1,14 +1,16 @@
 /**
- * 2.3.0 S4.B KPI count-up（铁律例外：仅展示插值，禁止金额运算）。
+ * 2.3.0 S4.B / 2.3.1 S1 KPI count-up（铁律例外：仅展示插值，禁止金额运算）。
  *
  * 硬约束：
  * 1. 中间帧只用后端 number value 插值
  * 2. 禁止从 value_disp 反解数字
  * 3. 最后一帧显式赋 value_disp 原串
  * 4. 非纯数字 disp 直接不动画
+ *
+ * 2.3.1：播放条件解绑主题——三主题均可播，仅 reduced-motion 否决。
  */
 
-import { fxLevel } from '../chart-fx'
+import { prefersReducedMotion } from '../chart-fx'
 
 /** value_disp 是否允许动画（纯数字形态，可含千分位逗号与可选负号）。 */
 export function isAnimatableDisp(disp: unknown): boolean {
@@ -38,7 +40,7 @@ export type CountUpHandlers = {
 
 /**
  * 启动 count-up。返回 cancel 函数。
- * fxLevel!==1 或 disp 不可动画时立即 onDone(value_disp)。
+ * prefers-reduced-motion 或 disp 不可动画时立即 onDone(value_disp)。
  */
 export function runCountUp(
   value: number,
@@ -47,7 +49,7 @@ export function runCountUp(
   opts?: { durationMs?: number },
 ): () => void {
   const disp = valueDisp == null ? '' : String(valueDisp)
-  if (fxLevel() !== 1 || !isAnimatableDisp(disp) || !Number.isFinite(value)) {
+  if (prefersReducedMotion() || !isAnimatableDisp(disp) || !Number.isFinite(value)) {
     handlers.onDone(disp)
     return () => {}
   }

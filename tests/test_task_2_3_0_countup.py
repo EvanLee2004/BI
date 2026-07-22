@@ -33,11 +33,14 @@ class TestCountUp230(unittest.TestCase):
     def test_non_numeric_no_anim(self):
         src = (FE / "utils" / "countUp.ts").read_text(encoding="utf-8")
         self.assertIn("isAnimatableDisp", src)
-        self.assertIn("fxLevel() !== 1", src)
+        # 2.3.1：播放闸改为 reduced-motion（仍须终帧/非数字守卫）
+        self.assertIn("prefersReducedMotion", src)
 
-    def test_fx_gate(self):
+    def test_motion_gate_not_theme_only(self):
         src = (FE / "utils" / "countUp.ts").read_text(encoding="utf-8")
-        self.assertIn("fxLevel", src)
+        self.assertIn("prefersReducedMotion", src)
+        self.assertNotIn("fxLevel() !== 1", src)
+        self.assertNotIn("fxLevel()===1", src)
 
     def test_kpi_uses_countup(self):
         kpi = (FE / "components" / "KpiCards.vue").read_text(encoding="utf-8")

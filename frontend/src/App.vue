@@ -66,12 +66,8 @@ onMounted(async () => {
     return
   }
 
-  /* 入场与数据加载并行 */
-  try {
-    showIntro.value = sessionStorage.getItem('kanban_intro_pending') === '1'
-  } catch {
-    showIntro.value = false
-  }
+  /* 2.3.1：看端每次刷新都播入场（与数据加载并行）；admin/snapshot 已在上方 return */
+  showIntro.value = true
 
   try {
     const v = await fetchProductVersion()
@@ -87,14 +83,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <IntroSplash v-if="showIntro" @done="showIntro = false" />
+  <IntroSplash v-if="showIntro" :data-ready="!store.loading && !!store.vm" @done="showIntro = false" />
   <div v-if="store.error && store.error.includes('未登录')">
     <LoginView />
   </div>
-  <div v-else-if="store.loading" class="wrap muted" style="padding:40px">加载中…</div>
+  <div v-else-if="store.loading && !showIntro" class="wrap muted" style="padding:40px">加载中…</div>
   <div v-else-if="store.error" class="wrap" style="padding:40px;color:var(--neg)">{{ store.error }}</div>
-  <BUPage v-else-if="store.scope === 'bu'" />
-  <div v-else-if="store.vm" id="periodSync">
+  <div
+    v-else-if="store.scope === 'bu'"
+    class="view-transition-host"
+    :class="{ 'is-transitioning': store.viewTransitioning }"
+  >
+    <BUPage />
+  </div>
+  <div
+    v-else-if="store.vm"
+    id="periodSync"
+    class="view-transition-host"
+    :class="{ 'is-transitioning': store.viewTransitioning }"
+  >
     <div
       v-if="store.archiveMode"
       class="archive-banner"
@@ -197,5 +204,19 @@ onMounted(async () => {
   letter-spacing: 0.02em;
   margin-right: 2px;
   white-space: nowrap;
+}
+/* 2.3.1 S6：切 BU 转场（仅 opacity；错误条在链外不被遮挡） */
+.view-transition-host {
+  transition: opacity 0.2s ease;
+  opacity: 1;
+}
+.view-transition-host.is-transitioning {
+  opacity: 0.35;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-transition-host {
+    transition: none;
+  }
 }
 </style>

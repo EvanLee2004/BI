@@ -159,6 +159,7 @@ tests/test_task_2_3_0_countup.py
 tests/test_task_2_3_0_export_theme.py
 tests/test_task_2_3_0_echarts_registry.py
 tests/test_task_2_3_0_health_metrics.py
+tests/test_task_2_3_1_motion.py
 "
 run_one() {
   f="$1"
