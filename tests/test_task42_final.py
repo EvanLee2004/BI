@@ -87,7 +87,7 @@ class TestTask42Final(unittest.TestCase):
         )
         # 允许 2.0.0-rcN、2.0.x / 2.1.x / 2.2.x / 2.3.x 正式号递增（任务书66 → 2.2.0；2.3.0 三主题）
         ok = (
-            v in ("1.6.0-beta", "2.0.0-beta", "2.0.1", "2.1.0", "2.2.0", "2.3.0")
+            v in ("1.6.0-beta", "2.0.0-beta", "2.0.1", "2.1.0", "2.2.0", "2.3.0", "2.3.1")
             or (v.startswith("2.0.0-rc") and v[len("2.0.0-rc") :].isdigit())
             or (v.startswith("2.0.") and all(p.isdigit() for p in v.split(".")[1:]))
             or (v.startswith("2.1.") and all(p.isdigit() for p in v.split(".")[1:]))

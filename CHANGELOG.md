@@ -8,6 +8,25 @@
 
 ---
 
+## [2.3.1] - 2026-07-23
+
+### Added
+- **霓虹 HUD 面板**：四角角标、clip-path 切角、顶流线、hover 发光（仅 `data-theme=neon`）
+- **霓虹空间背景**：网格极慢漂移 + 扫描光带（仅 transform/opacity/background-position）
+- **霓虹 KPI**：大数双层光晕、五卡 stagger 入场、hover 上浮、进度条发光
+- **图表光效**（`fxLevel===1`）：柱顶高亮帽、折线面积、环形外发光
+- **切 BU 转场**（三主题）：淡出→load→淡入 + KPI 重跳
+
+### Changed
+- count-up **三主题都播**（仅 `prefers-reduced-motion` 否决）；终帧仍直赋 `value_disp`
+- logo 入场改为**每次刷新**填充加载：min 900ms / max 1600ms / 可跳过；admin 与快照不播
+- live 主题测改为断言 `data-theme`，并保留 light 下 `theme-light` 兼容断言
+
+### Notes
+- ECharts 主包 gzip ~235KB 构成写入交付报告（明昊接受，不开异步拆包）
+
+---
+
 ## [2.3.0] - 2026-07-22
 
 ### Added

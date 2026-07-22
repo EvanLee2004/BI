@@ -4,7 +4,7 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v2.3.0**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v2.3.1**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。
 
@@ -36,11 +36,23 @@
 
 同一套入口：输入账号后，系统按权限进入「整体 / 某业务线 / 管理端」。
 
-### 看端 · 基本情况与经营利润（暗色）
+### 三套主题（2.3.1）
 
-![看端首页暗色](docs/images/ui/02_viewer_home_dark.png)
+| 主题 | 定位 | 说明 |
+|------|------|------|
+| **霓虹**（默认） | 演示 / 投屏 | 近纯黑底、HUD 面板切角与发光、空间感背景；图表与 KPI 光效 |
+| **深空** | 日常办公 | 经典暗色；安静无装饰光效 |
+| **晨光** | 白天 / 打印 | 冷调科技白；干净可读 |
 
-顶栏可选年份与主题（**霓虹默认** → 深色 → 浅色三套循环）；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款。
+顶栏主题钮循环：**霓虹 → 深空 → 晨光 → 霓虹**（文案含「深色」「浅色」字样以兼容自动化定位）。
+
+### 看端 · 基本情况与经营利润
+
+![看端首页（深空）](docs/images/ui/02_viewer_home_dark.png)
+
+> **截图说明（2.3.1）**：`docs/images/ui/*` 正在按新 UI 用 `tests/fixtures/ci_data` 脱敏重截（三主题：整体全貌 / KPI / 管理利润表 / 期间费用 / BU 页）。**禁止**把含真实金额/客户名的截图提交进 git。本地可参考 `docs/_visual_2_3_1/`（已 gitignore）。
+
+顶栏可选年份与主题；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款（三主题均可 count-up；刷新有 logo 入场填充加载）。
 
 ![看端利润区](docs/images/ui/03_viewer_profit_section.png)
 
@@ -154,7 +166,8 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 | 默认账号（仅初次种子） | 管理员 `lushasha` / `kanban2026`；查看类账号初始密码见种子逻辑，**上线务必改掉** |
 | 账号文件 | `数据/看板账号.json`（不进 git；缺失时会自动生成种子） |
 | 智云账号 | 管理端 → 设置 中配置 |
-| 全量自检 | `KANBAN_OFFLINE=1 sh tests/run_verify.sh` |
+| 全量自检 | `KANBAN_OFFLINE=1 sh tests/run_verify.sh
+KANBAN_OFFLINE=1 sh scripts/smoke_cockpit_local.sh  # 2.3.1 本地冒烟（结构守卫）` |
 
 ### 开发时前后端分开
 

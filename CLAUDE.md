@@ -34,14 +34,14 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.3.0 · 2026-07-22）
+## 当前状态（2.3.1 · 2026-07-23）
 
-- **版本**：`VERSION` = **2.3.0**（三主题霓虹默认 + 入场/KPI 动效 + 快照主题 + ECharts 瘦包）。其上 2.2.9=方案A快照导出；2.2.8=抓数容差/灯色B；2.2.7=展示/历史/导出统一 Vue。
-- **展示端**：主题=霓虹→深色→浅色循环（默认霓虹）；顶栏右=今日日期+版本+主题+导出+退出；登录入场 logo 放大；霓虹 KPI count-up；导出快照继承 theme 且离线可切三主题。
+- **版本**：`VERSION` = **2.3.1**（霓虹视觉深化 A–E + 动效解绑 + 门面收尾）。其上 2.3.0=三主题体系；2.2.9=方案A快照。
+- **展示端**：霓虹默认且与深空一眼可辨（HUD/空间背景/KPI 光效/图表光效）；深空/晨光渲染路径不被霓虹污染；count-up 三主题；刷新 logo 入场填充加载；切 BU 有转场。
 - **管理端**：顶栏页签「展示」；管理端恒暗色；长列表上一页/下一页每页 50。
-- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_3_0_*.py`；前端 `npm run build` 含 online dist + dist-snapshot。
+- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_3_1_*.py`；`scripts/smoke_cockpit_local.sh` 本地冒烟。
 - **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代；运维见 `docs/Runbook.md` §0。
-- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功。
+- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功；霓虹样式仅 `[data-theme=neon]` / `fxLevel===1`。
 - **push**：只推 main 不推 tags。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
