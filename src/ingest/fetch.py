@@ -32,13 +32,18 @@ def _normalize_share_path(share_raw: str) -> Path:
 
 def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:
     """尝试从共享路径把收单台账拉到 数据/收单台账.xlsx。
-    返回 {status: 'fetched'|'local_fallback'|'no_source', detail: str}。永不抛异常中断管道。"""
+    返回 {status: 'fetched'|'local_fallback'|'no_source', detail: str}。永不抛异常中断管道。
+
+    2.2.8：未配置 ledger_share_path 且本地有台账 → status=fetched（开发机不因无共享天天红）；
+    已配置但不可达/复制失败 → local_fallback（方案 B 体检红=本次未抓到）。
+    """
     local = loaders.data_dir(cfg, root) / cfg["files"]["ledger"]
     share_raw = (cfg.get("ledger_share_path") or "").strip()
 
     if not share_raw:
-        detail = "未配置 ledger_share_path，直接用数据目录现有台账"
-        return {"status": "local_fallback" if local.exists() else "no_source", "detail": detail}
+        if local.exists():
+            return {"status": "fetched", "detail": "未配置共享路径，使用本地台账"}
+        return {"status": "no_source", "detail": "未配置 ledger_share_path 且无本地台账"}
 
     share = _normalize_share_path(share_raw)
     try:
@@ -53,16 +58,16 @@ def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:
             return {"status": "fetched", "detail": f"已从共享拉取：{share}"}
         except OSError as e:
             if local.exists():
-                return {"status": "local_fallback", "detail": f"共享可达但复制失败（{e}），用上次本地副本（体检黄）"}
+                return {"status": "local_fallback", "detail": f"共享可达但复制失败（{e}），用上次本地副本"}
             return {"status": "no_source", "detail": f"共享可达但复制失败且无本地副本：{e}"}
 
-    # 共享不可达（本机 macOS / 未挂载 CIFS 属正常）
+    # 共享不可达（已配置路径则应抓到；部署机应挂载）
     hint = ""
     if sys.platform.startswith("linux") and (share_raw.startswith("\\\\") or share_raw.startswith("//")):
         hint = "；Linux 请挂 CIFS 到 /mnt/caiwu 后在设置页填 POSIX 路径"
     if local.exists():
         return {
             "status": "local_fallback",
-            "detail": f"共享不可达（{share}），用数据目录现有台账（体检黄；部署机上应可达）{hint}",
+            "detail": f"共享不可达（{share}），用数据目录现有台账（部署机上应可达）{hint}",
         }
     return {"status": "no_source", "detail": f"共享不可达且无本地副本：{share}{hint}"}

@@ -52,6 +52,9 @@ SOURCES = {
 
 PAGE_SIZE = 1000
 MAX_PAGES = 500  # 翻页安全上限（50万行，远超任何表；防接口异常时死循环）
+# 2.2.8 行数对账容差：|actual−total| ≤ max(ABS, ceil(total×REL)) 则接受（并发多/少几行）
+ROW_TOTAL_ABS_TOL = 5
+ROW_TOTAL_REL_TOL = 0.005
 # 任务书30 批次0.5 / 任务书35 补做：本次成功抓取行数比上次少超此比例 → 体检黄（不拦）
 DEFAULT_ROW_DROP_RATIO = 0.30
 
@@ -214,12 +217,21 @@ def _extract_row_total(page_data: dict) -> int | None:
     return None
 
 
+def row_total_tolerance(declared_total: int) -> int:
+    """有 total 时允许的 |actual−total| 上限：max(5, ceil(total×0.5%))."""
+    import math
+
+    if declared_total < 0:
+        declared_total = 0
+    return max(ROW_TOTAL_ABS_TOL, math.ceil(declared_total * ROW_TOTAL_REL_TOL))
+
+
 def fetch_all_rows(post, worksheet_id: str, app_id: str, filter_controls: list[dict] | None = None) -> list[dict]:
     """翻页拉全量。post(path, body)->dict 由调用方注入（真实 requests 或测试桩）。
 
     filter_controls 非空时只抓命中过滤的行（如日期 >= zhiyun_since）。
-    任务书30·批次0.5 / 任务书35 补做：首页 notGetTotal=false 取 total，
-    抓完 len(out) 必须等于 total，差了 raise（整表按失败，不静默残缺）。
+    首页 notGetTotal=false 取 total；有 total 时差额在容差内接受（2.2.8），
+    差额过大仍 raise（整表按失败，不静默残缺）。无 total 时靠末页 < pageSize 结束。
     """
     fc = filter_controls or []
     out, page = [], 1
@@ -249,10 +261,14 @@ def fetch_all_rows(post, worksheet_id: str, app_id: str, filter_controls: list[d
         page += 1
     else:
         raise RuntimeError(f"翻页超过安全上限 {MAX_PAGES} 页仍未拉完，接口行为异常（拒收疑似坏数据）")
-    if declared_total is not None and len(out) != declared_total:
-        raise RuntimeError(
-            f"行数对账失败：接口 total={declared_total}，实际抓到 {len(out)} 行（疑似翻页残缺，拒收）"
-        )
+    if declared_total is not None:
+        diff = abs(len(out) - declared_total)
+        tol = row_total_tolerance(declared_total)
+        if diff > tol:
+            raise RuntimeError(
+                f"行数对账失败：接口 total={declared_total}，实际 {len(out)}"
+                f"（差额 {diff} > 容差 {tol}，拒收）"
+            )
     return out
 
 
@@ -592,12 +608,12 @@ def check_row_drop(prev: int | None, curr: int, ratio: float) -> str | None:
 
 def _fetch_fallback(local: Path, reason: str) -> dict:
     if local.exists():
-        return {"status": "local_fallback", "detail": f"{reason}，用数据目录现有文件（体检黄）"}
+        return {"status": "local_fallback", "detail": f"{reason}，用数据目录现有文件"}
     return {"status": "no_source", "detail": f"{reason}，且无本地文件"}
 
 
-def _date_control_dup_warnings(controls, date_col: str) -> list[str]:
-    """同名日期控件多于一个：观察项（黄），防顺序变了无声换列。"""
+def _date_control_dup_info(controls, date_col: str) -> list[str]:
+    """同名日期控件多于一个：仅 info（2.2.8 不进 warnings、不驱动黄红），防顺序变了无声换列。"""
     if not date_col:
         return []
     dups = controls_with_name(controls, date_col)
@@ -605,9 +621,13 @@ def _date_control_dup_warnings(controls, date_col: str) -> list[str]:
         return []
     ids = ",".join(str(c.get("controlId") or "")[:12] for c in dups)
     return [
-        f"表模板「{date_col}」同名控件 {len(dups)} 个（controlId≈{ids}…）；"
-        f"过滤/取值用第一个，请确认未换序"
+        f"表模板「{date_col}」同名控件 {len(dups)} 个，已按规则取首个有值"
+        f"（controlId≈{ids}…）"
     ]
+
+
+# 兼容旧名（测试/外部若仍引用）
+_date_control_dup_warnings = _date_control_dup_info
 
 
 def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
@@ -619,7 +639,8 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
     controls = info["data"]["template"]["controls"]
     since = cfg.get("zhiyun_since") if cfg.get("zhiyun_since") is not None else "auto"
     date_col = cfg["columns"].get(SOURCES[source]["date_col_key"], "")
-    warnings = _date_control_dup_warnings(controls, date_col)
+    info_msgs = list(_date_control_dup_info(controls, date_col))
+    warnings: list[str] = []
     fc = build_date_since_filter(controls, date_col, since)
     rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
     records = rows_to_records(rows, controls)
@@ -632,7 +653,7 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
         return _fetch_fallback(
             local, f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）"
         )
-    # 新年 1 月 0 行：信息级，不当地抓取失败黄
+    # 新年 1 月 0 行：信息级，不当地抓取失败
     import datetime as _dt
 
     mon = _dt.date.today().month
@@ -643,7 +664,7 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
             "status": "fetched",
             "detail": f"新年正常空：1 月抓到 0 行 → {local.name}",
             "rows": 0,
-            "info": ["新年正常空（1 月 0 行，不判抓取失败）"],
+            "info": ["新年正常空（1 月 0 行，不判抓取失败）"] + info_msgs,
         }
     prev_counts = load_last_row_counts(cfg, root)
     drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
@@ -662,6 +683,8 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
     out = {"status": "fetched", "detail": detail, "rows": len(records)}
     if warnings:
         out["warnings"] = warnings
+    if info_msgs:
+        out["info"] = info_msgs
     return out
 
 

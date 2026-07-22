@@ -56,10 +56,11 @@ class TestFetchFallbackBanners(unittest.TestCase):
             tmp,
         )
         texts = [x["text"] for x in b]
-        self.assertTrue(any("收单台账" in t and "今日未抓到" in t and "沿用" in t for t in texts), texts)
-        self.assertTrue(any("智云·下单" in t for t in texts), texts)
-        self.assertFalse(any("回款" in t and "今日未抓到" in t for t in texts))
-        # 月日标签
+        self.assertTrue(any("收单台账" in t and "本次未抓到" in t and "沿用" in t for t in texts), texts)
+        self.assertTrue(any("智云·下单" in t and "本次未抓到" in t for t in texts), texts)
+        self.assertFalse(any("回款" in t and "本次未抓到" in t for t in texts))
+        self.assertFalse(any("今日未抓到" in t for t in texts), texts)
+        # 月日（可含时分）标签
         self.assertTrue(any("月" in x["as_of"] and "日" in x["as_of"] for x in b if x["source"] == "收单台账"))
 
     def test_health_api_exposes_banners(self):
@@ -99,7 +100,7 @@ class TestFetchFallbackBanners(unittest.TestCase):
         d = r.json()
         self.assertIn("fetch_banners", d)
         self.assertGreaterEqual(len(d["fetch_banners"]), 1)
-        self.assertTrue(any("今日未抓到" in (x.get("text") or "") for x in d["fetch_banners"]))
+        self.assertTrue(any("本次未抓到" in (x.get("text") or "") for x in d["fetch_banners"]))
 
     def test_ui_hooks_admin_only(self):
         """任务书39·F：抓数黄横幅仅管理端；看端整体/BU 模板与 cockpit.js 一律不渲染。"""

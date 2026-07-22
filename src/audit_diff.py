@@ -161,19 +161,22 @@ def admin_ui_source() -> str:
     return "\n".join(parts)
 
 def _run_reasons_fetch(report: dict, reasons: list[str]) -> None:
+    """抓数失败类 reasons（红优先列「哪路本次未抓到」）。同名控件只在 info，不在此。"""
     fetch = report.get("fetch", {}) or {}
     st = fetch.get("status")
     if st == "no_source":
         reasons.append("收单台账无可用数据源（共享路径与本地副本都没有）→ 判红")
-    elif st and st != "fetched":
-        reasons.append(f"收单台账未从共享路径拉取、走本地副本（状态：{st}）")
+    elif st and st not in ("fetched", "skipped", "skipped_no_share"):
+        det = (fetch.get("detail") or "")[:80]
+        reasons.append(f"收单台账本次未抓到（{st}：{det}）→ 判红" if det else f"收单台账本次未抓到（{st}）→ 判红")
     for src, zv in (report.get("fetch_zhiyun") or {}).items():
-        if not isinstance(zv, dict):
+        if not isinstance(zv, dict) or str(src).startswith("_"):
             continue
         zst = zv.get("status")
-        if zst and zst != "fetched":
-            reasons.append(f"智云·{src} 未在线抓到（{zst}：{(zv.get('detail') or '')[:80]}）")
+        if zst and zst not in ("fetched", "skipped", "skipped_no_share"):
+            reasons.append(f"智云·{src} 本次未抓到（{zst}：{(zv.get('detail') or '')[:80]}）→ 判红")
         for w in zv.get("warnings") or []:
+            # 骤降等业务提醒（黄）；同名控件已只进 info，不会出现在 warnings
             reasons.append(f"智云·{src}：{w}")
 
 
@@ -199,11 +202,13 @@ def _run_reasons_adjust_db_disk(report: dict, reasons: list[str]) -> None:
     bak = report.get("backup") or {}
     if bak.get("status") == "error" or bak.get("ok") is False:
         reasons.append(f"每日备份失败：{bak.get('detail') or bak.get('status')}")
+    if (report.get("zhiyun_login_cooldown") or {}).get("active"):
+        reasons.append("智云登录冷却中（凭据疑似失效，需人工检查）→ 判红")
 
 
 def _run_reasons(report: dict) -> list[str]:
     """从最近一次管道运行日志（体检JSON=report）推导"为啥黄/红"。
-    与 ingest._log_run 判定口径一致：fetch 走本地副本/无源、过期调整、定位键重复、库检查、备份。
+    与 ingest._log_run 方案 B 一致：红=应抓源本次未抓到/硬故障；黄=抓齐后的业务提醒。
     注意：这是「管道运行」信号（黄/红），与「数据体检」的未填分类等（警）是两套，别糊在一起。"""
     report = report or {}
     reasons: list[str] = []
@@ -228,39 +233,54 @@ _ZY_FILE_KEYS = {
 
 
 def _file_as_of_label(path: Path) -> str:
-    """本地文件修改时间 →「M月D日」；无文件→「上次本地」。"""
+    """本地文件修改时间 →「M月D日 HH:MM」；无文件→「上次本地」。"""
     try:
         if path and path.exists():
             import datetime as _dt
 
             dt = _dt.datetime.fromtimestamp(path.stat().st_mtime)
-            return f"{dt.month}月{dt.day}日"
+            return f"{dt.month}月{dt.day}日 {dt.hour:02d}:{dt.minute:02d}"
     except OSError:
         pass
     return "上次本地"
 
+
+def _short_fetch_reason(detail: str | None, limit: int = 72) -> str:
+    """横幅短原因：去换行、截断，勿整段堆栈。"""
+    d = " ".join(str(detail or "").split())
+    if not d:
+        return "未知原因"
+    if len(d) > limit:
+        return d[: limit - 1] + "…"
+    return d
+
+
 def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dict]:
-    """任务书37·B9：任一源 local_fallback/no_source → 醒目黄横幅文案（与 run_reasons 同源、UI 专用）。
+    """2.2.8：任一源 local_fallback/no_source → 横幅「本次未抓到」（禁止「今日」歧义）。
     返回 [{source, status, as_of, text}, …]；全部 fetched 或无报告 → []。"""
     report = report or {}
     banners: list[dict] = []
     ddir = loaders.data_dir(cfg, root)
     files = cfg.get("files") or {}
 
-    def _add(name: str, status: str, path: Path | None):
-        if not status or status == "fetched":
+    def _add(name: str, status: str | None, path: Path | None, detail: str | None = None):
+        if not status or status in ("fetched", "skipped", "skipped_no_share"):
             return
         as_of = _file_as_of_label(path) if path else "上次本地"
-        text = f"⚠ {name}今日未抓到，正在沿用{as_of}数据"
+        short = _short_fetch_reason(detail)
+        if status == "no_source":
+            text = f"⚠ {name}本次未抓到：{short}，且无本地可用文件"
+        else:
+            text = f"⚠ {name}本次未抓到：{short}。已沿用本地文件（{as_of}）"
         banners.append({"source": name, "status": status, "as_of": as_of, "text": text})
 
     fetch = report.get("fetch") or {}
     if isinstance(fetch, dict) and fetch.get("status"):
         led = ddir / files.get("ledger", "收单台账.xlsx")
-        _add("收单台账", fetch.get("status"), led)
+        _add("收单台账", fetch.get("status"), led, fetch.get("detail"))
 
     for src, zv in (report.get("fetch_zhiyun") or {}).items():
-        if not isinstance(zv, dict):
+        if not isinstance(zv, dict) or str(src).startswith("_"):
             continue
         st = zv.get("status")
         label = _ZY_BANNER_NAMES.get(src, f"智云·{src}")
@@ -275,6 +295,6 @@ def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dic
                 # stem 如「项目明细」→ 找 项目明细*.xlsx
                 cands = sorted(ddir.glob(f"{fname}*.xlsx")) if not str(fname).endswith(".xlsx") else []
                 path = cands[-1] if cands else p
-        _add(label, st, path)
+        _add(label, st, path, zv.get("detail"))
     return banners
 

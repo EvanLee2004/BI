@@ -262,8 +262,12 @@ class TestHistoryAndExportHttp(unittest.TestCase):
 
 class TestVersion227(unittest.TestCase):
     def test_version_file(self):
+        """2.2.7 条目保留在 changelog；产品 VERSION 可继续前进（≥2.2.7）。"""
         v = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(v, "2.2.7")
+        parts = [int(x) for x in v.split(".")[:3]]
+        self.assertGreaterEqual(parts, [2, 2, 7], v)
+        self.assertIn("2.2.7", (ROOT / "src/version.py").read_text(encoding="utf-8"))
+        self.assertIn("## [2.2.7]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

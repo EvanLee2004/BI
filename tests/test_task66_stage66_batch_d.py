@@ -72,7 +72,7 @@ class TestLogRunNoDupYellow(unittest.TestCase):
             self.assertEqual(result, "绿", f"dups alone must not yellow/red, got {result}")
             info = report.get("info") or []
             self.assertTrue(any("定位键重复" in str(x) for x in info), info)
-            # 对照：local_fallback 仍黄
+            # 对照 2.2.8 方案 B：local_fallback = 本次未抓到 → 红
             report2 = {
                 "fetch": {"status": "local_fallback"},
                 "adjust": {"expired": 0, "missing": 0},
@@ -82,7 +82,7 @@ class TestLogRunNoDupYellow(unittest.TestCase):
                 "disk": {},
             }
             r2 = _log_run(conn, now, "test66d2", report2)
-            self.assertEqual(r2, "黄")
+            self.assertEqual(r2, "红")
         finally:
             conn.close()
 

@@ -149,6 +149,7 @@ tests/test_expense_zhuangxiu_alloc.py
 tests/test_task_2_2_5.py
 tests/test_task_2_2_6.py
 tests/test_task_2_2_7.py
+tests/test_task_2_2_8.py
 "
 run_one() {
   f="$1"

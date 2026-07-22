@@ -8,6 +8,24 @@
 
 ---
 
+## [2.2.8] - 2026-07-22
+
+### Changed
+- **行数对账容差**：智云翻页抓完后，`|实际行数 − 接口 total| ≤ max(5, ceil(total×0.5%))` 时接受（解决并发多/少几行误拒，如 total=23498 实际 23501）
+- **体检灯色方案 B**：绿=本轮应抓源都抓到且无业务提醒；红=有源本次未抓到（local_fallback/no_source）或硬故障；黄=抓齐后仍有业务提醒（手填缺月/未归属 BU/调整过期/骤降警告等）
+- **横幅文案**：「今日未抓到」→「本次未抓到」+ 短原因 + 本地文件 as_of（含时分）
+- **同名日期控件**：只记 info，不进 warnings、不驱动黄/红
+- **未配置台账 share**：有本地文件时标 `fetched`，开发机不因无共享天天红；已配置但不可达仍 `local_fallback`→红
+- **zhiyun_auto_fetch 关**：不因智云未在线抓而红（管道不写 fetch_zhiyun 键）
+
+### Added
+- `ROW_TOTAL_ABS_TOL` / `ROW_TOTAL_REL_TOL` / `row_total_tolerance()`；tests `test_task_2_2_8.py`
+
+### Fixed
+- 生产误黄：内部译员因多 3 行对账失败 → local_fallback 横幅
+
+---
+
 ## [2.2.7] - 2026-07-22
 
 ### Changed

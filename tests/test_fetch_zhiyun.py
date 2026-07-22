@@ -165,14 +165,11 @@ class TestPagination(unittest.TestCase):
             fz.fetch_all_rows(lambda p, b: {"data": {"data": full, "count": 10**9}}, "ws1", "app1")
 
     def test_total_mismatch_raises(self):
-        """任务书30·0.5 / 35：total=2500 只给 2 页残缺 → 拒收。"""
-        # 2 满页 = 2000 < 2500
+        """大差额：total=2500 只给 1100 行 → 拒收（差额 > 容差）。"""
         pages = {
             1: [{"i": n} for n in range(fz.PAGE_SIZE)],
-            2: [{"i": n} for n in range(fz.PAGE_SIZE)],  # 仍满页，但我们用 count 对账
+            2: [{"i": n} for n in range(100)],  # short → 共 1100 != 2500
         }
-        # 模拟第 3 页空：实际上 2 满页后继续翻——改成 page2 short wrong total
-        pages[2] = [{"i": n} for n in range(100)]  # short page, total rows=1100 != 2500
 
         def post(path, body):
             idx = body["pageIndex"]
@@ -185,6 +182,54 @@ class TestPagination(unittest.TestCase):
             fz.fetch_all_rows(post, "ws1", "app1")
         self.assertIn("行数对账失败", str(cm.exception))
         self.assertIn("2500", str(cm.exception))
+        self.assertIn("容差", str(cm.exception))
+
+    def test_total_tolerance_extra_3_ok(self):
+        """2.2.8：total=23498 实际 23501（多 3 ≤ max(5, ceil(0.5%))）→ 接受。"""
+        total, actual = 23498, 23501
+        # 用小 page 模拟：一页不够时拆页；此处一次返回 actual 行且 < PAGE_SIZE
+        rows = [{"i": n} for n in range(actual)]
+
+        def post(path, body):
+            d = {"data": rows if body["pageIndex"] == 1 else []}
+            if body["pageIndex"] == 1:
+                d["count"] = total
+            return {"data": d}
+
+        out = fz.fetch_all_rows(post, "ws1", "app1")
+        self.assertEqual(len(out), actual)
+
+    def test_total_tolerance_short_within_ok(self):
+        """total=1000 actual=996（差 4 ≤ 5）→ 接受；差 10 → 拒收。"""
+        def _post(total, actual):
+            rows = [{"i": n} for n in range(actual)]
+
+            def post(path, body):
+                d = {"data": rows if body["pageIndex"] == 1 else []}
+                if body["pageIndex"] == 1:
+                    d["count"] = total
+                return {"data": d}
+
+            return post
+
+        self.assertEqual(len(fz.fetch_all_rows(_post(1000, 996), "ws1", "app1")), 996)
+        with self.assertRaises(RuntimeError) as cm:
+            fz.fetch_all_rows(_post(1000, 990), "ws1", "app1")
+        self.assertIn("行数对账失败", str(cm.exception))
+
+    def test_no_total_short_page_ok(self):
+        """无 total 字段：末页不满即结束，不失败。"""
+        rows = [{"i": n} for n in range(42)]
+
+        def post(path, body):
+            return {"data": {"data": rows if body["pageIndex"] == 1 else []}}
+
+        self.assertEqual(len(fz.fetch_all_rows(post, "ws1", "app1")), 42)
+
+    def test_row_total_tolerance_helper(self):
+        self.assertEqual(fz.row_total_tolerance(100), 5)
+        self.assertEqual(fz.row_total_tolerance(23498), max(5, __import__("math").ceil(23498 * 0.005)))
+        self.assertEqual(fz.row_total_tolerance(1000), 5)
 
     def test_write_empty_records_raises(self):
         import tempfile
@@ -387,7 +432,8 @@ class TestFetchSourceStates(unittest.TestCase):
             # 成功后更新上次行数
             self.assertEqual(fz.load_last_row_counts(cfg, Path(td))["orders"], 1)
 
-    def test_duplicate_date_control_warns(self):
+    def test_duplicate_date_control_info_only(self):
+        """2.2.8：同名日期控件只进 info，不进 warnings（不驱动黄）。"""
         import tempfile
 
         def post(path, body):
@@ -408,7 +454,8 @@ class TestFetchSourceStates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             r = fz.fetch_source(self._cfg(Path(td)), "orders", root=Path(td), post=post, zy=self._zy())
             self.assertEqual(r["status"], "fetched")
-            self.assertTrue(any("同名控件" in w for w in (r.get("warnings") or [])))
+            self.assertTrue(any("同名控件" in w for w in (r.get("info") or [])), r)
+            self.assertFalse(any("同名控件" in w for w in (r.get("warnings") or [])), r.get("warnings"))
 
     def test_min_rows_guard_blocks_permission_starved_account(self):
         """行数门槛：抓到的行数 < tables.<源>.min_rows（=账号行级权限不足，如亮晶号在

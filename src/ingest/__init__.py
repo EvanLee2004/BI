@@ -165,41 +165,73 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     return rep
 
 
-def _log_run(conn, now: str, trigger: str, report: dict) -> str:
-    """据本轮情况判绿/黄/红，写 meta_运行日志（SQL 经 db_write.insert_run_log）。"""
-    fetch_ok = report["fetch"]["status"] == "fetched"
-    adj = report.get("adjust", {})
+def _zy_source_results(report: dict) -> dict:
+    """智云四源结果（去掉 _meta_* 等非源键）。管道未跑智云时返回 {}。"""
     zy = report.get("fetch_zhiyun") or {}
-    zy_degraded = any(v.get("status") != "fetched" for v in zy.values())
-    zy_warn = any(bool(v.get("warnings")) for v in zy.values() if isinstance(v, dict))
+    if not isinstance(zy, dict):
+        return {}
+    return {k: v for k, v in zy.items() if isinstance(v, dict) and not str(k).startswith("_")}
+
+
+def _status_is_ok_fetch(status: str | None) -> bool:
+    """应抓源视为「本次抓到」的状态：fetched / skipped*。"""
+    if not status:
+        return True
+    return status in ("fetched", "skipped", "skipped_no_share")
+
+
+def _log_run(conn, now: str, trigger: str, report: dict) -> str:
+    """方案 B（2.2.8）：绿=应抓源都抓到且无业务提醒；红=有源本次未抓到或硬故障；
+    黄=抓齐仍有业务提醒。应抓源=台账（有配置则须 fetched；未配置已标 fetched）+
+    智云四源（仅本轮实际跑了 fetch_zhiyun 时计入；zhiyun_auto_fetch 关则无该键不因智云红）。
+    """
+    fetch = report.get("fetch") or {}
+    fetch_st = fetch.get("status")
+    adj = report.get("adjust", {}) or {}
+    zy_src = _zy_source_results(report)
     dups = report.get("duplicate_locators") or {}
-    # 任务书66·D / 明昊拍板：定位键重复不再使体检黄，仅信息展示
+
     db_bad = not (report.get("db_check") or {}).get("ok", True)
-    yellow = (
-        (not fetch_ok)
-        or adj.get("expired", 0) > 0
-        or adj.get("missing", 0) > 0
-        or zy_degraded
-        or zy_warn
-    )
-    # 登录冷却 → 红（见 fetch_zhiyun 写入 report 标记）
-    if any(
-        isinstance(v, dict) and v.get("login_cooldown")
-        for v in (report.get("fetch_zhiyun") or {}).values()
-    ):
-        yellow = True  # at least yellow; red set below if flag
-    if (report.get("zhiyun_login_cooldown") or {}).get("active"):
-        pass  # red handled below
     disk_red = bool((report.get("disk") or {}).get("red"))
     login_cd = bool((report.get("zhiyun_login_cooldown") or {}).get("active"))
-    red = report["fetch"]["status"] == "no_source" or db_bad or disk_red or login_cd
+    if not login_cd:
+        login_cd = any(bool(v.get("login_cooldown")) for v in zy_src.values())
+
+    # 硬红：台账无源 / 库坏 / 盘满 / 登录冷却
+    hard_red = (fetch_st == "no_source") or db_bad or disk_red or login_cd
+
+    # 抓数失败红：应抓源 status 非 fetched/skipped*
+    fetch_fail = False
+    if fetch_st and not _status_is_ok_fetch(fetch_st) and fetch_st != "no_source":
+        # local_fallback 等 = 本次未抓到
+        fetch_fail = True
+    for v in zy_src.values():
+        if not _status_is_ok_fetch(v.get("status")):
+            fetch_fail = True
+            break
+
+    # 业务黄：调整过期/失配、智云 warnings（骤降等）；同名控件只在 info 不进 warnings
+    zy_warn = any(bool(v.get("warnings")) for v in zy_src.values())
+    business_yellow = (
+        int(adj.get("expired", 0) or 0) > 0
+        or int(adj.get("missing", 0) or 0) > 0
+        or zy_warn
+    )
+
+    red = hard_red or fetch_fail
+    yellow = (not red) and business_yellow
     结果 = "红" if red else ("黄" if yellow else "绿")
-    # 信息行：定位键重复计数（不影响绿黄红）
+
+    # 信息行：定位键重复计数（不影响绿黄红）；智云源 info 上浮到 report.info
     n_dup_keys = sum(len(v) for v in dups.values()) if isinstance(dups, dict) else 0
     if n_dup_keys:
         report.setdefault("info", []).append(
             f"{n_dup_keys} 组定位键重复（按现状计入·明昊拍板不判黄；写调整仍拒/重放过期疑似）"
         )
+    for src, v in zy_src.items():
+        for msg in v.get("info") or []:
+            report.setdefault("info", []).append(f"智云·{src}：{msg}")
+
     log_body = {k: v for k, v in report.items() if k != "records"}
     insert_run_log(conn, now, trigger, 结果, log_body)
     return 结果

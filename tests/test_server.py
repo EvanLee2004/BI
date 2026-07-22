@@ -110,8 +110,8 @@ class TestRunReasons(unittest.TestCase):
         self.assertEqual(server._run_reasons(None), [])
 
     def test_fetch_local_fallback(self):
-        rs = server._run_reasons({"fetch": {"status": "local_fallback"}})
-        self.assertTrue(any("本地副本" in r for r in rs))
+        rs = server._run_reasons({"fetch": {"status": "local_fallback", "detail": "共享不可达"}})
+        self.assertTrue(any("本次未抓到" in r for r in rs), rs)
 
     def test_no_source_red(self):
         rs = server._run_reasons({"fetch": {"status": "no_source"}})

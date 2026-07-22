@@ -112,9 +112,9 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 4. **每改必补测试 + `run_verify.sh` 全绿**。
 5. **`数据/` 不进 git**；代码/测试无真实金额/客户名/真人名。
 6. **发布安全**：只推 `main`；**绝不 push --tags**；公开库禁密码/token/真实客户金额（智云 base_url/app_id/表ID/台账 UNC 出厂默认允许）。
-7. **台账 fetch** 可达才拉、否则本地副本+体检黄，不中断。
-8. **智云同名控件合并去重**（空不盖有）。
-9. **智云抓失败不中断**（local_fallback）。
+7. **台账 fetch** 已配置 share 可达才拉，否则 local_fallback→**体检红**（本次未抓到）；未配置 share 且有本地→fetched（不红）。不中断管道。
+8. **智云同名控件合并去重**（空不盖有）；同名只 info、不黄不红（2.2.8）。
+9. **智云抓失败不中断**（local_fallback→方案 B **红**）；行数对账容差 max(5,0.5%)；`zhiyun_auto_fetch` 关不因智云红。
 10. **自由文本进 HTML 必转义**（双层 data-tip）；Vue 禁 `v-html` 自由文本。
 11. **CSS 同优先级靠后赢**——豁免须提权重。
 12. **BU 页严格隔离**；他 BU 数据/名称不泄漏。
