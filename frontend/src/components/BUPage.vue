@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { fetchProductVersion } from '../api/client'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
@@ -23,6 +23,11 @@ const store = useCockpitStore()
 const productVer = ref('')
 /** 2.2.9：本机日历日，版本号左侧 */
 const todayStr = ref('')
+/** 快照 BU 专用包无整体页：隐藏「← 整体」，避免点进空壳 */
+const showOverallBack = computed(() => {
+  if (!store.snapshotMode) return true
+  return store.snapshotCanGoOverall()
+})
 
 function localTodayYmd(): string {
   const d = new Date()
@@ -35,6 +40,7 @@ function localTodayYmd(): string {
 function goOverall(e?: Event) {
   if (store.snapshotMode) {
     e?.preventDefault()
+    if (!store.snapshotCanGoOverall()) return
     store.loadMain()
   }
 }
@@ -72,8 +78,10 @@ onMounted(async () => {
       <div class="tb-left">
         <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
         <a
+          v-if="showOverallBack"
           class="bu-back"
           href="/"
+          data-testid="bu-back-overall"
           @click="goOverall"
         >← 整体</a>
         <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>

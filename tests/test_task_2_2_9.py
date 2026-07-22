@@ -64,6 +64,27 @@ class TestSourceGuards229(unittest.TestCase):
         self.assertIn("export.html", src)
         self.assertIn("/api/export.html", src)
 
+    def test_bu_only_snapshot_hides_overall_back(self):
+        """BU 专用包不得提供「← 整体」入口，避免 loadMain 挂上空 cockpit 壳。"""
+        bu = (ROOT / "frontend/src/components/BUPage.vue").read_text(encoding="utf-8")
+        store = (ROOT / "frontend/src/stores/cockpit.ts").read_text(encoding="utf-8")
+        self.assertIn("showOverallBack", bu)
+        self.assertIn('v-if="showOverallBack"', bu)
+        self.assertIn("snapshotCanGoOverall", bu)
+        self.assertIn("function snapshotCanGoOverall", store)
+        # loadMain 对 BU 包 / 空 cockpit 必须 early return（禁止挂空整体）
+        self.assertIn("snapshotCanGoOverall()", store)
+        self.assertRegex(
+            store,
+            r"if\s*\(\s*!snapshotCanGoOverall\(\)\s*\)\s*\{?\s*return",
+            msg="loadMain must no-op when snapshot cannot go overall",
+        )
+        # scope===BU 时 snapshotCanGoOverall 为 false
+        self.assertTrue(
+            "=== 'BU'" in store or '=== "BU"' in store,
+            "snapshotCanGoOverall must treat pack.scope === 'BU' as no overall",
+        )
+
     def test_export_main_path_is_snapshot_not_fallback(self):
         exp = (ROOT / "src/export_html.py").read_text(encoding="utf-8")
         self.assertIn("assemble_export_pack", exp)
@@ -126,6 +147,42 @@ class TestAssemblePack(unittest.TestCase):
         self.assertNotIn("BU乙", raw)
         self.assertNotIn("ONLY_B", raw)
         self.assertIn("ONLY_A", raw)
+
+    def test_bu_pack_empty_cockpit_means_no_overall_shell(self):
+        """契约：BU 导出 pack.scope=BU 且 cockpit={}，前端靠此禁「← 整体」/ loadMain。"""
+        from export_html import assemble_export_pack, build_export_html
+
+        pack = assemble_export_pack(
+            scope="BU",
+            bu_name="游戏",
+            blk="2026年",
+            version="2.2.9",
+            bu_vms={
+                "游戏": {
+                    "bu_name": "游戏",
+                    "year_key": "2026年",
+                    "period_keys": ["2026年"],
+                    "kpi": {"cards_by_period": {"2026年": [{"title": "收入", "value_disp": "1"}]}},
+                }
+            },
+        )
+        self.assertEqual(pack["scope"], "BU")
+        self.assertEqual(pack.get("cockpit") or {}, {})
+        self.assertFalse(bool(pack["cockpit"]))
+        # 与前端 snapshotCanGoOverall 同源条件：scope=BU → 不可回整体
+        can_overall = str(pack.get("scope") or "") != "BU" and bool(
+            (pack.get("cockpit") or {}).get("period_keys")
+            or (pack.get("cockpit") or {}).get("year_key")
+        )
+        self.assertFalse(can_overall)
+        html, mode = build_export_html(pack=pack, version="2.2.9", root=ROOT)
+        self.assertEqual(mode, "snapshot")
+        m = re.search(r"window\.__KANBAN_SNAPSHOT__ = (\{.*\});\s*</script>", html)
+        self.assertIsNotNone(m)
+        emb = json.loads(m.group(1))
+        self.assertEqual(emb["scope"], "BU")
+        self.assertEqual(emb.get("cockpit") or {}, {})
+        self.assertEqual(list(emb["bu"].keys()), ["游戏"])
 
 
 class TestSnapshotHtmlBody(unittest.TestCase):

@@ -205,10 +205,28 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
   }
 
+  /** 2.2.9：快照是否允许切到整体（BU 专用包 scope=BU 或 cockpit 空 → 否） */
+  function snapshotCanGoOverall(): boolean {
+    if (!snapshotMode.value || !snapshotPack.value) return true
+    const pack = snapshotPack.value
+    if (String(pack.scope || '') === 'BU') return false
+    const c = (pack.cockpit || {}) as PageVM
+    if (!c || typeof c !== 'object') return false
+    if (Object.keys(c).length === 0) return false
+    const keys = c.period_keys || []
+    // 有 period_keys / year_key 才算可用整体页，避免空壳 KPI
+    if (keys.length || c.year_key) return true
+    return false
+  }
+
   async function loadMain() {
     // 2.2.9：内嵌快照优先（零 API）
     if (snapshotMode.value && snapshotPack.value) {
       const pack = snapshotPack.value
+      // BU 专用包 / 空 cockpit：禁止跳到空整体壳
+      if (!snapshotCanGoOverall()) {
+        return
+      }
       const data = (pack.cockpit || {}) as PageVM
       vm.value = data
       scope.value = 'main'
@@ -355,6 +373,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
     loadArchive,
     loadSnapshot,
     tryBootSnapshot,
+    snapshotCanGoOverall,
     setPeriod,
     setDaily,
     clearDaily,
