@@ -217,6 +217,39 @@ def _run_reasons(report: dict) -> list[str]:
     # 备份成功不写 run_reasons（避免绿时顶栏堆字）；状态在体检 JSON backup 字段，管理端可查
     return reasons
 
+
+def apply_business_health_yellow(
+    result: str | None,
+    reasons: list[str] | None,
+    *,
+    n_unassigned: int = 0,
+    health_warnings: list | None = None,
+) -> tuple[str | None, list[str]]:
+    """2.2.8 方案 B：数据侧业务提醒抬绿→黄（**不覆盖红**）。
+
+    管道 result 只看抓数/调整等；手填缺月、未归属 BU 等在 summary.meta.health，
+    须在 /api/health 合成时抬黄，否则「全源 fetched + 仅手填缺」会假绿。
+    返回 (result, reasons)。
+    """
+    reasons = list(reasons or [])
+    n_un = int(n_unassigned or 0)
+    if n_un > 0:
+        msg = f"{n_un} 名销售未归属 BU（业务不进任何 BU 页，各 BU 合计小于全公司）"
+        if not any("销售未归属 BU" in str(r) for r in reasons):
+            reasons = [msg] + reasons
+        if result in ("绿", None):
+            result = "黄"
+    for w in health_warnings or []:
+        s = str(w or "")
+        # 手填缺 N 个月 / 手填为空或未读到
+        if "手填缺" in s or "手填为空" in s:
+            if s and s not in reasons:
+                reasons = [s] + reasons
+            if result in ("绿", None):
+                result = "黄"
+            break
+    return result, reasons
+
 _ZY_BANNER_NAMES = {
     "orders": "智云·下单",
     "receipts": "智云·回款",

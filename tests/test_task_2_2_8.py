@@ -15,7 +15,11 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import db  # noqa: E402
 import loaders  # noqa: E402
-from audit_diff import build_fetch_fallback_banners, _run_reasons  # noqa: E402
+from audit_diff import (  # noqa: E402
+    apply_business_health_yellow,
+    build_fetch_fallback_banners,
+    _run_reasons,
+)
 from ingest import _log_run  # noqa: E402
 from ingest import fetch as fetch_mod  # noqa: E402
 from ingest import fetch_zhiyun as fz  # noqa: E402
@@ -138,6 +142,34 @@ class TestLightColorSchemeB(unittest.TestCase):
         rs = _run_reasons(rep)
         self.assertFalse(any("同名控件" in r for r in rs), rs)
 
+    def test_all_fetched_handfill_missing_lifts_yellow(self):
+        """DoD⑧：管道全 fetched 绿 + 手填缺月业务警 → health 合成后黄（不盖红）。"""
+        # 管道本身无业务黄 → 绿
+        rep = _base_report()
+        self.assertEqual(_log_run(self.conn, self.now, "t", rep), "绿")
+        # 真实 shipped helper：手填缺抬绿→黄
+        warn = "手填缺 3 个月未录（2026-01、2026-02、2026-03）：缺月按 0 计，请当月补填"
+        result, reasons = apply_business_health_yellow(
+            "绿",
+            [],
+            n_unassigned=0,
+            health_warnings=[warn],
+        )
+        self.assertEqual(result, "黄")
+        self.assertTrue(any("手填缺" in r for r in reasons), reasons)
+        # 红不被盖
+        r2, _ = apply_business_health_yellow(
+            "红",
+            ["收单台账本次未抓到"],
+            n_unassigned=0,
+            health_warnings=[warn],
+        )
+        self.assertEqual(r2, "红")
+        # 未归属仍抬黄
+        r3, rs3 = apply_business_health_yellow("绿", [], n_unassigned=2, health_warnings=[])
+        self.assertEqual(r3, "黄")
+        self.assertTrue(any("未归属" in r for r in rs3), rs3)
+
 
 class TestBanners228(unittest.TestCase):
     def test_banner_text_本次未抓到(self):
@@ -197,6 +229,70 @@ class TestVersion228(unittest.TestCase):
         # 最新产品条目应含方案 B 语义关键词
         self.assertIn("本次未抓到", blob)
         self.assertIn("口径", blob)
+
+
+class TestHealthApiHandfillYellow(unittest.TestCase):
+    """真实 /api/health 路径：管道绿 + health.warnings 手填缺 → result 黄。"""
+
+    def test_api_health_green_run_handfill_warn_becomes_yellow(self):
+        import json
+        import tempfile
+
+        from fastapi.testclient import TestClient
+
+        import accounts
+        import server
+
+        tmp = Path(tempfile.mkdtemp(prefix="t228h_"))
+        (tmp / "数据").mkdir()
+        cfg = dict(loaders.load_config(ROOT))
+        cfg["data_dir"] = "数据"
+        cfg["db_path"] = "数据/看板.db"
+        cfg["zhiyun_auto_fetch"] = False
+        accounts.save_accounts(
+            cfg,
+            tmp,
+            [{"账号": "admin1", "密码": "8888", "权限": "管理员", "显示名": "管"}],
+        )
+        conn = db.connect(cfg, tmp)
+        body = {
+            "fetch": {"status": "fetched"},
+            "fetch_zhiyun": {
+                "orders": {"status": "fetched"},
+                "receipts": {"status": "fetched"},
+                "project_detail": {"status": "fetched"},
+                "inhouse": {"status": "fetched"},
+            },
+            "adjust": {"expired": 0, "missing": 0},
+            "db_check": {"ok": True},
+        }
+        conn.execute(
+            "INSERT INTO meta_运行日志(时间,触发方式,结果,体检JSON) VALUES(?,?,?,?)",
+            ("2026-07-22 12:00:00", "manual", "绿", json.dumps(body, ensure_ascii=False)),
+        )
+        conn.commit()
+        conn.close()
+        # 管道绿，但 summary 体检含手填缺（真实 profit 产出形态）
+        server._state["summary"] = {
+            "meta": {
+                "health": {
+                    "sources": [],
+                    "warnings": [
+                        "手填缺 2 个月未录（2026-05、2026-06）：缺月按 0 计，请当月补填"
+                    ],
+                    "ok": False,
+                },
+                "unassigned": {"count": 0},
+            }
+        }
+        app = server.create_app(cfg, root=tmp)
+        c = TestClient(app)
+        r = c.get("/api/health")
+        self.assertEqual(r.status_code, 200)
+        d = r.json()
+        self.assertEqual(d["result"], "黄", d)
+        self.assertTrue(any("手填缺" in (x or "") for x in d.get("run_reasons") or []), d)
+        self.assertTrue(any("手填缺" in (x or "") for x in d.get("warnings") or []), d)
 
 
 class TestLedgerNoShareNotRed(unittest.TestCase):
