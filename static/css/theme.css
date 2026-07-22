@@ -93,16 +93,59 @@ body{
   background-size:auto,auto,auto,auto,44px 44px,44px 44px;
   background-attachment:fixed; min-height:100vh;
 }
-/* 霓虹：更强背景光晕 + 更亮网格 */
+/* 霓虹：更强背景光晕 + 更亮网格 + 2.3.1 空间感（仅 transform/opacity/background-position） */
 :root[data-theme="neon"] body, html[data-theme="neon"] body{
   background-image:
-    radial-gradient(780px 520px at 6% -8%, rgba(47,243,255,.22), transparent 58%),
-    radial-gradient(820px 560px at 102% 2%, rgba(209,107,255,.20), transparent 60%),
+    radial-gradient(780px 520px at 6% -8%, rgba(47,243,255,.26), transparent 58%),
+    radial-gradient(820px 560px at 102% 2%, rgba(209,107,255,.28), transparent 60%),
     radial-gradient(680px 680px at 48% 110%, rgba(46,230,200,.14), transparent 58%),
-    radial-gradient(400px 280px at 70% 40%, rgba(47,243,255,.08), transparent 70%),
-    linear-gradient(rgba(47,243,255,.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(47,243,255,.08) 1px, transparent 1px);
+    radial-gradient(400px 280px at 70% 40%, rgba(47,243,255,.1), transparent 70%),
+    linear-gradient(rgba(47,243,255,.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47,243,255,.1) 1px, transparent 1px);
   background-size:auto,auto,auto,auto,44px 44px,44px 44px;
+  background-position:0 0,0 0,0 0,0 0,0 0,0 0;
+  animation: neon-grid-drift 36s linear infinite;
+  position: relative;
+}
+:root[data-theme="neon"] body::before,
+html[data-theme="neon"] body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(47,243,255,.055) 48%,
+    transparent 52%
+  );
+  background-size: 100% 220%;
+  opacity: 0.06;
+  animation: neon-scan 10s linear infinite;
+}
+:root[data-theme="neon"] body > *,
+html[data-theme="neon"] body > *{
+  position: relative;
+  z-index: 1;
+}
+@keyframes neon-grid-drift{
+  0%{ background-position:0 0,0 0,0 0,0 0,0 0,0 0; }
+  100%{ background-position:0 0,0 0,0 0,0 0,44px 44px,44px 44px; }
+}
+@keyframes neon-scan{
+  0%{ background-position: 0 -20%; }
+  100%{ background-position: 0 120%; }
+}
+@media (prefers-reduced-motion: reduce){
+  :root[data-theme="neon"] body, html[data-theme="neon"] body{
+    animation: none !important;
+  }
+  :root[data-theme="neon"] body::before,
+  html[data-theme="neon"] body::before{
+    animation: none !important;
+    opacity: 0 !important;
+  }
 }
 /* 浅色：干净白底，无网格/光晕，简洁可切换 */
 .theme-light body,body.theme-light,

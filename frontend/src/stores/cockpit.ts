@@ -83,6 +83,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const snapshotBuiltAt = ref('')
   const snapshotVersion = ref('')
   const snapshotScopeLabel = ref('')
+  /** 2.3.1 S6：切 BU 视觉转场标志（不改数据装配） */
+  const viewTransitioning = ref(false)
 
   function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
@@ -332,6 +334,32 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
   }
 
+  /** 2.3.1：切 BU 视觉转场（淡出→loadBu→淡入）；错误条不被遮挡 */
+  async function transitionToBu(name: string) {
+    if (!name || name === buName.value) return
+    let reduced = false
+    try {
+      reduced = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    } catch {
+      reduced = false
+    }
+    if (!reduced) viewTransitioning.value = true
+    try {
+      if (!reduced) await new Promise((r) => setTimeout(r, 150))
+      await loadBu(name)
+      if (typeof history !== 'undefined' && !snapshotMode.value) {
+        try {
+          history.pushState({}, '', '/bu/' + encodeURIComponent(name))
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!reduced) await new Promise((r) => setTimeout(r, 200))
+    } finally {
+      viewTransitioning.value = false
+    }
+  }
+
   function setPeriod(key: string) {
     period.value = key
     // 切顶部周期即回默认排名态（区间查询是临时叠加，周期一变就撤销），与 legacy 一致
@@ -382,8 +410,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
     dailyActive,
     dailyRange,
     dailyDual,
+    viewTransitioning,
     loadMain,
     loadBu,
+    transitionToBu,
     loadArchive,
     loadSnapshot,
     tryBootSnapshot,

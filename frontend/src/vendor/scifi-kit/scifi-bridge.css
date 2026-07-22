@@ -92,17 +92,134 @@ html.theme-light,
   -webkit-backdrop-filter: none;
   background: rgba(8, 16, 32, 0.92);
 }
+/* 2.3.1 S2：霓虹 HUD 面板（仅 neon；深色/亮色路径零变化） */
 :root[data-theme="neon"] .scifi-panel.dsdk-panel {
-  background: rgba(4, 10, 22, 0.94);
-  border-color: rgba(47, 243, 255, 0.28);
-  box-shadow: var(--scifi-glow);
+  position: relative;
+  background: rgba(2, 6, 16, 0.96);
+  border: 1px solid rgba(47, 243, 255, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(47, 243, 255, 0.06) inset,
+    0 0 12px rgba(47, 243, 255, 0.22),
+    0 0 28px rgba(209, 107, 255, 0.1);
+  /* HUD 切角：右上/左下；overflow 可见以免裁切内部下拉（见 no-clip 例外） */
+  clip-path: polygon(
+    0 10px,
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+/* 周期选择器/抽屉等可能溢出：关闭 clip-path */
+:root[data-theme="neon"] .scifi-panel.dsdk-panel.no-hud-clip,
+:root[data-theme="neon"] .period-picker .scifi-panel.dsdk-panel,
+:root[data-theme="neon"] .pp-panel.scifi-panel,
+:root[data-theme="neon"] [data-drawer] .scifi-panel.dsdk-panel,
+:root[data-theme="neon"] .drawer .scifi-panel.dsdk-panel {
+  clip-path: none;
+}
+/* 四角角标：复用 before/after + 两伪元素用 box-shadow 模拟另两角 */
+:root[data-theme="neon"] .scifi-panel {
+  position: relative;
 }
 :root[data-theme="neon"] .scifi-panel::before,
 :root[data-theme="neon"] .scifi-panel::after {
-  opacity: 0.95;
-  width: 14px;
-  height: 14px;
-  filter: drop-shadow(0 0 4px rgba(47, 243, 255, 0.55));
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 3;
+  border-color: var(--blue, #2ff3ff);
+  border-style: solid;
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(47, 243, 255, 0.55);
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+:root[data-theme="neon"] .scifi-panel::before {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+  /* 右上角标用 shadow 模拟 */
+  box-shadow:
+    0 0 8px rgba(47, 243, 255, 0.55),
+    calc(100% - 22px) 0 0 0 transparent;
+}
+:root[data-theme="neon"] .scifi-panel::after {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}
+/* 右上 + 左下角：用额外伪元素不可用，改用 outline 双角通过 linear-gradient 边框 */
+:root[data-theme="neon"] .scifi-panel .dsdk-panel-header {
+  position: relative;
+}
+:root[data-theme="neon"] .scifi-panel .dsdk-panel-header::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(47, 243, 255, 0.85) 45%,
+    rgba(209, 107, 255, 0.7) 55%,
+    transparent 100%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* 右上/左下角标补丁 */
+:root[data-theme="neon"] .scifi-panel .dsdk-panel-header::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-style: solid;
+  border-color: var(--blue, #2ff3ff);
+  border-width: 2px 2px 0 0;
+  box-shadow: 0 0 8px rgba(47, 243, 255, 0.5);
+  pointer-events: none;
+  z-index: 4;
+}
+:root[data-theme="neon"] .scifi-panel .dsdk-panel-content {
+  position: relative;
+}
+:root[data-theme="neon"] .scifi-panel .dsdk-panel-content::before {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  width: 20px;
+  height: 20px;
+  border-style: solid;
+  border-color: var(--blue, #2ff3ff);
+  border-width: 0 0 2px 2px;
+  box-shadow: 0 0 8px rgba(47, 243, 255, 0.45);
+  pointer-events: none;
+  z-index: 4;
+}
+:root[data-theme="neon"] .scifi-panel.dsdk-panel:hover {
+  border-color: rgba(47, 243, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(47, 243, 255, 0.12) inset,
+    0 0 18px rgba(47, 243, 255, 0.35),
+    0 0 36px rgba(209, 107, 255, 0.16);
+}
+:root[data-theme="neon"] .scifi-panel.dsdk-panel:hover::before,
+:root[data-theme="neon"] .scifi-panel.dsdk-panel:hover::after,
+:root[data-theme="neon"] .scifi-panel.dsdk-panel:hover .dsdk-panel-header::before,
+:root[data-theme="neon"] .scifi-panel.dsdk-panel:hover .dsdk-panel-content::before {
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(47, 243, 255, 0.85);
 }
 html.theme-light .scifi-panel.dsdk-panel,
 :root[data-theme="light"] .scifi-panel.dsdk-panel {
@@ -965,5 +1082,48 @@ body > .drawer .pl-drow > span:first-child {
   }
   .kpi-grid {
     gap: 16px !important;
+  }
+}
+
+/* ── 2.3.1 S4：霓虹 KPI 动效（仅 neon；动画只动 opacity/transform） ── */
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card {
+  animation: neon-kpi-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:nth-child(1) { animation-delay: 0ms; }
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:nth-child(2) { animation-delay: 60ms; }
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:nth-child(3) { animation-delay: 120ms; }
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:nth-child(4) { animation-delay: 180ms; }
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:nth-child(5) { animation-delay: 240ms; }
+@keyframes neon-kpi-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-v > b,
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-v .count-up-num {
+  font-size: var(--fs-kpi, 38px);
+  color: #f2f8ff;
+  text-shadow:
+    0 0 10px rgba(47, 243, 255, 0.55),
+    0 0 22px rgba(47, 243, 255, 0.25);
+}
+:root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-bar,
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-bu-track {
+  background: rgba(47, 243, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(47, 243, 255, 0.08) inset;
+}
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-bar > i,
+:root[data-theme="neon"] .scifi-panel.kpi-card .kpi-bu-track > i {
+  box-shadow: 0 0 10px rgba(47, 243, 255, 0.55), 0 0 4px rgba(47, 243, 255, 0.8);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card {
+    animation: none !important;
+  }
+  :root[data-theme="neon"] .kpi-grid > .scifi-panel.kpi-card:hover {
+    transform: none;
   }
 }

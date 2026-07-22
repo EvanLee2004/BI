@@ -34,11 +34,11 @@ function href(name: string) {
   return '/bu/' + encodeURIComponent(name)
 }
 
-function onBuClick(name: string, e: Event) {
-  if (store.snapshotMode) {
-    e.preventDefault()
-    if (name !== store.buName) store.loadBu(name)
-  }
+async function onBuClick(name: string, e: Event) {
+  e.preventDefault()
+  if (name === store.buName) return
+  /* 2.3.1：三主题转场 + KPI 重跳（count-up 随 period/vm 变） */
+  await store.transitionToBu(name)
 }
 </script>
 <template>

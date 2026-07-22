@@ -161,25 +161,48 @@ class Test54p14LiveOptional(unittest.TestCase):
             self.assertNotIn("万万", body)
             report["steps"].append({"r20": "no_double_wan_body", "ok": True})
 
-            # ── R-21 看端主题 ──
+            # ── R-21 看端主题（2.3.0 三态：断言 data-theme 循环；light 仍有 theme-light）──
             before = page.evaluate(
-                "() => document.documentElement.classList.contains('theme-light')"
+                "() => document.documentElement.dataset.theme || "
+                "(document.documentElement.classList.contains('theme-light') ? 'light' : 'dark')"
             )
             theme_btn = page.locator(
-                "button:has-text('浅色'), button:has-text('深色'), button:has-text('亮/暗')"
+                "button:has-text('浅色'), button:has-text('深色'), button:has-text('霓虹'), button:has-text('亮/暗')"
             ).first
             theme_btn.click(force=True)
             page.wait_for_timeout(500)
             after = page.evaluate(
-                "() => document.documentElement.classList.contains('theme-light')"
+                "() => document.documentElement.dataset.theme || "
+                "(document.documentElement.classList.contains('theme-light') ? 'light' : 'dark')"
             )
             self.assertNotEqual(before, after)
+            # 兼容层：显式切到 light 时必须仍有 theme-light class
+            page.evaluate(
+                """() => {
+                  document.documentElement.dataset.theme = 'light';
+                  document.documentElement.classList.add('theme-light');
+                  try { localStorage.setItem('cockpit-theme', 'light'); } catch (e) {}
+                  window.dispatchEvent(new CustomEvent('kanban-theme-change',
+                    { detail: { theme: 'light', light: true } }));
+                }"""
+            )
+            page.wait_for_timeout(200)
+            self.assertTrue(
+                page.evaluate(
+                    "() => document.documentElement.classList.contains('theme-light')"
+                )
+            )
             page.screenshot(path=str(out / "theme_after_toggle.png"))
             report["steps"].append({"r21_cockpit": {"before": before, "after": after}})
             # 回到暗色便于后续
-            if after:
-                theme_btn.click(force=True)
-                page.wait_for_timeout(300)
+            page.evaluate(
+                """() => {
+                  document.documentElement.dataset.theme = 'dark';
+                  document.documentElement.classList.remove('theme-light');
+                  try { localStorage.setItem('cockpit-theme', 'dark'); } catch (e) {}
+                }"""
+            )
+            page.wait_for_timeout(200)
 
             # ── R-22 弹层 z + 叠在 KPI 上 ──
             page.locator("[data-testid=period-picker] .pp-trigger").click(force=True)

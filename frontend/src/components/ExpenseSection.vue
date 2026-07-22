@@ -14,6 +14,7 @@ import {
   chartMutedColor,
   chartTextColor,
   pieEmphasis,
+  pieGlowItemStyle,
   SERIES_PALETTE,
 } from '../chart-fx'
 import { withWanUnit } from '../utils/disp'
@@ -126,6 +127,8 @@ const option = computed(() => {
           shadowColor: 'transparent',
           borderColor: 'rgba(4,8,20,0.45)',
           borderWidth: 2,
+          /* 2.3.1：霓虹内圈发光仅样式字段，data/label 不动 */
+          ...pieGlowItemStyle('#2ff3ff'),
         },
         emphasis: pieEmphasis(),
         animationType: 'expansion',

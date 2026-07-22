@@ -110,10 +110,12 @@ const option = computed(() => {
       yAxisIndex: 1,
       data: marPlot,
       symbol: 'circle',
-      symbolSize: 8,
+      symbolSize: neon ? 9 : 8,
       connectNulls: false,
       itemStyle: pointGlowStyle(cMar),
       lineStyle: lineGlowStyle(cMar, 2.5),
+      /* 面积渐变仅毛利率线可选；收入柱已有 area 占位跳过 */
+      ...(neon ? { areaStyle: areaGradient(cMar) } : {}),
       label: dataLabelStyle({
         position: 'top',
         distance: 8,

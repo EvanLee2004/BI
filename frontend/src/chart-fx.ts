@@ -84,7 +84,7 @@ export function legendTextStyle(extra: Record<string, unknown> = {}): Record<str
   }
 }
 
-/** 柱体：顶部高光渐变；fx=1 时软阴影 */
+/** 柱体：顶部高光渐变；fx=1 时软阴影 + 顶帽高亮 */
 export function barGlowStyle(hex: string, soft = false): Record<string, unknown> {
   const c = hex
   const fx = fxLevel() === 1
@@ -96,16 +96,29 @@ export function barGlowStyle(hex: string, soft = false): Record<string, unknown>
       y: 0,
       x2: 0,
       y2: 1,
-      colorStops: [
-        { offset: 0, color: c },
-        { offset: 0.45, color: c },
-        { offset: 1, color: soft ? c : shadeHex(c, -0.28) },
-      ],
+      colorStops: fx
+        ? [
+            { offset: 0, color: shadeHex(c, 0.35) },
+            { offset: 0.08, color: c },
+            { offset: 0.5, color: c },
+            { offset: 1, color: soft ? c : shadeHex(c, -0.28) },
+          ]
+        : [
+            { offset: 0, color: c },
+            { offset: 0.45, color: c },
+            { offset: 1, color: soft ? c : shadeHex(c, -0.28) },
+          ],
     },
     /* fx=0 时与 2.2.9 一致：shadowBlur: 0 */
-    shadowBlur: fx ? 10 : 0,
-    shadowColor: fx ? hexToRgba(c, 0.45) : 'transparent',
+    shadowBlur: fx ? 12 : 0,
+    shadowColor: fx ? hexToRgba(c, 0.5) : 'transparent',
     shadowOffsetY: 0,
+    ...(fx
+      ? {
+          borderColor: shadeHex(c, 0.45),
+          borderWidth: 0,
+        }
+      : {}),
   }
 }
 
@@ -116,8 +129,8 @@ export function lineGlowStyle(hex: string, width = 2.5): Record<string, unknown>
     width: fx ? width + 0.5 : width,
     color: hex,
     /* fx=0：shadowBlur: 0 */
-    shadowBlur: fx ? 12 : 0,
-    shadowColor: fx ? hexToRgba(hex, 0.45) : 'transparent',
+    shadowBlur: fx ? 14 : 0,
+    shadowColor: fx ? hexToRgba(hex, 0.5) : 'transparent',
   }
 }
 
@@ -128,8 +141,8 @@ export function pointGlowStyle(hex: string): Record<string, unknown> {
     borderColor: '#fff',
     borderWidth: 1,
     /* fx=0：shadowBlur: 0 */
-    shadowBlur: fx ? 8 : 0,
-    shadowColor: fx ? hexToRgba(hex, 0.45) : 'transparent',
+    shadowBlur: fx ? 10 : 0,
+    shadowColor: fx ? hexToRgba(hex, 0.55) : 'transparent',
   }
 }
 
@@ -165,19 +178,31 @@ export function breathScatterSeries(
   return null
 }
 
-/** 环形 hover：略放大；阴影 ≤4 */
+/** 环形 hover：略放大；阴影 ≤4；霓虹加强 */
 export function pieEmphasis(): Record<string, unknown> {
+  const fx = fxLevel() === 1
   return {
     scale: true,
-    scaleSize: 8,
+    scaleSize: fx ? 10 : 8,
     itemStyle: {
-      shadowBlur: 4,
-      shadowColor: 'rgba(34, 211, 238, 0.35)',
+      shadowBlur: fx ? 12 : 4,
+      shadowColor: fx ? 'rgba(47, 243, 255, 0.5)' : 'rgba(34, 211, 238, 0.35)',
     },
     label: {
       fontSize: 13,
       fontWeight: 700,
     },
+  }
+}
+
+/** 环形外发光 itemStyle 补丁（仅样式，不碰 data/label） */
+export function pieGlowItemStyle(hex: string): Record<string, unknown> {
+  if (fxLevel() !== 1) return {}
+  return {
+    shadowBlur: 14,
+    shadowColor: hexToRgba(hex, 0.45),
+    borderColor: shadeHex(hex, 0.25),
+    borderWidth: 1,
   }
 }
 
