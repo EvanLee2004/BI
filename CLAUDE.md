@@ -34,15 +34,15 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.2.7 · 2026-07-22）
+## 当前状态（2.2.9 · 2026-07-22）
 
-- **版本**：`VERSION` / `src/version.py` = **2.2.7**（展示/历史/导出统一 Vue 皮；历史=`vm_YYYYMMDD.json`+`/?archive=` 只读；导出主路径 HTML；停写`页面_*.html`；管理端去顶栏浅色）。其上 2.2.6=下单未填部门批量；2.2.5=翻页/展示/logo；2.2.4=十项。
-- **展示端**：顶栏左=logo+标题+时间；右=版本号+主题+导出 HTML+退出；历史打开带「历史存档·只读」横幅。
+- **版本**：`VERSION` / `src/version.py` = **2.2.9**（导出=方案A自包含静态可交互快照 + 顶栏今日日期）。其上 2.2.8=抓数容差/灯色B；2.2.7=展示/历史/导出统一 Vue；2.2.6=下单未填部门批量。
+- **展示端**：顶栏右=**今日日期**+版本号+主题+导出+退出；导出下载单文件快照 HTML（内嵌 `kanban_snapshot` + `dist-snapshot` 播放器，离线可切周期/展开利润表/整体切 BU）；历史 `/?archive=` 只读横幅保留。
 - **管理端**：顶栏页签「展示」；长列表统一上一页/下一页每页 50；退出在设置底。
-- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_2_5.py` 等。
+- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_2_9.py`；前端 `npm run build` 含 online dist + dist-snapshot。
 - **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代；运维见 `docs/Runbook.md` §0。
-- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归。
-- **push**：本单明昊授权可推 main（过安全扫描）。
+- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功。
+- **push**：本单明昊授权可推 main（过安全扫描）；只推 main 不推 tags。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
 
