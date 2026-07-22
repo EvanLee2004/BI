@@ -44,7 +44,9 @@ def _std_accts():
 class TestSourceGuards227(unittest.TestCase):
     def test_topbar_export_html(self):
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
-        self.assertIn("/export.html", src)
+        self.assertIn("export.html", src)
+        # 整体页优先 /api/export.html（nginx 现网 /api 必反代）；BU 仍 /bu/.../export.html
+        self.assertIn("/api/export.html", src)
         self.assertIn("exportHtml", src)
         self.assertNotIn("/export.png", src)
         self.assertIn("export-html-btn", src)
@@ -217,21 +219,25 @@ class TestHistoryAndExportHttp(unittest.TestCase):
         ):
             raw = self._client()
             self.assertEqual(raw.get("/export.html").status_code, 401)
+            self.assertEqual(raw.get("/api/export.html").status_code, 401)
             self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
             self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
 
             admin = self._admin()
-            r = admin.get("/export.html")
-            self.assertEqual(r.status_code, 200, r.text[:300])
-            self.assertIn("text/html", r.headers.get("content-type", ""))
-            disp = (r.headers.get("x-filename") or "") + (r.headers.get("content-disposition") or "")
-            self.assertIn(".html", disp.lower())
+            for path in ("/export.html", "/api/export.html"):
+                r = admin.get(path)
+                self.assertEqual(r.status_code, 200, f"{path}: {r.text[:300]}")
+                self.assertIn("text/html", r.headers.get("content-type", ""))
+                disp = (r.headers.get("x-filename") or "") + (r.headers.get("content-disposition") or "")
+                self.assertIn(".html", disp.lower(), path)
             self.assertEqual(admin.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
             self.assertEqual(admin.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
             self.assertEqual(admin.get("/export.html", params={"blk": "1999年"}).status_code, 400)
+            self.assertEqual(admin.get("/api/export.html", params={"blk": "1999年"}).status_code, 400)
 
             cmain, _ = self._login_view("overall")
             self.assertEqual(cmain.get("/export.html").status_code, 200)
+            self.assertEqual(cmain.get("/api/export.html").status_code, 200)
 
             # PNG 兼容不 500
             orig = server._screenshot_png

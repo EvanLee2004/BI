@@ -17,7 +17,8 @@
 | GET | `/admin/logout` | 清 cookie | 退出管理端 | 管理端 |
 | GET | `/admin/app.js` | 公开（壳资源） | 410 已下线（65·L1） | 管理端页面 |
 | GET | `/static/*` | 公开 | CSS/JS/壳（看端+管理端） | 浏览器 |
-| GET | `/export.html` | 整体/管理员会话 | **主路径**整页 HTML 导出（Vue 皮） | 看端顶栏导出 |
+| GET | `/export.html` | 整体/管理员会话 | 整页 HTML 导出（Vue 皮） | 直连 :8018 / 已 reload 的 nginx |
+| GET | `/api/export.html` | 同上 | **同实现**；经现网 nginx `/api` 反代（顶栏主路径） | 看端顶栏导出 |
 | GET | `/bu/{name}/export.html` | 可看该 BU 的会话 | BU 页 HTML 导出 | BU 页 |
 | GET | `/export.png` | 整体/管理员会话 | PNG 兼容保留（前端不走） | 旧客户端 |
 | GET | `/bu/{name}/export.png` | 可看该 BU 的会话 | BU PNG 兼容 | 旧客户端 |

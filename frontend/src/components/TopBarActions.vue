@@ -39,10 +39,12 @@ async function exportHtml() {
     return
   }
   const blk = store.period || ''
+  // 整体页走 /api/export.html：现网 nginx 必反代 /api（export.html 裸路径需 conf 含 export.html 才反代）
+  // BU 页 /bu/{name}/export.html 已由 location 的 bu 前缀反代
   const url =
     store.scope === 'bu' && store.buName
       ? `/bu/${encodeURIComponent(store.buName)}/export.html?blk=${encodeURIComponent(blk)}`
-      : `/export.html?blk=${encodeURIComponent(blk)}`
+      : `/api/export.html?blk=${encodeURIComponent(blk)}`
   exporting.value = true
   try {
     const r = await fetch(url, { credentials: 'same-origin' })
