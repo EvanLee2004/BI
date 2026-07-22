@@ -8,6 +8,24 @@
 
 ---
 
+## [2.2.7] - 2026-07-22
+
+### Changed
+- **三合一 Vue 皮**：日常展示 / 历史回看 / 导出带走统一为同一套 Vue 经营看板界面
+- **历史 = 数据时点存档**：`generate` 成功后写 `数据/备份/vm_YYYYMMDD.json`（同天覆盖）；管理端「打开」→ `/?archive=YYYYMMDD` Vue 只读横幅；**停写** `页面_*.html`
+- **导出主路径 HTML**：`/export.html`、`/bu/{name}/export.html`（鉴权矩阵与原 PNG 一致）；前端 `TopBarActions` 默认 `.html`；`/export.png` 兼容保留
+- **管理端去掉顶栏「浅色」**（登录页主题钮一并去掉）；展示 iframe 内 `ThemeToggle` 保留
+
+### Added
+- `GET /api/history/{day}/vm`：管理员读归档 VM
+- `snapshot_vm` / `list_vm_archives` / `load_vm_archive`；`export_html` 模块（Playwright 抓 Vue 优先，失败降级壳）
+- tests `test_task_2_2_7.py`
+
+### Removed
+- 历史列表对 `页面_*.html` 的依赖；旧 `GET /api/history/{day}` HTML 回看 → **410**
+
+---
+
 ## [2.2.6] - 2026-07-21
 
 ### Changed

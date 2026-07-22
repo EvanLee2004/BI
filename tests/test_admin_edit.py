@@ -450,19 +450,28 @@ class TestAdminWrite(unittest.TestCase):
             server._state["summary"] = orig_sum
 
     def test_history_list_and_page(self):
-        """历史快照：列表倒序 + 按天取页面 + 非法日期400 + 无档404。"""
+        """历史存档：列表读 vm_*.json 倒序 + /vm 200 + 旧 HTML 接口 410 + 非法日期400 + 无档404。"""
         bdir = loaders.data_dir(self.cfg, self.root) / "备份"
         bdir.mkdir(parents=True, exist_ok=True)
-        (bdir / "页面_20260709.html").write_text("<html>OLD</html>", encoding="utf-8")
-        (bdir / "页面_20260710.html").write_text("<html>NEW</html>", encoding="utf-8")
+        import json as _json
+
+        for day, payload in (
+            ("20260709", {"day": "20260709", "cockpit": {"year_key": "2026年"}, "version": "2.2.7"}),
+            ("20260710", {"day": "20260710", "cockpit": {"year_key": "2026年"}, "version": "2.2.7"}),
+        ):
+            (bdir / f"vm_{day}.json").write_text(_json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         d = self.client.get("/api/history", headers=self.hdr).json()
-        self.assertEqual([x["day"] for x in d][:2], ["20260710", "20260709"])  # 倒序
-        self.assertEqual(d[0]["label"], "2026-07-10")
-        r = self.client.get("/api/history/20260709", headers=self.hdr)
+        days = [x["day"] for x in d]
+        self.assertIn("20260710", days)
+        self.assertIn("20260709", days)
+        self.assertLess(days.index("20260710"), days.index("20260709"))  # 倒序
+        r = self.client.get("/api/history/20260709/vm", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
-        self.assertIn("OLD", r.text)
-        self.assertEqual(self.client.get("/api/history/2026-7-9", headers=self.hdr).status_code, 400)
-        self.assertEqual(self.client.get("/api/history/19990101", headers=self.hdr).status_code, 404)
+        self.assertEqual(r.json().get("day"), "20260709")
+        # 旧 HTML 快照接口停用
+        self.assertEqual(self.client.get("/api/history/20260709", headers=self.hdr).status_code, 410)
+        self.assertEqual(self.client.get("/api/history/2026-7-9/vm", headers=self.hdr).status_code, 400)
+        self.assertEqual(self.client.get("/api/history/19990101/vm", headers=self.hdr).status_code, 404)
 
 
 class TestArchive(unittest.TestCase):
@@ -500,8 +509,9 @@ class TestArchive(unittest.TestCase):
         self.assertTrue(kept[-1].name.endswith("20260704.db"))
         _sh.rmtree(tmp2, ignore_errors=True)
 
-    def test_snapshot_page_rolling_and_month_end(self):
-        """页面快照：每天一份滚动保留 + 月末那份另存进快照存档（永久）。"""
+    def test_snapshot_vm_rolling_and_month_end(self):
+        """2.2.7 VM 归档：每天一份滚动保留 + 月末那份另存进快照存档（永久）；停写页面 HTML。"""
+        import json as _json
         import shutil as _sh
 
         tmp2 = Path(tempfile.mkdtemp())
@@ -509,17 +519,31 @@ class TestArchive(unittest.TestCase):
         cfg["backup_keep_days"] = 2
         for i in range(3):  # 7/29、7/30、7/31(月末)
             d = datetime.date(2026, 7, 29) + datetime.timedelta(days=i)
-            res = archive.snapshot_page(cfg, f"<html>{d}</html>", d, tmp2)
-            self.assertEqual(res["status"], "ok")
+            res = archive.snapshot_vm(
+                cfg,
+                cockpit_vm={"year_key": "2026年", "period_keys": ["2026年"], "kpi": {}, "note": str(d)},
+                today=d,
+                root=tmp2,
+                version="2.2.7",
+            )
+            self.assertEqual(res["status"], "ok", res)
         bdir = loaders.data_dir(cfg, tmp2) / "备份"
-        kept = sorted(bdir.glob("页面_*.html"))
-        self.assertEqual([p.name for p in kept], ["页面_20260730.html", "页面_20260731.html"])
-        snap = loaders.data_dir(cfg, tmp2) / "快照存档" / "2026-07" / "页面_20260731.html"
-        self.assertTrue(snap.exists())  # 月末页面永久留档
-        # 同天再存 = 覆盖（留当天最后一次），份数不变
-        archive.snapshot_page(cfg, "<html>v2</html>", datetime.date(2026, 7, 31), tmp2)
-        self.assertEqual(len(list(bdir.glob("页面_*.html"))), 2)
-        self.assertIn("v2", (bdir / "页面_20260731.html").read_text(encoding="utf-8"))
+        kept = sorted(bdir.glob("vm_*.json"))
+        self.assertEqual([p.name for p in kept], ["vm_20260730.json", "vm_20260731.json"])
+        snap = loaders.data_dir(cfg, tmp2) / "快照存档" / "2026-07" / "vm_20260731.json"
+        self.assertTrue(snap.exists())  # 月末永久留档
+        # 同天再存 = 覆盖
+        archive.snapshot_vm(
+            cfg,
+            cockpit_vm={"year_key": "2026年", "kpi": {}, "note": "v2"},
+            today=datetime.date(2026, 7, 31),
+            root=tmp2,
+        )
+        self.assertEqual(len(list(bdir.glob("vm_*.json"))), 2)
+        self.assertIn("v2", (bdir / "vm_20260731.json").read_text(encoding="utf-8"))
+        # 停写页面 HTML
+        self.assertEqual(list(bdir.glob("页面_*.html")), [])
+        self.assertEqual(archive.snapshot_page(cfg, "<html>x</html>", datetime.date(2026, 7, 31), tmp2)["status"], "disabled")
         _sh.rmtree(tmp2, ignore_errors=True)
 
     def test_is_month_end(self):

@@ -33,11 +33,12 @@ class TestSourceGuards224(unittest.TestCase):
             if right:
                 self.assertNotIn("PeriodPicker", right.group(0), f"{rel}: tb-right 不应含 PeriodPicker")
 
-    def test_export_png_btn_in_topbar(self):
+    def test_export_html_btn_in_topbar(self):
+        """2.2.7：导出主路径改为 HTML（原 PNG 按钮类名/路径同步）。"""
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
-        self.assertIn("export-png-btn", src)
-        self.assertIn("/export.png", src)
-        self.assertIn("exportPng", src)
+        self.assertIn("export-html-btn", src)
+        self.assertIn("/export.html", src)
+        self.assertIn("exportHtml", src)
 
     def test_receipts_maxv_covers_bud(self):
         src = (ROOT / "frontend/src/components/ReceiptsCard.vue").read_text(encoding="utf-8")

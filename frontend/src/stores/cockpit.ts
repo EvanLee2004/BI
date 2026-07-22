@@ -4,6 +4,17 @@ import { ref } from 'vue'
 import { fetchBuVm, fetchCockpitVm } from '../api/client'
 import type { PageVM, RankViewBlk } from '../types/vm'
 
+function archiveDayFromUrl(): string {
+  try {
+    const q = new URLSearchParams(location.search)
+    const d = (q.get('archive') || '').trim()
+    if (/^\d{8}$/.test(d)) return d
+  } catch {
+    /* ignore */
+  }
+  return ''
+}
+
 export const useCockpitStore = defineStore('cockpit', () => {
   const period = ref('')
   const vm = ref<PageVM | null>(null)
@@ -25,6 +36,11 @@ export const useCockpitStore = defineStore('cockpit', () => {
   /** 54.11 R-01：有配置但名单空时的可见提示（勿静默） */
   const buNavHint = ref('')
   const buConfigCount = ref(0)
+  /** 2.2.7：历史存档只读模式（/?archive=YYYYMMDD） */
+  const archiveMode = ref(false)
+  const archiveDay = ref('')
+  const archiveBuiltAt = ref('')
+  const archiveVersion = ref('')
 
   function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
@@ -35,7 +51,59 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buConfigCount.value = typeof n === 'number' ? n : 0
   }
 
+  async function loadArchive(day: string) {
+    loading.value = true
+    error.value = ''
+    archiveMode.value = true
+    archiveDay.value = day
+    try {
+      const r = await fetch(`/api/history/${day}/vm`, { credentials: 'same-origin' })
+      if (r.status === 401) {
+        error.value = '未登录'
+        return
+      }
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error((d as { detail?: string }).detail || `HTTP ${r.status}`)
+      }
+      const pack = (await r.json()) as {
+        cockpit?: PageVM
+        bu?: Record<string, PageVM>
+        built_at?: string
+        version?: string
+        day?: string
+      }
+      const data = (pack.cockpit || {}) as PageVM
+      if (!data || !(data as { period_keys?: string[] }).period_keys) {
+        // 允许空结构但至少是对象
+        if (!Object.keys(data).length) {
+          throw new Error('该日存档无 cockpit 数据')
+        }
+      }
+      vm.value = data
+      scope.value = 'main'
+      buName.value = ''
+      applyNavFromVm(data)
+      const keys = data.period_keys || []
+      period.value = data.year_key || keys[0] || ''
+      archiveBuiltAt.value = String(pack.built_at || '')
+      archiveVersion.value = String(pack.version || '')
+      clearDaily()
+    } catch (e) {
+      error.value = friendlyError(e)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function loadMain() {
+    const day = archiveDayFromUrl()
+    if (day) {
+      await loadArchive(day)
+      return
+    }
+    archiveMode.value = false
+    archiveDay.value = ''
     loading.value = true
     error.value = ''
     try {
@@ -54,6 +122,11 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   async function loadBu(name: string) {
+    // 历史存档模式不进 BU 实时接口（防写回当前库语义混乱）
+    if (archiveDayFromUrl() || archiveMode.value) {
+      await loadArchive(archiveDay.value || archiveDayFromUrl())
+      return
+    }
     loading.value = true
     error.value = ''
     buName.value = name
@@ -78,6 +151,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   function setDaily(start: string, end: string, dual: { sales?: RankViewBlk; customer?: RankViewBlk } | null) {
+    if (archiveMode.value) return
     dailyRange.value = { start, end }
     dailyDual.value = dual
     dailyActive.value = !!dual
@@ -99,11 +173,16 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buNavLabel,
     buNavHint,
     buConfigCount,
+    archiveMode,
+    archiveDay,
+    archiveBuiltAt,
+    archiveVersion,
     dailyActive,
     dailyRange,
     dailyDual,
     loadMain,
     loadBu,
+    loadArchive,
     setPeriod,
     setDaily,
     clearDaily,

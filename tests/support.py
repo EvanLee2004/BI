@@ -89,7 +89,7 @@ def fake_bu_page(name: str, mark: str) -> dict:
         "name": name,
         "version": "",
         "generated_at": "",
-        "export_url": f"/bu/{name}/export.png",
+        "export_url": f"/bu/{name}/export.html",
         "pw_modal": "",
         "period_bar": "",
         "kpi_views": mark,

@@ -179,7 +179,11 @@ class TestAdjustBatchApi226(unittest.TestCase):
 
 class TestVersionBump226(unittest.TestCase):
     def test_version_files(self):
-        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "2.2.6")
+        """2.2.6 条目保留在 changelog；产品 VERSION 可继续前进（≥2.2.6）。"""
+        ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        # 语义：当前至少 2.2.6；2.2.7+ 也通过
+        parts = [int(x) for x in ver.split(".")[:3]]
+        self.assertGreaterEqual(parts, [2, 2, 6], ver)
         self.assertIn("2.2.6", (ROOT / "src/version.py").read_text(encoding="utf-8"))
         self.assertIn("## [2.2.6]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 

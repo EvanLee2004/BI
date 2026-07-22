@@ -123,7 +123,7 @@
  btn.addEventListener('click',function(){
    if(location.protocol==='file:'){alert('图片导出需在看板服务页面使用（浏览器打开 http://服务器:端口/）');return;}
    var k=window._curBlk||'';var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span>⬇</span> 生成中…';
-   var url=btn.getAttribute('data-export')||'/export.png';
+   var url=btn.getAttribute('data-export')||'/export.html';
    fetch(url+'?blk='+encodeURIComponent(k)).then(function(r){
      if(!r.ok){return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});}
      var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'甲骨易智能经营罗盘.png';

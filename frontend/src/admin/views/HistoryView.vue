@@ -52,7 +52,8 @@ function fillD() {
 
 function show(d: string) {
   day.value = d
-  frameSrc.value = '/api/history/' + d
+  // 2.2.7：同一套 Vue 只读打开归档 VM（不再 iframe 老 页面_*.html）
+  frameSrc.value = '/?archive=' + encodeURIComponent(d)
 }
 
 watch([year, month], () => {
@@ -84,7 +85,7 @@ onMounted(load)
       <el-button size="small" :disabled="page <= 1" @click="prevPage">上一页</el-button>
       <el-button size="small" :disabled="page >= pages" @click="nextPage">下一页</el-button>
     </div>
-    <div class="admin-note">每天更新完自动存一份当天页面（同天多次=留最后一次）；月末那天随月末快照永久保留。</div>
+    <div class="admin-note">每天更新完自动存一份当天数据存档（vm JSON，同天多次=留最后一次）；打开用当前 Vue 皮只读回看。月末另随月末快照永久保留。</div>
     <el-table
       :data="pageRows"
       border

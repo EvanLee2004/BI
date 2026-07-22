@@ -57,6 +57,7 @@
 | static/view_login.html · admin_login.html | 登录 static + `/api/v1/login`（B-P4；错误前端渲染） |
 | charts/* | chart fragments 嵌在 trend/donut |
 | errors/http_error.html | 54.12 R-14 友好 404/500（Accept:html；非 fragments 路径） |
+| export/fallback.html | 2.2.7 导出 HTML 降级壳（`export_html.fallback_export_html`；主路径 Playwright 抓 Vue） |
 
 ## 验收
 - 模板文件清单 vs 上表 diff 为空（tests/test_b_p1_contract.py）

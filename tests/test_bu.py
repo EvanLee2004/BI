@@ -361,10 +361,11 @@ class TestBuPages(_Base):
         self.assertIn("基本情况", h)
         self.assertIn("返回整体", h)
         self.assertIn('href="/"', h)
-        # 迭代22·D5：BU 页有自己的导出（指向 /bu/{名}/export.png），但绝不指向全公司 /export.png
+        # 迭代22·D5 / 2.2.7：BU 页有自己的导出（指向 /bu/{名}/export.html），但绝不指向全公司总导出
         self.assertIn("exportBtn", h)
-        self.assertIn("/export.png", h)
+        self.assertIn("/export.html", h)
         self.assertIn('data-export="/bu/', h)
+        self.assertNotIn('data-export="/export.html"', h)
         self.assertNotIn('data-export="/export.png"', h)
         self.assertNotIn("dailyBtn", h)
         # 任务书39·B：BU 可有 dailyPanel，但 HTML 零 /api/daily 全公司口

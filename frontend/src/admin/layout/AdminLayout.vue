@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost } from '../api'
-import { syncThemeFromDom, themeMode, toggleTheme as applyToggleTheme } from '../../utils/theme'
+import { syncThemeFromDom } from '../../utils/theme'
 
 const route = useRoute()
 const router = useRouter()
@@ -201,18 +201,6 @@ async function pollRefresh() {
   }
 }
 
-function toggleTheme() {
-  applyToggleTheme({ source: 'AdminLayout' })
-  isLight.value = themeMode.value === 'light'
-  // iframe 控制台另听 admin-theme（applyTheme 已派发）
-}
-
-const isLight = ref(false)
-function syncThemeFlag() {
-  syncThemeFromDom()
-  isLight.value = themeMode.value === 'light'
-}
-
 function onBeforeUnload(e: BeforeUnloadEvent) {
   if ((formDirty.value || 0) + (budgetDirty.value || 0) > 0) {
     e.preventDefault()
@@ -222,7 +210,8 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 
 let healthTimer: number | undefined
 onMounted(async () => {
-  syncThemeFlag()
+  // 2.2.7：管理壳固定深色（去掉顶栏浅色开关）；展示 iframe 内 ThemeToggle 仍可用
+  syncThemeFromDom()
   await loadHealth()
   await loadExceptions()
   await loadVersion()
@@ -270,7 +259,6 @@ import './admin-layout.css'
       <el-button type="primary" :loading="refreshing" @click="doRefresh">{{ refreshing ? '更新中…' : '更新数据' }}</el-button>
       <span class="muted">{{ refreshMsg }}</span>
       <span style="margin-left: auto" />
-      <el-button text @click="toggleTheme">{{ isLight ? '◐ 深色' : '◑ 浅色' }}</el-button>
     </header>
 
     <div v-if="healthOpen && health" class="health-pop">

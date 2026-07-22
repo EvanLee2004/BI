@@ -1,6 +1,6 @@
 # 07 · HTTP 接口清单（权威 · 从 server.py 数出）
 
-> **产品 v2.2.0**（2026-07-21 · stage66；`VERSION` 为准）  
+> **产品 v2.2.7**（2026-07-22；`VERSION` 为准）  
 > **统计方法**：对 `src/routes/*` + `server.py` 注册路由扫描；另挂载 dist/`/static/*`。  
 > **鉴权**：`_require` / `_user` / `_vacct` / `_can_view_*`；细节以源码为准。  
 > 页面 HTML；`/api/*` JSON。VM 字段闸：`scripts/gen_vm_ts.py --check`。cockpit 字段见 `docs/api-v1-cockpit.md`。
@@ -17,8 +17,10 @@
 | GET | `/admin/logout` | 清 cookie | 退出管理端 | 管理端 |
 | GET | `/admin/app.js` | 公开（壳资源） | 410 已下线（65·L1） | 管理端页面 |
 | GET | `/static/*` | 公开 | CSS/JS/壳（看端+管理端） | 浏览器 |
-| GET | `/export.png` | 整体/管理员会话 | 整页 PNG 导出 | 整体页 |
-| GET | `/bu/{name}/export.png` | 可看该 BU 的会话 | BU 页 PNG | BU 页 |
+| GET | `/export.html` | 整体/管理员会话 | **主路径**整页 HTML 导出（Vue 皮） | 看端顶栏导出 |
+| GET | `/bu/{name}/export.html` | 可看该 BU 的会话 | BU 页 HTML 导出 | BU 页 |
+| GET | `/export.png` | 整体/管理员会话 | PNG 兼容保留（前端不走） | 旧客户端 |
+| GET | `/bu/{name}/export.png` | 可看该 BU 的会话 | BU PNG 兼容 | 旧客户端 |
 
 ## 二、JSON API v1（看端分离 · 纯序列化）
 
@@ -58,8 +60,9 @@
 | GET | `/api/order_depts` | 下单部门清单 |
 | POST | `/api/refresh` | 立即更新（异步） |
 | GET | `/api/refresh_status` | 更新进度 |
-| GET | `/api/history` | 历史快照列表 |
-| GET | `/api/history/{day}` | 某日页面快照 HTML |
+| GET | `/api/history` | 历史 VM 存档列表（`vm_YYYYMMDD.json`） |
+| GET | `/api/history/{day}/vm` | 某日归档 VM JSON（管理员；Vue `/?archive=` 只读） |
+| GET | `/api/history/{day}` | **410** 旧 HTML 快照已停用 |
 | GET/POST | `/api/bu_config` | BU 名单+销售归属 |
 | GET | `/api/sales_pool` | 销售归属池 |
 | GET | `/api/config_changes` | 配置变更留痕 |

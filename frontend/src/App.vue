@@ -64,6 +64,15 @@ onMounted(async () => {
   <div v-else-if="store.error" class="wrap" style="padding:40px;color:var(--neg)">{{ store.error }}</div>
   <BUPage v-else-if="store.scope === 'bu'" />
   <div v-else-if="store.vm" id="periodSync">
+    <div
+      v-if="store.archiveMode"
+      class="archive-banner"
+      role="status"
+      data-testid="archive-banner"
+    >
+      历史存档 · {{ store.archiveDay.slice(0, 4) }}-{{ store.archiveDay.slice(4, 6) }}-{{ store.archiveDay.slice(6) }} · 只读
+      <span v-if="store.archiveBuiltAt" class="archive-meta">（存于 {{ store.archiveBuiltAt }}）</span>
+    </div>
     <header class="topbar">
       <div class="tb-left">
         <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
@@ -103,3 +112,25 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.archive-banner {
+  background: linear-gradient(90deg, #7c2d12, #9a3412);
+  color: #ffedd5;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid #c2410c;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.archive-meta {
+  font-weight: 500;
+  opacity: 0.9;
+  margin-left: 8px;
+  font-size: 12px;
+}
+</style>

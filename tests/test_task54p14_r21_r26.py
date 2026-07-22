@@ -38,11 +38,17 @@ class TestThemeReactive(unittest.TestCase):
             self.assertIn("void themeMode.value", t, name)
 
     def test_admin_uses_apply_theme(self):
+        """2.2.7：管理壳去掉顶栏主题切换；仍同步 DOM 主题且 bootstrap 装监听（展示 iframe 用）。"""
         lay = (FE / "admin" / "layout" / "AdminLayout.vue").read_text(encoding="utf-8")
-        self.assertIn("applyTheme", lay)
+        self.assertIn("syncThemeFromDom", lay)
         self.assertIn("from '../../utils/theme'", lay)
+        # 顶栏不再绑 applyTheme/toggleTheme
+        self.assertNotIn("applyToggleTheme", lay)
         boot = (FE / "admin" / "bootstrap.ts").read_text(encoding="utf-8")
         self.assertIn("installThemeListeners", boot)
+        # 展示端 ThemeToggle 仍用 applyTheme 路径
+        theme = (FE / "utils" / "theme.ts").read_text(encoding="utf-8")
+        self.assertIn("applyTheme", theme)
 
 
 class TestOverlayZIndex(unittest.TestCase):

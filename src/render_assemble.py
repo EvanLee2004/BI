@@ -188,7 +188,7 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
     trend_html = render_trend(summary["trend"], hl, period_months_map=rm_map, year_key=yk)
     from urllib.parse import quote as _q
 
-    export_url = f"/bu/{_q(bu_name)}/export.png"
+    export_url = f"/bu/{_q(bu_name)}/export.html"
     pl_tag = tpl.fill("render/bu_pl_tag.html", note=_esc(tag_note)) if tag_note else ""
     # 任务书39·E：BU 费用堆叠=各月 ledger（含分摊自公共）与利润表费用口径对齐，铁律12
     bu_exp = expense_monthly_from_period_ledgers(summary)

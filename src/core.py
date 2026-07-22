@@ -299,13 +299,15 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
 
 
 def generate(cfg, today, trigger="manual"):
-    """跑一次更新管道 → 算 summary → 渲染 HTML（主页 + BU 分页）→ 存当日页面快照（历史回看用）。
+    """跑一次更新管道 → 算 summary → 渲染 HTML（主页 + BU 分页）→ 存当日 VM 归档（历史回看用）。
     返回 (summary, html, ing报告, bu_pages)。
 
     publish-once：同时产出 client-ready fragments（已 strip）+ views，挂 summary._fragments/_views，
     HTTP 路径直接取缓存，不再 build-full→strip→rebuild。
+    2.2.7：历史 = vm_YYYYMMDD.json（Vue 只读打开），不再写 页面_*.html。
     """
     import api_v1
+    import viewmodels
 
     conn = db.connect(cfg)
     ing = ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger=trigger, archive_backups=True)
@@ -315,14 +317,29 @@ def generate(cfg, today, trigger="manual"):
     attach_unassigned(cfg, conn, today, summary)
     conn.close()
     frags_full = render.build_dashboard_fragments(summary, cfg, logo)
-    # 历史回看快照仍需整页；运行态 _state 不预装（65·L2）
+    # 兼容返回值仍带整页 html（导出 png 旧路径/测试）；运行态 _state 不预装（65·L2）
     html = render.assemble_dashboard_html(frags_full)
     views = api_v1.build_cockpit_views(summary, cfg)
     # attach for server publish（client-ready，已 strip）
     summary["_fragments"] = api_v1.client_strip_fragments(frags_full)
     summary["_views"] = views
-    try:  # 页面快照失败（磁盘满等）不影响出页面
-        ing["page_snapshot"] = ingest.archive.snapshot_page(cfg, html, today)
-    except OSError as e:
-        ing["page_snapshot"] = {"status": "error", "detail": str(e)}
+    try:  # VM 归档失败（磁盘满等）不影响出页面
+        cockpit_vm = viewmodels.build_cockpit_vm(summary, cfg).model_dump()
+        bu_vms = {}
+        for bname, page in (bu_pages or {}).items():
+            bsum = page.get("summary") if isinstance(page, dict) else None
+            if not bsum:
+                continue
+            try:
+                bu_vms[bname] = viewmodels.build_bu_vm(bname, bsum, cfg).model_dump()
+            except Exception:
+                continue
+        ing["vm_snapshot"] = ingest.archive.snapshot_vm(
+            cfg, cockpit_vm=cockpit_vm, bu_vms=bu_vms, today=today
+        )
+        # 兼容旧字段名（体检/日志若读 page_snapshot）
+        ing["page_snapshot"] = {"status": "disabled", "detail": "2.2.7 改用 vm_snapshot"}
+    except Exception as e:  # noqa: BLE001
+        ing["vm_snapshot"] = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
+        ing["page_snapshot"] = ing["vm_snapshot"]
     return summary, html, ing, bu_pages

@@ -498,6 +498,7 @@ class TestFetchSourceStates(unittest.TestCase):
 
     def test_make_post_no_relogin_loop_after_failure(self):
         """共享 post：token 失效且重登失败后，后续调用不再反复起浏览器登录。"""
+        import tempfile
         from ingest import login_zhiyun
 
         calls = {"n": 0}
@@ -528,10 +529,15 @@ class TestFetchSourceStates(unittest.TestCase):
             fake.post = lambda *a, **k: _R()
             sys.modules["requests"] = fake
             try:
-                post = fz._make_post(zy, cfg={}, root=None)
-                for _ in range(3):
-                    with self.assertRaises(Exception):
-                        post("Worksheet/GetFilterRows", {})
+                # 独立 tmp root，避免本机 智云登录冷却.json 让 _auto_login 在 login 前就 raise（calls 永远 0）
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    cfg = {"data_dir": "数据"}
+                    (root / "数据").mkdir(parents=True, exist_ok=True)
+                    post = fz._make_post(zy, cfg=cfg, root=root)
+                    for _ in range(3):
+                        with self.assertRaises(Exception):
+                            post("Worksheet/GetFilterRows", {})
             finally:
                 del sys.modules["requests"]
             self.assertEqual(calls["n"], 1)  # 三次调用只登录一次
