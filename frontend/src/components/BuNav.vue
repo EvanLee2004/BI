@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 业务 BU 分页入口条（对齐 legacy chrome_prefix .bu-nav） */
+/** 业务 BU 分页入口条（对齐 legacy chrome_prefix .bu-nav）；2.2.9 快照内 store 切换不跳路由 */
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 
@@ -33,6 +33,13 @@ const emptyHint = computed(() => {
 function href(name: string) {
   return '/bu/' + encodeURIComponent(name)
 }
+
+function onBuClick(name: string, e: Event) {
+  if (store.snapshotMode) {
+    e.preventDefault()
+    if (name !== store.buName) store.loadBu(name)
+  }
+}
 </script>
 <template>
   <div
@@ -51,6 +58,7 @@ function href(name: string) {
         :href="href(n)"
         :aria-current="n === cur ? 'page' : undefined"
         :style="n === cur ? 'border-color:var(--blue)' : undefined"
+        @click="onBuClick(n, $event)"
       >{{ n }}</a>
     </span>
   </div>

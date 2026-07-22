@@ -8,6 +8,19 @@
 
 ---
 
+## [2.2.9] - 2026-07-22
+
+### Changed
+- **导出主路径 = 方案 A 自包含静态可交互快照**：`/export.html`、`/api/export.html`、`/bu/{name}/export.html` 下载单文件 HTML，内嵌 `kind=kanban_snapshot` 数据包 + Vue 播放器（`frontend/dist-snapshot`）；`file://` 可离线打开，可切周期、展开利润表、看期间费用等图；整体包含全部已发布 BU 可切换，BU 包仅本 BU
+- **禁止残壳假成功**：`KANBAN_OFFLINE=1` 或 Playwright 不可用时仍出真快照；装配失败 → HTTP 503；退役 `capture_vue_export_html` / `fallback_export_html` 作为成功主路径（`/export.png` 与 `/?archive=` 保留）
+- **顶栏今日日期**：在线整体页与 BU 页版本号左侧显示本机 `YYYY-MM-DD`（`tb-today`）
+
+### Added
+- `export_html.assemble_export_pack` / `build_snapshot_export_html`；前端 `snapshotMode` + 快照 banner；`vite.snapshot.config.ts` + `dist-snapshot/`
+- tests `test_task_2_2_9.py`
+
+---
+
 ## [2.2.8] - 2026-07-22
 
 ### Changed

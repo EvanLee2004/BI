@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build && vite build --config vite.snapshot.config.ts",
+    "build:online": "vue-tsc --noEmit && vite build",
+    "build:snapshot": "vite build --config vite.snapshot.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {

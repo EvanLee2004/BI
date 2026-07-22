@@ -1,233 +1,176 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.2.7 导出 HTML：优先 Playwright 打开 Vue 页 → canvas 转 img → 冻成可离线 HTML。
+"""2.2.9 导出 HTML：方案 A 自包含静态可交互快照（Vue 播放器 + kanban_snapshot pack）。
 
-降级：用当前 VM + static/templates/export/fallback.html（禁止 assemble_dashboard_html 老皮）。
-PNG 兼容仍走 export_png.screenshot_png，本模块不删 Playwright。
+- 主路径：assemble_export_pack + build_snapshot_export_html（不依赖 Playwright）。
+- KANBAN_OFFLINE=1 或 Playwright 不可用时仍出真快照；失败 → 明确异常（路由转 503），
+  **禁止**静默返回 data-export-fallback 残壳冒充成功。
+- PNG 兼容仍走 export_png；历史 archive 仍走 ingest.archive.snapshot_vm。
+- 旧 Playwright 冻页 / fallback 残壳已退役（仅测试夹可引用历史语义，生产主路径不走）。
 """
 
 from __future__ import annotations
 
 import html as html_lib
 import json
-import re
+import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
 
 
-def _canvas_to_img_script() -> str:
-    # 无 HTML 标签字面量（守卫 test_no_html_in_py）；运行时在浏览器拼 DOM
-    return """() => {
-  document.querySelectorAll('canvas').forEach(c => {
-    try {
-      const img = document.createElement('img');
-      img.src = c.toDataURL('image/png');
-      img.alt = 'chart';
-      const cs = window.getComputedStyle(c);
-      img.style.width = cs.width;
-      img.style.height = cs.height;
-      img.style.maxWidth = '100%';
-      img.className = (c.className || '') + ' export-chart-img';
-      if (c.parentNode) c.parentNode.replaceChild(img, c);
-    } catch (e) {}
-  });
-  ['#exportBtn','#logoutBtn','#pwBtn'].forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
-  });
-}"""
+SNAPSHOT_KIND = "kanban_snapshot"
+SNAPSHOT_SCHEMA = 1
 
 
-def capture_vue_export_html(
-    page_url: str,
-    *,
-    cookie_header: str = "",
-    blk: str = "",
-    width: int = 1440,
-    timeout_ms: int = 45000,
-) -> str:
-    """Playwright 打开已登录 Vue 页，等 KPI，canvas→img，返回整页 HTML。"""
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as p:
-        br = p.chromium.launch(headless=True)
-        try:
-            ctx = br.new_context(
-                viewport={"width": width, "height": 900},
-                reduced_motion="reduce",
-                device_scale_factor=2,
-            )
-            if cookie_header:
-                from urllib.parse import urlparse
-
-                host = urlparse(page_url).hostname or "127.0.0.1"
-                cookies = []
-                for part in cookie_header.split(";"):
-                    part = part.strip()
-                    if not part or "=" not in part:
-                        continue
-                    name, _, val = part.partition("=")
-                    cookies.append({"name": name.strip(), "value": val.strip(), "domain": host, "path": "/"})
-                if cookies:
-                    ctx.add_cookies(cookies)
-            pg = ctx.new_page()
-            pg.goto(page_url, wait_until="load", timeout=timeout_ms)
-            try:
-                pg.wait_for_selector(
-                    ".kpi-grid, .kpi-cards, [class*='kpi'], #periodSync, .topbar",
-                    timeout=min(20000, timeout_ms),
-                )
-            except Exception:
-                pg.wait_for_timeout(800)
-            if blk:
-                try:
-                    pg.evaluate(
-                        """(k) => {
-                      try {
-                        const store = window.__pinia && Object.values(window.__pinia.state.value||{})[0];
-                        if (store && store.period !== undefined) store.period = k;
-                      } catch (e) {}
-                      document.querySelectorAll('[data-period]').forEach(el => {
-                        if (el.getAttribute('data-period') === k) el.click();
-                      });
-                    }""",
-                        blk,
-                    )
-                    pg.wait_for_timeout(400)
-                except Exception:
-                    pass
-            pg.evaluate(_canvas_to_img_script())
-            pg.wait_for_timeout(300)
-            raw = pg.content()
-            return _absolutize_urls(raw, page_url)
-        finally:
-            br.close()
+def _stub_vm(summary: dict | None, *, bu_name: str = "") -> dict:
+    meta = (summary or {}).get("meta") or {}
+    out: dict[str, Any] = {
+        "year_key": meta.get("year_key") or "",
+        "period_keys": list((summary or {}).get("periods") or {}),
+        "kpi": {"cards_by_period": {}},
+    }
+    if bu_name:
+        out["bu_name"] = bu_name
+    return out
 
 
-def _absolutize_urls(html: str, base_url: str) -> str:
-    """相对 /app /static 资源改为绝对 URL，便于离线打开仍能尽量加载。"""
-    base = base_url if base_url.endswith("/") else base_url.rsplit("/", 1)[0] + "/"
-    origin = re.match(r"^(https?://[^/]+)", base_url)
-    origin_s = origin.group(1) if origin else base_url.rstrip("/")
+def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: str = "") -> dict:
+    if not summary:
+        return _stub_vm(summary, bu_name=bu_name)
+    try:
+        import viewmodels
 
-    def abs_attr(m):
-        attr, quote, url = m.group(1), m.group(2), m.group(3)
-        if url.startswith(("http://", "https://", "data:", "blob:", "mailto:", "#")):
-            return m.group(0)
-        if url.startswith("//"):
-            return f"{attr}={quote}https:{url}{quote}"
-        if url.startswith("/"):
-            return f"{attr}={quote}{origin_s}{url}{quote}"
-        return f"{attr}={quote}{urljoin(base, url)}{quote}"
-
-    return re.sub(
-        r"""\b(href|src)=(["'])([^"']+)\2""",
-        abs_attr,
-        html,
-        flags=re.I,
-    )
+        if bu_name:
+            return viewmodels.build_bu_vm(bu_name, summary, cfg or {}).model_dump()
+        return viewmodels.build_cockpit_vm(summary, cfg or {}).model_dump()
+    except Exception:
+        return _stub_vm(summary, bu_name=bu_name)
 
 
-def _el(tag: str, body: str, **attrs: str) -> str:
-    """运行时拼标签，避免 py 源码出现标签字面量（test_no_html_in_py）。"""
-    parts = []
-    for k, v in attrs.items():
-        parts.append(f'{k}="{html_lib.escape(v, quote=True)}"')
-    a = (" " + " ".join(parts)) if parts else ""
-    return f"<{tag}{a}>{body}</{tag}>"
-
-
-def fallback_export_html(
-    vm: dict[str, Any],
+def assemble_export_pack(
     *,
     scope: str = "整体",
     bu_name: str = "",
     blk: str = "",
     version: str = "",
-    theme_css: str = "",
-    root: Path | None = None,
-) -> str:
-    """降级导出壳：模板在 static/templates/export/fallback.html。"""
-    import tpl
+    built_at: str | None = None,
+    exported_at: str | None = None,
+    cockpit_vm: dict | None = None,
+    bu_vms: dict[str, dict] | None = None,
+    state: dict | None = None,
+    cfg: dict | None = None,
+) -> dict[str, Any]:
+    """纯函数：组装 kind=kanban_snapshot 数据包（可单测、与 HTTP 解耦）。
 
-    period = blk or vm.get("year_key") or (vm.get("period_keys") or [""])[0] or ""
-    title = f"甲骨易智能经营罗盘 · {bu_name}" if bu_name else "甲骨易智能经营罗盘"
-    cards = ((vm.get("kpi") or {}).get("cards_by_period") or {}).get(period) or []
-    if not cards and (vm.get("kpi") or {}).get("cards_by_period"):
-        cbp = (vm.get("kpi") or {}).get("cards_by_period") or {}
-        for k, v in cbp.items():
-            if v:
-                period = k
-                cards = v
-                break
-    card_parts = []
-    for c in cards:
-        if not isinstance(c, dict):
-            continue
-        name = html_lib.escape(str(c.get("title") or c.get("name") or ""))
-        val = html_lib.escape(str(c.get("value_disp") or c.get("value") or "—"))
-        unit = html_lib.escape(str(c.get("unit") or ""))
-        inner = (
-            _el("div", name, **{"class": "k"})
-            + _el("div", val + _el("span", unit, **{"class": "u"}), **{"class": "v"})
+    - 整体/管理员：cockpit 完整 + bu=全部已发布 BU 的 PageVM。
+    - BU：scope=BU，bu 仅该一个键；cockpit 为空对象。
+    - 禁止写入口令/密码字段。
+    """
+    st = state if state is not None else {}
+    exp_at = exported_at or time.strftime("%Y-%m-%d %H:%M:%S")
+    b_at = built_at or (st.get("built_at") if isinstance(st.get("built_at"), str) else None) or exp_at
+    ver = version or ""
+
+    if scope == "BU" and bu_name:
+        if bu_vms is not None and bu_name in bu_vms:
+            one = bu_vms[bu_name]
+        else:
+            page = (st.get("bu_pages") or {}).get(bu_name) or {}
+            summary = page.get("summary") if isinstance(page, dict) else None
+            one = _build_vm_from_summary(summary, cfg, bu_name=bu_name)
+        period_keys = list((one or {}).get("period_keys") or [])
+        default_period = blk if blk and (not period_keys or blk in period_keys) else (
+            (one or {}).get("year_key") or (period_keys[0] if period_keys else blk or "")
         )
-        card_parts.append(_el("div", inner, **{"class": "kpi-card"}))
-    cards_block = "\n".join(card_parts) or _el("div", "（无 KPI 数据）", **{"class": "muted"})
+        return {
+            "kind": SNAPSHOT_KIND,
+            "schema": SNAPSHOT_SCHEMA,
+            "exported_at": exp_at,
+            "built_at": b_at,
+            "version": ver,
+            "default_period": default_period,
+            "scope": "BU",
+            "bu_export_name": bu_name,
+            "cockpit": {},
+            "bu": {bu_name: one if isinstance(one, dict) else {}},
+        }
 
-    pl_rows = ((vm.get("pl") or {}).get("table_by_period") or {}).get(period) or {}
-    rows = pl_rows.get("rows") if isinstance(pl_rows, dict) else []
-    trs = []
-    if isinstance(rows, list):
-        for r in rows[:40]:
-            if not isinstance(r, dict):
-                continue
-            lab = html_lib.escape(str(r.get("label") or r.get("name") or ""))
-            amt = html_lib.escape(str(r.get("value_disp") or r.get("amt_disp") or ""))
-            trs.append(
-                _el(
-                    "tr",
-                    _el("td", lab) + _el("td", amt, style="text-align:right"),
-                )
-            )
-    if trs:
-        pl_block = _el("table", _el("tbody", "".join(trs)), **{"class": "pl", "style": "width:100%;border-collapse:collapse"})
+    # 整体
+    if cockpit_vm is not None:
+        cockpit = cockpit_vm
     else:
-        pl_block = _el("div", "（无利润表行）", **{"class": "muted"})
+        summary = st.get("summary")
+        cockpit = _build_vm_from_summary(summary if isinstance(summary, dict) else None, cfg)
 
-    css = theme_css or _default_export_css()
-    meta_json = html_lib.escape(
-        json.dumps({"period": period, "scope": scope, "bu": bu_name}, ensure_ascii=False)
+    if bu_vms is not None:
+        bus = {k: v for k, v in bu_vms.items() if isinstance(v, dict)}
+    else:
+        bus = {}
+        for name, page in (st.get("bu_pages") or {}).items():
+            if not isinstance(page, dict):
+                continue
+            summary = page.get("summary")
+            bus[str(name)] = _build_vm_from_summary(
+                summary if isinstance(summary, dict) else None, cfg, bu_name=str(name)
+            )
+
+    period_keys = list((cockpit or {}).get("period_keys") or [])
+    default_period = blk if blk and (not period_keys or blk in period_keys) else (
+        (cockpit or {}).get("year_key") or (period_keys[0] if period_keys else blk or "")
     )
-    bu_suffix = (" · " + html_lib.escape(bu_name)) if bu_name else ""
-    # tpl.fill 用 str.format，模板里 {{ }} 已转义
-    return tpl.fill(
-        "export/fallback.html",
-        title=html_lib.escape(title),
-        css=css,
-        period=html_lib.escape(period),
-        version=html_lib.escape(version or ""),
-        bu_suffix=bu_suffix,
-        cards=cards_block,
-        pl=pl_block,
-        meta_json=meta_json,
-    )
+    return {
+        "kind": SNAPSHOT_KIND,
+        "schema": SNAPSHOT_SCHEMA,
+        "exported_at": exp_at,
+        "built_at": b_at,
+        "version": ver,
+        "default_period": default_period,
+        "scope": "整体",
+        "bu_export_name": "",
+        "cockpit": cockpit if isinstance(cockpit, dict) else {},
+        "bu": bus,
+    }
 
 
-def _default_export_css() -> str:
-    return """
-:root {
-  --bg:#0b1220; --fg:#e2e8f0; --card:#1e293b; --line:#334155; --mut:#94a3b8;
-  --blue:#38bdf8; --neg:#f87171;
-}
-"""
+def _package_root() -> Path:
+    """程序包根（含 frontend/、static/），与数据 root 无关。"""
+    return Path(__file__).resolve().parent.parent
+
+
+def _find_root(root: Path | None = None) -> Path:
+    """兼容旧调用；播放器/主题资源一律走 _package_root。"""
+    if root:
+        return Path(root)
+    return _package_root()
+
+
+def _snapshot_asset_paths(root: Path | None = None) -> tuple[Path, Path | None]:
+    """返回 (js_path, css_path|None)。固定从程序包根找 dist-snapshot（非数据 root）。"""
+    del root  # 数据 root 无 dist；忽略
+    base = _package_root() / "frontend" / "dist-snapshot"
+    js = base / "snapshot.js"
+    if not js.is_file():
+        # 兼容 hash 名
+        for p in sorted(base.glob("*.js")):
+            if p.name != "snapshot.html":
+                js = p
+                break
+    css: Path | None = None
+    c1 = base / "snapshot.css"
+    if c1.is_file():
+        css = c1
+    else:
+        for p in sorted(base.glob("*.css")):
+            css = p
+            break
+    return js, css
 
 
 def load_theme_css(root: Path | None = None) -> str:
-    """尽量内联 static/css/theme.css，使离线 HTML 自带主题色。"""
-    bases = []
+    """内联 static/css/theme.css（程序包根优先；可选数据 root 覆盖）。"""
+    bases = [_package_root()]
     if root:
-        bases.append(Path(root))
-    bases.append(Path(__file__).resolve().parent.parent)
+        bases.insert(0, Path(root))
     for base in bases:
         p = base / "static" / "css" / "theme.css"
         if p.is_file():
@@ -235,7 +178,68 @@ def load_theme_css(root: Path | None = None) -> str:
                 return p.read_text(encoding="utf-8")
             except OSError:
                 pass
-    return _default_export_css()
+    return (
+        ":root{--bg:#0b1220;--fg:#e2e8f0;--card:#1e293b;"
+        "--line:#334155;--mut:#94a3b8;--blue:#38bdf8;--neg:#f87171;}"
+    )
+
+
+def build_snapshot_export_html(
+    pack: dict[str, Any],
+    *,
+    root: Path | None = None,
+    theme_css: str | None = None,
+) -> str:
+    """把 pack + 快照播放器（dist-snapshot）装配成单文件 HTML。
+
+    失败抛 RuntimeError（路由转 503）；绝不返回 fallback 残壳。
+    """
+    # 播放器固定从程序包根加载；root 仅用于可选 theme 覆盖
+    js_path, css_path = _snapshot_asset_paths(None)
+    if not js_path.is_file():
+        raise RuntimeError(
+            "快照播放器未构建：缺少 frontend/dist-snapshot/snapshot.js；"
+            "请在 frontend 执行 npm run build（含 build:snapshot）"
+        )
+    try:
+        player_js = js_path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise RuntimeError(f"读取快照 JS 失败: {e}") from e
+    player_css = ""
+    if css_path and css_path.is_file():
+        try:
+            player_css = css_path.read_text(encoding="utf-8")
+        except OSError:
+            player_css = ""
+    theme = theme_css if theme_css is not None else load_theme_css(root)
+
+    # JSON 安全嵌入：</script> 拆开防提前闭合
+    pack_raw = json.dumps(pack, ensure_ascii=False, default=str)
+    pack_raw = pack_raw.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    # application/json 槽用转义后的同串
+    pack_for_tag = pack_raw
+
+    scope = str(pack.get("scope") or "整体")
+    bu = str(pack.get("bu_export_name") or "")
+    del scope  # 仅 title 用 bu
+    title = f"甲骨易智能经营罗盘 · {bu}（静态快照）" if bu else "甲骨易智能经营罗盘（静态快照）"
+    title_esc = html_lib.escape(title)
+
+    # 用 token 替换（不用 str.format：player_js / pack 含大量 {}）
+    import tpl
+
+    shell = tpl.load("export/snapshot_shell.html")
+    out = (
+        shell.replace("__TITLE__", title_esc)
+        .replace("__THEME_CSS__", theme)
+        .replace("__PLAYER_CSS__", player_css)
+        .replace("__PACK_JSON__", pack_for_tag)
+        .replace("__PACK_JSON_RAW__", pack_raw)
+        .replace("__PLAYER_JS__", player_js)
+    )
+    if "__TITLE__" in out or "__PLAYER_JS__" in out:
+        raise RuntimeError("快照模板 token 未替换干净")
+    return out
 
 
 def build_export_html(
@@ -248,36 +252,72 @@ def build_export_html(
     bu_name: str = "",
     version: str = "",
     root: Path | None = None,
-    prefer_playwright: bool = True,
+    prefer_playwright: bool = False,
+    pack: dict | None = None,
+    state: dict | None = None,
+    cfg: dict | None = None,
+    cockpit_vm: dict | None = None,
+    bu_vms: dict | None = None,
+    built_at: str | None = None,
 ) -> tuple[str, str]:
-    """返回 (html, mode) mode=playwright|fallback。"""
-    import os
+    """返回 (html, mode)；mode=snapshot。
 
-    offline = (os.environ.get("KANBAN_OFFLINE") or "").strip() in ("1", "true", "yes")
-    test_host = bool(
-        page_url
-        and (
-            "testserver" in page_url
-            or (page_url.startswith("http://test") and "localhost" not in page_url and "127.0.0.1" not in page_url)
-        )
-    )
-    if prefer_playwright and page_url and not offline and not test_host:
-        try:
-            html = capture_vue_export_html(page_url, cookie_header=cookie_header, blk=blk)
-            if html and len(html) > 200:
-                return html, "playwright"
-        except Exception:
-            pass
-    theme = load_theme_css(root)
-    return (
-        fallback_export_html(
-            vm or {},
-            scope=scope,
-            bu_name=bu_name,
-            blk=blk,
-            version=version,
-            theme_css=theme,
-            root=root,
-        ),
-        "fallback",
-    )
+    2.2.9：主路径仅为 snapshot；prefer_playwright 忽略（保留形参兼容旧调用）。
+    失败抛异常，由路由转 503——**永不**返回 fallback 残壳。
+    """
+    del page_url, cookie_header, prefer_playwright  # 兼容形参，方案 A 不用
+    if pack is None:
+        # 若调用方只给了单页 vm（旧接口），包一层
+        if scope == "BU" and bu_name and vm is not None and cockpit_vm is None and bu_vms is None:
+            pack = assemble_export_pack(
+                scope="BU",
+                bu_name=bu_name,
+                blk=blk,
+                version=version,
+                built_at=built_at,
+                bu_vms={bu_name: vm},
+                state=state,
+                cfg=cfg,
+            )
+        elif vm is not None and cockpit_vm is None and bu_vms is None and scope != "BU":
+            pack = assemble_export_pack(
+                scope="整体",
+                blk=blk,
+                version=version,
+                built_at=built_at,
+                cockpit_vm=vm,
+                bu_vms={},
+                state=state,
+                cfg=cfg,
+            )
+        else:
+            pack = assemble_export_pack(
+                scope=scope if scope in ("整体", "BU") else ("BU" if bu_name else "整体"),
+                bu_name=bu_name,
+                blk=blk,
+                version=version,
+                built_at=built_at,
+                cockpit_vm=cockpit_vm,
+                bu_vms=bu_vms,
+                state=state,
+                cfg=cfg,
+            )
+    html = build_snapshot_export_html(pack, root=root)
+    if not html or "kanban_snapshot" not in html:
+        raise RuntimeError("快照 HTML 装配结果无效")
+    if 'data-export-fallback="1"' in html or "data-export-fallback='1'" in html:
+        raise RuntimeError("禁止导出残壳 fallback")
+    return html, "snapshot"
+
+
+# --- 以下为 2.2.7 时代 API 兼容壳（已不作为成功主路径；生产路由不再调用） ---
+
+
+def capture_vue_export_html(*_a, **_k) -> str:
+    """已退役：2.2.9 起导出主路径为 snapshot，不再 Playwright 冻页。"""
+    raise RuntimeError("capture_vue_export_html 已退役（2.2.9 方案 A 快照）")
+
+
+def fallback_export_html(*_a, **_k) -> str:
+    """已退役：禁止残壳冒充成功。"""
+    raise RuntimeError("fallback_export_html 已退役（2.2.9 禁止 data-export-fallback 假成功）")

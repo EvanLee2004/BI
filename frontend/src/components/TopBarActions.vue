@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 顶栏：导出 HTML + 退出（全角色）+ 非管理员自改密码。2.2.7 主路径 .html。 */
+/** 顶栏：导出 HTML + 退出（全角色）+ 非管理员自改密码。2.2.7 主路径 .html；2.2.9 快照模式隐藏写操作。 */
 import { onMounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
@@ -14,6 +14,10 @@ const msgCls = ref('')
 const exporting = ref(false)
 
 onMounted(async () => {
+  if (store.snapshotMode) {
+    isAdmin.value = true
+    return
+  }
   try {
     const s = await fetchSession()
     isAdmin.value = !!(s as { is_admin?: boolean }).is_admin
@@ -31,7 +35,7 @@ async function logout() {
   location.replace('/login')
 }
 
-/** ③ 导出：后端 Vue 皮 HTML（Playwright 抓页或降级壳），按 X-Filename 下载。 */
+/** ③ 导出：2.2.9 自包含静态可交互快照 HTML。 */
 async function exportHtml() {
   if (exporting.value) return
   if (location.protocol === 'file:') {
@@ -103,31 +107,35 @@ async function savePw() {
 }
 </script>
 <template>
-  <button
-    type="button"
-    class="toggle export-html-btn"
-    id="exportBtn"
-    :disabled="exporting"
-    @click="exportHtml"
-  >
-    <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
-  </button>
-  <button
-    v-if="!store.archiveMode"
-    type="button"
-    class="toggle"
-    id="logoutBtn"
-    @click="logout"
-  >退出</button>
-  <button
-    v-if="!isAdmin && !store.archiveMode"
-    type="button"
-    class="toggle"
-    id="pwBtn"
-    @click="showPw = true"
-  >
-    <span>🔑</span> 密码
-  </button>
+  <!-- 2.2.9 快照模式：隐藏导出/退出/改密 -->
+  <template v-if="!store.snapshotMode">
+    <button
+      v-if="!store.archiveMode"
+      type="button"
+      class="toggle export-html-btn"
+      id="exportBtn"
+      :disabled="exporting"
+      @click="exportHtml"
+    >
+      <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
+    </button>
+    <button
+      v-if="!store.archiveMode"
+      type="button"
+      class="toggle"
+      id="logoutBtn"
+      @click="logout"
+    >退出</button>
+    <button
+      v-if="!isAdmin && !store.archiveMode"
+      type="button"
+      class="toggle"
+      id="pwBtn"
+      @click="showPw = true"
+    >
+      <span>🔑</span> 密码
+    </button>
+  </template>
   <Teleport to="body">
     <div
       v-if="showPw"

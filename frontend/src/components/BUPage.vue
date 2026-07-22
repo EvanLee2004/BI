@@ -21,7 +21,31 @@ import TopBarActions from './TopBarActions.vue'
 
 const store = useCockpitStore()
 const productVer = ref('')
+/** 2.2.9：本机日历日，版本号左侧 */
+const todayStr = ref('')
+
+function localTodayYmd(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function goOverall(e?: Event) {
+  if (store.snapshotMode) {
+    e?.preventDefault()
+    store.loadMain()
+  }
+}
+
 onMounted(async () => {
+  todayStr.value = localTodayYmd()
+  if (store.snapshotMode) {
+    const sv = String(store.snapshotVersion || '').trim()
+    productVer.value = sv ? (sv.startsWith('v') ? sv : 'v' + sv) : ''
+    return
+  }
   try {
     const v = await fetchProductVersion()
     const num = String(v.version || '').trim()
@@ -33,14 +57,30 @@ onMounted(async () => {
 </script>
 <template>
   <div>
+    <div
+      v-if="store.snapshotMode"
+      class="snapshot-banner"
+      role="status"
+      data-testid="snapshot-banner"
+    >
+      静态快照 · 数据截至 {{ (store.snapshotBuiltAt || store.snapshotExportedAt || '').slice(0, 10) || '—' }}
+      · 导出于 {{ store.snapshotExportedAt || '—' }}
+      · {{ store.snapshotScopeLabel || 'BU' }}
+      · v{{ store.snapshotVersion || '' }}
+    </div>
     <header class="topbar">
       <div class="tb-left">
         <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
-        <a class="bu-back" href="/">← 整体</a>
+        <a
+          class="bu-back"
+          href="/"
+          @click="goOverall"
+        >← 整体</a>
         <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
         <PeriodPicker />
       </div>
       <div class="tb-right">
+        <span v-if="todayStr" class="tb-today" title="本机今日日期" data-testid="tb-today">{{ todayStr }}</span>
         <span v-if="productVer" class="tb-ver" :title="productVer">{{ productVer }}</span>
         <ThemeToggle />
         <TopBarActions />
@@ -70,3 +110,28 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.snapshot-banner {
+  background: linear-gradient(90deg, #1e3a5f, #0e7490);
+  color: #e0f2fe;
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid #0284c7;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.tb-today {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mut, #94a3b8);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+</style>

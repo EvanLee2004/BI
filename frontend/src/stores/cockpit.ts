@@ -4,6 +4,20 @@ import { ref } from 'vue'
 import { fetchBuVm, fetchCockpitVm } from '../api/client'
 import type { PageVM, RankViewBlk } from '../types/vm'
 
+/** 2.2.9 导出快照包（与后端 assemble_export_pack 对齐） */
+export type KanbanSnapshotPack = {
+  kind?: string
+  schema?: number
+  exported_at?: string
+  built_at?: string
+  version?: string
+  default_period?: string
+  scope?: string
+  bu_export_name?: string
+  cockpit?: PageVM | Record<string, unknown>
+  bu?: Record<string, PageVM | Record<string, unknown>>
+}
+
 function archiveDayFromUrl(): string {
   try {
     const q = new URLSearchParams(location.search)
@@ -13,6 +27,28 @@ function archiveDayFromUrl(): string {
     /* ignore */
   }
   return ''
+}
+
+function readEmbeddedSnapshot(): KanbanSnapshotPack | null {
+  try {
+    const w = window as unknown as { __KANBAN_SNAPSHOT__?: KanbanSnapshotPack }
+    const pack = w.__KANBAN_SNAPSHOT__
+    if (pack && typeof pack === 'object' && (pack.kind === 'kanban_snapshot' || pack.cockpit || pack.bu)) {
+      return pack
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const el = document.getElementById('kanban-snapshot-data')
+    if (el && el.textContent) {
+      const pack = JSON.parse(el.textContent) as KanbanSnapshotPack
+      if (pack && typeof pack === 'object') return pack
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
 }
 
 export const useCockpitStore = defineStore('cockpit', () => {
@@ -33,7 +69,6 @@ export const useCockpitStore = defineStore('cockpit', () => {
   /** 业务 BU 分页名单（整体页=全部已发布 BU；BU 页=本账号可见） */
   const buNames = ref<string[]>([])
   const buNavLabel = ref('业务 BU 分页')
-  /** 54.11 R-01：有配置但名单空时的可见提示（勿静默） */
   const buNavHint = ref('')
   const buConfigCount = ref(0)
   /** 2.2.7：历史存档只读模式（/?archive=YYYYMMDD） */
@@ -41,6 +76,13 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const archiveDay = ref('')
   const archiveBuiltAt = ref('')
   const archiveVersion = ref('')
+  /** 2.2.9：导出静态快照只读（内嵌 pack，零 API） */
+  const snapshotMode = ref(false)
+  const snapshotPack = ref<KanbanSnapshotPack | null>(null)
+  const snapshotExportedAt = ref('')
+  const snapshotBuiltAt = ref('')
+  const snapshotVersion = ref('')
+  const snapshotScopeLabel = ref('')
 
   function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
@@ -51,11 +93,79 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buConfigCount.value = typeof n === 'number' ? n : 0
   }
 
+  function applyPeriodFromVm(data: PageVM, preferred?: string) {
+    const keys = data.period_keys || []
+    if (preferred && keys.includes(preferred)) {
+      period.value = preferred
+    } else {
+      period.value = data.year_key || keys[0] || preferred || ''
+    }
+  }
+
+  function loadSnapshot(pack: KanbanSnapshotPack) {
+    loading.value = true
+    error.value = ''
+    snapshotMode.value = true
+    archiveMode.value = false
+    archiveDay.value = ''
+    snapshotPack.value = pack
+    snapshotExportedAt.value = String(pack.exported_at || '')
+    snapshotBuiltAt.value = String(pack.built_at || pack.exported_at || '')
+    snapshotVersion.value = String(pack.version || '')
+    const scopeRaw = String(pack.scope || '整体')
+    const buExport = String(pack.bu_export_name || '')
+    snapshotScopeLabel.value = scopeRaw === 'BU' && buExport ? `BU·${buExport}` : scopeRaw || '整体'
+    try {
+      const buMap = (pack.bu || {}) as Record<string, PageVM>
+      const buKeys = Object.keys(buMap)
+      const defaultPeriod = String(pack.default_period || '')
+      if (scopeRaw === 'BU' && buExport && buMap[buExport]) {
+        const data = buMap[buExport] as PageVM
+        vm.value = data
+        scope.value = 'bu'
+        buName.value = buExport
+        applyNavFromVm({
+          ...data,
+          bu_names: buKeys.length ? buKeys : data.bu_names || [buExport],
+        } as PageVM)
+        if (!buNames.value.length) buNames.value = [buExport]
+        applyPeriodFromVm(data, defaultPeriod)
+      } else {
+        const data = (pack.cockpit || {}) as PageVM
+        if (!data || (!data.period_keys && !Object.keys(data).length)) {
+          // 允许仅有 bu 的包？整体包应有 cockpit
+          if (!buKeys.length) {
+            throw new Error('快照包无 cockpit / bu 数据')
+          }
+        }
+        vm.value = data as PageVM
+        scope.value = 'main'
+        buName.value = ''
+        // 整体包：BuNav 名单 = pack.bu 全部键（优先）
+        const navNames = buKeys.length
+          ? buKeys
+          : Array.isArray(data.bu_names)
+            ? data.bu_names
+            : []
+        applyNavFromVm({ ...data, bu_names: navNames } as PageVM)
+        buNames.value = navNames
+        applyPeriodFromVm(data as PageVM, defaultPeriod)
+      }
+      clearDaily()
+    } catch (e) {
+      error.value = friendlyError(e)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function loadArchive(day: string) {
     loading.value = true
     error.value = ''
     archiveMode.value = true
     archiveDay.value = day
+    snapshotMode.value = false
+    snapshotPack.value = null
     try {
       const r = await fetch(`/api/history/${day}/vm`, { credentials: 'same-origin' })
       if (r.status === 401) {
@@ -75,7 +185,6 @@ export const useCockpitStore = defineStore('cockpit', () => {
       }
       const data = (pack.cockpit || {}) as PageVM
       if (!data || !(data as { period_keys?: string[] }).period_keys) {
-        // 允许空结构但至少是对象
         if (!Object.keys(data).length) {
           throw new Error('该日存档无 cockpit 数据')
         }
@@ -97,6 +206,26 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   async function loadMain() {
+    // 2.2.9：内嵌快照优先（零 API）
+    if (snapshotMode.value && snapshotPack.value) {
+      const pack = snapshotPack.value
+      const data = (pack.cockpit || {}) as PageVM
+      vm.value = data
+      scope.value = 'main'
+      buName.value = ''
+      const buMap = (pack.bu || {}) as Record<string, PageVM>
+      const navNames = Object.keys(buMap)
+      applyNavFromVm({ ...data, bu_names: navNames.length ? navNames : data.bu_names } as PageVM)
+      if (navNames.length) buNames.value = navNames
+      applyPeriodFromVm(data, period.value || String(pack.default_period || ''))
+      clearDaily()
+      return
+    }
+    const embedded = readEmbeddedSnapshot()
+    if (embedded && !archiveDayFromUrl()) {
+      loadSnapshot(embedded)
+      return
+    }
     const day = archiveDayFromUrl()
     if (day) {
       await loadArchive(day)
@@ -104,6 +233,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
     archiveMode.value = false
     archiveDay.value = ''
+    snapshotMode.value = false
     loading.value = true
     error.value = ''
     try {
@@ -122,6 +252,32 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   async function loadBu(name: string) {
+    // 2.2.9 快照：从 pack.bu[name] 取，禁止 API
+    if (snapshotMode.value && snapshotPack.value) {
+      const buMap = (snapshotPack.value.bu || {}) as Record<string, PageVM>
+      const data = buMap[name]
+      if (!data) {
+        error.value = `快照中无业务线「${name}」`
+        return
+      }
+      loading.value = true
+      error.value = ''
+      try {
+        vm.value = data as PageVM
+        scope.value = 'bu'
+        buName.value = name
+        applyNavFromVm({
+          ...(data as PageVM),
+          bu_names: Object.keys(buMap),
+        } as PageVM)
+        buNames.value = Object.keys(buMap)
+        applyPeriodFromVm(data as PageVM, period.value || String(snapshotPack.value.default_period || ''))
+        clearDaily()
+      } finally {
+        loading.value = false
+      }
+      return
+    }
     // 历史存档模式不进 BU 实时接口（防写回当前库语义混乱）
     if (archiveDayFromUrl() || archiveMode.value) {
       await loadArchive(archiveDay.value || archiveDayFromUrl())
@@ -151,7 +307,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   function setDaily(start: string, end: string, dual: { sales?: RankViewBlk; customer?: RankViewBlk } | null) {
-    if (archiveMode.value) return
+    if (archiveMode.value || snapshotMode.value) return
     dailyRange.value = { start, end }
     dailyDual.value = dual
     dailyActive.value = !!dual
@@ -160,6 +316,14 @@ export const useCockpitStore = defineStore('cockpit', () => {
   function clearDaily() {
     dailyActive.value = false
     dailyDual.value = null
+  }
+
+  /** 启动探测：若页内嵌了快照包则进入 snapshotMode */
+  function tryBootSnapshot(): boolean {
+    const pack = readEmbeddedSnapshot()
+    if (!pack) return false
+    loadSnapshot(pack)
+    return true
   }
 
   return {
@@ -177,12 +341,20 @@ export const useCockpitStore = defineStore('cockpit', () => {
     archiveDay,
     archiveBuiltAt,
     archiveVersion,
+    snapshotMode,
+    snapshotPack,
+    snapshotExportedAt,
+    snapshotBuiltAt,
+    snapshotVersion,
+    snapshotScopeLabel,
     dailyActive,
     dailyRange,
     dailyDual,
     loadMain,
     loadBu,
     loadArchive,
+    loadSnapshot,
+    tryBootSnapshot,
     setPeriod,
     setDaily,
     clearDaily,

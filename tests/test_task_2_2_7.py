@@ -213,9 +213,16 @@ class TestHistoryAndExportHttp(unittest.TestCase):
         self.assertEqual(admin.get("/api/history/2026-7-9/vm").status_code, 400)
 
     def test_export_html_auth_matrix(self):
+        # 2.2.9：路由校验成功体须含快照标记（鉴权矩阵仍 mock 装配，不测播放器）
+        snap_html = (
+            '<html data-kanban-export="snapshot">'
+            "<script>window.__KANBAN_SNAPSHOT__ = "
+            '{"kind":"kanban_snapshot","scope":"整体","cockpit":{},"bu":{}}'
+            ";</script></html>"
+        )
         with mock.patch(
             "export_html.build_export_html",
-            return_value=("<html data-export-vue=1>ok</html>", "fallback"),
+            return_value=(snap_html, "snapshot"),
         ):
             raw = self._client()
             self.assertEqual(raw.get("/export.html").status_code, 401)
@@ -249,9 +256,15 @@ class TestHistoryAndExportHttp(unittest.TestCase):
                 server._screenshot_png = orig
 
     def test_export_html_bu_isolation(self):
+        snap_html = (
+            '<html data-kanban-export="snapshot">'
+            "<script>window.__KANBAN_SNAPSHOT__ = "
+            '{"kind":"kanban_snapshot","scope":"BU","bu":{"BU甲":{}}}'
+            ";</script></html>"
+        )
         with mock.patch(
             "export_html.build_export_html",
-            return_value=("<html>bu</html>", "fallback"),
+            return_value=(snap_html, "snapshot"),
         ):
             cbu, _ = self._login_view("user_a")
             self.assertEqual(cbu.get("/export.html").status_code, 401)

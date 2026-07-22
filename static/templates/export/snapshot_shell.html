@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-kanban-export="snapshot" data-export-scheme="A">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>__TITLE__</title>
+<script>
+try {
+  if (localStorage.getItem('cockpit-theme') === 'light')
+    document.documentElement.classList.add('theme-light');
+} catch (e) {}
+</script>
+<style>__THEME_CSS__</style>
+<style>__PLAYER_CSS__</style>
+</head>
+<body>
+<div id="app"></div>
+<script id="kanban-snapshot-data" type="application/json">__PACK_JSON__</script>
+<script>window.__KANBAN_SNAPSHOT__ = __PACK_JSON_RAW__;</script>
+<script type="module">__PLAYER_JS__</script>
+</body>
+</html>

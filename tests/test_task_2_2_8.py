@@ -222,7 +222,8 @@ class TestBanners228(unittest.TestCase):
 class TestVersion228(unittest.TestCase):
     def test_version_files(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.2.8")
+        parts = [int(x) for x in ver.split(".")[:3]]
+        self.assertGreaterEqual(parts, [2, 2, 8], ver)
         self.assertIn("2.2.8", (ROOT / "src/version.py").read_text(encoding="utf-8"))
         self.assertIn("## [2.2.8]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
         blob = (ROOT / "src/version.py").read_text(encoding="utf-8")
