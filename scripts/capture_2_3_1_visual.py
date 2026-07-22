@@ -31,6 +31,31 @@ VIS = ROOT / "docs" / "_visual_2_3_1"
 UI = ROOT / "docs" / "images" / "ui"
 THEMES = ("neon", "dark", "light")
 
+# 管理端路径源：frontend/src/admin/router.ts（禁止死路由；通配会 silent redirect 到 /admin）
+ADMIN_SHOT_SPEC: list[tuple[str, str, str, tuple[str, ...]]] = [
+    # path, out_png, url_must_contain, body_must_contain_any
+    ("/admin", "07_admin_console.png", "/admin", ("控制台", "更新数据", "体检")),
+    ("/admin/settings", "08_admin_settings.png", "/admin/settings", ("设置", "BU", "账号")),
+    (
+        "/admin/review/orderdept",
+        "09_admin_order_dept.png",
+        "/admin/review/orderdept",
+        ("下单", "部门", "未填"),
+    ),
+    (
+        "/admin/edit/manual",
+        "10_admin_manual.png",
+        "/admin/edit/manual",
+        ("人工填写", "手填", "调整"),
+    ),
+    (
+        "/admin/edit/detail",
+        "11_admin_detail.png",
+        "/admin/edit/detail",
+        ("数据调整", "明细", "调整"),
+    ),
+]
+
 
 def load_accounts():
     for path in (ROOT / "_golden_data" / "看板账号.json", ROOT / "数据" / "看板账号.json"):
@@ -96,6 +121,57 @@ def apply_theme_via_button(page, target: str, max_clicks: int = 5) -> str:
         ).first.click(force=True)
         page.wait_for_timeout(450)
     return cur()
+
+
+def capture_page(
+    page,
+    *,
+    base: str,
+    path: str,
+    out_png: Path,
+    url_must_contain: str,
+    body_must_contain_any: tuple[str, ...],
+    wait_ms: int = 900,
+) -> Path:
+    """goto → URL/body 身份门禁 → 截图。失败 raise，禁止 soft-ok。"""
+    from urllib.parse import urlparse
+
+    page.goto(f"{base}{path}", wait_until="networkidle", timeout=90000)
+    page.wait_for_timeout(wait_ms)
+    url = page.url or ""
+    path_now = urlparse(url).path.rstrip("/") or "/"
+    want = url_must_contain.rstrip("/") or "/"
+    # 精确 pathname 对齐，避免 /admin 通配命中 /admin/settings
+    if path_now != want:
+        raise RuntimeError(
+            f"capture identity FAIL path={path!r}: url={url!r} need exact path {want!r} got {path_now!r}"
+        )
+    body = page.inner_text("body") or ""
+    if "找不到这个地址" in body or "页面不存在" in body:
+        raise RuntimeError(f"capture 404 body path={path!r} url={url!r}")
+    if not any(m in body for m in body_must_contain_any):
+        raise RuntimeError(
+            f"capture body markers FAIL path={path!r} url={url!r} "
+            f"need any of {body_must_contain_any} snip={body[:160]!r}"
+        )
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(out_png), full_page=False)
+    return out_png
+
+
+def assert_pngs_unique(paths: list[Path], label: str) -> None:
+    import hashlib
+
+    digests: dict[str, Path] = {}
+    for p in paths:
+        if not p.is_file():
+            raise RuntimeError(f"{label}: missing {p}")
+        h = hashlib.sha1(p.read_bytes()).hexdigest()
+        if h in digests:
+            raise RuntimeError(
+                f"{label}: duplicate PNG content {digests[h].name} == {p.name} sha1={h[:12]}"
+            )
+        digests[h] = p
 
 
 def dismiss_intro(page) -> None:
@@ -327,32 +403,33 @@ def main() -> int:
             log.append(f"bu shots FAIL: {e}")
             raise
 
-        # admin (golden fake)
-        try:
-            page.goto(f"{BASE}/admin", wait_until="networkidle", timeout=60000)
+        # admin：SHOT_SPEC 身份门禁（源 router.ts）；禁止死路由 soft-ok
+        page.goto(f"{BASE}/admin", wait_until="networkidle", timeout=90000)
+        page.wait_for_timeout(400)
+        if page.locator("input[type=password]").count():
             fill_login(page, aac, apw)
-            page.wait_for_load_state("networkidle", timeout=60000)
-            page.wait_for_timeout(1500)
-            page.screenshot(path=str(UI / "07_admin_console.png"), full_page=False)
-            page.goto(f"{BASE}/admin/settings", wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(1000)
-            page.screenshot(path=str(UI / "08_admin_settings.png"), full_page=False)
-            for path, shot in (
-                ("/admin/review/orderdept", "09_admin_order_dept.png"),
-                ("/admin/manual", "10_admin_manual.png"),
-                ("/admin/detail", "11_admin_detail.png"),
-            ):
-                page.goto(f"{BASE}{path}", wait_until="networkidle", timeout=60000)
-                page.wait_for_timeout(800)
-                page.screenshot(path=str(UI / shot), full_page=False)
-            log.append("admin shots ok")
-        except Exception as e:
-            log.append(f"admin shots: {e}")
+            page.wait_for_load_state("networkidle", timeout=90000)
+            page.wait_for_timeout(1200)
+        admin_pngs: list[Path] = []
+        for path, shot, url_part, markers in ADMIN_SHOT_SPEC:
+            out = capture_page(
+                page,
+                base=BASE,
+                path=path,
+                out_png=UI / shot,
+                url_must_contain=url_part,
+                body_must_contain_any=markers,
+            )
+            admin_pngs.append(out)
+            log.append(f"admin ok {path} → {shot} url={page.url}")
+        assert_pngs_unique(admin_pngs, "admin ui")
+        log.append(f"admin shots ok unique n={len(admin_pngs)}")
 
         # sensitivity scan on viewer home body（示例/合成/测试客户名放行）
         body = ""
         try:
-            page.goto(f"{BASE}/", wait_until="domcontentloaded", timeout=60000)
+            page.goto(f"{BASE}/login", wait_until="domcontentloaded", timeout=60000)
+            fill_login(page, vac, vpw)
             wait_cockpit(page)
             body = page.inner_text("body")
         except Exception as e:
@@ -376,6 +453,8 @@ def main() -> int:
         print("KPI_MISMATCH rows=", kpi_fail)
         print("\n".join(kpi_rows))
         return 3
+    # 再校验磁盘上 admin 五图互异（防半截写盘）
+    assert_pngs_unique([UI / s[1] for s in ADMIN_SHOT_SPEC], "admin ui disk")
     print("OK capture", VIS, UI)
     print("log:", "; ".join(log))
     return 0
