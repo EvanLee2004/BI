@@ -48,9 +48,11 @@
 
 ### 看端 · 基本情况与经营利润
 
+![看端首页（霓虹·默认）](docs/images/ui/02_viewer_home_neon.png)
+
 ![看端首页（深空）](docs/images/ui/02_viewer_home_dark.png)
 
-> **截图说明（2.3.1）**：`docs/images/ui/*` 正在按新 UI 用 `tests/fixtures/ci_data` 脱敏重截（三主题：整体全貌 / KPI / 管理利润表 / 期间费用 / BU 页）。**禁止**把含真实金额/客户名的截图提交进 git。本地可参考 `docs/_visual_2_3_1/`（已 gitignore）。
+> **截图（2.3.1）**：`docs/images/ui/*` 已用 `_golden_data` 合成数据重截（示例客户/员工编号，无真实客户名）。三主题全貌另存 `docs/_visual_2_3_1/{neon,dark,light}/`（gitignore，本地自审用）。**禁止**把含真实金额/客户名的截图提交进 git。
 
 顶栏可选年份与主题；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款（三主题均可 count-up；刷新有 logo 入场填充加载）。
 
@@ -166,8 +168,8 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 | 默认账号（仅初次种子） | 管理员 `lushasha` / `kanban2026`；查看类账号初始密码见种子逻辑，**上线务必改掉** |
 | 账号文件 | `数据/看板账号.json`（不进 git；缺失时会自动生成种子） |
 | 智云账号 | 管理端 → 设置 中配置 |
-| 全量自检 | `KANBAN_OFFLINE=1 sh tests/run_verify.sh
-KANBAN_OFFLINE=1 sh scripts/smoke_cockpit_local.sh  # 2.3.1 本地冒烟（结构守卫）` |
+| 全量自检 | `KANBAN_OFFLINE=1 sh tests/run_verify.sh` |
+| 本地冒烟 | `KANBAN_OFFLINE=1 sh scripts/smoke_cockpit_local.sh`（结构守卫；若 :8028 已起服则 login→主题钮 探活。**非** CI Playwright 全路径） |
 
 ### 开发时前后端分开
 

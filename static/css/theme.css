@@ -93,36 +93,25 @@ body{
   background-size:auto,auto,auto,auto,44px 44px,44px 44px;
   background-attachment:fixed; min-height:100vh;
 }
-/* 霓虹：更强背景光晕 + 更亮网格 + 2.3.1 空间感（仅 transform/opacity/background-position） */
+/* 霓虹：近纯黑 + 紫/青光晕 + 网格（周期≥30s）；扫描带降频减负荷 */
 :root[data-theme="neon"] body, html[data-theme="neon"] body{
+  background-color:#000208;
   background-image:
-    radial-gradient(780px 520px at 6% -8%, rgba(47,243,255,.26), transparent 58%),
-    radial-gradient(820px 560px at 102% 2%, rgba(209,107,255,.28), transparent 60%),
-    radial-gradient(680px 680px at 48% 110%, rgba(46,230,200,.14), transparent 58%),
-    radial-gradient(400px 280px at 70% 40%, rgba(47,243,255,.1), transparent 70%),
-    linear-gradient(rgba(47,243,255,.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(47,243,255,.1) 1px, transparent 1px);
-  background-size:auto,auto,auto,auto,44px 44px,44px 44px;
-  background-position:0 0,0 0,0 0,0 0,0 0,0 0;
-  animation: neon-grid-drift 36s linear infinite;
+    radial-gradient(860px 560px at 5% -8%, rgba(47,243,255,.32), transparent 56%),
+    radial-gradient(900px 600px at 103% 0%, rgba(209,107,255,.34), transparent 58%),
+    radial-gradient(640px 640px at 50% 112%, rgba(46,230,200,.12), transparent 56%),
+    linear-gradient(rgba(47,243,255,.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47,243,255,.12) 1px, transparent 1px);
+  background-size:auto,auto,auto,40px 40px,40px 40px;
+  background-position:0 0,0 0,0 0,0 0,0 0;
+  animation: neon-grid-drift 40s linear infinite;
   position: relative;
 }
+/* 扫描光带：性能不达标时默认关；保留 keyframes 供需要时打开 */
 :root[data-theme="neon"] body::before,
 html[data-theme="neon"] body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:0;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(47,243,255,.055) 48%,
-    transparent 52%
-  );
-  background-size: 100% 220%;
-  opacity: 0.06;
-  animation: neon-scan 10s linear infinite;
+  content:none;
+  display:none;
 }
 :root[data-theme="neon"] body > *,
 html[data-theme="neon"] body > *{
@@ -130,8 +119,8 @@ html[data-theme="neon"] body > *{
   z-index: 1;
 }
 @keyframes neon-grid-drift{
-  0%{ background-position:0 0,0 0,0 0,0 0,0 0,0 0; }
-  100%{ background-position:0 0,0 0,0 0,0 0,44px 44px,44px 44px; }
+  0%{ background-position:0 0,0 0,0 0,0 0,0 0; }
+  100%{ background-position:0 0,0 0,0 0,40px 40px,40px 40px; }
 }
 @keyframes neon-scan{
   0%{ background-position: 0 -20%; }

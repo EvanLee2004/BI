@@ -176,32 +176,51 @@ class Test54p14LiveOptional(unittest.TestCase):
                 "(document.documentElement.classList.contains('theme-light') ? 'light' : 'dark')"
             )
             self.assertNotEqual(before, after)
-            # 兼容层：显式切到 light 时必须仍有 theme-light class
-            page.evaluate(
-                """() => {
-                  document.documentElement.dataset.theme = 'light';
-                  document.documentElement.classList.add('theme-light');
-                  try { localStorage.setItem('cockpit-theme', 'light'); } catch (e) {}
-                  window.dispatchEvent(new CustomEvent('kanban-theme-change',
-                    { detail: { theme: 'light', light: true } }));
-                }"""
-            )
-            page.wait_for_timeout(200)
+            # 兼容层：经主题钮真实路径循环到 light，再断言 data-theme + theme-light
+            # （禁止 page.evaluate 自加 class 后 assert，那是 tautology）
+            def _dom_theme() -> str:
+                return page.evaluate(
+                    "() => document.documentElement.dataset.theme || "
+                    "(document.documentElement.classList.contains('theme-light') ? 'light' : 'dark')"
+                )
+
+            def _click_theme_once() -> None:
+                page.locator(
+                    "button:has-text('浅色'), button:has-text('深色'), "
+                    "button:has-text('霓虹'), button:has-text('亮/暗')"
+                ).first.click(force=True)
+                page.wait_for_timeout(400)
+
+            saw_light = _dom_theme() == "light"
+            for _ in range(4):
+                if saw_light:
+                    break
+                _click_theme_once()
+                saw_light = _dom_theme() == "light"
+            self.assertEqual(_dom_theme(), "light", "主题钮循环后应到 light")
             self.assertTrue(
                 page.evaluate(
                     "() => document.documentElement.classList.contains('theme-light')"
-                )
+                ),
+                "light 主题须保留 theme-light class（兼容层）",
             )
             page.screenshot(path=str(out / "theme_after_toggle.png"))
-            report["steps"].append({"r21_cockpit": {"before": before, "after": after}})
-            # 回到暗色便于后续
-            page.evaluate(
-                """() => {
-                  document.documentElement.dataset.theme = 'dark';
-                  document.documentElement.classList.remove('theme-light');
-                  try { localStorage.setItem('cockpit-theme', 'dark'); } catch (e) {}
-                }"""
+            report["steps"].append(
+                {
+                    "r21_cockpit": {
+                        "before": before,
+                        "after": after,
+                        "light_via_button": _dom_theme(),
+                        "theme_light_class": True,
+                    }
+                }
             )
+            # 经主题钮再点到 dark（neon→dark→light→neon；当前 light → 下一态 neon）
+            # 继续点到 dark 便于后续断言
+            for _ in range(3):
+                if _dom_theme() == "dark":
+                    break
+                _click_theme_once()
             page.wait_for_timeout(200)
 
             # ── R-22 弹层 z + 叠在 KPI 上 ──
