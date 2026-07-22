@@ -165,23 +165,41 @@ def main() -> int:
         wait_cockpit(page)
         log.append(f"login ok as {vac}")
 
-        # fetch API kpi for对照
+        # fetch API kpi for对照：真实路径 j.kpi.cards_by_period[period]
         api_cards = page.evaluate(
             """async () => {
-              try {
-                const r = await fetch('/api/v1/vm/cockpit', {credentials:'include'});
-                const j = await r.json();
-                const cards = (j.cards_by_period && (j.cards_by_period[j.period] || j.cards_by_period['ytd'] || Object.values(j.cards_by_period)[0])) || j.cards || [];
-                const arr = Array.isArray(cards) ? cards : (cards.items || []);
-                return arr.slice(0, 5).map(c => ({
-                  name: c.name || c.title || c.label || '',
-                  value_disp: c.value_disp || c.disp || c.value || ''
-                }));
-              } catch (e) { return {err: String(e)}; }
+              const r = await fetch('/api/v1/vm/cockpit', {credentials:'include'});
+              if (!r.ok) return {err: 'http '+r.status};
+              const j = await r.json();
+              const by = (j.kpi && j.kpi.cards_by_period) || j.cards_by_period || {};
+              const keys = Object.keys(by);
+              // 优先「年」卡（与默认顶栏一致）
+              let period = keys.find(k => /年$/.test(k) && !k.includes('Q') && !k.includes('-'))
+                || keys.find(k => k.includes('年'))
+                || keys[0];
+              const arr = Array.isArray(by[period]) ? by[period] : [];
+              return {
+                period,
+                cards: arr.slice(0, 5).map(c => ({
+                  name: c.label || c.name || c.title || '',
+                  value_disp: (c.value_disp != null && c.value_disp !== '')
+                    ? String(c.value_disp)
+                    : ''
+                }))
+              };
             }"""
         )
+        if not isinstance(api_cards, dict) or api_cards.get("err"):
+            raise RuntimeError(f"cockpit API failed: {api_cards}")
+        api_list = api_cards.get("cards") or []
+        if len(api_list) < 1 or not all(c.get("value_disp") for c in api_list):
+            raise RuntimeError(
+                f"API value_disp empty — refuse tautology match. period={api_cards.get('period')} cards={api_list}"
+            )
+        log.append(f"api kpi period={api_cards.get('period')} n={len(api_list)}")
 
         kpi_rows: list[str] = ["theme | card | page | api_value_disp | match"]
+        kpi_fail = 0
         for theme in THEMES:
             got = apply_theme_via_button(page, theme)
             assert got == theme, f"theme button failed: want {theme} got {got}"
@@ -223,18 +241,20 @@ def main() -> int:
                 page.wait_for_timeout(400)
                 page.screenshot(path=str(VIS / theme / "04_expense.png"), full_page=False)
 
-            # KPI 对账
+            # KPI 对账：API 空 → fail；页值须含 value_disp（单位可在页侧）
             page_cards = kpi_table(page)
-            if isinstance(api_cards, list):
-                for i, pc in enumerate(page_cards):
-                    api = api_cards[i] if i < len(api_cards) else {}
-                    pd = re.sub(r"\s+", "", str(pc.get("page_disp") or ""))
-                    ad = re.sub(r"\s+", "", str(api.get("value_disp") or ""))
-                    # 终帧可能已 count-up 完，要求数字子串一致或全等
-                    match = (not ad) or (pd == ad) or (ad in pd) or (pd in ad)
-                    kpi_rows.append(
-                        f"{theme} | {pc.get('name') or api.get('name')} | {pc.get('page_disp')} | {api.get('value_disp')} | {match}"
-                    )
+            for i, api in enumerate(api_list):
+                pc = page_cards[i] if i < len(page_cards) else {}
+                pd = re.sub(r"\s+", "", str(pc.get("page_disp") or ""))
+                ad = re.sub(r"\s+", "", str(api.get("value_disp") or ""))
+                unit = ""
+                # 页显常带「万」「%」：允许 ad 是 pd 的数字核
+                match = bool(ad) and (pd == ad or ad in pd or pd.replace("万", "").replace("%", "") == ad)
+                if not match:
+                    kpi_fail += 1
+                kpi_rows.append(
+                    f"{theme} | {api.get('name') or pc.get('name')} | {pc.get('page_disp')} | {api.get('value_disp')} | {match}"
+                )
 
             # README 主图：neon 作默认演示感；dark 进 02_viewer_home_dark 历史文件名
             if theme == "neon":
@@ -263,40 +283,49 @@ def main() -> int:
         page.screenshot(path=str(VIS / "neon" / "05_mobile_375.png"), full_page=False)
         page.set_viewport_size({"width": 1440, "height": 900})
 
-        # BU page（整体账号从顶栏进 BU，或 bu 账号直接落地）
+        # BU page：bu 账号登录 → 服务端 redirect /bu/{名}；禁止 404 文案
+        bu_ok = False
         try:
-            page.goto(f"{BASE}/", wait_until="domcontentloaded", timeout=60000)
-            wait_cockpit(page)
-            bu_link = page.locator(".bu-nav-a, a[href*='/bu/'], .bu-nav button").first
-            if bu_link.count():
-                bu_link.click(force=True)
-                page.wait_for_timeout(1500)
-            else:
-                page.goto(f"{BASE}/login", wait_until="domcontentloaded", timeout=60000)
-                fill_login(page, buc, bup)
-                page.wait_for_load_state("networkidle", timeout=60000)
-                page.wait_for_timeout(1500)
-            page.wait_for_timeout(2000)
-            # BU 页结构因权限而异：有 panel 则截，否则整页
-            try:
-                page.wait_for_selector("body", timeout=5000)
-            except Exception:
-                pass
+            page.goto(f"{BASE}/login", wait_until="networkidle", timeout=60000)
+            fill_login(page, buc, bup)
+            page.wait_for_load_state("networkidle", timeout=90000)
+            page.wait_for_timeout(1500)
+            # 若仍停在 / 且有 bu-nav，点第一个 BU
+            if "/bu/" not in page.url:
+                link = page.locator("[data-testid=bu-nav] a.bu-nav-a, a.bu-nav-a").first
+                if link.count():
+                    href = link.get_attribute("href") or ""
+                    link.click(force=True)
+                    page.wait_for_timeout(1500)
+                    if href and "/bu/" not in page.url:
+                        page.goto(f"{BASE}{href}", wait_until="networkidle", timeout=60000)
+                        page.wait_for_timeout(1000)
+            body = page.inner_text("body")
+            if "找不到这个地址" in body or "页面不存在" in body or page.locator("text=找不到这个地址").count():
+                raise RuntimeError(f"BU page 404 url={page.url} body_snip={body[:120]!r}")
+            if "/bu/" not in page.url:
+                raise RuntimeError(f"not on /bu/* after bu login, url={page.url}")
+            page.wait_for_selector(".kpi-grid, .scifi-panel, [data-testid=period-picker]", timeout=45000)
             for theme in THEMES:
-                try:
-                    apply_theme_via_button(page, theme)
-                except Exception:
+                got = apply_theme_via_button(page, theme)
+                if got != theme:
                     page.evaluate(
                         f"""() => {{
                       document.documentElement.dataset.theme = '{theme}';
                       document.documentElement.classList.toggle('theme-light', '{theme}'==='light');
+                      localStorage.setItem('cockpit-theme','{theme}');
                     }}"""
                     )
                 page.wait_for_timeout(500)
+                body2 = page.inner_text("body")
+                if "找不到这个地址" in body2:
+                    raise RuntimeError(f"BU 404 under theme={theme}")
                 page.screenshot(path=str(VIS / theme / "05_bu.png"), full_page=False)
-            log.append(f"bu shots ok")
+            bu_ok = True
+            log.append(f"bu shots ok url={page.url}")
         except Exception as e:
-            log.append(f"bu shots skip: {e}")
+            log.append(f"bu shots FAIL: {e}")
+            raise
 
         # admin (golden fake)
         try:
@@ -343,6 +372,10 @@ def main() -> int:
     if sensitive_hits:
         print("SENSITIVE?", sensitive_hits)
         return 2
+    if kpi_fail:
+        print("KPI_MISMATCH rows=", kpi_fail)
+        print("\n".join(kpi_rows))
+        return 3
     print("OK capture", VIS, UI)
     print("log:", "; ".join(log))
     return 0
