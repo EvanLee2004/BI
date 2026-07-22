@@ -10,20 +10,18 @@ import AdminApp from './AdminApp.vue'
 import { adminRouter } from './router'
 import './styles/admin.css'
 
-import { installThemeListeners, syncThemeFromDom } from '../utils/theme'
+import { syncThemeFromDom, themeMode } from '../utils/theme'
 import { installFrontendErrorReporter } from '../utils/frontendErrorReporter'
 
 export function bootAdmin() {
-  // 主题：与驾驶舱共用 cockpit-theme（响应式 + iframe/storage 同步）
-  try {
-    if (localStorage.getItem('cockpit-theme') === 'light') {
-      document.documentElement.classList.add('theme-light')
-    }
-  } catch {
-    /* ignore */
+  /* 2.3.0：管理端恒暗色；不读/不写 localStorage，避免与看端主题互相污染 */
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.theme = 'dark'
+    document.documentElement.classList.remove('theme-light')
   }
+  themeMode.value = 'dark'
   syncThemeFromDom()
-  installThemeListeners()
+  /* 不装 installThemeListeners：管理端不跟 localStorage/postMessage 切主题 */
   document.title = '经营罗盘·管理端'
 
   const app = createApp(AdminApp)

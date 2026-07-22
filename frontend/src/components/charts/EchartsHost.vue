@@ -29,7 +29,7 @@ const props = defineProps<{ option: Record<string, unknown> }>()
 const emit = defineEmits<{ click: [params: { dataIndex?: number; seriesName?: string; name?: string }] }>()
 const el = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
-let lastMode: 'dark' | 'light' | null = null
+let lastMode: 'neon' | 'dark' | 'light' | null = null
 let ro: ResizeObserver | null = null
 let io: IntersectionObserver | null = null
 /** 是否曾进入视口（懒挂载） */

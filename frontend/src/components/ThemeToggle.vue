@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { themeMode, toggleTheme } from '../utils/theme'
+import { computed } from 'vue'
+import { themeMode, toggleTheme, themeToggleLabel } from '../utils/theme'
 
 function onToggle() {
   toggleTheme({ source: 'ThemeToggle' })
 }
+
+const label = computed(() => themeToggleLabel(themeMode.value))
 </script>
 <template>
   <button type="button" class="toggle dsdk-button" style="width: auto; padding: 6px 13px" @click="onToggle">
-    {{ themeMode === 'light' ? '◐ 深色' : '◑ 浅色' }}
+    {{ label }}
   </button>
 </template>

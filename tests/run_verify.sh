@@ -151,6 +151,7 @@ tests/test_task_2_2_6.py
 tests/test_task_2_2_7.py
 tests/test_task_2_2_8.py
 tests/test_task_2_2_9.py
+tests/test_task_2_3_0_theme_enum.py
 "
 run_one() {
   f="$1"

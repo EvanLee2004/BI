@@ -6,7 +6,7 @@
 <title>经营罗盘·管理端登录</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<script>try{if(localStorage.getItem("cockpit-theme")==="light")document.documentElement.classList.add("theme-light")}catch(e){}</script>
+<script>try{var v2=localStorage.getItem("cockpit-theme-v2");var t=localStorage.getItem("cockpit-theme");if(!v2){t="neon";localStorage.setItem("cockpit-theme","neon");localStorage.setItem("cockpit-theme-v2","1");}if(t!=="neon"&&t!=="dark"&&t!=="light")t="neon";document.documentElement.setAttribute("data-theme",t);if(t==="light")document.documentElement.classList.add("theme-light");else document.documentElement.classList.remove("theme-light");}catch(e){}</script>
 <style>
 :root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--line:#334155;--input-bg:#0f172a;--hint:#64748b;--err:#f87171}
 html.theme-light{--bg:#eef1f5;--card:#fff;--fg:#1d2836;--mut:#525c68;--line:#e3e8ef;--input-bg:#fff;--hint:#64748b;--err:#dc2626}
@@ -40,10 +40,18 @@ padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;min-height:44px
 <script>
 (function(){
   var r=document.documentElement,b=document.getElementById("themeBtn");
-  function setL(l){r.classList.toggle("theme-light",!!l);if(b)b.textContent=l?"◐ 深色":"◑ 浅色";}
-  try{setL(localStorage.getItem("cockpit-theme")==="light");}catch(e){}
-  if(b)b.onclick=function(){var l=!r.classList.contains("theme-light");try{localStorage.setItem("cockpit-theme",l?"light":"dark");}catch(e){}setL(l);};
-  window.addEventListener("storage",function(e){if(e.key==="cockpit-theme")setL(e.newValue==="light");});
+  var CYCLE=["neon","dark","light"];
+  function norm(v){return (v==="neon"||v==="dark"||v==="light")?v:"neon";}
+  function nextLabel(m){return m==="neon"?"◐ 深色":m==="dark"?"◑ 浅色":"◈ 霓虹";}
+  function setT(t){
+    t=norm(t);r.setAttribute("data-theme",t);
+    r.classList.toggle("theme-light",t==="light");
+    if(b)b.textContent=nextLabel(t);
+    try{localStorage.setItem("cockpit-theme",t);localStorage.setItem("cockpit-theme-v2","1");}catch(e){}
+  }
+  try{setT(localStorage.getItem("cockpit-theme"));}catch(e){setT("neon");}
+  if(b)b.onclick=function(){var cur=norm(r.getAttribute("data-theme"));var i=CYCLE.indexOf(cur);setT(CYCLE[(i<0?0:i+1)%3]);};
+  window.addEventListener("storage",function(e){if(e.key==="cockpit-theme")setT(e.newValue);});
   var errBox=document.getElementById("errBox");
   var q=new URLSearchParams(location.search);
   if(q.get("msg")){errBox.style.display="block";errBox.textContent=q.get("msg");}

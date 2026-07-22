@@ -13,11 +13,12 @@ function reload() {
 
 function onTheme(e: Event) {
   const detail = (e as CustomEvent).detail as { theme?: string }
-  const light = detail?.theme === 'light'
+  const t = detail?.theme
+  const theme = t === 'neon' || t === 'dark' || t === 'light' ? t : 'neon'
   try {
     const f = frame.value
     if (f?.contentWindow) {
-      f.contentWindow.postMessage({ type: 'cockpit-theme', theme: light ? 'light' : 'dark' }, location.origin)
+      f.contentWindow.postMessage({ type: 'cockpit-theme', theme }, location.origin)
     }
   } catch {
     /* ignore */

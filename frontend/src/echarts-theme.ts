@@ -17,7 +17,8 @@ export function themeInkColor(): string {
   return cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'))
 }
 
-export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
+export function kanbanTheme(mode: 'neon' | 'dark' | 'light' = 'dark') {
+  /* S1：neon 视觉暂复用 dark，S2 再加 token 差异 */
   const isLight = mode === 'light'
   const accent = cssVar('--dsdk-accent-color-secondary', cssVar('--blue', isLight ? '#0891b2' : '#22d3ee'))
   const purple = cssVar('--dsdk-accent-color-main', cssVar('--purple', isLight ? '#6d28d9' : '#c084fc'))
@@ -79,8 +80,10 @@ export function kanbanTheme(mode: 'dark' | 'light' = 'dark') {
   }
 }
 
-export function currentThemeMode(): 'dark' | 'light' {
-  if (typeof document === 'undefined') return 'dark'
+export function currentThemeMode(): 'neon' | 'dark' | 'light' {
+  if (typeof document === 'undefined') return 'neon'
+  const ds = document.documentElement.dataset.theme
+  if (ds === 'neon' || ds === 'dark' || ds === 'light') return ds
   return document.documentElement.classList.contains('theme-light') ? 'light' : 'dark'
 }
 

@@ -9,12 +9,21 @@
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
     <script>
       try {
-        if (localStorage.getItem('cockpit-theme') === 'light')
-          document.documentElement.classList.add('theme-light')
+        var v2 = localStorage.getItem('cockpit-theme-v2')
+        var t = localStorage.getItem('cockpit-theme')
+        if (!v2) {
+          t = 'neon'
+          localStorage.setItem('cockpit-theme', 'neon')
+          localStorage.setItem('cockpit-theme-v2', '1')
+        }
+        if (t !== 'neon' && t !== 'dark' && t !== 'light') t = 'neon'
+        document.documentElement.setAttribute('data-theme', t)
+        if (t === 'light') document.documentElement.classList.add('theme-light')
+        else document.documentElement.classList.remove('theme-light')
       } catch (e) {}
     </script>
     <link rel="stylesheet" href="/static/css/theme.css" />
-    <script type="module" crossorigin src="/app/assets/index-xGKlO2Su.js"></script>
+    <script type="module" crossorigin src="/app/assets/index-CzzNL6xq.js"></script>
   </head>
   <body>
     <div id="app"></div>
