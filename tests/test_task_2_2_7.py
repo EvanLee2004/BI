@@ -74,6 +74,16 @@ class TestSourceGuards227(unittest.TestCase):
         self.assertIn("snapshot_vm", core)
         self.assertNotIn("snapshot_page(cfg, html", core)
 
+    def test_nginx_proxies_export_html(self):
+        """生产 :80 必须反代 export.html，否则 try_files 落 SPA 匿名 200。"""
+        conf = (ROOT / "deploy/linux/nginx-kanban.conf").read_text(encoding="utf-8")
+        self.assertIn("export\\.(png|html)", conf)
+        self.assertNotRegex(
+            conf,
+            r"location ~ \^\(/\(api\|admin\|login\|bu\|export\\\.png\)\(/\|\$\)",
+            msg="不得只反代 export.png 而漏 export.html",
+        )
+
 
 class TestSnapshotVm(unittest.TestCase):
     def test_snapshot_vm_writes_json(self):

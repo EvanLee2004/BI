@@ -87,8 +87,10 @@ class TestNginxConfTemplate(unittest.TestCase):
                 continue
             if "X-Frame-Options" in line:
                 self.assertNotIn("DENY", line)
-        # 动态路径
+        # 动态路径（2.2.7：export.html 与 export.png 均须反代，禁落 SPA）
         self.assertRegex(t, r"api\|admin\|login\|bu")
+        self.assertRegex(t, r"export\\\.\(png\|html\)|export\\\.\(html\|png\)|export\\.\(png\|html\)")
+        self.assertIn("export.html", t)
 
 
 class TestNginxTIfPresent(unittest.TestCase):
