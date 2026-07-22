@@ -152,6 +152,13 @@ tests/test_task_2_2_7.py
 tests/test_task_2_2_8.py
 tests/test_task_2_2_9.py
 tests/test_task_2_3_0_theme_enum.py
+tests/test_task_2_3_0_neon_tokens.py
+tests/test_task_2_3_0_fx_guard.py
+tests/test_task_2_3_0_intro.py
+tests/test_task_2_3_0_countup.py
+tests/test_task_2_3_0_export_theme.py
+tests/test_task_2_3_0_echarts_registry.py
+tests/test_task_2_3_0_health_metrics.py
 "
 run_one() {
   f="$1"

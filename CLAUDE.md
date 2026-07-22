@@ -34,15 +34,15 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.2.9 · 2026-07-22）
+## 当前状态（2.3.0 · 2026-07-22）
 
-- **版本**：`VERSION` / `src/version.py` = **2.2.9**（导出=方案A自包含静态可交互快照 + 顶栏今日日期）。其上 2.2.8=抓数容差/灯色B；2.2.7=展示/历史/导出统一 Vue；2.2.6=下单未填部门批量。
-- **展示端**：顶栏右=**今日日期**+版本号+主题+导出+退出；导出下载单文件快照 HTML（内嵌 `kanban_snapshot` + `dist-snapshot` 播放器，离线可切周期/展开利润表/整体切 BU）；历史 `/?archive=` 只读横幅保留。
-- **管理端**：顶栏页签「展示」；长列表统一上一页/下一页每页 50；退出在设置底。
-- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_2_9.py`；前端 `npm run build` 含 online dist + dist-snapshot。
+- **版本**：`VERSION` = **2.3.0**（三主题霓虹默认 + 入场/KPI 动效 + 快照主题 + ECharts 瘦包）。其上 2.2.9=方案A快照导出；2.2.8=抓数容差/灯色B；2.2.7=展示/历史/导出统一 Vue。
+- **展示端**：主题=霓虹→深色→浅色循环（默认霓虹）；顶栏右=今日日期+版本+主题+导出+退出；登录入场 logo 放大；霓虹 KPI count-up；导出快照继承 theme 且离线可切三主题。
+- **管理端**：顶栏页签「展示」；管理端恒暗色；长列表上一页/下一页每页 50。
+- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_3_0_*.py`；前端 `npm run build` 含 online dist + dist-snapshot。
 - **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代；运维见 `docs/Runbook.md` §0。
 - **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功。
-- **push**：本单明昊授权可推 main（过安全扫描）；只推 main 不推 tags。
+- **push**：只推 main 不推 tags。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
 
@@ -103,6 +103,8 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 
 1. **智云导出 xlsx 绝不 `read_only=True`**；**列按表头找**；**必需列缺失即报错**。
 2. **前端不做金额运算**；求和/口径都在 profit/domain。
+2-extra. **主题＝三值枚举** `neon|dark|light`；`theme-light` class 为兼容层不许删（light 仍加）。
+2-extra2. **count-up 终值必须直赋 `value_disp`**；中间帧只用后端 `value` 插值，禁止从 disp 反解。
 2b. **看端费用明细列走白名单** `VIEW_EXPENSE_COLUMNS`；管理端数据调整仍全列。
 2c. **平台=Linux 单线**；禁 `.bat`/schtasks/win32；看门狗 `deploy/linux/start_with_rollback.sh`（退出码 42）。
 2d. **业务层零裸 SQL**（只许 `db*`/`schema`）；守卫 `test_task43_arch`。

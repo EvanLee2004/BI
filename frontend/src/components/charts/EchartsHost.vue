@@ -7,13 +7,47 @@
  * 任务书54.4·A：默认 animation:false；IntersectionObserver 视口懒挂载；renderer 灰度 SVG。
  */
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+/* 2.3.0 S6.C：按需引入瘦包（bar/line/pie/heatmap + canvas/svg） */
+import * as echarts from 'echarts/core'
+import { BarChart, LineChart, PieChart, HeatmapChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  VisualMapComponent,
+  GraphicComponent,
+  AxisPointerComponent,
+  DatasetComponent,
+  TransformComponent,
+} from 'echarts/components'
+import { LabelLayout } from 'echarts/features'
+import { CanvasRenderer, SVGRenderer } from 'echarts/renderers'
 import { kanbanTheme, currentThemeMode } from '../../echarts-theme'
+import { fxLevel } from '../../chart-fx'
+
+echarts.use([
+  BarChart,
+  LineChart,
+  PieChart,
+  HeatmapChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  VisualMapComponent,
+  GraphicComponent,
+  AxisPointerComponent,
+  DatasetComponent,
+  TransformComponent,
+  LabelLayout,
+  CanvasRenderer,
+  SVGRenderer,
+])
 
 /**
- * A4：多实例/点数远 <1k 时官方推荐 SVG。
- * 若视觉退化可改回 'canvas'（记录待拍板）。
- * 当前默认 svg；用 sessionStorage 可覆盖：kanban_echarts_renderer=canvas|svg
+ * 2.3.0 S3：霓虹 → canvas（发光）；暗/亮 → svg。
+ * sessionStorage 可覆盖：kanban_echarts_renderer=canvas|svg
  */
 function resolveRenderer(): 'canvas' | 'svg' {
   try {
@@ -22,13 +56,13 @@ function resolveRenderer(): 'canvas' | 'svg' {
   } catch {
     /* ignore */
   }
-  return 'svg'
+  return currentThemeMode() === 'neon' ? 'canvas' : 'svg'
 }
 
 const props = defineProps<{ option: Record<string, unknown> }>()
 const emit = defineEmits<{ click: [params: { dataIndex?: number; seriesName?: string; name?: string }] }>()
 const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
+let chart: echarts.EChartsType | null = null
 let lastMode: 'neon' | 'dark' | 'light' | null = null
 let ro: ResizeObserver | null = null
 let io: IntersectionObserver | null = null
@@ -77,13 +111,16 @@ function render() {
   pendingRender = false
   ensureChart()
   if (!chart) return
-  /* 强制零动画覆盖（A1）；option 内 animBlock 已关，双保险 */
-  const opt = {
-    ...(props.option || {}),
-    animation: false,
-    animationDuration: 0,
-    animationDurationUpdate: 0,
-  }
+  /* 非霓虹强制零动画；霓虹放行 option 自带动画设置 */
+  const fx = fxLevel() === 1
+  const opt = fx
+    ? { ...(props.option || {}) }
+    : {
+        ...(props.option || {}),
+        animation: false,
+        animationDuration: 0,
+        animationDurationUpdate: 0,
+      }
   chart.setOption(opt, true)
 }
 

@@ -112,6 +112,20 @@ export const useCockpitStore = defineStore('cockpit', () => {
     snapshotExportedAt.value = String(pack.exported_at || '')
     snapshotBuiltAt.value = String(pack.built_at || pack.exported_at || '')
     snapshotVersion.value = String(pack.version || '')
+    /* 2.3.0：快照初始主题 = pack.theme；保留切换钮（localStorage 可再改） */
+    try {
+      const raw = (pack as { theme?: string }).theme
+      const t = raw === 'neon' || raw === 'dark' || raw === 'light' ? raw : 'neon'
+      document.documentElement.dataset.theme = t
+      document.documentElement.classList.toggle('theme-light', t === 'light')
+      localStorage.setItem('cockpit-theme', t)
+      localStorage.setItem('cockpit-theme-v2', '1')
+      window.dispatchEvent(
+        new CustomEvent('kanban-theme-change', { detail: { theme: t, light: t === 'light', source: 'snapshot' } }),
+      )
+    } catch {
+      /* ignore */
+    }
     const scopeRaw = String(pack.scope || '整体')
     const buExport = String(pack.bu_export_name || '')
     snapshotScopeLabel.value = scopeRaw === 'BU' && buExport ? `BU·${buExport}` : scopeRaw || '整体'

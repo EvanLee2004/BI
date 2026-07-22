@@ -33,7 +33,32 @@
   --scifi-corner: 10px;
 }
 
-html.theme-light {
+/* 2.3.0 霓虹：更亮 accent + 三层 scifi-glow */
+:root[data-theme="neon"] {
+  --dsdk-accent-color-main: var(--purple, #d16bff);
+  --dsdk-accent-color-secondary: var(--blue, #2ff3ff);
+  --dsdk-rgb-accent-secondary: 47, 243, 255;
+
+  --dsdk-text-color: var(--ink, #eef4ff);
+  --dsdk-text-color-darker: var(--mut, #a8b8d8);
+  --dsdk-text-color-dim: var(--mut2, #7a8bb0);
+
+  --dsdk-warning-color: var(--orange, #ffd23f);
+  --dsdk-danger-color: var(--neg, #ff5c85);
+  --dsdk-success-color: var(--pos, #3dffb0);
+  --dsdk-rgb-warning-color: 255, 210, 63;
+  --dsdk-rgb-danger-color: 255, 92, 133;
+  --dsdk-rgb-success-color: 61, 255, 176;
+
+  --dsdk-panel-bg: var(--panel, rgba(8, 16, 36, 0.62));
+  --dsdk-panel-border-default: var(--line, rgba(47, 243, 255, 0.22));
+  --dsdk-panel-header-bg-default: rgba(47, 243, 255, 0.14);
+
+  --scifi-glow: 0 0 8px rgba(47, 243, 255, 0.35), 0 0 18px rgba(47, 243, 255, 0.18), 0 0 36px rgba(209, 107, 255, 0.12);
+}
+
+html.theme-light,
+:root[data-theme="light"] {
   --dsdk-accent-color-main: var(--purple, #6d28d9);
   --dsdk-accent-color-secondary: var(--blue, #0891b2);
   --dsdk-rgb-accent-secondary: 8, 145, 178;
@@ -67,7 +92,20 @@ html.theme-light {
   -webkit-backdrop-filter: none;
   background: rgba(8, 16, 32, 0.92);
 }
-html.theme-light .scifi-panel.dsdk-panel {
+:root[data-theme="neon"] .scifi-panel.dsdk-panel {
+  background: rgba(4, 10, 22, 0.94);
+  border-color: rgba(47, 243, 255, 0.28);
+  box-shadow: var(--scifi-glow);
+}
+:root[data-theme="neon"] .scifi-panel::before,
+:root[data-theme="neon"] .scifi-panel::after {
+  opacity: 0.95;
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 0 4px rgba(47, 243, 255, 0.55));
+}
+html.theme-light .scifi-panel.dsdk-panel,
+:root[data-theme="light"] .scifi-panel.dsdk-panel {
   background: rgba(255, 255, 255, 0.96);
 }
 .scifi-panel .dsdk-panel-content {

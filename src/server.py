@@ -145,6 +145,31 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
         t0 = time.time()
         try:
             ing = _do_full(cfg, root, trigger)
+            elapsed_ms = int((time.time() - t0) * 1000)
+            # 2.3.0 S6.B：真实 metrics（禁永久 null）
+            sources = []
+            try:
+                meta = (_state.get("summary") or {}).get("meta") or {}
+                sources = (meta.get("health") or {}).get("sources") or []
+            except Exception:
+                sources = []
+            n = len(sources) if isinstance(sources, list) else 0
+            n_fail = 0
+            if n:
+                for s in sources:
+                    if isinstance(s, dict) and s.get("ok") is False:
+                        n_fail += 1
+                    elif isinstance(s, dict) and str(s.get("status") or "").lower() in (
+                        "fail",
+                        "error",
+                        "failed",
+                    ):
+                        n_fail += 1
+            fail_rate = (n_fail / n) if n else 0.0
+            _state["metrics"] = {
+                "update_ms": elapsed_ms,
+                "fetch_fail_rate": round(fail_rate, 4),
+            }
             _state["last_refresh"] = {
                 "status": "ok",
                 "result": ing.get("result"),
@@ -152,6 +177,11 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
                 "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
         except Exception as e:
+            elapsed_ms = int((time.time() - t0) * 1000)
+            _state["metrics"] = {
+                "update_ms": elapsed_ms,
+                "fetch_fail_rate": 1.0,
+            }
             _state["last_refresh"] = {
                 "status": "error",
                 "detail": f"{type(e).__name__}: {e}",

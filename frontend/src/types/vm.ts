@@ -36,6 +36,8 @@ export type BuOrderRow = {
 export type KpiCard = {
   label: string
   period_tag: string
+  /** 2.3.0 count-up 中间帧插值用；终帧仍直赋 value_disp */
+  value?: number
   value_disp: string
   value_unit: string
   delta: KpiDelta

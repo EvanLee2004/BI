@@ -130,13 +130,22 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
             if key == "gross_profit" and pctkey:
                 headline = f"{float(p.get(pctkey) or 0.0):.1f}"
                 unit = "%"
+                # 2.3.0 count-up 中间帧用后端 number（展示用，非二次算账）
+                anim_value = float(p.get(pctkey) or 0.0)
             else:
                 headline = charts.fmt_wan(val)
                 unit = "万"
+                # val 为分；与 fmt_wan 同口径换算到「万」供中间帧插值
+                try:
+                    fen = int(val)
+                except (TypeError, ValueError):
+                    fen = 0
+                anim_value = (fen / 100.0) / 10000.0
             cards.append(
                 {
                     "label": label,
                     "period_tag": period_tag,
+                    "value": anim_value,
                     "value_disp": headline,
                     "value_unit": unit,
                     "delta": _kpi_delta(val, prev, P, key, up_good, _kpi_val),

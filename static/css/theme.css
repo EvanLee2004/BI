@@ -33,7 +33,34 @@
 .legend,.hbar-v{
   font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.2px;
 }
+/* 2.3.0 霓虹主题：近纯黑底 + 高亮青紫 + 多层光晕（token 集合 ⊇ light） */
+:root[data-theme="neon"]{
+  --bg:#01030a; --panel:rgba(8,16,36,.62); --panel-2:rgba(14,24,48,.78); --panel-solid:#070e1c;
+  --overlay-panel:rgba(4,10,24,.98); --overlay-panel-solid:#060d1c;
+  --overlay-mask:rgba(0,0,0,.55);
+  --line:rgba(47,243,255,.22); --line-2:rgba(47,243,255,.42);
+  --ink:#eef4ff; --mut:#a8b8d8; --mut2:#7a8bb0; --note:#c5d2ec;
+  --blue:#2ff3ff; --cost:#6b7fa0; --pos:#3dffb0; --neg:#ff5c85; --orange:#ffd23f;
+  --purple:#d16bff; --teal:#2ee6c8; --track:rgba(47,243,255,.16);
+  --kind-system:#2ff3ff; --kind-ledger:#d16bff; --kind-manual:#ffd23f;
+  --accent:#2ff3ff; --tb:rgba(2,6,16,.82);
+  --glow:0 0 8px rgba(47,243,255,.35),0 0 18px rgba(47,243,255,.18),0 0 36px rgba(209,107,255,.12);
+  --banner-warn-bg:linear-gradient(90deg,rgba(255,210,63,.28),rgba(255,210,63,.10));
+  --banner-warn-fg:#ffe9a0; --banner-warn-border:rgba(255,210,63,.45);
+  --fs-kpi:38px;
+  --z-base:1; --z-topbar:40; --z-sticky:20; --z-dropdown:60; --z-drawer:80; --z-modal:90; --z-toast:100;
+  --fs-card-h:14px; --fs-body:14px; --fs-mut:12px; --fs-sec:16px;
+  --fs-title:20px; --fs-display:28px;
+  --gap-sec:32px; --gap-card:16px; --pad-card:16px 16px; --pad-kpi:16px; --row-pad-y:8px;
+  --radius-sm:6px; --radius:10px; --radius-pill:999px;
+  --chart-h-sec2:317px;
+  --mono:"SF Mono","JetBrains Mono","Cascadia Code",ui-monospace,Consolas,"PingFang SC",monospace;
+  --num-font:var(--mono);
+}
 .theme-light{
+  /* 兼容层锚点：tests 断言含 ".theme-light{"；light 也写 data-theme=light */
+}
+.theme-light, :root[data-theme="light"]{
   /* 冷调科技白：冷灰蓝底 + 青蓝主色（与暗色 --blue #22d3ee 同色相） */
   --bg:#f4f7fb; --panel:#ffffff; --panel-2:#ffffff; --panel-solid:#ffffff;
   --overlay-panel:rgba(255,255,255,.98); --overlay-panel-solid:#ffffff;
@@ -66,8 +93,20 @@ body{
   background-size:auto,auto,auto,auto,44px 44px,44px 44px;
   background-attachment:fixed; min-height:100vh;
 }
+/* 霓虹：更强背景光晕 + 更亮网格 */
+:root[data-theme="neon"] body, html[data-theme="neon"] body{
+  background-image:
+    radial-gradient(780px 520px at 6% -8%, rgba(47,243,255,.22), transparent 58%),
+    radial-gradient(820px 560px at 102% 2%, rgba(209,107,255,.20), transparent 60%),
+    radial-gradient(680px 680px at 48% 110%, rgba(46,230,200,.14), transparent 58%),
+    radial-gradient(400px 280px at 70% 40%, rgba(47,243,255,.08), transparent 70%),
+    linear-gradient(rgba(47,243,255,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47,243,255,.08) 1px, transparent 1px);
+  background-size:auto,auto,auto,auto,44px 44px,44px 44px;
+}
 /* 浅色：干净白底，无网格/光晕，简洁可切换 */
-.theme-light body,body.theme-light{
+.theme-light body,body.theme-light,
+:root[data-theme="light"] body, html[data-theme="light"] body{
   background-image:none;
   background:var(--bg);
 }

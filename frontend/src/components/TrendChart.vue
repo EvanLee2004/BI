@@ -8,6 +8,7 @@ import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import {
   animBlock,
+  areaGradient,
   axisLabelStyle,
   barGlowStyle,
   dataLabelStyle,
@@ -15,6 +16,7 @@ import {
   lineGlowStyle,
   pointGlowStyle,
 } from '../chart-fx'
+import { currentThemeMode } from '../echarts-theme'
 import { axisMaxCover, clipToCurrentMonth, padYearMonths, ratioAxisBounds, resolveMonthCap } from '../chart-months'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
@@ -70,16 +72,19 @@ const option = computed(() => {
   const minV = t.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...rev, ...cost])
   const marBounds = ratioAxisBounds(marPlot)
-  /* 54.2 对照基准：收入青柱 / 成本灰柱 / 毛利率金黄线 */
-  const cRev = '#22d3ee'
-  const cCost = '#64769e'
-  const cMar = '#fbbf24'
+  /* 54.2 对照基准；2.3.0 霓虹提亮 */
+  const neon = currentThemeMode() === 'neon'
+  const cRev = neon ? '#2ff3ff' : '#22d3ee'
+  const cCost = neon ? '#6b7fa0' : '#64769e'
+  const cMar = neon ? '#ffd23f' : '#fbbf24'
+  const area = areaGradient(cRev)
   const series: Record<string, unknown>[] = [
     {
       name: '收入',
       type: 'bar',
       data: revPlot,
       itemStyle: barGlowStyle(cRev),
+      ...(area ? { areaStyle: area } : {}),
       /* 54.5：只标收入柱顶，避免与成本/毛利率三重叠难辨 */
       label: dataLabelStyle({
         position: 'top',
@@ -87,7 +92,8 @@ const option = computed(() => {
         formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
       }),
       emphasis: {
-        itemStyle: { shadowBlur: 4, shadowColor: 'rgba(34,211,238,0.4)' },
+        focus: 'series',
+        itemStyle: { shadowBlur: neon ? 10 : 4, shadowColor: neon ? 'rgba(47,243,255,0.45)' : 'rgba(34,211,238,0.4)' },
       },
     },
     {
@@ -96,6 +102,7 @@ const option = computed(() => {
       data: costPlot,
       itemStyle: barGlowStyle(cCost, true),
       label: { show: false },
+      emphasis: { focus: 'series' },
     },
     {
       name: '毛利率',

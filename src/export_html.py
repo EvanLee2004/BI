@@ -47,6 +47,14 @@ def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: s
         return _stub_vm(summary, bu_name=bu_name)
 
 
+def normalize_export_theme(theme: str | None) -> str:
+    """白名单：neon|dark|light；非法一律 neon。"""
+    t = (theme or "").strip().lower()
+    if t in ("neon", "dark", "light"):
+        return t
+    return "neon"
+
+
 def assemble_export_pack(
     *,
     scope: str = "整体",
@@ -59,17 +67,20 @@ def assemble_export_pack(
     bu_vms: dict[str, dict] | None = None,
     state: dict | None = None,
     cfg: dict | None = None,
+    theme: str | None = None,
 ) -> dict[str, Any]:
     """纯函数：组装 kind=kanban_snapshot 数据包（可单测、与 HTTP 解耦）。
 
     - 整体/管理员：cockpit 完整 + bu=全部已发布 BU 的 PageVM。
     - BU：scope=BU，bu 仅该一个键；cockpit 为空对象。
     - 禁止写入口令/密码字段。
+    - 2.3.0：theme 字段（neon|dark|light）。
     """
     st = state if state is not None else {}
     exp_at = exported_at or time.strftime("%Y-%m-%d %H:%M:%S")
     b_at = built_at or (st.get("built_at") if isinstance(st.get("built_at"), str) else None) or exp_at
     ver = version or ""
+    theme_v = normalize_export_theme(theme)
 
     if scope == "BU" and bu_name:
         if bu_vms is not None and bu_name in bu_vms:
@@ -91,6 +102,7 @@ def assemble_export_pack(
             "default_period": default_period,
             "scope": "BU",
             "bu_export_name": bu_name,
+            "theme": theme_v,
             "cockpit": {},
             "bu": {bu_name: one if isinstance(one, dict) else {}},
         }
@@ -127,6 +139,7 @@ def assemble_export_pack(
         "default_period": default_period,
         "scope": "整体",
         "bu_export_name": "",
+        "theme": theme_v,
         "cockpit": cockpit if isinstance(cockpit, dict) else {},
         "bu": bus,
     }
@@ -239,6 +252,11 @@ def build_snapshot_export_html(
     )
     if "__TITLE__" in out or "__PLAYER_JS__" in out:
         raise RuntimeError("快照模板 token 未替换干净")
+    # S6.D：密级页脚 token（HTML 在模板里，py 不拼标签——test_no_html_in_py）
+    exp_at = html_lib.escape(str(pack.get("exported_at") or ""))
+    out = out.replace("__EXPORTED_AT__", exp_at)
+    if "__EXPORTED_AT__" in out:
+        raise RuntimeError("快照密级页脚 token 未替换")
     return out
 
 

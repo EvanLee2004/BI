@@ -8,6 +8,24 @@
 
 ---
 
+## [2.3.0] - 2026-07-22
+
+### Added
+- **三主题体系**：霓虹（默认）→ 深色 → 浅色循环；`data-theme` + 兼容层 `theme-light`
+- **霓虹图表闪光**：`fxLevel` 仅在霓虹且非 reduced-motion 开启；暗/亮仍强制 `animation:false`
+- **登录入场**：账号密码登录成功后播放甲骨易 logo 放大特效（可跳过；快照/管理端/刷新不播）
+- **KPI count-up**：霓虹下数字滚动；中间帧用后端 `value` 插值，终帧直赋 `value_disp`
+- **导出快照主题**：pack 含 `theme` 字段；离线可切三主题；密级页脚「内部资料 · 请勿外传」
+- ECharts 按需引入瘦包（core + bar/line/pie/heatmap + canvas/svg 双渲染器）
+- `/api/health` metrics 写真实 `update_ms` / `fetch_fail_rate`（去掉恒 null 的 `api_p95_ms`）
+
+### Changed
+- 主题按钮文案三态：◈ 霓虹 / ◐ 深色 / ◑ 浅色（仍含「深色」「浅色」字样供测试定位）
+- 首次升级 `cockpit-theme-v2` 标记强制默认霓虹；之后尊重用户选择
+- 管理端恒暗色，不读/不污染看端 localStorage 主题
+
+---
+
 ## [2.2.9] - 2026-07-22
 
 ### Changed

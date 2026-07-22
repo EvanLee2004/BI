@@ -43,12 +43,24 @@ async function exportHtml() {
     return
   }
   const blk = store.period || ''
+  let theme = 'neon'
+  try {
+    const t = localStorage.getItem('cockpit-theme')
+    if (t === 'neon' || t === 'dark' || t === 'light') theme = t
+    else if (document.documentElement.dataset.theme) {
+      const d = document.documentElement.dataset.theme
+      if (d === 'neon' || d === 'dark' || d === 'light') theme = d
+    }
+  } catch {
+    /* ignore */
+  }
   // 整体页走 /api/export.html：现网 nginx 必反代 /api（export.html 裸路径需 conf 含 export.html 才反代）
   // BU 页 /bu/{name}/export.html 已由 location 的 bu 前缀反代
+  const q = `blk=${encodeURIComponent(blk)}&theme=${encodeURIComponent(theme)}`
   const url =
     store.scope === 'bu' && store.buName
-      ? `/bu/${encodeURIComponent(store.buName)}/export.html?blk=${encodeURIComponent(blk)}`
-      : `/api/export.html?blk=${encodeURIComponent(blk)}`
+      ? `/bu/${encodeURIComponent(store.buName)}/export.html?${q}`
+      : `/api/export.html?${q}`
   exporting.value = true
   try {
     const r = await fetch(url, { credentials: 'same-origin' })

@@ -4,7 +4,7 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v2.2.6**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v2.3.0**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。
 
@@ -40,7 +40,7 @@
 
 ![看端首页暗色](docs/images/ui/02_viewer_home_dark.png)
 
-顶栏可选年份与主题；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款。
+顶栏可选年份与主题（**霓虹默认** → 深色 → 浅色三套循环）；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款。
 
 ![看端利润区](docs/images/ui/03_viewer_profit_section.png)
 

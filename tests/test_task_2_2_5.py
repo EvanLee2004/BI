@@ -110,7 +110,8 @@ class TestVersionBump225(unittest.TestCase):
     def test_version_files(self):
         # 2.2.5 条目须保留在 changelog/version 历史中；当前产品号由后续版本文件维护
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertRegex(ver, r"^2\.2\.\d+$")
+        # 2.2.5 起产品号 2.x；后续 2.3.0 等递增仍合规
+        self.assertRegex(ver, r"^2\.(2|3)\.\d+$")
         self.assertIn("2.2.5", (ROOT / "src/version.py").read_text(encoding="utf-8"))
         self.assertIn("## [2.2.5]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 

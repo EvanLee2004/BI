@@ -21,11 +21,14 @@ import LedgerTable from './components/LedgerTable.vue'
 import BuNav from './components/BuNav.vue'
 import BUPage from './components/BUPage.vue'
 import TopBarActions from './components/TopBarActions.vue'
+import IntroSplash from './components/IntroSplash.vue'
 
 const store = useCockpitStore()
 const productVer = ref('')
 /** 2.2.9：本机日历日，版本号左侧；不依赖后端 */
 const todayStr = ref('')
+/** 快照模式不播入场 */
+const showIntro = ref(false)
 const isBuRoute = computed(() => {
   const m = location.pathname.match(/^\/bu\/(.+)/)
   return m ? decodeURIComponent(m[1]) : ''
@@ -55,11 +58,19 @@ onMounted(async () => {
   const onAdmin = path.startsWith('/admin')
   if (onLogin || onAdmin) return
 
-  // 2.2.9：导出快照优先 boot（零 API）
+  // 2.2.9：导出快照优先 boot（零 API）；快照不播入场
   if (store.tryBootSnapshot()) {
     const sv = String(store.snapshotVersion || '').trim()
     productVer.value = sv ? (sv.startsWith('v') ? sv : 'v' + sv) : ''
+    showIntro.value = false
     return
+  }
+
+  /* 入场与数据加载并行 */
+  try {
+    showIntro.value = sessionStorage.getItem('kanban_intro_pending') === '1'
+  } catch {
+    showIntro.value = false
   }
 
   try {
@@ -76,6 +87,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <IntroSplash v-if="showIntro" @done="showIntro = false" />
   <div v-if="store.error && store.error.includes('未登录')">
     <LoginView />
   </div>

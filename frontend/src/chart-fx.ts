@@ -1,9 +1,6 @@
 /**
  * 任务书54.4 · 图表性能/清晰度共享（纯 ECharts 原生，禁新库）。
- * - 默认零持续动画（ECharts 复杂场景官方建议 animation:false）
- * - 删除 breath/effectScatter 常驻特效（showEffectOn render 开销大）
- * - shadowBlur 默认 0，hover 才略加
- * - prefers-reduced-motion 彻底静止
+ * 2.3.0 S3：fxLevel 1 仅霓虹+非 reduced-motion；0 时与 2.2.9 逐字段相同。
  */
 
 import { themeInkColor, currentThemeMode } from './echarts-theme'
@@ -13,13 +10,26 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** @deprecated 54.4 默认零动画；保留签名以免旧调用炸 */
-export function animDuration(_ms = 700): number {
+/**
+ * 0 = 无特效（暗色/亮色/reduced-motion）
+ * 1 = 霓虹发光与入场动画
+ */
+export function fxLevel(): 0 | 1 {
+  if (prefersReducedMotion()) return 0
+  if (currentThemeMode() === 'neon') return 1
   return 0
 }
 
-/** 默认关闭入场/更新动画（PERF A1） */
+/** 默认关闭入场/更新动画；fx=1 时放行短动画 */
 export function animBlock(_ms = 700): Record<string, unknown> {
+  if (fxLevel() === 1) {
+    return {
+      animation: true,
+      animationDuration: 600,
+      animationDurationUpdate: 300,
+      animationEasing: 'cubicOut',
+    }
+  }
   return {
     animation: false,
     animationDuration: 0,
@@ -33,8 +43,10 @@ export function chartTextColor(): string {
 }
 
 export function chartMutedColor(): string {
-  const light = currentThemeMode() === 'light'
-  return light ? '#3d4a5c' : '#c5d0e8'
+  const mode = currentThemeMode()
+  if (mode === 'light') return '#3d4a5c'
+  if (mode === 'neon') return '#c5d2ec'
+  return '#c5d0e8'
 }
 
 /** 数字标签：字号≥11 + 细描边防糊 */
@@ -72,9 +84,10 @@ export function legendTextStyle(extra: Record<string, unknown> = {}): Record<str
   }
 }
 
-/** 柱体：顶部高光渐变；默认无软阴影（PERF A3） */
+/** 柱体：顶部高光渐变；fx=1 时软阴影 */
 export function barGlowStyle(hex: string, soft = false): Record<string, unknown> {
   const c = hex
+  const fx = fxLevel() === 1
   return {
     borderRadius: [4, 4, 0, 0],
     color: {
@@ -89,29 +102,54 @@ export function barGlowStyle(hex: string, soft = false): Record<string, unknown>
         { offset: 1, color: soft ? c : shadeHex(c, -0.28) },
       ],
     },
-    shadowBlur: 0,
-    shadowColor: 'transparent',
+    /* fx=0 时与 2.2.9 一致：shadowBlur: 0 */
+    shadowBlur: fx ? 10 : 0,
+    shadowColor: fx ? hexToRgba(c, 0.45) : 'transparent',
     shadowOffsetY: 0,
   }
 }
 
-/** 折线：无常驻发光 */
+/** 折线：fx=1 发光 */
 export function lineGlowStyle(hex: string, width = 2.5): Record<string, unknown> {
+  const fx = fxLevel() === 1
   return {
-    width,
+    width: fx ? width + 0.5 : width,
     color: hex,
-    shadowBlur: 0,
-    shadowColor: 'transparent',
+    /* fx=0：shadowBlur: 0 */
+    shadowBlur: fx ? 12 : 0,
+    shadowColor: fx ? hexToRgba(hex, 0.45) : 'transparent',
   }
 }
 
 export function pointGlowStyle(hex: string): Record<string, unknown> {
+  const fx = fxLevel() === 1
   return {
     color: hex,
     borderColor: '#fff',
     borderWidth: 1,
-    shadowBlur: 0,
-    shadowColor: 'transparent',
+    /* fx=0：shadowBlur: 0 */
+    shadowBlur: fx ? 8 : 0,
+    shadowColor: fx ? hexToRgba(hex, 0.45) : 'transparent',
+  }
+}
+
+/**
+ * fx=1：趋势图收入系列 areaStyle 线性渐变；fx=0 返回 undefined。
+ */
+export function areaGradient(hex: string): Record<string, unknown> | undefined {
+  if (fxLevel() !== 1) return undefined
+  return {
+    color: {
+      type: 'linear',
+      x: 0,
+      y: 0,
+      x2: 0,
+      y2: 1,
+      colorStops: [
+        { offset: 0, color: hexToRgba(hex, 0.35) },
+        { offset: 1, color: hexToRgba(hex, 0) },
+      ],
+    },
   }
 }
 
@@ -143,6 +181,25 @@ export function pieEmphasis(): Record<string, unknown> {
   }
 }
 
+/** 系列 emphasis focus（三主题免费午餐） */
+export function seriesEmphasisFocus(): Record<string, unknown> {
+  return { emphasis: { focus: 'series' } }
+}
+
+/** tooltip axisPointer 竖线+半透明色带 */
+export function axisPointerStyle(): Record<string, unknown> {
+  const mode = currentThemeMode()
+  const isLight = mode === 'light'
+  return {
+    type: 'line',
+    lineStyle: {
+      color: isLight ? 'rgba(8,145,178,.45)' : 'rgba(47,243,255,.45)',
+      width: 1,
+    },
+    crossStyle: { color: isLight ? 'rgba(8,145,178,.25)' : 'rgba(47,243,255,.25)' },
+  }
+}
+
 /** 高对比系列色板（费用多折线等） */
 export const SERIES_PALETTE = [
   '#22d3ee',
@@ -156,6 +213,16 @@ export const SERIES_PALETTE = [
   '#a78bfa',
   '#f59e0b',
 ]
+
+function hexToRgba(hex: string, a: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return hex
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return `rgba(${r},${g},${b},${a})`
+}
 
 /** amount in [-1,1] darken/lighten hex */
 function shadeHex(hex: string, amount: number): string {
@@ -174,4 +241,3 @@ function shadeHex(hex: string, amount: number): string {
   b = adj(b)
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
 }
-

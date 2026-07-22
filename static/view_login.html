@@ -68,7 +68,10 @@ padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;min-height:44px
     }).then(function(res){
       return res.json().then(function(j){return {ok:res.ok,status:res.status,j:j};});
     }).then(function(x){
-      if(x.ok && x.j && x.j.redirect){location.replace(x.j.redirect);return;}
+      if(x.ok && x.j && x.j.redirect){
+        try{sessionStorage.setItem("kanban_intro_pending","1");}catch(e){}
+        location.replace(x.j.redirect);return;
+      }
       var m=(x.j&& (x.j.detail||x.j.message)) || "账号或密码不正确";
       if(typeof m!=="string") m="账号或密码不正确";
       errBox.style.display="block";errBox.textContent=m;

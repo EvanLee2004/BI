@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
+import CountUpNumber from './CountUpNumber.vue'
 import type { KpiCard } from '../types/vm'
 
 const store = useCockpitStore()
@@ -9,6 +10,8 @@ const store = useCockpitStore()
 const cards = computed((): KpiCard[] => {
   return store.vm?.kpi?.cards_by_period?.[store.period] || []
 })
+/** 周期变化时触发 count-up 重播 */
+const playKey = computed(() => store.period)
 </script>
 <template>
   <div class="kpi-host">
@@ -21,7 +24,8 @@ const cards = computed((): KpiCard[] => {
         panel-class="kpi-card"
       >
         <div class="kpi-v">
-          <b>{{ c.value_disp }}</b><span class="kpi-u">{{ c.value_unit || '万' }}</span>
+          <CountUpNumber :value="Number(c.value) || 0" :value-disp="String(c.value_disp ?? '')" :play-key="playKey" />
+          <span class="kpi-u">{{ c.value_unit || '万' }}</span>
           <span v-if="c.delta?.show" class="kpi-delta" :class="c.delta.cls">{{ c.delta.text }}</span>
         </div>
         <div v-for="(s, j) in c.subs || []" :key="'s' + j" class="kpi-sub">
