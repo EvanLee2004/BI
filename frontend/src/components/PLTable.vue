@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
-import type { PLDetail, PLTablePeriod } from '../types/vm'
+import type { PLDetail, PLDetailLine, PLTablePeriod } from '../types/vm'
 
 const store = useCockpitStore()
 
@@ -17,6 +17,20 @@ const detail = computed((): PLDetail | null => {
   if (!openKey.value) return null
   return (table.value.details || {})[openKey.value] || null
 })
+/** 2.4.0：抽屉内「其他N项」展开集合（按行 name 记） */
+const expandedOther = ref<Record<string, boolean>>({})
+function toggleOther(name: string) {
+  expandedOther.value = {
+    ...expandedOther.value,
+    [name]: !expandedOther.value[name],
+  }
+}
+function isExpandable(ln: PLDetailLine): boolean {
+  return !!ln.expandable
+}
+function childLines(ln: PLDetailLine): PLDetailLine[] {
+  return ln.children || []
+}
 
 const exporting = ref(false)
 
@@ -89,9 +103,11 @@ async function exportPlExcel() {
 function openDrawer(key: string | null | undefined) {
   if (!key) return
   openKey.value = key
+  expandedOther.value = {}
 }
 function closeDrawer() {
   openKey.value = null
+  expandedOther.value = {}
 }
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') closeDrawer()
@@ -156,16 +172,29 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
             <button type="button" class="ghost mini" data-close @click="closeDrawer">关闭</button>
           </div>
           <div class="drawer-body" id="drawerBody">
-            <div
-              v-for="(ln, j) in detail.lines"
-              :key="j"
-              class="pl-drow"
-              :class="{ sub: ln.sub }"
-            >
-              <!-- 用 pl-name 类 + 两列网格（scifi-bridge 覆盖 14px 竖排坑） -->
-              <span class="pl-name">{{ ln.name }}</span>
-              <span class="pl-amt">{{ ln.amt_disp }}</span>
-            </div>
+            <template v-for="(ln, j) in detail.lines" :key="j">
+              <div
+                class="pl-drow"
+                :class="{ sub: ln.sub, 'pl-other-expandable': isExpandable(ln) }"
+                @click.stop="isExpandable(ln) && toggleOther(ln.name)"
+              >
+                <span class="pl-name">
+                  <template v-if="isExpandable(ln)">{{ expandedOther[ln.name] ? '▾ ' : '▸ ' }}</template>
+                  {{ ln.name }}
+                </span>
+                <span class="pl-amt">{{ ln.amt_disp }}</span>
+              </div>
+              <template v-if="isExpandable(ln) && expandedOther[ln.name]">
+                <div
+                  v-for="(ch, k) in childLines(ln)"
+                  :key="j + '-' + k"
+                  class="pl-drow sub pl-other-child"
+                >
+                  <span class="pl-name">{{ ch.name }}</span>
+                  <span class="pl-amt">{{ ch.amt_disp }}</span>
+                </div>
+              </template>
+            </template>
           </div>
         </div>
       </div>

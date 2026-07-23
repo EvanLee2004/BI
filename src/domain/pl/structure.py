@@ -44,6 +44,17 @@ def _fine_pairs(fine_pairs, limit=8) -> list[dict[str, Any]]:
     rest = pairs[limit:]
     if rest:
         s = sum(float(a or 0) for _, a in rest)
+        # 2.4.0：其他N项可展开 — children 下发全部剩余明细（前端只展示，不运算）
+        children = [
+            {
+                "name": str(n),
+                "impact": abs(float(a or 0)),
+                "amt_disp": abs_amt_disp(a),
+                "kind": "",
+                "sub": True,
+            }
+            for n, a in rest
+        ]
         lines.append(
             {
                 "name": f"其他{len(rest)}项",
@@ -51,6 +62,8 @@ def _fine_pairs(fine_pairs, limit=8) -> list[dict[str, Any]]:
                 "amt_disp": abs_amt_disp(s),
                 "kind": "",
                 "sub": True,
+                "expandable": True,
+                "children": children,
             }
         )
     return lines
@@ -196,10 +209,26 @@ def _pl_bu_expense_block(p, e, man, led, fine, alloc_meta) -> tuple[str, bool, b
         lines.extend(_fine_pairs(fine.get(led_cat)))
         if nm == "财务费用":
             lines.append(_dline("财务费用补充", man.get("财务费用补充", 0), "manual"))
-        if alloc_amt > 0.005:
-            lines.append(_dline("分摊自公共", alloc_amt, "ledger"))
+        lines.extend(_alloc_public_lines(p, led_cat, alloc_amt))
         details[cat_key] = {"title": f"{nm}构成", "lines": lines}
     return tag_note, has_fee, has_manual, rows, details
+
+
+def _alloc_public_lines(p: dict, led_cat: str, alloc_amt: float) -> list[dict[str, Any]]:
+    """2.4.0：分摊自公共列到明细项级；无明细时回退合计行。"""
+    out: list[dict[str, Any]] = []
+    for item in (p.get("alloc_added_details") or {}).get(led_cat) or []:
+        if not isinstance(item, dict):
+            continue
+        nm_d = str(item.get("name") or "").strip()
+        amt_d = float(item.get("amt") or 0)
+        if nm_d and abs(amt_d) >= 0.005:
+            out.append(_dline(f"分摊自公共·{nm_d}", amt_d, "ledger"))
+    if out:
+        return out
+    if alloc_amt > 0.005:
+        return [_dline("分摊自公共", alloc_amt, "ledger")]
+    return out
 
 
 def _pl_main_expense_block(e, man, led, fine) -> tuple[list, dict]:

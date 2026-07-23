@@ -81,7 +81,15 @@ export type PLRow = {
   grand: boolean
   is_pct: boolean
 }
-export type PLDetailLine = { name: string; amt_disp: string; kind: string; sub: boolean }
+export type PLDetailLine = {
+  name: string
+  amt_disp: string
+  kind: string
+  sub: boolean
+  /** 2.4.0：其他N项可展开 */
+  expandable?: boolean
+  children?: PLDetailLine[]
+}
 export type PLDetail = { title: string; lines: PLDetailLine[] }
 export type PLTablePeriod = { rows: PLRow[]; details: Record<string, PLDetail> }
 export type PLTableVM = {
