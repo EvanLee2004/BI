@@ -21,6 +21,22 @@ const allocRows = ref<{ bu: string; orig: string; val: string }[]>([])
 const allocTotal = ref('—')
 const allocInherit = ref('')
 const allocSumText = ref('')
+const allocByBuText = ref('')
+const remainCompany = ref('—')
+/** 2.4.0 公共明细两轴行 */
+type DetailRow = {
+  category: string
+  amount_disp: string
+  amount_orig: string
+  amount_val: string
+  amount_editable: boolean
+  amount_source: string
+  mode_orig: string
+  mode: string // '' | 比例 | 金额
+  bu_orig: Record<string, string>
+  bu_val: Record<string, string>
+}
+const detailRows = ref<DetailRow[]>([])
 const detaxRows = ref<{ cat: string; amount: string; orig: string; val: string }[]>([])
 const showAlloc = ref(false)
 const showDetax = ref(false)
@@ -36,11 +52,19 @@ function recountDirty() {
   for (const r of allocRows.value) {
     if (r.val.trim() !== r.orig.trim()) n++
   }
+  for (const r of detailRows.value) {
+    if (r.amount_editable && r.amount_val.replace(/,/g, '').trim() !== r.amount_orig.replace(/,/g, '').trim()) n++
+    if ((r.mode || '') !== (r.mode_orig || '')) n++
+    for (const b of buNames.value) {
+      if ((r.bu_val[b] || '').trim() !== (r.bu_orig[b] || '').trim()) n++
+    }
+  }
   for (const r of detaxRows.value) {
     if (r.val.trim() !== r.orig.trim()) n++
   }
   dirtyApi?.setFormDirty(n)
   aSum()
+  detailSumHint()
 }
 
 function aSum() {
@@ -62,15 +86,43 @@ function aSum() {
   }
   sum = Math.round(sum * 10) / 10
   if (bad) {
-    allocSumText.value = '有比例不是 0~100 的数字'
+    allocSumText.value = '默认比例有不是 0~100 的数字'
     return
   }
   if (sum > 100.05) {
-    allocSumText.value = `本月合计 ${sum}%，超过 100%——保存会被拒绝`
+    allocSumText.value = `默认比例合计 ${sum}%，超过 100%——保存会被拒绝`
     return
   }
   const remain = Math.round((100 - sum) * 10) / 10
-  allocSumText.value = `本月合计 ${sum}% · 剩余 ${remain}% 留公司层`
+  allocSumText.value = `默认比例合计 ${sum}% · 剩余 ${remain}% 走公司层（未精配明细）`
+}
+
+function detailSumHint() {
+  // 前端只做提示，不运算金额分摊；超额由后端拒
+  const bad: string[] = []
+  for (const r of detailRows.value) {
+    if (!r.mode) continue
+    let sum = 0
+    for (const b of buNames.value) {
+      const cur = (r.bu_val[b] || '').trim()
+      if (cur === '') continue
+      const n = Number(cur)
+      if (isNaN(n) || n < 0) {
+        bad.push(`${r.category} 有无效数字`)
+        break
+      }
+      if (r.mode === '比例' && n > 100) {
+        bad.push(`${r.category} 单 BU 比例>100`)
+        break
+      }
+      sum += n
+    }
+    if (r.mode === '比例' && sum > 100.05) bad.push(`${r.category} 比例合计 ${sum.toFixed(1)}%>100`)
+  }
+  // 汇总串仍用后端 by_bu_disp（加载时）
+  if (bad.length) {
+    allocByBuText.value = '⚠ ' + bad.slice(0, 3).join('；')
+  }
 }
 
 async function loadScopes() {
@@ -124,12 +176,22 @@ async function loadAlloc() {
     return
   }
   try {
-    // 任务书61·G：后端路由 /api/alloc_ratios，字段 ratios（勿用旧 alloc_rates/rates）
     const d0 = await jget<{
       bus?: string[]
       ratios?: Record<string, number | null>
       month_total_disp?: string
       inherited_from?: string | null
+      details?: {
+        category: string
+        amount_disp?: string
+        amount_yuan?: number
+        amount_editable?: boolean
+        amount_source?: string
+        mode?: string | null
+        bu_values?: Record<string, number | null>
+      }[]
+      by_bu_disp?: Record<string, string>
+      remain_company_disp?: string
     }>(`/api/alloc_ratios?month=${encodeURIComponent(m)}`)
     if (!d0.bus?.length) {
       showAlloc.value = false
@@ -137,13 +199,53 @@ async function loadAlloc() {
     }
     showAlloc.value = true
     allocTotal.value = d0.month_total_disp || '0.00'
+    remainCompany.value = d0.remain_company_disp || '—'
     allocInherit.value = d0.inherited_from
-      ? `本月未单独填写，当前沿用 ${d0.inherited_from} 的比例（改动保存后从本月起生效）`
+      ? `默认比例：本月未单独填写，当前沿用 ${d0.inherited_from}（改动保存后从本月起生效）`
       : ''
     allocRows.value = d0.bus.map((bn) => {
       const raw = d0.ratios ? d0.ratios[bn] : null
       const v = raw != null && raw !== ('' as unknown) ? String(raw) : ''
       return { bu: bn, orig: v, val: v }
+    })
+    const parts = (d0.bus || []).map((b) => `${b} ${d0.by_bu_disp?.[b] || '0.00'}元`)
+    allocByBuText.value = parts.length
+      ? `各BU摊入：${parts.join(' · ')}；剩余留公司 ${remainCompany.value} 元`
+      : ''
+    detailRows.value = (d0.details || []).map((row) => {
+      const bu_orig: Record<string, string> = {}
+      const bu_val: Record<string, string> = {}
+      for (const b of d0.bus || []) {
+        const raw = row.bu_values?.[b]
+        const s = raw != null && raw !== ('' as unknown) ? String(raw) : ''
+        bu_orig[b] = s
+        bu_val[b] = s
+      }
+      const amt =
+        row.amount_source === 'override' && row.amount_yuan != null
+          ? String(row.amount_yuan)
+          : row.amount_editable
+            ? row.amount_yuan != null && row.amount_source === 'override'
+              ? String(row.amount_yuan)
+              : ''
+            : ''
+      // 可填金额：orig/val 用覆盖值；只读展示 amount_disp
+      const amount_orig =
+        row.amount_editable && row.amount_source === 'override' && row.amount_yuan != null
+          ? String(row.amount_yuan)
+          : ''
+      return {
+        category: row.category,
+        amount_disp: row.amount_disp || '0.00',
+        amount_orig,
+        amount_val: amount_orig,
+        amount_editable: !!row.amount_editable,
+        amount_source: row.amount_source || 'auto',
+        mode_orig: row.mode || '',
+        mode: row.mode || '',
+        bu_orig,
+        bu_val,
+      }
     })
   } catch {
     showAlloc.value = false
@@ -219,7 +321,7 @@ async function saveAll() {
     if (cur !== '') {
       const n = Number(cur)
       if (isNaN(n) || n < 0 || n > 100) {
-        ElMessage.error(`BU「${r.bu}」比例须为 0~100`)
+        ElMessage.error(`BU「${r.bu}」默认比例须为 0~100`)
         return
       }
       allocSum += n
@@ -229,9 +331,77 @@ async function saveAll() {
     allocChanged++
   }
   if (allocChanged && allocSum > 100.05) {
-    ElMessage.error('比例合计超过 100%')
+    ElMessage.error('默认比例合计超过 100%')
     return
   }
+
+  const overrides: Record<string, number | null> = {}
+  let ovChanged = 0
+  const detail_rules: Record<string, { mode: string; values: Record<string, number | null> } | null> = {}
+  let frChanged = 0
+  for (const r of detailRows.value) {
+    if (r.amount_editable) {
+      const cur = r.amount_val.replace(/,/g, '').trim()
+      const orig = r.amount_orig.replace(/,/g, '').trim()
+      if (cur !== orig) {
+        if (cur === '') {
+          overrides[r.category] = null
+        } else {
+          const n = parseAmount(r.amount_val)
+          if (isNaN(n) || n < 0) {
+            ElMessage.error(`「${r.category}」手填金额无效`)
+            return
+          }
+          overrides[r.category] = n
+        }
+        ovChanged++
+      }
+    }
+    const modeCur = r.mode || ''
+    const modeOrig = r.mode_orig || ''
+    let buDirty = false
+    const values: Record<string, number | null> = {}
+    for (const b of buNames.value) {
+      const cur = (r.bu_val[b] || '').trim()
+      const orig = (r.bu_orig[b] || '').trim()
+      if (cur !== orig) buDirty = true
+      if (modeCur) {
+        if (cur === '') values[b] = null
+        else {
+          const n = Number(cur)
+          if (isNaN(n) || n < 0) {
+            ElMessage.error(`「${r.category}」·${b} 值无效`)
+            return
+          }
+          if (modeCur === '比例' && n > 100) {
+            ElMessage.error(`「${r.category}」·${b} 比例须 0~100`)
+            return
+          }
+          values[b] = n
+        }
+      }
+    }
+    if (modeCur !== modeOrig || buDirty) {
+      if (!modeCur) {
+        detail_rules[r.category] = null
+      } else {
+        // 校验比例合计
+        if (modeCur === '比例') {
+          let s = 0
+          for (const v of Object.values(values)) {
+            if (v != null) s += v
+          }
+          if (s > 100.05) {
+            ElMessage.error(`「${r.category}」比例合计超过 100%`)
+            return
+          }
+        }
+        detail_rules[r.category] = { mode: modeCur, values }
+      }
+      frChanged++
+    }
+  }
+
   const detax: Record<string, number | null> = {}
   let detaxChanged = 0
   for (const r of detaxRows.value) {
@@ -248,17 +418,24 @@ async function saveAll() {
     detax[r.cat] = cur === '' ? null : Number(cur)
     detaxChanged++
   }
-  if (!manuals.length && !allocChanged && !detaxChanged) {
+  const nSave = manuals.length + allocChanged + ovChanged + frChanged + detaxChanged
+  if (!nSave) {
     ElMessage.info('没有需要保存的更改')
     return
   }
   saving.value = true
   try {
     if (manuals.length) await jpost('/api/manual_batch', { 归属月: m, 范围: scope.value, items: manuals })
-    if (allocChanged) await jpost('/api/alloc_ratios', { 归属月: m, ratios: allocs })
+    if (allocChanged || ovChanged || frChanged) {
+      const body: Record<string, unknown> = { 归属月: m }
+      if (allocChanged) body.ratios = allocs
+      if (ovChanged) body.overrides = overrides
+      if (frChanged) body.detail_rules = detail_rules
+      await jpost('/api/alloc_ratios', body)
+    }
     if (detaxChanged) await jpost('/api/detax_rates', { rates: detax })
     dirtyApi?.setFormDirty(0)
-    ElMessage.success(`✓ 已保存 ${manuals.length + allocChanged + detaxChanged} 项并重算`)
+    ElMessage.success(`✓ 已保存 ${nSave} 项并重算`)
     reloadDash()
     await load()
   } catch (e) {
@@ -299,21 +476,63 @@ onMounted(load)
       </el-table-column>
     </el-table>
 
-    <div v-if="showAlloc" style="margin-top: 20px">
-      <h3>🏦 公共费用分摊比例（按月）</h3>
+    <div v-if="showAlloc" style="margin-top: 20px" data-testid="alloc-panel">
+      <h3>🏦 公共费用统一分摊（两轴）</h3>
       <div class="admin-note">
-        本月公共费用总额 <b>{{ allocTotal }}</b> 元。各 BU 填比例 %；合计可小于 100%。
+        本月公共费用总额 <b>{{ allocTotal }}</b> 元。顶部为默认比例（未精配明细走这里）；下方按明细项精配比例/金额。
       </div>
       <p class="muted">{{ allocInherit }}</p>
-      <el-table :data="allocRows" border stripe size="small" style="max-width: 480px">
+      <el-table :data="allocRows" border stripe size="small" style="max-width: 480px" data-testid="alloc-default-ratios">
         <el-table-column prop="bu" label="BU" />
-        <el-table-column label="本月分摊比例(%)">
+        <el-table-column label="默认分摊比例(%)">
           <template #default="{ row }">
             <el-input v-model="row.val" size="small" placeholder="未填=沿用上次" @input="recountDirty" />
           </template>
         </el-table-column>
       </el-table>
       <p class="muted">{{ allocSumText }}</p>
+
+      <h4 style="margin-top: 16px">公共明细（台账降序 · 精配优先）</h4>
+      <el-table :data="detailRows" border stripe size="small" style="width: 100%" data-testid="alloc-detail-table">
+        <el-table-column prop="category" label="明细项" min-width="120" fixed />
+        <el-table-column label="本月金额(元)" min-width="140">
+          <template #default="{ row }">
+            <template v-if="row.amount_editable">
+              <el-input
+                v-model="row.amount_val"
+                size="small"
+                :placeholder="row.amount_disp + '（手填覆盖）'"
+                @input="recountDirty"
+              />
+              <span class="muted" style="font-size: 11px">台账 {{ row.amount_disp }} · 〔手填〕</span>
+            </template>
+            <template v-else>
+              <span>{{ row.amount_disp }}</span>
+              <span class="muted" style="font-size: 11px"> 〔自动〕</span>
+            </template>
+          </template>
+        </el-table-column>
+        <el-table-column label="分摊方式" width="130">
+          <template #default="{ row }">
+            <el-select v-model="row.mode" size="small" clearable placeholder="默认" @change="recountDirty">
+              <el-option label="比例%" value="比例" />
+              <el-option label="金额元" value="金额" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column v-for="b in buNames" :key="b" :label="b" min-width="100">
+          <template #default="{ row }">
+            <el-input
+              v-model="row.bu_val[b]"
+              size="small"
+              :disabled="!row.mode"
+              :placeholder="row.mode === '金额' ? '元' : row.mode === '比例' ? '%' : '—'"
+              @input="recountDirty"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
+      <p class="muted" data-testid="alloc-summary">{{ allocByBuText }}</p>
     </div>
 
     <div v-if="showDetax" style="margin-top: 20px">
@@ -342,4 +561,5 @@ onMounted(load)
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .muted { color: var(--admin-mut, #94a3b8); font-size: 13px; }
 h3 { font-size: 15px; margin: 12px 0 8px; }
+h4 { font-size: 13px; margin: 8px 0; font-weight: 600; }
 </style>

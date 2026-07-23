@@ -43,6 +43,137 @@ def _parse_alloc_ratios_payload(ratios: dict, known: set) -> dict[str, float | N
     return vals
 
 
+def _parse_month_ym(month: str) -> tuple[int, int]:
+    try:
+        y, m = int(month[:4]), int(month[5:7])
+        assert 1 <= m <= 12 and month[4] == "-"
+        return y, m
+    except (ValueError, AssertionError, IndexError):
+        raise HTTPException(status_code=400, detail="归属月格式须为 YYYY-MM") from None
+
+
+def _ledger_public_fine_amounts(cfg, conn, year: int, month: int) -> dict[str, dict]:
+    """公共池台账明细 → {name: {amount_fen, cat, source}}。"""
+    import datetime as _dt
+    import columns as _columns
+
+    by_fine: dict[str, dict] = {}
+    lh, lr = db.load_ledger(cfg, conn)
+    if not lh:
+        return by_fine
+    lcols = _columns.resolve_ledger_columns(lh)
+    public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
+    start = _dt.date(year, month, 1)
+    end = (
+        _dt.date(year, month + 1, 1) - _dt.timedelta(days=1)
+        if month < 12
+        else _dt.date(year, 12, 31)
+    )
+    fine_by_cat = profit.compute_expenses_by_fine_type(
+        public_rows, year, start, end, cfg, lcols
+    )
+    for cat, pairs in (fine_by_cat or {}).items():
+        for fine, amt in pairs or []:
+            name = str(fine or "").strip()
+            if not name:
+                continue
+            fen = float(amt or 0)
+            if name in by_fine:
+                by_fine[name]["amount_fen"] = round(by_fine[name]["amount_fen"] + fen, 2)
+            else:
+                by_fine[name] = {
+                    "amount_fen": round(fen, 2),
+                    "cat": str(cat),
+                    "source": "auto",
+                }
+    return by_fine
+
+
+def _merge_overrides_into_fine(
+    by_fine: dict[str, dict],
+    overrides: dict[str, int],
+    editable: set[str],
+    cat_map: dict[str, str],
+) -> None:
+    """就地合并金额覆盖与可填空项。"""
+    for name in set(list(by_fine.keys()) + list(overrides.keys()) + list(editable)):
+        ov = overrides.get(name)
+        if ov is not None:
+            cat = (by_fine.get(name) or {}).get("cat") or cat_map.get(name, "固定运营费用")
+            by_fine[name] = {
+                "amount_fen": float(int(ov)),
+                "cat": str(cat),
+                "source": "override",
+            }
+        elif name not in by_fine and name in editable:
+            by_fine[name] = {
+                "amount_fen": 0.0,
+                "cat": str(cat_map.get(name, "固定运营费用")),
+                "source": "auto",
+            }
+
+
+def _item_amount_yuan(conn, month: str, cat: str, rows_lookup: list[dict]) -> float | None:
+    import money as _money
+
+    ov = db.get_public_detail_amount_overrides(conn, month).get(cat)
+    if ov is not None:
+        return float(_money.fen_to_yuan(int(ov)))
+    for row in rows_lookup:
+        if row.get("category") == cat:
+            return float(row.get("amount_yuan") or 0)
+    return None
+
+
+def _clear_detail_rules(conn, month: str, cat: str, user: str) -> None:
+    existing = db.get_alloc_detail_rules(conn, month).get(cat) or {}
+    for b in list(existing.keys()):
+        db.set_alloc_detail_rule(conn, month, cat, b, None, None, user)
+
+
+def _save_detail_rules_for_cat(
+    conn, month: str, cat: str, spec, known: set, user: str, rows_lookup: list[dict]
+) -> None:
+    """写/清一条明细精配；超额 → HTTP 400。"""
+    if spec is None or spec == "" or spec == {}:
+        _clear_detail_rules(conn, month, cat, user)
+        return
+    if not isinstance(spec, dict):
+        raise HTTPException(status_code=400, detail=f"detail_rules[{cat}] 格式错误")
+    mode = spec.get("mode")
+    values = spec.get("values") or {}
+    if not isinstance(values, dict):
+        raise HTTPException(status_code=400, detail=f"detail_rules[{cat}].values 须为对象")
+    rules_for_item = {
+        str(b): {"mode": mode, "value": v}
+        for b, v in values.items()
+        if v is not None and v != ""
+    }
+    try:
+        db.validate_alloc_detail_item_rules(
+            rules_for_item, item_amount_yuan=_item_amount_yuan(conn, month, cat, rows_lookup)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    existing = db.get_alloc_detail_rules(conn, month).get(cat) or {}
+    for b in set(list(existing.keys()) + list(values.keys())):
+        if b not in known:
+            raise HTTPException(status_code=400, detail=f"未知 BU：{b}")
+        v = values.get(b)
+        try:
+            db.set_alloc_detail_rule(
+                conn,
+                month,
+                cat,
+                b,
+                None if v is None or v == "" else mode,
+                None if v is None or v == "" else v,
+                user,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 def _merge_alloc_month(conn, month: str, known: set, vals: dict[str, float | None]) -> dict:
     """合并基准=该月生效比例（含沿用值）；返回合并后的 {BU:比例}。"""
     merged, _src = db.effective_alloc_month(conn, month)
@@ -386,38 +517,188 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "remain_amt_disp": f"{remain_amt_yuan:,.2f}",  # 元
         }
 
+    def _public_detail_rows_for_month(conn, month: str, bu_names: list[str]) -> list[dict]:
+        """2.4.0 管理端公共明细表：台账公共明细（降序）+ 金额覆盖 + 精配规则。"""
+        import money as _money
+        from profit.expense_period import manual_alloc_category_map as _mac
+
+        y, m = _parse_month_ym(month)
+        cat_map = _mac(cfg) or {}
+        editable = set(cat_map.keys())
+        overrides = db.get_public_detail_amount_overrides(conn, month)
+        fine_rules = db.get_alloc_detail_rules(conn, month)
+        by_fine = _ledger_public_fine_amounts(cfg, conn, y, m)
+        _merge_overrides_into_fine(by_fine, overrides, editable, cat_map)
+        rows: list[dict] = []
+        for name, info in sorted(
+            by_fine.items(), key=lambda kv: -float(kv[1].get("amount_fen") or 0)
+        ):
+            fen = float(info.get("amount_fen") or 0)
+            yuan = float(_money.fen_to_yuan(int(round(fen))))
+            rules = fine_rules.get(name) or {}
+            modes = {str((r or {}).get("mode") or "") for r in rules.values()}
+            modes.discard("")
+            mode = next(iter(modes)) if len(modes) == 1 else ("" if not modes else "比例")
+            bu_values: dict[str, float | None] = {b: None for b in bu_names}
+            for b, r in rules.items():
+                if b in bu_values:
+                    bu_values[b] = float((r or {}).get("value") or 0)
+            rows.append(
+                {
+                    "category": name,
+                    "ledger_cat": info.get("cat") or "",
+                    "amount_yuan": yuan,
+                    "amount_disp": f"{yuan:,.2f}",
+                    "amount_source": info.get("source") or "auto",
+                    "amount_editable": name in editable,
+                    "mode": mode or None,
+                    "bu_values": bu_values,
+                }
+            )
+        return rows
+
+    def _alloc_panel_payload(conn, month: str) -> dict:
+        """2.4.0 统一分摊面板：默认比例 + 公共明细两轴 + 汇总串。"""
+        import money as _money
+        from profit.bu_alloc import allocate_public_details_for_month
+
+        base = _alloc_month_payload(conn, month)
+        bu_names = list(base.get("bus") or [])
+        details = _public_detail_rows_for_month(conn, month, bu_names)
+        # 算各 BU 摊入（展示用，后端算好 disp）
+        detail_pool = {
+            d["category"]: {
+                "amount": float(
+                    _money.yuan_to_fen(d["amount_yuan"]) or 0
+                ),
+                "cat": d.get("ledger_cat") or "管理费用",
+            }
+            for d in details
+            if abs(float(d.get("amount_yuan") or 0)) > 1e-12
+            or d.get("amount_editable")
+        }
+        fine_rules: dict[str, dict] = {}
+        for d in details:
+            if not d.get("mode"):
+                continue
+            vals = {
+                b: {"mode": d["mode"], "value": v}
+                for b, v in (d.get("bu_values") or {}).items()
+                if v is not None and v != ""
+            }
+            if vals:
+                fine_rules[d["category"]] = vals
+        defaults = dict(base.get("ratios") or {})
+        try:
+            by_bu = allocate_public_details_for_month(
+                detail_pool, fine_rules, defaults, bu_names
+            )
+        except ValueError:
+            by_bu = {}
+        by_bu_disp = {}
+        for b in bu_names:
+            fen = sum(float(v) for v in (by_bu.get(b) or {}).values())
+            by_bu_disp[b] = f"{float(_money.fen_to_yuan(int(round(fen)))):,.2f}"
+        pool_fen = sum(
+            float(_money.yuan_to_fen(d["amount_yuan"]) or 0) for d in details
+        )
+        alloc_fen = sum(
+            sum(float(v) for v in cats.values()) for cats in by_bu.values()
+        )
+        remain_fen = max(0.0, pool_fen - alloc_fen)
+        base.update(
+            {
+                "details": details,
+                "by_bu_disp": by_bu_disp,
+                "remain_company_disp": f"{float(_money.fen_to_yuan(int(round(remain_fen)))):,.2f}",
+                "editable_amount_keys": sorted(
+                    {
+                        str(k)
+                        for k in (
+                            (cfg.get("manual_alloc_category_map") or {})
+                            if isinstance(cfg.get("manual_alloc_category_map"), dict)
+                            else {}
+                        )
+                    }
+                ),
+            }
+        )
+        return base
+
     @app.get("/api/alloc_ratios")
     def api_alloc_get(request: Request, month: str = ""):
         _require(request)
         conn = _conn()
         try:
-            return _alloc_month_payload(conn, month)
+            # 2.4.0：默认返回统一面板（含 details）；旧客户端仍可读 ratios 字段
+            return _alloc_panel_payload(conn, month)
         finally:
             conn.close()
 
-    @app.post("/api/alloc_ratios")
-    def api_alloc_set(request: Request, payload: dict = Body(default={})):
-        """写某月分摊比例（管理员）。payload={归属月, ratios:{BU:比例%|null}}。
-        约束：BU 须在设置页 BU 名单内；单值 0~100；已知 BU 合计 ≤100（容差 0.05）。null=删行不分摊。"""
-        user = _require(request)
-        month = str(payload.get("归属月") or "").strip()
+    def _write_alloc_panel(conn, month: str, known: set, user: str, payload: dict) -> dict:
         ratios = payload.get("ratios")
-        if not isinstance(ratios, dict) or not ratios:
-            raise HTTPException(status_code=400, detail="ratios 不能为空")
-        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
-        known = {b["name"] for b in bucfg["bus"]}
-        vals = _parse_alloc_ratios_payload(ratios, known)
-        conn = _conn()
-        try:
-            # 合并基准=该月生效比例（含沿用值·陆总0714）；保存时把生效全集固化进本月，
-            # 否则只改一个 BU 会让其余 BU 的沿用比例丢失（本月一旦有行，沿用即不再兜底）
+        overrides = payload.get("overrides")
+        detail_rules = payload.get("detail_rules")
+        if isinstance(ratios, dict) and ratios:
+            vals = _parse_alloc_ratios_payload(ratios, known)
             merged = _merge_alloc_month(conn, month, known, vals)
             for b in known:
                 db.set_alloc_ratio(conn, month, b, merged.get(b), user)
-            out = _alloc_month_payload(conn, month)
+        if isinstance(overrides, dict) and overrides:
+            for cat, amt in overrides.items():
+                cat = str(cat or "").strip()
+                if not cat:
+                    continue
+                try:
+                    db.set_public_detail_amount_override(
+                        conn,
+                        month,
+                        cat,
+                        None if amt is None or amt == "" else amt,
+                        user,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+        if isinstance(detail_rules, dict) and detail_rules:
+            rows_lookup = _public_detail_rows_for_month(conn, month, list(known))
+            for cat, spec in detail_rules.items():
+                cat = str(cat or "").strip()
+                if cat:
+                    _save_detail_rules_for_cat(
+                        conn, month, cat, spec, known, user, rows_lookup
+                    )
+        return _alloc_panel_payload(conn, month)
+
+    @app.post("/api/alloc_ratios")
+    def api_alloc_set(request: Request, payload: dict = Body(default={})):
+        """写某月分摊（管理员）。兼容 ratios；扩展 overrides / detail_rules。"""
+        user = _require(request)
+        month = str(payload.get("归属月") or "").strip()
+        ratios = payload.get("ratios")
+        overrides = payload.get("overrides")
+        detail_rules = payload.get("detail_rules")
+        if not (
+            (isinstance(ratios, dict) and ratios)
+            or (isinstance(overrides, dict) and overrides)
+            or (isinstance(detail_rules, dict) and detail_rules)
+        ):
+            raise HTTPException(status_code=400, detail="ratios/overrides/detail_rules 不能全空")
+        bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
+        known = {b["name"] for b in bucfg["bus"]}
+        conn = _conn()
+        try:
+            out = _write_alloc_panel(conn, month, known, user, payload)
         finally:
             conn.close()
-        _audit(cfg, root, user, ("分摊", f"公共费用分摊：{month} 比例已更改（合计 {out['sum_pct']:g}%）"))
+        _audit(
+            cfg,
+            root,
+            user,
+            (
+                "分摊",
+                f"公共费用分摊：{month} 已更新（默认合计 {out.get('sum_pct', 0):g}%）",
+            ),
+        )
         recompute(cfg, root)
         out.update({"status": "ok", "built_at": _state["built_at"]})
         return out
