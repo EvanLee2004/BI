@@ -40,8 +40,8 @@ def _base_cfg():
         ],
         "manual_alloc_fine_types": ["房租", "物业费", "装修费"],
         "manual_alloc_category_map": {
-            "房租": "固定运营费用",
-            "物业费": "固定运营费用",
+            "房租物业": "固定运营费用",
+            "其他": "固定运营费用",
             "装修费": "固定运营费用",
         },
         "manual_items": [
@@ -57,8 +57,8 @@ def _base_cfg():
             {"name": "其他（生产成本）", "role": "生产成本", "default": "zero"},
             {"name": "直接成本增值税", "role": "生产成本抵减", "default": "zero"},
             {"name": "其他损益", "role": "利润表", "default": "zero"},
-            {"name": "房租", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
-            {"name": "物业费", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
+            {"name": "房租物业", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
+            {"name": "其他", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
             {"name": "装修费", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
         ],
         "unclassified_label_expense": "未分类",
@@ -80,8 +80,8 @@ def _zero_man(**overrides):
         "其他（生产成本）",
         "直接成本增值税",
         "其他损益",
-        "房租",
-        "物业费",
+        "房租物业",
+        "其他",
         "装修费",
     ]
     m = {n: 0 for n in names}
@@ -159,8 +159,8 @@ class TestZhuangxiuFixedOps(unittest.TestCase):
         cfg_fixed = _base_cfg()
         cfg_admin = _base_cfg()
         cfg_admin["manual_alloc_category_map"] = {
-            "房租": "固定运营费用",
-            "物业费": "固定运营费用",
+            "房租物业": "固定运营费用",
+            "其他": "固定运营费用",
             "装修费": "管理费用",
         }
         a = expense_totals_from_man_led(man, led, cfg_fixed)

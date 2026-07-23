@@ -108,7 +108,7 @@ def apply_public_expense_allocation(
     """就地：把「公共池」台账 5 类 × 比例 **叠加** 进 BU 已有直记费用（不覆盖直记）。
     company_ledger_by_period 应为公共归属中心的费用；若传入全公司（旧测），则按比例拆全额——
     与「仅公共池」在无直记时数值等价。手填不摊；附加税按 BU 自身收入。
-    任务书61·J：重算费用时必须叠 manual_alloc（房租/物业费/装修费），禁止 man+led 漏 mac。
+    任务书61·J：重算费用时必须叠 manual_alloc（手填 2.3.3：房租物业/其他/装修费），禁止 man+led 漏 mac。
     cfg 可选；缺省时 expense_totals_from_man_led 用内置三类 map。"""
     factor = float(ratio_pct) / 100.0
     P = summary.get("periods") or {}

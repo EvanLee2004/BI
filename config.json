@@ -94,13 +94,13 @@
     "物业费",
     "装修费"
   ],
-  "_manual_alloc_fine_types_note": "任务书61·J：台账默认口径剔除这三类（季度支付畸高），改由人工按BU按月分摊；未填=0。台账核名：房租/物业费/装修费。",
+  "_manual_alloc_fine_types_note": "任务书61·J：台账默认口径剔除这三类（季度支付畸高），改由人工按BU按月分摊；未填=0。台账核名：房租/物业费/装修费（与手填展示名无关）。2.3.3起：手填展示名=房租物业/其他/装修费，本名单仍用台账核名——禁止改成手填新名（否则台账行重新进自动汇总导致双计）。",
   "manual_alloc_category_map": {
-    "房租": "固定运营费用",
-    "物业费": "固定运营费用",
+    "房租物业": "固定运营费用",
+    "其他": "固定运营费用",
     "装修费": "固定运营费用"
   },
-  "_manual_alloc_category_map_note": "人工分摊额归回报表大类（2026-07-21 陆总口径：装修与房租/物业同归固定运营费用；重分类中性·期间费用total/pretax不变）。",
+  "_manual_alloc_category_map_note": "人工分摊额归回报表大类（2026-07-21 陆总口径：装修与房租/物业同归固定运营费用；重分类中性·期间费用total/pretax不变）。key=手填项目名（2.3.3：房租物业/其他/装修费），≠ manual_alloc_fine_types 台账剔除名。",
   "unclassified_label_expense": "未分类",
   "unclassified_label_bu": "未分类BU",
   "unclassified_label_fine_type": "未标注明细类型",
@@ -116,13 +116,13 @@
       "default": "zero"
     },
     {
-      "name": "房租",
+      "name": "房租物业",
       "role": "固定运营费用",
       "default": "zero",
       "manual_alloc": true
     },
     {
-      "name": "物业费",
+      "name": "其他",
       "role": "固定运营费用",
       "default": "zero",
       "manual_alloc": true

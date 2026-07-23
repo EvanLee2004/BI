@@ -83,13 +83,13 @@ class TestInjectManualBreakdowns(unittest.TestCase):
 
         cfg = {
             "manual_alloc_category_map": {
-                "房租": "固定运营费用",
-                "物业费": "固定运营费用",
+                "房租物业": "固定运营费用",
+                "其他": "固定运营费用",
                 "装修费": "固定运营费用",
             }
         }
-        # 手填：分
-        pman = {"房租": 100_00, "物业费": 50_00, "装修费": 200_00}  # 元×100=分
+        # 手填：分（2.3.3 手填名）
+        pman = {"房租物业": 100_00, "其他": 50_00, "装修费": 200_00}  # 元×100=分
         fine0 = {"管理费用": [("办公用品", 1000_00)], "固定运营费用": [("水电", 300_00)]}
         by_pc0 = [("语言", 800_00, [("办公用品", 800_00)]), ("数据", 500_00, [("水电", 500_00)])]
         by_dept0 = [("运保", 1300_00, [("办公用品", 1000_00), ("水电", 300_00)])]
@@ -100,8 +100,8 @@ class TestInjectManualBreakdowns(unittest.TestCase):
 
         # 按类别含三类
         fixed_fines = dict(fine["固定运营费用"])
-        self.assertEqual(fixed_fines["房租"], 100_00)
-        self.assertEqual(fixed_fines["物业费"], 50_00)
+        self.assertEqual(fixed_fines["房租物业"], 100_00)
+        self.assertEqual(fixed_fines["其他"], 50_00)
         self.assertEqual(fixed_fines["装修费"], 200_00)
         self.assertEqual(fixed_fines["水电"], 300_00)
 
@@ -109,7 +109,7 @@ class TestInjectManualBreakdowns(unittest.TestCase):
         pc_map = {g: (tot, dict(fines)) for g, tot, fines in by_pc}
         self.assertIn(MANUAL_ALLOC_GROUP, pc_map)
         self.assertEqual(pc_map[MANUAL_ALLOC_GROUP][0], 350_00)
-        self.assertEqual(pc_map[MANUAL_ALLOC_GROUP][1]["房租"], 100_00)
+        self.assertEqual(pc_map[MANUAL_ALLOC_GROUP][1]["房租物业"], 100_00)
         self.assertEqual(pc_map[MANUAL_ALLOC_GROUP][1]["装修费"], 200_00)
 
         dept_map = {g: tot for g, tot, _ in by_dept}
@@ -129,25 +129,25 @@ class TestInjectManualBreakdowns(unittest.TestCase):
 
         cfg = {
             "manual_alloc_category_map": {
-                "房租": "固定运营费用",
-                "物业费": "固定运营费用",
+                "房租物业": "固定运营费用",
+                "其他": "固定运营费用",
                 "装修费": "固定运营费用",
             }
         }
         fine, by_pc, by_dept = inject_manual_alloc_into_breakdowns(
-            {"房租": 10_00}, cfg, {}, None, None
+            {"房租物业": 10_00}, cfg, {}, None, None
         )
         self.assertIsNone(by_pc)
         self.assertIsNone(by_dept)
-        self.assertEqual(dict(fine["固定运营费用"])["房租"], 10_00)
+        self.assertEqual(dict(fine["固定运营费用"])["房租物业"], 10_00)
 
     def test_inject_does_not_mutate_expense_total_fields(self):
         """注入只动明细结构，不动 period expense dict（核心字段独立）。"""
         from profit.expense_period import inject_manual_alloc_into_breakdowns
 
         expense = {"total": 999_00, "固定运营费用": 500_00, "管理费用": 499_00}
-        cfg = {"manual_alloc_category_map": {"房租": "固定运营费用", "物业费": "固定运营费用", "装修费": "固定运营费用"}}
-        inject_manual_alloc_into_breakdowns({"房租": 1_00}, cfg, {}, [], [])
+        cfg = {"manual_alloc_category_map": {"房租物业": "固定运营费用", "其他": "固定运营费用", "装修费": "固定运营费用"}}
+        inject_manual_alloc_into_breakdowns({"房租物业": 1_00}, cfg, {}, [], [])
         self.assertEqual(expense["total"], 999_00)
 
 

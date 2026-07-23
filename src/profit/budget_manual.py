@@ -118,7 +118,7 @@ def build_period(
     gross_profit = int(net - production_cost)
 
     led, led_count = compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols)
-    # 任务书61·J：房租/物业费/装修费 台账已剔，手填分摊归回对应报表大类（未填=0）
+    # 任务书61·J：台账细类 房租/物业费/装修费 已剔；手填分摊（2.3.3：房租物业/其他/装修费）归回对应报表大类（未填=0）
     mac = manual_alloc_amounts_by_cat(man, cfg)
     sales_exp = int(man["营销人力成本"] + led["市场费用"] + mac.get("市场费用", 0))
     admin_exp = int(man["管理人力成本"] + led["管理费用"] + mac.get("管理费用", 0))

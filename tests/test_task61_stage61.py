@@ -73,8 +73,8 @@ class TestManualAllocJ(unittest.TestCase):
             ],
             "manual_alloc_fine_types": ["房租", "物业费", "装修费"],
             "manual_alloc_category_map": {
-                "房租": "固定运营费用",
-                "物业费": "固定运营费用",
+                "房租物业": "固定运营费用",
+                "其他": "固定运营费用",
                 "装修费": "管理费用",
             },
             "manual_items": [
@@ -90,8 +90,8 @@ class TestManualAllocJ(unittest.TestCase):
                 {"name": "其他（生产成本）", "role": "生产成本", "default": "zero"},
                 {"name": "直接成本增值税", "role": "生产成本抵减", "default": "zero"},
                 {"name": "其他损益", "role": "利润表", "default": "zero"},
-                {"name": "房租", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
-                {"name": "物业费", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
+                {"name": "房租物业", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
+                {"name": "其他", "role": "固定运营费用", "default": "zero", "manual_alloc": True},
                 {"name": "装修费", "role": "管理费用", "default": "zero", "manual_alloc": True},
             ],
             "unclassified_label_expense": "未分类",
@@ -133,8 +133,8 @@ class TestManualAllocJ(unittest.TestCase):
             "其他（生产成本）": 0,
             "直接成本增值税": 0,
             "其他损益": 0,
-            "房租": 12000_00,
-            "物业费": 0,
+            "房租物业": 12000_00,
+            "其他": 0,
             "装修费": 0,
         }
         self.assertEqual(manual_alloc_amounts_by_cat(man, cfg).get("固定运营费用"), 12000_00)
@@ -192,8 +192,8 @@ class TestManualAllocJ(unittest.TestCase):
                 "其他（生产成本）": 0,
                 "直接成本增值税": 0,
                 "其他损益": 0,
-                "房租": 12000_00,  # 分
-                "物业费": 0,
+                "房租物业": 12000_00,  # 分
+                "其他": 0,
                 "装修费": 0,
             }
         }
@@ -232,7 +232,7 @@ class TestManualAllocJ(unittest.TestCase):
         """cfg 无 map 时仍用默认三类 map（bu_alloc 未传 cfg 不丢房租）。"""
         from profit.expense_period import expense_totals_from_man_led
 
-        man = {"房租": 100_00, "营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0}
+        man = {"房租物业": 100_00, "营销人力成本": 0, "管理人力成本": 0, "研发人力成本": 0, "财务费用补充": 0}
         exp = expense_totals_from_man_led(man, {"固定运营费用": 50_00}, cfg=None)
         self.assertEqual(exp["固定运营费用"], 150_00)
 

@@ -248,7 +248,7 @@ STD_INDEXES: list[str] = [
 
 
 def create_all(conn: sqlite3.Connection) -> None:
-    """建齐所有表（幂等）+ 索引 + 给存量库补后加的列 + 金额分迁移 + 清掉已废弃表。"""
+    """建齐所有表（幂等）+ 索引 + 给存量库补后加的列 + 金额分迁移 + 手填项目改名迁移 + 清掉已废弃表。"""
     cur = conn.cursor()
     for ddl in {**STD_TABLES, **HUMAN_TABLES}.values():
         cur.execute(ddl)
@@ -257,7 +257,115 @@ def create_all(conn: sqlite3.Connection) -> None:
     _ensure_columns(conn)
     cur.execute("DROP TABLE IF EXISTS suspect_待确认")  # R0：可疑单机制整套删除，存量库顺手清表
     migrate_money_to_fen_if_needed(conn)
+    migrate_manual_item_names_2_3_3(conn)
     conn.commit()
+
+
+# 2.3.3 陆总口径：手填项目名 房租→房租物业、物业费→其他（≠ 台账剔除核名）
+_MANUAL_ITEM_RENAMES_2_3_3: tuple[tuple[str, str], ...] = (
+    ("房租", "房租物业"),
+    ("物业费", "其他"),
+)
+
+
+def _table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (name,),
+    ).fetchone()
+    return row is not None
+
+
+def _migrate_manual_handfill_company(conn: sqlite3.Connection) -> int:
+    """manual_手填：PK (归属月, 项目)。返回处理的旧行数。"""
+    n = 0
+    for old, new in _MANUAL_ITEM_RENAMES_2_3_3:
+        rows = conn.execute(
+            "SELECT 归属月, 金额 FROM manual_手填 WHERE 项目=?",
+            (old,),
+        ).fetchall()
+        for 归属月, 金额 in rows:
+            exist = conn.execute(
+                "SELECT 金额 FROM manual_手填 WHERE 归属月=? AND 项目=?",
+                (归属月, new),
+            ).fetchone()
+            if exist is None:
+                conn.execute(
+                    "UPDATE manual_手填 SET 项目=? WHERE 归属月=? AND 项目=?",
+                    (new, 归属月, old),
+                )
+            else:
+                merged = int(exist[0] or 0) + int(金额 or 0)
+                conn.execute(
+                    "UPDATE manual_手填 SET 金额=? WHERE 归属月=? AND 项目=?",
+                    (merged, 归属月, new),
+                )
+                conn.execute(
+                    "DELETE FROM manual_手填 WHERE 归属月=? AND 项目=?",
+                    (归属月, old),
+                )
+            n += 1
+    return n
+
+
+def _migrate_manual_handfill_bu(conn: sqlite3.Connection) -> int:
+    """manual_手填BU：PK (归属月, 范围, 项目)。返回处理的旧行数。"""
+    n = 0
+    for old, new in _MANUAL_ITEM_RENAMES_2_3_3:
+        rows = conn.execute(
+            "SELECT 归属月, 范围, 金额 FROM manual_手填BU WHERE 项目=?",
+            (old,),
+        ).fetchall()
+        for 归属月, 范围, 金额 in rows:
+            exist = conn.execute(
+                "SELECT 金额 FROM manual_手填BU WHERE 归属月=? AND 范围=? AND 项目=?",
+                (归属月, 范围, new),
+            ).fetchone()
+            if exist is None:
+                conn.execute(
+                    "UPDATE manual_手填BU SET 项目=? WHERE 归属月=? AND 范围=? AND 项目=?",
+                    (new, 归属月, 范围, old),
+                )
+            else:
+                merged = int(exist[0] or 0) + int(金额 or 0)
+                conn.execute(
+                    "UPDATE manual_手填BU SET 金额=? WHERE 归属月=? AND 范围=? AND 项目=?",
+                    (merged, 归属月, 范围, new),
+                )
+                conn.execute(
+                    "DELETE FROM manual_手填BU WHERE 归属月=? AND 范围=? AND 项目=?",
+                    (归属月, 范围, old),
+                )
+            n += 1
+    return n
+
+
+def _migrate_manual_history_item_names(conn: sqlite3.Connection) -> int:
+    """manual_历史.项目 字符串 rename（审计可读）。"""
+    n = 0
+    for old, new in _MANUAL_ITEM_RENAMES_2_3_3:
+        cur = conn.execute(
+            "UPDATE manual_历史 SET 项目=? WHERE 项目=?",
+            (new, old),
+        )
+        n += int(cur.rowcount or 0)
+    return n
+
+
+def migrate_manual_item_names_2_3_3(conn: sqlite3.Connection) -> dict:
+    """幂等：手填表 项目 key 旧→新；同月同范围新旧并存则金额整数分相加后删旧。
+
+    覆盖 manual_手填、manual_手填BU；顺带改 manual_历史.项目 字符串便于审计可读。
+    与 money-fen 迁移同级：create_all / open 路径每次调用，无旧 key 时零副作用。
+    """
+    stats = {"manual_手填": 0, "manual_手填BU": 0, "manual_历史": 0, "status": "ok"}
+    if _table_exists(conn, "manual_手填"):
+        stats["manual_手填"] = _migrate_manual_handfill_company(conn)
+    if _table_exists(conn, "manual_手填BU"):
+        stats["manual_手填BU"] = _migrate_manual_handfill_bu(conn)
+    if _table_exists(conn, "manual_历史"):
+        stats["manual_历史"] = _migrate_manual_history_item_names(conn)
+    return stats
 
 
 def _schema_version(conn: sqlite3.Connection) -> int:

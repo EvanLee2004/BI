@@ -67,17 +67,14 @@ def is_manual_alloc_ledger_row(row, cfg, lcols) -> bool:
 def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
     """手填三类分摊 → 按报表大类汇总（分）。未填项=0。
 
-    cfg 缺 map 时回退默认（房租/物业费/装修费→固定运营费用，2026-07-21 陆总口径），
+    cfg 缺 map 时回退默认（2.3.3：房租物业/其他/装修费→固定运营费用；陆总 2026-07-21 大类口径），
     避免 BU 分摊重算路径因未传 cfg 丢掉人工分摊（任务书61·J 补丁）。
+    台账剔除仍走 manual_alloc_fine_types 的台账核名（房租/物业费/装修费），与手填 key 分离。
     """
     man = man or {}
     cmap = manual_alloc_category_map(cfg)
     if not cmap:
-        cmap = {
-            "房租": "固定运营费用",
-            "物业费": "固定运营费用",
-            "装修费": "固定运营费用",
-        }
+        cmap = dict(_DEFAULT_MANUAL_ALLOC_CMAP)
     out: dict[str, int] = defaultdict(int)
     for fine, cat in cmap.items():
         out[cat] += int(money.as_fen(man.get(fine, 0)) or 0)
@@ -87,9 +84,10 @@ def manual_alloc_amounts_by_cat(man: dict | None, cfg) -> dict[str, int]:
 # 2.2.4·② 三视图：利润中心/部门视角并入同一「人工分摊(公共)」组（明昊拍板）
 MANUAL_ALLOC_GROUP = "人工分摊(公共)"
 
+# 2.3.3：手填展示/存库名（≠ 台账剔除名 房租/物业费/装修费）
 _DEFAULT_MANUAL_ALLOC_CMAP = {
-    "房租": "固定运营费用",
-    "物业费": "固定运营费用",
+    "房租物业": "固定运营费用",
+    "其他": "固定运营费用",
     "装修费": "固定运营费用",
 }
 
@@ -149,7 +147,7 @@ def _inject_manual_group(groups, items: list[tuple[str, str, int]]):
 
 
 def inject_manual_alloc_into_breakdowns(pman, cfg, fine_by_cat, by_pc, by_dept):
-    """把手填三类（房租/物业费/装修费，分）注入费用三视图明细。
+    """把手填三类（房租物业/其他/装修费，分）注入费用三视图明细。
 
     - fine_by_cat: {大类: [(细类, 分), ...]} 按 manual_alloc_category_map 归大类补进
     - by_pc / by_dept: [(组名, 合计, [(细, 分), ...]), ...] 或 None
