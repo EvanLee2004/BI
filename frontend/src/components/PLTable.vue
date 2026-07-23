@@ -18,6 +18,74 @@ const detail = computed((): PLDetail | null => {
   return (table.value.details || {})[openKey.value] || null
 })
 
+const exporting = ref(false)
+
+/** 2.3.6：按当前筛选导出管理利润表 Excel（含构成明细）。 */
+async function exportPlExcel() {
+  if (exporting.value || store.snapshotMode) return
+  if (typeof location !== 'undefined' && location.protocol === 'file:') {
+    alert('导出需在看板服务页面使用')
+    return
+  }
+  const blk = store.period || ''
+  const url =
+    store.scope === 'bu' && store.buName
+      ? `/bu/${encodeURIComponent(store.buName)}/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
+      : `/api/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
+  exporting.value = true
+  try {
+    const r = await fetch(url, { credentials: 'same-origin' })
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`
+      try {
+        const t = await r.text()
+        if (t) {
+          try {
+            const j = JSON.parse(t) as { detail?: string }
+            msg = j.detail || t.slice(0, 200)
+          } catch {
+            msg = t.slice(0, 200)
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg)
+    }
+    const cd = r.headers.get('Content-Disposition') || ''
+    let fn = '管理利润表.xlsx'
+    const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(cd)
+    if (m) {
+      try {
+        fn = decodeURIComponent(m[1] || m[2] || fn)
+      } catch {
+        fn = m[1] || m[2] || fn
+      }
+    } else {
+      const xf = r.headers.get('X-Filename')
+      if (xf) {
+        try {
+          fn = decodeURIComponent(xf)
+        } catch {
+          fn = xf
+        }
+      }
+    }
+    const b = await r.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(b)
+    a.download = fn
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    alert('导出失败：' + (e instanceof Error ? e.message : String(e)))
+  } finally {
+    exporting.value = false
+  }
+}
+
 function openDrawer(key: string | null | undefined) {
   if (!key) return
   openKey.value = key
@@ -33,6 +101,24 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
 </script>
 <template>
   <SciFiPanel title="管理利润表" :tag="plTag" panel-class="pl-card">
+    <template #header>
+      <div class="pl-header-row">
+        <div class="pl-header-left">
+          <span>管理利润表</span>
+          <span v-if="plTag" class="tag">{{ plTag }}</span>
+        </div>
+        <button
+          v-if="!store.snapshotMode"
+          type="button"
+          class="ghost mini pl-export-btn"
+          data-testid="pl-export-excel"
+          :disabled="exporting"
+          @click.stop="exportPlExcel"
+        >
+          ⬇ {{ exporting ? '生成中…' : '导出 Excel' }}
+        </button>
+      </div>
+    </template>
     <div class="pl-table">
       <div
         v-for="(r, i) in table.rows"
@@ -86,3 +172,24 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
     </Teleport>
   </SciFiPanel>
 </template>
+
+<style scoped>
+.pl-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.pl-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pl-export-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+</style>

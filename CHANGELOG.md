@@ -8,6 +8,21 @@
 
 ---
 
+## [2.3.6] - 2026-07-23
+
+### Added
+- **管理利润表 Excel 导出（陆总）**：整体页 + 各 BU 页 `PLTable` 面板「导出 Excel」
+  - `GET /api/export/pl.xlsx?blk=`（整体；双挂 `/export/pl.xlsx`）
+  - `GET /bu/{name}/export/pl.xlsx?blk=`（该 BU；越权 403）
+  - 跟随当前筛选 `blk` + scope；主表大项整行加粗 + 各 `构成_*` 明细 sheet（数据行不加粗）+ `导出说明`
+  - 纯函数 `export_pl_xlsx.build_pl_xlsx_bytes` 复用 `pack_pl_by_period`，金额只写 `amt_disp`
+- 顶栏 HTML 快照导出**不动**；snapshot 模式隐藏 Excel 按钮
+
+### Unchanged（红线）
+- 利润/费用/分摊算法、`src/profit/*`、前端金额运算均未改
+
+---
+
 ## [2.3.5] - 2026-07-23
 
 ### Changed
