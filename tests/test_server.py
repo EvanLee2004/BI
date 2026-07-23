@@ -43,7 +43,7 @@ class TestServerAuth(unittest.TestCase):
         self.assertEqual(r.status_code, 303)
         vcookie = r.cookies.get(server.VCOOKIE)
         r = anon.get("/", headers={"Cookie": f"{server.VCOOKIE}={vcookie}"})
-        self.assertIn("经营罗盘", r.text)  # shell，非 SSR 整页
+        self.assertIn("经营看板", r.text)  # shell，非 SSR 整页
         self.assertNotIn("USER-DASH", r.text)
         self.assertNotIn("管理员控制台", r.text)
         self.assertNotIn("/api/detail", r.text)

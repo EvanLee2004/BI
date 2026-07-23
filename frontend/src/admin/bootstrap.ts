@@ -22,7 +22,7 @@ export function bootAdmin() {
   themeMode.value = 'dark'
   syncThemeFromDom()
   /* 不装 installThemeListeners：管理端不跟 localStorage/postMessage 切主题 */
-  document.title = '经营罗盘·管理端'
+  document.title = '经营看板·管理端'
 
   const app = createApp(AdminApp)
   // 任务书64·D5：管理端与看端同一套全局错误钩子 + 顶部错误条

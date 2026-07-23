@@ -1,4 +1,4 @@
-# 甲骨易智能经营罗盘
+# 甲骨易经营看板
 
 **给财务与管理层用的经营利润驾驶舱** —— 每天自动汇总业务数据，算出税前利润，公司内网电脑和手机都能看。
 
@@ -256,7 +256,7 @@ deploy/linux/          nginx / systemd 模板
 | 看端 API / 渲染约定 | [docs/api-v1-cockpit.md](docs/api-v1-cockpit.md) · [docs/api/](docs/api/) |
 | 接口与库表清单 | [docs/softeng/](docs/softeng/) |
 | 为什么这样设计 | [docs/madr/](docs/madr/) |
-| 系统教学向总览 | [docs/系统教学说明_甲骨易智能经营罗盘_v1.md](docs/系统教学说明_甲骨易智能经营罗盘_v1.md) |
+| 系统教学向总览 | [docs/系统教学说明_甲骨易经营看板_v1.md](docs/系统教学说明_甲骨易经营看板_v1.md) |
 | 文档总索引 | [docs/README.md](docs/README.md) |
 
 ---

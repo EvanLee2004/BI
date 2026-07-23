@@ -304,7 +304,7 @@ def resolve_server_host(cfg: dict | None = None) -> str:
 
 def create_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     """组装 FastAPI：会话/中间件依赖 + 路由注册（路由体见 routes/）。"""
-    app = FastAPI(title="甲骨易智能经营罗盘", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="甲骨易经营看板", docs_url=None, redoc_url=None, openapi_url=None)
     # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。
     # 任务书43：nginx 模式也保留 GZipMiddleware（双模兼容；反代时可再由 nginx gzip）。
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)

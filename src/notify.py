@@ -55,7 +55,7 @@ def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
             reasons.append("收单台账无源")
         if not (report.get("db_check") or {}).get("ok", True):
             reasons.append("数据库 quick_check 异常")
-        msg = f"【经营罗盘告警】{host} 体检红 · {'；'.join(reasons) or '见运行日志'} · {report.get('result')}"
+        msg = f"【经营看板告警】{host} 体检红 · {'；'.join(reasons) or '见运行日志'} · {report.get('result')}"
         post_feishu_text(url, msg)
     except Exception:
         pass
@@ -87,7 +87,7 @@ def alert_event(kind: str, detail: str = "", root=None) -> None:
             "red": "体检红",
         }
         title = labels.get(kind, kind)
-        msg = f"【经营罗盘告警】{host} · {title}"
+        msg = f"【经营看板告警】{host} · {title}"
         if detail:
             msg += f" · {detail[:200]}"
         maybe_alert_text(cfg, msg)

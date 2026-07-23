@@ -235,7 +235,7 @@ def build_snapshot_export_html(
     scope = str(pack.get("scope") or "整体")
     bu = str(pack.get("bu_export_name") or "")
     del scope  # 仅 title 用 bu
-    title = f"甲骨易智能经营罗盘 · {bu}（静态快照）" if bu else "甲骨易智能经营罗盘（静态快照）"
+    title = f"甲骨易经营看板 · {bu}（静态快照）" if bu else "甲骨易经营看板（静态快照）"
     title_esc = html_lib.escape(title)
 
     # 用 token 替换（不用 str.format：player_js / pack 含大量 {}）

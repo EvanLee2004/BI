@@ -32,7 +32,7 @@ try:
     import loaders
     import notify
     cfg = loaders.load_config(root, strict=False)
-    notify.maybe_alert_text(cfg, f"【经营罗盘健康检查失败】{reason}")
+    notify.maybe_alert_text(cfg, f"【经营看板健康检查失败】{reason}")
 except Exception:
     pass
 PY

@@ -105,7 +105,7 @@ onMounted(async () => {
           data-testid="bu-back-overall"
           @click="goOverall"
         >← 整体</a>
-        <div class="tb-title"><b>{{ store.buName }}</b> 经营罗盘</div>
+        <div class="tb-title"><b>{{ store.buName }}</b> 经营看板</div>
         <PeriodPicker />
       </div>
       <div class="tb-right">

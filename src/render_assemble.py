@@ -98,7 +98,7 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
     exp_raw = filter_expense_monthly_raw_for_charts(exp_raw, cfg)
     expense_trend_html = render_expense_trend(exp_raw, title="费用月度趋势 · 按报表大类")
     return {
-        "title": "甲骨易智能经营罗盘",
+        "title": "甲骨易经营看板",
         "particles": PARTICLES_HTML,
         "logo": logo,
         "version": _title_version_html(),
@@ -138,7 +138,7 @@ def assemble_dashboard_html(frags: dict) -> str:
         expense_trend_html=frags.get("expense_trend_html") or "",
         drawer=frags["drawer"],
     )
-    return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易智能经营罗盘", body=body)
+    return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易经营看板", body=body)
 
 def render_dashboard(summary, cfg, logo_b64):
     """兼容入口：碎片 → 组装（B 阶段后与 JS assemble 同源）。"""
@@ -201,7 +201,7 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
     # 任务书39·B：BU 页同款「按时间段看」（查询走 /api/bu_daily；弹窗壳仍走 rk_modal，避免双份）
     daily_html = tpl.load("partials/daily_panel.html")
     return {
-        "title": f"甲骨易智能经营罗盘 · {name}",
+        "title": f"甲骨易经营看板 · {name}",
         "particles": PARTICLES_HTML,
         "logo": logo,
         "name": name,
@@ -249,7 +249,7 @@ def assemble_bu_dashboard_html(frags: dict) -> str:
         drawer=frags["drawer"],
         rk_modal=frags["rk_modal"],
     )
-    return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易智能经营罗盘", body=body)
+    return tpl.fill("render/page_shell.html", title=frags.get("title") or "甲骨易经营看板", body=body)
 
 def render_bu_page(bu_name, summary, cfg, logo_b64):
     """兼容入口：BU 碎片 → 组装。"""

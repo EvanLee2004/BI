@@ -137,7 +137,7 @@ class TestServerMultiBu(unittest.TestCase):
         c = self._login("multi")
         for n, mark in (("BU甲", "PAGE-甲"), ("BU乙", "PAGE-乙")):
             self.assertEqual(c.get(f"/bu/{n}").status_code, 200)
-            self.assertIn("经营罗盘", c.get(f"/bu/{n}").text)
+            self.assertIn("经营看板", c.get(f"/bu/{n}").text)
             fr = c.get(f"/api/v1/cockpit/bu/{n}/fragments").json()
             self.assertEqual(fr["fragments"].get("kpi_views"), "")
             self.assertIn(mark, " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
@@ -162,7 +162,7 @@ class TestServerMultiBu(unittest.TestCase):
     def test_overall_sees_all(self):
         c = self._login("overall")
         home = c.get("/").text
-        self.assertIn("经营罗盘", home)
+        self.assertIn("经营看板", home)
         fr = c.get("/api/v1/cockpit/fragments").json()
         self.assertEqual(fr["fragments"].get("kpi_views"), "")
         self.assertIn("MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))

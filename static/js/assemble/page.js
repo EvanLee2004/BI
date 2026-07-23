@@ -88,7 +88,7 @@
     applyViews(data, views);
     var body = fill(templates.dashboard_body, data);
     return fill(templates.page_shell, {
-      title: data.title || "甲骨易智能经营罗盘",
+      title: data.title || "甲骨易经营看板",
       body: body
     });
   }

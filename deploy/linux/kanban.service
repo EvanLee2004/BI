@@ -1,4 +1,4 @@
-# 甲骨易智能经营罗盘 · systemd 单元（Ubuntu 26.04 · 任务书50）
+# 甲骨易经营看板 · systemd 单元（Ubuntu 26.04 · 任务书50）
 # 安装见 docs/Ubuntu部署手册.md；模板内路径按实际部署目录改。
 # 生产：配合 nginx-kanban.conf，本服务仅绑 127.0.0.1:8018。
 #
@@ -15,7 +15,7 @@
 #   journalctl -u kanban -f
 
 [Unit]
-Description=甲骨易智能经营罗盘 (kanban)
+Description=甲骨易经营看板 (kanban)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=120

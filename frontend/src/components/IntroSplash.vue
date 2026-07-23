@@ -123,7 +123,7 @@ onBeforeUnmount(() => {
   >
     <div class="intro-inner">
       <img class="intro-logo" :src="logoUrl" alt="甲骨易" width="180" height="180" />
-      <div class="intro-title">甲骨易 · 智能经营罗盘</div>
+      <div class="intro-title">甲骨易 · 经营看板</div>
     </div>
   </div>
 </template>

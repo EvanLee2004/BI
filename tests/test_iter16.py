@@ -201,7 +201,7 @@ class TestUnassignedHint(_Base):
         hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
         main = client.get("/", headers=hdr).text
         # shell 不含业务文案；看 chrome/fragments
-        self.assertIn("经营罗盘", main)
+        self.assertIn("经营看板", main)
         fr = client.get("/api/v1/cockpit/fragments", headers=hdr).json()
         chrome = fr.get("chrome_prefix") or ""
         body = fr["fragments"].get("kpi_views") or ""
@@ -214,7 +214,7 @@ class TestUnassignedHint(_Base):
         from urllib.parse import quote
 
         bupage = client.get(f"/bu/{quote('BU甲')}", headers=hdr).text
-        self.assertIn("经营罗盘", bupage)
+        self.assertIn("经营看板", bupage)
         bfr = client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments", headers=hdr).json()
         bhtml = (bfr.get("chrome_prefix") or "") + str(bfr.get("fragments") or {})
         self.assertNotIn("未归属 BU 的业务", bhtml)

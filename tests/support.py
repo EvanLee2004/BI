@@ -76,14 +76,14 @@ def fake_main_frags(mark: str = "USER-MAIN") -> dict:
         "drawer",
     )
     fr = {k: "" for k in keys}
-    fr["title"] = "甲骨易智能经营罗盘"
+    fr["title"] = "甲骨易经营看板"
     fr["kpi_views"] = mark  # 预拼；HTTP 须清空
     return fr
 
 
 def fake_bu_page(name: str, mark: str) -> dict:
     fr = {
-        "title": f"甲骨易智能经营罗盘 · {name}",
+        "title": f"甲骨易经营看板 · {name}",
         "particles": "",
         "logo": "",
         "name": name,

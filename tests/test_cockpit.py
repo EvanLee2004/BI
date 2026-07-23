@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""经营驾驶舱回归测试：口径对账 + 手填默认上月 + 前端不做金额运算守卫。跑：python tests/test_cockpit.py"""
+"""经营看板回归测试：口径对账 + 手填默认上月 + 前端不做金额运算守卫。跑：python tests/test_cockpit.py"""
 
 import datetime
 import sys

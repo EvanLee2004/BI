@@ -30,7 +30,7 @@ async function submit() {
   <div class="login-page">
     <div class="login-card-host">
       <SciFiPanel title="看板登录" panel-class="login-panel">
-        <p class="login-sub muted">甲骨易 · 智能经营罗盘</p>
+        <p class="login-sub muted">甲骨易 · 经营看板</p>
         <label class="login-lab">账号</label>
         <input
           v-model="account"

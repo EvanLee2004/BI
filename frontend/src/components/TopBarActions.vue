@@ -69,7 +69,7 @@ async function exportHtml() {
       throw new Error(t || `HTTP ${r.status}`)
     }
     const fn =
-      decodeURIComponent(r.headers.get('X-Filename') || '') || '甲骨易智能经营罗盘.html'
+      decodeURIComponent(r.headers.get('X-Filename') || '') || '甲骨易经营看板.html'
     const b = await r.blob()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(b)

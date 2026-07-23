@@ -162,7 +162,7 @@
    var url=btn.getAttribute('data-export')||'/export.html';
    fetch(url+'?blk='+encodeURIComponent(k)).then(function(r){
      if(!r.ok){return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});}
-     var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'甲骨易智能经营罗盘.png';
+     var fn=decodeURIComponent(r.headers.get('X-Filename')||'')||'甲骨易经营看板.png';
      return r.blob().then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);
        a.download=fn;document.body.appendChild(a);a.click();a.remove();});
    }).catch(function(e){alert('导出失败：'+e.message);})

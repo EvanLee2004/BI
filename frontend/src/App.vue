@@ -125,7 +125,7 @@ onMounted(async () => {
     <header class="topbar">
       <div class="tb-left">
         <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
-        <div class="tb-title"><b>甲骨易</b> 智能经营罗盘</div>
+        <div class="tb-title"><b>甲骨易</b> 经营看板</div>
         <PeriodPicker />
       </div>
       <div class="tb-right">

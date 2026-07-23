@@ -37,6 +37,6 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <iframe ref="frame" class="admin-iframe" src="/" title="经营驾驶舱" />
+    <iframe ref="frame" class="admin-iframe" src="/" title="经营看板" />
   </div>
 </template>

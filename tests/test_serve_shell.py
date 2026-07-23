@@ -63,7 +63,7 @@ class TestServeShellProductionPath(unittest.TestCase):
         r = c.get("/")
         self.assertEqual(r.status_code, 200)
         body = r.text
-        self.assertIn("经营罗盘", body)
+        self.assertIn("经营看板", body)
         self.assertIn('id="app"', body)
         self.assertNotIn("assemble/page.js", body)
         self.assertNotIn("USER-MAIN", body)
@@ -83,7 +83,7 @@ class TestServeShellProductionPath(unittest.TestCase):
         if hasattr(server, "SERVE_SHELL"):
             server.SERVE_SHELL = False  # 即便有人误设，也不得直出
         r = c.get("/")
-        self.assertIn("经营罗盘", r.text)
+        self.assertIn("经营看板", r.text)
         self.assertNotIn("USER-MAIN", r.text)
 
 

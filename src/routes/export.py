@@ -127,7 +127,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             _EXPORT_LOCK.release()
 
         period_label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
-        stem = f"甲骨易智能经营罗盘_{label_bu}_{period_label}" if label_bu else f"甲骨易智能经营罗盘_{period_label}"
+        stem = f"甲骨易经营看板_{label_bu}_{period_label}" if label_bu else f"甲骨易经营看板_{period_label}"
         fn = quote(f"{stem}_{time.strftime('%Y%m%d_%H%M')}.html")
         return Response(
             content=html.encode("utf-8"),
@@ -164,7 +164,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
 
-        fn = quote(f"甲骨易智能经营罗盘_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        fn = quote(f"甲骨易经营看板_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(
             content=png,
             media_type="image/png",
@@ -215,7 +215,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             _EXPORT_LOCK.release()
         label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
 
-        fn = quote(f"甲骨易智能经营罗盘_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        fn = quote(f"甲骨易经营看板_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(
             content=png,
             media_type="image/png",
