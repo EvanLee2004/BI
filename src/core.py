@@ -65,39 +65,147 @@ def attach_unassigned(cfg, conn, today, summary, root=None) -> None:
     }
 
 
+def _build_public_month_details(cfg, public_rows, lcols, year: int, month: int) -> dict[str, dict]:
+    """单月公共池明细：{明细费用类型: {amount: 分, cat: 报表大类}}。
+
+    台账已剔除 manual_alloc_fine_types（房/物业/装修等）；金额覆盖在 alloc_context 外层合并。
+    复用 compute_expenses_by_fine_type，不另造取数轮子。
+    """
+    import datetime as _dt
+
+    start = _dt.date(year, month, 1)
+    end = (
+        _dt.date(year, month + 1, 1) - _dt.timedelta(days=1)
+        if month < 12
+        else _dt.date(year, 12, 31)
+    )
+    fine_by_cat = profit.compute_expenses_by_fine_type(
+        public_rows, year, start, end, cfg, lcols
+    )
+    out: dict[str, dict] = {}
+    for cat, pairs in (fine_by_cat or {}).items():
+        for fine, amt in pairs or []:
+            name = str(fine or "").strip()
+            if not name:
+                continue
+            fen = float(amt or 0)
+            if abs(fen) < 1e-12:
+                continue
+            if name in out:
+                out[name]["amount"] = round(float(out[name]["amount"]) + fen, 2)
+            else:
+                out[name] = {"amount": round(fen, 2), "cat": str(cat)}
+    return out
+
+
+def _apply_amount_overrides_to_details(
+    details: dict[str, dict],
+    overrides_fen: dict[str, int],
+    cfg,
+) -> dict[str, dict]:
+    """轴①：手填覆盖优先；覆盖中有台账没有的明细（房水电类）按 map 归大类并入池。"""
+    from profit.expense_period import manual_alloc_category_map as _mac
+
+    out = {k: dict(v) for k, v in (details or {}).items()}
+    cmap = _mac(cfg) or {
+        "房租物业": "固定运营费用",
+        "其他": "固定运营费用",
+        "装修费": "固定运营费用",
+    }
+    for fine, fen in (overrides_fen or {}).items():
+        name = str(fine).strip()
+        if not name:
+            continue
+        cat = (out.get(name) or {}).get("cat") or cmap.get(name) or "固定运营费用"
+        out[name] = {"amount": float(int(fen)), "cat": str(cat)}
+    return out
+
+
+def _orphan_alloc_warnings(raw_ratios: dict, fine_rules: dict, known: set[str]) -> list[str]:
+    warnings: list[str] = []
+    for month, r in sorted((raw_ratios or {}).items()):
+        orphans = [b for b in r if b not in known]
+        if orphans:
+            warnings.append(
+                f"{month} 分摊比例含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）"
+            )
+    for month, by_fine in sorted((fine_rules or {}).items()):
+        for _fine, by_bu in (by_fine or {}).items():
+            orphans = [b for b in (by_bu or {}) if b not in known]
+            if orphans:
+                warnings.append(
+                    f"{month} 明细精配含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）"
+                )
+    return warnings
+
+
+def _public_pools_for_year(cfg, public_rows, lcols, year: int, upto_month: int, overrides_all: dict):
+    """构建 1..upto_month 的 public_month_led + public_month_details。"""
+    import datetime as _dt
+
+    public_month_led: dict[tuple[int, int], dict] = {}
+    public_month_details: dict[tuple[int, int], dict] = {}
+    for m in range(1, max(1, int(upto_month)) + 1):
+        start = _dt.date(year, m, 1)
+        end = (
+            _dt.date(year, m + 1, 1) - _dt.timedelta(days=1)
+            if m < 12
+            else _dt.date(year, 12, 31)
+        )
+        led, _ = profit.compute_ledger_expenses(public_rows, year, start, end, cfg, lcols)
+        mk = f"{year:04d}-{m:02d}"
+        details = _build_public_month_details(cfg, public_rows, lcols, year, m)
+        details = _apply_amount_overrides_to_details(details, overrides_all.get(mk) or {}, cfg)
+        public_month_details[(year, m)] = details
+        if not details:
+            public_month_led[(year, m)] = led
+            continue
+        led2: dict[str, float] = {}
+        for _fine, info in details.items():
+            cat = str((info or {}).get("cat") or "")
+            if not cat:
+                continue
+            led2[cat] = round(float(led2.get(cat) or 0) + float((info or {}).get("amount") or 0), 2)
+        keys = list(led.keys()) if led else list(led2.keys())
+        public_month_led[(year, m)] = {c: round(float(led2.get(c) or 0), 2) for c in keys}
+    return public_month_led, public_month_details
+
+
 def alloc_context(cfg, conn, today, root=None):
-    """公共费用按月分摊上下文（迭代20）。返回 None=没有任何比例记录（不分摊）；否则
-    {public_month_led:{(y,m):{5类:额}}, ratios:{'YYYY-MM':{BU:比例%}}, bu_names:[...],
-     warnings:[孤儿BU提示…], month_total(month)->float}。"""
-    # 陆总0714：比例默认沿用最近一次填写月（改了从当月生效）——计算一律用「生效比例」；
-    # 孤儿 BU 告警仍扫原始填写记录，避免同一条错误被沿用后逐月重复报
+    """公共费用按月分摊上下文（迭代20 + 2.4.0 明细两轴）。
+
+    返回 None=无默认比例且无精配规则（不分摊）；否则
+    {public_month_led, public_month_details, ratios, fine_rules, bu_names, warnings}。
+    public_month_details={(y,m):{明细:{amount,cat}}}（含金额覆盖）；
+    public_month_led 由明细归大类派生，供旧路径/对照。
+    """
+    # 陆总0714：比例默认沿用最近一次填写月（改了从当月生效）——计算一律用「生效比例」
     raw = db.load_alloc_ratios(conn)
     ratios = db.effective_alloc_ratios(conn, today.year, today.month)
-    if not ratios:
+    fine_rules = db.load_alloc_detail_rules(conn) or {}
+    overrides_all = db.load_public_detail_amount_overrides(conn) or {}
+    if not ratios and not fine_rules and not overrides_all:
         return None
     lh, lr = db.load_ledger(cfg, conn)
     if not lh:
         return None
     import columns as _columns
-    import datetime as _dt
 
     lcols = _columns.resolve_ledger_columns(lh)
     public_rows = profit.filter_ledger_rows_by_pc(lh, lr, {"公共"})
-    public_month_led: dict[tuple[int, int], dict] = {}
-    for m in range(1, today.month + 1):
-        start = _dt.date(today.year, m, 1)
-        end = _dt.date(today.year, m + 1, 1) - _dt.timedelta(days=1) if m < 12 else _dt.date(today.year, 12, 31)
-        led, _ = profit.compute_ledger_expenses(public_rows, today.year, start, end, cfg, lcols)
-        public_month_led[(today.year, m)] = led
+    public_month_led, public_month_details = _public_pools_for_year(
+        cfg, public_rows, lcols, today.year, today.month, overrides_all
+    )
     bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
     bu_names = [b["name"] for b in bucfg["bus"]]
-    warnings = []
-    known = set(bu_names)
-    for month, r in sorted(raw.items()):
-        orphans = [b for b in r if b not in known]
-        if orphans:
-            warnings.append(f"{month} 分摊比例含未知 BU：{'、'.join(orphans)}（未生效，请到设置核对 BU 名）")
-    return {"public_month_led": public_month_led, "ratios": ratios, "bu_names": bu_names, "warnings": warnings}
+    return {
+        "public_month_led": public_month_led,
+        "public_month_details": public_month_details,
+        "ratios": ratios or {},
+        "fine_rules": fine_rules,
+        "bu_names": bu_names,
+        "warnings": _orphan_alloc_warnings(raw, fine_rules, set(bu_names)),
+    }
 
 
 def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None):
@@ -106,7 +214,14 @@ def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None)
     ctx = ctx if ctx is not None else alloc_context(cfg, conn, today, root)
     if not ctx:
         return
-    alloc = profit.alloc_amounts_by_period(ctx["public_month_led"], ctx["ratios"], ctx["bu_names"], today)
+    alloc = profit.alloc_amounts_by_period(
+        ctx["public_month_led"],
+        ctx["ratios"],
+        ctx["bu_names"],
+        today,
+        public_month_details=ctx.get("public_month_details"),
+        fine_rules_by_month=ctx.get("fine_rules"),
+    )
     BP = summary.get("expense_by_profit_center") or {}
     for key, per_bu in alloc.items():
         if key in BP and BP[key]:
@@ -115,7 +230,7 @@ def attach_allocation_to_summary(cfg, conn, today, summary, root=None, ctx=None)
     if health is not None and ctx["warnings"]:
         health.setdefault("warnings", []).extend(ctx["warnings"])
     summary.setdefault("meta", {})["monthly_allocation"] = {
-        "months": sorted(ctx["ratios"].keys()),
+        "months": sorted(set(list(ctx["ratios"].keys()) + list((ctx.get("fine_rules") or {}).keys()))),
         "bu_names": ctx["bu_names"],
     }
 
@@ -281,7 +396,14 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         )
         if ctx:
             profit.apply_public_expense_allocation_monthly(
-                s, ctx["public_month_led"], ctx["ratios"], bu_name, today, cfg=cfg
+                s,
+                ctx["public_month_led"],
+                ctx["ratios"],
+                bu_name,
+                today,
+                cfg=cfg,
+                public_month_details=ctx.get("public_month_details"),
+                fine_rules_by_month=ctx.get("fine_rules"),
             )
         # summary + fragments + views：publish-once（HTTP 直接取 client-ready）
         # 任务书65·L2 真·按需：刷新路径不装配整页 html；导出走 assemble_export_html / render_bu_page

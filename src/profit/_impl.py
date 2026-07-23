@@ -54,7 +54,10 @@ from .bu_alloc import (  # noqa: F401
     _alloc_cats_for_range,
     apply_public_expense_allocation_monthly,
     alloc_amounts_by_period,
-    apply_alloc_to_pc_view,)
+    apply_alloc_to_pc_view,
+    allocate_public_details_for_month,
+    allocate_public_details_lines_for_month,
+)
 from .misc import (  # noqa: F401
     load_manual_safe,
     _scan_dict_source_issues,

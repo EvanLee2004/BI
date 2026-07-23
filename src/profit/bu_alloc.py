@@ -151,51 +151,289 @@ def _alloc_cats_for_range(
     return {cat: round(v, 2) for cat, v in add.items()}
 
 
-def apply_public_expense_allocation_monthly(
-    summary: dict, public_month_led: dict, ratios_by_month: dict, bu_name: str, today, cfg=None
+def _shares_for_detail_item(
+    fine: str,
+    amount: float,
+    item_rules: dict[str, dict],
+    default_ratios: dict[str, float],
+) -> list[tuple[str, float]]:
+    """单明细项 → [(BU, 摊入分), ...]。超额 / 混模式 → ValueError。"""
+    import money as _money
+
+    if item_rules:
+        modes = {str((r or {}).get("mode") or "") for r in item_rules.values()}
+        modes.discard("")
+        if len(modes) > 1:
+            raise ValueError(f"明细「{fine}」不可混合比例与金额模式")
+        mode = next(iter(modes)) if modes else ""
+        if mode == "比例":
+            total_pct = sum(float((r or {}).get("value") or 0) for r in item_rules.values())
+            if total_pct > 100.0 + 1e-9:
+                raise ValueError(f"明细「{fine}」比例合计 {total_pct:.1f}% 超过 100%")
+            return [
+                (str(bu), amount * float((r or {}).get("value") or 0) / 100.0)
+                for bu, r in item_rules.items()
+                if float((r or {}).get("value") or 0)
+            ]
+        if mode == "金额":
+            total_yuan = sum(float((r or {}).get("value") or 0) for r in item_rules.values())
+            amount_yuan = float(_money.fen_to_yuan(int(round(amount))))
+            if total_yuan > amount_yuan + 1e-9:
+                raise ValueError(
+                    f"明细「{fine}」金额合计 {total_yuan:.2f} 超过本项 {amount_yuan:.2f}"
+                )
+            out: list[tuple[str, float]] = []
+            for bu, r in item_rules.items():
+                yuan = float((r or {}).get("value") or 0)
+                if yuan:
+                    out.append((str(bu), float(_money.yuan_to_fen(yuan) or 0)))
+            return out
+        raise ValueError(f"明细「{fine}」未知模式：{mode}")
+    total_pct = sum(float(v or 0) for v in default_ratios.values())
+    if total_pct > 100.0 + 1e-9:
+        raise ValueError(f"默认分摊比例合计 {total_pct:.1f}% 超过 100%")
+    return [
+        (str(bu), amount * float(pct) / 100.0)
+        for bu, pct in default_ratios.items()
+        if pct
+    ]
+
+
+def allocate_public_details_for_month(
+    details: dict[str, dict],
+    fine_rules: dict[str, dict[str, dict]] | None,
+    default_ratios: dict[str, float] | None,
+    bu_names: list[str] | None = None,
+) -> dict[str, dict[str, float]]:
+    """2.4.0 两轴：单月公共明细 → 各 BU 按大类摊入额（单位与 details.amount 一致，库内分）。
+
+    details: {明细费用类型: {amount: 分, cat: 报表大类}}
+    fine_rules: {明细: {BU: {mode: '比例'|'金额', value: 比例% 或 金额**元**}}}
+    default_ratios: {BU: 比例%} 默认层；无精配的明细走此层。
+    超额（比例合计>100 或 金额合计>本项）→ ValueError。
+    返回 {BU: {大类: 分}}。
+    """
+    want = set(bu_names or []) if bu_names is not None else None
+    fine_rules = fine_rules or {}
+    default_ratios = default_ratios or {}
+    out: dict[str, dict[str, float]] = {}
+
+    for fine, info in (details or {}).items():
+        if not isinstance(info, dict):
+            continue
+        amount = float(info.get("amount") or 0.0)
+        cat = str(info.get("cat") or "").strip()
+        if not cat or abs(amount) < 1e-12:
+            continue
+        for bu, share in _shares_for_detail_item(
+            str(fine), amount, fine_rules.get(str(fine)) or {}, default_ratios
+        ):
+            if want is not None and bu not in want:
+                continue
+            if abs(share) < 1e-12:
+                continue
+            bucket = out.setdefault(bu, {})
+            bucket[cat] = round(float(bucket.get(cat) or 0.0) + float(share), 2)
+
+    cleaned: dict[str, dict[str, float]] = {}
+    for bu, cats in out.items():
+        c2 = {c: round(float(v), 2) for c, v in cats.items() if abs(float(v)) >= 0.005}
+        if c2:
+            cleaned[bu] = c2
+    return cleaned
+
+
+def allocate_public_details_lines_for_month(
+    details: dict[str, dict],
+    fine_rules: dict[str, dict[str, dict]] | None,
+    default_ratios: dict[str, float] | None,
+    bu_name: str,
+) -> dict[str, list[tuple[str, float]]]:
+    """单月单 BU：分摊自公共的明细行 → {大类: [(明细名, 分), ...]}（供 alloc_added 下钻）。"""
+    fine_rules = fine_rules or {}
+    default_ratios = default_ratios or {}
+    lines: dict[str, list[tuple[str, float]]] = {}
+    for fine, info in (details or {}).items():
+        if not isinstance(info, dict):
+            continue
+        amount = float(info.get("amount") or 0.0)
+        cat = str(info.get("cat") or "").strip()
+        if not cat or abs(amount) < 1e-12:
+            continue
+        for bu, share in _shares_for_detail_item(
+            str(fine), amount, fine_rules.get(str(fine)) or {}, default_ratios
+        ):
+            if bu != bu_name:
+                continue
+            share = round(share, 2)
+            if abs(share) >= 0.005:
+                lines.setdefault(cat, []).append((str(fine), share))
+    return {c: sorted(lst, key=lambda x: -abs(x[1])) for c, lst in lines.items() if lst}
+
+
+def _merge_alloc_into_period_with_details(
+    p: dict,
+    add_by_cat: dict[str, float],
+    detail_lines: dict[str, list[tuple[str, float]]] | None = None,
+    cfg=None,
 ) -> None:
-    """就地：按月比例把公共池费用叠加进单 BU summary 各周期（迭代20）。
-    public_month_led={(y,m):{5类:金额}}；ratios_by_month={'YYYY-MM':{BU:比例%}}；
-    当月合计可 <100%（剩余留公司层）。没有任何生效比例 → meta 标 enabled=False。
-    cfg：任务书61·J 重算费用时叠人工三类分摊；缺省用内置 map。"""
+    """叠加分摊额，并写入明细级 alloc_added_details。"""
+    _merge_alloc_into_period(p, add_by_cat, cfg=cfg)
+    if detail_lines:
+        p["alloc_added_details"] = {
+            cat: [{"name": n, "amt": round(float(a), 2)} for n, a in lst]
+            for cat, lst in detail_lines.items()
+            if lst
+        }
+
+
+def _alloc_detail_for_range(
+    public_month_details: dict,
+    fine_rules_by_month: dict,
+    ratios_by_month: dict,
+    bu_name: str,
+    start,
+    end,
+    cap,
+) -> tuple[dict[str, float], dict[str, list[tuple[str, float]]]]:
+    """周期内逐月明细分摊，汇总到大类 + 明细行。"""
+    add = {cat: 0.0 for cat in _LEDGER_TO_EXPENSE}
+    det: dict[str, dict[str, float]] = {cat: {} for cat in _LEDGER_TO_EXPENSE}
+    for y, m in periods.months_in(start, end, cap):
+        mk = f"{y:04d}-{m:02d}"
+        details = public_month_details.get((y, m)) or {}
+        if not details:
+            continue
+        month_map = allocate_public_details_for_month(
+            details,
+            fine_rules_by_month.get(mk),
+            ratios_by_month.get(mk),
+            bu_names=[bu_name],
+        )
+        bu_cats = month_map.get(bu_name) or {}
+        for cat, v in bu_cats.items():
+            add[cat] = round(float(add.get(cat) or 0) + float(v), 2)
+        for cat, lst in allocate_public_details_lines_for_month(
+            details,
+            fine_rules_by_month.get(mk),
+            ratios_by_month.get(mk),
+            bu_name,
+        ).items():
+            bucket = det.setdefault(cat, {})
+            for n, a in lst:
+                bucket[n] = round(float(bucket.get(n) or 0) + float(a), 2)
+    lines = {
+        cat: sorted(((n, a) for n, a in d.items() if abs(a) >= 0.005), key=lambda x: -abs(x[1]))
+        for cat, d in det.items()
+        if d
+    }
+    return {cat: round(v, 2) for cat, v in add.items()}, lines
+
+
+def apply_public_expense_allocation_monthly(
+    summary: dict,
+    public_month_led: dict,
+    ratios_by_month: dict,
+    bu_name: str,
+    today,
+    cfg=None,
+    *,
+    public_month_details: dict | None = None,
+    fine_rules_by_month: dict | None = None,
+) -> None:
+    """就地：按月把公共池费用叠加进单 BU summary 各周期（迭代20 + 2.4.0 明细两轴）。
+
+    兼容：未传 public_month_details 时走旧 5 大类×默认比例路径。
+    传入明细池时：精配优先 → 默认层 → 归回 5 大类；alloc_added 带明细行。
+    """
     P = summary.get("periods") or {}
-    # 「已配置」与「有金额」分开：配置了比例（哪怕当期公共池为 0）也标注口径，别让读者以为没摊
-    has_ratio = any((r or {}).get(bu_name) for r in ratios_by_month.values())
+    has_ratio = any((r or {}).get(bu_name) for r in (ratios_by_month or {}).values())
+    has_fine = bool(fine_rules_by_month) and any(
+        any(str(bu_name) in (rules or {}) for rules in (month_rules or {}).values())
+        for month_rules in (fine_rules_by_month or {}).values()
+    )
+    use_detail = bool(public_month_details)
     for _key, p in P.items():
         rng = p.get("range")
         if not rng:
             continue
         start = datetime.date.fromisoformat(rng[0])
         end = datetime.date.fromisoformat(rng[1])
-        add = _alloc_cats_for_range(public_month_led, ratios_by_month, bu_name, start, end, today)
-        if not any(add.values()):
-            continue
-        _merge_alloc_into_period(p, add, cfg=cfg)
+        if use_detail:
+            add, lines = _alloc_detail_for_range(
+                public_month_details or {},
+                fine_rules_by_month or {},
+                ratios_by_month or {},
+                bu_name,
+                start,
+                end,
+                today,
+            )
+            if not any(add.values()):
+                continue
+            _merge_alloc_into_period_with_details(p, add, lines, cfg=cfg)
+        else:
+            add = _alloc_cats_for_range(
+                public_month_led, ratios_by_month, bu_name, start, end, today
+            )
+            if not any(add.values()):
+                continue
+            _merge_alloc_into_period(p, add, cfg=cfg)
+    enabled = has_ratio or has_fine
+    # 仅有默认层比例时仍标「按月比例」（兼容既有 UI/测试）；有精配才标「按明细分摊」
+    if not enabled:
+        mode, ratio_disp = "monthly", ""
+    elif has_fine:
+        mode, ratio_disp = "detail", "按明细分摊"
+    else:
+        mode, ratio_disp = ("detail" if use_detail else "monthly"), "按月比例"
     summary.setdefault("meta", {})["public_allocation"] = {
-        "enabled": has_ratio,
-        "mode": "monthly",
+        "enabled": enabled,
+        "mode": mode,
         "ratio_pct": None,
-        "ratio_disp": "按月比例" if has_ratio else "",
+        "ratio_disp": ratio_disp,
     }
 
 
 def alloc_amounts_by_period(
-    public_month_led: dict, ratios_by_month: dict, bu_names: list[str], today
+    public_month_led: dict,
+    ratios_by_month: dict,
+    bu_names: list[str],
+    today,
+    *,
+    public_month_details: dict | None = None,
+    fine_rules_by_month: dict | None = None,
 ) -> dict[str, dict[str, float]]:
-    """每周期每 BU 的分摊总额（供全公司「构成·按业务BU」视图跟着挪·迭代20）。
-    只认在 bu_names 里的 BU（孤儿比例行由调用方另行告警）。返回 {周期key: {BU: 金额}}。"""
+    """每周期每 BU 的分摊总额（供全公司「构成·按业务BU」视图跟着挪·迭代20/2.4.0）。
+    只认在 bu_names 里的 BU。返回 {周期key: {BU: 金额}}。"""
     want = set(bu_names or [])
     ranges = periods.all_period_ranges(today)
     out: dict[str, dict[str, float]] = {}
+    use_detail = bool(public_month_details)
     for key, (_lab, start, end, _grp) in ranges.items():
         per: dict[str, float] = {}
         for y, m in periods.months_in(start, end, today):
-            r = ratios_by_month.get(f"{y:04d}-{m:02d}") or {}
-            led = public_month_led.get((y, m)) or {}
-            month_pub = sum(float(led.get(c) or 0.0) for c in _LEDGER_TO_EXPENSE)
-            for b, pct in r.items():
-                if b in want and pct:
-                    per[b] = per.get(b, 0.0) + month_pub * float(pct) / 100.0
+            mk = f"{y:04d}-{m:02d}"
+            if use_detail:
+                month_map = allocate_public_details_for_month(
+                    public_month_details.get((y, m)) or {},
+                    (fine_rules_by_month or {}).get(mk),
+                    (ratios_by_month or {}).get(mk),
+                    bu_names=list(want),
+                )
+                for b, cats in month_map.items():
+                    if b not in want:
+                        continue
+                    s = sum(float(v) for v in cats.values())
+                    if s:
+                        per[b] = per.get(b, 0.0) + s
+            else:
+                r = ratios_by_month.get(mk) or {}
+                led = public_month_led.get((y, m)) or {}
+                month_pub = sum(float(led.get(c) or 0.0) for c in _LEDGER_TO_EXPENSE)
+                for b, pct in r.items():
+                    if b in want and pct:
+                        per[b] = per.get(b, 0.0) + month_pub * float(pct) / 100.0
         cleaned = {b: round(v, 2) for b, v in per.items() if round(v, 2)}
         if cleaned:
             out[key] = cleaned
