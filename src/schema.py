@@ -122,10 +122,38 @@ HUMAN_TABLES: dict[str, str] = {
             PRIMARY KEY (归属月, 范围, 项目)
         )""",
     # 公共费用分摊比例（迭代20·按月）：每月每 BU 一行 0~100 百分数；无行=该月该 BU 不分摊
+    # 2.4.0 语义重解释为「默认层/兜底」——未被明细规则精配的公共费用走此组比例。
     "manual_分摊比例": """
         CREATE TABLE IF NOT EXISTS manual_分摊比例 (
             归属月 TEXT, BU TEXT, 比例 REAL, 填写时间 TEXT, 经手人 TEXT,
             PRIMARY KEY (归属月, BU)
+        )""",
+    # 2.4.0 两轴模型·轴①：公共明细金额覆盖（手填月度平滑值；无行=用台账自动抓）
+    "manual_公共明细金额覆盖": """
+        CREATE TABLE IF NOT EXISTS manual_公共明细金额覆盖 (
+            归属月 TEXT, 明细费用类型 TEXT, 金额 INTEGER, 填写时间 TEXT, 经手人 TEXT,
+            PRIMARY KEY (归属月, 明细费用类型)
+        )""",
+    "manual_公共明细金额覆盖历史": """
+        CREATE TABLE IF NOT EXISTS manual_公共明细金额覆盖历史 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 经手人 TEXT,
+            归属月 TEXT, 明细费用类型 TEXT, 旧值 INTEGER, 新值 INTEGER
+        )""",
+    # 2.4.0 两轴模型·轴②：精配层（按明细项×BU；模式=比例% 或 金额；金额模式 值=分）
+    "manual_分摊_明细规则": """
+        CREATE TABLE IF NOT EXISTS manual_分摊_明细规则 (
+            归属月 TEXT, 明细费用类型 TEXT, BU TEXT,
+            模式 TEXT CHECK(模式 IN ('比例','金额')),
+            值 REAL, 填写时间 TEXT, 经手人 TEXT,
+            PRIMARY KEY (归属月, 明细费用类型, BU)
+        )""",
+    "manual_分摊_明细规则历史": """
+        CREATE TABLE IF NOT EXISTS manual_分摊_明细规则历史 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            时间 TEXT, 经手人 TEXT,
+            归属月 TEXT, 明细费用类型 TEXT, BU TEXT,
+            旧模式 TEXT, 旧值 REAL, 新模式 TEXT, 新值 REAL
         )""",
     "manual_费用去税率": """
         CREATE TABLE IF NOT EXISTS manual_费用去税率 (

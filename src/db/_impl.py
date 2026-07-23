@@ -61,6 +61,13 @@ from .manual_rates import (  # noqa: F401
     effective_alloc_month,
     effective_alloc_ratios,
     get_manual,
+    set_public_detail_amount_override,
+    get_public_detail_amount_overrides,
+    load_public_detail_amount_overrides,
+    set_alloc_detail_rule,
+    get_alloc_detail_rules,
+    load_alloc_detail_rules,
+    validate_alloc_detail_item_rules,
 )
 from .misc import (  # noqa: F401
     load_budget,

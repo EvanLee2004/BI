@@ -258,6 +258,268 @@ def effective_alloc_ratios(conn: sqlite3.Connection, year: int, upto_month: int)
     return out
 
 
+# ---- 2.4.0 两轴模型：公共明细金额覆盖 + 明细精配规则（Stage B 仅数据层，不接线计算）----
+
+_ALLOC_DETAIL_MODES = frozenset({"比例", "金额"})
+
+
+def set_public_detail_amount_override(
+    conn: sqlite3.Connection,
+    month: str,
+    category: str,
+    amount_yuan,
+    user: str,
+    *,
+    commit: bool = True,
+) -> None:
+    """写/删某月某明细费用类型的金额覆盖（轴①）。amount_yuan=None/空 → 删行（回退台账自动抓）。
+
+    金额入参元 → 库内 INTEGER 分；写删只追加历史。
+    """
+    month = str(month or "").strip()
+    category = str(category or "").strip()
+    if not month or not category:
+        raise ValueError("归属月与明细费用类型不能为空")
+    now = _now()
+    old_row = conn.execute(
+        "SELECT 金额 FROM manual_公共明细金额覆盖 WHERE 归属月=? AND 明细费用类型=?",
+        (month, category),
+    ).fetchone()
+    旧值 = int(old_row[0]) if old_row and old_row[0] is not None else None
+    if amount_yuan is None or amount_yuan == "":
+        新值 = None
+        conn.execute(
+            "DELETE FROM manual_公共明细金额覆盖 WHERE 归属月=? AND 明细费用类型=?",
+            (month, category),
+        )
+    else:
+        fen = money.yuan_to_fen(amount_yuan)
+        if fen is None:
+            raise ValueError(f"金额须为数字：{category}={amount_yuan}")
+        if fen < 0:
+            raise ValueError(f"金额须 ≥0：{category}={amount_yuan}")
+        新值 = int(fen)
+        conn.execute(
+            "INSERT OR REPLACE INTO manual_公共明细金额覆盖"
+            "(归属月,明细费用类型,金额,填写时间,经手人) VALUES(?,?,?,?,?)",
+            (month, category, 新值, now, user),
+        )
+    conn.execute(
+        "INSERT INTO manual_公共明细金额覆盖历史"
+        "(时间,经手人,归属月,明细费用类型,旧值,新值) VALUES(?,?,?,?,?,?)",
+        (now, user, month, category, 旧值, 新值),
+    )
+    if commit:
+        conn.commit()
+
+
+def get_public_detail_amount_overrides(
+    conn: sqlite3.Connection, month: str
+) -> dict[str, int]:
+    """某月公共明细金额覆盖 → {明细费用类型: 金额分}。无表/无数据 → {}。"""
+    try:
+        rows = conn.execute(
+            "SELECT 明细费用类型,金额 FROM manual_公共明细金额覆盖 WHERE 归属月=?",
+            (str(month or "").strip(),),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, int] = {}
+    for cat, amt in rows:
+        if cat is None or amt is None:
+            continue
+        out[str(cat)] = int(amt)
+    return out
+
+
+def load_public_detail_amount_overrides(
+    conn: sqlite3.Connection,
+) -> dict[str, dict[str, int]]:
+    """全部公共明细金额覆盖 → {'YYYY-MM': {明细费用类型: 金额分}}。"""
+    try:
+        rows = conn.execute(
+            "SELECT 归属月,明细费用类型,金额 FROM manual_公共明细金额覆盖"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, int]] = {}
+    for month, cat, amt in rows:
+        if month is None or cat is None or amt is None:
+            continue
+        out.setdefault(str(month), {})[str(cat)] = int(amt)
+    return out
+
+
+def set_alloc_detail_rule(
+    conn: sqlite3.Connection,
+    month: str,
+    category: str,
+    bu: str,
+    mode,
+    value,
+    user: str,
+    *,
+    commit: bool = True,
+) -> None:
+    """写/删某月某明细项对某 BU 的精配规则（轴②）。
+
+    mode 须为 '比例' 或 '金额'；value=None/空 → 删行。
+    比例：value 0~100（百分数）；金额：value 入参元 → 库内 值=分（REAL 存整分）。
+    写删只追加历史。
+    """
+    month = str(month or "").strip()
+    category = str(category or "").strip()
+    bu = str(bu or "").strip()
+    if not month or not category or not bu:
+        raise ValueError("归属月、明细费用类型与 BU 不能为空")
+    now = _now()
+    old_row = conn.execute(
+        "SELECT 模式,值 FROM manual_分摊_明细规则 WHERE 归属月=? AND 明细费用类型=? AND BU=?",
+        (month, category, bu),
+    ).fetchone()
+    旧模式 = str(old_row[0]) if old_row and old_row[0] is not None else None
+    旧值 = float(old_row[1]) if old_row and old_row[1] is not None else None
+
+    if value is None or value == "" or mode is None or mode == "":
+        新模式, 新值 = None, None
+        conn.execute(
+            "DELETE FROM manual_分摊_明细规则 WHERE 归属月=? AND 明细费用类型=? AND BU=?",
+            (month, category, bu),
+        )
+    else:
+        m = str(mode).strip()
+        if m not in _ALLOC_DETAIL_MODES:
+            raise ValueError(f"模式须为 比例 或 金额：{m}")
+        if m == "比例":
+            v = money.quantize_rate(value, places=1)
+            if not (0 <= v <= 100):
+                raise ValueError(f"比例须在 0~100：{bu}={value}")
+            新模式, 新值 = m, v
+        else:
+            fen = money.yuan_to_fen(value)
+            if fen is None:
+                raise ValueError(f"金额须为数字：{bu}={value}")
+            if fen < 0:
+                raise ValueError(f"金额须 ≥0：{bu}={value}")
+            新模式, 新值 = m, float(int(fen))
+        conn.execute(
+            "INSERT OR REPLACE INTO manual_分摊_明细规则"
+            "(归属月,明细费用类型,BU,模式,值,填写时间,经手人) VALUES(?,?,?,?,?,?,?)",
+            (month, category, bu, 新模式, 新值, now, user),
+        )
+    conn.execute(
+        "INSERT INTO manual_分摊_明细规则历史"
+        "(时间,经手人,归属月,明细费用类型,BU,旧模式,旧值,新模式,新值) VALUES(?,?,?,?,?,?,?,?,?)",
+        (now, user, month, category, bu, 旧模式, 旧值, 新模式, 新值),
+    )
+    if commit:
+        conn.commit()
+
+
+def get_alloc_detail_rules(
+    conn: sqlite3.Connection, month: str
+) -> dict[str, dict[str, dict]]:
+    """某月明细精配规则 → {明细费用类型: {BU: {mode, value}}}。
+
+    value：比例模式为百分数 float；金额模式为**元** float（库内分→元读回）。
+    """
+    try:
+        rows = conn.execute(
+            "SELECT 明细费用类型,BU,模式,值 FROM manual_分摊_明细规则 WHERE 归属月=?",
+            (str(month or "").strip(),),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, dict]] = {}
+    for cat, b, mode, val in rows:
+        if cat is None or b is None or mode is None or val is None:
+            continue
+        m = str(mode)
+        if m == "金额":
+            v: float = float(money.fen_to_yuan(int(val)))
+        else:
+            v = float(val)
+        out.setdefault(str(cat), {})[str(b)] = {"mode": m, "value": v}
+    return out
+
+
+def load_alloc_detail_rules(
+    conn: sqlite3.Connection,
+) -> dict[str, dict[str, dict[str, dict]]]:
+    """全部明细精配 → {'YYYY-MM': {明细: {BU: {mode, value}}}}；金额 value=元。"""
+    try:
+        rows = conn.execute(
+            "SELECT 归属月,明细费用类型,BU,模式,值 FROM manual_分摊_明细规则"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, dict[str, dict]]] = {}
+    for month, cat, b, mode, val in rows:
+        if month is None or cat is None or b is None or mode is None or val is None:
+            continue
+        m = str(mode)
+        if m == "金额":
+            v = float(money.fen_to_yuan(int(val)))
+        else:
+            v = float(val)
+        out.setdefault(str(month), {}).setdefault(str(cat), {})[str(b)] = {
+            "mode": m,
+            "value": v,
+        }
+    return out
+
+
+def _sum_rule_values(
+    rules_for_item: dict[str, dict],
+    *,
+    mode: str,
+) -> float:
+    """累加各 BU 规则值；顺带做单行范围校验。"""
+    total = 0.0
+    for bu, r in rules_for_item.items():
+        v = float((r or {}).get("value") or 0)
+        if mode == "比例" and not (0 <= v <= 100):
+            raise ValueError(f"比例须在 0~100：{bu}={v}")
+        if mode == "金额" and v < 0:
+            raise ValueError(f"金额须 ≥0：{bu}={v}")
+        total += v
+    return total
+
+
+def validate_alloc_detail_item_rules(
+    rules_for_item: dict[str, dict],
+    *,
+    item_amount_yuan: float | None = None,
+) -> None:
+    """校验同一明细项下各 BU 精配：比例合计 ≤100；金额合计 ≤ 本项金额（若给定）。
+
+    rules_for_item: {BU: {mode, value}}，value 与 get_alloc_detail_rules 同形（比例% / 金额元）。
+    超限 → ValueError。混合模式（同项既有比例又有金额）→ ValueError。
+    """
+    if not rules_for_item:
+        return
+    modes = {str((r or {}).get("mode") or "") for r in rules_for_item.values()}
+    modes.discard("")
+    if not modes:
+        return
+    if len(modes) > 1:
+        raise ValueError("同一明细项不可混合「比例」与「金额」模式")
+    mode = next(iter(modes))
+    if mode not in _ALLOC_DETAIL_MODES:
+        raise ValueError(f"未知模式：{mode}")
+    total = _sum_rule_values(rules_for_item, mode=mode)
+    if mode == "比例" and total > 100.0 + 1e-9:
+        raise ValueError(f"比例合计 {total:.1f}% 超过 100%")
+    if (
+        mode == "金额"
+        and item_amount_yuan is not None
+        and total > float(item_amount_yuan) + 1e-9
+    ):
+        raise ValueError(
+            f"金额合计 {total:.2f} 超过本项金额 {float(item_amount_yuan):.2f}"
+        )
+
+
 def get_manual(conn: sqlite3.Connection, month: str | None = None, 范围: str = "全公司") -> list[dict]:
     """管理端列表。范围=全公司读 manual_手填；否则读 manual_手填BU。金额列返回元。"""
     scope = (范围 or "全公司").strip() or "全公司"
