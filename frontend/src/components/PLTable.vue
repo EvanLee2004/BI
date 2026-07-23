@@ -38,7 +38,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
         v-for="(r, i) in table.rows"
         :key="i"
         class="pl-row"
-        :class="{ total: r.total, grand: r.grand, 'pl-open': !!r.open_key }"
+        :class="{ total: r.total, grand: r.grand, 'pl-open': !!r.open_key, 'pl-pct': r.is_pct }"
         @click="r.open_key && openDrawer(r.open_key)"
       >
         <span class="pl-name">
@@ -46,7 +46,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           <span v-if="r.open_key" class="pl-open-hint">查看构成 ›</span>
           <span v-if="r.formula" class="pl-src">{{ r.formula }}</span>
         </span>
-        <span class="pl-amt" :class="{ pos: r.grand || r.total }">{{ r.amt_disp }}</span>
+        <span class="pl-amt" :class="{ pos: r.grand || r.total || r.is_pct }">{{ r.amt_disp }}</span>
       </div>
     </div>
     <!-- 数据源徽标（装饰对齐基准；无金额） -->

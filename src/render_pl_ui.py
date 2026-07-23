@@ -19,7 +19,8 @@ def _row(name, impact, kind, src="", total=False, grand=False):
     )
 
 def _pct_row(name, pct, src=""):
-    """比率行（如税前利润率）：金额列显示百分数，不参与任何求和。pct=None → 灰显 —。"""
+    """比率行（如税前利润率/毛利率）：金额列显示百分数，不参与任何求和。pct=None → 灰显 —。
+    行 class pl-pct + amt pos：与税前利润 grand 同档绿色强调（theme.css --pos）。"""
     src_html = tpl.fill("render/src.html", src=src) if src else ""
     txt = f"{pct:.1f}%" if pct is not None else "—"
     return tpl.fill("render/pct_row.html", name=name, src_html=src_html, txt=txt)
@@ -28,14 +29,18 @@ def _open_row(cat, name, impact):
     """可点大类行：点击弹出右侧抽屉看构成（不再就地展开、不顶下方图表）。"""
     return tpl.fill("render/open_row.html", cat=cat, name=name, amt=_amt(impact))
 
-def _drow(name, impact, kind, src="", sub=False):
+def _drow(name, impact, kind, src="", sub=False, *, amt_text=None):
     """抽屉内明细行（始终展开、无需切换）。
-    金额只显示绝对值：行名已带「加/减」语义，用户只看数额；主表利润影响仍走 _row/_open_row 带符号。"""
+    amt_text 优先（结构层已带符号的 disp 串，单一来源）；否则取 impact 绝对值（兼容其它调用方）。"""
     cls = "pl-drow" + (" sub" if sub else "")
     dot = tpl.fill("render/dot.html", kind=kind) if kind else tpl.load("render/dot_none.html")
     src_html = tpl.fill("render/src.html", src=src) if src else ""
+    if amt_text is not None:
+        amt = tpl.fill("render/amt.html", cls="pl-amt", s=str(amt_text))
+    else:
+        amt = _amt(abs(float(impact or 0)))
     return tpl.fill(
-        "render/drow.html", cls=cls, dot=dot, name=_esc(name), src_html=src_html, amt=_amt(abs(float(impact or 0)))
+        "render/drow.html", cls=cls, dot=dot, name=_esc(name), src_html=src_html, amt=amt
     )
 
 def _d_ledger(name, amount, src, fine_pairs, limit=8):
@@ -97,9 +102,15 @@ def _pl_details_html(struct, *, bu_display: bool = False) -> list[str]:
         inner = ""
         for ln in block.get("lines") or []:
             kind = ln.get("kind") or ""
-            raw = float(ln.get("impact") or 0)
-            signed = raw if ln.get("name") == "系统内部译员" else -raw
-            inner += _drow(ln["name"], signed, kind, "", sub=bool(ln.get("sub")))
+            # 符号一律用结构层 amt_disp（成本抽屉两减项已带 U+2212；加项为绝对值串）
+            inner += _drow(
+                ln["name"],
+                ln.get("impact"),
+                kind,
+                "",
+                sub=bool(ln.get("sub")),
+                amt_text=ln.get("amt_disp"),
+            )
         detail_parts.append(_detail_block(cat, title, inner))
     return detail_parts
 

@@ -67,6 +67,19 @@ def _dline(name, impact, kind="", *, sub=False) -> dict[str, Any]:
     }
 
 
+def _dline_deduction(name, amount, kind="", *, sub=False) -> dict[str, Any]:
+    """成本抽屉减项：impact 为负，amt_disp 带 U+2212（与主表 amt_disp 同规则）。"""
+    a = abs(float(amount or 0))
+    impact = -a
+    return {
+        "name": name,
+        "impact": impact,
+        "amt_disp": amt_disp(impact),
+        "kind": kind,
+        "sub": sub,
+    }
+
+
 def _row(
     name,
     impact,
@@ -129,10 +142,11 @@ _EXP_GROUPS = (
 
 
 def _pl_cost_details(p: dict, man: dict) -> dict[str, Any]:
+    # 减项两项带 U+2212 负号（陆总 2026-07-23：只改抽屉这两项显示，计算不动）
     cost_lines = [
         _dline("系统直接成本", p.get("system_direct_cost"), "system"),
-        _dline("系统内部译员", abs(float(p.get("inhouse_cost") or 0)), "system"),
-        _dline("直接成本增值税", man.get("直接成本增值税", 0.0), "manual"),
+        _dline_deduction("系统内部译员", p.get("inhouse_cost"), "system"),
+        _dline_deduction("直接成本增值税", man.get("直接成本增值税", 0.0), "manual"),
     ]
     for n in _PROD_MANUAL:
         cost_lines.append(_dline(n, man.get(n, 0.0), "manual"))
@@ -269,7 +283,16 @@ def pl_structure(
 
     rows.append(_row("交付收入（不含税）", p.get("revenue_net"), kind="system", formula="交付金额÷1.06"))
     rows.append(_row("交付成本（生产成本）", -float(p.get("production_cost") or 0), open_key="cost"))
-    rows.append(_row("管理毛利", p.get("gross_profit"), total=True))
+    rows.append(_row("毛利", p.get("gross_profit"), total=True))
+    rows.append(
+        _row(
+            "毛利率",
+            0,
+            is_pct=True,
+            pct=p.get("gross_margin_pct"),
+            formula="毛利÷交付收入",
+        )
+    )
     details["cost"] = _pl_cost_details(p, man)
 
     tag_note = ""
@@ -299,7 +322,7 @@ def pl_structure(
             "税前利润",
             p.get("pretax_profit"),
             grand=True,
-            formula="管理毛利−期间费用−附加税±其他",
+            formula="毛利−期间费用−附加税±其他",
         )
     )
     rows.append(
