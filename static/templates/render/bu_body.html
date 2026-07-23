@@ -9,8 +9,8 @@
  <button class="toggle" id="themeBtn"><span>◑</span> 浅色</button></span></div>
 {pw_modal}
 <div class="wrap">
- <div class="bu-subnav" role="navigation" aria-label="返回整体">
-  <a class="bu-back bu-back-inline" href="/" title="返回整体看板（点一下即回主页/刷新）">← 返回整体</a>
+ <div class="bu-subnav" role="navigation" aria-label="当前业务线">
+  <!-- 2.3.4：legacy HTML 不放回主页入口（无会话权限）。在线 SPA 用 can_main 决定是否显示。 -->
   <span class="bu-subnav-cur">当前 BU · <b>{name}</b></span>
  </div>
  {period_bar}

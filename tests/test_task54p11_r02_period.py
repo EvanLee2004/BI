@@ -24,6 +24,10 @@ class TestPeriodPickerStructure(unittest.TestCase):
         # 不再是平铺 <select class="toggle"> 唯一控件
         self.assertIn("pp-tabs", t)
         self.assertIn("pp-panel", t)
+        # 2.3.4：自定义 = 起止筛选，禁止快捷组合墙
+        self.assertNotIn("pp-custom-list", t)
+        self.assertIn("period-custom-filter", t)
+        self.assertIn("period-apply", t)
 
     def test_period_keys_util_groups_without_inventing(self):
         """驱动真实 shipped util：node 动态 import periodKeys.ts（esbuild-free via node --experimental）。"""

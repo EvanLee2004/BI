@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
-import { fetchProductVersion } from '../api/client'
+import { fetchProductVersion, fetchSession } from '../api/client'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
 import logoUrl from '../assets/logo.png'
 import PeriodPicker from './PeriodPicker.vue'
@@ -23,10 +23,18 @@ const store = useCockpitStore()
 const productVer = ref('')
 /** 2.2.9：本机日历日，版本号左侧 */
 const todayStr = ref('')
-/** 快照 BU 专用包无整体页：隐藏「← 整体」，避免点进空壳 */
+/**
+ * 2.3.4：仅「有整体权限」才显示「← 整体」。
+ * - 在线：session.can_main（整体账号 / 管理员）
+ * - 快照：仍走 snapshotCanGoOverall（BU 专用包 / 空 cockpit 禁回）
+ * 纯 BU 账号不渲染按钮，避免点进「无整体驾驶舱权限」空壳。
+ * 默认 false：session 未回前不闪按钮。
+ */
+const canMain = ref(false)
+
 const showOverallBack = computed(() => {
-  if (!store.snapshotMode) return true
-  return store.snapshotCanGoOverall()
+  if (store.snapshotMode) return store.snapshotCanGoOverall()
+  return canMain.value
 })
 
 function localTodayYmd(): string {
@@ -38,11 +46,17 @@ function localTodayYmd(): string {
 }
 
 function goOverall(e?: Event) {
+  // 双保险：无权限不导航（防脏 DOM / 手改 HTML）
   if (store.snapshotMode) {
     e?.preventDefault()
     if (!store.snapshotCanGoOverall()) return
     store.loadMain()
+    return
   }
+  if (!canMain.value) {
+    e?.preventDefault()
+  }
+  // 有 can_main：走 href="/" 全页回整体
 }
 
 onMounted(async () => {
@@ -50,7 +64,14 @@ onMounted(async () => {
   if (store.snapshotMode) {
     const sv = String(store.snapshotVersion || '').trim()
     productVer.value = sv ? (sv.startsWith('v') ? sv : 'v' + sv) : ''
+    canMain.value = store.snapshotCanGoOverall()
     return
+  }
+  try {
+    const sess = await fetchSession()
+    canMain.value = !!(sess as { can_main?: boolean }).can_main
+  } catch {
+    canMain.value = false
   }
   try {
     const v = await fetchProductVersion()

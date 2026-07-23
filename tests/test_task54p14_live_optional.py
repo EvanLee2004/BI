@@ -363,46 +363,34 @@ class Test54p14LiveOptional(unittest.TestCase):
                 preview = page.locator(".pp-preview").inner_text()
             apply_btn = page.locator(".pp-apply")
             self.assertTrue(apply_btn.count(), "应用按钮")
-            # 若该组合不在 period_keys，按钮可能 disabled —— 尝试找可点的自定义列表项
-            if apply_btn.is_disabled():
-                customs = page.locator(".pp-custom-list .pp-opt")
-                self.assertGreater(customs.count(), 0, "无可用自定义区间")
-                target_txt = customs.nth(0).inner_text().strip()
-                customs.nth(0).click()
-                page.wait_for_timeout(400)
-                after_pk = page.locator("[data-testid=period-picker] .pp-trigger").inner_text().strip()
-                report["steps"].append(
-                    {
-                        "r22_custom": {
-                            "mode": "list_pick",
-                            "picked": target_txt,
-                            "before": before_pk,
-                            "after": after_pk,
-                        }
+            # 2.3.4：无快捷组合墙；若起止非法则换一对 option 再试应用
+            if apply_btn.is_disabled() and nf >= 1 and nt >= 2:
+                from_val = from_opts.nth(0).get_attribute("value")
+                to_val = to_opts.nth(min(1, nt - 1)).get_attribute("value")
+                page.locator(".pp-select").nth(0).select_option(value=from_val)
+                page.locator(".pp-select").nth(1).select_option(value=to_val)
+                page.wait_for_timeout(150)
+            self.assertFalse(apply_btn.is_disabled(), "自定义起止应用应可点（period_keys 含该组合）")
+            apply_btn.click()
+            page.wait_for_timeout(500)
+            after_pk = page.locator("[data-testid=period-picker] .pp-trigger").inner_text().strip()
+            report["steps"].append(
+                {
+                    "r22_custom": {
+                        "mode": "apply",
+                        "from": from_val,
+                        "to": to_val,
+                        "preview": preview,
+                        "before": before_pk,
+                        "after": after_pk,
                     }
-                )
-                self.assertNotEqual(after_pk, before_pk, "自定义列表点选后 period 应变化")
-            else:
-                apply_btn.click()
-                page.wait_for_timeout(500)
-                after_pk = page.locator("[data-testid=period-picker] .pp-trigger").inner_text().strip()
-                report["steps"].append(
-                    {
-                        "r22_custom": {
-                            "mode": "apply",
-                            "from": from_val,
-                            "to": to_val,
-                            "preview": preview,
-                            "before": before_pk,
-                            "after": after_pk,
-                        }
-                    }
-                )
-                # 应用成功：trigger 应变（或已是该区间）
-                self.assertTrue(
-                    after_pk != before_pk or (from_val and to_val and from_val != to_val and "-" in after_pk),
-                    f"自定义应用未改 period: {before_pk} → {after_pk} preview={preview}",
-                )
+                }
+            )
+            # 应用成功：trigger 应变（或已是该区间）
+            self.assertTrue(
+                after_pk != before_pk or (from_val and to_val and from_val != to_val and "-" in after_pk),
+                f"自定义应用未改 period: {before_pk} → {after_pk} preview={preview}",
+            )
             page.screenshot(path=str(out / "period_custom.png"))
 
             # ── R-26 热力图 ──

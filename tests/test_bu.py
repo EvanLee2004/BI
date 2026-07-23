@@ -352,15 +352,16 @@ class TestBuPages(_Base):
             self.assertNotIn(leak, hb, f"BU乙页泄漏了 {leak}")
 
     def test_page_labels(self):
-        """分摊关：有返回整体 + 基本情况；看端不展示口径长文；不含全公司出口。"""
+        """分摊关：基本情况；看端不展示口径长文；不含全公司出口。
+        2.3.4：服务端 HTML 不再硬编码「返回整体」（无会话；权限在 SPA 用 can_main 控制）。"""
         _write_bucfg(self.cfg, self.root, _two_bus())
         h = self._bu_html(self._pages(), "BU甲")
         self.assertIn("当前 BU", h)
         self.assertNotIn("仅含", h)  # 用户端不展示范围说明长文
         self.assertNotIn("利润归属中心", h)
         self.assertIn("基本情况", h)
-        self.assertIn("返回整体", h)
-        self.assertIn('href="/"', h)
+        self.assertNotIn("返回整体", h)
+        self.assertNotIn("bu-back-inline", h)
         # 迭代22·D5 / 2.2.7：BU 页有自己的导出（指向 /bu/{名}/export.html），但绝不指向全公司总导出
         self.assertIn("exportBtn", h)
         self.assertIn("/export.html", h)

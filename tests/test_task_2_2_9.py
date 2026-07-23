@@ -65,13 +65,17 @@ class TestSourceGuards229(unittest.TestCase):
         self.assertIn("/api/export.html", src)
 
     def test_bu_only_snapshot_hides_overall_back(self):
-        """BU 专用包不得提供「← 整体」入口，避免 loadMain 挂上空 cockpit 壳。"""
+        """BU 专用包 / 无 can_main 不得提供「← 整体」入口，避免 loadMain 挂上空壳或 403。"""
         bu = (ROOT / "frontend/src/components/BUPage.vue").read_text(encoding="utf-8")
         store = (ROOT / "frontend/src/stores/cockpit.ts").read_text(encoding="utf-8")
         self.assertIn("showOverallBack", bu)
         self.assertIn('v-if="showOverallBack"', bu)
         self.assertIn("snapshotCanGoOverall", bu)
         self.assertIn("function snapshotCanGoOverall", store)
+        # 2.3.4：在线必须读 session.can_main（纯 BU 账号不显示按钮）
+        self.assertIn("can_main", bu)
+        self.assertIn("fetchSession", bu)
+        self.assertIn("canMain", bu)
         # loadMain 对 BU 包 / 空 cockpit 必须 early return（禁止挂空整体）
         self.assertIn("snapshotCanGoOverall()", store)
         self.assertRegex(

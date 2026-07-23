@@ -98,10 +98,6 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
-.pp-opt-sm {
-  font-size: 12px;
-  min-height: 32px;
-}
 .pp-empty {
   margin: 0;
   font-size: 12px;
@@ -111,6 +107,13 @@
 .pp-custom {
   flex-direction: column;
   align-items: stretch;
+  gap: 10px;
+}
+.pp-hint {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.72;
+  line-height: 1.4;
 }
 .pp-custom-row {
   display: flex;
@@ -141,13 +144,11 @@
   font-size: 12px;
   opacity: 0.85;
 }
-.pp-custom-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 160px;
-  overflow: auto;
+.pp-apply {
+  margin-left: auto;
+  min-width: 72px;
 }
+/* 2.3.4：已移除 .pp-custom-list 快捷组合墙（1-2月/2-3月…） */
 @media (max-width: 400px) {
   .pp-panel {
     right: auto;
