@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.3.6 管理利润表 Excel 导出：纯函数结构/加粗 + 周期敏感 + HTTP 鉴权隔离。"""
+"""2.3.6→2.4.0 管理利润表 Excel 导出：单 sheet 一页化 + 周期敏感 + HTTP 鉴权隔离。"""
 from __future__ import annotations
 
 import io
@@ -24,6 +24,7 @@ import loaders  # noqa: E402
 import openpyxl  # noqa: E402
 import server  # noqa: E402
 from export_pl_xlsx import build_pl_xlsx_bytes, pl_xlsx_filename  # noqa: E402
+from viewmodels.packers import pack_pl_by_period  # noqa: E402
 
 FAKE = ROOT / "_golden_data"
 
@@ -44,6 +45,14 @@ def _load_golden_summary():
     return summary
 
 
+def _data_start_row(ws) -> int:
+    """表头「科目」所在行（抬头块之后）。"""
+    for r in range(1, min(ws.max_row, 30) + 1):
+        if ws.cell(row=r, column=1).value == "科目":
+            return r
+    raise AssertionError("未找到表头「科目」")
+
+
 class TestBuildPlXlsxPure(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -51,54 +60,117 @@ class TestBuildPlXlsxPure(unittest.TestCase):
         cls.yk = cls.summary["meta"]["year_key"]
         cls.periods = list((cls.summary.get("periods") or {}).keys())
 
-    def test_main_sheet_bold_and_keywords(self):
+    def test_single_sheet_only(self):
+        """2.4.0：全程一张 sheet，无「构成_*」「导出说明」独立页。"""
         raw = build_pl_xlsx_bytes(
             self.summary,
             period_key=self.yk,
             is_bu=False,
             scope_label="整体",
-            version="2.3.6",
+            version="2.4.0",
+            export_time="2026-07-23 12:00:00",
         )
         self.assertIsInstance(raw, (bytes, bytearray))
         self.assertGreater(len(raw), 100)
         wb = openpyxl.load_workbook(io.BytesIO(raw))
-        self.assertIn("管理利润表", wb.sheetnames)
-        self.assertIn("导出说明", wb.sheetnames)
-        ws = wb["管理利润表"]
-        self.assertGreaterEqual(ws.max_row, 2)  # header + ≥1 data
-        names = [ws.cell(row=r, column=1).value for r in range(2, ws.max_row + 1)]
-        blob = " ".join(str(n or "") for n in names)
-        self.assertTrue(
-            any(k in blob for k in ("税前利润", "毛利")),
-            blob[:200],
+        self.assertEqual(len(wb.worksheets), 1, wb.sheetnames)
+        self.assertEqual(wb.sheetnames, ["管理利润表"])
+        self.assertFalse(any(n.startswith("构成_") for n in wb.sheetnames))
+        self.assertNotIn("导出说明", wb.sheetnames)
+
+    def test_main_sheet_bold_header_and_nested_details(self):
+        raw = build_pl_xlsx_bytes(
+            self.summary,
+            period_key=self.yk,
+            is_bu=False,
+            scope_label="整体",
+            version="2.4.0",
+            export_time="2026-07-23 12:00:00",
         )
-        # 主表数据行整行加粗
-        for r in range(2, ws.max_row + 1):
-            for c in range(1, 4):
-                cell = ws.cell(row=r, column=c)
-                self.assertTrue(
-                    cell.font and cell.font.bold,
-                    f"main row {r} col {c} should be bold, got {cell.font.bold if cell.font else None}",
+        wb = openpyxl.load_workbook(io.BytesIO(raw))
+        self.assertEqual(len(wb.worksheets), 1)
+        ws = wb["管理利润表"]
+        # 抬头块
+        blob_meta = " ".join(
+            str(ws.cell(row=r, column=c).value or "")
+            for r in range(1, 8)
+            for c in range(1, 3)
+        )
+        self.assertIn("甲骨易经营看板", blob_meta)
+        self.assertIn("整体", blob_meta)
+        self.assertIn(self.yk, blob_meta)
+        self.assertIn("2.4.0", blob_meta)
+
+        hdr = _data_start_row(ws)
+        self.assertEqual(ws.cell(row=hdr, column=1).value, "科目")
+        self.assertTrue(ws.cell(row=hdr, column=1).font.bold)
+
+        packed = pack_pl_by_period(self.summary, is_bu=False)[self.yk]
+        pack_rows = list(packed.get("rows") or [])
+        pack_details = dict(packed.get("details") or {})
+
+        # 扫描数据区：大类加粗；有 open_key 的明细紧随其后且非加粗+有缩进
+        r = hdr + 1
+        for pr in pack_rows:
+            name = pr.get("name") or ""
+            cell = ws.cell(row=r, column=1)
+            self.assertEqual(cell.value, name, f"row {r} expected category {name}")
+            self.assertTrue(cell.font and cell.font.bold, f"category {name} should be bold")
+            # 金额与 pack 的 amt_disp 一致
+            self.assertEqual(
+                ws.cell(row=r, column=2).value,
+                pr.get("amt_disp") if pr.get("amt_disp") is not None else "",
+                f"amt mismatch for {name}",
+            )
+            r += 1
+            ok = pr.get("open_key")
+            if not ok:
+                continue
+            block = pack_details.get(str(ok)) or {}
+            for ln in block.get("lines") or []:
+                if not isinstance(ln, dict):
+                    continue
+                dcell = ws.cell(row=r, column=1)
+                self.assertEqual(dcell.value, ln.get("name") or "", f"detail name @row {r}")
+                self.assertFalse(
+                    bool(dcell.font and dcell.font.bold),
+                    f"detail row {r} should NOT be bold",
                 )
-        # 至少一张构成 sheet，数据行不加粗
-        detail_sheets = [n for n in wb.sheetnames if n.startswith("构成_")]
-        self.assertGreaterEqual(len(detail_sheets), 1, wb.sheetnames)
-        dws = wb[detail_sheets[0]]
-        self.assertTrue(dws.cell(row=1, column=1).font.bold)
-        if dws.max_row >= 2:
-            for r in range(2, dws.max_row + 1):
-                for c in range(1, 3):
-                    cell = dws.cell(row=r, column=c)
-                    self.assertFalse(
-                        bool(cell.font and cell.font.bold),
-                        f"detail row {r} col {c} should NOT be bold",
-                    )
-        # 导出说明口径
-        mws = wb["导出说明"]
-        vals = " ".join(str(c.value or "") for row in mws.iter_rows(min_row=1, max_col=2) for c in row)
-        self.assertIn("甲骨易经营看板", vals)
-        self.assertIn("整体", vals)
-        self.assertIn(self.yk, vals)
+                # 缩进
+                al = dcell.alignment
+                indent = int(getattr(al, "indent", 0) or 0) if al else 0
+                expect_indent = 2 if ln.get("sub") else 1
+                self.assertEqual(indent, expect_indent, f"indent @row {r} for {dcell.value}")
+                self.assertEqual(
+                    ws.cell(row=r, column=2).value,
+                    ln.get("amt_disp") if ln.get("amt_disp") is not None else "",
+                )
+                r += 1
+
+    def test_sampled_amounts_match_pack_disp(self):
+        """至少抽 3 个数字：页面/pack disp == 单元格。"""
+        raw = build_pl_xlsx_bytes(
+            self.summary, period_key=self.yk, is_bu=False, scope_label="整体"
+        )
+        wb = openpyxl.load_workbook(io.BytesIO(raw))
+        ws = wb.active
+        packed = pack_pl_by_period(self.summary, is_bu=False)[self.yk]
+        samples: list[tuple[str, str]] = []
+        for pr in packed.get("rows") or []:
+            if pr.get("amt_disp") and not pr.get("is_pct"):
+                samples.append((pr["name"], pr["amt_disp"]))
+            if len(samples) >= 3:
+                break
+        self.assertGreaterEqual(len(samples), 3)
+        # 建 name→amt 映射（含明细）
+        cell_map: dict[str, str] = {}
+        for row in ws.iter_rows(min_row=1, max_col=2):
+            n, a = row[0].value, row[1].value
+            if n and a is not None and n not in ("科目", "产品", "VERSION", "范围", "周期", "导出时间", "口径"):
+                cell_map[str(n)] = str(a)
+        for name, amt in samples:
+            self.assertIn(name, cell_map, f"missing {name}")
+            self.assertEqual(cell_map[name], amt, f"{name}: cell={cell_map[name]} pack={amt}")
 
     def test_period_sensitivity(self):
         pkeys = [k for k in self.periods if k != self.yk]
@@ -112,22 +184,14 @@ class TestBuildPlXlsxPure(unittest.TestCase):
         )
         wb1 = openpyxl.load_workbook(io.BytesIO(raw1))
         wb2 = openpyxl.load_workbook(io.BytesIO(raw2))
-        amts1 = [
-            wb1["管理利润表"].cell(row=r, column=2).value
-            for r in range(2, wb1["管理利润表"].max_row + 1)
-        ]
-        amts2 = [
-            wb2["管理利润表"].cell(row=r, column=2).value
-            for r in range(2, wb2["管理利润表"].max_row + 1)
-        ]
-        names1 = {
-            wb1["管理利润表"].cell(row=r, column=1).value
-            for r in range(2, wb1["管理利润表"].max_row + 1)
-        }
-        names2 = {
-            wb2["管理利润表"].cell(row=r, column=1).value
-            for r in range(2, wb2["管理利润表"].max_row + 1)
-        }
+        self.assertEqual(len(wb1.worksheets), 1)
+        self.assertEqual(len(wb2.worksheets), 1)
+        ws1, ws2 = wb1.active, wb2.active
+        hdr1, hdr2 = _data_start_row(ws1), _data_start_row(ws2)
+        amts1 = [ws1.cell(row=r, column=2).value for r in range(hdr1 + 1, ws1.max_row + 1)]
+        amts2 = [ws2.cell(row=r, column=2).value for r in range(hdr2 + 1, ws2.max_row + 1)]
+        names1 = {ws1.cell(row=r, column=1).value for r in range(hdr1 + 1, ws1.max_row + 1)}
+        names2 = {ws2.cell(row=r, column=1).value for r in range(hdr2 + 1, ws2.max_row + 1)}
         self.assertTrue(
             amts1 != amts2 or names1 != names2,
             f"expected period diff: {self.yk} vs {p2}",
@@ -247,8 +311,9 @@ class TestPlXlsxHttp(unittest.TestCase):
         ct = r.headers.get("content-type", "")
         self.assertIn("spreadsheet", ct)
         wb = openpyxl.load_workbook(io.BytesIO(r.content))
+        self.assertEqual(len(wb.worksheets), 1, wb.sheetnames)
         self.assertIn("管理利润表", wb.sheetnames)
-        self.assertTrue(any(n.startswith("构成_") for n in wb.sheetnames))
+        self.assertFalse(any(n.startswith("构成_") for n in wb.sheetnames))
         # dual mount
         r2 = c.get("/export/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r2.status_code, 200)
@@ -273,11 +338,13 @@ class TestPlXlsxHttp(unittest.TestCase):
         self.assertEqual(r2.status_code, 200, r2.text[:400])
         self.assertIn("spreadsheet", r2.headers.get("content-type", ""))
         wb = openpyxl.load_workbook(io.BytesIO(r2.content))
+        self.assertEqual(len(wb.worksheets), 1, wb.sheetnames)
         self.assertIn("管理利润表", wb.sheetnames)
+        # 抬头块含范围
         meta = " ".join(
-            str(cell.value or "")
-            for row in wb["导出说明"].iter_rows(min_row=1, max_col=2)
-            for cell in row
+            str(ws_cell.value or "")
+            for row in wb.active.iter_rows(min_row=1, max_row=8, max_col=2)
+            for ws_cell in row
         )
         self.assertIn("甲BU", meta)
 
