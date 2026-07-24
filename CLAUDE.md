@@ -34,15 +34,15 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.3.3 · 2026-07-23）
+## 当前状态（2.6.0 · 2026-07-25）
 
-- **版本**：`VERSION` = **2.3.3**（手填「房租→房租物业」「物业费→其他」+ 库 key 幂等迁移；台账剔除仍房租/物业费/装修费）。其上 2.3.2=利润表展示四改；2.3.1=霓虹深化；2.3.0=三主题。
-- **展示端**：霓虹默认且与深空一眼可辨（HUD/空间背景/KPI 光效/图表光效）；深空/晨光渲染路径不被霓虹污染；count-up 三主题；刷新 logo 入场填充加载；切 BU 有转场。
-- **管理端**：顶栏页签「展示」；管理端恒暗色；人工填写固定运营行名=房租物业/其他/装修费。
-- **工程**：`sh tests/run_verify.sh` 判绿；`tests/test_task_2_3_3_manual_rename.py`；`scripts/smoke_cockpit_local.sh` 本地冒烟。
-- **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代；运维见 `docs/Runbook.md` §0。
-- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功；霓虹样式仅 `[data-theme=neon]` / `fxLevel===1`；**手填展示名 ≠ 台账剔除名**。
-- **push**：只推 main 不推 tags。
+- **版本**：`VERSION` = **2.6.0**（单会话 cookie **`kanban_sid`**；旧 `kanban_session`/`kanban_view` **兼容读 21 天**并静默升级；统一 `/login`，未登录 `/admin` → 303 `/login?next=/admin`）。其上：2.5.0 删独立管理登录门面；2.4.3 根路径 BU 加固；2.3.x 三主题霓虹等。
+- **会话**：`src/session_ctx.py` 唯一 resolve；权限只看账号表；退出清 sid+两旧名；MADR-0023。
+- **展示端**：霓虹默认；深空/晨光；count-up；按账号分流整体/BU。
+- **管理端**：顶栏页签「展示」；恒暗色；与看端同一登录页进入。
+- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；`tests/test_task_2_6_0_session.py`。
+- **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代（`location = /` 必 proxy）；运维见 `docs/Runbook.md` §0。
+- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功；**前端零金额运算**；只推 main 不推 tags。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
 

@@ -6,7 +6,7 @@
 
 轻量 BI 经营驾驶舱：读 6 数据源 → SQLite 分整数 → profit/domain 算账 → **Vue3 看端 + 管理端 SPA** + API v1 VM。  
 入口：`python run.py` / `python run.py --serve`。  
-**当前版本**：见根目录 `VERSION`（现 **2.0.0-rc11** · tag `stage56_final` / 打磨中 `stage57_*`）。
+**当前版本**：见根目录 `VERSION`（现 **2.6.0**）：统一 `/login`、会话 cookie **`kanban_sid`**（旧 cookie 兼容读 21 天）。历史 tag 仅本地、不推远端。
 
 ## 架构（摘要）
 

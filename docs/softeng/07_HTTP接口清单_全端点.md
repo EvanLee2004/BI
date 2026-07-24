@@ -12,7 +12,7 @@
 | GET | `/` | 未登录→登录页；已登录按权限分流 | 看板统一入口 | 浏览器 |
 | POST | `/login` | 公开 | 账号+密码表单登录 | 看端登录表单 |
 | GET | `/bu/{name}` | 已登录且可看该 BU | BU 独立页 HTML | BU/整体/管理员 |
-| GET | `/admin` | 未登录→管理员登录页；已登录管理员→控制台 | Vue SPA（65 单轨） | 管理员 |
+| GET | `/admin` | 未登录→统一 `/login?next=/admin`；已登录管理员→控制台 | Vue SPA（65 单轨） | 管理员 |
 | POST | `/admin/login` | 公开 | 兼容旧 form | 2.5.0+ 转发统一鉴权；UI 已统一到 `/login` |
 | GET | `/admin/logout` | 清 cookie | 退出管理端 | 管理端 |
 | GET | `/admin/app.js` | 公开（壳资源） | 410 已下线（65·L1） | 管理端页面 |
