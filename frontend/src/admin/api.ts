@@ -70,7 +70,7 @@ export async function downloadBlob(path: string, fallbackName: string): Promise<
   URL.revokeObjectURL(a.href)
 }
 
-/** 管理员 JSON 登录（与 static/admin_login 一致） */
+/** 管理员 JSON 登录（2.5.0：与全员 /login → /api/v1/login 一致） */
 export async function adminLogin(account: string, password: string): Promise<{ ok: boolean; redirect?: string; detail?: string }> {
   const r = await fetch('/api/v1/login', {
     method: 'POST',

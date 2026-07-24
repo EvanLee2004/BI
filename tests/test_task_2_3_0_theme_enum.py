@@ -33,14 +33,16 @@ class TestThemeEnum230(unittest.TestCase):
         self.assertTrue(".theme-light{" in css or ".theme-light {" in css)
 
     def test_antiflicker_scripts_have_data_theme_and_v2(self):
-        """S1.4 五处内联防闪脚本统一。"""
+        """S1.4 真·登录/壳页内联防闪脚本统一。
+
+        2.5.0：admin_login.html 与 templates/login.html 已废为跳转壳（无主题 UI），
+        不在本测强制 data-theme。
+        """
         paths = [
             FE / "index.html",
             FE / "snapshot.html",
             STATIC / "view_login.html",
-            STATIC / "admin_login.html",
             STATIC / "templates" / "view_login.html",
-            STATIC / "templates" / "login.html",
         ]
         for p in paths:
             text = _read(p)

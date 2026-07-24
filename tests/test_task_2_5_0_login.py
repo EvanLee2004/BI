@@ -191,10 +191,25 @@ class TestNoStandaloneAdminLoginUi(unittest.TestCase):
         api = (ROOT / "frontend" / "src" / "admin" / "api.ts").read_text(encoding="utf-8")
         self.assertNotIn("/admin/login", api)
         lv = ROOT / "frontend" / "src" / "admin" / "views" / "LoginView.vue"
-        # 允许文件暂存一版；删后不存在即可
-        if lv.is_file():
-            # 若仍存在，不得被 router 引用（上面已断言）
-            pass
+        self.assertFalse(lv.is_file(), "admin/views/LoginView.vue 必须已删")
+
+    def test_static_view_login_forwards_next_query(self):
+        """GET /login 实装 = view_login.html；深链 next 必须进 POST body。"""
+        t = (ROOT / "static" / "view_login.html").read_text(encoding="utf-8")
+        self.assertIn("/api/v1/login", t)
+        self.assertIn('q.get("next")', t)
+        self.assertIn("body.next", t)
+
+    def test_static_admin_login_not_product_form(self):
+        t = (ROOT / "static" / "admin_login.html").read_text(encoding="utf-8")
+        self.assertNotIn("管理员端登录", t)
+        self.assertNotIn("<form", t)
+        self.assertNotIn("/api/v1/login", t)
+        self.assertIn("/login", t)
+        tpl = (ROOT / "static" / "templates" / "login.html").read_text(encoding="utf-8")
+        self.assertNotIn("管理员端登录", tpl)
+        self.assertNotIn("<form", tpl)
+        self.assertIn("/login", tpl)
 
 
 if __name__ == "__main__":

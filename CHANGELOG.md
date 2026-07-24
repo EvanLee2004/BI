@@ -15,6 +15,7 @@
 - **按账号分流**：管理员→`/admin`；整体→`/`；BU→`/bu/{可见BU}`（`src/login_redirect.py`）
 - **兼容**：`/admin/login`、未登录 `/admin` → 303 到 `/login?next=…`；`next` 白名单防 open redirect（BU 不可 next 进管理端）
 - **退出**：管理端 logout 落到 `/login`
+- **static 登录皮收口**：`view_login.html` 透传 URL `next`/`redirect` 进 `/api/v1/login`；`admin_login.html` 与 `templates/login.html` 改为跳转壳（无「管理员端登录」表单）；`_admin_login_file` 303 到统一登录
 
 ### Unchanged（红线）
 - 权限模型与双 cookie 互清；2.4.3 根路径 BU 回流；金额/智云未动

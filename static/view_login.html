@@ -58,13 +58,17 @@ padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;min-height:44px
   document.getElementById("loginForm").onsubmit=function(ev){
     ev.preventDefault();
     errBox.style.display="none";
+    // 2.5.0：深链 ?next= / ?redirect= 必须进 JSON，否则后端只能按角色默认落地
+    var body={
+      account:document.getElementById("account").value,
+      password:document.getElementById("password").value
+    };
+    var nxt=(q.get("next")||q.get("redirect")||"").trim();
+    if(nxt) body.next=nxt;
     fetch("/api/v1/login",{
       method:"POST",credentials:"include",
       headers:{"Content-Type":"application/json","Accept":"application/json"},
-      body:JSON.stringify({
-        account:document.getElementById("account").value,
-        password:document.getElementById("password").value
-      })
+      body:JSON.stringify(body)
     }).then(function(res){
       return res.json().then(function(j){return {ok:res.ok,status:res.status,j:j};});
     }).then(function(x){

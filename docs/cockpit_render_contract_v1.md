@@ -54,7 +54,8 @@
 | render/dual_*.html | fragments.rank_views / rankings_view |
 | render/period_*.html | fragments.period_bar |
 | partials/* | chrome_prefix / shell chrome |
-| static/view_login.html · admin_login.html | 登录 static + `/api/v1/login`（B-P4；错误前端渲染） |
+| static/view_login.html | 全员登录 static + `/api/v1/login`（B-P4；错误前端渲染；透传 `?next=`） |
+| static/admin_login.html · templates/login.html | 2.5.0 仅跳转壳 → `/login?next=/admin`（无独立管理登录表单） |
 | charts/* | chart fragments 嵌在 trend/donut |
 | errors/http_error.html | 54.12 R-14 友好 404/500（Accept:html；非 fragments 路径） |
 | export/fallback.html | 2.2.7 导出 HTML 降级壳（`export_html.fallback_export_html`；主路径 Playwright 抓 Vue） |

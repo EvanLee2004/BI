@@ -270,9 +270,14 @@ def _view_login_file():
 
 
 def _admin_login_file():
-    """管理端登录：纯 static。会话态文档 → no-store。"""
-    p = STATIC_DIR / "admin_login.html"
-    return _file_html_doc(p)
+    """2.5.0：不再返回独立管理登录皮；统一 303 → /login?next=/admin。"""
+    import login_redirect
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(
+        login_redirect.login_url(next_path="/admin"),
+        status_code=303,
+    )
 
 
 # ---------------- FastAPI 应用 ----------------
