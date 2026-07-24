@@ -190,12 +190,28 @@ def main():
         page.wait_for_timeout(1000)
         shot(page, out / "bu" / "02_root_redirect.png", "bu reopen root")
         assert "/bu/" in page.url, page.url
-        # B4 他 BU（user_a 只有 BU甲）→ 登录页或无权，不得当自己的 BU 页
-        page.goto(base + "/bu/" + "BU%E4%B9%99", wait_until="networkidle")  # BU乙
-        page.wait_for_timeout(1000)
+        # B4 他 BU（user_a 只有 BU甲）：HTTP 层须 303→/login（带会话会再被踢回本 BU，属产品链）
+        from urllib.parse import quote as _q
+
+        other = base + "/bu/" + _q("BU乙")
+        probe = page.evaluate(
+            """async (url) => {
+              const r = await fetch(url, {redirect: 'manual', credentials: 'include'});
+              return {status: r.status, location: r.headers.get('Location') || r.headers.get('location') || ''};
+            }""",
+            other,
+        )
+        (out / "bu" / "04_other_bu_http.txt").write_text(
+            f"status={probe.get('status')} location={probe.get('location')}\n",
+            encoding="utf-8",
+        )
+        assert int(probe.get("status") or 0) in (302, 303), probe
+        assert "login" in str(probe.get("location") or "").lower(), probe
+        page.goto(other, wait_until="networkidle")
+        page.wait_for_timeout(800)
         shot(page, out / "bu" / "04_other_bu.png", "bu other BU blocked")
-        # 未登录/无权 → /login 或 非成功渲染他 BU 专属
-        assert "/login" in page.url or "BU乙" not in (page.content()[:2000]), page.url
+        # 最终不得停在 /bu/BU乙 当「成功打开他 BU」
+        assert "BU%E4%B9%99" not in page.url and "/bu/BU乙" not in page.url, page.url
         # B5 退出
         page.evaluate("() => fetch('/api/v1/logout',{method:'POST',credentials:'include'})")
         page.wait_for_timeout(400)
