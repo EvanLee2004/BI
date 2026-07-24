@@ -7,8 +7,8 @@
 | **v2.6.0**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **2.5.0 要点**：**全员同一登录页；会话 cookie=`kanban_sid`（旧 cookie 兼容读 21 天）** `/login`，按账号分流（管理员→后台 / 整体→公司看板 / 业务线→本 BU）；已删除独立「管理员端登录」门面。  
-> **2.4.3**：根地址对 BU 三层加固。**2.4.x 前序**：导出一页化、导出到元、时间选择不裁切。
+> **2.6.0 要点**：**全员同一登录页** `/login`；会话只写 **`kanban_sid`**（HttpOnly + SameSite=Lax）；旧 `kanban_session`/`kanban_view` **兼容读 21 天**并静默升级；登录后按账号分流（管理员→后台 / 整体→公司看板 / 业务线→本 BU）。  
+> **2.5.0**：已删除独立「管理员端登录」门面。**2.4.3**：根地址对 BU 三层加固。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)
 

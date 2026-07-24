@@ -1,6 +1,6 @@
 # 07 · HTTP 接口清单（权威 · 从 server.py 数出）
 
-> **产品 v2.2.7**（2026-07-22；`VERSION` 为准）  
+> **产品 v2.6.0**（2026-07-25；以根目录 `VERSION` 为准）  
 > **统计方法**：对 `src/routes/*` + `server.py` 注册路由扫描；另挂载 dist/`/static/*`。  
 > **鉴权**：`_require` / `_user` / `_vacct` / `_can_view_*`；细节以源码为准。  
 > 页面 HTML；`/api/*` JSON。VM 字段闸：`scripts/gen_vm_ts.py --check`。cockpit 字段见 `docs/api-v1-cockpit.md`。
@@ -13,7 +13,7 @@
 | POST | `/login` | 公开 | 账号+密码表单登录 | 看端登录表单 |
 | GET | `/bu/{name}` | 已登录且可看该 BU | BU 独立页 HTML | BU/整体/管理员 |
 | GET | `/admin` | 未登录→管理员登录页；已登录管理员→控制台 | Vue SPA（65 单轨） | 管理员 |
-| POST | `/admin/login` | 公开 | 管理员登录 | 管理端登录表单 |
+| POST | `/admin/login` | 公开 | 兼容旧 form | 2.5.0+ 转发统一鉴权；UI 已统一到 `/login` |
 | GET | `/admin/logout` | 清 cookie | 退出管理端 | 管理端 |
 | GET | `/admin/app.js` | 公开（壳资源） | 410 已下线（65·L1） | 管理端页面 |
 | GET | `/static/*` | 公开 | CSS/JS/壳（看端+管理端） | 浏览器 |
