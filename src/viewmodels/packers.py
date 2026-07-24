@@ -16,17 +16,6 @@ def _wan(v) -> str:
     return charts.fmt_wan(float(v or 0))
 
 
-def _amt_disp(v) -> str:
-    """利润表金额显示串：带符号万元。"""
-    v = float(v or 0)
-    sign = "−" if v < 0 else ""
-    return sign + _wan(abs(v)) + "万"
-
-
-def _abs_amt_disp(v) -> str:
-    return _wan(abs(float(v or 0))) + "万"
-
-
 def _kpi_bu_orders_rows(bu_list, charts) -> list[dict[str, Any]]:
     if not bu_list:
         return []

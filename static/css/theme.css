@@ -166,6 +166,23 @@ html[data-theme="neon"] body > *{
   border-radius:999px;padding:4px 12px;font-size:12px;display:flex;align-items:center;gap:4px;
   font-family:inherit;transition:.2s}
 .toggle:hover{color:var(--ink);border-color:var(--accent)}
+/* 2.4.1：幽灵钮 / mini —— 对齐 .toggle 语言，暗色非白底，light 可读 */
+button.ghost, button.mini, .ghost.mini{
+  cursor:pointer;border:1px solid var(--line-2);background:var(--panel);color:var(--mut);
+  border-radius:999px;padding:4px 12px;font-size:12px;display:inline-flex;align-items:center;gap:4px;
+  font-family:inherit;transition:.2s;line-height:1.3;box-sizing:border-box}
+button.ghost:hover, button.mini:hover, .ghost.mini:hover{
+  color:var(--ink);border-color:var(--accent)}
+button.ghost:disabled, button.mini:disabled, .ghost.mini:disabled{
+  opacity:.55;cursor:not-allowed}
+button.ghost:disabled:hover, button.mini:disabled:hover{
+  color:var(--mut);border-color:var(--line-2)}
+/* 管理利润表导出：青描边强调 */
+.pl-card .pl-export-btn, button.pl-export-btn{
+  color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2))}
+.pl-card .pl-export-btn:hover, button.pl-export-btn:hover{
+  color:var(--ink);border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
 /* BU 页：返回整体 —— 顶栏固定（sticky topbar 内）+ 内容区紧贴「看哪段」 */
 .bu-back{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;
   border-radius:999px;border:1px solid var(--line-2);background:var(--panel);color:var(--blue);

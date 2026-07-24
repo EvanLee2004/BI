@@ -8,6 +8,19 @@
 
 ---
 
+## [2.4.1] - 2026-07-24
+
+### Changed
+- **管理利润表导出金额 = 元**：`export_pl_xlsx` 改走全量 `pl_structure` 的 `impact`（分）→ `money.fen_to_yuan`，Excel 数字列 `#,##0.00`；百分比行仍 `%`；数据区金额串无「万」；抬头口径「金额单位：元（页面看板仍为万元展示）」
+- **导出按钮暗色适配**：`theme.css` 补全 `button.ghost` / `button.mini`（对齐 `.toggle`）；`.pl-export-btn` 青描边强调；rebuild frontend dist
+- 死代码：`packers._amt_disp` / `_abs_amt_disp`（零调用）；导出侧 `_safe_sheet_name` 简化为固定 sheet 名「管理利润表」
+- 测试：`test_task_2_3_6_pl_xlsx` 断言改为无万 + 元换算 + 百分比 + HTTP 保留
+
+### Unchanged（红线）
+- 页面 KPI/利润表仍万元；`src/profit/*`、鉴权/文件名、顶栏 export.html 未动
+
+---
+
 ## [2.4.0] - 2026-07-23
 
 ### Added

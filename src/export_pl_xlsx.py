@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""管理利润表 Excel 导出（2.4.0：一页化）。
+"""管理利润表 Excel 导出（2.4.1：金额=元；2.4.0 一页化版式）。
 
 纯函数：从既有 summary + period_key 组装 xlsx bytes。
-数据源复用 pack_pl_by_period / structure_for_vm，金额只写 amt_disp 展示串，
-禁止再算税前/毛利。
+数据源用 domain.pl.structure.pl_structure 全量（含 impact 分 / is_pct），
+金额列 = money.fen_to_yuan(impact) 数字元（#,##0.00）；百分比行写展示串。
+禁止写页面 amt_disp 万元串；禁止再算税前/毛利。
 
 一张 sheet：抬头块 + 主表大类行（加粗）+ 各大类 details 内嵌明细
-（缩进 + 浅灰 + 字号小一号）。「导出说明」不再单开 sheet。
+（缩进 + 浅灰 + 字号小一号）。
 """
 
 from __future__ import annotations
@@ -22,8 +23,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-# Excel sheet 名：≤31、禁 []:*?/\
-_SHEET_ILLEGAL = re.compile(r'[\[\]:*?/\\]')
+# 文件名非法字符
 _FNAME_ILLEGAL = re.compile(r'[\\/:*?"<>|\s]+')
 
 _BOLD = Font(bold=True, size=11)
@@ -34,19 +34,10 @@ _META_VALUE = Font(bold=False, size=10)
 _HEADER = Font(bold=True, size=11)
 _DETAIL_FILL = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
 
+# Excel 金额数字格式（元）
+_YUAN_NUM_FMT = "#,##0.00"
 
-def _safe_sheet_name(raw: str, used: set[str], *, max_len: int = 31) -> str:
-    """生成合法且不重复的 sheet 名。"""
-    base = _SHEET_ILLEGAL.sub("", str(raw or "").strip()) or "Sheet"
-    base = base[:max_len]
-    name = base
-    n = 2
-    while name in used:
-        suffix = f"_{n}"
-        name = (base[: max_len - len(suffix)] + suffix) if len(base) + len(suffix) > max_len else base + suffix
-        n += 1
-    used.add(name)
-    return name
+_CALIBER = "与看板管理利润表当前筛选一致；金额单位：元（页面看板仍为万元展示）"
 
 
 def safe_filename_part(s: str) -> str:
@@ -78,7 +69,7 @@ def _write_header_block(
         ("范围", str(scope_label or ("整体" if not is_bu else ""))),
         ("周期", str(period_key)),
         ("导出时间", when),
-        ("口径", "与看板管理利润表当前筛选一致；金额为展示串"),
+        ("口径", _CALIBER),
     ]
     row = 1
     for k, v in info_rows:
@@ -88,6 +79,29 @@ def _write_header_block(
     # 空行分隔抬头与表头
     row += 1
     return row
+
+
+def _amount_cell_value(item: dict[str, Any]) -> Any:
+    """金额列写入值：百分比 → 展示串；否则 impact 分 → 元 float。"""
+    import money
+
+    if item.get("is_pct"):
+        return item.get("amt_disp") if item.get("amt_disp") is not None else ""
+    impact = item.get("impact")
+    if impact is None:
+        return ""
+    return money.fen_to_yuan(impact)
+
+
+def _write_amount_cell(cell, item: dict[str, Any], *, font: Font, fill: PatternFill | None = None) -> None:
+    """写金额列：元数字 + #,##0.00；百分比写字符串。"""
+    val = _amount_cell_value(item)
+    cell.value = val
+    cell.font = font
+    if fill is not None:
+        cell.fill = fill
+    if not item.get("is_pct") and isinstance(val, (int, float)):
+        cell.number_format = _YUAN_NUM_FMT
 
 
 def _write_single_sheet(
@@ -118,10 +132,9 @@ def _write_single_sheet(
 
     for r in rows:
         name = r.get("name") or ""
-        amt = r.get("amt_disp") if r.get("amt_disp") is not None else ""
         formula = r.get("formula") or ""
         ws.cell(row=row_idx, column=1, value=name).font = _BOLD
-        ws.cell(row=row_idx, column=2, value=amt).font = _BOLD
+        _write_amount_cell(ws.cell(row=row_idx, column=2), r, font=_BOLD)
         ws.cell(row=row_idx, column=3, value=formula).font = _BOLD
         row_idx += 1
 
@@ -135,16 +148,14 @@ def _write_single_sheet(
             if not isinstance(ln, dict):
                 continue
             ln_name = ln.get("name") or ""
-            ln_amt = ln.get("amt_disp") if ln.get("amt_disp") is not None else ""
             # sub 行更深缩进（二级明细）
             indent = 2 if ln.get("sub") else 1
             c1 = ws.cell(row=row_idx, column=1, value=ln_name)
             c1.font = _DETAIL
             c1.alignment = Alignment(indent=indent)
             c1.fill = _DETAIL_FILL
-            c2 = ws.cell(row=row_idx, column=2, value=ln_amt)
-            c2.font = _DETAIL
-            c2.fill = _DETAIL_FILL
+            # 明细行无 is_pct；用 impact 写元
+            _write_amount_cell(ws.cell(row=row_idx, column=2), ln, font=_DETAIL, fill=_DETAIL_FILL)
             c3 = ws.cell(row=row_idx, column=3, value="")
             c3.font = _DETAIL
             c3.fill = _DETAIL_FILL
@@ -152,8 +163,36 @@ def _write_single_sheet(
 
     _set_col_widths(ws, headers, extra=12, cap=40)
     ws.column_dimensions["A"].width = 28
-    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["B"].width = 18
     ws.column_dimensions["C"].width = 36
+
+
+def _struct_for_period(summary: dict, period_key: str, *, is_bu: bool) -> dict[str, Any]:
+    """与 pack_pl_by_period 同入参组装，返回裁剪前 pl_structure（含 impact 分）。"""
+    from domain.pl.structure import pl_structure
+
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    FT = summary.get("expense_fine_type") or {}
+    yk = meta.get("year_key") or ""
+    unc = (meta.get("unclassified") or {}).get("expense") or {}
+    unc_amt = float(unc.get("amount") or 0) if unc else 0.0
+    alloc = meta.get("public_allocation") or {"enabled": False}
+
+    if period_key not in P:
+        raise KeyError(period_key)
+    p = P[period_key]
+    if not isinstance(p, dict):
+        raise KeyError(period_key)
+
+    unc_use = unc_amt if ((not is_bu) and unc_amt > 0 and period_key == yk) else None
+    return pl_structure(
+        p,
+        FT.get(period_key) or {},
+        is_bu=is_bu,
+        unclassified_amt=unc_use,
+        alloc_meta=alloc if is_bu else None,
+    )
 
 
 def build_pl_xlsx_bytes(
@@ -165,7 +204,7 @@ def build_pl_xlsx_bytes(
     version: str = "",
     export_time: str | None = None,
 ) -> bytes:
-    """组装管理利润表 xlsx（单 sheet）。
+    """组装管理利润表 xlsx（单 sheet；金额=元）。
 
     Parameters
     ----------
@@ -185,23 +224,16 @@ def build_pl_xlsx_bytes(
     Raises
     ------
     KeyError
-        period_key 不在 pack 结果中（路由层应转 400）。
+        period_key 不在 summary.periods 中（路由层应转 400）。
     """
-    from viewmodels.packers import pack_pl_by_period
-
-    packed = pack_pl_by_period(summary, is_bu=is_bu)
-    if period_key not in packed:
-        raise KeyError(period_key)
-    pl: dict[str, Any] = packed[period_key]
-    rows = list(pl.get("rows") or [])
-    details = dict(pl.get("details") or {})
+    struct = _struct_for_period(summary, period_key, is_bu=is_bu)
+    rows = list(struct.get("rows") or [])
+    details = dict(struct.get("details") or {})
 
     wb = openpyxl.Workbook()
-    used_names: set[str] = set()
-
     ws = wb.active
     assert ws is not None
-    ws.title = _safe_sheet_name("管理利润表", used_names)
+    ws.title = "管理利润表"
     _write_single_sheet(
         ws,
         rows,

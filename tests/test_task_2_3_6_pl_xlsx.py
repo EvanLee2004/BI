@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.3.6→2.4.0 管理利润表 Excel 导出：单 sheet 一页化 + 周期敏感 + HTTP 鉴权隔离。"""
+"""2.3.6→2.4.1 管理利润表 Excel 导出：单 sheet 一页化 + 金额=元 + HTTP 鉴权隔离。"""
 from __future__ import annotations
 
 import io
@@ -21,10 +21,11 @@ import bu  # noqa: E402
 import core  # noqa: E402
 import db  # noqa: E402
 import loaders  # noqa: E402
+import money  # noqa: E402
 import openpyxl  # noqa: E402
 import server  # noqa: E402
+from domain.pl.structure import pl_structure  # noqa: E402
 from export_pl_xlsx import build_pl_xlsx_bytes, pl_xlsx_filename  # noqa: E402
-from viewmodels.packers import pack_pl_by_period  # noqa: E402
 
 FAKE = ROOT / "_golden_data"
 
@@ -53,6 +54,26 @@ def _data_start_row(ws) -> int:
     raise AssertionError("未找到表头「科目」")
 
 
+def _full_struct(summary: dict, period_key: str, *, is_bu: bool = False) -> dict:
+    """与 export / pack 同入参的全量 pl_structure（含 impact）。"""
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    FT = summary.get("expense_fine_type") or {}
+    yk = meta.get("year_key") or ""
+    unc = (meta.get("unclassified") or {}).get("expense") or {}
+    unc_amt = float(unc.get("amount") or 0) if unc else 0.0
+    alloc = meta.get("public_allocation") or {"enabled": False}
+    p = P[period_key]
+    unc_use = unc_amt if ((not is_bu) and unc_amt > 0 and period_key == yk) else None
+    return pl_structure(
+        p,
+        FT.get(period_key) or {},
+        is_bu=is_bu,
+        unclassified_amt=unc_use,
+        alloc_meta=alloc if is_bu else None,
+    )
+
+
 class TestBuildPlXlsxPure(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -67,8 +88,8 @@ class TestBuildPlXlsxPure(unittest.TestCase):
             period_key=self.yk,
             is_bu=False,
             scope_label="整体",
-            version="2.4.0",
-            export_time="2026-07-23 12:00:00",
+            version="2.4.1",
+            export_time="2026-07-24 12:00:00",
         )
         self.assertIsInstance(raw, (bytes, bytearray))
         self.assertGreater(len(raw), 100)
@@ -84,8 +105,8 @@ class TestBuildPlXlsxPure(unittest.TestCase):
             period_key=self.yk,
             is_bu=False,
             scope_label="整体",
-            version="2.4.0",
-            export_time="2026-07-23 12:00:00",
+            version="2.4.1",
+            export_time="2026-07-24 12:00:00",
         )
         wb = openpyxl.load_workbook(io.BytesIO(raw))
         self.assertEqual(len(wb.worksheets), 1)
@@ -99,15 +120,17 @@ class TestBuildPlXlsxPure(unittest.TestCase):
         self.assertIn("甲骨易经营看板", blob_meta)
         self.assertIn("整体", blob_meta)
         self.assertIn(self.yk, blob_meta)
-        self.assertIn("2.4.0", blob_meta)
+        self.assertIn("2.4.1", blob_meta)
+        self.assertIn("金额单位：元", blob_meta)
+        self.assertIn("页面看板仍为万元展示", blob_meta)
 
         hdr = _data_start_row(ws)
         self.assertEqual(ws.cell(row=hdr, column=1).value, "科目")
         self.assertTrue(ws.cell(row=hdr, column=1).font.bold)
 
-        packed = pack_pl_by_period(self.summary, is_bu=False)[self.yk]
-        pack_rows = list(packed.get("rows") or [])
-        pack_details = dict(packed.get("details") or {})
+        struct = _full_struct(self.summary, self.yk, is_bu=False)
+        pack_rows = list(struct.get("rows") or [])
+        pack_details = dict(struct.get("details") or {})
 
         # 扫描数据区：大类加粗；有 open_key 的明细紧随其后且非加粗+有缩进
         r = hdr + 1
@@ -116,12 +139,22 @@ class TestBuildPlXlsxPure(unittest.TestCase):
             cell = ws.cell(row=r, column=1)
             self.assertEqual(cell.value, name, f"row {r} expected category {name}")
             self.assertTrue(cell.font and cell.font.bold, f"category {name} should be bold")
-            # 金额与 pack 的 amt_disp 一致
-            self.assertEqual(
-                ws.cell(row=r, column=2).value,
-                pr.get("amt_disp") if pr.get("amt_disp") is not None else "",
-                f"amt mismatch for {name}",
-            )
+            amt_cell = ws.cell(row=r, column=2)
+            if pr.get("is_pct"):
+                self.assertEqual(
+                    amt_cell.value,
+                    pr.get("amt_disp") if pr.get("amt_disp") is not None else "",
+                    f"pct mismatch for {name}",
+                )
+            else:
+                expect_yuan = money.fen_to_yuan(pr.get("impact"))
+                self.assertIsInstance(amt_cell.value, (int, float), f"{name} should be number")
+                self.assertAlmostEqual(
+                    float(amt_cell.value),
+                    float(expect_yuan),
+                    places=2,
+                    msg=f"yuan mismatch for {name}",
+                )
             r += 1
             ok = pr.get("open_key")
             if not ok:
@@ -141,36 +174,62 @@ class TestBuildPlXlsxPure(unittest.TestCase):
                 indent = int(getattr(al, "indent", 0) or 0) if al else 0
                 expect_indent = 2 if ln.get("sub") else 1
                 self.assertEqual(indent, expect_indent, f"indent @row {r} for {dcell.value}")
-                self.assertEqual(
-                    ws.cell(row=r, column=2).value,
-                    ln.get("amt_disp") if ln.get("amt_disp") is not None else "",
-                )
+                d_amt = ws.cell(row=r, column=2)
+                expect_ln = money.fen_to_yuan(ln.get("impact"))
+                self.assertIsInstance(d_amt.value, (int, float), f"detail {ln.get('name')} number")
+                self.assertAlmostEqual(float(d_amt.value), float(expect_ln), places=2)
                 r += 1
 
-    def test_sampled_amounts_match_pack_disp(self):
-        """至少抽 3 个数字：页面/pack disp == 单元格。"""
+    def test_amounts_yuan_no_wan_and_match_impact(self):
+        """金额列无「万」；≥3 个大类行 abs(cell_yuan - impact_fen/100) < 0.005；百分比含 %。"""
         raw = build_pl_xlsx_bytes(
             self.summary, period_key=self.yk, is_bu=False, scope_label="整体"
         )
         wb = openpyxl.load_workbook(io.BytesIO(raw))
         ws = wb.active
-        packed = pack_pl_by_period(self.summary, is_bu=False)[self.yk]
-        samples: list[tuple[str, str]] = []
-        for pr in packed.get("rows") or []:
-            if pr.get("amt_disp") and not pr.get("is_pct"):
-                samples.append((pr["name"], pr["amt_disp"]))
-            if len(samples) >= 3:
-                break
-        self.assertGreaterEqual(len(samples), 3)
-        # 建 name→amt 映射（含明细）
-        cell_map: dict[str, str] = {}
-        for row in ws.iter_rows(min_row=1, max_col=2):
-            n, a = row[0].value, row[1].value
-            if n and a is not None and n not in ("科目", "产品", "VERSION", "范围", "周期", "导出时间", "口径"):
-                cell_map[str(n)] = str(a)
-        for name, amt in samples:
-            self.assertIn(name, cell_map, f"missing {name}")
-            self.assertEqual(cell_map[name], amt, f"{name}: cell={cell_map[name]} pack={amt}")
+        hdr = _data_start_row(ws)
+        struct = _full_struct(self.summary, self.yk, is_bu=False)
+
+        # 扫数据区金额列：不得含「万」（抬头口径可提「万元展示」，不扫抬头）
+        for row in range(hdr + 1, (ws.max_row or hdr) + 1):
+            val = ws.cell(row=row, column=2).value
+            if val is None:
+                continue
+            s = str(val)
+            self.assertNotIn("万", s, f"row {row} amount must not contain 万: {s!r}")
+
+        # 按导出顺序对齐大类行（勿用 name→map：明细可能重名覆盖）
+        samples = 0
+        pct_checked = 0
+        r = hdr + 1
+        for pr in struct.get("rows") or []:
+            name = pr.get("name") or ""
+            self.assertEqual(ws.cell(row=r, column=1).value, name, f"row order @ {r}")
+            cell_val = ws.cell(row=r, column=2).value
+            if pr.get("is_pct"):
+                self.assertIn("%", str(cell_val), f"pct row {name} should contain %")
+                pct_checked += 1
+            else:
+                impact = pr.get("impact")
+                if impact is not None:
+                    expect = float(impact) / 100.0
+                    self.assertIsInstance(cell_val, (int, float), f"{name} should be number yuan")
+                    self.assertLess(
+                        abs(float(cell_val) - expect),
+                        0.005,
+                        f"{name}: cell={cell_val} expect_yuan={expect} impact_fen={impact}",
+                    )
+                    samples += 1
+            r += 1
+            ok = pr.get("open_key")
+            if not ok:
+                continue
+            block = (struct.get("details") or {}).get(str(ok)) or {}
+            for ln in block.get("lines") or []:
+                if isinstance(ln, dict):
+                    r += 1  # 跳过内嵌明细行
+        self.assertGreaterEqual(samples, 3, "need ≥3 non-pct category amount checks")
+        self.assertGreaterEqual(pct_checked, 1, "need ≥1 percent row")
 
     def test_period_sensitivity(self):
         pkeys = [k for k in self.periods if k != self.yk]
@@ -211,6 +270,15 @@ class TestBuildPlXlsxPure(unittest.TestCase):
         self.assertEqual(fn, "管理利润表_游戏_2026年Q1_20260723.xlsx")
         fn2 = pl_xlsx_filename(scope_label="整体", period_key="2026年", day="20260723")
         self.assertIn("管理利润表_整体_", fn2)
+
+    def test_theme_ghost_styles_present(self):
+        """静态守卫：theme.css 含 ghost/mini 暗色样式（非仅 min-height）。"""
+        css = (ROOT / "static/css/theme.css").read_text(encoding="utf-8")
+        self.assertIn("button.ghost", css)
+        self.assertIn("button.mini", css)
+        self.assertIn("pl-export-btn", css)
+        # 须有 panel/背景 token，禁止只写 min-height
+        self.assertRegex(css, r"button\.ghost[^}]*background\s*:\s*var\(--panel\)")
 
 
 class TestPlXlsxHttp(unittest.TestCase):
@@ -314,6 +382,14 @@ class TestPlXlsxHttp(unittest.TestCase):
         self.assertEqual(len(wb.worksheets), 1, wb.sheetnames)
         self.assertIn("管理利润表", wb.sheetnames)
         self.assertFalse(any(n.startswith("构成_") for n in wb.sheetnames))
+        # 数据区金额列无「万」（抬头口径可含「万元展示」）
+        ws = wb.active
+        hdr = _data_start_row(ws)
+        for rr in range(hdr + 1, (ws.max_row or hdr) + 1):
+            val = ws.cell(row=rr, column=2).value
+            if val is None:
+                continue
+            self.assertNotIn("万", str(val), f"data amount row {rr}")
         # dual mount
         r2 = c.get("/export/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r2.status_code, 200)
@@ -357,6 +433,7 @@ class TestPlXlsxHttp(unittest.TestCase):
         self.assertIn("store.period", pl)
         self.assertIn("snapshotMode", pl)
         self.assertIn("pl-export-excel", pl)
+        self.assertIn("pl-export-btn", pl)
         # 顶栏仍是 HTML 快照，不得被换成 pl.xlsx 唯一导出
         self.assertIn("export.html", top)
         self.assertNotIn("export/pl.xlsx", top)

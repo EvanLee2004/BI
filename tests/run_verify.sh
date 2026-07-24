@@ -93,6 +93,7 @@ tests/test_domain_reexport.py
 tests/test_echarts_vm_labels.py
 tests/frontend/parity/test_parity_structure.py
 tests/test_task66_stage66_batch_b.py
+tests/test_task_2_3_6_pl_xlsx.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="

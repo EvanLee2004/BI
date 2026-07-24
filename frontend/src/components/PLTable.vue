@@ -220,5 +220,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
 .pl-export-btn {
   flex-shrink: 0;
   white-space: nowrap;
+  /* 主题色由 theme.css button.ghost + .pl-export-btn 提供（2.4.1 暗色适配） */
 }
 </style>
