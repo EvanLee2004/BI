@@ -4,10 +4,13 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v2.4.0**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v2.4.3**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **2.4.0 要点**：管理利润表 **Excel 一页化**导出；公共费用 **统一分摊两轴**（金额覆盖 × 精配/默认层）；看端顶栏导出仍为 **自包含 HTML 快照**（非 PNG）。
+> **2.4.3 要点**：业务线账号反复打开**根地址**也能进（nginx 根路径反代 + 前端 session/403 回流）；用户只记**内网一个 + 外网一个**入口。  
+> **2.4.x 前序**：2.4.0 利润表 Excel 一页化 + 公共费用两轴分摊；2.4.1 导出金额到「元」；2.4.2 时间选择下拉不裁切。
+
+**运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)
 
 ---
 
