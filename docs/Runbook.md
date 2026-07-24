@@ -8,7 +8,8 @@
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
 | 版本 | **2.2.0**（`stage66_debtfree`；金额分整数 / 增量重算 / VM 闸 / 抓数护栏） |
 | 进程托管 | **systemd `kanban`**：User=**lee**（与数据目录属主一致，非模板占位 kanban）、enabled+active、Restart=always、StartLimit 5/120s；**沙箱** NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths（程序树/数据/备份/归档/`/run/user/1000`/`/home/lee`）；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0` |
-| 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`**（勿 DENY——管理端「看」iframe 嵌 `/`）/ Referrer-Policy |
+| 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`**（勿 DENY——管理端「看」iframe 嵌 `/`）/ Referrer-Policy |
+| 用户入口口径 | **只发两个根链接**：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`（办公区内勿用外网；用自己账号登录即可） |
 | 休眠 | `sleep`/`suspend`/`hibernate`/`hybrid-sleep` **target 已 mask**（不会睡死断服） |
 | 每日更新 | **服务内 ScheduleLoop**（09:30 / 12:00 / 17:00 备忘；以机上 `schedule_times` 为准） |
 | 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled` |
@@ -26,6 +27,13 @@
 5. 对外不通但 app 活：查 nginx —— `systemctl status nginx`、`sudo nginx -t`、`curl -s -o/dev/null -w '%{http_code}' http://localhost/login`
 6. 若 503 数据未生成：管理端「更新数据」或机上 `sudo -u lee .venv/bin/python run.py`
 7. **`built_at` 不走 / 到点页面不刷新**：先看服务日志是否有 `schedule_loop started times=…`；再看 `/api/refresh_status` 的 `refreshing` 是否卡住；确认管理端 `schedule_times` 与机上本地时区。**勿**指望 cron `run.py --scheduled` 更新页面内存（独立进程不写 `_state`）
+8. **业务线账号「第一次能进、再开根地址进不去」**（2.4.3）：多半是 nginx 根路径未反代。核对 `location = /` 含 `proxy_pass`、**无** `try_files /index.html`；仓库 conf 变更后必须：
+   ```bash
+   sudo cp /opt/kanban/看板正式程序/deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+   # sites-enabled 若已是 symlink 到 available 则无需再 ln
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+   **禁止**只 `git pull` 不 reload nginx。发版后管理端 chunk 404：用户强制刷新浏览器（Ctrl/Cmd+Shift+R）。
 
 ## 2. 回滚版本
 

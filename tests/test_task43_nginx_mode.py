@@ -92,6 +92,18 @@ class TestNginxConfTemplate(unittest.TestCase):
         self.assertRegex(t, r"export\\\.\(png\|html\)|export\\\.\(html\|png\)|export\\.\(png\|html\)")
         self.assertIn("export.html", t)
 
+    def test_exact_root_proxies_backend_not_spa_index(self):
+        """2.4.3：location = / 必须反代，禁止 try_files /index.html 抢先（BU 绕过 303）。"""
+        import re
+
+        t = (ROOT / "deploy" / "linux" / "nginx-kanban.conf").read_text(encoding="utf-8")
+        m = re.search(r"location\s+=\s+/\s*\{(.*?)\n\s*\}", t, flags=re.DOTALL)
+        self.assertIsNotNone(m, "missing location = /")
+        body = m.group(1)
+        self.assertIn("proxy_pass", body)
+        self.assertNotIn("try_files", body)
+        self.assertNotIn("index.html", body)
+
 
 class TestNginxTIfPresent(unittest.TestCase):
     def test_nginx_t_optional(self):

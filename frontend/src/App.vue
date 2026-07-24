@@ -2,7 +2,12 @@
 import { onMounted, computed, onErrorCaptured, ref } from 'vue'
 import { onVueErrorCaptured } from './utils/frontendErrorReporter'
 import { useCockpitStore } from './stores/cockpit'
-import { fetchProductVersion } from './api/client'
+import { fetchProductVersion, fetchSession } from './api/client'
+import {
+  navigateToBuPath,
+  shouldRedirectRootToBu,
+  type SessionLike,
+} from './utils/buEntryRedirect'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
 import logoUrl from './assets/logo.png'
 import LoginView from './components/LoginView.vue'
@@ -76,7 +81,22 @@ onMounted(async () => {
   } catch {
     productVer.value = ''
   }
+
+  // 2.4.3：根路径 + 纯 BU 会话 → 先跳 /bu/xxx，禁止无脑 loadMain 打 cockpit 403 空壳
   const bu = isBuRoute.value
+  if (!bu && (path === '/' || path === '')) {
+    try {
+      const sess = (await fetchSession()) as SessionLike
+      const dest = shouldRedirectRootToBu(path || '/', sess)
+      if (dest) {
+        navigateToBuPath(dest)
+        return
+      }
+    } catch {
+      /* 未登录等：交给 loadMain → 401 跳登录 */
+    }
+  }
+
   if (bu) await store.loadBu(bu)
   else await store.loadMain()
 })

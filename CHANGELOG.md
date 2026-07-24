@@ -8,6 +8,21 @@
 
 ---
 
+## [2.4.3] - 2026-07-24
+
+### Fixed
+- **BU 根路径二次进不去 / 403 空壳**：`location = /` 改为强制 `proxy_pass` 后端（禁止 `try_files /index.html` 绕过 `GET /` 对纯 BU 的 303→`/bu/xxx`）
+- **前端双保险**：根路径 + 纯 BU 会话先 `fetchSession` 再跳业务线；`loadMain` 遇 cockpit 403「无整体…」自动回流 `/bu/...`
+- **退出登录 cookie**：`delete_cookie` 与 set 一致带 `path=/` + samesite，降低身份残留
+
+### Docs
+- 用户口径只推荐两个根链接（内网 / 外网）；Runbook 补 nginx conf 同步 reload
+
+### Unchanged（红线）
+- BU 隔离与整体 cockpit 鉴权不削弱；智云抓数 / 金额口径未动
+
+---
+
 ## [2.4.2] - 2026-07-24
 
 ### Fixed

@@ -1,7 +1,13 @@
 import { friendlyError } from '../utils/friendlyError'
+import {
+  buPathFromSession,
+  isOverallForbiddenError,
+  navigateToBuPath,
+  type SessionLike,
+} from '../utils/buEntryRedirect'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchBuVm, fetchCockpitVm } from '../api/client'
+import { fetchBuVm, fetchCockpitVm, fetchSession } from '../api/client'
 import type { PageVM, RankViewBlk } from '../types/vm'
 
 /** 2.2.9 导出快照包（与后端 assemble_export_pack 对齐） */
@@ -279,6 +285,19 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
+      // 2.4.3：整体 cockpit 403「无整体…」→ 回流本账号业务线，禁止永久空壳
+      if (isOverallForbiddenError(e)) {
+        try {
+          const sess = (await fetchSession()) as SessionLike
+          const dest = buPathFromSession(sess)
+          if (dest) {
+            navigateToBuPath(dest)
+            return
+          }
+        } catch {
+          /* fall through to friendly error */
+        }
+      }
       error.value = friendlyError(e)
     } finally {
       loading.value = false
