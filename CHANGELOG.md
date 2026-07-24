@@ -8,6 +8,18 @@
 
 ---
 
+## [2.4.2] - 2026-07-24
+
+### Fixed
+- **时间选择下拉裁切**：左上 PeriodPicker 面板由 `right:0` 改为 `left:0`（随 2.2.4 归左上后右对齐会把 320px 面板推出视口左侧，裁切「自定义区间」等）
+- **窄屏夹紧**：打开/resize/切 tab 时 `clampPanelInViewport` 把面板限制在视口内（左右各 ≥8px）
+- rebuild `frontend/dist` + `dist-snapshot`
+
+### Unchanged（红线）
+- 周期 key/算账/鉴权/导出逻辑未动；仅定位样式 + 视口夹紧
+
+---
+
 ## [2.4.1] - 2026-07-24
 
 ### Changed

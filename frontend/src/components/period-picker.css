@@ -27,8 +27,10 @@
 .pp-panel {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
-  width: min(320px, calc(100vw - 24px));
+  /* 2.2.4 起选择器在左上标题旁：右对齐会把 320px 面板往左推出视口裁切「自定义区间」等 */
+  left: 0;
+  right: auto;
+  width: min(320px, calc(100vw - 32px));
   max-height: min(520px, 78vh);
   overflow: auto;
   padding: 10px;
@@ -151,8 +153,8 @@
 /* 2.3.4：已移除 .pp-custom-list 快捷组合墙（1-2月/2-3月…） */
 @media (max-width: 400px) {
   .pp-panel {
-    right: auto;
     left: 0;
+    right: auto;
     width: min(300px, calc(100vw - 16px));
   }
   .pp-grid-4 {

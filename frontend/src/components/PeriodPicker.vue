@@ -3,7 +3,7 @@
  * 两段式周期选择（年/季/月/自定义区间）。
  * 2.3.4：自定义区间 = 起止月筛选（无 1-2月/2-3月… 快捷组合墙）；仅映射 store.vm.period_keys。
  */
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import {
   classifyPeriodKey,
@@ -18,6 +18,8 @@ const grain = ref<PeriodGrain>('year')
 const customFrom = ref(1)
 const customTo = ref(1)
 const rootEl = ref<HTMLElement | null>(null)
+/** 面板相对 .pp 的 left 偏移（px）；默认 0=与触发钮左对齐，窄屏夹紧视口时会改 */
+const panelLeftPx = ref(0)
 
 const keys = computed(() => (store.vm?.period_keys as string[]) || [])
 const current = computed(() => store.period || store.vm?.year_key || '')
@@ -111,9 +113,35 @@ function applyCustom() {
   if (customKey.value) pick(customKey.value)
 }
 
+/** 左对齐触发钮；若右侧溢出视口则左移夹紧，且不超出视口左缘 8px */
+async function clampPanelInViewport() {
+  const root = rootEl.value
+  if (!root) return
+  panelLeftPx.value = 0
+  await nextTick()
+  const panel = root.querySelector('.pp-panel') as HTMLElement | null
+  if (!panel) return
+  const margin = 8
+  const pr = panel.getBoundingClientRect()
+  const overflowRight = pr.right - (window.innerWidth - margin)
+  if (overflowRight > 0) {
+    panelLeftPx.value = -overflowRight
+    await nextTick()
+  }
+  const pr2 = panel.getBoundingClientRect()
+  if (pr2.left < margin) {
+    panelLeftPx.value += margin - pr2.left
+  }
+}
+
 function toggle() {
   open.value = !open.value
-  if (open.value) syncGrainFromCurrent()
+  if (open.value) {
+    syncGrainFromCurrent()
+    void nextTick(() => clampPanelInViewport())
+  } else {
+    panelLeftPx.value = 0
+  }
 }
 
 function onDoc(e: MouseEvent) {
@@ -121,10 +149,23 @@ function onDoc(e: MouseEvent) {
   if (!rootEl.value.contains(e.target as Node)) open.value = false
 }
 
-onMounted(() => document.addEventListener('mousedown', onDoc))
-onBeforeUnmount(() => document.removeEventListener('mousedown', onDoc))
+function onResize() {
+  if (open.value) void clampPanelInViewport()
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onDoc)
+  window.addEventListener('resize', onResize)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', onDoc)
+  window.removeEventListener('resize', onResize)
+})
 watch(current, () => {
   if (!open.value) syncGrainFromCurrent()
+})
+watch(grain, () => {
+  if (open.value) void nextTick(() => clampPanelInViewport())
 })
 
 const displayLabel = computed(() => current.value || store.vm?.year_key || '选择周期')
@@ -137,7 +178,13 @@ import './period-picker.css'
       {{ displayLabel }}
       <span class="pp-caret" aria-hidden="true">▾</span>
     </button>
-    <div v-if="open" class="pp-panel" role="dialog" aria-label="选择时间周期">
+    <div
+      v-if="open"
+      class="pp-panel"
+      role="dialog"
+      aria-label="选择时间周期"
+      :style="{ left: panelLeftPx + 'px' }"
+    >
       <div class="pp-tabs" role="tablist">
         <button
           type="button"
