@@ -1,11 +1,21 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { fetchSession } from './api'
 
+/** 2.5.0：无独立管理员登录页；未登录整页跳统一 /login?next= */
+function goUnifiedLogin(nextPath: string) {
+  const n = nextPath && nextPath.startsWith('/') ? nextPath : '/admin'
+  location.replace('/login?next=' + encodeURIComponent(n))
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/admin/login',
-    name: 'admin-login',
-    component: () => import('./views/LoginView.vue'),
+    name: 'admin-login-compat',
+    // 兼容：组件不加载，进守卫前 beforeEach 会 replace 到 /login
+    redirect: () => {
+      goUnifiedLogin('/admin')
+      return '/admin'
+    },
     meta: { public: true },
   },
   {
@@ -35,15 +45,20 @@ export const adminRouter = createRouter({
 })
 
 adminRouter.beforeEach(async (to) => {
-  if (to.meta.public) return true
+  // 书签 /admin/login → 统一登录（后端也会 303；双保险）
+  if (to.path === '/admin/login' || to.name === 'admin-login-compat') {
+    goUnifiedLogin('/admin')
+    return false
+  }
   if (!to.path.startsWith('/admin')) return true
   try {
     const sess = (await fetchSession()) as { is_admin?: boolean; perm?: string }
-    // 后端 session_public：管理员 cookie → is_admin:true + perm=管理员
     if (sess.is_admin || sess.perm === '管理员') return true
-    // 有会话但非管理员：回登录（避免误进控制台）
-    return { path: '/admin/login', query: { redirect: to.fullPath } }
+    // 有会话但非管理员 → 统一登录（不可进管理端）
+    goUnifiedLogin('/admin')
+    return false
   } catch {
-    return { path: '/admin/login', query: { redirect: to.fullPath } }
+    goUnifiedLogin(to.fullPath.startsWith('/admin') ? to.fullPath : '/admin')
+    return false
   }
 })

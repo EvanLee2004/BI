@@ -28,7 +28,7 @@ class TestAdminVueStructure(unittest.TestCase):
             "api.ts",
             "utils.ts",
             "layout/AdminLayout.vue",
-            "views/LoginView.vue",
+            # 2.5.0：无独立管理员登录页（统一 /login）
             "views/ConsoleView.vue",
             "views/DetailView.vue",
             "views/ManualView.vue",
@@ -127,14 +127,11 @@ class TestAdminVueHttp(unittest.TestCase):
         return TestClient(self.app, follow_redirects=False)
 
     def test_unauth_admin_serves_spa_or_login(self):
+        # 2.5.0：未登录 /admin → 303 统一 /login
         r = self._client().get("/admin")
-        self.assertEqual(r.status_code, 200)
-        # Vue dist index 或仍带登录文案
-        body = r.text
-        self.assertTrue(
-            "/app/assets/" in body or "管理员端登录" in body or 'id="app"' in body,
-            "expected Vue SPA shell or login",
-        )
+        self.assertEqual(r.status_code, 303)
+        loc = r.headers.get("location") or ""
+        self.assertTrue(loc.startswith("/login"), loc)
 
     def test_login_form_post_still_works(self):
         c = self._client()
@@ -194,7 +191,8 @@ class TestAdminVueHttp(unittest.TestCase):
         c.post("/admin/login", data={"account": "lushasha", "password": self.DEFAULT_PW})
         r = c.get("/admin/logout")
         self.assertIn(r.status_code, (303, 302))
-        self.assertEqual(r.headers.get("location"), "/admin")
+        # 2.5.0：退出到统一登录
+        self.assertEqual(r.headers.get("location"), "/login")
 
     def test_legacy_mode_static_admin(self):
         """KANBAN_FRONTEND=legacy 时登录后仍走 static 骨架。"""

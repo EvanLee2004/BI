@@ -1,19 +1,43 @@
 <script setup lang="ts">
-/** 看板登录 · 54.2 深空气质壳（纯样式，无新库） */
-import { ref } from 'vue'
+/** 2.5.0：全员唯一登录页（看端霓虹壳）；支持 ?next= 安全回跳（后端白名单） */
+import { onMounted, ref } from 'vue'
 import SciFiPanel from './SciFiPanel.vue'
 
 const account = ref('')
 const password = ref('')
 const msg = ref('')
+
+function readQuery(): { next: string; msg: string } {
+  try {
+    const q = new URLSearchParams(location.search)
+    return {
+      next: (q.get('next') || q.get('redirect') || '').trim(),
+      msg: (q.get('msg') || '').trim(),
+    }
+  } catch {
+    return { next: '', msg: '' }
+  }
+}
+
+onMounted(() => {
+  const q = readQuery()
+  if (q.msg) msg.value = q.msg
+})
+
 async function submit() {
   msg.value = ''
+  const q = readQuery()
   try {
+    const body: { account: string; password: string; next?: string } = {
+      account: account.value,
+      password: password.value,
+    }
+    if (q.next) body.next = q.next
     const r = await fetch('/api/v1/login', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account: account.value, password: password.value }),
+      body: JSON.stringify(body),
     })
     const d = await r.json()
     if (!r.ok) {
@@ -29,7 +53,7 @@ async function submit() {
 <template>
   <div class="login-page">
     <div class="login-card-host">
-      <SciFiPanel title="看板登录" panel-class="login-panel">
+      <SciFiPanel title="登录" panel-class="login-panel">
         <p class="login-sub muted">甲骨易 · 经营看板</p>
         <label class="login-lab">账号</label>
         <input
@@ -46,7 +70,7 @@ async function submit() {
           autocomplete="current-password"
           @keyup.enter="submit"
         />
-        <button class="dsdk-button login-btn" type="button" @click="submit">登录</button>
+        <button class="dsdk-button login-btn" type="button" @click="submit">进入</button>
         <p v-if="msg" class="login-err">{{ msg }}</p>
       </SciFiPanel>
     </div>
@@ -81,7 +105,6 @@ async function submit() {
   box-sizing: border-box;
   margin-bottom: 14px;
 }
-/* R6：主 CTA 必须 scifi 青，禁止 kit 紫/默认紫压过 */
 button.dsdk-button.login-btn,
 .login-btn {
   width: 100%;

@@ -146,7 +146,11 @@ class TestServerMultiBu(unittest.TestCase):
     def test_multi_cannot_view_unbound(self):
         c = self._login("multi")
         r = c.get("/bu/BU丙")
-        self.assertIn("看板登录", r.text)
+        # 2.5.0：无权 BU → 303 统一登录（或兼容登录文案）
+        if r.status_code == 303:
+            self.assertTrue((r.headers.get("location") or "").startswith("/login"))
+        else:
+            self.assertIn("登录", r.text)
         self.assertEqual(c.get("/api/v1/cockpit/bu/BU丙/fragments").status_code, 403)
 
     def test_legacy_single_still_works(self):

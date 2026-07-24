@@ -167,12 +167,11 @@ class TestViewerAuth(unittest.TestCase):
             'id="app"' in admin_body or "管理员控制台" in admin_body,
             "admin 应为 Vue SPA 或 legacy 控制台",
         )
-        # 未登录 /admin：Vue SPA 登录壳（无身份下拉、无真实人名）
-        login_html = self.raw.get("/admin").text
-        self.assertNotIn("identity", login_html)
-        self.assertNotIn("明昊", login_html)
-        # Vue 壳或 legacy 登录 form
-        self.assertTrue('id="app"' in login_html or 'name="account"' in login_html)
+        # 2.5.0：未登录 /admin → 统一登录 /login（非独立管理员登录皮）
+        unauth = self.raw.get("/admin")
+        self.assertEqual(unauth.status_code, 303)
+        loc = unauth.headers.get("location") or ""
+        self.assertTrue(loc.startswith("/login"), loc)
 
     def test_bu_account_sees_own_page_at_root(self):
         c, ok = self._login("user_a", server.DEFAULT_VIEW_PW)
@@ -190,7 +189,11 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(j["fragments"].get("kpi_views"), "")
         self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
-        self.assertIn("看板登录", c.get(f"/bu/{quote('BU乙')}").text)
+        # 2.5.0：无权/未授权 BU 页 → 303 统一登录（不再内嵌登录 HTML）
+        denied = c.get(f"/bu/{quote('BU乙')}")
+        self.assertIn(denied.status_code, (303, 200))
+        if denied.status_code == 303:
+            self.assertTrue((denied.headers.get("location") or "").startswith("/login"))
 
     def test_multi_account_same_bu(self):
         c1, r1 = self._login("user_b1", server.DEFAULT_VIEW_PW)

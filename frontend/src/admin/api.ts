@@ -21,9 +21,9 @@ async function api(path: string, opts?: RequestInit): Promise<Response> {
     throw new AdminApiError(0, friendlyError(e))
   }
   if (r.status === 401) {
-    // 未登录 / 会话失效 → 回登录
-    if (!location.pathname.startsWith('/admin/login') && location.pathname.startsWith('/admin')) {
-      location.href = '/admin/login'
+    // 2.5.0：统一登录页
+    if (location.pathname.startsWith('/admin')) {
+      location.replace('/login?next=' + encodeURIComponent(location.pathname || '/admin'))
     }
     throw new AdminApiError(401, '需要管理员登录')
   }

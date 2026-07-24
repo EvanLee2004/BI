@@ -83,11 +83,18 @@ class TestLoginCacheP0(unittest.TestCase):
     def test_document_routes_send_no_store(self):
         """未登录/已登录文档路由一律带 Cache-Control: no-store。"""
         c = self._client()
-        # 未登录：登录页
-        for path in ("/", "/login", "/admin", f"/bu/{quote('BU甲')}"):
+        # 未登录：/ 与 /login 出登录壳 200；/admin 与无权 bu 在 2.5.0 为 303→/login
+        for path in ("/", "/login"):
             r = c.get(path)
             self.assertEqual(r.status_code, 200, path)
             self.assertTrue(_has_no_store(r), f"{path} 缺 no-store: {r.headers.get('cache-control')}")
+        for path in ("/admin", f"/bu/{quote('BU甲')}"):
+            r = c.get(path)
+            self.assertIn(r.status_code, (200, 303), path)
+            if r.status_code == 200:
+                self.assertTrue(_has_no_store(r), f"{path} 缺 no-store")
+            else:
+                self.assertTrue((r.headers.get("location") or "").startswith("/login"), path)
 
         # 整体账号登录后：/ 为 shell
         c_main = self._client()
@@ -138,25 +145,28 @@ class TestLoginCacheP0(unittest.TestCase):
             with self.subTest(label=label):
                 c = self._client()
                 r0 = c.get(path)
-                self.assertEqual(r0.status_code, 200)
-                self.assertTrue(_has_no_store(r0), f"{label} 未登录缺 no-store")
-                self.assertTrue(
-                    "看板登录" in r0.text or "登录" in r0.text or 'id="app"' in r0.text,
-                    f"{label}: 未登录应回登录页或 Vue 登录壳",
-                )
+                # 2.5.0：未登录 / 可 200 登录壳；/bu 未登录 303→/login
+                self.assertIn(r0.status_code, (200, 303), label)
+                if r0.status_code == 200:
+                    self.assertTrue(_has_no_store(r0), f"{label} 未登录缺 no-store")
+                    self.assertTrue(
+                        "看板登录" in r0.text or "登录" in r0.text or 'id="app"' in r0.text,
+                        f"{label}: 未登录应回登录页或 Vue 登录壳",
+                    )
+                else:
+                    self.assertTrue((r0.headers.get("location") or "").startswith("/login"), label)
                 r_login = c.post(login_url, data=creds)
                 self.assertEqual(r_login.status_code, 303, r_login.text)
                 r1 = c.get(path)
                 self.assertEqual(r1.status_code, 200)
                 self.assertTrue(_has_no_store(r1), f"{label} 已登录缺 no-store")
                 self.assertIn(after_marker, r1.text, f"{label}: 登录后应是目标页")
-        # 管理端 Vue：未登录/已登录均可出 SPA 壳；登录后须有会话 cookie
+        # 管理端：未登录 303→/login；登录后 SPA
         with self.subTest(label="admin"):
             c = self._client()
             r0 = c.get("/admin")
-            self.assertEqual(r0.status_code, 200)
-            self.assertTrue(_has_no_store(r0))
-            self.assertIn('id="app"', r0.text)
+            self.assertEqual(r0.status_code, 303)
+            self.assertTrue((r0.headers.get("location") or "").startswith("/login"))
             r_login = c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
             self.assertEqual(r_login.status_code, 303, r_login.text)
             self.assertTrue(c.cookies.get("kanban_session") or "set-cookie" in str(r_login.headers).lower())

@@ -58,7 +58,8 @@ class TestSourceGuards227(unittest.TestCase):
         self.assertNotIn("◐ 深色", layout)
         self.assertNotIn("@click=\"toggleTheme\"", layout)
         self.assertNotIn("function toggleTheme", layout)
-        login = (ROOT / "frontend/src/admin/views/LoginView.vue").read_text(encoding="utf-8")
+        # 2.5.0：管理员独立 LoginView 已删；主题检查看端即可
+        login = (ROOT / "frontend/src/components/LoginView.vue").read_text(encoding="utf-8")
         self.assertNotIn("◑ 浅色", login)
         app = (ROOT / "frontend/src/App.vue").read_text(encoding="utf-8")
         self.assertIn("ThemeToggle", app)

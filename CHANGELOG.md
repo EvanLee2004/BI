@@ -8,6 +8,19 @@
 
 ---
 
+## [2.5.0] - 2026-07-24
+
+### Changed
+- **统一登录入口**：全员只使用 `/login`；删除管理端独立登录 UI（`admin/views/LoginView.vue`）
+- **按账号分流**：管理员→`/admin`；整体→`/`；BU→`/bu/{可见BU}`（`src/login_redirect.py`）
+- **兼容**：`/admin/login`、未登录 `/admin` → 303 到 `/login?next=…`；`next` 白名单防 open redirect（BU 不可 next 进管理端）
+- **退出**：管理端 logout 落到 `/login`
+
+### Unchanged（红线）
+- 权限模型与双 cookie 互清；2.4.3 根路径 BU 回流；金额/智云未动
+
+---
+
 ## [2.4.3] - 2026-07-24
 
 ### Fixed
