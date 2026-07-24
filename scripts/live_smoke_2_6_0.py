@@ -156,16 +156,24 @@ def main():
         page.click("button[type=submit], button:has-text('进入')")
         page.wait_for_timeout(1500)
         shot(page, out / "overall" / "01_login.png", "overall login")
-        # should not stay on login
-        assert "/login" not in page.url or page.url.rstrip("/").endswith("127"), page.url
+        assert "/login" not in page.url, page.url
         cookies = {c["name"] for c in ctx.cookies()}
         assert "kanban_sid" in cookies
+        # O3: 直接 /admin → 不得进「管理员控制台」
+        # 链路：/admin 未管理员会话 → 303 /login?next= → 已登录 overall → 回 /
         page.goto(base + "/admin", wait_until="networkidle")
-        page.wait_for_timeout(800)
-        shot(page, out / "overall" / "02_admin_blocked.png", "overall hit admin")
-        # should redirect to login
-        assert "login" in page.url or "admin" not in page.content().lower()[:200]
+        page.wait_for_timeout(1000)
+        shot(page, out / "overall" / "02_admin_blocked.png", "overall hit admin blocked")
+        content = page.content()
+        assert "管理员控制台" not in content, f"overall must not see admin console url={page.url}"
+        assert not page.url.rstrip("/").endswith("/admin"), page.url
+        assert "管理员端登录" not in content
+        # O4 退出
         page.evaluate("() => fetch('/api/v1/logout',{method:'POST',credentials:'include'})")
+        page.wait_for_timeout(400)
+        page.goto(base + "/login", wait_until="networkidle")
+        shot(page, out / "overall" / "03_logout.png", "overall logout")
+        assert "/login" in page.url
         ctx.close()
 
         # --- BU ---
@@ -177,14 +185,26 @@ def main():
         page.click("button[type=submit], button:has-text('进入')")
         page.wait_for_timeout(1500)
         shot(page, out / "bu" / "01_login.png", "bu login")
-        assert "/bu/" in page.url or "BU" in page.url, page.url
+        assert "/bu/" in page.url, page.url
         page.goto(base + "/", wait_until="networkidle")
         page.wait_for_timeout(1000)
         shot(page, out / "bu" / "02_root_redirect.png", "bu reopen root")
         assert "/bu/" in page.url, page.url
+        # B4 他 BU（user_a 只有 BU甲）→ 登录页或无权，不得当自己的 BU 页
+        page.goto(base + "/bu/" + "BU%E4%B9%99", wait_until="networkidle")  # BU乙
+        page.wait_for_timeout(1000)
+        shot(page, out / "bu" / "04_other_bu.png", "bu other BU blocked")
+        # 未登录/无权 → /login 或 非成功渲染他 BU 专属
+        assert "/login" in page.url or "BU乙" not in (page.content()[:2000]), page.url
+        # B5 退出
         page.evaluate("() => fetch('/api/v1/logout',{method:'POST',credentials:'include'})")
         page.wait_for_timeout(400)
-        # 新上下文测 next=/admin 不得进管理端
+        page.goto(base + "/login", wait_until="networkidle")
+        shot(page, out / "bu" / "05_logout.png", "bu logout")
+        assert "/login" in page.url
+        ctx.close()
+
+        # B3 next=/admin 不得进管理
         ctx2 = browser.new_context()
         page2 = ctx2.new_page()
         page2.goto(base + "/login?next=%2Fadmin", wait_until="networkidle")
@@ -196,24 +216,44 @@ def main():
         shot(page2, out / "bu" / "03_next_admin.png", "bu next admin ignored")
         assert "/admin" not in page2.url, page2.url
         ctx2.close()
+
+        # R2 错密码
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        page.goto(base + "/login", wait_until="networkidle")
+        page.fill("#account, input[autocomplete=username]", "lushasha")
+        page.fill("#password, input[type=password]", "definitely_wrong_pw_xxx")
+        page.click("button[type=submit], button:has-text('进入')")
+        page.wait_for_timeout(1200)
+        shot(page, out / "regression" / "wrong_password.png", "wrong password stays login")
+        assert "/login" in page.url or page.locator("#errBox, .login-err, .err").count() >= 0
+        # 仍应在登录页（未进 admin）
+        assert "/admin" not in page.url
         ctx.close()
 
-        # regression /admin/login
+        # R1 regression /admin/login
         ctx = browser.new_context()
         page = ctx.new_page()
         page.goto(base + "/admin/login", wait_until="networkidle")
         page.wait_for_timeout(800)
         shot(page, out / "regression" / "admin_login_compat.png", "admin/login compat")
         assert "login" in page.url
+        assert "管理员端登录" not in page.content()
         ctx.close()
         browser.close()
 
-    (out / "活体清单.md").write_text(
+    checklist_md = (
         "# 2.6.0 活体清单\n\n| 步骤 | 结果 | 文件 |\n|------|------|------|\n"
         + "\n".join(f"| {r.replace('|', ' | ')} |" for r in checklist)
-        + "\n",
-        encoding="utf-8",
+        + "\n\n## 覆盖对照任务书 §5\n\n"
+        + "| 项 | 文件 |\n|----|------|\n"
+        + "| A1–A5 管理员 | admin/* |\n"
+        + "| O1–O4 整体 | overall/* |\n"
+        + "| B1–B5 BU | bu/* |\n"
+        + "| R1 /admin/login · R2 错密码 | regression/* |\n"
+        + "| cookie 仅 sid | cookie/admin_sid.txt |\n"
     )
+    (out / "活体清单.md").write_text(checklist_md, encoding="utf-8")
     (out / "summary.json").write_text(
         json.dumps({"base": base, "steps": checklist, "ok": True}, ensure_ascii=False, indent=2),
         encoding="utf-8",

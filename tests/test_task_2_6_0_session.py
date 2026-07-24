@@ -216,11 +216,18 @@ class TestLoginSetsSidOnly(unittest.TestCase):
         c.post("/api/v1/login", json={"account": "lushasha", "password": self.server.DEFAULT_PW})
         r = c.post("/api/v1/logout")
         self.assertEqual(r.status_code, 200)
-        sc = str(r.headers).lower()
-        self.assertTrue("kanban_sid" in sc or SID_COOKIE not in c.cookies or True)
-        # after logout, session API 401
-        r2 = c.get("/api/v1/session")
-        # jar may still send deleted cookies depending on client; force clear
+        raw = r.headers.get_list("set-cookie") if hasattr(r.headers, "get_list") else []
+        if not raw and r.headers.get("set-cookie"):
+            raw = [r.headers.get("set-cookie")]
+        # 必须对三名都下删除指令（Max-Age=0 或 expires 过期）
+        joined = " ".join(raw).lower()
+        for name in (SID_COOKIE, COOKIE, VCOOKIE):
+            self.assertTrue(
+                any(line.lower().startswith(name.lower() + "=") for line in raw),
+                f"logout must Set-Cookie delete {name}; got {raw}",
+            )
+        self.assertIn("max-age=0", joined)
+        # 清 jar 后会话必 401
         c.cookies.clear()
         r2 = c.get("/api/v1/session")
         self.assertEqual(r2.status_code, 401)
