@@ -110,10 +110,14 @@ class TestFrontendWiring(unittest.TestCase):
         self.assertIn("buEntryRedirect", store)
         self.assertIn("isOverallForbiddenError", store)
         self.assertIn("buPathFromSession", store)
-        # logout path consistency in auth
+        # logout：2.6.0 清 sid+旧两名（session_ctx.clear_all_session_cookies）
         auth = (ROOT / "src" / "routes" / "auth.py").read_text(encoding="utf-8")
-        self.assertIn('delete_cookie(COOKIE, path="/"', auth)
-        self.assertIn('delete_cookie(VCOOKIE, path="/"', auth)
+        self.assertIn("clear_all_session_cookies", auth)
+        sc = (ROOT / "src" / "session_ctx.py").read_text(encoding="utf-8")
+        self.assertIn('path="/"', sc)
+        self.assertIn("SID_COOKIE", sc)
+        self.assertIn("COOKIE", sc)
+        self.assertIn("VCOOKIE", sc)
 
 
 if __name__ == "__main__":

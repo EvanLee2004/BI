@@ -190,7 +190,7 @@ class TestAllocApi(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     @classmethod
     def tearDownClass(cls):

@@ -60,8 +60,8 @@ class TestAdminWrite(unittest.TestCase):
         )  # 从不登录（TestClient 会存 cookie，需独立客户端测未授权）
         # 登录拿会话
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.cookie = r.cookies.get(server.COOKIE)
-        cls.hdr = {"Cookie": f"{server.COOKIE}={cls.cookie}"}
+        cls.cookie = (r.cookies.get(getattr(server, "SID_COOKIE", "kanban_sid")) or r.cookies.get(server.COOKIE))
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={cls.cookie}"}
 
     @classmethod
     def tearDownClass(cls):
@@ -581,7 +581,7 @@ class TestExpiredBatch(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     @classmethod
     def tearDownClass(cls):

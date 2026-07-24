@@ -144,7 +144,7 @@ class TestSalesPoolEndpoint(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def test_requires_login(self):
         self.assertEqual(self.anon.get("/api/sales_pool").status_code, 401)
@@ -198,7 +198,7 @@ class TestUnassignedHint(_Base):
         app = server.create_app(self.cfg, root=self.root)
         client = TestClient(app, follow_redirects=False)
         r = client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         main = client.get("/", headers=hdr).text
         # shell 不含业务文案；看 chrome/fragments
         self.assertIn("经营看板", main)
@@ -258,7 +258,7 @@ class TestAuditTrail(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def _changes(self, category=None):
         u = "/api/config_changes" + (f"?category={category}" if category else "")
@@ -321,7 +321,11 @@ class TestAuditTrail(unittest.TestCase):
         self.assertEqual(rr.status_code, 200)
         ac = TestClient(app, follow_redirects=False)
         ar = ac.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        hdr = {"Cookie": f"{server.COOKIE}={ar.cookies.get(server.COOKIE)}"}
+        self.assertIn(ar.status_code, (200, 303), ar.text)
+        hdr = {
+            "Cookie": f"{server.SID_COOKIE}="
+            f"{(ar.cookies.get(server.SID_COOKIE) or ar.cookies.get(server.COOKIE))}"
+        }
         allc = ac.get("/api/config_changes", headers=hdr).json()["changes"]
         pwc = [c for c in allc if c["类别"] == "密码"]
         self.assertTrue(any("overall" in c["摘要"] and "改密码" in c["摘要"] for c in pwc))

@@ -169,7 +169,11 @@ class TestLoginCacheP0(unittest.TestCase):
             self.assertTrue((r0.headers.get("location") or "").startswith("/login"))
             r_login = c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
             self.assertEqual(r_login.status_code, 303, r_login.text)
-            self.assertTrue(c.cookies.get("kanban_session") or "set-cookie" in str(r_login.headers).lower())
+            self.assertTrue(
+                c.cookies.get("kanban_sid")
+                or c.cookies.get("kanban_session")
+                or "set-cookie" in str(r_login.headers).lower()
+            )
             r1 = c.get("/admin")
             self.assertEqual(r1.status_code, 200)
             self.assertTrue(_has_no_store(r1))

@@ -350,7 +350,7 @@ class TestVersion229(unittest.TestCase):
     def test_version_file(self):
         # 2.2.9 历史条目必须保留；当前产品号可继续递增（2.3.0+）
         v = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertRegex(v, r"^2\.(2|3|4|5)\.\d+$")
+        self.assertRegex(v, r"^2\.(2|3|4|5|6)\.\d+$")
         self.assertIn("2.2.9", (ROOT / "src/version.py").read_text(encoding="utf-8"))
         self.assertIn("## [2.2.9]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 

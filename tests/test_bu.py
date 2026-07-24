@@ -460,7 +460,7 @@ class TestBuEndpoints(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         cls.anon = TestClient(cls.app, follow_redirects=False)  # 未登录（不共享 cookie 罐）
         r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def test_bu_page_by_name_admin_session(self):
         from urllib.parse import quote

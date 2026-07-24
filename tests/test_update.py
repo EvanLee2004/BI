@@ -233,7 +233,7 @@ class TestUpdateApi(unittest.TestCase):
         self.app = server.create_app(self.cfg, root=self.tmp)
         self.client = TestClient(self.app, follow_redirects=False)
         r = self.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        self.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        self.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         # 打桩：不真跑 git / 不真重启
         self._orig = (updater.check_update, updater.apply_update, updater.request_restart)
         self.restarted = []

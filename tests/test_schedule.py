@@ -104,7 +104,7 @@ class TestSettingsApi(unittest.TestCase):
         self.app = server.create_app(self.cfg, root=self.root)
         self.client = TestClient(self.app, follow_redirects=False)
         r = self.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        self.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        self.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def _raw(self):
         return json.loads((self.root / "config.json").read_text(encoding="utf-8"))

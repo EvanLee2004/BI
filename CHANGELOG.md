@@ -8,6 +8,21 @@
 
 ---
 
+## [2.6.0] - 2026-07-25
+
+### Changed
+- **单会话 cookie**：登录只写 `kanban_sid`（HttpOnly + SameSite=Lax；不硬开 Secure）
+- **统一 resolve**：`session_ctx.resolve_session`；权限仍只看账号表
+- **遗留兼容 21 天**：可读旧 `kanban_session`/`kanban_view` 并静默升级；锚点 `数据/session_legacy_compat_since.txt`
+- **退出**：清 sid + 两旧名
+
+### Unchanged
+- 2.5.0 统一登录与角色分流；2.4.3 BU 根路径；金额/智云未动
+
+参考：OWASP Session Management Cheat Sheet；MDN Set-Cookie。
+
+---
+
 ## [2.5.0] - 2026-07-24
 
 ### Changed

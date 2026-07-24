@@ -84,6 +84,7 @@ tests/test_task42_final.py
 tests/test_task43_nginx_mode.py
 tests/test_task_2_4_3_entry.py
 tests/test_task_2_5_0_login.py
+tests/test_task_2_6_0_session.py
 tests/test_task43_arch.py
 tests/test_task46_stage0.py
 tests/test_task50_stage_b.py

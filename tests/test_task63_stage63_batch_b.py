@@ -69,7 +69,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
             "/admin/login",
             data={"account": accounts.MASTER_ACCOUNT, "password": accounts.DEFAULT_ADMIN_PW},
         )
-        self.hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        self.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def tearDown(self):
         server.recompute = self._orig
@@ -112,7 +112,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
             data={"account": accounts.MASTER_ACCOUNT, "password": accounts.DEFAULT_ADMIN_PW},
         )
         self.assertIn(r.status_code, (200, 303), r.text)
-        hdr = {"Cookie": f"{server.COOKIE}={r.cookies.get(server.COOKIE)}"}
+        hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         rows = c.get("/api/accounts", headers=hdr).json()["accounts"]
         overall = next(x for x in rows if x["账号"] == "overall")
         self.assertEqual(overall["密码"], accounts.DEFAULT_VIEW_PW)
@@ -142,8 +142,8 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         r0 = viewer.post("/api/v1/login", json={"account": "v1", "password": "plain777"})
         self.assertEqual(r0.status_code, 200, r0.text)
         self.assertEqual(viewer.get("/api/v1/session").status_code, 200)
-        old_vcookie = viewer.cookies.get(server.VCOOKIE)
-        self.assertTrue(old_vcookie, "应拿到看端 cookie")
+        old_sid = viewer.cookies.get(server.SID_COOKIE) or viewer.cookies.get(server.VCOOKIE)
+        self.assertTrue(old_sid, "应拿到会话 cookie (kanban_sid)")
         r = self.client.post(
             "/api/accounts/v1/reset_passwd",
             headers=self.hdr,
@@ -155,7 +155,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         self.assertEqual(r_sess.status_code, 401, r_sess.text)
         r_sess2 = TestClient(self.app, follow_redirects=False).get(
             "/api/v1/session",
-            headers={"Cookie": f"{server.VCOOKIE}={old_vcookie}"},
+            headers={"Cookie": f"{server.SID_COOKIE}={old_sid}"},
         )
         self.assertEqual(r_sess2.status_code, 401, r_sess2.text)
         r_bad = self.client.post("/api/v1/login", json={"account": "v1", "password": "plain777"})

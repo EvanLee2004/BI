@@ -224,8 +224,11 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_tampered_cookie_rejected(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        cookie = c.cookies.get(server.VCOOKIE)
-        r = self.raw.get("/", headers={"Cookie": f"{server.VCOOKIE}={cookie[:-4]}beef"})
+        # 2.6.0：会话 cookie = kanban_sid（兼容窗内仍可读旧名）
+        sid_name = getattr(server, "SID_COOKIE", None) or "kanban_sid"
+        cookie = c.cookies.get(sid_name) or c.cookies.get(server.VCOOKIE)
+        self.assertIsNotNone(cookie, "login must set session cookie")
+        r = self.raw.get("/", headers={"Cookie": f"{sid_name}={cookie[:-4]}beef"})
         self.assertIn("看板登录", r.text)
 
     def test_company_endpoints_gated(self):

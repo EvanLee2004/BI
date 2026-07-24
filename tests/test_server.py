@@ -67,9 +67,9 @@ class TestServerAuth(unittest.TestCase):
     def test_login_then_detail_ok(self):
         r = self.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         self.assertEqual(r.status_code, 303)  # 登录成功重定向
-        cookie = r.cookies.get(server.COOKIE)
+        cookie = (r.cookies.get(getattr(server, "SID_COOKIE", "kanban_sid")) or r.cookies.get(server.COOKIE))
         self.assertTrue(cookie)
-        hdr = {"Cookie": f"{server.COOKIE}={cookie}"}
+        hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         # 带会话 → /api/detail 200；/admin 出 Vue SPA 管理壳
         r2 = self.client.get("/api/detail?table=收入明细", headers=hdr)
         self.assertEqual(r2.status_code, 200)
