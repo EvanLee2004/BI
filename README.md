@@ -103,8 +103,10 @@
 | 角色 | 怎么进 | 能做什么 |
 |------|--------|----------|
 | 管理层（整体） | 登录 · 权限「整体」 | 全公司 KPI、利润表、结构、排名；进入各 BU；顶栏导出 **HTML 快照**；利润表可导出 **Excel** |
-| 业务线负责人 | 登录 · 权限绑定某 BU | 只看本 BU（按销售名单过滤，跨线不可见）；本 BU 快照 / 利润表 Excel |
+| 业务线负责人 | 登录 · 权限「BU」+ 可见名单 | 只看绑定的业务线（可多个，顶栏「我的 BU」切换；**无「← 整体」**）；本 BU 快照 / 利润表 Excel |
 | 财务管理员 | `/admin` | 改明细、手填与分摊（含公共费用两轴）、预算、异常处理、销售归属、账号、检查更新 / 一键更新 |
+
+> 全员只发两个根链接即可（见 [生产运维 · 访问入口](#1-访问入口只发这两个)），用各自账号登录；系统按权限自动进整体或业务线。
 
 ---
 
@@ -201,11 +203,11 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 ![部署拓扑](docs/images/deploy.png)
 
 - 进程：`systemd` 服务 `kanban`（开机自启、异常可自愈）  
-- 入口：`http://<内网IP>/`（nginx 发 `frontend/dist` 并反代 API）  
-- 应用进程只监听本机，不把 API 端口直接暴露到办公网  
-- 定时：进程内日更 + cron 体检 / 备份  
+- 入口：nginx `:80` 托管 `frontend/dist` 并反代 API；**根路径 `/` 必须反代后端**（见运维节）  
+- 应用进程只监听本机 `127.0.0.1:8018`，不把 API 端口直接暴露到办公网  
+- 定时：进程内 ScheduleLoop 日更 + cron 体检 / 备份  
 
-装机步骤：[docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) · 排障：[docs/Runbook.md](docs/Runbook.md)
+装机步骤：[docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) · **日常运维见下方 [生产运维](#生产运维)** · 排障处方：[docs/Runbook.md](docs/Runbook.md)
 
 ### 3. 模块关系
 
@@ -245,7 +247,108 @@ docs/                  使用手册、部署、API、设计图、界面截图
 deploy/linux/          nginx / systemd 模板
 ```
 
-一键更新（管理端「检查更新」）：对配置的 git 远端 `fetch`，落后时 `git pull --ff-only`，依赖变化会装包，再由看门狗重启服务。工作区被改脏会拒绝更新，以免覆盖人工改动。
+一键更新（管理端「检查更新」）：对配置的 git 远端 `fetch`，落后时 `git pull --ff-only`，依赖变化会装包，再由看门狗重启服务。工作区被改脏会拒绝更新，以免覆盖人工改动。  
+**注意**：若本次变更含 `deploy/linux/nginx-kanban.conf`，一键更新**不会**自动改系统 nginx——须运维手动同步 conf 并 `reload`（见下节）。
+
+---
+
+## 生产运维
+
+> 本节 = 生产机日常要看的「说明书首页」。故障逐步处方仍以 [docs/Runbook.md](docs/Runbook.md) 为准；装机从零见 [docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md)。
+
+### 1. 访问入口（只发这两个）
+
+| 场景 | 地址 | 说明 |
+|------|------|------|
+| **公司办公区（内网）** | `http://192.168.30.46` | 有线/无线办公网用这个 |
+| **公司外 / 手机流量（外网）** | `http://101.254.102.94:8001` | 全员共用；**办公区内外网地址打不开是正常的**（NAT 回流） |
+
+- 登录页：`/login`；管理端：`/admin`（仅管理员账号）  
+- **不要**给业务负责人发一长串 `/bu/多语营销` 等「专属链接」——根地址 + 各自账号即可；多业务线账号登录后在「我的 BU」里切换  
+- 外网 IP/端口由 IT 防火墙映射固定；**改机 IP 或 nginx 监听端口前先问 IT**，否则外网入口会断  
+
+### 2. 生产机长什么样
+
+| 项 | 值 |
+|----|-----|
+| 代码目录 | `/opt/kanban/看板正式程序`（git，跟踪 `main`） |
+| 应用进程 | `systemd` 单元 **`kanban`** · User=`lee` · 监听 **`127.0.0.1:8018`** |
+| 对外 | **nginx** 站点 `kanban` · **`:80`** · 静态 `frontend/dist` + 反代 API |
+| 日更 | 进程内 **ScheduleLoop**（默认约 09:30 / 12:00 / 17:00，以管理端 `schedule_times` 为准） |
+| 其它 cron | 小时 healthcheck、每日备份（**不要**再指望 cron `run.py --scheduled` 刷新页面内存） |
+| 远程运维 | 家：`ssh kanban-home`；公司内网：`ssh kanban-lan`（密钥与跳板见工作区「公司电脑（部署机）」档案，**不进本仓**） |
+
+### 3. 日常命令（在部署机上）
+
+```bash
+# 是否活着
+systemctl is-active kanban nginx
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/api/health
+curl -s http://127.0.0.1/api/health   # 看 built_at / 灯色
+
+# 版本
+cd /opt/kanban/看板正式程序 && cat VERSION && git rev-parse --short HEAD
+
+# 拉代码（无脏工作区）
+cd /opt/kanban/看板正式程序 && git pull --ff-only
+# 应用自愈：向主进程发 SIGTERM，systemd 会拉起（或 sudo systemctl restart kanban）
+
+# 日志
+journalctl -u kanban -n 80 --no-pager
+# 应用/前端错误：数据/日志/ 、数据/前端错误.log
+```
+
+管理端也可：「更新数据」（重跑管道写内存）、「检查更新 / 一键更新」（git 升级程序）。
+
+### 4. nginx 铁律（2.4.3 · 必守）
+
+**根路径 `location = /` 必须 `proxy_pass` 到后端**，禁止：
+
+```nginx
+# ❌ 错误：dist 有 index.html 时永远不走后端
+location = / { try_files /index.html @backend; }
+```
+
+正确形态见仓库模板 [`deploy/linux/nginx-kanban.conf`](deploy/linux/nginx-kanban.conf)：
+
+- `location = /` → `proxy_pass http://kanban_api`（后端对纯 BU 会话 **303 → `/bu/xxx`**）  
+- `location /` 仍可 `try_files` 托管其它 SPA 资源  
+- `/api` `/admin` `/login` `/bu` `/export.*` 反代后端  
+
+**改完 conf 必须落地并 reload**（一键更新不会替你做）：
+
+```bash
+cd /opt/kanban/看板正式程序
+sudo cp deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+sudo nginx -t && sudo systemctl reload nginx
+# 核：应见 proxy_pass，不应在 location = / 里出现 try_files /index.html
+grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
+```
+
+前端另有双保险：纯 BU 打开 `/` 或整体 cockpit **403** 会回流本账号业务线（仍建议 nginx 层一次做对）。
+
+### 5. 发版后浏览器
+
+- `index.html` 为 `no-store`；带 hash 的 `/app/assets/*` 长缓存  
+- 管理端发版后若白屏 /「Failed to fetch dynamically imported module」：让用户 **强制刷新**（Ctrl/Cmd+Shift+R）或换浏览器清缓存  
+
+### 6. 坏了先看哪
+
+| 现象 | 先查 |
+|------|------|
+| 完全打不开 | `systemctl status kanban nginx`；`curl` 本机 `:80` / `:8018` |
+| 业务线「第一次能进、再开根地址进不去」 | nginx `location = /` 是否仍 `try_files index`（§4）；前端是否已是 2.4.3+ |
+| 页面数据不随「到点」变 | `/api/health` 的 `built_at`；日志是否有 `schedule_loop`；管理端是否点过「更新数据」 |
+| 体检黄/红 | 管理端控制台详情；手填缺月 / 未抓到源等（黄≠服务挂了） |
+| 一键更新被拒 | 工作区是否脏（如把日志写进了代码目录） |
+
+完整处方卡 → [docs/Runbook.md](docs/Runbook.md)。
+
+### 7. 敏感信息边界
+
+- **本 README / 本公开仓**：可写内网 IP、外网入口形态、命令模板  
+- **不可写入本仓**：sudo 口令、SSH 私钥、智云/看板业务密码、真实金额与客户表  
+- 口令与跳板细节只放工作区本地「公司电脑（部署机）」档案（gitignore / 不上云）
 
 ---
 
@@ -253,10 +356,10 @@ deploy/linux/          nginx / systemd 模板
 
 | 你想… | 去读 |
 |--------|------|
+| **线上运维 / 入口 / nginx** | **本节 [生产运维](#生产运维)** · [docs/Runbook.md](docs/Runbook.md) |
 | 给同事讲怎么点页面 | [docs/用户手册/](docs/用户手册/)（看板 · 管理端 · FAQ） |
 | 弄清六源字段与进料 | [docs/数据来源说明.md](docs/数据来源说明.md) |
 | 在 Ubuntu 上装 / 升级 | [docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) |
-| 线上坏了怎么查 | [docs/Runbook.md](docs/Runbook.md) |
 | 看端 API / 渲染约定 | [docs/api-v1-cockpit.md](docs/api-v1-cockpit.md) · [docs/api/](docs/api/) |
 | 接口与库表清单 | [docs/softeng/](docs/softeng/) |
 | 为什么这样设计 | [docs/madr/](docs/madr/) |
@@ -269,8 +372,9 @@ deploy/linux/          nginx / systemd 模板
 
 - 核心数字有回归基准：库内计算结果与基准 JSON 对齐；多周期金额一致性有自动化检查  
 - 前端展示串由后端给出，避免浏览器自行做金额运算导致口径漂移  
-- 发布只走 `main`；推远端前会检查是否误带真实金额、客户名、账号等敏感内容  
-- 公开仓库**不推送** git tag / GitHub Release（版本以 `VERSION` + `CHANGELOG` 为准）
+- 发布只走 `main`；推远端前会检查是否误带真实金额、客户名、账号口令等敏感内容  
+- 公开仓库**不推送** git tag / GitHub Release（版本以 `VERSION` + `CHANGELOG` 为准）  
+- 全量自检：`KANBAN_OFFLINE=1 sh tests/run_verify.sh`（判绿看真实退出码，勿用 `| tail` 假绿）
 
 ---
 
