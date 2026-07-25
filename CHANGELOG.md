@@ -6,8 +6,9 @@
 - **KPI 展示（R1）**：目标进度超 100% 主文案改为「目标待校准」，禁止吓人 `>999%`
 - **包体（R2）**：排名默认不 embed `full_items`；新增 `GET /api/v1/rankings/full` 按需加载
 - **观测（R4）**：`/api/health` metrics 始终含 version/built_at/update_ms 等真值字段
-- **工程（R7）**：`fetch_zhiyun` 纯函数层拆至 `fetch_zhiyun_pure.py`（语义零变更）
-- **测试**：预算展示 / rankings full 鉴权 / 多语营销映射
+- **工程（R7）**：`fetch_zhiyun` → `fetch_zhiyun_pure.py`；`manual` 校验辅助 → `manual_helpers.py`（语义零变更）
+- **测试（R6）**：`run_verify` SERIAL 锁 2.6.1；Playwright `scrollIntoView(#rankViews)` 后断言 canvas 挂载
+- **体积实测**：export HTML 14.8MB→9.3MB；cockpit 仍 ~13MB（monthly_data 占大头，诚实记录）
 
 
 本文件遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 1.1.0，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
