@@ -1,6 +1,8 @@
 <script setup lang="ts">
-/** 顶栏：导出 HTML + 退出（全角色）+ 非管理员自改密码。2.2.7 主路径 .html；2.2.9 快照模式隐藏写操作。 */
-import { onMounted, ref } from 'vue'
+/** 顶栏：导出 HTML + 退出（全角色）+ 非管理员自改密码。2.2.7 主路径 .html；2.2.9 快照模式隐藏写操作。
+ *  2.6.2：≤520 将导出/退出/密码收入「⋯」菜单，桌面仍横排按钮。
+ */
+import { onMounted, onUnmounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
 
@@ -12,8 +14,24 @@ const newPw = ref('')
 const msg = ref('')
 const msgCls = ref('')
 const exporting = ref(false)
+const menuOpen = ref(false)
+
+function closeMenu() {
+  menuOpen.value = false
+}
+function onDocClick(e: MouseEvent) {
+  const t = e.target as HTMLElement | null
+  if (!t) return
+  if (t.closest && t.closest('.tb-actions-narrow')) return
+  menuOpen.value = false
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') menuOpen.value = false
+}
 
 onMounted(async () => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKey)
   if (store.snapshotMode) {
     isAdmin.value = true
     return
@@ -25,8 +43,13 @@ onMounted(async () => {
     isAdmin.value = true
   }
 })
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onKey)
+})
 
 async function logout() {
+  closeMenu()
   try {
     await fetch('/api/v1/logout', { method: 'POST', credentials: 'same-origin' })
   } catch {
@@ -54,14 +77,13 @@ async function exportHtml() {
   } catch {
     /* ignore */
   }
-  // 整体页走 /api/export.html：现网 nginx 必反代 /api（export.html 裸路径需 conf 含 export.html 才反代）
-  // BU 页 /bu/{name}/export.html 已由 location 的 bu 前缀反代
   const q = `blk=${encodeURIComponent(blk)}&theme=${encodeURIComponent(theme)}`
   const url =
     store.scope === 'bu' && store.buName
       ? `/bu/${encodeURIComponent(store.buName)}/export.html?${q}`
       : `/api/export.html?${q}`
   exporting.value = true
+  closeMenu()
   try {
     const r = await fetch(url, { credentials: 'same-origin' })
     if (!r.ok) {
@@ -83,6 +105,11 @@ async function exportHtml() {
   } finally {
     exporting.value = false
   }
+}
+
+function openPw() {
+  closeMenu()
+  showPw.value = true
 }
 
 async function savePw() {
@@ -121,32 +148,79 @@ async function savePw() {
 <template>
   <!-- 2.2.9 快照模式：隐藏导出/退出/改密 -->
   <template v-if="!store.snapshotMode">
-    <button
-      v-if="!store.archiveMode"
-      type="button"
-      class="toggle export-html-btn"
-      id="exportBtn"
-      :disabled="exporting"
-      @click="exportHtml"
-    >
-      <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
-    </button>
-    <button
-      v-if="!store.archiveMode"
-      type="button"
-      class="toggle"
-      id="logoutBtn"
-      @click="logout"
-    >退出</button>
-    <button
-      v-if="!isAdmin && !store.archiveMode"
-      type="button"
-      class="toggle"
-      id="pwBtn"
-      @click="showPw = true"
-    >
-      <span>🔑</span> 密码
-    </button>
+    <!-- 桌面横排 -->
+    <div class="tb-actions-wide" data-testid="tb-actions-wide">
+      <button
+        v-if="!store.archiveMode"
+        type="button"
+        class="toggle export-html-btn"
+        id="exportBtn"
+        :disabled="exporting"
+        @click="exportHtml"
+      >
+        <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
+      </button>
+      <button
+        v-if="!store.archiveMode"
+        type="button"
+        class="toggle"
+        id="logoutBtn"
+        @click="logout"
+      >退出</button>
+      <button
+        v-if="!isAdmin && !store.archiveMode"
+        type="button"
+        class="toggle"
+        id="pwBtn"
+        @click="openPw"
+      >
+        <span>🔑</span> 密码
+      </button>
+    </div>
+    <!-- 手机 ⋯ 菜单（CSS ≤520 显示） -->
+    <div class="tb-actions-narrow" data-testid="tb-actions-narrow">
+      <button
+        type="button"
+        class="toggle tb-more-btn"
+        data-testid="tb-more-btn"
+        aria-label="更多"
+        :aria-expanded="menuOpen"
+        @click.stop="menuOpen = !menuOpen"
+      >⋯</button>
+      <div
+        v-if="menuOpen"
+        class="tb-more-panel"
+        data-testid="tb-more-panel"
+        role="menu"
+      >
+        <button
+          v-if="!store.archiveMode"
+          type="button"
+          class="toggle export-html-btn"
+          :disabled="exporting"
+          role="menuitem"
+          @click="exportHtml"
+        >
+          <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
+        </button>
+        <button
+          v-if="!store.archiveMode"
+          type="button"
+          class="toggle"
+          role="menuitem"
+          @click="logout"
+        >退出</button>
+        <button
+          v-if="!isAdmin && !store.archiveMode"
+          type="button"
+          class="toggle"
+          role="menuitem"
+          @click="openPw"
+        >
+          <span>🔑</span> 密码
+        </button>
+      </div>
+    </div>
   </template>
   <Teleport to="body">
     <div

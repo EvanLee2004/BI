@@ -8,9 +8,11 @@ import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import { dualRankBarOption, dualRankItemAt } from '../dual-rank-option'
+import { useNarrowViewport } from '../utils/viewport'
 import type { RankItem, RankView, RankViewBlk } from '../types/vm'
 
 const store = useCockpitStore()
+const narrow = useNarrowViewport(520)
 
 type DualItem = RankItem
 type DualBlk = RankViewBlk
@@ -96,11 +98,13 @@ onMounted(() => document.addEventListener('keydown', onKey))
 onUnmounted(() => document.removeEventListener('keydown', onKey))
 
 function barOption(blk: DualBlk | undefined) {
-  return dualRankBarOption(blk)
+  void narrow.value
+  return dualRankBarOption(blk, { narrow: narrow.value })
 }
 
 function chartH(blk: DualBlk | undefined): number {
-  const opt = dualRankBarOption(blk)
+  void narrow.value
+  const opt = dualRankBarOption(blk, { narrow: narrow.value })
   return typeof opt._chartH === 'number' ? opt._chartH : 480
 }
 

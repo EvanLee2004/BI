@@ -87,6 +87,7 @@ tests/test_task_2_5_0_login.py
 tests/test_task_2_6_0_session.py
 tests/test_task_2_6_1_budget_pct_display.py
 tests/test_task_2_6_1_rankings_full_and_scroll.py
+tests/test_task_2_6_2_mobile_layout.py
 tests/test_task43_arch.py
 tests/test_task46_stage0.py
 tests/test_task50_stage_b.py

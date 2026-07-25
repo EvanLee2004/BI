@@ -20,9 +20,11 @@ import { currentThemeMode } from '../echarts-theme'
 import { axisMaxCover, clipToCurrentMonth, padYearMonths, ratioAxisBounds, resolveMonthCap } from '../chart-months'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
+import { useNarrowViewport } from '../utils/viewport'
 import type { AxisTick, TrendVM } from '../types/vm'
 
 const store = useCockpitStore()
+const narrow = useNarrowViewport(520)
 const trend = computed((): Partial<TrendVM> => store.vm?.trend || {})
 
 /** 后端 ticks 精确匹配（禁最近刻度扫描）。 */
@@ -35,6 +37,8 @@ function tickLabel(ticks: AxisTick[], val: number): string {
 
 const option = computed(() => {
   void themeMode.value
+  void narrow.value
+  const isN = narrow.value
   const t = trend.value
   const rawLabels = (t.labels || []).map((x) => String(x))
   const rawRev = (t.revenue || []).map((x) => Number(x) || 0)
@@ -85,12 +89,14 @@ const option = computed(() => {
       data: revPlot,
       itemStyle: barGlowStyle(cRev),
       ...(area ? { areaStyle: area } : {}),
-      /* 54.5：只标收入柱顶，避免与成本/毛利率三重叠难辨 */
-      label: dataLabelStyle({
-        position: 'top',
-        distance: 4,
-        formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
-      }),
+      /* 54.5：只标收入柱顶；2.6.2 窄屏关掉柱顶字防叠 */
+      label: isN
+        ? { show: false }
+        : dataLabelStyle({
+            position: 'top',
+            distance: 4,
+            formatter: (p: { dataIndex: number }) => revD[p.dataIndex] || '',
+          }),
       emphasis: {
         focus: 'series',
         itemStyle: { shadowBlur: neon ? 10 : 4, shadowColor: neon ? 'rgba(47,243,255,0.45)' : 'rgba(34,211,238,0.4)' },
@@ -110,18 +116,19 @@ const option = computed(() => {
       yAxisIndex: 1,
       data: marPlot,
       symbol: 'circle',
-      symbolSize: neon ? 9 : 8,
+      symbolSize: neon ? (isN ? 7 : 9) : 8,
       connectNulls: false,
       itemStyle: pointGlowStyle(cMar),
       lineStyle: lineGlowStyle(cMar, 2.5),
-      /* 面积渐变仅毛利率线可选；收入柱已有 area 占位跳过 */
-      ...(neon ? { areaStyle: areaGradient(cMar) } : {}),
-      label: dataLabelStyle({
-        position: 'top',
-        distance: 8,
-        color: cMar,
-        formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
-      }),
+      ...(neon && !isN ? { areaStyle: areaGradient(cMar) } : {}),
+      label: isN
+        ? { show: false }
+        : dataLabelStyle({
+            position: 'top',
+            distance: 8,
+            color: cMar,
+            formatter: (p: { dataIndex: number }) => marD[p.dataIndex] || '',
+          }),
       emphasis: { focus: 'series', scale: true },
     },
   ]
@@ -139,14 +146,20 @@ const option = computed(() => {
       data: ['收入', '成本', '毛利率'],
       bottom: 4,
       left: 'center',
-      textStyle: legendTextStyle(),
+      textStyle: legendTextStyle(isN ? { fontSize: 11 } : {}),
     },
-    /* R-05：grid 底边距含图例+月份轴，避免 BU 页底部裁切 */
-    grid: { left: 56, right: 48, top: 48, bottom: 64, containLabel: true },
+    /* R-05：grid 底边距含图例+月份轴；2.6.2 窄屏略收边 */
+    grid: isN
+      ? { left: 44, right: 36, top: 28, bottom: 56, containLabel: true }
+      : { left: 56, right: 48, top: 48, bottom: 64, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: axisLabelStyle({ interval: 0 }),
+      axisLabel: axisLabelStyle({
+        interval: isN ? 'auto' : 0,
+        fontSize: isN ? 10 : undefined,
+        hideOverlap: true,
+      }),
     },
     yAxis: [
       {
@@ -156,14 +169,14 @@ const option = computed(() => {
         interval,
         axisLabel: {
           formatter: (val: number) => tickLabel(ticks, val),
-          ...axisLabelStyle(),
+          ...axisLabelStyle(isN ? { fontSize: 10 } : {}),
         },
       },
       {
         type: 'value',
         min: marBounds.min,
         max: marBounds.max,
-        axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
+        axisLabel: { formatter: '{value}%', ...axisLabelStyle(isN ? { fontSize: 10 } : {}) },
       },
     ],
     series,

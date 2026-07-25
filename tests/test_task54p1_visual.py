@@ -175,12 +175,20 @@ class TestTask54p2DeepSpace(unittest.TestCase):
             self.assertNotIn("v-html", src, p.name)
 
     def test_rank_axis_no_truncate(self):
-        """V6：排名行名禁止 overflow truncate（54.2 补刀）。"""
+        """V6：桌面排名行名 break 不截断；2.6.2 仅 narrow 分支允许 truncate。"""
         src = (FE / "dual-rank-option.ts").read_text(encoding="utf-8")
-        self.assertNotIn("overflow: 'truncate'", src)
-        self.assertNotIn('overflow: "truncate"', src)
-        self.assertIn("overflow: 'break'", src)
+        # 桌面默认路径必须仍是 break（三元或字面量）
+        self.assertTrue(
+            "overflow: 'break'" in src
+            or 'overflow: "break"' in src
+            or "overflow: narrow ? 'truncate' : 'break'" in src
+            or 'overflow: narrow ? "truncate" : "break"' in src,
+            "desktop rank axis must keep break (not global truncate)",
+        )
         self.assertIn("nameColW", src)
+        # 禁止无条件的全局 truncate 字面量独占
+        if "overflow: 'truncate'" in src or 'overflow: "truncate"' in src:
+            self.assertIn("narrow", src)
 
 
 if __name__ == "__main__":

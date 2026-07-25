@@ -537,8 +537,9 @@ body.theme-light .pp-panel {
   }
 }
 @media (max-width: 520px) {
+  /* 2.6.2 B4：与 theme.css 一致 — 两列紧凑（勿改宽屏默认 5 列） */
   .kpi-grid.kpi-5 {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1080,7 +1081,7 @@ body > .drawer .pl-drow > span:first-child {
   line-height: 1.5;
 }
 
-/* R7 375 触目标 */
+/* R7 375 触目标 + 2.6.2 手机壳 */
 @media (max-width: 520px) {
   .topbar .pbtn,
   .topbar button,
@@ -1093,7 +1094,20 @@ body > .drawer .pl-drow > span:first-child {
     min-height: 44px;
   }
   .kpi-grid {
-    gap: 16px !important;
+    gap: 10px !important;
+  }
+  /* B1 加固：scifi 面板/排名卡不撑破视口 */
+  .scifi-panel,
+  .dual-rankings,
+  #rankViews,
+  .rank-chart-host {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  :root[data-theme="neon"] .scifi-panel.kpi-card .kpi-v > b,
+  :root[data-theme="neon"] .scifi-panel.kpi-card .kpi-v .count-up-num {
+    font-size: 22px;
   }
 }
 

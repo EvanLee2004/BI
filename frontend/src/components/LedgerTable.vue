@@ -562,4 +562,12 @@ function hasColFilter(c: string): boolean {
 .ld-opt-hint,.ld-opt-err{font-size:12px;padding:6px 2px;color:var(--mut,#94a3b8)}
 .ld-opt-err{color:#f87171}
 .ld-col-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+/* 2.6.2 B1：表横滑容器锁宽，不撑 document */
+.ledger-scroll{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  box-sizing:border-box;
+}
 </style>

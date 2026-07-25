@@ -17,7 +17,16 @@ export type DualRankBlkLike = {
   dim?: string
 }
 
-export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Record<string, unknown> {
+export type DualRankOptionOpts = {
+  /** 2.6.2：≤520 时压缩左栏+省略长名，桌面默认 false 保持原 V6 折行不截断 */
+  narrow?: boolean
+}
+
+export function dualRankBarOption(
+  blk: DualRankBlkLike | null | undefined,
+  opts?: DualRankOptionOpts,
+): Record<string, unknown> {
+  const narrow = !!opts?.narrow
   const items = [...(blk?.items || [])].reverse() // 横向条图顶=第1名
   const names = items.map((it) => it.name)
   const orders = items.map((it) => Number(it.wo) || 0)
@@ -28,17 +37,21 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
   const cR = '#2dd4bf'
   const n = Math.max(items.length, 1)
   /* 行高随条数放大：默认≥10 行时每行约 40px，最少 420 */
-  const chartH = Math.max(420, n * 44 + 56)
-  /* V6：行名不截断——按最长名估左栏，禁止 overflow:truncate */
+  const chartH = Math.max(narrow ? 360 : 420, n * (narrow ? 40 : 44) + 56)
   const maxChars = names.reduce((m, s) => Math.max(m, String(s || '').length), 4)
-  const nameColW = Math.min(200, Math.max(112, maxChars * 13 + 8))
-  const leftPad = nameColW + 16
+  /* 桌面：不截断折行；窄屏：限宽 + ellipsis 防撑破 */
+  const nameColW = narrow
+    ? Math.min(96, Math.max(64, Math.min(maxChars, 8) * 12 + 4))
+    : Math.min(200, Math.max(112, maxChars * 13 + 8))
+  const leftPad = nameColW + (narrow ? 8 : 16)
+  const labelFs = narrow ? 10 : 12
   return {
     _chartH: chartH,
     _nameColW: nameColW,
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      confine: true,
       formatter: (params: { dataIndex: number; seriesName: string }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         const it = items[i]
@@ -47,25 +60,31 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
     },
     legend: {
       data: ['下单', '回款'],
-      textStyle: legendTextStyle(),
+      textStyle: legendTextStyle(narrow ? { fontSize: 11 } : {}),
       top: 0,
     },
-    grid: { left: leftPad, right: 80, top: 36, bottom: 12, containLabel: false },
+    grid: {
+      left: leftPad,
+      right: narrow ? 44 : 80,
+      top: 36,
+      bottom: 12,
+      containLabel: false,
+    },
     xAxis: {
       type: 'value',
       max: 100,
-      axisLabel: { formatter: '{value}%', ...axisLabelStyle() },
+      axisLabel: { formatter: '{value}%', ...axisLabelStyle(narrow ? { fontSize: 10 } : {}) },
     },
     yAxis: {
       type: 'category',
       data: names,
       axisLabel: {
         width: nameColW,
-        /* 不截断：过长则折行，禁止 truncate/ellipsis */
-        overflow: 'break',
+        overflow: narrow ? 'truncate' : 'break',
+        ellipsis: narrow ? '…' : undefined,
         interval: 0,
         hideOverlap: false,
-        ...axisLabelStyle({ fontSize: 12, lineHeight: 16 }),
+        ...axisLabelStyle({ fontSize: labelFs, lineHeight: narrow ? 14 : 16 }),
       },
       triggerEvent: true,
     },
@@ -74,7 +93,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         name: '下单',
         type: 'bar',
         data: orders,
-        barMaxWidth: 14,
+        barMaxWidth: narrow ? 12 : 14,
         itemStyle: {
           color: {
             type: 'linear',
@@ -94,7 +113,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-          fontSize: 12,
+          fontSize: labelFs,
         }),
         emphasis: {
           itemStyle: { shadowBlur: 4, shadowColor: 'rgba(167,139,250,0.45)' },
@@ -104,7 +123,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         name: '回款',
         type: 'bar',
         data: receipts,
-        barMaxWidth: 14,
+        barMaxWidth: narrow ? 12 : 14,
         itemStyle: {
           color: {
             type: 'linear',
@@ -124,7 +143,7 @@ export function dualRankBarOption(blk: DualRankBlkLike | null | undefined): Reco
         label: dataLabelStyle({
           position: 'right',
           formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-          fontSize: 12,
+          fontSize: labelFs,
         }),
         emphasis: {
           itemStyle: { shadowBlur: 4, shadowColor: 'rgba(45,212,191,0.45)' },
