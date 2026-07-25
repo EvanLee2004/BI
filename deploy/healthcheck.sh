@@ -20,30 +20,12 @@ DISK_FREE_MIN_RATIO="${DISK_FREE_MIN_RATIO:-0.10}"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
-# 任务书64·D8：失败时尝试飞书 webhook（读 本地配置/config 合并；未配置则只写本地 log）
-notify_feishu() {
-  local reason="$1"
-  python3 - <<PY 2>/dev/null || true
-import json, sys
-from pathlib import Path
-root = Path(r"$ROOT")
-sys.path.insert(0, str(root / "src"))
-try:
-    import loaders
-    import notify
-    cfg = loaders.load_config(root, strict=False)
-    notify.maybe_alert_text(cfg, f"【经营看板健康检查失败】{reason}")
-except Exception:
-    pass
-PY
-}
-
+# 2026-07-25：飞书外发已废止（禁止公司大群/新闻 bot 测试）。失败只写本地 log。
 alert() {
   local reason="$1"
   mkdir -p "$(dirname "$LOG")"
   echo "$(ts) ALERT $reason" >>"$LOG"
   echo "ALERT: $reason" >&2
-  notify_feishu "$reason"
   exit 1
 }
 

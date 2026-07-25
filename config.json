@@ -43,7 +43,7 @@
   "disk_free_min_ratio": 0.10,
   "_disk_free_min_ratio_note": "数据盘剩余空间低于该比例 → 体检红（默认 0.10=10%）。",
   "feishu_webhook_url": "",
-  "_feishu_webhook_url_note": "飞书自定义机器人 webhook；空=静默。部署时在设置页或 本地配置.json 填写，绝不进 git。",
+  "_feishu_webhook_url_note": "【已废止 2026-07-25】飞书 webhook 外发永久关闭（notify 为 no-op）。禁止再填公司大群/财经新闻 bot；禁止用此字段做联通测试。告警只写本机日志。",
   "login_max_failures": 10,
   "login_lock_minutes": 5,
   "_login_lock_note": "同账号连续登录失败达 login_max_failures 次后锁定 login_lock_minutes 分钟（内存计数，进程重启清零）。",

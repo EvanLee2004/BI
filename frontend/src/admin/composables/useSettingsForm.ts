@@ -480,8 +480,9 @@ export function useSettingsForm() {
     setMsgs.alert = '保存中…'
     const pct = sDiskMin.value || 10
     try {
+      // 飞书 webhook 已废止：不再提交 feishu_webhook_url（禁止公司大群/新闻 bot）
       const d = await jpost<{ note?: string }>('/api/settings', {
-        feishu_webhook_url: sFeishuHook.value,
+        feishu_webhook_url: '',
         run_log_keep_days: sLogKeep.value,
         disk_free_min_ratio: pct * 1e-2,
       })

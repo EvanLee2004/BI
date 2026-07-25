@@ -161,7 +161,8 @@ class TestNotify(unittest.TestCase):
         self.assertFalse(notify.post_feishu_text("", "hi"))
         notify.maybe_alert_pipeline({"feishu_webhook_url": ""}, {"result": "红"})
 
-    def test_webhook_called_on_red(self):
+    def test_outbound_disabled_never_posts(self):
+        """2026-07-25：飞书外发永久 no-op，配置 URL 也不调用 post。"""
         import notify
 
         called = []
@@ -175,14 +176,16 @@ class TestNotify(unittest.TestCase):
                 {"feishu_webhook_url": "http://example.invalid/hook"},
                 {"result": "红", "fetch": {"status": "no_source"}, "db_check": {"ok": True}},
             )
-        self.assertEqual(len(called), 1)
-        self.assertIn("告警", called[0][1])
+            notify.maybe_alert_text({"feishu_webhook_url": "http://example.invalid/hook"}, "should-not-send")
+        self.assertEqual(len(called), 0)
+        self.assertFalse(notify.FEISHU_OUTBOUND_ENABLED)
+        self.assertEqual(notify.webhook_url({"feishu_webhook_url": "http://x"}), "")
 
     def test_webhook_failure_swallowed(self):
         import notify
 
+        # post 自身已 no-op；即使抛错也被 maybe 吞掉
         with mock.patch.object(notify, "post_feishu_text", side_effect=RuntimeError("boom")):
-            # maybe_alert 内 try；post 已不抛；再包一层
             notify.maybe_alert_pipeline({"feishu_webhook_url": "http://x"}, {"result": "红", "fetch": {}, "db_check": {}})
 
 
@@ -248,7 +251,8 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_settings_feishu_roundtrip(self):
+    def test_settings_feishu_forced_empty(self):
+        """飞书 webhook 废止：提交 URL 也强制回空。"""
         import accounts
         import loaders
         import server
@@ -272,9 +276,9 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
             self.assertIn(r.status_code, (302, 303))
             r = c.post("/api/settings", json={"feishu_webhook_url": "https://example.com/hook"})
             self.assertEqual(r.status_code, 200, r.text)
-            self.assertEqual(r.json().get("feishu_webhook_url"), "https://example.com/hook")
+            self.assertEqual(r.json().get("feishu_webhook_url"), "")
             g = c.get("/api/settings")
-            self.assertEqual(g.json().get("feishu_webhook_url"), "https://example.com/hook")
+            self.assertEqual(g.json().get("feishu_webhook_url"), "")
             # 归档导出
             r2 = c.get("/api/archive_export", params={"year": "2026"})
             self.assertEqual(r2.status_code, 200, r2.text[:200])
@@ -282,14 +286,14 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_admin_ui_has_archive_and_feishu(self):
-        """任务书65·L1：飞书/归档在 Vue 设置页。"""
+    def test_admin_ui_no_feishu_webhook_field(self):
+        """2026-07-25：设置页去掉 webhook 输入；仍保留日志/磁盘/归档。"""
         settings = (ROOT / "frontend/src/admin/views/SettingsView.vue").read_text(encoding="utf-8")
         form = (ROOT / "frontend/src/admin/composables/useSettingsForm.ts").read_text(encoding="utf-8")
-        self.assertTrue("feishu" in settings.lower() or "飞书" in settings)
-        self.assertIn("sFeishuHook", form)
+        self.assertIn("飞书群告警已关闭", settings)
+        self.assertNotIn("open.feishu.cn", settings)
         self.assertIn("feishu_webhook_url", form)
-        # 审计归档导出（若在 Audit 页）
+        self.assertIn("飞书 webhook 已废止", form)
         audit = (ROOT / "frontend/src/admin/views/AuditView.vue").read_text(encoding="utf-8")
         blob = settings + form + audit
         self.assertTrue(

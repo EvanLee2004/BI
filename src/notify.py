@@ -1,102 +1,64 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""飞书自定义机器人告警（任务书43·可观测）。
+"""告警出口（已废止飞书外发）。
 
-- webhook 空/未配置 → 完全静默、零行为变化
-- 发送失败/超时(≤3s) → try/except，绝不影响主流程
-- 不落密码/token 到日志
+2026-07-25 明昊硬令：
+- **禁止**再向公司大群 /「财经新闻」机器人 / 任何飞书 webhook 发消息（含测试）。
+- 曾误用财务每日新闻同通道做 2.6.3 B5 联通测试，已清生产 `feishu_webhook_url`。
+- 本模块所有外发函数为 **永久 no-op**：不读 webhook、不 HTTP、不抛异常。
+- 需要告警时只写本地日志；若将来要新通道，必须单独建告警群且书面批准，禁止复用新闻 bot。
 """
 from __future__ import annotations
 
-import json
 import logging
-import socket
-import urllib.error
-import urllib.request
 
 log = logging.getLogger("kanban.notify")
 
+# 功能开关：永远 False。禁止改为 True 除非明昊书面批准新通道。
+FEISHU_OUTBOUND_ENABLED = False
+
 
 def webhook_url(cfg: dict | None) -> str:
-    return str((cfg or {}).get("feishu_webhook_url") or "").strip()
+    """兼容旧调用：始终返回空（忽略配置里残留的 URL）。"""
+    return ""
 
 
 def post_feishu_text(url: str, text: str, timeout: float = 3.0) -> bool:
-    """POST 飞书 text 消息。成功 True；任何失败 False（不抛）。"""
-    if not url:
-        return False
-    body = json.dumps({"msg_type": "text", "content": {"text": text}}, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return 200 <= getattr(resp, "status", 200) < 300
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError) as e:
-        log.warning("feishu webhook failed: %s", type(e).__name__)
-        return False
-    except Exception as e:
-        log.warning("feishu webhook unexpected: %s", type(e).__name__)
-        return False
+    """永久禁用：不发任何 HTTP。"""
+    if url or text:
+        log.info("feishu outbound disabled; drop message (len=%s)", len(text or ""))
+    return False
 
 
 def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
-    """管道结果红 / 回滚类触发时告警。失败静默。"""
+    """管道红：仅打本地 log，不外发。"""
     try:
-        url = webhook_url(cfg)
-        if not url:
-            return
         result = report.get("result")
-        if result != "红":
-            return
-        host = socket.gethostname()
-        reasons = []
-        if (report.get("disk") or {}).get("red"):
-            reasons.append("磁盘空间不足")
-        if report.get("fetch", {}).get("status") == "no_source":
-            reasons.append("收单台账无源")
-        if not (report.get("db_check") or {}).get("ok", True):
-            reasons.append("数据库 quick_check 异常")
-        msg = f"【经营看板告警】{host} 体检红 · {'；'.join(reasons) or '见运行日志'} · {report.get('result')}"
-        post_feishu_text(url, msg)
+        if result == "红":
+            log.warning("pipeline red (feishu outbound disabled): %s", result)
     except Exception:
         pass
 
 
 def maybe_alert_text(cfg: dict, text: str) -> None:
+    """任意文本告警：仅本地 log，不外发。"""
     try:
-        url = webhook_url(cfg)
-        if not url:
-            return
-        post_feishu_text(url, text)
+        if text:
+            log.warning("alert text (feishu outbound disabled): %s", str(text)[:200])
     except Exception:
         pass
 
 
 def alert_event(kind: str, detail: str = "", root=None) -> None:
-    """看门狗/更新脚本调用：读合并配置 webhook，失败静默。
-    kind: boot_crash | rollback | update_fail | red
-    """
+    """看门狗/更新脚本：仅本地 log。"""
     try:
-        import loaders
-
-        cfg = loaders.load_config(root)
-        host = socket.gethostname()
-        labels = {
-            "boot_crash": "服务连续异常退出",
-            "rollback": "更新后启动崩溃已回滚",
-            "update_fail": "一键更新失败/已回滚依赖",
-            "red": "体检红",
-        }
-        title = labels.get(kind, kind)
-        msg = f"【经营看板告警】{host} · {title}"
-        if detail:
-            msg += f" · {detail[:200]}"
-        maybe_alert_text(cfg, msg)
+        log.warning("alert_event kind=%s detail=%s (feishu outbound disabled)", kind, (detail or "")[:200])
     except Exception:
         pass
 
 
 def cli_alert(argv: list[str] | None = None) -> int:
-    """deploy/linux 看门狗：python -m notify kind [detail…]"""
+    """deploy/linux 看门狗入口：不外发。"""
     import sys
 
     args = list(argv if argv is not None else sys.argv[1:])

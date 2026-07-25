@@ -17,7 +17,7 @@ EDITABLE_SETTINGS = (
     "backup_keep_days",
     "zhiyun_auto_fetch",
     "overall_see_salary",
-    "feishu_webhook_url",
+    # feishu_webhook_url 已废止：禁止再写入（2026-07-25 明昊令）
     "run_log_keep_days",
     "disk_free_min_ratio",
 )
@@ -253,11 +253,10 @@ def _apply_optional_local_settings(cfg, payload: dict, updates: dict) -> None:
         cfg["ledger_share_path"] = lsp
         updates["ledger_share_path"] = lsp
     # 54.12 R-01：工资全端隐藏，不再接受 overall_see_salary 开关
-    # 任务书43：飞书 webhook / 日志保留 / 磁盘阈值 → 本地覆盖层（不进 git）
+    # 2026-07-25：飞书 webhook 外发废止。若客户端仍提交该字段 → 强制清空并删本地键，禁止再写入 URL。
     if "feishu_webhook_url" in payload:
-        wh = str(payload.get("feishu_webhook_url") or "").strip()
-        cfg["feishu_webhook_url"] = wh
-        updates["feishu_webhook_url"] = wh
+        cfg["feishu_webhook_url"] = ""
+        updates["feishu_webhook_url"] = ""
     if "run_log_keep_days" in payload:
         try:
             rkd = int(payload.get("run_log_keep_days"))
@@ -331,7 +330,7 @@ def save_settings(cfg, root, payload: dict) -> dict:
         "zhiyun_auto_fetch": auto,
         "ledger_share_path": cfg.get("ledger_share_path", ""),
         "overall_see_salary": False,  # 54.12 R-01 已废止开关，固定 False 兼容旧前端
-        "feishu_webhook_url": cfg.get("feishu_webhook_url", "") or "",
+        "feishu_webhook_url": "",  # 废止：永不回显 URL
         "run_log_keep_days": int(cfg.get("run_log_keep_days", 365) or 365),
         "disk_free_min_ratio": float(cfg.get("disk_free_min_ratio", 0.10) or 0.10),
         "note": note,

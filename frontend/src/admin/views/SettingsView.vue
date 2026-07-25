@@ -159,16 +159,13 @@ import './settings-view.css'
         </el-card>
       </el-col>
 
-      <!-- 飞书告警 -->
+      <!-- 运行日志 / 磁盘（飞书 webhook 外发已废止 2026-07-25，禁止再接公司大群/新闻 bot） -->
       <el-col :xs="24" :md="12">
         <el-card shadow="never" class="scard">
           <template #header>
-            <div class="scard-h"><span class="ico">📣</span><div><div class="ttl">飞书告警</div><div class="sub">体检红 / 回滚 / 连崩推送</div></div></div>
+            <div class="scard-h"><span class="ico">📋</span><div><div class="ttl">运行日志 · 磁盘</div><div class="sub">仅本机；不外发飞书</div></div></div>
           </template>
           <el-form label-position="top">
-            <el-form-item label="自定义机器人 Webhook">
-              <el-input v-model="sFeishuHook" type="password" show-password placeholder="https://open.feishu.cn/..." @input="mark('alert')" />
-            </el-form-item>
             <el-form-item label="运行日志保留（天）">
               <el-input-number v-model="sLogKeep" :min="30" :max="3650" @change="mark('alert')" />
             </el-form-item>
@@ -176,7 +173,7 @@ import './settings-view.css'
               <el-input-number v-model="sDiskMin" :min="1" :max="50" @change="mark('alert')" />
             </el-form-item>
           </el-form>
-          <div class="muted">{{ setMsgs.alert }}</div>
+          <div class="muted">飞书群告警已关闭。阈值只影响本机体检/日志。{{ setMsgs.alert }}</div>
         </el-card>
       </el-col>
 

@@ -185,7 +185,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         out["overall_see_salary"] = False  # 54.12 R-01 已废止开关
-        out["feishu_webhook_url"] = cfg.get("feishu_webhook_url", "") or ""  # 任务书43 告警
+        out["feishu_webhook_url"] = ""  # 2026-07-25 外发废止：永不回显
         out["run_log_keep_days"] = int(cfg.get("run_log_keep_days", 365) or 365)
         out["disk_free_min_ratio"] = float(cfg.get("disk_free_min_ratio", 0.10) or 0.10)
         bdir = loaders.data_dir(cfg, root) / "备份"
@@ -222,8 +222,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             chg.append("收单台账共享盘路径已更改")
         # 54.12 R-01：overall_see_salary 已废止，忽略 payload 中的该字段
         if "feishu_webhook_url" in payload:
-            # webhook 含密钥，只记「已更改」
-            chg.append("飞书告警 webhook 已更改")
+            # 字段已废止：提交只会清空，审计记关闭
+            chg.append("飞书告警 webhook 已关闭（外发废止）")
         if chg:
             _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
         return res
