@@ -235,7 +235,7 @@ process.stdout.write('PAINT_OK');
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         summary, _, _, _ = core.generate(cfg, datetime.date(2026, 6, 30), trigger="a8-monthly")
         yk = (summary.get("meta") or {}).get("year_key") or "2026年"

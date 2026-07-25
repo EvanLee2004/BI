@@ -43,7 +43,7 @@ class TestHttpShippedFragments(unittest.TestCase):
     def setUpClass(cls):
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         cfg["show_delivered_unpaid"] = False
         cls.golden_cfg = cfg

@@ -38,7 +38,7 @@ class _Base(unittest.TestCase):
         (self.tmp / "数据").mkdir()
         self.cfg = dict(loaders.load_config(ROOT))
         self.cfg["data_dir"] = "数据"
-        self.cfg["db_path"] = "数据/看板.db"
+        self.cfg["db_path"] = "看板.db"
         self.cfg["zhiyun_auto_fetch"] = False
         accounts.save_accounts(
             self.cfg,

@@ -483,6 +483,30 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             n_unassigned=n_un,
             health_warnings=health.get("warnings") or [],
         )
+        # 2.6.3·A1/A4：账号表损坏 → 红；本地配置损坏 → 黄（不覆盖红）
+        try:
+            import accounts as _acc
+
+            ac = _acc.accounts_corrupt_status()
+            if ac:
+                msg = f"账号表损坏已隔离（未重置出厂口令）：{ac.get('reason') or ''}"
+                if msg not in reasons:
+                    reasons = [msg] + list(reasons)
+                result = "红"
+        except Exception:
+            pass
+        try:
+            import loaders as _ld
+
+            lc = _ld.local_config_corrupt_status()
+            if lc:
+                msg = f"本地配置.json 损坏，已退回出厂默认：{lc.get('reason') or ''}"
+                if msg not in reasons:
+                    reasons = [msg] + list(reasons)
+                if result in ("绿", None):
+                    result = "黄"
+        except Exception:
+            pass
         from routes._srv import srv
 
         banners = srv().build_fetch_fallback_banners(body, cfg, root)

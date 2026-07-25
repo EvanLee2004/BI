@@ -37,7 +37,7 @@ class TestP4Remainder(unittest.TestCase):
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         cls.summary, cls.html, _, cls.bu_pages = core.generate(cfg, date(2026, 6, 30), trigger="b-p4")
         logo = assets.load_logo_base64(cfg) or ""

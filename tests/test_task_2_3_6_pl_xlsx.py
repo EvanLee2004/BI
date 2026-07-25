@@ -35,7 +35,7 @@ def _load_golden_summary():
         raise unittest.SkipTest("缺 _golden_data")
     cfg = dict(loaders.load_config(ROOT))
     cfg["data_dir"] = "_golden_data"
-    cfg["db_path"] = "_golden_data/看板.db"
+    cfg["db_path"] = "看板.db"
     cfg["zhiyun_auto_fetch"] = False
     today = loaders.pinned_today(cfg)
     conn = db.connect(cfg, ROOT)
@@ -290,7 +290,7 @@ class TestPlXlsxHttp(unittest.TestCase):
         (cls.tmp / "数据").mkdir(exist_ok=True)
         cls.cfg = dict(loaders.load_config(ROOT))
         cls.cfg["data_dir"] = "数据"
-        cls.cfg["db_path"] = "数据/看板.db"
+        cls.cfg["db_path"] = "看板.db"
         cls.cfg["zhiyun_auto_fetch"] = False
         # BU 配置
         bus = [

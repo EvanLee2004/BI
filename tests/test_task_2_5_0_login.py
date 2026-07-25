@@ -78,7 +78,7 @@ class TestUnifiedLoginHttp(unittest.TestCase):
         (cls.tmp / "数据").mkdir()
         cls.cfg = dict(loaders.load_config(ROOT))
         cls.cfg["data_dir"] = "数据"
-        cls.cfg["db_path"] = "数据/看板.db"
+        cls.cfg["db_path"] = "看板.db"
         cls.cfg["zhiyun_auto_fetch"] = False
         # 经 accounts.save_accounts 规范化（与 test_auth 一致）
         accounts.save_accounts(

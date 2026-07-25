@@ -15,10 +15,13 @@ from __future__ import annotations
 import csv
 import datetime
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import openpyxl
+
+log = logging.getLogger("kanban.loaders")
 
 ROOT = Path(__file__).resolve().parents[1]  # 程序根目录（config.json 所在层）
 
@@ -26,6 +29,14 @@ ROOT = Path(__file__).resolve().parents[1]  # 程序根目录（config.json 所�
 # （收单台账共享盘路径、更新时间、备份天数等）只落这里，**config.json 保持出厂默认永不被程序写脏**
 # → git 工作区干净 → 一键更新的"工作区脏就拒绝"护栏不会被误触发（部署机才能用一键更新）。
 LOCAL_CONFIG_NAME = "本地配置.json"
+
+# 2.6.3·A2：本地配置允许覆盖的键白名单（路径类/环境类不可被覆盖，防影子库与环境串）
+LOCAL_CONFIG_DENY_KEYS = frozenset({"data_dir", "db_path", "profiles"})
+# 允许覆盖的运维/业务开关（其余未知键仍允许，便于扩展；仅拒绝上面危险键）
+# 说明：白名单语义=「危险键拒绝」而非「仅允许列出键」——既防双拼又不大改现有本地配置面。
+
+# 2.6.3·A4：本地配置损坏态（进程内；供 /api/health 抬黄）
+_LOCAL_CONFIG_CORRUPT: dict | None = None
 
 
 # ---------------- 配置 / 时间 ----------------
@@ -72,12 +83,54 @@ def validate_config(cfg: dict) -> None:
             raise ValueError(f"config.columns 缺少：{ck}")
 
 
+def local_config_corrupt_status() -> dict | None:
+    """2.6.3·A4：最近一次本地配置损坏信息（无则 None）。"""
+    return dict(_LOCAL_CONFIG_CORRUPT) if _LOCAL_CONFIG_CORRUPT else None
+
+
+def clear_local_config_corrupt_status() -> None:
+    global _LOCAL_CONFIG_CORRUPT
+    _LOCAL_CONFIG_CORRUPT = None
+
+
+def _apply_local_overrides(cfg: dict, data: dict) -> None:
+    """合并本地覆盖：拒绝 data_dir/db_path/profiles（2.6.3·A2）。"""
+    for k, v in data.items():
+        if v is None:
+            continue
+        if k in LOCAL_CONFIG_DENY_KEYS or k.startswith("_"):
+            if k in LOCAL_CONFIG_DENY_KEYS:
+                log.warning("本地配置忽略危险键 %s（不可覆盖）", k)
+            continue
+        cfg[k] = v
+
+
+def _mark_local_config_corrupt(path: Path, reason: str, cfg: dict | None = None) -> None:
+    """坏本地配置 → 进程旗标 + warning + 告警（2.6.3·A4，不许 except: pass 静默）。"""
+    global _LOCAL_CONFIG_CORRUPT
+    _LOCAL_CONFIG_CORRUPT = {"path": str(path), "reason": reason}
+    log.warning("本地配置.json 损坏，退回 config.json 默认：%s (%s)", path, reason)
+    try:
+        import notify
+
+        notify.maybe_alert_text(
+            cfg or {},
+            f"【经营看板告警】本地配置.json 损坏：{reason}；已退回出厂默认（含 ledger_share_path 等）。"
+            f"请在管理端重存设置。路径：{path}",
+        )
+    except Exception:
+        pass
+
+
 def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
     """读 config.json（出厂默认），再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
-    覆盖只认非 None 值；坏文件/缺文件静默跳过。config.json 本身只读不写。
+    覆盖只认非 None 值；危险键 data_dir/db_path/profiles 不可被覆盖。
+    坏文件：体检黄 + log.warning + 告警，退回 config.json 默认（2.6.3·A4）。
+    config.json 本身只读不写。
     strict=True（默认）：校验必需键，缺则 ValueError。
     strict=False：仅读盘（updater 读 pip_mirror 等，不要求完整 schema）。
     """
+    global _LOCAL_CONFIG_CORRUPT
     base = root or ROOT
     path = base / "config.json"
     try:
@@ -93,12 +146,13 @@ def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
     if ov.exists():
         try:
             data = json.loads(ov.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                for k, v in data.items():
-                    if v is not None:
-                        cfg[k] = v
-        except (OSError, ValueError):
-            pass  # 覆盖文件坏了不致命：退回 config.json 默认，管理端重存即可
+            if not isinstance(data, dict):
+                _mark_local_config_corrupt(ov, "根节点不是 JSON 对象", cfg)
+            else:
+                _apply_local_overrides(cfg, data)
+                _LOCAL_CONFIG_CORRUPT = None
+        except (OSError, ValueError) as e:
+            _mark_local_config_corrupt(ov, f"{type(e).__name__}: {e}", cfg)
     if strict:
         validate_config(cfg)
     return cfg
@@ -109,23 +163,38 @@ def local_config_path(cfg: dict, root: Path | None = None) -> Path:
 
 
 def read_local_config(cfg: dict, root: Path | None = None) -> dict:
-    """读机器本地覆盖文件为 dict（缺/坏 → {}）。"""
+    """读机器本地覆盖文件为 dict（缺 → {}；坏 → {} 并标记损坏）。"""
+    p = local_config_path(cfg, root)
+    if not p.exists():
+        return {}
     try:
-        d = json.loads(local_config_path(cfg, root).read_text(encoding="utf-8"))
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
+        d = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(d, dict):
+            _mark_local_config_corrupt(p, "根节点不是 JSON 对象", cfg)
+            return {}
+        # 过滤危险键，调用方拿到的也是安全视图
+        return {k: v for k, v in d.items() if k not in LOCAL_CONFIG_DENY_KEYS}
+    except (OSError, ValueError) as e:
+        _mark_local_config_corrupt(p, f"{type(e).__name__}: {e}", cfg)
         return {}
 
 
 def write_local_config(cfg: dict, root: Path | None = None, updates: dict | None = None) -> dict:
     """把 updates 合并进机器本地覆盖文件并落盘；返回合并后的全量覆盖 dict。
-    **只写这个 gitignore 文件，绝不动 config.json**（保持 git 工作区干净→一键更新可用）。"""
+    **只写这个 gitignore 文件，绝不动 config.json**（保持 git 工作区干净→一键更新可用）。
+    拒绝写入 data_dir/db_path/profiles。
+    """
+    global _LOCAL_CONFIG_CORRUPT
     cur = read_local_config(cfg, root)
     for k, v in (updates or {}).items():
+        if k in LOCAL_CONFIG_DENY_KEYS:
+            log.warning("write_local_config 拒绝危险键 %s", k)
+            continue
         cur[k] = v
     p = local_config_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _LOCAL_CONFIG_CORRUPT = None
     return cur
 
 

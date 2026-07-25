@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import secrets
 import string
 import time
@@ -32,7 +33,14 @@ from pathlib import Path
 import loaders
 from secure_io import write_private_text
 
+log = logging.getLogger("kanban.accounts")
+
 CONFIG_NAME = "看板账号.json"
+# 隔离坏文件后留下此旗标，防止「改名后路径不存在 → 误 seed 出厂口令」
+NEEDS_RESTORE_SUFFIX = ".needs_restore"
+
+# 2.6.3·A1：账号表损坏态（进程内；供 /api/health 抬红 + 告警一次）
+_ACCOUNTS_CORRUPT: dict | None = None  # {"path": str, "reason": str, "quarantine": str}
 
 PERM_ADMIN = "管理员"
 PERM_MAIN = "整体"  # 与 bu.MAIN_ACCOUNT 同字面——整体页权限保留字
@@ -184,29 +192,113 @@ def _write(path: Path, accounts: list[dict]) -> None:
     write_private_text(path, json.dumps({"accounts": rows}, ensure_ascii=False, indent=2) + "\n")
 
 
+def _needs_restore_path(p: Path) -> Path:
+    return p.with_name(p.name + NEEDS_RESTORE_SUFFIX)
+
+
 def seed_defaults(cfg: dict, root: Path | None = None) -> list[dict]:
     """写默认账号表并返回规范化列表。"""
+    global _ACCOUNTS_CORRUPT
+    p = config_path(cfg, root)
     rows = [_norm_one(a) for a in DEFAULT_ACCOUNTS]
     rows = [r for r in rows if r]
-    _write(config_path(cfg, root), rows)
+    _write(p, rows)
+    _ACCOUNTS_CORRUPT = None
+    try:
+        _needs_restore_path(p).unlink(missing_ok=True)
+    except OSError:
+        pass
     return rows
 
 
-def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -> list[dict]:
-    """读账号表。缺文件且 create=True → seed 默认表；坏 JSON / 无有效条目且 create → seed。
+def accounts_corrupt_status() -> dict | None:
+    """2.6.3·A1：最近一次账号表损坏信息（无则 None）。"""
+    return dict(_ACCOUNTS_CORRUPT) if _ACCOUNTS_CORRUPT else None
 
-    不迁移哈希：盘上若仅有密码哈希、无明文，该行密码为空直至管理员保存明文。
+
+def clear_accounts_corrupt_status() -> None:
+    """测试/恢复后清掉损坏旗标。"""
+    global _ACCOUNTS_CORRUPT
+    _ACCOUNTS_CORRUPT = None
+
+
+def _quarantine_corrupt(p: Path, reason: str) -> Path | None:
+    """坏文件改名 看板账号.json.corrupt-<时间戳>，保留原内容；写 needs_restore 旗标防误 seed。"""
+    global _ACCOUNTS_CORRUPT
+    ts = time.strftime("%Y%m%d%H%M%S")
+    dest = p.with_name(f"{p.name}.corrupt-{ts}")
+    n = 0
+    while dest.exists():
+        n += 1
+        dest = p.with_name(f"{p.name}.corrupt-{ts}-{n}")
+    try:
+        p.rename(dest)
+        qpath = str(dest)
+    except OSError as e:
+        log.error("账号表隔离失败 %s → %s: %s", p, dest, e)
+        qpath = ""
+        dest = None
+    flag = _needs_restore_path(p)
+    try:
+        flag.write_text(
+            json.dumps({"reason": reason, "quarantine": qpath, "ts": ts}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as e:
+        log.error("写 needs_restore 旗标失败: %s", e)
+    _ACCOUNTS_CORRUPT = {"path": str(p), "reason": reason, "quarantine": qpath}
+    log.error("账号表损坏已隔离: %s (%s) → %s", p, reason, qpath or "(隔离失败)")
+    try:
+        import notify
+
+        try:
+            cfg0 = loaders.load_config(strict=False)
+        except Exception:
+            cfg0 = {}
+        notify.maybe_alert_text(
+            cfg0,
+            f"【经营看板告警】账号表损坏：{reason}；已保留 {qpath or p.name}；"
+            f"未重置为出厂口令。请从 .corrupt 备份恢复后删 {flag.name}。",
+        )
+    except Exception:
+        pass
+    return dest
+
+
+def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -> list[dict]:
+    """读账号表。
+
+    2.6.3·A1：**只有文件真不存在且无 needs_restore 旗标**且 create=True 才 seed。
+    坏 JSON / 缺 accounts 键 → 改名 quarantine 保留 + 体检红 + 告警，**绝不覆盖写回出厂表**。
+    文件存在但无有效账号行 → 返回 []（不 seed）。
     """
+    global _ACCOUNTS_CORRUPT
     p = config_path(cfg, root)
+    flag = _needs_restore_path(p)
     if not p.exists():
+        # 损坏隔离后留下旗标：禁止 seed，直到管理员恢复并清除旗标
+        if flag.exists():
+            try:
+                meta = json.loads(flag.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                meta = {}
+            _ACCOUNTS_CORRUPT = {
+                "path": str(p),
+                "reason": (meta or {}).get("reason") or "账号表待恢复（needs_restore）",
+                "quarantine": (meta or {}).get("quarantine") or "",
+            }
+            return []
         return seed_defaults(cfg, root) if create else []
     try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return seed_defaults(cfg, root) if create else []
+        text = p.read_text(encoding="utf-8")
+        raw = json.loads(text)
+    except (OSError, ValueError) as e:
+        _quarantine_corrupt(p, f"JSON 无效/读失败: {type(e).__name__}")
+        return []
     items = raw.get("accounts") if isinstance(raw, dict) else None
     if not isinstance(items, list):
-        return seed_defaults(cfg, root) if create else []
+        _quarantine_corrupt(p, "缺 accounts 键或类型不是列表")
+        return []
     out, seen = [], set()
     for it in items:
         v = _norm_one(it)
@@ -214,13 +306,18 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
             continue
         seen.add(v["账号"])
         out.append(v)
-    if not out and create:
-        return seed_defaults(cfg, root)
+    # 文件存在且结构合法 → 即使 out 为空也不 seed
+    if out:
+        _ACCOUNTS_CORRUPT = None
+        try:
+            flag.unlink(missing_ok=True)
+        except OSError:
+            pass
     return out
 
 
 def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
-    """单条账号规范化；无效返回 None。"""
+    """单条账号规范化；无效返回 None。空密码显式传入 → ValueError（2.6.3·A4）。"""
     acct = str(raw.get("账号") or "").strip()
     if not acct:
         return None
@@ -232,10 +329,13 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
     old_pw = str(old.get("密码") or DEFAULT_VIEW_PW)
     if "密码" in raw and raw["密码"] is not None:
         pw = str(raw["密码"])
+        # 2.6.3·A4：密码字段清空不再补 8888
+        if not pw.strip():
+            raise ValueError("密码不能为空（要停用请删除该账号）")
     else:
         pw = old_pw
     if not pw:
-        pw = DEFAULT_VIEW_PW
+        raise ValueError("密码不能为空（要停用请删除该账号）")
     if is_master_account(acct):
         perm = PERM_ADMIN
     pw_ver = password_version_of(old)
@@ -259,11 +359,13 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
 def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
-    - 密码：条目带「密码」字段（含空串）则以之为准；不带则沿用已存（新账号无旧值→初始 8888）；
+    - 密码：条目带「密码」字段（含空串）则以之为准；空串 → ValueError；
+      不带则沿用已存（新账号无旧值→初始 8888）；
     - 密码变更时「密码版本」+1（改密踢会话）；
     - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）；
     - 总账号 MASTER_ACCOUNT：若库中已有则不可删、不可改登录名；至少保留一个「管理员」。
     返回落盘后的列表；校验失败抛 ValueError。"""
+    global _ACCOUNTS_CORRUPT
     existing = {a["账号"]: a for a in load_accounts(cfg, root, create=False)}
     out, seen = [], set()
     for raw in accounts if isinstance(accounts, list) else []:
@@ -278,7 +380,13 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
         raise ValueError("至少保留一个「管理员」权限账号")
     if MASTER_ACCOUNT in existing and MASTER_ACCOUNT not in {a["账号"] for a in out}:
         raise ValueError(f"总账号「{MASTER_ACCOUNT}」不可删除（否则部署后可能无人能进管理端）")
-    _write(config_path(cfg, root), out)
+    p = config_path(cfg, root)
+    _write(p, out)
+    _ACCOUNTS_CORRUPT = None
+    try:
+        _needs_restore_path(p).unlink(missing_ok=True)
+    except OSError:
+        pass
     return out
 
 

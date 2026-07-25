@@ -82,7 +82,7 @@ class TestBackupRestore(unittest.TestCase):
             self.skipTest("无 golden db")
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         conn = db.connect(cfg, ROOT, readonly=True)
         try:
             conn.execute("SELECT 1").fetchone()

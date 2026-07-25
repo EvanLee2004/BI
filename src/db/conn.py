@@ -26,12 +26,31 @@ _SCHEMA_READY: set[str] = set()
 # pure-move funcs from _impl.py
 
 def db_path(cfg: dict, root: Path | None = None) -> Path:
-    """看板.db 路径：config.db_path（相对数据目录）或默认 数据/看板.db。"""
+    """看板.db 路径：config.db_path（**相对 data_dir 的文件名/子路径**）或默认 看板.db。
+
+    2.6.3·A2：rel 首段若等于 data_dir 末段 → **明确报错**（不猜、不静默纠正）。
+    正确写法：db_path=\"看板.db\"（相对 data_dir）；错误：db_path=\"数据/看板.db\" 会拼成 数据/数据/看板.db。
+    """
     rel = cfg.get("db_path", DB_DEFAULT_REL)
     p = Path(rel)
     if p.is_absolute():
         return p
-    return loaders.data_dir(cfg, root) / rel
+    rel_s = str(rel).replace("\\", "/").strip("/")
+    if not rel_s:
+        raise ValueError(
+            "config.db_path 不能为空；正确写法为相对 data_dir 的路径，例如 \"看板.db\""
+        )
+    data = loaders.data_dir(cfg, root)
+    first = Path(rel_s).parts[0] if Path(rel_s).parts else ""
+    data_tail = data.name
+    if first and first == data_tail:
+        raise ValueError(
+            f"config.db_path={rel!r} 首段与 data_dir 末段 {data_tail!r} 重复，"
+            f"会拼成影子路径 {data / rel_s}。"
+            f"正确写法：db_path 只写相对 data_dir 的部分，例如 \"看板.db\""
+            f"（不要写 \"{data_tail}/看板.db\"）"
+        )
+    return data / rel_s
 
 
 def connect(cfg: dict, root: Path | None = None, *, readonly: bool = False) -> sqlite3.Connection:

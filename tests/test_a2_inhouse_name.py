@@ -75,7 +75,7 @@ class TestInhouseTotalsUnchanged(unittest.TestCase):
 
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         today = date(2026, 6, 30)
         conn = dbmod.connect(cfg, ROOT)

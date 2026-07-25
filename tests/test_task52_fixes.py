@@ -121,7 +121,7 @@ class TestF4AreaAxisTrim(unittest.TestCase):
         cfg = loaders.load_config(ROOT)
         cfg = dict(cfg)
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         today = loaders.pinned_today(cfg)
         conn = db.connect(cfg, ROOT)
@@ -252,7 +252,7 @@ class TestF6LedgerAndPlSha(unittest.TestCase):
             self.skipTest("缺 _golden_data")
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "_golden_data/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         today = loaders.pinned_today(cfg)
         conn = db.connect(cfg, ROOT)

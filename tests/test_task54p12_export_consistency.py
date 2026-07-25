@@ -29,7 +29,7 @@ class TestExportConsistency(unittest.TestCase):
         (cls.root / "数据").mkdir()
         cls.cfg = dict(loaders.load_config(ROOT))
         cls.cfg["data_dir"] = "数据"
-        cls.cfg["db_path"] = "数据/看板.db"
+        cls.cfg["db_path"] = "看板.db"
         cls.cfg["zhiyun_auto_fetch"] = False
         accounts.save_accounts(
             cls.cfg,

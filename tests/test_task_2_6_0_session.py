@@ -23,7 +23,7 @@ class TestCompatWindow(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         (self.tmp / "数据").mkdir()
-        self.cfg = {"data_dir": "数据", "db_path": "数据/看板.db"}
+        self.cfg = {"data_dir": "数据", "db_path": "看板.db"}
         session_ctx.set_today_override(None)
 
     def tearDown(self):
@@ -44,7 +44,7 @@ class TestResolveOrder(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         (self.tmp / "数据").mkdir()
-        self.cfg = {"data_dir": "数据", "db_path": "数据/看板.db"}
+        self.cfg = {"data_dir": "数据", "db_path": "看板.db"}
         accounts.save_accounts(
             self.cfg,
             self.tmp,
@@ -133,7 +133,7 @@ class TestLoginSetsSidOnly(unittest.TestCase):
         (cls.tmp / "数据").mkdir()
         cls.cfg = dict(loaders.load_config(ROOT))
         cls.cfg["data_dir"] = "数据"
-        cls.cfg["db_path"] = "数据/看板.db"
+        cls.cfg["db_path"] = "看板.db"
         cls.cfg["zhiyun_auto_fetch"] = False
         accounts.save_accounts(
             cls.cfg,

@@ -116,7 +116,7 @@ class TestPruneAndVacuum(unittest.TestCase):
             (tmp / "数据").mkdir()
             cfg = dict(loaders.load_config(ROOT))
             cfg["data_dir"] = "数据"
-            cfg["db_path"] = "数据/看板.db"
+            cfg["db_path"] = "看板.db"
             conn = db.connect(cfg, tmp)
             # 插两条：旧 + 新
             conn.execute(
@@ -146,7 +146,7 @@ class TestPruneAndVacuum(unittest.TestCase):
             (tmp / "数据").mkdir()
             cfg = dict(loaders.load_config(ROOT))
             cfg["data_dir"] = "数据"
-            cfg["db_path"] = "数据/看板.db"
+            cfg["db_path"] = "看板.db"
             conn = db.connect(cfg, tmp)
             db_write.vacuum_db(conn)
             conn.close()
@@ -230,7 +230,7 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
             (tmp / "数据").mkdir()
             cfg = dict(loaders.load_config(ROOT))
             cfg["data_dir"] = "数据"
-            cfg["db_path"] = "数据/看板.db"
+            cfg["db_path"] = "看板.db"
             conn = db.connect(cfg, tmp)
             conn.execute(
                 "INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
@@ -259,7 +259,7 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
             (tmp / "数据").mkdir()
             cfg = dict(loaders.load_config(ROOT))
             cfg["data_dir"] = "数据"
-            cfg["db_path"] = "数据/看板.db"
+            cfg["db_path"] = "看板.db"
             cfg["zhiyun_auto_fetch"] = False
             accounts.save_accounts(
                 cfg,

@@ -248,7 +248,7 @@ class TestHealthApiHandfillYellow(unittest.TestCase):
         (tmp / "数据").mkdir()
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "数据"
-        cfg["db_path"] = "数据/看板.db"
+        cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         accounts.save_accounts(
             cfg,
