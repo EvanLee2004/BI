@@ -57,5 +57,5 @@
 
 - 备份：每日 `VACUUM INTO` 一致快照（失败回退 copy2 + 体检黄）；`数据/快照存档/` 与 `数据/年度归档/` **永久保留**，不进 30 天滚动清理。
 - 跨年：智云 auto 首抓前自动归档上年四源 xlsx+库；台账 sheet 由亮晶新建当年名。
-- 部署：nginx 安全头 + systemd `NoNewPrivileges`/`ProtectSystem=strict`/`PrivateTmp`；healthcheck 失败可飞书（未配 webhook 则只写 log）+ 磁盘余量检查。
+- 部署：nginx 安全头 + systemd `NoNewPrivileges`/`ProtectSystem=strict`/`PrivateTmp`；healthcheck 失败**只写本地 log**（飞书外发已删除）+ 磁盘余量检查。
 - 密码：明文 + 文件 0600；**禁止猜生产口令**。

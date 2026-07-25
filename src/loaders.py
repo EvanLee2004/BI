@@ -167,7 +167,7 @@ def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
         raise ValueError(f"config.json JSON 无效：{e}") from e
     if not isinstance(cfg, dict):
         raise ValueError("config.json 必须是 JSON 对象")
-    # 2.6.3·D4：环境 profile 先于本地配置（本地仍可改 webhook 等，但不可改 data_dir）
+    # 2.6.3·D4：环境 profile 先于本地配置（本地不可改 data_dir）
     _apply_profile(cfg)
     ov = _local_config_path(base, cfg)
     if ov.exists():
@@ -176,10 +176,14 @@ def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
             if not isinstance(data, dict):
                 _mark_local_config_corrupt(ov, "根节点不是 JSON 对象", cfg)
             else:
+                # 飞书 webhook 功能已删：读盘时丢弃残留键，不进运行时 cfg
+                data.pop("feishu_webhook_url", None)
                 _apply_local_overrides(cfg, data)
+                cfg.pop("feishu_webhook_url", None)
                 _LOCAL_CONFIG_CORRUPT = None
         except (OSError, ValueError) as e:
             _mark_local_config_corrupt(ov, f"{type(e).__name__}: {e}", cfg)
+    cfg.pop("feishu_webhook_url", None)
     if strict:
         validate_config(cfg)
     return cfg
@@ -217,7 +221,12 @@ def write_local_config(cfg: dict, root: Path | None = None, updates: dict | None
         if k in LOCAL_CONFIG_DENY_KEYS:
             log.warning("write_local_config 拒绝危险键 %s", k)
             continue
+        # 飞书 webhook 功能已删：禁止再写入该键
+        if k == "feishu_webhook_url":
+            cur.pop("feishu_webhook_url", None)
+            continue
         cur[k] = v
+    cur.pop("feishu_webhook_url", None)
     p = local_config_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

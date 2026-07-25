@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""告警出口（已废止飞书外发）。
+"""本机告警日志（无外发）。
 
-2026-07-25 明昊硬令：
-- **禁止**再向公司大群 /「财经新闻」机器人 / 任何飞书 webhook 发消息（含测试）。
-- 曾误用财务每日新闻同通道做 2.6.3 B5 联通测试，已清生产 `feishu_webhook_url`。
-- 本模块所有外发函数为 **永久 no-op**：不读 webhook、不 HTTP、不抛异常。
-- 需要告警时只写本地日志；若将来要新通道，必须单独建告警群且书面批准，禁止复用新闻 bot。
+2026-07-25 明昊硬令后：
+- **已删除**飞书 webhook / 自定义机器人外发能力（含 post HTTP、配置项、设置页入口）。
+- **禁止**向公司大群、「财经新闻」机器人、财务每日新闻同通道发任何消息（含测试）。
+- 本模块只写 **logging**；失败绝不影响主流程。
+- 看门狗/管道仍可调用本模块，语义=「记一条本地告警日志」。
 """
 from __future__ import annotations
 
@@ -14,51 +14,42 @@ import logging
 
 log = logging.getLogger("kanban.notify")
 
-# 功能开关：永远 False。禁止改为 True 除非明昊书面批准新通道。
-FEISHU_OUTBOUND_ENABLED = False
-
-
-def webhook_url(cfg: dict | None) -> str:
-    """兼容旧调用：始终返回空（忽略配置里残留的 URL）。"""
-    return ""
-
-
-def post_feishu_text(url: str, text: str, timeout: float = 3.0) -> bool:
-    """永久禁用：不发任何 HTTP。"""
-    if url or text:
-        log.info("feishu outbound disabled; drop message (len=%s)", len(text or ""))
-    return False
-
 
 def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
-    """管道红：仅打本地 log，不外发。"""
+    """管道体检红：只打本地 warning。"""
     try:
-        result = report.get("result")
-        if result == "红":
-            log.warning("pipeline red (feishu outbound disabled): %s", result)
+        if report.get("result") == "红":
+            reasons = []
+            if (report.get("disk") or {}).get("red"):
+                reasons.append("磁盘")
+            if report.get("fetch", {}).get("status") == "no_source":
+                reasons.append("收单无源")
+            if not (report.get("db_check") or {}).get("ok", True):
+                reasons.append("db_check")
+            log.warning("pipeline red: %s", "；".join(reasons) or report.get("result"))
     except Exception:
         pass
 
 
 def maybe_alert_text(cfg: dict, text: str) -> None:
-    """任意文本告警：仅本地 log，不外发。"""
+    """任意文本告警：只打本地 warning。"""
     try:
         if text:
-            log.warning("alert text (feishu outbound disabled): %s", str(text)[:200])
+            log.warning("%s", str(text)[:500])
     except Exception:
         pass
 
 
 def alert_event(kind: str, detail: str = "", root=None) -> None:
-    """看门狗/更新脚本：仅本地 log。"""
+    """看门狗/更新脚本：只打本地 warning。"""
     try:
-        log.warning("alert_event kind=%s detail=%s (feishu outbound disabled)", kind, (detail or "")[:200])
+        log.warning("alert_event kind=%s detail=%s", kind, (detail or "")[:200])
     except Exception:
         pass
 
 
 def cli_alert(argv: list[str] | None = None) -> int:
-    """deploy/linux 看门狗入口：不外发。"""
+    """deploy/linux：python -m notify kind [detail…]"""
     import sys
 
     args = list(argv if argv is not None else sys.argv[1:])

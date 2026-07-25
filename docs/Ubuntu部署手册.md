@@ -313,7 +313,7 @@ sudo systemctl enable --now fail2ban
 
 ### 飞书告警
 
-管理端设置或 `数据/本地配置.json` 写 `feishu_webhook_url`（不进 git）。空=静默。
+**已删除（2026-07-25）**。看板不再支持飞书 webhook 外发；禁止向公司大群/财经新闻 bot 测试。运维告警只看本机日志与 `数据/日志/`。
 
 ### NTP
 

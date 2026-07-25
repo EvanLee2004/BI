@@ -141,12 +141,13 @@ class TestA2DbPathAndLocalConfigWhitelist(unittest.TestCase):
         lc = self.tmp / "数据" / "本地配置.json"
         evil = "数据" + "/" + "看板.db"
         lc.write_text(
-            json.dumps({"db_path": evil, "feishu_webhook_url": "https://example.invalid/hook"}, ensure_ascii=False),
+            json.dumps({"db_path": evil, "backup_keep_days": 7}, ensure_ascii=False),
             encoding="utf-8",
         )
         cfg = loaders.load_config(self.tmp)
         self.assertEqual(cfg.get("db_path"), "看板.db")  # 危险键被拒，仍用 config 默认
-        self.assertEqual(cfg.get("feishu_webhook_url"), "https://example.invalid/hook")
+        self.assertEqual(cfg.get("backup_keep_days"), 7)  # 非危险键可覆盖
+        self.assertNotIn("feishu_webhook_url", cfg)  # 飞书字段已删，读盘也会丢弃
         p = db.db_path(cfg, self.tmp)
         self.assertEqual(str(p).count("/数据/数据/"), 0)
 

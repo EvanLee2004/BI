@@ -187,7 +187,7 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
     # 7) db 每日滚动备份 + 月末快照 + 月末 VACUUM
     if archive_backups:
         _run_archive_backups(cfg, root, conn, today, report)
-    # 8) 可选飞书告警（失败绝不影响主流程）
+    # 8) 本机告警日志（失败绝不影响主流程；无外发）
     try:
         from notify import maybe_alert_pipeline
 

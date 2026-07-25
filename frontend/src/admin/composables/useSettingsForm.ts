@@ -44,7 +44,6 @@ export function useSettingsForm() {
   // —— 设置表单 ——
   const scheduleTimes = ref<string[]>(['09:30'])
   const sKeep = ref(30)
-  const sFeishuHook = ref('')
   const sLogKeep = ref(365)
   const sDiskMin = ref(10)
   const sArchYear = ref(new Date().getFullYear())
@@ -182,7 +181,6 @@ export function useSettingsForm() {
         zhiyun_username?: string
         zhiyun_password?: string
         ledger_share_path?: string
-        feishu_webhook_url?: string
         run_log_keep_days?: number
         disk_free_min_ratio?: number
         zhiyun_conn?: { base_url?: string; tables?: Record<string, string> }
@@ -194,7 +192,6 @@ export function useSettingsForm() {
       sZyUser.value = s.zhiyun_username || ''
       sZyPwd.value = s.zhiyun_password || ''
       sLedgerPath.value = s.ledger_share_path || ''
-      sFeishuHook.value = s.feishu_webhook_url || ''
       sLogKeep.value = s.run_log_keep_days != null ? s.run_log_keep_days : 365
       sDiskMin.value =
         s.disk_free_min_ratio != null ? Math.round(Number(s.disk_free_min_ratio) * 100) : 10
@@ -480,9 +477,7 @@ export function useSettingsForm() {
     setMsgs.alert = '保存中…'
     const pct = sDiskMin.value || 10
     try {
-      // 飞书 webhook 已废止：不再提交 feishu_webhook_url（禁止公司大群/新闻 bot）
       const d = await jpost<{ note?: string }>('/api/settings', {
-        feishu_webhook_url: '',
         run_log_keep_days: sLogKeep.value,
         disk_free_min_ratio: pct * 1e-2,
       })
@@ -642,7 +637,6 @@ export function useSettingsForm() {
     updatePayload,
     scheduleTimes,
     sKeep,
-    sFeishuHook,
     sLogKeep,
     sDiskMin,
     sArchYear,

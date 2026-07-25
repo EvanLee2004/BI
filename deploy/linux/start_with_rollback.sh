@@ -40,7 +40,7 @@ while true; do
     rm -f "${ROOT}/.update_rollback"
     # 变量一律 ${VAR}：macOS bash 3.2 对 $VAR 紧贴全角括号会误解析
     echo "[看门狗] 更新后启动异常(码=${CODE})，自动回滚到更新前版本 ${PREV} ..."
-    # 飞书告警（未配置 webhook 则静默；失败不挡回滚）
+    # 本机告警日志（无外发；失败不挡回滚）
     (cd "${ROOT}" && PYTHONPATH=src "${PY}" -c "from notify import alert_event; alert_event('rollback', 'exit=${CODE} prev=${PREV}')" ) 2>/dev/null || true
     if [ -n "${PREV}" ]; then
       if ! git -C "${ROOT}" reset --hard "${PREV}"; then

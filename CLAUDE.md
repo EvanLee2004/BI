@@ -121,7 +121,7 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 2b. **看端费用明细列走白名单** `VIEW_EXPENSE_COLUMNS`；管理端数据调整仍全列。
 2c. **平台=Linux 单线**；禁 `.bat`/schtasks/win32；看门狗 `deploy/linux/start_with_rollback.sh`（退出码 42）。
 2d. **业务层零裸 SQL**（只许 `db*`/`schema`）；守卫 `test_task43_arch`。
-2e. **飞书外发已废止（2026-07-25 明昊硬令）**：`notify.py` 永久 no-op，禁止再向任何飞书 webhook 发消息（含测试）。**严禁**使用公司大群 /「财经新闻」机器人 / 财务每日新闻同通道。设置页不提供 webhook 输入；生产 `本地配置.json` 不得含 `feishu_webhook_url`。告警只写本机日志。
+2e. **飞书 webhook 告警功能已删除（2026-07-25）**：无配置项、无 HTTP 外发、无设置页入口。`notify.py` 仅写本机 logging。**严禁**用公司大群 /「财经新闻」机器人 / 每日新闻通道做任何测试或告警（本仓及工作区其它项目一律禁止）。
 2f. **共享盘只读**（fetch copy2 本地，绝不回写）。
 3. **回归红线**：`tests/regress_db_vs_files.py` 从库算==从文件算，32 周期。
 4. **每改必补测试 + `run_verify.sh` 全绿**。
