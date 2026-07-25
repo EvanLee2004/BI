@@ -33,6 +33,9 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
 
     html 参数保留兼容（页面快照已在 generate 内落盘）；运行态不写入 user_html。
     bu_pages 条目可含 summary/fragments/views；html 字段若有则忽略存盘（导出按需）。
+
+    2.6.3·C2：构造完整快照 dict 后 **一次引用替换** 发布字段，避免逐键 update
+    导致读侧拿到「新 summary + 旧 views」撕裂窗口。
     """
     _ = html  # 整页不进运行态
     has = summary is not None
@@ -50,7 +53,10 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
                 "views": page.get("views"),
             }
     built = time.strftime("%Y-%m-%d %H:%M:%S")
+    # 在旧 state 上叠完整发布字段，整包一次性写回
+    prev = dict(_state)
     snap = {
+        **prev,
         "summary": summary,
         "has_data": has,
         "admin_html": "ready" if has else "",  # 兼容旧引导页判断
@@ -64,7 +70,14 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
         snap["views"] = views
     if slim_bu is not None:
         snap["bu_pages"] = slim_bu
+    # 一次替换：读侧应先 _state 引用再取字段（见 snapshot_state）
+    _state.clear()
     _state.update(snap)
+
+
+def snapshot_state() -> dict:
+    """2.6.3·C2：读侧一次取引用副本，避免跨键撕裂。"""
+    return dict(_state)
 
 
 def _fp_parts(paths) -> list[str]:
@@ -108,7 +121,8 @@ def source_data_fingerprint(cfg, root=None) -> str:
 
 def do_full(cfg, root, trigger) -> dict:
     today = loaders.pinned_today(cfg)
-    summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger)
+    # 2.6.3·C3：root 贯通 generate，禁止默认落到程序 数据/
+    summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger, root=root)
     _state["records"] = ing.get("records")
     _state["source_fp"] = source_data_fingerprint(cfg, root)
     publish(

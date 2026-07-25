@@ -1,8 +1,12 @@
 """手填/调整/分摊/去税/预算 — 从 server.create_app 纯搬家。
 
 2.6.1 R7：校验辅助见 manual_helpers（语义零变更）。
+2.6.3·C1：写路径进 _LOCK；忙/锁占用 → 409「更新进行中，请稍后再保存」。
 """
 from __future__ import annotations
+
+import sqlite3
+from contextlib import contextmanager
 
 from fastapi import Body, HTTPException, Request
 
@@ -10,7 +14,7 @@ import bu
 import charts
 import db
 import profit
-from app_state import _state
+from app_state import _LOCK, _state
 from routes.manual_helpers import (  # noqa: F401
     _clear_detail_rules,
     _item_amount_yuan,
@@ -48,12 +52,13 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
 
-    from routes._srv import recompute  # 任务书64·D9 共享 helper
-
+    from refresh_pipeline import do_recompute  # 持锁内调用，避免 recompute 再抢 _LOCK 死锁
+    from routes._srv import recompute  # 读路径/兼容
 
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
     _WRAP_OPEN = d.WRAP_OPEN
+    _WRITE_BUSY_DETAIL = "更新进行中，请稍后再保存"
 
     def _require(request: Request) -> str:
         user = _user(request)
@@ -64,26 +69,40 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def _conn():
         return db.connect(cfg, root)
 
+    @contextmanager
+    def with_write_lock(*, rebuild_std: bool = False):
+        """2.6.3·C1：非阻塞拿刷新锁 → 写库 → do_recompute；拿不到或 OperationalError → 409。"""
+        if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL)
+        try:
+            try:
+                yield
+                do_recompute(cfg, root, rebuild_std=rebuild_std)
+            except sqlite3.OperationalError as e:
+                raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL) from e
+        finally:
+            _LOCK.release()
+
     @app.post("/api/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):
         user = _require(request)
-        conn = _conn()
-        try:
-            aid = db.add_adjustment(
-                conn,
-                user,
-                payload.get("目标表", ""),
-                payload.get("定位键", ""),
-                payload.get("字段", ""),
-                payload.get("新值", ""),
-                payload.get("原因", ""),
-                payload.get("类型", "改值"),
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        finally:
-            conn.close()
-        recompute(cfg, root, rebuild_std=True)
+        with with_write_lock(rebuild_std=True):
+            conn = _conn()
+            try:
+                aid = db.add_adjustment(
+                    conn,
+                    user,
+                    payload.get("目标表", ""),
+                    payload.get("定位键", ""),
+                    payload.get("字段", ""),
+                    payload.get("新值", ""),
+                    payload.get("原因", ""),
+                    payload.get("类型", "改值"),
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            finally:
+                conn.close()
         return {"status": "ok", "adj_id": aid, "built_at": _state["built_at"]}
 
     @app.post("/api/adjust/batch")
@@ -100,23 +119,23 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         keys = [str(k).strip() for k in keys_raw if str(k).strip()]
         if not keys:
             raise HTTPException(status_code=400, detail="定位键列表不能为空")
-        conn = _conn()
-        try:
-            ids = db.add_adjustments_batch(
-                conn,
-                user,
-                str(payload.get("目标表") or ""),
-                keys,
-                str(payload.get("字段") or ""),
-                payload.get("新值", ""),
-                str(payload.get("原因") or ""),
-                str(payload.get("类型") or "改值"),
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        finally:
-            conn.close()
-        recompute(cfg, root, rebuild_std=True)
+        with with_write_lock(rebuild_std=True):
+            conn = _conn()
+            try:
+                ids = db.add_adjustments_batch(
+                    conn,
+                    user,
+                    str(payload.get("目标表") or ""),
+                    keys,
+                    str(payload.get("字段") or ""),
+                    payload.get("新值", ""),
+                    str(payload.get("原因") or ""),
+                    str(payload.get("类型") or "改值"),
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            finally:
+                conn.close()
         return {
             "status": "ok",
             "count": len(ids),
@@ -129,21 +148,24 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """撤销调整。任务书63·H-03：可选 reason 写入 config 审计。"""
         user = _require(request)
         reason = str((payload or {}).get("reason") or "").strip()
-        conn = _conn()
-        try:
-            rows = db.list_adjustments(conn)
-            hit = next((r for r in rows if int(r.get("id") or 0) == int(adj_id)), None)
-            ok = db.revoke_adjustment(conn, adj_id)
-        finally:
-            conn.close()
-        if ok:
-            tip = f"撤销调整#{adj_id}"
-            if hit:
-                tip += f" · {hit.get('目标表') or ''}/{hit.get('定位键') or ''}/{hit.get('字段') or ''}"
-            if reason:
-                tip += f" · 理由：{reason}"
-            _audit(cfg, root, user, ("调整", tip))
-            recompute(cfg, root, rebuild_std=True)
+        with with_write_lock(rebuild_std=True):
+            conn = _conn()
+            try:
+                rows = db.list_adjustments(conn)
+                hit = next((r for r in rows if int(r.get("id") or 0) == int(adj_id)), None)
+                ok = db.revoke_adjustment(conn, adj_id)
+            finally:
+                conn.close()
+            if ok:
+                tip = f"撤销调整#{adj_id}"
+                if hit:
+                    tip += f" · {hit.get('目标表') or ''}/{hit.get('定位键') or ''}/{hit.get('字段') or ''}"
+                if reason:
+                    tip += f" · 理由：{reason}"
+                _audit(cfg, root, user, ("调整", tip))
+            else:
+                # 无变更时 with_write_lock 仍会 do_recompute；可接受（轻量）
+                pass
         return {"status": "ok" if ok else "noop", "built_at": _state["built_at"]}
 
     @app.post("/api/adjust/expired/revoke_all")
@@ -151,17 +173,17 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """批量撤销全部「过期疑似」=一键听源头新值。前端走"点按钮→确认保存"两步，这里只管执行。"""
         user = _require(request)
         reason = str((payload or {}).get("reason") or "").strip()
-        conn = _conn()
-        try:
-            n = db.revoke_expired_adjustments(conn)
-        finally:
-            conn.close()
-        if n:
-            tip = f"批量撤销过期疑似 {n} 条"
-            if reason:
-                tip += f" · 理由：{reason}"
-            _audit(cfg, root, user, ("调整", tip))
-            recompute(cfg, root, rebuild_std=True)
+        with with_write_lock(rebuild_std=True):
+            conn = _conn()
+            try:
+                n = db.revoke_expired_adjustments(conn)
+            finally:
+                conn.close()
+            if n:
+                tip = f"批量撤销过期疑似 {n} 条"
+                if reason:
+                    tip += f" · 理由：{reason}"
+                _audit(cfg, root, user, ("调整", tip))
         return {"status": "ok", "revoked": n, "built_at": _state["built_at"]}
 
     @app.post("/api/adjust/{adj_id}/rearm")
@@ -169,22 +191,22 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """坚持我的数（仅过期疑似、仅逐条）：原值刷新为源头现值→重新生效→立即重算。"""
         user = _require(request)
         reason = str((payload or {}).get("reason") or "").strip()
-        conn = _conn()
-        try:
-            rows = db.list_adjustments(conn)
-            hit = next((r for r in rows if int(r.get("id") or 0) == int(adj_id)), None)
-            db.rearm_adjustment(conn, adj_id)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        finally:
-            conn.close()
-        tip = f"坚持调整#{adj_id}"
-        if hit:
-            tip += f" · {hit.get('目标表') or ''}/{hit.get('定位键') or ''}/{hit.get('字段') or ''}"
-        if reason:
-            tip += f" · 理由：{reason}"
-        _audit(cfg, root, user, ("调整", tip))
-        recompute(cfg, root, rebuild_std=True)
+        with with_write_lock(rebuild_std=True):
+            conn = _conn()
+            try:
+                rows = db.list_adjustments(conn)
+                hit = next((r for r in rows if int(r.get("id") or 0) == int(adj_id)), None)
+                db.rearm_adjustment(conn, adj_id)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            finally:
+                conn.close()
+            tip = f"坚持调整#{adj_id}"
+            if hit:
+                tip += f" · {hit.get('目标表') or ''}/{hit.get('定位键') or ''}/{hit.get('字段') or ''}"
+            if reason:
+                tip += f" · 理由：{reason}"
+            _audit(cfg, root, user, ("调整", tip))
         return {"status": "ok", "built_at": _state["built_at"]}
 
     @app.get("/api/adjustments")
@@ -223,12 +245,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="金额须为数字") from None
         scope = str(payload.get("范围") or "全公司").strip() or "全公司"
-        conn = _conn()
-        try:
-            db.set_manual(conn, payload.get("归属月", ""), item, 金额, user, 范围=scope)
-        finally:
-            conn.close()
-        recompute(cfg, root)
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
+                db.set_manual(conn, payload.get("归属月", ""), item, 金额, user, 范围=scope)
+            finally:
+                conn.close()
         return {"status": "ok", "built_at": _state["built_at"]}
 
     @app.post("/api/manual_batch")
@@ -247,19 +269,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         names = {it["name"] for it in cfg["manual_items"]}
         prepared = _prepare_manual_batch_items(items, names, default_scope)
         n = 0
-        conn = _conn()
-        try:
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
 
-            def _write():
-                nonlocal n
-                for item, 金额, sc in prepared:
-                    db.set_manual(conn, month, item, 金额, user, 范围=sc, commit=False)
-                    n += 1
+                def _write():
+                    nonlocal n
+                    for item, 金额, sc in prepared:
+                        db.set_manual(conn, month, item, 金额, user, 范围=sc, commit=False)
+                        n += 1
 
-            db.commit_immediate(conn, _write)
-        finally:
-            conn.close()
-        recompute(cfg, root)
+                db.commit_immediate(conn, _write)
+            finally:
+                conn.close()
         return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
     def _alloc_month_payload(conn, month: str) -> dict:
@@ -478,21 +500,21 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=400, detail="ratios/overrides/detail_rules 不能全空")
         bucfg = bu.load_bu_config(cfg, root) or {"bus": []}
         known = {b["name"] for b in bucfg["bus"]}
-        conn = _conn()
-        try:
-            out = _write_alloc_panel(conn, month, known, user, payload)
-        finally:
-            conn.close()
-        _audit(
-            cfg,
-            root,
-            user,
-            (
-                "分摊",
-                f"公共费用分摊：{month} 已更新（默认合计 {out.get('sum_pct', 0):g}%）",
-            ),
-        )
-        recompute(cfg, root)
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
+                out = _write_alloc_panel(conn, month, known, user, payload)
+            finally:
+                conn.close()
+            _audit(
+                cfg,
+                root,
+                user,
+                (
+                    "分摊",
+                    f"公共费用分摊：{month} 已更新（默认合计 {out.get('sum_pct', 0):g}%）",
+                ),
+            )
         out.update({"status": "ok", "built_at": _state["built_at"]})
         return out
 
@@ -542,16 +564,16 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             if not (0 <= fv <= 100):
                 raise HTTPException(status_code=400, detail=f"去税率须在 0~100：{cat}")
             vals[cat] = fv
-        conn = _conn()
-        try:
-            for cat, v in vals.items():
-                db.set_detax_rate(conn, cat, v, user)
-            out = _detax_payload(conn)
-        finally:
-            conn.close()
-        changed = "、".join(f"{c}={v if v is not None else '清除'}" for c, v in vals.items())
-        _audit(cfg, root, user, ("去税", f"费用去税率已更改：{changed}"))
-        recompute(cfg, root)
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
+                for cat, v in vals.items():
+                    db.set_detax_rate(conn, cat, v, user)
+                out = _detax_payload(conn)
+            finally:
+                conn.close()
+            changed = "、".join(f"{c}={v if v is not None else '清除'}" for c, v in vals.items())
+            _audit(cfg, root, user, ("去税", f"费用去税率已更改：{changed}"))
         out.update({"status": "ok", "built_at": _state["built_at"]})
         return out
 
@@ -581,12 +603,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if metric == "费用年预算" and scope == "全公司":
             raise HTTPException(status_code=400, detail="费用年预算须指定部门（范围）")
         # 业务目标允许 全公司 或 BU 名；费用年预算允许部门名
-        conn = _conn()
-        try:
-            db.set_budget(conn, year, metric, 金额, user, 范围=scope)
-        finally:
-            conn.close()
-        recompute(cfg, root)
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
+                db.set_budget(conn, year, metric, 金额, user, 范围=scope)
+            finally:
+                conn.close()
         return {"status": "ok", "built_at": _state["built_at"]}
 
     @app.post("/api/budget_batch")
@@ -601,19 +623,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=400, detail="items 不能为空")
         prepared = _prepare_budget_batch_items(items)
         n = 0
-        conn = _conn()
-        try:
+        with with_write_lock(rebuild_std=False):
+            conn = _conn()
+            try:
 
-            def _write():
-                nonlocal n
-                for year, metric, 金额, scope in prepared:
-                    db.set_budget(conn, year, metric, 金额, user, 范围=scope, commit=False)
-                    n += 1
+                def _write():
+                    nonlocal n
+                    for year, metric, 金额, scope in prepared:
+                        db.set_budget(conn, year, metric, 金额, user, 范围=scope, commit=False)
+                        n += 1
 
-            db.commit_immediate(conn, _write)
-        finally:
-            conn.close()
-        recompute(cfg, root)
+                db.commit_immediate(conn, _write)
+            finally:
+                conn.close()
         return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
     @app.get("/api/budget_depts")

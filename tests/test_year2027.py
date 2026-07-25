@@ -40,7 +40,8 @@ class TestIllegalDateHealthPath(unittest.TestCase):
 
 
 class TestLedgerSheet2027Missing(unittest.TestCase):
-    def test_missing_year_sheet_raises_clear_keyerror(self):
+    def test_missing_year_sheet_empty_not_raise(self):
+        """2.6.3·B6：缺年页 → 空集 + 旗标，不抛死管道（旧行为 KeyError 已废）。"""
         tmp = Path(tempfile.mkdtemp())
         data = tmp / "数据"
         data.mkdir()
@@ -57,11 +58,14 @@ class TestLedgerSheet2027Missing(unittest.TestCase):
         cfg["data_dir"] = "数据"
         cfg["files"] = dict(cfg["files"])
         cfg["files"]["ledger"] = "收单台账.xlsx"
-        with self.assertRaises(KeyError) as cm:
-            loaders.load_ledger(cfg, "2027", root=tmp)
-        msg = str(cm.exception)
-        self.assertIn("2027", msg)
-        self.assertTrue("sheet" in msg.lower() or "找不到" in msg)
+        loaders.clear_ledger_sheet_missing_status()
+        hdr, rows = loaders.load_ledger(cfg, "2027", root=tmp)
+        self.assertEqual(hdr, [])
+        self.assertEqual(rows, [])
+        st = loaders.ledger_sheet_missing_status()
+        self.assertIsNotNone(st)
+        self.assertEqual(st.get("year"), "2027")
+        self.assertIn("亮晶", st.get("banner") or "")
         # 建了 2027 后可读
         wb2 = Workbook()
         ws2 = wb2.active
@@ -69,6 +73,7 @@ class TestLedgerSheet2027Missing(unittest.TestCase):
         ws2.append(["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"])
         ws2.append(["2027年1月", "2027-01-10", 20, "语言", "管理费用", "办公", "运保"])
         wb2.save(path)
+        loaders.clear_ledger_sheet_missing_status()
         hdr, rows = loaders.load_ledger(cfg, "2027", root=tmp)
         self.assertEqual(hdr[0], "收单月份")
         self.assertEqual(len(rows), 1)

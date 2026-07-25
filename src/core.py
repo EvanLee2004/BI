@@ -420,23 +420,26 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     return pages
 
 
-def generate(cfg, today, trigger="manual"):
+def generate(cfg, today, trigger="manual", root=None):
     """跑一次更新管道 → 算 summary → 渲染 HTML（主页 + BU 分页）→ 存当日 VM 归档（历史回看用）。
     返回 (summary, html, ing报告, bu_pages)。
 
     publish-once：同时产出 client-ready fragments（已 strip）+ views，挂 summary._fragments/_views，
     HTTP 路径直接取缓存，不再 build-full→strip→rebuild。
     2.2.7：历史 = vm_YYYYMMDD.json（Vue 只读打开），不再写 页面_*.html。
+    2.6.3·C3：贯通 root 给 db.connect / build_bu_pages / attach_unassigned / 归档。
     """
     import api_v1
     import viewmodels
 
-    conn = db.connect(cfg)
-    ing = ingest.build_std_db(cfg, today.year, conn=conn, today=today, trigger=trigger, archive_backups=True)
+    conn = db.connect(cfg, root)
+    ing = ingest.build_std_db(
+        cfg, today.year, root=root, conn=conn, today=today, trigger=trigger, archive_backups=True
+    )
     summary = summary_from_conn(cfg, conn, today)
     logo = assets.load_logo_base64(cfg)
-    bu_pages = build_bu_pages(cfg, conn, today, logo)
-    attach_unassigned(cfg, conn, today, summary)
+    bu_pages = build_bu_pages(cfg, conn, today, logo, root)
+    attach_unassigned(cfg, conn, today, summary, root)
     conn.close()
     frags_full = render.build_dashboard_fragments(summary, cfg, logo)
     # 兼容返回值仍带整页 html（导出 png 旧路径/测试）；运行态 _state 不预装（65·L2）
@@ -457,7 +460,7 @@ def generate(cfg, today, trigger="manual"):
             except Exception:
                 continue
         ing["vm_snapshot"] = ingest.archive.snapshot_vm(
-            cfg, cockpit_vm=cockpit_vm, bu_vms=bu_vms, today=today
+            cfg, cockpit_vm=cockpit_vm, bu_vms=bu_vms, today=today, root=root
         )
         # 兼容旧字段名（体检/日志若读 page_snapshot）
         ing["page_snapshot"] = {"status": "disabled", "detail": "2.2.7 改用 vm_snapshot"}

@@ -31,7 +31,8 @@ import money
 DB_DEFAULT_REL = "看板.db"
 
 
-_BUSY_TIMEOUT_MS = 5000
+# 2.6.3·C1：与在线刷新时长同量级（抓数约 80s）；过短会导致管理端写库 500
+_BUSY_TIMEOUT_MS = 90_000
 
 
 LEDGER_STD_COLS = ["收单月份", "收单日期", "含税金额", "业务BU", "对应报表大类", "预算明细费用类型", "预算归属部门"]
