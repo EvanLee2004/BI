@@ -69,6 +69,27 @@ def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None =
         backups[0].unlink()
         backups.pop(0)
         pruned += 1
+    # 2.6.3·D5：看板.db.pre-restore-* 一并滚动清理（与 keep 同量级，留最近 keep 份）
+    pre_restores = sorted(bdir.glob("看板.db.pre-restore-*")) + sorted(
+        loaders.data_dir(cfg, root).glob("看板.db.pre-restore-*")
+    )
+    # 去重路径
+    seen_pre: set[str] = set()
+    pre_list: list[Path] = []
+    for pp in pre_restores:
+        k = str(pp.resolve()) if pp.exists() else str(pp)
+        if k in seen_pre:
+            continue
+        seen_pre.add(k)
+        pre_list.append(pp)
+    pre_list = sorted(pre_list, key=lambda x: x.stat().st_mtime if x.exists() else 0)
+    while len(pre_list) > keep:
+        try:
+            pre_list[0].unlink(missing_ok=True)
+            pruned += 1
+        except OSError:
+            pass
+        pre_list.pop(0)
     out = {
         "status": "ok" if method == "vacuum_into" else "degraded",
         "path": str(dst),

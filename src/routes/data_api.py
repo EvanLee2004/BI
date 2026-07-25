@@ -460,9 +460,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         }
 
     @app.get("/api/health")
-    def api_health():
+    def api_health(request: Request):
         """体检状态条数据源（公开：只给绿/黄/红 + 时间 + 各源行数，不含金额/客户名）。
-        任务书37·B9：fetch_banners=抓数降级黄横幅（看端/管理端顶部）。"""
+        任务书37·B9：fetch_banners=抓数降级黄横幅（看端/管理端顶部）。
+        2.6.3·D5：version/内部 info 仅登录后。"""
         conn = db.connect(cfg, root)
         try:
             run_log = db.latest_run(conn)
@@ -519,23 +520,25 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if n_dup and not any("定位键重复" in str(x) for x in info):
             info.append(f"{n_dup} 组定位键重复（按现状计入·不判黄）")
         # 2.3.0 S6.B / 2.6.1 R4：metrics 必须有可观测真值，禁止长期空壳 {}
+        # 2.6.3·D5：version / 内部 info 仅登录后暴露；公开仍给 built_at 供 healthcheck stale
         m_out: dict = {}
         if metrics.get("update_ms") is not None:
             m_out["update_ms"] = metrics.get("update_ms")
         if metrics.get("fetch_fail_rate") is not None:
             m_out["fetch_fail_rate"] = metrics.get("fetch_fail_rate")
-        # 进程级常驻字段（无需等 refresh 才有）
         if _state.get("built_at"):
             m_out["built_at"] = _state.get("built_at")
-        try:
-            import version as product_version
+        authed = bool(_user(request) or _vacct(request))
+        if authed:
+            try:
+                import version as product_version
 
-            m_out["version"] = str(
-                getattr(product_version, "PRODUCT_VERSION", None)
-                or product_version.read_version()
-            )
-        except Exception:
-            pass
+                m_out["version"] = str(
+                    getattr(product_version, "PRODUCT_VERSION", None)
+                    or product_version.read_version()
+                )
+            except Exception:
+                pass
         if "update_ms" not in m_out:
             m_out["update_ms"] = metrics.get("update_ms", 0)
         if "fetch_fail_rate" not in m_out:
@@ -579,18 +582,21 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     reasons = [msg] + list(reasons)
         except Exception:
             pass
-        return {
+        body_out = {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
             "warnings": health.get("warnings", []),  # 「警」：数据体检（未填分类等）
             "run_reasons": reasons,
-            "info": info,  # 66·D 信息行（定位键重复等）
             "fetch_banners": banners,  # B9 醒目横幅；全源成功=[]
             "metrics": m_out,
             "schedule": sched,  # 2.6.3·B2 跑批台账
         }
+        # 2.6.3·D5：内部 info 仅登录后
+        if authed:
+            body_out["info"] = info
+        return body_out
 
     def _require(request: Request) -> str:
         user = _user(request)

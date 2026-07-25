@@ -122,9 +122,34 @@ def _mark_local_config_corrupt(path: Path, reason: str, cfg: dict | None = None)
         pass
 
 
+def _apply_profile(cfg: dict) -> None:
+    """2.6.3·D4：读环境变量 KANBAN_PROFILE=dev|staging|prod，套 config.profiles 覆盖。
+
+    仅合并 profiles[name] 内非 None 键；不覆盖 profiles 自身。未设 env 或名未知 → 跳过。
+    """
+    import os
+
+    name = (os.environ.get("KANBAN_PROFILE") or "").strip()
+    if not name:
+        return
+    profiles = cfg.get("profiles")
+    if not isinstance(profiles, dict):
+        log.warning("KANBAN_PROFILE=%s 但 config.profiles 不是对象，忽略", name)
+        return
+    prof = profiles.get(name)
+    if not isinstance(prof, dict):
+        log.warning("KANBAN_PROFILE=%s 不在 config.profiles 中（可选：%s）", name, list(profiles.keys()))
+        return
+    for k, v in prof.items():
+        if v is None or k in ("profiles",) or str(k).startswith("_"):
+            continue
+        cfg[k] = v
+    cfg["_active_profile"] = name
+
+
 def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
-    """读 config.json（出厂默认），再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
-    覆盖只认非 None 值；危险键 data_dir/db_path/profiles 不可被覆盖。
+    """读 config.json（出厂默认），套 KANBAN_PROFILE，再叠加机器本地覆盖（data_dir/本地配置.json，若有）。
+    覆盖只认非 None 值；危险键 data_dir/db_path/profiles 不可被本地配置覆盖。
     坏文件：体检黄 + log.warning + 告警，退回 config.json 默认（2.6.3·A4）。
     config.json 本身只读不写。
     strict=True（默认）：校验必需键，缺则 ValueError。
@@ -142,6 +167,8 @@ def load_config(root: Path | None = None, *, strict: bool = True) -> dict:
         raise ValueError(f"config.json JSON 无效：{e}") from e
     if not isinstance(cfg, dict):
         raise ValueError("config.json 必须是 JSON 对象")
+    # 2.6.3·D4：环境 profile 先于本地配置（本地仍可改 webhook 等，但不可改 data_dir）
+    _apply_profile(cfg)
     ov = _local_config_path(base, cfg)
     if ov.exists():
         try:

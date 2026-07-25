@@ -119,6 +119,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/login")
     def viewer_login(
+        request: Request,
         account: str = Form(""),
         password: str = Form(""),
         next: str = Form(""),
@@ -127,37 +128,39 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         import login_guard
 
         account = account.strip()
-        if login_guard.is_locked(account, cfg):
+        ip = (request.client.host if request.client else "") or ""
+        if login_guard.is_locked(account, cfg, ip=ip):
             return RedirectResponse(
                 login_redirect.login_url(msg=login_guard.lock_message(cfg)),
                 status_code=303,
             )
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
-            login_guard.register_failure(account, cfg)
+            login_guard.register_failure(account, cfg, ip=ip)
             _audit(cfg, root, account or "?", ("访问", f"登录失败：{account or '空账号'}"))
             return RedirectResponse(
                 login_redirect.login_url(msg="账号或密码不正确", next_path=next or None),
                 status_code=303,
             )
-        login_guard.clear_failures(account)
+        login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
         _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
         return _finish_login(acc, account, next_raw=next or None, as_json=False)
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：Vue dist SPA（54.4·C）。未登录 → 统一登录。"""
-        page = _bu_pages().get(name)
-        if not page:
-            raise HTTPException(status_code=404, detail="Not Found")
+        """BU 页：Vue dist SPA（54.4·C）。2.6.3·D3：先鉴权再判存在（无权与不存在同一响应）。"""
         if not _can_view_bu(request, name):
-            # 未登录或无权：统一登录；有 next 则尝试回该 BU
             if not (_user(request) or _vacct(request)):
                 return RedirectResponse(
                     login_redirect.login_url(next_path=f"/bu/{name}"),
                     status_code=303,
                 )
+            # 已登录但无权：与「不存在」同一 303 回登录（不泄露 BU 名是否存在）
+            return RedirectResponse(login_redirect.login_url(), status_code=303)
+        page = _bu_pages().get(name)
+        if not page:
+            # 有权但页未装载：与无权同形 303，避免枚举
             return RedirectResponse(login_redirect.login_url(), status_code=303)
         return _bu_shell()
 
@@ -174,21 +177,22 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         return api_v1.session_public(acc)
 
     @app.post("/api/v1/login")
-    def api_v1_login(payload: dict = Body(default={})):
+    def api_v1_login(request: Request, payload: dict = Body(default={})):
         import login_guard
 
         account = str(payload.get("account") or "").strip()
         password = str(payload.get("password") or "")
         next_raw = payload.get("next") or payload.get("redirect") or ""
         next_raw = str(next_raw) if next_raw else ""
-        if login_guard.is_locked(account, cfg):
+        ip = (request.client.host if request.client else "") or ""
+        if login_guard.is_locked(account, cfg, ip=ip):
             raise HTTPException(status_code=429, detail=login_guard.lock_message(cfg))
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
-            login_guard.register_failure(account, cfg)
+            login_guard.register_failure(account, cfg, ip=ip)
             _audit(cfg, root, account or "?", ("访问", f"登录失败：{account or '空账号'}"))
             raise HTTPException(status_code=401, detail="账号或密码不正确")
-        login_guard.clear_failures(account)
+        login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
         _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
         return _finish_login(acc, account, next_raw=next_raw or None, as_json=True)

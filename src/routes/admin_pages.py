@@ -63,6 +63,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/admin/login")
     def admin_login(
+        request: Request,
         account: str = Form(""),
         password: str = Form(""),
         identity: str = Form(""),
@@ -72,19 +73,20 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         import login_guard
 
         account = (account or identity or "").strip()
-        if login_guard.is_locked(account, cfg):
+        ip = (request.client.host if request.client else "") or ""
+        if login_guard.is_locked(account, cfg, ip=ip):
             return RedirectResponse(
                 login_redirect.login_url(next_path="/admin", msg=login_guard.lock_message(cfg)),
                 status_code=303,
             )
         acc = accounts.authenticate(cfg, root, account, password)
         if not acc:
-            login_guard.register_failure(account, cfg)
+            login_guard.register_failure(account, cfg, ip=ip)
             return RedirectResponse(
                 login_redirect.login_url(next_path="/admin", msg="账号或密码不正确"),
                 status_code=303,
             )
-        login_guard.clear_failures(account)
+        login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
         # 非管理员 next 默认忽略 /admin
         next_raw = next or ("/admin" if authz.is_admin(acc) else "")

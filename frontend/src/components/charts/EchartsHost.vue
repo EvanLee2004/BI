@@ -5,45 +5,12 @@
  * 任务书54：主题从 kit CSS 变量派生；亮暗切换后重注册并 dispose 重绘。
  * 任务书54.1·V8：ResizeObserver 调 chart.resize()（修先大窗后缩窗横向溢出）。
  * 任务书54.4·A：默认 animation:false；IntersectionObserver 视口懒挂载；renderer 灰度 SVG。
+ * 2.6.3·D1：echarts 异步加载，不进看端首屏静态依赖。
  */
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-/* 2.3.0 S6.C：按需引入瘦包（bar/line/pie/heatmap + canvas/svg） */
-import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart, HeatmapChart } from 'echarts/charts'
-import {
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  TitleComponent,
-  VisualMapComponent,
-  GraphicComponent,
-  AxisPointerComponent,
-  DatasetComponent,
-  TransformComponent,
-} from 'echarts/components'
-import { LabelLayout } from 'echarts/features'
-import { CanvasRenderer, SVGRenderer } from 'echarts/renderers'
 import { kanbanTheme, currentThemeMode } from '../../echarts-theme'
 import { fxLevel } from '../../chart-fx'
-
-echarts.use([
-  BarChart,
-  LineChart,
-  PieChart,
-  HeatmapChart,
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  TitleComponent,
-  VisualMapComponent,
-  GraphicComponent,
-  AxisPointerComponent,
-  DatasetComponent,
-  TransformComponent,
-  LabelLayout,
-  CanvasRenderer,
-  SVGRenderer,
-])
+import { loadEcharts, type EChartsType } from '../../echarts-loader'
 
 /**
  * 2.3.0 S3：霓虹 → canvas（发光）；暗/亮 → svg。
@@ -62,22 +29,25 @@ function resolveRenderer(): 'canvas' | 'svg' {
 const props = defineProps<{ option: Record<string, unknown> }>()
 const emit = defineEmits<{ click: [params: { dataIndex?: number; seriesName?: string; name?: string }] }>()
 const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.EChartsType | null = null
+let chart: EChartsType | null = null
 let lastMode: 'neon' | 'dark' | 'light' | null = null
 let ro: ResizeObserver | null = null
 let io: IntersectionObserver | null = null
 /** 是否曾进入视口（懒挂载） */
 let inView = false
 let pendingRender = false
+let destroyed = false
 
-function ensureChart() {
-  if (!el.value || !inView) return
+async function ensureChart() {
+  if (!el.value || !inView || destroyed) return
   const mode = currentThemeMode()
   if (chart && lastMode === mode) return
   if (chart) {
     chart.dispose()
     chart = null
   }
+  const echarts = await loadEcharts()
+  if (destroyed || !el.value || !inView) return
   echarts.registerTheme('kanban', kanbanTheme(mode))
   chart = echarts.init(el.value, 'kanban', { renderer: resolveRenderer() })
   lastMode = mode
@@ -103,14 +73,14 @@ function disposeChart() {
   lastMode = null
 }
 
-function render() {
+async function render() {
   if (!inView) {
     pendingRender = true
     return
   }
   pendingRender = false
-  ensureChart()
-  if (!chart) return
+  await ensureChart()
+  if (!chart || destroyed) return
   /* 非霓虹强制零动画；霓虹放行 option 自带动画设置 */
   const fx = fxLevel() === 1
   const opt = fx
@@ -126,7 +96,7 @@ function render() {
 
 function onTheme() {
   lastMode = null
-  if (inView) render()
+  if (inView) void render()
 }
 
 function onWinResize() {
@@ -160,7 +130,7 @@ onMounted(() => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             inView = true
-            render()
+            void render()
             setupResizeObserver()
           } else if (inView && chart) {
             /* 出屏 dispose，释放 canvas/svg 资源 */
@@ -175,12 +145,13 @@ onMounted(() => {
   } else {
     /* 无 IO 时直接挂载（SSR/旧环境回退） */
     inView = true
-    render()
+    void render()
     setupResizeObserver()
   }
 })
 
 onBeforeUnmount(() => {
+  destroyed = true
   window.removeEventListener('resize', onWinResize)
   window.removeEventListener('kanban-theme-change', onTheme)
   if (roRaf) {
@@ -202,7 +173,7 @@ onBeforeUnmount(() => {
 watch(
   () => props.option,
   () => {
-    if (inView) render()
+    if (inView) void render()
     else pendingRender = true
   },
   { deep: true },

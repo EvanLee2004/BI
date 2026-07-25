@@ -133,7 +133,7 @@ def load_inhouse(cfg: dict, conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 def load_ledger(cfg: dict, conn: sqlite3.Connection) -> tuple[list, list[tuple]]:
-    """返回 (表头行, 数据行)，与 loaders.load_ledger 同形。含税金额列返回元 float/None。
+    """返回 (表头行, 数据行)，与 loaders.load_ledger 同形。含税金额列返回 **int 分** / None（库内 INTEGER 分；2.6.3·D5 已与实现一致）。
     逐行原样（含全空行）按 id 顺序返回，保证行数与旧读法一致（体检面板行数回归红线）。"""
     header = list(LEDGER_STD_COLS)
     rows = conn.execute(

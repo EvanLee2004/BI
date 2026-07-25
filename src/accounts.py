@@ -437,8 +437,8 @@ def mark_login(cfg: dict, root: Path | None, account: str) -> None:
 
 def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new_pw: str) -> str | None:
     """自改密码：验旧设新，密码版本+1（旧会话失效）。成功返回 None；失败返回错误文案。"""
-    if len(new_pw or "") < 4:
-        return "新密码至少 4 位"
+    if len(new_pw or "") < 8:
+        return "新密码至少 8 位"
     acc = find_account(cfg, root, account)
     if not acc:
         return "账号不存在"
@@ -456,8 +456,8 @@ def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new
 
 def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str | None:
     """管理员直接设某账号密码（不验旧，版本+1）。成功 None；失败错误文案。"""
-    if len(new_pw or "") < 4:
-        return "新密码至少 4 位"
+    if len(new_pw or "") < 8:
+        return "新密码至少 8 位"
     rows = load_accounts(cfg, root, create=False)
     found = False
     for a in rows:

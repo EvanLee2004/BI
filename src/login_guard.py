@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""登录防爆破（任务书43）：同账号连续失败 N 次锁 M 分钟。内存计数，进程重启清零。"""
+"""登录防爆破（任务书43 / 2.6.3·D2）：按「账号 + 来源 IP」双维度计数。
+
+外部 IP 刷失败不得导致该账号对正常 IP 也进不去。
+内存计数，进程重启清零。
+"""
 from __future__ import annotations
 
 import threading
 import time
 
 _lock = threading.Lock()
-_fails: dict[str, list[float]] = {}  # account -> timestamps of failures
+# key = f"{account}|{ip}" -> timestamps of failures
+_fails: dict[str, list[float]] = {}
+
+
+def _norm_ip(ip: str | None) -> str:
+    s = (ip or "").strip()
+    return s or "unknown"
+
+
+def _key(account: str, ip: str | None) -> str:
+    return f"{(account or '').strip().lower()}|{_norm_ip(ip)}"
 
 
 def _cfg_n(cfg: dict | None) -> tuple[int, float]:
@@ -17,35 +31,48 @@ def _cfg_n(cfg: dict | None) -> tuple[int, float]:
     return max(1, n), max(0.1, mins) * 60.0
 
 
-def is_locked(account: str, cfg: dict | None = None, now: float | None = None) -> bool:
+def is_locked(
+    account: str, cfg: dict | None = None, now: float | None = None, *, ip: str | None = None
+) -> bool:
     account = (account or "").strip().lower()
     if not account:
         return False
     n, window = _cfg_n(cfg)
     now = time.time() if now is None else now
+    k = _key(account, ip)
     with _lock:
-        ts = _fails.get(account) or []
+        ts = _fails.get(k) or []
         ts = [t for t in ts if now - t < window]
-        _fails[account] = ts
+        _fails[k] = ts
         return len(ts) >= n
 
 
-def register_failure(account: str, cfg: dict | None = None, now: float | None = None) -> None:
+def register_failure(
+    account: str, cfg: dict | None = None, now: float | None = None, *, ip: str | None = None
+) -> None:
     account = (account or "").strip().lower()
     if not account:
         return
     now = time.time() if now is None else now
     _, window = _cfg_n(cfg)
+    k = _key(account, ip)
     with _lock:
-        ts = [t for t in (_fails.get(account) or []) if now - t < window]
+        ts = [t for t in (_fails.get(k) or []) if now - t < window]
         ts.append(now)
-        _fails[account] = ts
+        _fails[k] = ts
 
 
-def clear_failures(account: str) -> None:
+def clear_failures(account: str, *, ip: str | None = None) -> None:
+    """清除该账号+IP 的失败计数；ip 省略时清该账号所有 IP（登录成功用）。"""
     account = (account or "").strip().lower()
     with _lock:
-        _fails.pop(account, None)
+        if ip is not None:
+            _fails.pop(_key(account, ip), None)
+            return
+        prefix = f"{account}|"
+        for k in list(_fails.keys()):
+            if k.startswith(prefix):
+                _fails.pop(k, None)
 
 
 def reset_all_for_tests() -> None:
