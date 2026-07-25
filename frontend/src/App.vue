@@ -27,6 +27,7 @@ import BuNav from './components/BuNav.vue'
 import BUPage from './components/BUPage.vue'
 import TopBarActions from './components/TopBarActions.vue'
 import IntroSplash from './components/IntroSplash.vue'
+import BuTransitionOverlay from './components/BuTransitionOverlay.vue'
 
 const store = useCockpitStore()
 const productVer = ref('')
@@ -104,6 +105,7 @@ onMounted(async () => {
 
 <template>
   <IntroSplash v-if="showIntro" :data-ready="!store.loading && !!store.vm" @done="showIntro = false" />
+  <BuTransitionOverlay />
   <div v-if="store.error && store.error.includes('未登录')">
     <LoginView />
   </div>

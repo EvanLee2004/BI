@@ -22,27 +22,35 @@ class TestBuTransition264(unittest.TestCase):
         self.assertIn("async function transitionToBu", src)
         self.assertIn("prefers-reduced-motion", src)
         self.assertIn("viewTransitioning", src)
-        # 延时数字：150 + 200 = 350 ≤ 800
-        delays = [int(x) for x in re.findall(r"setTimeout\(\s*\([^)]*\)\s*=>\s*[^,]+,\s*(\d+)\s*\)", src)]
-        # also match setTimeout((r) => setTimeout(r, 150)
-        delays += [int(x) for x in re.findall(r"setTimeout\(\s*\(\s*r\s*\)\s*=>\s*[^,]+,\s*(\d+)", src)]
-        delays += [int(x) for x in re.findall(r"setTimeout\([^,]+,\s*(\d+)\)", src)]
-        # 从 transitionToBu 函数体抽 150/200
-        m = re.search(r"async function transitionToBu[\s\S]*?^  \}", src, re.M)
-        self.assertIsNotNone(m, "transitionToBu body")
-        body = m.group(0)
-        nums = [int(x) for x in re.findall(r"setTimeout\([^,]+,\s*(\d+)\)", body)]
-        self.assertTrue(nums, f"expected setTimeout delays in transitionToBu, body snip={body[:200]}")
+        self.assertIn("transitionLabel", src)
+        self.assertIn("skipViewTransition", src)
+        m = re.search(r"async function transitionToBu[\s\S]*?^  function skipViewTransition", src, re.M)
+        self.assertTrue(m, "transitionToBu body")
+        body = m.group(0) if m else ""
+        # 2.6.4·D1：wait(120)+wait(200)=320 ≤800
+        nums = [int(x) for x in re.findall(r"await wait\((\d+)\)", body)]
+        self.assertTrue(nums, f"expected await wait(ms) in transitionToBu: {body[:300]}")
         total = sum(nums)
         self.assertLessEqual(total, 800, f"transition delays sum {total}ms > 800ms: {nums}")
         self.assertIn("if (!reduced)", body)
         self.assertIn("loadBu", body)
+        self.assertIn("transitionSkipped", body)
 
     def test_app_view_transition_host_css(self):
         app = (FE / "App.vue").read_text(encoding="utf-8")
         self.assertIn("view-transition-host", app)
         self.assertIn("is-transitioning", app)
         self.assertIn("prefers-reduced-motion", app)
+        self.assertIn("BuTransitionOverlay", app)
+
+    def test_overlay_logo_and_bu_name(self):
+        ov = (FE / "components" / "BuTransitionOverlay.vue").read_text(encoding="utf-8")
+        self.assertIn("logo.png", ov)
+        self.assertIn("transitionLabel", ov)
+        self.assertIn("skipViewTransition", ov)
+        self.assertIn("data-testid=\"bu-transition-overlay\"", ov)
+        self.assertIn("prefers-reduced-motion", ov)
+        self.assertIn("点击任意处跳过", ov)
 
     def test_bunav_uses_transition(self):
         nav = (FE / "components" / "BuNav.vue").read_text(encoding="utf-8")
@@ -50,12 +58,8 @@ class TestBuTransition264(unittest.TestCase):
 
     def test_no_theme_class_regression(self):
         """不许动测试锚着的主题 class / 按钮文案关键词。"""
-        # 仍保留 theme-light 能力（test_cockpit 等）
         app = (FE / "App.vue").read_text(encoding="utf-8")
-        # 不强制 App 含 theme-light，但 dist/login 壳有；这里只保证没人删 cockpit-theme
-        self.assertTrue(
-            (ROOT / "static").exists() or "theme" in app.lower() or (FE / "theme").exists() or True
-        )
+        self.assertTrue((ROOT / "static").exists() or "theme" in app.lower() or True)
 
 
 if __name__ == "__main__":

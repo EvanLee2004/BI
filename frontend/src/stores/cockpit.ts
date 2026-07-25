@@ -91,6 +91,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const snapshotScopeLabel = ref('')
   /** 2.3.1 S6：切 BU 视觉转场标志（不改数据装配） */
   const viewTransitioning = ref(false)
+  /** 2.6.4·D1：过场展示的目标 BU 名 */
+  const transitionLabel = ref('')
+  /** 2.6.4·D1：用户点跳过 */
+  const transitionSkipped = ref(false)
 
   function applyNavFromVm(data: PageVM) {
     const names = data.bu_names
@@ -353,18 +357,39 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
   }
 
-  /** 2.3.1：切 BU 视觉转场（淡出→loadBu→淡入）；错误条不被遮挡 */
+  /**
+   * 2.3.1 / 2.6.4·D1：切 BU 视觉转场。
+   * - 非 reduced：logo+BU 名叠加层（viewTransitioning）+ 内容区淡出/淡入
+   * - 延时合计 ≤800ms（120+200）；点叠加层可 skipViewTransition
+   * - reduced-motion：零动画，直接 loadBu
+   */
   async function transitionToBu(name: string) {
     if (!name || name === buName.value) return
     let reduced = false
     try {
-      reduced = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      reduced =
+        typeof window !== 'undefined' &&
+        !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     } catch {
       reduced = false
     }
+    transitionSkipped.value = false
+    transitionLabel.value = name
     if (!reduced) viewTransitioning.value = true
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const t0 = Date.now()
+        const tick = () => {
+          if (transitionSkipped.value || Date.now() - t0 >= ms) {
+            resolve()
+            return
+          }
+          setTimeout(tick, 16)
+        }
+        setTimeout(tick, Math.min(16, ms))
+      })
     try {
-      if (!reduced) await new Promise((r) => setTimeout(r, 150))
+      if (!reduced && !transitionSkipped.value) await wait(120)
       await loadBu(name)
       if (typeof history !== 'undefined' && !snapshotMode.value) {
         try {
@@ -373,10 +398,17 @@ export const useCockpitStore = defineStore('cockpit', () => {
           /* ignore */
         }
       }
-      if (!reduced) await new Promise((r) => setTimeout(r, 200))
+      if (!reduced && !transitionSkipped.value) await wait(200)
     } finally {
       viewTransitioning.value = false
+      transitionLabel.value = ''
+      transitionSkipped.value = false
     }
+  }
+
+  function skipViewTransition() {
+    transitionSkipped.value = true
+    viewTransitioning.value = false
   }
 
   function setPeriod(key: string) {
@@ -430,6 +462,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     dailyRange,
     dailyDual,
     viewTransitioning,
+    transitionLabel,
+    skipViewTransition,
     loadMain,
     loadBu,
     transitionToBu,
