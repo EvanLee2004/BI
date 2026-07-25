@@ -34,15 +34,28 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.6.0 · 2026-07-25）
+## 当前状态（2.6.3 · 2026-07-25）
 
-- **版本**：`VERSION` = **2.6.0**（单会话 cookie **`kanban_sid`**；旧 `kanban_session`/`kanban_view` **兼容读 21 天**并静默升级；统一 `/login`，未登录 `/admin` → 303 `/login?next=/admin`）。其上：2.5.0 删独立管理登录门面；2.4.3 根路径 BU 加固；2.3.x 三主题霓虹等。
+- **版本**：`VERSION` = **2.6.3**（全方位隐患清零 20 项；基线 2.6.2）。其上：2.6.0 单会话 `kanban_sid`；2.5.0 统一 `/login`；2.4.3 根路径 BU 加固。
 - **会话**：`src/session_ctx.py` 唯一 resolve；权限只看账号表；退出清 sid+两旧名；MADR-0023。
-- **展示端**：霓虹默认；深空/晨光；count-up；按账号分流整体/BU。
-- **管理端**：顶栏页签「展示」；恒暗色；与看端同一登录页进入。
-- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；`tests/test_task_2_6_0_session.py`。
+- **安全/可靠（2.6.3）**：账号表原子写+损坏隔离不 seed；`db_path` 禁双拼；本地配置危险键拒绝；登录锁定**账号+IP**；写路径与刷新互斥 409；跨年归档 partial 原子；缺台账年页降级不抛死管道。
+- **看端首包**：`vue-runtime` 独立分片 + echarts 异步；看端 deps **无** element-plus；首屏 gz ≤260KB。
+- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；`KANBAN_PROFILE=dev|staging|prod` 已实现（`loaders.load_config`）。
 - **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代（`location = /` 必 proxy）；运维见 `docs/Runbook.md` §0。
 - **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功；**前端零金额运算**；只推 main 不推 tags。
+
+### 本轮新增铁律（2.6.3）
+
+1. **私密文件必原子写**（同目录 tmp → chmod 0o600 → `os.replace`）；账号表坏 JSON **隔离不 seed**。
+2. **`db_path` 只写相对 data_dir**（如 `看板.db`）；首段等于 data_dir 末段 → 抛错，不静默纠正。
+3. **本地配置禁止覆盖** `data_dir` / `db_path` / `profiles`；坏文件 → 黄+告警，不许 `except: pass`。
+4. **新鲜度只认业务时间戳**（`built_at` / 运行日志），禁止用 `看板.db` mtime。
+5. **定时刷新**：过点且今日未成功 → 补跑；busy 排队不丢；漏跑黄+告警。
+6. **跨年归档**：`.partial` 全成功再 rename + `_ARCHIVE_OK`；半截不当 exists。
+7. **缺当年台账 sheet**：空集+红+横幅「收单台账缺 &lt;年&gt; 页，找亮晶建」，管道继续。
+8. **管理端写库与刷新互斥**；忙 → **409**「更新进行中，请稍后再保存」，绝不 500 半条脏写。
+9. **看端首包禁止依赖 element-plus**；Vue/echarts 分片或异步。
+10. **登录锁定按账号+IP**；新密码下限 8 位（明文存储口径不变·MADR-0020）。
 
 ### 历史版本索引（一行一版 · 细节见 CHANGELOG）
 

@@ -78,6 +78,11 @@ class TestIncrementalRecompute(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="t66b_"))
         (tmp / "_golden_data").mkdir()
         shutil.copy2(ROOT / "_golden_data" / "看板.db", tmp / "_golden_data" / "看板.db")
+        # 2.6.3·C3：do_full 贯通 root，须拷 xlsx 源（勿再依赖程序默认 数据/）
+        for name in ("下单.xlsx", "回款记录.xlsx", "项目明细.xlsx", "内部译员.xlsx", "收单台账.xlsx"):
+            src = ROOT / "_golden_data" / name
+            if src.is_file():
+                shutil.copy2(src, tmp / "_golden_data" / name)
         cfg = dict(self.cfg)
         cfg["db_path"] = str((tmp / "_golden_data" / "看板.db").resolve())
         root = tmp

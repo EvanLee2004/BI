@@ -92,7 +92,7 @@ def _run_archive_backups(cfg, root, conn, today, report: dict) -> None:
             report["vacuum"] = f"fail:{type(e).__name__}"
 
 
-def build_std_db(
+def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份分支
     cfg: dict,
     ledger_year: int,
     root: Path | None = None,

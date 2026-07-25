@@ -280,7 +280,8 @@ class TestExportHttp229(unittest.TestCase):
         self.assertEqual(raw.get("/export.html").status_code, 401)
         self.assertEqual(raw.get("/api/export.html").status_code, 401)
         self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
-        self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
+        # 2.6.3·D3：未登录对不存在名也 401（与无权同形，不 404）
+        self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
         admin = self._admin()
         for path in ("/export.html", "/api/export.html"):
@@ -319,7 +320,8 @@ class TestExportHttp229(unittest.TestCase):
         self.assertEqual(pack.get("cockpit") or {}, {})
         self.assertNotIn("BU乙", json.dumps(pack, ensure_ascii=False))
         self.assertEqual(cbu.get(f"/bu/{quote('BU乙')}/export.html").status_code, 401)
-        self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
+        # 2.6.3·D3：无权看「不存在」与无权看他 BU 同 401（不 404 泄露存在性）
+        self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
     def test_offline_export_not_residual_shell(self):
         """KANBAN_OFFLINE=1 仍须真快照，禁止 fallback 残壳假成功。"""

@@ -450,8 +450,10 @@ class TestBuExportGate(unittest.TestCase):
         cls.client = TestClient(cls.app, follow_redirects=False)
         server._state["bu_pages"] = {"游戏": {"name": "游戏", "html": "<html><body>x</body></html>"}}
 
-    def test_unknown_bu_404(self):
-        self.assertEqual(self.client.get("/bu/不存在/export.png").status_code, 404)
+    def test_unknown_bu_same_as_forbidden(self):
+        """2.6.3·D3：不存在与无权同一 401，不泄露 BU 是否存在。"""
+        r = self.client.get("/bu/不存在/export.png")
+        self.assertEqual(r.status_code, 401)
 
     def test_anonymous_401(self):
         self.assertEqual(self.client.get("/bu/游戏/export.png").status_code, 401)

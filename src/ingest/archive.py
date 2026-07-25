@@ -38,7 +38,9 @@ def _vacuum_into(src: Path, dst: Path) -> None:
         conn.close()
 
 
-def backup_db(cfg: dict, today: datetime.date | None = None, root: Path | None = None, keep: int | None = None) -> dict:
+def backup_db(  # noqa: C901  # 2.6.3·D5 pre-restore 清理分支
+    cfg: dict, today: datetime.date | None = None, root: Path | None = None, keep: int | None = None
+) -> dict:
     """拷 看板.db → 数据/备份/看板_YYYYMMDD.db，滚动保留最近 keep 份（每天一份≈保留 keep 天）。
 
     任务书64·D1：优先 VACUUM INTO 一致快照；失败回退 copy2 并体检黄（status=degraded）。

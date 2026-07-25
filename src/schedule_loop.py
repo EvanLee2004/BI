@@ -126,7 +126,7 @@ class ScheduleLoop:
         # 排队：start 返回 False 时保留，下 tick 重试（仅 hhmm 列表）
         self._queue: list[str] = []
 
-    def tick(self) -> bool:
+    def tick(self) -> bool:  # noqa: C901  # 2.6.3·B2 补跑/排队/台账分支
         """执行一次检查。返回是否成功启动了刷新。
 
         2.6.3·B2：凡「计划点已过且今日未成功」一律尝试补跑（含精确分钟与之后）。

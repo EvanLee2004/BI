@@ -460,7 +460,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         }
 
     @app.get("/api/health")
-    def api_health(request: Request):
+    def api_health(request: Request):  # noqa: C901  # 2.6.3 合成黄/红/台账/账号/schedule
         """体检状态条数据源（公开：只给绿/黄/红 + 时间 + 各源行数，不含金额/客户名）。
         任务书37·B9：fetch_banners=抓数降级黄横幅（看端/管理端顶部）。
         2.6.3·D5：version/内部 info 仅登录后。"""

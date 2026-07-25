@@ -187,10 +187,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def api_bu_export_png(name: str, request: Request, blk: str = ""):
         """BU 页导出：按需装配该 BU HTML 后截图（65·L2）。兼容保留。2.6.3·D3 先鉴权。"""
         if not _can_view_bu(request, name):
+            # 无权/未登录：与「不存在」对无权者同形 401（不先 404 泄露）
             raise HTTPException(status_code=401, detail="请先登录看板")
         page = _state.get("bu_pages", {}).get(name)
         if not page:
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=404, detail="Not Found")
         _check_blk(blk)
         if not _EXPORT_LOCK.acquire(blocking=False):
             raise HTTPException(status_code=429, detail="正在生成另一张导出图，请稍候几秒再点")
@@ -224,12 +225,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/bu/{name}/export.html")
     def api_bu_export_html(name: str, request: Request, blk: str = "", theme: str = ""):
-        """2.2.9：BU 页导出快照 HTML。2.6.3·D3：先鉴权再存在；无权/不存在同一 401。"""
+        """2.2.9：BU 页导出快照 HTML。2.6.3·D3：先鉴权；无权一律 401（不先 404）；有权再 404。"""
         if not _can_view_bu(request, name):
             raise HTTPException(status_code=401, detail="请先登录看板")
         page = _state.get("bu_pages", {}).get(name)
         if not page:
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=404, detail="Not Found")
         return _export_html_body(request, bu_name=name, blk=blk, theme=theme)
 
     @app.get("/api/history")

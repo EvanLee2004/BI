@@ -149,21 +149,20 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：Vue dist SPA（54.4·C）。2.6.3·D3：先鉴权再判存在（无权与不存在同一响应）。"""
+        """BU 页：Vue dist SPA（54.4·C）。2.6.3·D3：先鉴权；无权不先 404 泄露存在性。"""
         if not _can_view_bu(request, name):
             if not (_user(request) or _vacct(request)):
                 return RedirectResponse(
                     login_redirect.login_url(next_path=f"/bu/{name}"),
                     status_code=303,
                 )
-            # 已登录但无权：与「不存在」同一 303 回登录（不泄露 BU 名是否存在）
+            # 已登录但无权：与无权者看「不存在」同形（登录页 303，不 404）
             return RedirectResponse(login_redirect.login_url(), status_code=303)
         page = _bu_pages().get(name)
         if not page:
-            # 有权但页未装载：与无权同形 303，避免枚举
-            return RedirectResponse(login_redirect.login_url(), status_code=303)
+            # 有权但页未装载 / 真不存在
+            raise HTTPException(status_code=404, detail="Not Found")
         return _bu_shell()
-
     # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
     @app.get("/api/v1/session")
     def api_v1_session(request: Request):

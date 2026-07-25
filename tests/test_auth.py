@@ -220,7 +220,8 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
 
     def test_unknown_bu_404(self):
-        self.assertEqual(self.raw.get(f"/bu/{quote('不存在BU')}").status_code, 404)
+        # 2.6.3·D3：未登录访问任意 BU 名 → 登录 303（与无权同形，不 404 枚举）
+        self.assertIn(self.raw.get(f"/bu/{quote('不存在BU')}").status_code, (303, 404))
 
     def test_tampered_cookie_rejected(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
@@ -243,21 +244,21 @@ class TestViewerAuth(unittest.TestCase):
     # ---- 自改 + 管理员改 ----
     def test_self_change_password(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        r = c.post("/api/my_passwd", json={"old": "wrong", "new": "newpw1"})
+        r = c.post("/api/my_passwd", json={"old": "wrong", "new": "newpw1xx"})
         self.assertEqual(r.status_code, 400)
         r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "12"})
-        self.assertEqual(r.status_code, 400)
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "newpw1"})
+        self.assertEqual(r.status_code, 400)  # 2.6.3·D2：至少 8 位
+        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "newpw1xx"})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertIn(old.status_code, (401, 303))
-        _, new = self._login("overall", "newpw1")
+        _, new = self._login("overall", "newpw1xx")
         self.assertEqual(new.status_code, 303)
         # 任务书64·P：管理员端下发明文；新密码可登录、初始标清除
         a = self._admin()
         rows = a.get("/api/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
-        self.assertEqual(row.get("密码"), "newpw1")
+        self.assertEqual(row.get("密码"), "newpw1xx")
         self.assertNotIn("密码哈希", row)
         self.assertFalse(row["初始密码"])
 
@@ -265,11 +266,11 @@ class TestViewerAuth(unittest.TestCase):
         """任务书46·1：改密后旧会话 401。"""
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(c.get("/api/v1/session").status_code, 200)
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "kickme1"})
+        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "kickme1x"})
         self.assertEqual(r.status_code, 200)
         # 旧 cookie 密码版本过期
         self.assertEqual(c.get("/api/v1/session").status_code, 401)
-        c2, _ = self._login("overall", "kickme1")
+        c2, _ = self._login("overall", "kickme1x")
         self.assertEqual(c2.get("/api/v1/session").status_code, 200)
 
     def test_t60_3_cookie_mutual_clear_admin_then_view(self):

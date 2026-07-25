@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.3 · 2026-07-25
+
+全方位隐患清零（20 项 · 排查基线 2.6.2）：
+
+- **A 止血**：账号表原子写 + 损坏隔离不 seed 出厂口令；`db_path` 双拼明确抛错；本地配置危险键白名单；坏本地配置体检黄+告警；空密码 400。
+- **B 沉默失败**：healthcheck 新鲜度改 `/api/health` 的 `built_at`；定时刷新补跑+跑批台账；月末漏月补快照；跨年归档 `.partial`+`_ARCHIVE_OK`；缺当年台账 sheet 降级空集+体检红+横幅。
+- **C 并发**：管理端写路径持锁，忙时 409「更新进行中，请稍后再保存」；`_BUSY_TIMEOUT_MS=90s`；publish 一次引用替换；`generate` 贯通 `root`。
+- **D 门面**：看端首包拆 `vue-runtime` + echarts 异步，看端 deps 不再含 element-plus，首屏 gz 约 90KB（≤260KB）；登录锁定账号+IP；新密码下限 8 位；鉴权先于存在性；**实现** `KANBAN_PROFILE` 读 env 套 `config.profiles`；health 版本/info 仅登录后；pre-restore 纳入清理。
+
 ## 2.6.2 · 2026-07-25
 
 - **手机端响应式（B1–B4）**：≤520px 消除整页横溢；台账表容器内横滑；顶栏「⋯」收纳导出/退出/密码；KPI 两列紧凑；趋势图/排名窄屏减标签密度

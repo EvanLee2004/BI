@@ -44,5 +44,6 @@ _state: dict = {
     # 导出 HTML 缓存：同 built_at 复用，防连点
     "export_html_cache": None,  # {"built_at": str, "main": str, "bu": {name: html}}
 }
+# 注意：start_refresh_async 主线程 acquire、后台线程 release → 必须用 Lock 不能用 RLock
 _LOCK = threading.Lock()
 _EXPORT_LOCK = threading.Lock()

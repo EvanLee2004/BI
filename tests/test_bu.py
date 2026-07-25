@@ -477,7 +477,8 @@ class TestBuEndpoints(unittest.TestCase):
 
         for t in ("不存在BU", "x", ""):
             r = self.client.get(f"/bu/{quote(t)}")
-            self.assertIn(r.status_code, (404, 307))  # ""→ /bu/ 路由不存在
+            # 2.6.3·D3：未登录/无权与不存在同一形——登录 303 或 404，不泄露真实 BU 名
+            self.assertIn(r.status_code, (404, 303, 307))  # ""→ /bu/ 路由不存在
             if r.status_code == 404:
                 self.assertNotIn("BU甲", r.text)
 
@@ -552,7 +553,8 @@ class TestZeroConfigServer(unittest.TestCase):
         client = TestClient(app, follow_redirects=False)
         from urllib.parse import quote
 
-        self.assertEqual(client.get(f"/bu/{quote('BU甲')}").status_code, 404)
+        # 2.6.3·D3：未登录访问任意 BU 名 → 统一登录 303（不再用 404 区分存在性）
+        self.assertIn(client.get(f"/bu/{quote('BU甲')}").status_code, (303, 404))
         self.assertEqual(client.get("/").status_code, 200)
 
 

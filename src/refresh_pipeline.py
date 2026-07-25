@@ -176,8 +176,14 @@ def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
     )
 
 
-def recompute(cfg, root=None, *, rebuild_std: bool = False) -> None:
-    """同步重算。调整类写入传 rebuild_std=True；手填默认 False。"""
+def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool = False) -> None:
+    """同步重算。调整类写入传 rebuild_std=True；手填默认 False。
+
+    already_locked=True：调用方已持有 _LOCK（2.6.3·C1 with_write_lock），不再 acquire，避免死锁。
+    """
+    if already_locked:
+        do_recompute(cfg, root, rebuild_std=rebuild_std)
+        return
     with _LOCK:
         do_recompute(cfg, root, rebuild_std=rebuild_std)
 

@@ -229,7 +229,8 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             self.assertEqual(raw.get("/export.html").status_code, 401)
             self.assertEqual(raw.get("/api/export.html").status_code, 401)
             self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
-            self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
+            # 2.6.3·D3：未登录对不存在名也 401
+            self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
             admin = self._admin()
             for path in ("/export.html", "/api/export.html"):
@@ -271,7 +272,8 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             self.assertEqual(cbu.get("/export.html").status_code, 401)
             self.assertEqual(cbu.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
             self.assertEqual(cbu.get(f"/bu/{quote('BU乙')}/export.html").status_code, 401)
-            self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
+            # 2.6.3·D3：无权对不存在名与无权对他 BU 同 401
+            self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
 
 class TestVersion227(unittest.TestCase):

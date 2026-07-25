@@ -92,11 +92,11 @@ class TestD3AuthBeforeExistence(unittest.TestCase):
             app = server.create_app(cfg, root=tmp)
             client = TestClient(app, follow_redirects=False)
             # 未登录：存在 BU 与不存在 BU 同一 401
+            # 未登录：存在 BU 与不存在 BU 同 401（先鉴权，不 404 泄露）
             r1 = client.get("/bu/语言/export.html")
             r2 = client.get("/bu/__no_such_bu__/export.html")
-            self.assertEqual(r1.status_code, r2.status_code)
             self.assertEqual(r1.status_code, 401)
-            # 响应体完全一致（无法区分存在/不存在）
+            self.assertEqual(r2.status_code, 401)
             self.assertEqual(r1.content, r2.content)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

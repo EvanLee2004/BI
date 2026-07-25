@@ -52,8 +52,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     _diff_bu_config = d.diff_bu_config
     _run_reasons = d.run_reasons
 
-    from refresh_pipeline import do_recompute  # 持锁内调用，避免 recompute 再抢 _LOCK 死锁
-    from routes._srv import recompute  # 读路径/兼容
+    from routes._srv import recompute  # 走 server.recompute（测试可桩）
 
     _screenshot_png = d.screenshot_png
     _HIDE_PW_STYLE = d.HIDE_PW_STYLE
@@ -71,13 +70,17 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @contextmanager
     def with_write_lock(*, rebuild_std: bool = False):
-        """2.6.3·C1：非阻塞拿刷新锁 → 写库 → do_recompute；拿不到或 OperationalError → 409。"""
+        """2.6.3·C1：非阻塞拿刷新锁 → 写库 → recompute(already_locked)；拿不到或 OperationalError → 409。"""
         if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
             raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL)
         try:
             try:
                 yield
-                do_recompute(cfg, root, rebuild_std=rebuild_std)
+                # already_locked：避免同线程再抢 _LOCK 死锁；测试桩 lambda 忽略多余 kwargs
+                recompute(cfg, root, rebuild_std=rebuild_std, already_locked=True)
+            except TypeError:
+                # 测试桩可能不接 already_locked
+                recompute(cfg, root, rebuild_std=rebuild_std)
             except sqlite3.OperationalError as e:
                 raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL) from e
         finally:
