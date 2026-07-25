@@ -152,3 +152,50 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run restore test
         run: python tests/run_test.py tests/test_backup_restore.py
+
+  # 2.6.4·阶段8：活体 E2E（结构+鉴权）；本地不进 run_verify 串行，CI 必跑
+  e2e-live:
+    name: e2e auth isolation (playwright)
+    runs-on: ubuntu-latest
+    env:
+      KANBAN_OFFLINE: "1"
+      KANBAN_CI: "1"
+      PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime + playwright
+        run: |
+          set -e
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install httpx==0.28.1
+          python -m playwright install --with-deps chromium
+      - name: Seed CI fake data into 数据/
+        run: |
+          set -e
+          mkdir -p 数据
+          if [ -d tests/fixtures/ci_data ]; then
+            cp -R tests/fixtures/ci_data/* 数据/ || true
+            find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} 数据/ \;
+            mkdir -p _golden_data
+            find tests/fixtures/ci_data -name '*.xlsx' -exec cp {} _golden_data/ \;
+            # 合成账号（fixtures 内，无真实口令）：强制覆盖，保证 overall + bu
+            if [ -f tests/fixtures/ci_data/看板账号.json ]; then
+              cp tests/fixtures/ci_data/看板账号.json 数据/看板账号.json
+            fi
+            test -f 数据/看板账号.json
+            ls -la 数据/ | head
+          else
+            echo "::error::缺少 tests/fixtures/ci_data/"
+            exit 1
+          fi
+          test -f 数据/项目明细.xlsx
+      - name: Run E2E auth isolation
+        run: |
+          set -e
+          # 铁律20：禁止管道吞退出码；用仓库内 run_test 注入 src 路径
+          python tests/run_test.py tests/test_e2e_auth_isolation_2_6_4.py
+

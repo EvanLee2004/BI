@@ -195,6 +195,40 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 **浏览器 / 手机 → nginx(:80) → Vue 静态页 + API → 算账引擎 → SQLite**  
 数据进来：智云 / 共享盘台账 / 管理端手填 → 清洗与调整重放 → 入库 → 预计算好各周期数字 → 看端用接口取「已经算好的结果」。
 
+### 0. 一图读懂（Mermaid）
+
+```mermaid
+flowchart LR
+  subgraph sources [数据源]
+    ZY[智云四源]
+    LD[收单台账 Excel]
+    MF[管理端手填/调整]
+  end
+  subgraph app [看板正式程序]
+    IN[抓取与清洗]
+    DB[(SQLite 分整数)]
+    ENG[算账引擎]
+    API[FastAPI]
+    VU[Vue 看端/管理端]
+  end
+  subgraph edge [入口]
+    NGX[nginx :80]
+  end
+  ZY --> IN
+  LD --> IN
+  MF --> DB
+  IN --> DB
+  DB --> ENG
+  ENG --> API
+  API --> VU
+  NGX --> VU
+  NGX --> API
+```
+
+- **BU 利润表**：每个业务线一张「缩小版公司表」——只汇总该线销售名下的收入/成本/费用（经销售→BU 映射）。  
+- **口径一句话**：**当期生产交付即确认收入**（按整单交付日期归月），方便经营讨论，不是总账/报税口径。  
+- **三源**：智云在线抓 + 台账共享盘 + 管理端手填；金额只在服务端算，浏览器只展示 `value_disp`。
+
 ### 1. 逻辑架构
 
 ![系统架构](docs/images/architecture.png)
@@ -369,6 +403,18 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 | 文档总索引 | [docs/README.md](docs/README.md) |
 
 ---
+
+## 模块地图（代码）
+
+| 路径 | 职责 |
+|------|------|
+| `src/ingest/` | 智云/台账抓取与清洗（**`fetch_zhiyun.py` 业务降级点勿改**） |
+| `src/db*` / `src/domain/` | 入库、金额「分」、领域计算 |
+| `src/routes/` | HTTP：登录、驾驶舱、管理端、导出 |
+| `src/notify.py` + `src/alert_store.py` | **本机**告警（零外发） |
+| `frontend/src/` | Vue 看端 + 管理端 |
+| `tests/run_verify.sh` | 一键门禁：语法 + 回归红线 32 周期 + 全量测试 |
+| `deploy/linux/` | systemd / nginx 模板 |
 
 ## 质量与发布约定
 
