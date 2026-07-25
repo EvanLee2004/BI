@@ -403,22 +403,71 @@ def load_inhouse(cfg: dict, root: Path | None = None) -> list[dict[str, str]]:
 
 
 # 收单台账：按年份 sheet + 表头文字定位列
+# 2.6.3·B6：缺当年 sheet 不抛死整管；空集 + 旗标 + 告警
+_LEDGER_SHEET_MISSING: dict | None = None
+
+
+def ledger_sheet_missing_status() -> dict | None:
+    return dict(_LEDGER_SHEET_MISSING) if _LEDGER_SHEET_MISSING else None
+
+
+def clear_ledger_sheet_missing_status() -> None:
+    global _LEDGER_SHEET_MISSING
+    _LEDGER_SHEET_MISSING = None
+
+
+class LedgerSheetMissing(Exception):
+    """收单台账缺年页（可捕获；load_ledger 默认吞掉并返回空）。"""
+
+    def __init__(self, year: str, existing: list[str] | None = None):
+        self.year = str(year)
+        self.existing = list(existing or [])
+        super().__init__(
+            f"收单台账缺 {self.year} 页（现有：{self.existing}）。找亮晶建。"
+        )
+
+
 def _open_ledger_sheet(path: Path, sheet_name: str):
     wb = openpyxl.load_workbook(path, data_only=True)
     if sheet_name not in wb.sheetnames:
-        raise KeyError(
-            f"收单台账里找不到「{sheet_name}」sheet（现有：{wb.sheetnames}）。通常是新一年的sheet还没建，找亮晶确认。"
-        )
+        raise LedgerSheetMissing(sheet_name, list(wb.sheetnames))
     return wb[sheet_name]
 
 
 def load_ledger(cfg: dict, sheet_name: str, root: Path | None = None) -> tuple[list, list[tuple]]:
-    """返回 (表头行, 数据行)。"""
+    """返回 (表头行, 数据行)。
+
+    2.6.3·B6：缺当年 sheet → 空集 + 体检红旗标 + 告警，不抛死整条管道。
+    文件本身不存在仍 FileNotFoundError（与旧行为一致；fetch 层会先处理）。
+    """
+    global _LEDGER_SHEET_MISSING
     path = data_dir(cfg, root) / cfg["files"]["ledger"]
     if not path.exists():
         raise FileNotFoundError(f"未找到收单台账：{path}")
-    ws = _open_ledger_sheet(path, sheet_name)
+    try:
+        ws = _open_ledger_sheet(path, sheet_name)
+    except LedgerSheetMissing as e:
+        _LEDGER_SHEET_MISSING = {
+            "year": e.year,
+            "existing": e.existing,
+            "path": str(path),
+            "banner": f"收单台账缺 {e.year} 页，找亮晶建",
+        }
+        log.error("收单台账缺 %s 页（现有 %s）；台账走空集，管道继续", e.year, e.existing)
+        try:
+            import notify
+
+            notify.maybe_alert_text(
+                cfg,
+                f"【经营看板告警】收单台账缺 {e.year} 页，找亮晶建。现有 sheet：{e.existing}",
+            )
+        except Exception:
+            pass
+        return [], []
     rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return [], []
+    _LEDGER_SHEET_MISSING = None
     return list(rows[0]), rows[1:]
 
 

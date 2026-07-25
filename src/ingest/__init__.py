@@ -60,14 +60,30 @@ def _report_disk_and_db(cfg, root, report: dict) -> None:
 def _run_archive_backups(cfg, root, conn, today, report: dict) -> None:
     d = today if isinstance(today, datetime.date) else datetime.date.today()
     report["backup"] = archive.backup_db(cfg, d, root)
+    # 2.6.3·B3：月末当天快照 + 查漏补上月
     report["snapshot"] = archive.snapshot_if_month_end(cfg, d, root)
+    try:
+        report["snapshot_prev_month"] = archive.ensure_prev_month_snapshot(cfg, d, root)
+        if (report.get("snapshot_prev_month") or {}).get("yellow"):
+            report.setdefault("info", []).append(
+                f"已补做上月快照 {(report['snapshot_prev_month'] or {}).get('missing_month')}"
+            )
+    except Exception as e:
+        report["snapshot_prev_month"] = {
+            "status": "error",
+            "detail": f"{type(e).__name__}: {e}",
+            "done": False,
+            "yellow": True,
+        }
+    # 2.6.3·B3/BUG-16：done 明确布尔；月末真空用 is_month_end 或 snapshot.done
     is_me = False
     try:
-        is_me = bool((report.get("snapshot") or {}).get("done")) or (
-            d.month != (d + datetime.timedelta(days=1)).month
-        )
+        is_me = bool((report.get("snapshot") or {}).get("done")) or archive.is_month_end(d)
     except Exception:
-        pass
+        try:
+            is_me = d.day == __import__("calendar").monthrange(d.year, d.month)[1]
+        except Exception:
+            is_me = False
     if is_me:
         try:
             vacuum_db(conn)
@@ -95,14 +111,33 @@ def build_std_db(
 
     # 1) fetch 收单台账（可达才拉、不可达走本地副本，不中断）
     report["fetch"] = fetch.fetch_ledger(cfg, root)
+    # 1a) 2.6.3·B4：跨年归档改为管道必跑一步（不再挂在 zhiyun_auto_fetch 内）
+    try:
+        day0 = today if isinstance(today, datetime.date) else datetime.date.today()
+        report["year_archive"] = archive.maybe_year_archive_zhiyun(cfg, root, today=day0)
+        if (report.get("year_archive") or {}).get("red") or (
+            (report.get("year_archive") or {}).get("status") == "error"
+        ):
+            try:
+                from notify import maybe_alert_text
+
+                ya = report["year_archive"] or {}
+                maybe_alert_text(
+                    cfg,
+                    f"【经营看板告警】跨年归档失败：{ya.get('detail') or ya.get('status')}",
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        report["year_archive"] = {
+            "status": "error",
+            "detail": f"{type(e).__name__}: {e}",
+            "ok": False,
+            "red": True,
+        }
     # 1b) 智云四源在线抓（默认常开=更新必抓，抓不到降级；config.zhiyun_auto_fetch=false 仅应急后门）。
     # KANBAN_OFFLINE=1 强制跳过（测试/回归用：不碰网络、不动进料口，跑得快且可复现）。
     if cfg.get("zhiyun_auto_fetch") and not os.environ.get("KANBAN_OFFLINE"):
-        # 跨年：写盘前归档旧年四源（只一次；不污染 fetch_zhiyun 源键）
-        try:
-            report["year_archive"] = archive.maybe_year_archive_zhiyun(cfg, root, today=today)
-        except Exception as e:
-            report["year_archive"] = {"status": "error", "detail": f"{type(e).__name__}: {e}", "ok": False}
         report["fetch_zhiyun"] = fetch_zhiyun.fetch_all(cfg, root, today=today)
         # 任务书66·D：登录冷却元信息（不占源键）
         if isinstance(report["fetch_zhiyun"], dict) and report["fetch_zhiyun"].get("_meta_cooldown"):
@@ -114,8 +149,24 @@ def build_std_db(
             except Exception:
                 pass
 
-    # 2) 读原始 + 规范化
+    # 2) 读原始 + 规范化（缺台账 sheet 不抛死整管，见 loaders.load_ledger）
     records = _normalize_all_sources(cfg, ledger_year, root)
+    # 2b) 台账缺年页：空集已进 records；抬体检红 + 横幅
+    try:
+        import loaders as _ld
+
+        miss = _ld.ledger_sheet_missing_status()
+        if miss:
+            report["ledger_sheet_missing"] = miss
+            report.setdefault("fetch_banners_extra", []).append(
+                {
+                    "source": "ledger",
+                    "status": "missing_sheet",
+                    "text": f"收单台账缺 {miss.get('year')} 页，找亮晶建",
+                }
+            )
+    except Exception:
+        pass
     # 3) 全量重建标准表（人工表不动）
     _rebuild_std(conn, records)
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
@@ -196,9 +247,20 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     login_cd = bool((report.get("zhiyun_login_cooldown") or {}).get("active"))
     if not login_cd:
         login_cd = any(bool(v.get("login_cooldown")) for v in zy_src.values())
+    year_arch_red = bool((report.get("year_archive") or {}).get("red")) or (
+        (report.get("year_archive") or {}).get("status") == "error"
+    )
+    ledger_sheet_miss = bool(report.get("ledger_sheet_missing"))
 
-    # 硬红：台账无源 / 库坏 / 盘满 / 登录冷却
-    hard_red = (fetch_st == "no_source") or db_bad or disk_red or login_cd
+    # 硬红：台账无源 / 库坏 / 盘满 / 登录冷却 / 跨年归档失败 / 缺当年台账页
+    hard_red = (
+        (fetch_st == "no_source")
+        or db_bad
+        or disk_red
+        or login_cd
+        or year_arch_red
+        or ledger_sheet_miss
+    )
 
     # 抓数失败红：应抓源 status 非 fetched/skipped*
     fetch_fail = False
@@ -211,11 +273,14 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
             break
 
     # 业务黄：调整过期/失配、智云 warnings（骤降等）；同名控件只在 info 不进 warnings
+    # 2.6.3·B3：缺月快照补做 → 黄
     zy_warn = any(bool(v.get("warnings")) for v in zy_src.values())
+    snap_yellow = bool((report.get("snapshot_prev_month") or {}).get("yellow"))
     business_yellow = (
         int(adj.get("expired", 0) or 0) > 0
         or int(adj.get("missing", 0) or 0) > 0
         or zy_warn
+        or snap_yellow
     )
 
     red = hard_red or fetch_fail

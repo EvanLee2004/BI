@@ -540,6 +540,45 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             m_out["update_ms"] = metrics.get("update_ms", 0)
         if "fetch_fail_rate" not in m_out:
             m_out["fetch_fail_rate"] = metrics.get("fetch_fail_rate", 0.0)
+        # 2.6.3·B2：跑批台账；漏跑抬黄
+        sched = {}
+        try:
+            from schedule_loop import schedule_ledger
+
+            sched = schedule_ledger()
+            if sched.get("missed") or sched.get("pending"):
+                miss = list(sched.get("missed") or [])
+                pend = list(sched.get("pending") or [])
+                if miss:
+                    msg = f"定时刷新漏跑：{', '.join(miss)}"
+                    if msg not in reasons:
+                        reasons = [msg] + list(reasons)
+                    if result in ("绿", None):
+                        result = "黄"
+                elif pend:
+                    msg = f"定时刷新待补跑：{', '.join(pend)}"
+                    if msg not in reasons:
+                        reasons = [msg] + list(reasons)
+        except Exception:
+            pass
+        # 2.6.3·B6：缺台账年页横幅
+        try:
+            import loaders as _ld2
+
+            lm = _ld2.ledger_sheet_missing_status()
+            if lm:
+                text = lm.get("banner") or f"收单台账缺 {lm.get('year')} 页，找亮晶建"
+                if not any((b or {}).get("text") == text for b in banners):
+                    banners = list(banners) + [
+                        {"source": "ledger", "status": "missing_sheet", "as_of": "", "text": text}
+                    ]
+                if result != "红":
+                    result = "红"
+                msg = text
+                if msg not in reasons:
+                    reasons = [msg] + list(reasons)
+        except Exception:
+            pass
         return {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
@@ -550,6 +589,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "info": info,  # 66·D 信息行（定位键重复等）
             "fetch_banners": banners,  # B9 醒目横幅；全源成功=[]
             "metrics": m_out,
+            "schedule": sched,  # 2.6.3·B2 跑批台账
         }
 
     def _require(request: Request) -> str:

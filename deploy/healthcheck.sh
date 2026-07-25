@@ -83,37 +83,60 @@ if [ "$code2" != "200" ] && [ "$code2" != "301" ] && [ "$code2" != "302" ] && [ 
   alert "home_not_ok base=$BASE code=$code2"
 fi
 
-# 3) 数据新鲜度：看板.db 或 data_dir 下最新 xlsx mtime
-# 相对 ROOT；data_dir 默认 数据
+# 3) 数据新鲜度（2.6.3·B1）：只认 /api/health 的 built_at 业务时间戳
+# 禁止用 看板.db mtime——看端明细/登录审计写会刷新 mtime，导致 data_stale 永不触发。
 DATA_DIR="$ROOT/数据"
 if [ ! -d "$DATA_DIR" ]; then
   DATA_DIR="$ROOT/_golden_data"
 fi
-# mtime：Linux 先 stat -c %Y；macOS 用 stat -f %m。
-# 注意：GNU stat 的 -f 是 filesystem，不会失败却吐非数字 → 不能写「mac 在前 || linux」。
-mtime_of() {
-  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
-}
-latest=0
-if [ -f "$DATA_DIR/看板.db" ]; then
-  latest=$(mtime_of "$DATA_DIR/看板.db")
-fi
-for f in "$DATA_DIR"/*.xlsx; do
-  [ -f "$f" ] || continue
-  m=$(mtime_of "$f")
-  # 只接受纯数字，避免脏 stdout 弄炸 -gt
-  case "$m" in
-    ''|*[!0-9]*) m=0 ;;
-  esac
-  if [ "$m" -gt "$latest" ]; then latest=$m; fi
-done
-now=$(date +%s)
-if [ "$latest" -gt 0 ]; then
-  age_days=$(( (now - latest) / 86400 ))
-  if [ "$age_days" -gt "$MAX_STALE_DAYS" ]; then
-    alert "data_stale age_days=$age_days max=$MAX_STALE_DAYS path=$DATA_DIR"
-  fi
-fi
+stale_info="$(python3 - <<PY
+import json, urllib.request, time
+from datetime import datetime
+base = r"$BASE"
+max_days = int(r"$MAX_STALE_DAYS" or "2")
+try:
+    with urllib.request.urlopen(base + "/api/health", timeout=5) as r:
+        body = json.loads(r.read().decode("utf-8", errors="replace"))
+except Exception as e:
+    print(f"health_unreachable err={type(e).__name__}")
+    raise SystemExit(0)
+built = (body.get("built_at") or body.get("run_time") or "").strip()
+if not built:
+    # 尚无发布态：不按 stale 红（冷启动/首次部署）；metrics.built_at 亦无
+    m = body.get("metrics") or {}
+    built = str(m.get("built_at") or "").strip()
+if not built:
+    print("no_built_at")
+    raise SystemExit(0)
+# 接受 "YYYY-MM-DD HH:MM:SS" 或 ISO
+ts = None
+for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+    try:
+        ts = datetime.strptime(built[:19].replace("T", " ") if "T" in built[:19] else built[:19], fmt if fmt != "%Y-%m-%dT%H:%M:%S" else "%Y-%m-%d %H:%M:%S")
+        break
+    except ValueError:
+        continue
+if ts is None:
+    try:
+        ts = datetime.strptime(built[:10], "%Y-%m-%d")
+    except ValueError:
+        print(f"built_at_unparsed value={built!r}")
+        raise SystemExit(0)
+age_days = (time.time() - ts.timestamp()) / 86400.0
+if age_days > max_days:
+    print(f"data_stale age_days={age_days:.2f} max={max_days} built_at={built}")
+else:
+    print(f"ok age_days={age_days:.2f} built_at={built}")
+PY
+)"
+case "$stale_info" in
+  data_stale*)
+    alert "$stale_info"
+    ;;
+  health_unreachable*)
+    alert "$stale_info base=$BASE"
+    ;;
+esac
 
 # 4) 前端错误日志黄灯（B-5）：近 24h 有客户端错误 → YELLOW（不判红，exit 0 仍成功）
 FE_ERR="$DATA_DIR/前端错误.log"

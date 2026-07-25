@@ -112,15 +112,24 @@ def restore_db_from_backup(
     return {"status": "ok", "path": str(dst), "from": str(src), "pre": str(pre) if pre else None}
 
 
+_ARCHIVE_OK = "_ARCHIVE_OK"
+
+
+def _year_archive_complete(arch: Path) -> bool:
+    """已归档只认最终目录 + _ARCHIVE_OK 标记（2.6.3·B4）。"""
+    return arch.is_dir() and (arch / _ARCHIVE_OK).is_file()
+
+
 def maybe_year_archive_zhiyun(  # noqa: C901  # 跨年归档分支：存在/跳过/拷贝/失败
     cfg: dict,
     root: Path | None = None,
     today: datetime.date | None = None,
 ) -> dict:
-    """跨年自动归档（任务书64·E）：zhiyun_since=auto 切到新年后首抓前，
-    若 数据/年度归档/<旧年>/ 尚不存在，则把四源现有 xlsx + 当日 db 完整拷入后返回。
+    """跨年自动归档（任务书64·E / 2.6.3·B4）：
 
-    归档只做一次（目录已存在即跳过）；**永久保留**，backup_keep 清理不得触及。
+    先拷进 ``年度归档/<旧年>.partial/``，**全部成功**再原子 rename 成 ``<旧年>/`` 并写 ``_ARCHIVE_OK``。
+    半截 partial 不视为 exists；下次会清掉 partial 重来。失败 → status=error（管道抬红+告警）。
+    归档触发已移出 zhiyun_auto_fetch 分支，由管道必跑一步调用本函数。
     """
     from ingest import fetch_zhiyun
 
@@ -133,17 +142,29 @@ def maybe_year_archive_zhiyun(  # noqa: C901  # 跨年归档分支：存在/跳�
         y = int(resolved[:4])
     except (TypeError, ValueError):
         return {"status": "skip", "detail": f"无法解析 since 年份：{resolved}"}
-    # 仅当 since 落在「当年元旦」（auto 或写死同年）且我们即将按新年过滤覆盖时
     if y != day.year:
         return {"status": "skip", "detail": f"since 年 {y} ≠ today 年 {day.year}"}
     prev = y - 1
     if prev < 2000:
         return {"status": "skip", "detail": "prev year 无效"}
     base = loaders.data_dir(cfg, root)
-    arch = base / "年度归档" / str(prev)
-    if arch.is_dir() and any(arch.iterdir()):
+    arch_root = base / "年度归档"
+    arch = arch_root / str(prev)
+    if _year_archive_complete(arch):
         return {"status": "exists", "path": str(arch), "year": prev, "ok": True}
-    # 有任一源文件才归档
+    # 半截最终目录（无 OK 标记）→ 视为失败残留，不当 exists；移走后重做
+    if arch.is_dir():
+        try:
+            broken = arch_root / f"{prev}.broken-{datetime.datetime.now():%Y%m%d%H%M%S}"
+            arch.rename(broken)
+        except OSError as e:
+            return {
+                "status": "error",
+                "detail": f"残留归档目录无法移走: {e}",
+                "ok": False,
+                "year": prev,
+                "red": True,
+            }
     stems = []
     files_cfg = cfg.get("files") or {}
     for key in ("orders", "receipts", "project_detail_stem", "inhouse"):
@@ -158,25 +179,40 @@ def maybe_year_archive_zhiyun(  # noqa: C901  # 跨年归档分支：存在/跳�
             stems.append(p)
     if not stems:
         return {"status": "skip", "detail": "无本地四源 xlsx，跳过归档", "year": prev}
-    arch.mkdir(parents=True, exist_ok=True)
-    copied = []
-    for p in stems:
-        try:
-            shutil.copy2(p, arch / p.name)
+    partial = arch_root / f"{prev}.partial"
+    try:
+        if partial.exists():
+            shutil.rmtree(partial)
+        partial.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return {"status": "error", "detail": f"无法创建 partial: {e}", "ok": False, "year": prev, "red": True}
+    copied: list[str] = []
+    try:
+        for p in stems:
+            shutil.copy2(p, partial / p.name)
             copied.append(p.name)
-        except OSError as e:
-            return {"status": "error", "detail": str(e), "ok": False, "year": prev}
-    dbp = db.db_path(cfg, root)
-    if dbp.is_file():
-        try:
-            # 优先一致快照
+        dbp = db.db_path(cfg, root)
+        if dbp.is_file():
             try:
-                _vacuum_into(dbp, arch / f"看板_{prev}.db")
+                _vacuum_into(dbp, partial / f"看板_{prev}.db")
             except Exception:
-                shutil.copy2(dbp, arch / f"看板_{prev}.db")
+                shutil.copy2(dbp, partial / f"看板_{prev}.db")
             copied.append(f"看板_{prev}.db")
-        except OSError:
-            pass
+        # 完成标记 + 原子 rename
+        (partial / _ARCHIVE_OK).write_text(
+            f"year={prev}\nfiles={','.join(copied)}\n",
+            encoding="utf-8",
+        )
+        partial.rename(arch)
+    except OSError as e:
+        return {
+            "status": "error",
+            "detail": str(e),
+            "ok": False,
+            "year": prev,
+            "files": copied,
+            "red": True,
+        }
     return {
         "status": "archived",
         "path": str(arch),
@@ -299,17 +335,66 @@ def is_month_end(day: datetime.date) -> bool:
     return day.day == calendar.monthrange(day.year, day.month)[1]
 
 
-def snapshot_if_month_end(cfg: dict, today: datetime.date | None = None, root: Path | None = None) -> dict:
-    """当天=当月最后一天 → 拷 原始6源 + 看板.db + summary.json 到 快照存档/YYYY-MM/。"""
+def _snapshot_month_dir(base: Path, year: int, month: int) -> Path:
+    return base / "快照存档" / f"{year:04d}-{month:02d}"
+
+
+def _month_snapshot_exists(base: Path, year: int, month: int) -> bool:
+    d = _snapshot_month_dir(base, year, month)
+    return d.is_dir() and any(d.iterdir())
+
+
+def ensure_prev_month_snapshot(
+    cfg: dict, today: datetime.date | None = None, root: Path | None = None
+) -> dict:
+    """2.6.3·B3：每次管道检查上个月快照是否存在；不在则补做（用「上月最后一天」作 day）。
+
+    返回 {status, done, missing_month, path?, yellow?}。
+    """
     day = today or datetime.date.today()
-    if not is_month_end(day):
-        return {"status": "skip", "detail": "非当月最后一天"}
+    # 上月
+    if day.month == 1:
+        py, pm = day.year - 1, 12
+    else:
+        py, pm = day.year, day.month - 1
+    base = loaders.data_dir(cfg, root)
+    if _month_snapshot_exists(base, py, pm):
+        return {
+            "status": "exists",
+            "done": True,
+            "missing_month": None,
+            "path": str(_snapshot_month_dir(base, py, pm)),
+        }
+    # 上月最后一天
+    last = calendar.monthrange(py, pm)[1]
+    snap_day = datetime.date(py, pm, last)
+    r = snapshot_if_month_end(cfg, snap_day, root, force=True)
+    r["missing_month"] = f"{py:04d}-{pm:02d}"
+    r["yellow"] = True  # 缺月补做 → 体检黄
+    r["detail"] = (r.get("detail") or "") + f"；补做上月快照 {py:04d}-{pm:02d}"
+    return r
+
+
+def snapshot_if_month_end(
+    cfg: dict,
+    today: datetime.date | None = None,
+    root: Path | None = None,
+    *,
+    force: bool = False,
+) -> dict:
+    """当天=当月最后一天 → 拷 原始6源 + 看板.db + summary.json 到 快照存档/YYYY-MM/。
+
+    2.6.3·B3：返回明确 ``done`` 布尔；force=True 时忽略「是否月末」检查（供补漏月）。
+    """
+    day = today or datetime.date.today()
+    if not force and not is_month_end(day):
+        return {"status": "skip", "detail": "非当月最后一天", "done": False}
     base = loaders.data_dir(cfg, root)
     snap = base / "快照存档" / f"{day:%Y-%m}"
     snap.mkdir(parents=True, exist_ok=True)
     copied = []
     # 6 个原始源（项目明细是 stem 无后缀，补 .xlsx/.csv；其余已带后缀）
-    for name in cfg["files"].values():
+    for name in (cfg.get("files") or {}).values():
         for p in (base / name, base / f"{name}.xlsx", base / f"{name}.csv"):
             if p.exists() and p.is_file():
                 shutil.copy2(p, snap / p.name)
@@ -325,4 +410,10 @@ def snapshot_if_month_end(cfg: dict, today: datetime.date | None = None, root: P
     if sj.exists():
         shutil.copy2(sj, snap / "summary.json")
         copied.append("summary.json")
-    return {"status": "snapshot", "path": str(snap), "copied": sorted(set(copied))}
+    done = bool(copied)
+    return {
+        "status": "snapshot" if done else "empty",
+        "path": str(snap),
+        "copied": sorted(set(copied)),
+        "done": done,
+    }
