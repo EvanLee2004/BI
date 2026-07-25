@@ -88,6 +88,8 @@ tests/test_task_2_6_0_session.py
 tests/test_task_2_6_1_budget_pct_display.py
 tests/test_task_2_6_1_rankings_full_and_scroll.py
 tests/test_task_2_6_2_mobile_layout.py
+tests/test_task_2_6_3_batch_a.py
+tests/test_task_2_6_3_batch_c.py
 tests/test_task43_arch.py
 tests/test_task46_stage0.py
 tests/test_task50_stage_b.py
@@ -169,6 +171,8 @@ tests/test_task_2_3_0_health_metrics.py
 tests/test_task_2_3_1_motion.py
 tests/test_task_2_3_1_neon_hud.py
 tests/test_task_2_3_2_pl_display.py
+tests/test_task_2_6_3_batch_b.py
+tests/test_task_2_6_3_batch_d.py
 "
 run_one() {
   f="$1"
