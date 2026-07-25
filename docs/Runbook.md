@@ -53,6 +53,17 @@
 3. 演练：`python tests/run_test.py tests/test_backup_restore.py`
 4. 起服后 `/api/health` + 登录抽查 KPI
 
+### 3.1 演练证据（2026-07-26 · 2.6.4 上机）
+
+| 项 | 回显 |
+|----|------|
+| 自动化 | 本机 `pytest tests/test_backup_restore.py` → **2 passed**（EXIT 0） |
+| 生产上机前备份 | `数据/备份/看板_pre_2.6.4_20260726_001852.db` size **4325376** |
+| 上机后表级对照 | std 五表与全部 `manual_*` / `adj_调整记录` **相对备份 delta=0**；仅 `meta_运行日志` +1（冷启动写日志） |
+| 对照落盘 | `方案与文档/…/3_测试/20260726_2.6.4复查证据/deploy/table_counts_vs_backup.txt` |
+
+> 临时目录灾难演练（删主库→restore）以 `test_backup_restore` 为准；**禁止**在生产 `数据/` 上做破坏性演练。
+
 ## 任务书64 运维要点（2.0.3）
 
 - 备份：每日 `VACUUM INTO` 一致快照（失败回退 copy2 + 体检黄）；`数据/快照存档/` 与 `数据/年度归档/` **永久保留**，不进 30 天滚动清理。

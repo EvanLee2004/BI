@@ -4,11 +4,12 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v2.6.0**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v2.6.4**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **2.6.0 要点**：**全员同一登录页** `/login`；会话只写 **`kanban_sid`**（HttpOnly + SameSite=Lax）；旧 `kanban_session`/`kanban_view` **兼容读 21 天**并静默升级；登录后按账号分流（管理员→后台 / 整体→公司看板 / 业务线→本 BU）。  
-> **2.5.0**：已删除独立「管理员端登录」门面。**2.4.3**：根地址对 BU 三层加固。
+> **2.6.4 要点**：本机 `告警.log` + 管理端未读横幅（**零外发**；飞书 webhook 已废止）；失效模式 CI 守卫。  
+> **2.6.0**：全员 `/login`；会话 **`kanban_sid`**；旧 cookie 兼容读 21 天。**2.5.0** 删独立管理员登录门面。**2.4.3** 根地址 BU 加固。  
+> **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)
 
