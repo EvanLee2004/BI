@@ -73,7 +73,7 @@ def build_dashboard_fragments(summary, cfg, logo_b64) -> dict:
     # 陆总#8 / 任务书34：整体页 embed_full；月度字典全周期共享，只注入一次脚本（≡ page.js）
     _rk_store: dict = {}
     _rk_parts = [
-        _pv(k, yk, render_rankings(P[k], embed_full=True, monthly_store=_rk_store, emit_monthly_script=False))
+        _pv(k, yk, render_rankings(P[k], embed_full=False, monthly_store=_rk_store, emit_monthly_script=False))
         for k in all_keys
     ]
     rank_views = monthly_data_script(_rk_store) + "".join(_rk_parts)
@@ -159,6 +159,7 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
         pl_parts.append(_pv(k, yk, pl_html))
     pl_views = "".join(pl_parts)
     donut_views = "".join(_pv(k, yk, render_bu_expense_views(P[k], FT.get(k))) for k in all_keys)
+    # BU 页铁律12：embed_full=True 预挂 .pr-full/.rk-full
     profit_rank_views = "".join(_pv(k, yk, render_profit_rankings(P[k], embed_full=True)) for k in all_keys)
     _rk_store: dict = {}
     _rk_parts = [

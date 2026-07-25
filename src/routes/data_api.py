@@ -494,12 +494,28 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         n_dup = sum(len(v) for v in dups.values()) if isinstance(dups, dict) else 0
         if n_dup and not any("定位键重复" in str(x) for x in info):
             info.append(f"{n_dup} 组定位键重复（按现状计入·不判黄）")
-        # 2.3.0 S6.B：只返回有真值的字段；去掉恒 null 的 api_p95_ms
+        # 2.3.0 S6.B / 2.6.1 R4：metrics 必须有可观测真值，禁止长期空壳 {}
         m_out: dict = {}
         if metrics.get("update_ms") is not None:
             m_out["update_ms"] = metrics.get("update_ms")
         if metrics.get("fetch_fail_rate") is not None:
             m_out["fetch_fail_rate"] = metrics.get("fetch_fail_rate")
+        # 进程级常驻字段（无需等 refresh 才有）
+        if _state.get("built_at"):
+            m_out["built_at"] = _state.get("built_at")
+        try:
+            import version as product_version
+
+            m_out["version"] = str(
+                getattr(product_version, "PRODUCT_VERSION", None)
+                or product_version.read_version()
+            )
+        except Exception:
+            pass
+        if "update_ms" not in m_out:
+            m_out["update_ms"] = metrics.get("update_ms", 0)
+        if "fetch_fail_rate" not in m_out:
+            m_out["fetch_fail_rate"] = metrics.get("fetch_fail_rate", 0.0)
         return {
             "result": result,
             "run_time": (run_log or {}).get("时间"),

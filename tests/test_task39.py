@@ -204,7 +204,9 @@ class TestGPctClamp(unittest.TestCase):
 
         b = {"order": {"target": 1, "done": 100_000, "pct": 48178.0}}
         h = _target_bar(b, "order", "2026年", 2026, {"orders": 100_000})
-        self.assertIn(">999% · 目标待校准", h)
+        # 2.6.1：超目标主文案仅为「目标待校准」，禁止吓人 >999%
+        self.assertIn("目标待校准", h)
+        self.assertNotIn(">999%", h)
         self.assertNotIn("48178", h)
 
     def test_budget_tag_removed_task41(self):

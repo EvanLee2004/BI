@@ -468,8 +468,8 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
         else:
             cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
         cur_s = f"{cur:.1f}%" if cur is not None else "—"
-        if pct is not None and pct > 999:
-            pct_s = ">999% · 目标待校准"
+        if pct is not None and pct > 100:
+            pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
         else:
             pct_s = f"{pct:.0f}%" if pct is not None else "—"
         w = min(max(pct or 0, 0), 100)
@@ -488,8 +488,8 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
     if done is None:
         done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
         pct = (done / tgt * 100.0) if tgt else None
-    if pct is not None and pct > 999:
-        pct_s = ">999% · 目标待校准"
+    if pct is not None and pct > 100:
+        pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
     else:
         pct_s = f"{pct:.1f}%" if pct is not None else "—"
     w = min(max(pct or 0, 0), 100)

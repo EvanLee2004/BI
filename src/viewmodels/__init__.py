@@ -37,8 +37,9 @@ def _vue_core_views(summary: dict) -> dict[str, Any]:
     yk, ordered = api_v1._period_keys(summary)
     P = summary.get("periods") or {}
     monthly_store: dict = {}
+    # 2.6.1 R2：默认不 embed full_items（体积）；「其余」点开走 /api/v1/rankings/full
     rankings_view = {
-        pk: api_v1.rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
+        pk: api_v1.rankings_view_for_period(pv, embed_full=False, monthly_store=monthly_store)
         for pk, pv in P.items()
         if isinstance(pv, dict)
     }
@@ -265,8 +266,9 @@ def _attach_year_budget_bars(row: dict, budget: dict, charts) -> None:
         pct = b.get("pct")
         if pct is None:
             pct_txt = "—"
-        elif float(pct) > 999:
-            pct_txt = ">999% · 目标待校准"
+        elif float(pct) > 100:
+            # 2.6.1：超目标只显示待校准文案，禁止吓人 >999% 主标签（条宽仍 cap 100%）
+            pct_txt = "目标待校准"
         else:
             pct_txt = f"{float(pct):.1f}%"
         bw = max(0.0, min(float(pct or 0), 100.0))
@@ -519,7 +521,7 @@ def _assemble_vm(
         rankings_view=dict(views.get("rankings_view") or {}),
         rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
         profit_rank_body=dict(html.get("profit_rank_body") or {}),
-        profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=True),
+        profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=False),
     )
     side_pack = _pack_receipts_side_and_budget(summary)
     # vue 路径：用 packer 显示串填空字段；legacy html 若已有完整 HTML 优先保留给对照

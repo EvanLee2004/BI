@@ -61,8 +61,8 @@ def _receipt_insight_totals(
         pct = b.get("pct")
         if pct is None:
             pct_txt = "—"
-        elif pct > 999:
-            pct_txt = ">999% · 目标待校准"
+        elif pct > 100:
+            pct_txt = "目标待校准"  # 2.6.1：禁止 >999% 主文案
         else:
             pct_txt = f"{pct:.1f}%"
         bw = max(0.0, min(float(pct or 0), 100.0))

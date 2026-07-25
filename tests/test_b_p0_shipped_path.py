@@ -100,7 +100,8 @@ class TestP0ShippedPath(unittest.TestCase):
             render._pv(
                 k,
                 yk,
-                render.render_rankings(P[k], embed_full=True, monthly_store=store, emit_monthly_script=False),
+                # 2.6.1：整体页 views 默认 embed_full=False（full 走 /api/v1/rankings/full）
+                render.render_rankings(P[k], embed_full=False, monthly_store=store, emit_monthly_script=False),
             )
             for k in all_keys
             if k in P

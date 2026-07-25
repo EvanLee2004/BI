@@ -58,8 +58,31 @@ function openModal(title: string, tag: string, items: DualItem[]) {
 function closeModal() {
   modal.value = false
 }
-function openOthers(blk: DualBlk) {
-  openModal((blk.title || '') + ' · 完整排名', '', blk.full_items || [])
+async function openOthers(blk: DualBlk) {
+  const title = (blk.title || '') + ' · 完整排名'
+  const local = blk.full_items || []
+  if (local.length) {
+    openModal(title, '', local)
+    return
+  }
+  // 2.6.1 R2：首包不 embed full_items → 按需拉取
+  openModal(title, '加载中…', [])
+  try {
+    const dim = blk.dim === 'customer' ? 'customer' : 'sales'
+    const period = encodeURIComponent(store.period || '')
+    const buQ =
+      store.scope === 'bu' && store.buName
+        ? `&bu=${encodeURIComponent(store.buName)}`
+        : ''
+    const r = await fetch(`/api/v1/rankings/full?period=${period}&dim=${dim}${buQ}`, {
+      credentials: 'same-origin',
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const d = (await r.json()) as { items?: DualItem[] }
+    openModal(title, '', d.items || [])
+  } catch (e) {
+    openModal(title, '加载失败', [])
+  }
 }
 function openMonthly(it: DualItem) {
   if (!it.mkey) return

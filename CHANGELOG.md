@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.6.1 · 2026-07-25
+
+- **本地测试数据（R0）**：BU 销售归属补齐；台账「多语营销」映射到营销；年目标量级校准（仅本机 `数据/`，不上生产覆盖）
+- **KPI 展示（R1）**：目标进度超 100% 主文案改为「目标待校准」，禁止吓人 `>999%`
+- **包体（R2）**：排名默认不 embed `full_items`；新增 `GET /api/v1/rankings/full` 按需加载
+- **观测（R4）**：`/api/health` metrics 始终含 version/built_at/update_ms 等真值字段
+- **工程（R7）**：`fetch_zhiyun` 纯函数层拆至 `fetch_zhiyun_pure.py`（语义零变更）
+- **测试**：预算展示 / rankings full 鉴权 / 多语营销映射
+
+
 本文件遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 1.1.0，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
 > **版本以根目录 `VERSION` 文件为准。**  

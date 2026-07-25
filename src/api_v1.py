@@ -334,7 +334,7 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     # 任务书34：全周期去重一份 rankings_monthly_data；各 period 行只带 mkey
     monthly_store: dict = {}
     rankings_view = {
-        pk: rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
+        pk: rankings_view_for_period(pv, embed_full=False, monthly_store=monthly_store)
         for pk, pv in P.items()
         if isinstance(pv, dict)
     }
@@ -348,7 +348,7 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     return {
         "year_key": yk,
         "period_keys": ordered,
-        # 陆总#8 + 其余本地展开：整体页也 embed_full（完整名单预挂 views，零新 API）
+        # 2.6.1 R2：默认 embed_full=False；完整名单 /api/v1/rankings/full
         "rankings_view": rankings_view,
         "rankings_monthly_data": monthly_store,
         # 周期卡正文显示串（JS wrap .pv）
@@ -415,7 +415,7 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         pl_html, tag_note = render.render_bu_pl_table(P[k], alloc, fine=FT.get(k))
         pl_body[k] = pl_html
         donut_body[k] = render.render_bu_expense_views(P[k], FT.get(k))
-        # 铁律12：收入排名「其余」预渲染 .pr-full，不调全公司 API
+        # 铁律12：收入排名「其余」预渲染 .pr-full，不调全公司 API（BU 必须 embed）
         profit_rank_body[k] = render.render_profit_rankings(P[k], embed_full=True)
 
     hl = ""
@@ -442,6 +442,7 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
     pl_tag = render.tpl.fill("render/bu_pl_tag.html", note=render._esc(tag_note)) if tag_note else ""
 
     monthly_store: dict = {}
+    # BU 页仍 embed_full=True（铁律12 本地展开，不调全公司排名 API）
     rankings_view = {
         pk: rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
         for pk, pv in P.items()
@@ -463,7 +464,7 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         "period_keys": ordered,
         "scope": "BU",
         "bu_name": bu_name or "",
-        # 下单/回款双血条叶子：embed_full=True → rankings.js 拼 .rk-full（铁律12）
+        # 2.6.1 R2：embed_full=False 减包体；其余走 rankings/full
         "rankings_view": rankings_view,
         "rankings_monthly_data": monthly_store,
         "kpi_body": kpi_body,

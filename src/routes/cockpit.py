@@ -155,6 +155,57 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out.update(_bu_nav_meta(cfg, root, pages))
         return JSONResponse(out)
 
+    @app.get("/api/v1/rankings/full")
+    def api_v1_rankings_full(
+        request: Request,
+        period: str = "",
+        dim: str = "sales",
+        bu: str = "",
+    ):
+        """2.6.1 R2：排名「其余」完整名单（按需加载，减 VM 首包）。
+
+        query: period=2026年&dim=sales|customer&bu=可选BU名
+        """
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        dim = (dim or "sales").strip().lower()
+        if dim not in ("sales", "customer"):
+            raise HTTPException(status_code=400, detail="dim 须为 sales 或 customer")
+        period = (period or "").strip()
+        bu = (bu or "").strip()
+        summary = None
+        if bu:
+            if not _can_view_bu(request, bu):
+                raise HTTPException(status_code=403, detail="无权查看该 BU")
+            page = (_state.get("bu_pages") or {}).get(bu)
+            if not page:
+                raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+            summary = page.get("summary")
+        else:
+            if not _can_view_main(request):
+                raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
+            summary = _state.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="暂无数据")
+        P = summary.get("periods") or {}
+        if not period:
+            period = (summary.get("meta") or {}).get("year_key") or next(iter(P), "")
+        pv = P.get(period)
+        if not isinstance(pv, dict):
+            raise HTTPException(status_code=404, detail="周期不存在")
+        view = api_v1.rankings_view_for_period(pv, embed_full=True, monthly_store={})
+        blk = view.get(dim) or {}
+        items = blk.get("full_items") or blk.get("items") or []
+        return JSONResponse(
+            {
+                "period": period,
+                "dim": dim,
+                "title": blk.get("title") or "",
+                "items": items,
+                "count": len(items),
+            }
+        )
+
     @app.get("/api/v1/vm/bu/{name}")
     def api_v1_vm_bu(name: str, request: Request):
         """任务书46·2：BU 页 ViewModel。"""
