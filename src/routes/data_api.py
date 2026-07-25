@@ -593,6 +593,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "metrics": m_out,
             "schedule": sched,  # 2.6.3·B2 跑批台账
         }
+        # 2.6.4·B：未读告警（仅管理员会话；看端不消费此字段做横幅）
+        if authed and _user(request):
+            try:
+                import alert_store
+
+                body_out["alerts"] = alert_store.unread_summary(cfg=cfg, root=root, days=7, recent=3)
+            except Exception:
+                body_out["alerts"] = {"unread_count": 0, "recent": []}
         # 2.6.3·D5：内部 info 仅登录后
         if authed:
             body_out["info"] = info

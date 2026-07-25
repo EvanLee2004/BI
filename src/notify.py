@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""本机告警日志（无外发）。
+"""本机告警（2.6.4）：logging + 告警.log，零外发。
 
-2026-07-25 明昊硬令后：
-- **已删除**飞书 webhook / 自定义机器人外发能力（含 post HTTP、配置项、设置页入口）。
-- **禁止**向公司大群、「财经新闻」机器人、财务每日新闻同通道发任何消息（含测试）。
-- 本模块只写 **logging**；失败绝不影响主流程。
-- 看门狗/管道仍可调用本模块，语义=「记一条本地告警日志」。
+禁止飞书/webhook/邮件。告警落盘见 alert_store。
 """
 from __future__ import annotations
 
@@ -16,46 +12,78 @@ log = logging.getLogger("kanban.notify")
 
 
 def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
-    """管道体检红：只打本地 warning。"""
+    """管道体检红：本地 log + 告警文件。"""
     try:
-        if report.get("result") == "红":
-            reasons = []
-            if (report.get("disk") or {}).get("red"):
-                reasons.append("磁盘")
-            if report.get("fetch", {}).get("status") == "no_source":
-                reasons.append("收单无源")
-            if not (report.get("db_check") or {}).get("ok", True):
-                reasons.append("db_check")
-            log.warning("pipeline red: %s", "；".join(reasons) or report.get("result"))
+        if report.get("result") != "红":
+            return
+        reasons = []
+        if (report.get("disk") or {}).get("red"):
+            reasons.append("磁盘")
+        if report.get("fetch", {}).get("status") == "no_source":
+            reasons.append("收单无源")
+        if not (report.get("db_check") or {}).get("ok", True):
+            reasons.append("db_check")
+        detail = "；".join(reasons) or str(report.get("result"))
+        log.warning("pipeline red: %s", detail)
+        try:
+            import alert_store
+
+            alert_store.append_alert("error", "pipeline", f"体检红：{detail}", cfg=cfg, root=root)
+        except Exception:
+            pass
     except Exception:
         pass
 
 
-def maybe_alert_text(cfg: dict, text: str) -> None:
-    """任意文本告警：只打本地 warning。"""
+def maybe_alert_text(cfg: dict, text: str, root=None) -> None:
+    """任意文本告警：本地 log + 告警文件。"""
     try:
-        if text:
-            log.warning("%s", str(text)[:500])
+        if not text:
+            return
+        msg = str(text)[:500]
+        log.warning("%s", msg)
+        try:
+            import alert_store
+
+            cat = "general"
+            if "账号" in msg:
+                cat = "accounts"
+            elif "配置" in msg:
+                cat = "config"
+            elif "定时" in msg or "schedule" in msg.lower():
+                cat = "schedule"
+            alert_store.append_alert("warning", cat, msg, cfg=cfg, root=root)
+        except Exception as e:
+            log.warning("alert_store append failed: %s", type(e).__name__)
     except Exception:
         pass
 
 
 def alert_event(kind: str, detail: str = "", root=None) -> None:
-    """看门狗/更新脚本：只打本地 warning。"""
+    """看门狗/更新：本地 log + 告警文件。"""
     try:
-        log.warning("alert_event kind=%s detail=%s", kind, (detail or "")[:200])
+        msg = f"{kind}" + (f" · {detail}" if detail else "")
+        log.warning("alert_event %s", msg[:200])
+        try:
+            import alert_store
+
+            alert_store.append_alert(
+                "error" if kind in ("boot_crash", "rollback", "update_fail") else "warning",
+                kind or "event",
+                msg[:500],
+                root=root,
+            )
+        except Exception:
+            pass
     except Exception:
         pass
 
 
 def cli_alert(argv: list[str] | None = None) -> int:
-    """deploy/linux：python -m notify kind [detail…]"""
     import sys
 
     args = list(argv if argv is not None else sys.argv[1:])
     if not args:
         return 0
-    kind = args[0]
-    detail = " ".join(args[1:]) if len(args) > 1 else ""
-    alert_event(kind, detail)
+    alert_event(args[0], " ".join(args[1:]) if len(args) > 1 else "")
     return 0

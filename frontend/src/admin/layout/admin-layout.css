@@ -74,3 +74,26 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
 .health-pop .k { color: var(--admin-mut); font-weight: 600; }
 .health-pop .ok { color: #16a34a; }
 .nav-badge { margin-left: 6px; }
+
+/* 2.6.4·B 未读告警持久横幅 */
+.admin-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #7f1d1d;
+  color: #fecaca;
+  border-bottom: 1px solid #991b1b;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.admin-alert-banner__txt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

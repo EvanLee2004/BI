@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.4 · 2026-07-26
+
+本机告警闭环 + 失效模式守卫（**不改金额/口径/智云抓取**）：
+
+- **内建告警**：`alert_store` 写 `数据/日志/告警.log` + 已读水位；`notify` 只落盘/logging，**零 HTTP 外发**（飞书已废止）。
+- **管理端**：`/api/health` 管理员会话附 `alerts` 未读摘要；`POST /api/alerts/ack` 写水位；管理端顶栏未读横幅。
+- **守卫**：`tests/test_failure_mode_guards.py` + `test_alert_store_2_6_4.py`；开工检查单 `docs/新功能开发检查单.md`。
+- **UI**：沿用既有 BU `transitionToBu` 过场；无数字改动。
+
 ## 2.6.3+ 紧急 · 删除飞书 webhook 告警功能（2026-07-25）
 
 - **硬令**：禁止再向公司大群/「财经新闻」机器人发任何消息（含测试）；本功能从产品中移除。

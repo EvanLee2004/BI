@@ -124,11 +124,37 @@ const healthRunReasons = computed(() => (health.value?.run_reasons as string[]) 
 const healthWarnings = computed(() => (health.value?.warnings as string[]) || [])
 const healthSources = computed(() => (health.value?.sources as { name: string; rows: number }[]) || [])
 
+/** 2.6.4·B：未读告警持久横幅（看端不渲染） */
+const alertsUnread = computed(() => {
+  const a = (health.value?.alerts as { unread_count?: number; recent?: { detail?: string }[] }) || {}
+  return Number(a.unread_count || 0)
+})
+const alertsRecentText = computed(() => {
+  const a = (health.value?.alerts as { recent?: { detail?: string }[] }) || {}
+  const r = a.recent || []
+  if (!r.length) return ''
+  return r
+    .map((x) => x.detail || '')
+    .filter(Boolean)
+    .slice(0, 3)
+    .join('；')
+})
+
 async function loadHealth() {
   try {
     health.value = await jget('/api/health')
   } catch {
     /* ignore */
+  }
+}
+
+async function ackAlerts() {
+  try {
+    await jpost('/api/alerts/ack', {})
+    await loadHealth()
+    ElMessage.success('已标记告警为已读')
+  } catch (e) {
+    ElMessage.error('确认失败：' + String(e))
   }
 }
 
@@ -247,6 +273,14 @@ import './admin-layout.css'
 
 <template>
   <div class="admin-shell">
+    <!-- 2.6.4·B：未读告警持久条（点「我知道了」才消） -->
+    <div v-if="alertsUnread > 0" class="admin-alert-banner" role="alert">
+      <span class="admin-alert-banner__txt">
+        <b>系统告警 {{ alertsUnread }} 条</b>
+        <template v-if="alertsRecentText"> · {{ alertsRecentText }}</template>
+      </span>
+      <el-button size="small" type="primary" plain @click="ackAlerts">我知道了</el-button>
+    </div>
     <header class="admin-bar">
       <b>管理员控制台</b>
       <span class="ver-pill" title="版本" @click="showGroup('cfg')">{{ versionLabel }}</span>
