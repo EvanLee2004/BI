@@ -1,10 +1,4 @@
 <script setup lang="ts">
-
-function cssVar(name: string, fallback = ''): string {
-  if (typeof document === 'undefined') return fallback
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
 import '../styles/components/TrendChart.css'
 /** 收入·毛利趋势：轴标签/数据标签后端下发；无技术字样。任务书51·B7：轴刻度精确查表。
  *  任务书54.4：零持续动画 + 无呼吸特效；54.3 图区自适应保留。
@@ -25,6 +19,7 @@ import {
 } from '../chart-fx'
 import { currentThemeMode } from '../echarts-theme'
 import { axisMaxCover, clipToCurrentMonth, padYearMonths, ratioAxisBounds, resolveMonthCap } from '../chart-months'
+import { cssColor } from '../utils/cssColor'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import { useNarrowViewport } from '../utils/viewport'
@@ -83,11 +78,12 @@ const option = computed(() => {
   const minV = t.y_axis_min ?? 0
   const maxV = axisMaxCover(maxV0, interval, [...rev, ...cost])
   const marBounds = ratioAxisBounds(marPlot)
-  /* 54.2 对照基准；2.3.0 霓虹提亮 */
+  /* 54.2 对照基准；2.3.0 霓虹提亮。canvas 必须实色，禁止 var(--) */
   const neon = currentThemeMode() === 'neon'
-  const cRev = neon ? 'var(--blue)' : 'var(--blue)'
-  const cCost = cssVar('--cost')
-  const cMar = cssVar('--orange')
+  const cRev = cssColor('--blue')
+  const cCost = cssColor('--cost')
+  const cMar = cssColor('--orange')
+  const glow = cssColor('--rank-others-border-hover')
   const area = areaGradient(cRev)
   const series: Record<string, unknown>[] = [
     {
@@ -106,7 +102,7 @@ const option = computed(() => {
           }),
       emphasis: {
         focus: 'series',
-        itemStyle: { shadowBlur: neon ? 10 : 4, shadowColor: cssVar('--rank-others-border-hover') },
+        itemStyle: { shadowBlur: neon ? 10 : 4, shadowColor: glow },
       },
     },
     {

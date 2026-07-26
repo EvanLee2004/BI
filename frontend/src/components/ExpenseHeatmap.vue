@@ -1,10 +1,4 @@
 <script setup lang="ts">
-
-function cssVar(name: string, fallback = ''): string {
-  if (typeof document === 'undefined') return fallback
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
 import '../styles/components/ExpenseHeatmap.css'
 /**
  * 54.14 R-26：费用明细区「月份 × 报表大类」热力格子图（ECharts heatmap）。
@@ -16,6 +10,7 @@ import { useCockpitStore } from '../stores/cockpit'
 import EchartsHost from './charts/EchartsHost.vue'
 import SciFiPanel from './SciFiPanel.vue'
 import { animBlock, axisLabelStyle, chartMutedColor, chartTextColor } from '../chart-fx'
+import { cssColor } from '../utils/cssColor'
 import { withWanUnit } from '../utils/disp'
 import { buildExpenseHeatPack } from '../utils/expense-heat'
 import { resolveMonthCap } from '../chart-months'
@@ -43,17 +38,17 @@ const option = computed(() => {
   // 青 → 金（深空）；浅色略加深底
   const colors = light
     ? [
-        [0, cssVar('--heat-l0')],
-        [0.35, cssVar('--heat-l1')],
-        [0.65, cssVar('--blue')],
-        [1, cssVar('--heat-l3')],
+        [0, cssColor('--heat-l0')],
+        [0.35, cssColor('--heat-l1')],
+        [0.65, cssColor('--blue')],
+        [1, cssColor('--heat-l3')],
       ]
     : [
-        [0, cssVar('--heat-d0')],
-        [0.25, cssVar('--heat-d1')],
-        [0.55, cssVar('--blue')],
-        [0.8, cssVar('--orange')],
-        [1, cssVar('--heat-d4')],
+        [0, cssColor('--heat-d0')],
+        [0.25, cssColor('--heat-d1')],
+        [0.55, cssColor('--blue')],
+        [0.8, cssColor('--orange')],
+        [1, cssColor('--heat-d4')],
       ]
   const maxV = vmax > 0 ? vmax : 1
   return {
@@ -117,14 +112,14 @@ const option = computed(() => {
           itemStyle: {
             shadowBlur: 6,
             shadowColor: light
-              ? cssVar('--line-cyan-35')
-              : cssVar('--rank-others-border-hover'),
+              ? cssColor('--line-cyan-35')
+              : cssColor('--rank-others-border-hover'),
           },
         },
         itemStyle: {
           borderColor: light
-            ? cssVar('--chart-label-stroke-light')
-            : cssVar('--chart-label-stroke-dark'),
+            ? cssColor('--chart-label-stroke-light')
+            : cssColor('--chart-label-stroke-dark'),
           borderWidth: 1,
         },
       },

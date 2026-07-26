@@ -1,10 +1,4 @@
 <script setup lang="ts">
-
-function cssVar(name: string, fallback = ''): string {
-  if (typeof document === 'undefined') return fallback
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
 import '../styles/components/ExpenseSection.css'
 /** 期间费用构成：环形（按大类） + 三态进度条列表（按类别 / 按利润中心 / 按部门）。
  *  2026-07-21：三态列表点某一行 → 右侧抽屉展开该项「费用明细」，与「管理利润表」(PLTable) 同一交互；
@@ -24,6 +18,7 @@ import {
   pieGlowItemStyle,
   SERIES_PALETTE,
 } from '../chart-fx'
+import { cssColor } from '../utils/cssColor'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
@@ -132,10 +127,10 @@ const option = computed(() => {
         itemStyle: {
           shadowBlur: 0,
           shadowColor: 'transparent',
-          borderColor: cssVar('--chart-label-stroke-dark'),
+          borderColor: cssColor('--chart-label-stroke-dark'),
           borderWidth: 2,
-          /* 2.3.1：霓虹内圈发光仅样式字段，data/label 不动 */
-          ...pieGlowItemStyle('var(--blue)'),
+          /* 2.3.1：霓虹内圈发光仅样式字段，data/label 不动；canvas 须实色 */
+          ...pieGlowItemStyle(cssColor('--blue')),
         },
         emphasis: pieEmphasis(),
         animationType: 'expansion',

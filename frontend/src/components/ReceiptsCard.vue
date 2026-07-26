@@ -18,6 +18,7 @@ import {
   legendTextStyle,
 } from '../chart-fx'
 import { axisMaxCover, clipToCurrentMonth, padYearMonths, resolveMonthCap } from '../chart-months'
+import { cssColor } from '../utils/cssColor'
 import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { AxisTick, ReceiptsVM } from '../types/vm'
@@ -77,8 +78,10 @@ const option = computed(() => {
   // 2.2.4·C：先算 bud，再纳入 y 轴上限（游戏等低量 BU 的月均预算虚线不再被裁出画面）
   const bud = Number(r.value.budget_month) || 0
   const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords, bud])
-  const cOrd = 'var(--rank-primary-alt)'
-  const cRec = 'var(--blue)'
+  // canvas 必须实色，禁止 var(--)
+  const cOrd = cssColor('--rank-primary-alt')
+  const cRec = cssColor('--blue')
+  const cTeal = cssColor('--teal')
   // budget_month_disp 为裸数字；receipts_budget 已含「月均预算 X万」整句——勿双拼
   const budRaw = String(r.value.budget_month_disp || '').trim()
   const budFallback = String(r.value.receipts_budget || '').trim()
@@ -121,14 +124,14 @@ const option = computed(() => {
       lineStyle: {
         type: 'dashed',
         width: 1.5,
-        color: 'var(--teal)',
+        color: cTeal,
       },
-      itemStyle: { color: 'var(--teal)' },
+      itemStyle: { color: cTeal },
       label: {
         show: true,
         position: 'end',
         formatter: () => budLabel,
-        color: 'var(--teal)',
+        color: cTeal,
         fontSize: 12,
       },
       tooltip: { show: true },
