@@ -9,6 +9,7 @@
 - **切 BU 过场**：1s、「正在计算 XX BU 数据……」、logo/字放大、扫描线、可跳过、reduced-motion；过场期间抑制 KPI count-up 连播。
 - **「整体」按钮**：BU 导航首项；仅 `can_main`/管理员可见；BU 账号不可见。
 - **体积**：板块五懒加载；首屏 gz ≤90.8KB。
+- **补丁 `979e964`（skeptic gap-fill）**：ECharts 图卡经 `cssColor()` 解析为实色（禁 `var(--*)` 进 canvas，消 SyntaxError/红条）；Playwright 18 组真 hook `console.error`+pageerror+拒红条；F-3/export 证据齐全；生产 HEAD=`979e964` built_at=11:44:58。
 
 ## 2.6.4 · 2026-07-26
 
