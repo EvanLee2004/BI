@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-"""2.6.4·B-5：造告警 → GET /api/health 管理员会话 unread+1 → POST /api/alerts/ack → 0。
+"""2.6.7 B-7：红条/ack 下线后，/api/health 不再下发 alerts；告警仍写本地日志。
 
-走真实 FastAPI 路由（data_api + config_api），不断言金额。
+原 2.6.4 路径：造告警 → health unread → ack → 0。现改为：
+- POST /api/alerts/ack 不存在（404）
+- health 无 alerts 字段（或无未读横幅所需字段）
+- alert_store.append 仍落盘
 """
 from __future__ import annotations
 
@@ -22,36 +25,9 @@ class TestAlertHealthAckHttp(unittest.TestCase):
         import server
         from fastapi.testclient import TestClient
 
-        cls.tmp = Path(tempfile.mkdtemp(prefix="alert_http_264_"))
+        cls.tmp = Path(tempfile.mkdtemp(prefix="alert_http_267_"))
         (cls.tmp / "日志").mkdir(parents=True)
-        # minimal accounts for admin
-        acc = {
-            "accounts": [
-                {
-                    "账号": "ci_admin",
-                    "显示名": "CI管理员",
-                    "权限": "管理员",
-                    "密码": "CiTest_Admin8chars",
-                    "密码版本": 1,
-                },
-                {
-                    "账号": "ci_view",
-                    "显示名": "CI整体",
-                    "权限": "整体",
-                    "密码": "CiTest_View8chars",
-                    "密码版本": 1,
-                },
-            ]
-        }
-        (cls.tmp / "看板账号.json").write_text(json.dumps(acc, ensure_ascii=False), encoding="utf-8")
-        # seed empty runtime so create_app works
-        cfg = dict(loaders.load_config(ROOT))
-        cfg["data_dir"] = str(cls.tmp)
-        cfg["zhiyun_auto_fetch"] = False
-        cfg["serve_static"] = False
-        # use ROOT for code assets; data in tmp via cfg
         try:
-            # may need refresh with real data - use ROOT data for built state
             cfg_root = dict(loaders.load_config(ROOT))
             cfg_root["zhiyun_auto_fetch"] = False
             cfg_root["serve_static"] = False
@@ -60,12 +36,10 @@ class TestAlertHealthAckHttp(unittest.TestCase):
             raise unittest.SkipTest(f"refresh failed: {e}") from e
         cls.app = server.create_app(cfg_root, root=ROOT)
         cls.client = TestClient(cls.app, follow_redirects=False)
-        # login admin
         r = cls.client.post(
             "/api/v1/login",
             json={"account": "lushasha", "password": "kanban2026"},
         )
-        # production/local may use different admin pw — try from 数据
         if r.status_code != 200:
             acc_path = ROOT / "数据" / "看板账号.json"
             if acc_path.is_file():
@@ -82,40 +56,29 @@ class TestAlertHealthAckHttp(unittest.TestCase):
         if r.status_code != 200:
             raise unittest.SkipTest(f"admin login failed: {r.status_code} {r.text[:200]}")
 
-    def test_health_alerts_and_ack(self):
+    def test_health_no_alerts_banner_and_ack_gone(self):
         import alert_store
         import loaders
 
         cfg = loaders.load_config(ROOT)
-        # inject alert into real data dir used by server
         alert_store.append_alert(
             "warning",
             "test_http",
-            "B5_HTTP_告警探针_无金额",
+            "B7_HTTP_告警探针_无金额",
             cfg=cfg,
             root=ROOT,
         )
         h = self.client.get("/api/health")
         self.assertEqual(h.status_code, 200, h.text[:300])
         body = h.json()
-        self.assertIn("alerts", body, f"admin health must include alerts: keys={list(body.keys())}")
-        alerts = body["alerts"]
-        self.assertGreaterEqual(int(alerts.get("unread_count") or 0), 1)
-        recent = alerts.get("recent") or []
-        self.assertTrue(
-            any("B5_HTTP" in str(x.get("detail") or "") for x in recent),
-            f"recent missing B5 detail: {recent}",
-        )
-        # ack
+        # 红条下线：health 不再承载未读计数
+        self.assertNotIn("alerts", body, f"health must not expose alerts for banner: keys={list(body.keys())}")
+        # ack 路由已删
         ack = self.client.post("/api/alerts/ack")
-        self.assertEqual(ack.status_code, 200, ack.text[:300])
-        aj = ack.json()
-        self.assertTrue(aj.get("ok"))
-        h2 = self.client.get("/api/health")
-        self.assertEqual(h2.status_code, 200)
-        a2 = (h2.json().get("alerts") or {})
-        # after ack, that alert should not count as unread
-        self.assertEqual(int(a2.get("unread_count") or 0), 0, a2)
+        self.assertEqual(ack.status_code, 404, ack.text[:200])
+        # 本机告警库仍可统计未读（给运维/后续）；与 UI 解耦
+        summary = alert_store.unread_summary(cfg=cfg, root=ROOT)
+        self.assertGreaterEqual(int(summary.get("unread_count") or 0), 1)
 
 
 if __name__ == "__main__":

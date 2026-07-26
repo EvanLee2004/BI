@@ -677,14 +677,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     "unassigned_impact": "",
                     "unassigned_owner": "",
                 }
-        # 2.6.4·B：未读告警（仅管理员会话；看端不消费此字段做横幅）
-        if authed and _user(request):
-            try:
-                import alert_store
-
-                body_out["alerts"] = alert_store.unread_summary(cfg=cfg, root=root, days=7, recent=3)
-            except Exception:
-                body_out["alerts"] = {"unread_count": 0, "recent": []}
+        # 2.6.7 B-7：不再下发未读告警计数/recent（红条 UI 已下线）；告警仍写本地日志
         # 2.6.3·D5：内部 info 仅登录后
         if authed:
             body_out["info"] = info

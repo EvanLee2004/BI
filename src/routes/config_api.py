@@ -225,17 +225,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
         return res
 
-    @app.post("/api/alerts/ack")
-    def api_alerts_ack(request: Request):
-        """2.6.4·B：管理员确认已读告警（写水位，不外发）。"""
-        _require(request)
-        try:
-            import alert_store
-
-            ts = alert_store.set_watermark(cfg=cfg, root=root)
-            return {"ok": True, "read_until": ts, "alerts": alert_store.unread_summary(cfg=cfg, root=root)}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"ack failed: {type(e).__name__}") from e
+    # 2.6.7 B-7：/api/alerts/ack 与红色未读横幅一并下线；告警仍 append 写 数据/日志/告警.log
 
     @app.get("/api/archive_export")
     def api_archive_export(request: Request, year: str = Query("")):

@@ -95,26 +95,3 @@ html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
   }
 }
 .nav-badge { margin-left: 6px; }
-
-/* 2.6.4·B 未读告警持久横幅（B-7 将下线 UI；token 仍保留） */
-.admin-alert-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--admin-alert-bg);
-  color: var(--admin-alert-fg);
-  border-bottom: 1px solid var(--admin-alert-border);
-  font-size: 13px;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.admin-alert-banner__txt {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

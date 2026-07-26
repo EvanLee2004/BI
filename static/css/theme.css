@@ -935,20 +935,11 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
   .tb-today,.tb-ver{display:none !important}
   .tb-right{flex-shrink:0;gap:6px;margin-left:4px}
-  .tb-actions-wide{display:none !important}
-  .tb-actions-narrow{display:inline-flex !important;align-items:center;position:relative}
-  .tb-more-btn{min-width:44px;min-height:44px;padding:0 12px !important;font-size:18px;line-height:1}
-  .tb-more-panel{
-    position:absolute;right:0;top:calc(100% + 6px);z-index:var(--z-popover,50);
-    min-width:148px;padding:8px;border-radius:12px;
-    background:var(--overlay-panel,rgba(8,14,28,.97));
-    border:1px solid var(--line-2,rgba(125,211,252,.25));
-    box-shadow:0 10px 28px rgba(0,0,0,.4);
-    display:flex;flex-direction:column;gap:6px;
-  }
-  .tb-more-panel .toggle,.tb-more-panel button{
-    width:100%;justify-content:flex-start;min-height:44px !important;
-  }
+  /* 2.6.7 B：窄屏仍横排一行图标，无 ⋯ 折叠 */
+  .tb-actions{display:inline-flex !important;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
+  .tb-actions .tb-lab{display:none !important}
+  .tb-actions .toggle{min-width:44px;min-height:44px;padding:0 10px !important}
+  .tb-actions .tb-ico{font-size:16px;line-height:1}
 
   /* 54.9 R7：375 触目标 ≥44px（含周期芯片/费用 tab「按大类」等） */
   .pbtn,.bu-back,.bu-nav-a,.pp-chip,.pp-m,.live,button.pbtn,.tb-right button,
@@ -967,9 +958,11 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .kpi-v b,.kpi-host .kpi-v b{font-size:22px !important}
   .wrap{padding:0 12px 32px}
 }
-/* 宽屏：窄屏「更多」菜单默认隐藏；横排工具与原先直挂 .tb-right 一致 */
-.tb-actions-narrow{display:none}
-.tb-actions-wide{display:inline-flex;align-items:center;gap:12px;flex-shrink:0}
+/* 2.6.7 B：全站唯一横排工具条（无 narrow/more） */
+.tb-actions{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:nowrap}
+.tb-actions .toggle{display:inline-flex;align-items:center;gap:4px}
+.tb-logout-q{margin:8px 0 16px;font-size:14px}
+.tb-logout-actions{display:flex;gap:8px;justify-content:flex-end}
 
 /* A3 回款侧栏：总下单/总回款首行；任务书37·A4 周期标注 */
 .rc-hero-totals .rc-totals{display:flex;gap:16px;margin-top:4px}

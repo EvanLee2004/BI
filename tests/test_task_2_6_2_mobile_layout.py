@@ -24,8 +24,10 @@ class TestMobileCssContract(unittest.TestCase):
         # 取 520 段：用更宽松 — 全文断言关键串
         self.assertIn("overflow-x", css)
         self.assertIn("ledger-scroll", css)
-        self.assertIn("tb-actions-narrow", css)
-        self.assertIn("tb-more-btn", css)
+        # 2.6.7 B：无 ⋯ 折叠，窄屏仍横排 .tb-actions
+        self.assertIn(".tb-actions", css)
+        self.assertNotIn("tb-actions-narrow", css)
+        self.assertNotIn("tb-more-btn", css)
         self.assertIn("repeat(2,", css)
         # 桌面 KPI 五列默认仍在
         self.assertIn("kpi-5", css)
@@ -35,13 +37,16 @@ class TestMobileCssContract(unittest.TestCase):
         self.assertIn("grid-template-columns: repeat(5, minmax(0, 1fr))", bridge)
         self.assertIn("max-width: 520px", bridge)
 
-    def test_topbar_actions_has_narrow_menu(self):
+    def test_topbar_actions_single_row_no_more_menu(self):
         src = (FE / "components/TopBarActions.vue").read_text(encoding="utf-8")
-        self.assertIn("tb-actions-wide", src)
-        self.assertIn("tb-actions-narrow", src)
-        self.assertIn("tb-more-btn", src)
+        self.assertIn("tb-actions", src)
+        self.assertNotIn("tb-actions-narrow", src)
+        self.assertNotIn("tb-more-btn", src)
+        self.assertNotIn("tb-more-panel", src)
         self.assertIn("exportHtml", src)
-        self.assertIn("logout", src)
+        self.assertIn("requestLogout", src)
+        self.assertIn("DataModal", src)
+        self.assertIn("您确认要退出吗", src)
 
     def test_intersection_observer_lazy_mount_kept(self):
         host = (FE / "components/charts/EchartsHost.vue").read_text(encoding="utf-8")
@@ -143,8 +148,8 @@ class TestMobileLiveOverflow(unittest.TestCase):
                 """() => {
                   const de = document.documentElement;
                   const top = document.querySelector('.topbar');
-                  const more = document.querySelector('[data-testid=tb-more-btn], .tb-more-btn');
-                  const wide = document.querySelector('[data-testid=tb-actions-wide]');
+                  const more = document.querySelector('[data-testid=tb-more-btn], .tb-more-btn, .tb-actions-narrow');
+                  const acts = document.querySelector('[data-testid=tb-actions], .tb-actions');
                   const kpi = document.querySelector('.kpi-grid');
                   let cols = kpi ? getComputedStyle(kpi).gridTemplateColumns : '';
                   return {
@@ -153,8 +158,8 @@ class TestMobileLiveOverflow(unittest.TestCase):
                     overflow: de.scrollWidth > de.clientWidth + 2,
                     topH: top ? Math.round(top.getBoundingClientRect().height) : null,
                     hasMore: !!more,
-                    moreVisible: more ? getComputedStyle(more).display !== 'none' : false,
-                    wideDisplay: wide ? getComputedStyle(wide).display : null,
+                    hasActions: !!acts,
+                    actionsDisplay: acts ? getComputedStyle(acts).display : null,
                     kpiCols: cols,
                     kpiChildren: kpi ? kpi.children.length : 0,
                   };
@@ -180,7 +185,9 @@ class TestMobileLiveOverflow(unittest.TestCase):
         self.assertLessEqual(m["scrollW"], m["clientW"] + 2, m)
         self.assertIsNotNone(m.get("topH"))
         self.assertLessEqual(m["topH"], 88, f"topbar too tall: {m}")
-        self.assertTrue(m.get("moreVisible") or m.get("hasMore"), m)
+        # 2.6.7：无 ⋯，有横排 tb-actions
+        self.assertFalse(m.get("hasMore"), m)
+        self.assertTrue(m.get("hasActions"), m)
         self.assertIn("px", m.get("kpiCols") or "")
         # 两列 → 至少两个 track
         self.assertGreaterEqual(

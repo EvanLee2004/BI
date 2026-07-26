@@ -1,37 +1,21 @@
 <script setup lang="ts">
-/** 顶栏：导出 HTML + 退出（全角色）+ 非管理员自改密码。2.2.7 主路径 .html；2.2.9 快照模式隐藏写操作。
- *  2.6.2：≤520 将导出/退出/密码收入「⋯」菜单，桌面仍横排按钮。
- */
-import { onMounted, onUnmounted, ref } from 'vue'
+/** 顶栏工具：主题外的 导出｜密码｜退出。2.6.7：去掉 ⋯ 折叠；退出二次确认（DataModal）；管理员无密码/无退出。 */
+import { onMounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
+import DataModal from './base/DataModal.vue'
 
 const store = useCockpitStore()
-const isAdmin = ref(true) // 默认隐藏改密，等 session
+const isAdmin = ref(true) // 默认隐藏改密/退出，等 session
 const showPw = ref(false)
+const showLogoutConfirm = ref(false)
 const oldPw = ref('')
 const newPw = ref('')
 const msg = ref('')
 const msgCls = ref('')
 const exporting = ref(false)
-const menuOpen = ref(false)
-
-function closeMenu() {
-  menuOpen.value = false
-}
-function onDocClick(e: MouseEvent) {
-  const t = e.target as HTMLElement | null
-  if (!t) return
-  if (t.closest && t.closest('.tb-actions-narrow')) return
-  menuOpen.value = false
-}
-function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') menuOpen.value = false
-}
 
 onMounted(async () => {
-  document.addEventListener('click', onDocClick)
-  document.addEventListener('keydown', onKey)
   if (store.snapshotMode) {
     isAdmin.value = true
     return
@@ -43,19 +27,19 @@ onMounted(async () => {
     isAdmin.value = true
   }
 })
-onUnmounted(() => {
-  document.removeEventListener('click', onDocClick)
-  document.removeEventListener('keydown', onKey)
-})
 
-async function logout() {
-  closeMenu()
+async function doLogout() {
+  showLogoutConfirm.value = false
   try {
     await fetch('/api/v1/logout', { method: 'POST', credentials: 'same-origin' })
   } catch {
     /* ignore */
   }
   location.replace('/login')
+}
+
+function requestLogout() {
+  showLogoutConfirm.value = true
 }
 
 /** ③ 导出：2.2.9 自包含静态可交互快照 HTML。 */
@@ -83,7 +67,6 @@ async function exportHtml() {
       ? `/bu/${encodeURIComponent(store.buName)}/export.html?${q}`
       : `/api/export.html?${q}`
   exporting.value = true
-  closeMenu()
   try {
     const r = await fetch(url, { credentials: 'same-origin' })
     if (!r.ok) {
@@ -108,7 +91,6 @@ async function exportHtml() {
 }
 
 function openPw() {
-  closeMenu()
   showPw.value = true
 }
 
@@ -139,7 +121,7 @@ async function savePw() {
       showPw.value = false
       location.replace('/login')
     }, 800)
-  } catch (e) {
+  } catch {
     msg.value = '网络错误'
     msgCls.value = 'err'
   }
@@ -148,80 +130,65 @@ async function savePw() {
 <template>
   <!-- 2.2.9 快照模式：隐藏导出/退出/改密 -->
   <template v-if="!store.snapshotMode">
-    <!-- 桌面横排 -->
-    <div class="tb-actions-wide" data-testid="tb-actions-wide">
+    <!-- 全视口唯一横排：桌面文案+图标；≤520 仅图标仍横排不折叠 -->
+    <div class="tb-actions" data-testid="tb-actions">
       <button
         v-if="!store.archiveMode"
         type="button"
         class="toggle export-html-btn"
         id="exportBtn"
         :disabled="exporting"
+        aria-label="导出"
+        title="导出"
         @click="exportHtml"
       >
-        <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
+        <span class="tb-ico" aria-hidden="true">⬇</span>
+        <span class="tb-lab">{{ exporting ? '生成中…' : '导出' }}</span>
       </button>
-      <button
-        v-if="!store.archiveMode"
-        type="button"
-        class="toggle"
-        id="logoutBtn"
-        @click="logout"
-      >退出</button>
       <button
         v-if="!isAdmin && !store.archiveMode"
         type="button"
         class="toggle"
         id="pwBtn"
+        aria-label="密码"
+        title="密码"
         @click="openPw"
       >
-        <span>🔑</span> 密码
+        <span class="tb-ico" aria-hidden="true">🔑</span>
+        <span class="tb-lab">密码</span>
+      </button>
+      <!-- B-5：管理员不显示退出（设置页最下唯一入口） -->
+      <button
+        v-if="!isAdmin && !store.archiveMode"
+        type="button"
+        class="toggle"
+        id="logoutBtn"
+        aria-label="退出"
+        title="退出"
+        @click="requestLogout"
+      >
+        <span class="tb-ico" aria-hidden="true">⎋</span>
+        <span class="tb-lab">退出</span>
       </button>
     </div>
-    <!-- 手机 ⋯ 菜单（CSS ≤520 显示） -->
-    <div class="tb-actions-narrow" data-testid="tb-actions-narrow">
-      <button
-        type="button"
-        class="toggle tb-more-btn"
-        data-testid="tb-more-btn"
-        aria-label="更多"
-        :aria-expanded="menuOpen"
-        @click.stop="menuOpen = !menuOpen"
-      >⋯</button>
-      <div
-        v-if="menuOpen"
-        class="tb-more-panel"
-        data-testid="tb-more-panel"
-        role="menu"
-      >
-        <button
-          v-if="!store.archiveMode"
-          type="button"
-          class="toggle export-html-btn"
-          :disabled="exporting"
-          role="menuitem"
-          @click="exportHtml"
-        >
-          <span>⬇</span> {{ exporting ? '生成中…' : '导出' }}
-        </button>
-        <button
-          v-if="!store.archiveMode"
-          type="button"
-          class="toggle"
-          role="menuitem"
-          @click="logout"
-        >退出</button>
-        <button
-          v-if="!isAdmin && !store.archiveMode"
-          type="button"
-          class="toggle"
-          role="menuitem"
-          @click="openPw"
-        >
-          <span>🔑</span> 密码
-        </button>
-      </div>
-    </div>
   </template>
+
+  <DataModal
+    :open="showLogoutConfirm"
+    title="确认退出"
+    @close="showLogoutConfirm = false"
+  >
+    <p class="tb-logout-q">您确认要退出吗？</p>
+    <div class="tb-logout-actions">
+      <button type="button" class="ghost mini" data-testid="logout-cancel" @click="showLogoutConfirm = false">
+        取消
+      </button>
+      <button type="button" class="mini" data-testid="logout-confirm" @click="doLogout">
+        确认
+      </button>
+    </div>
+  </DataModal>
+
   <Teleport to="body">
     <div
       v-if="showPw"

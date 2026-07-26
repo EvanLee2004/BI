@@ -1,0 +1,15 @@
+S2 gates 2026-07-26T17:01:46Z
+VERSION=2.6.6
+run_verify EXIT:0
+shots:
+total 5120
+drwxr-xr-x@  8 evanlee  staff     256 Jul 27 01:46 .
+drwxr-xr-x@ 17 evanlee  staff     544 Jul 27 02:01 ..
+-rw-r--r--@  1 evanlee  staff  561902 Jul 27 01:45 admin_1440.png
+-rw-r--r--@  1 evanlee  staff  215077 Jul 27 01:45 admin_390.png
+-rw-r--r--@  1 evanlee  staff  667768 Jul 27 01:46 bu_1440.png
+-rw-r--r--@  1 evanlee  staff  252107 Jul 27 01:46 bu_390.png
+-rw-r--r--@  1 evanlee  staff  654430 Jul 27 01:46 main_1440.png
+-rw-r--r--@  1 evanlee  staff  255099 Jul 27 01:46 main_390.png
+review: shots_review.md
+seen: main 顶栏一行 主题|导出|密码|退出 无⋯；390 图标横排；admin 无红条无退出；logout modal true
