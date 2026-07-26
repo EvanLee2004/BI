@@ -19,22 +19,54 @@ const exceptions = ref<Record<string, number>>({})
 const formDirty = ref(0)
 const budgetDirty = ref(0)
 
-/** 2.6.6·T1/T2：展开详情；滚动/点外/Esc 收起，避免挡数据 */
+/** 2.6.6·T1/T2：展开详情；滚动/点外/Esc 收起，避免挡数据
+ * 注意：scroll 事件不冒泡，window 监听收不到 .admin-main 内滚 → 用 wheel/touchmove + 挂接可滚容器。
+ */
+const healthScrollEls: EventTarget[] = []
 function closeHealthPop() {
   healthOpen.value = false
+  detachHealthScrollTargets()
+}
+function onHealthUserScroll() {
+  if (!healthOpen.value) return
+  closeHealthPop()
+}
+function detachHealthScrollTargets() {
+  for (const el of healthScrollEls) {
+    el.removeEventListener('scroll', onHealthUserScroll)
+  }
+  healthScrollEls.length = 0
+}
+function attachHealthScrollTargets() {
+  detachHealthScrollTargets()
+  const candidates: (Element | Window | Document | null)[] = [
+    window,
+    document,
+    document.documentElement,
+    document.body,
+    document.querySelector('.admin-main'),
+    document.querySelector('.admin-shell'),
+    document.querySelector('.el-main'),
+  ]
+  for (const el of candidates) {
+    if (!el) continue
+    el.addEventListener('scroll', onHealthUserScroll, { passive: true })
+    healthScrollEls.push(el)
+  }
 }
 function toggleHealthPop() {
   healthOpen.value = !healthOpen.value
-}
-function onHealthScroll() {
-  if (!healthOpen.value) return
-  // 滚动超过一屏的一小段即收起展开面板（横幅 pill 保留）
-  if (window.scrollY > 48 || (document.documentElement?.scrollTop || 0) > 48) {
-    closeHealthPop()
+  if (healthOpen.value) {
+    // 下一帧再挂，确保 DOM 已出
+    requestAnimationFrame(() => attachHealthScrollTargets())
+  } else {
+    detachHealthScrollTargets()
   }
-  // 管理主区也可能在 .admin-main 内滚
-  const main = document.querySelector('.admin-main')
-  if (main && (main as HTMLElement).scrollTop > 48) closeHealthPop()
+}
+/** 用户滚轮/触控滑动 = 在看数据，收起浮层（不依赖 scroll 冒泡） */
+function onHealthWheelOrTouch() {
+  if (!healthOpen.value) return
+  closeHealthPop()
 }
 function onHealthPointerDown(ev: MouseEvent) {
   if (!healthOpen.value) return
@@ -288,7 +320,9 @@ onMounted(async () => {
   await loadVersion()
   healthTimer = window.setInterval(loadHealth, 30000)
   window.addEventListener('beforeunload', onBeforeUnload)
-  window.addEventListener('scroll', onHealthScroll, { passive: true, capture: true })
+  // scroll 不冒泡：用 wheel/touchmove 捕获「用户在滚」；另在 open 时挂 .admin-main
+  window.addEventListener('wheel', onHealthWheelOrTouch, { passive: true, capture: true })
+  window.addEventListener('touchmove', onHealthWheelOrTouch, { passive: true, capture: true })
   document.addEventListener('pointerdown', onHealthPointerDown, true)
   window.addEventListener('keydown', onHealthKey)
   try {
@@ -305,9 +339,11 @@ onMounted(async () => {
 onUnmounted(() => {
   if (healthTimer) clearInterval(healthTimer)
   window.removeEventListener('beforeunload', onBeforeUnload)
-  window.removeEventListener('scroll', onHealthScroll, true)
+  window.removeEventListener('wheel', onHealthWheelOrTouch, true)
+  window.removeEventListener('touchmove', onHealthWheelOrTouch, true)
   document.removeEventListener('pointerdown', onHealthPointerDown, true)
   window.removeEventListener('keydown', onHealthKey)
+  detachHealthScrollTargets()
 })
 
 function badgeN(key?: string) {

@@ -72,7 +72,9 @@ class TestBusinessGapsOnHealth(unittest.TestCase):
 class TestAdminHealthCollapseSource(unittest.TestCase):
     def test_admin_layout_has_scroll_esc_outside(self):
         src = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
-        self.assertIn("onHealthScroll", src)
+        # scroll 不冒泡：须 wheel/touchmove + 可滚容器挂接
+        self.assertIn("onHealthWheelOrTouch", src)
+        self.assertIn("attachHealthScrollTargets", src)
         self.assertIn("onHealthKey", src)
         self.assertIn("onHealthPointerDown", src)
         self.assertIn("admin-health-pop", src)

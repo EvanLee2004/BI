@@ -100,8 +100,8 @@ def main() -> int:
             pop = page.locator("[data-testid=admin-health-pop]")
             open1 = pop.count() > 0 and pop.first.is_visible()
             page.screenshot(path=str(EVID / f"t2_0_{name}_open.png"), full_page=False)
-            # scroll to collapse
-            page.evaluate("window.scrollTo(0, 200)")
+            # 用户滚轮（scroll 事件不冒泡，产品用 wheel 收起）
+            page.mouse.wheel(0, 400)
             page.wait_for_timeout(500)
             open_after_scroll = pop.count() > 0 and pop.first.is_visible()
             # re-open and Esc
