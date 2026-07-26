@@ -136,14 +136,18 @@ def refresh(cfg, root=None, trigger="manual") -> dict:
         return _do_full(cfg, root, trigger)
 
 
-def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
-    """后台完整更新。调用本模块 _do_full，便于测试打桩。"""
+def start_refresh_async(cfg, root=None, trigger="manual", on_complete=None) -> bool:  # noqa: C901
+    """后台完整更新。调用本模块 _do_full，便于测试打桩。
+
+    on_complete(success: bool)：管道真结束回调（2.6.7 C-3：定时 success 只在真成功时登记）。
+    """
     if not _LOCK.acquire(blocking=False):
         return False
     _state["refreshing"] = {"started_at": time.strftime("%Y-%m-%d %H:%M:%S"), "trigger": trigger}
 
     def _job():
         t0 = time.time()
+        ok = False
         try:
             ing = _do_full(cfg, root, trigger)
             elapsed_ms = int((time.time() - t0) * 1000)
@@ -177,6 +181,7 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
                 "seconds": round(time.time() - t0, 1),
                 "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
+            ok = True
         except Exception as e:
             elapsed_ms = int((time.time() - t0) * 1000)
             _state["metrics"] = {
@@ -189,9 +194,15 @@ def start_refresh_async(cfg, root=None, trigger="manual") -> bool:
                 "seconds": round(time.time() - t0, 1),
                 "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
+            ok = False
         finally:
             _state["refreshing"] = None
             _LOCK.release()
+            if on_complete is not None:
+                try:
+                    on_complete(ok)
+                except Exception:
+                    pass
 
     threading.Thread(target=_job, daemon=True).start()
     return True

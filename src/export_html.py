@@ -37,13 +37,27 @@ def _stub_vm(summary: dict | None, *, bu_name: str = "") -> dict:
 def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: str = "") -> dict:
     if not summary:
         return _stub_vm(summary, bu_name=bu_name)
-    try:
-        import viewmodels
+    # 2.6.7 C-7：有真实 periods 的 summary 构建失败 → 显式抛错（禁止 stub 假成功）
+    import viewmodels
 
+    try:
         if bu_name:
             return viewmodels.build_bu_vm(bu_name, summary, cfg or {}).model_dump()
         return viewmodels.build_cockpit_vm(summary, cfg or {}).model_dump()
     except Exception:
+        # 真数据（周期里已有算账字段）才硬失败；测试壳只有空 periods 仍 stub
+        periods = summary.get("periods") or {}
+        has_real = any(
+            isinstance(p, dict)
+            and (
+                p.get("revenue_net") is not None
+                or p.get("gross_profit") is not None
+                or p.get("production_cost") is not None
+            )
+            for p in periods.values()
+        )
+        if has_real:
+            raise
         return _stub_vm(summary, bu_name=bu_name)
 
 

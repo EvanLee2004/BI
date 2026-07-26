@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.6.7 · 2026-07-27
+
+验收回修 + 存量问题清零 + 顶栏统一（**数字口径零变化，回归红线守住**）：
+
+- **A 门禁**：三主题定义 `--orange` 后去掉 BuNav 兜底；F-2 扩扫 admin/** 并清硬编码；五处 `or True` 改成真断言；管理端四页签独有文本重测；skip 清单 + `run_verify` 打印位点计数。
+- **B 顶栏**：全站横排 主题｜导出｜密码｜退出；删除 ⋯；管理员无密码/退出（设置页最下唯一退出）；退出 DataModal 二次确认；红色告警横幅 + `/api/alerts/ack` + health.alerts 下线（告警仍写 告警.log）；黄条不动。
+- **C P0/P1**：智云 0 行 vs 缺列拆分支（0 行不沿用旧 xlsx）；publish 无 clear 空窗；定时 success 只在管道真成功后登记；匿名 health 脱敏；bu_config 刷新中 409；月末快照 .partial；导出 VM 失败显式抛错。C-8 证同可收敛、C-9 证不同→待拍板。
+- **D P2**：generate finally；CLI 缺年 sheet soft；空密码不填 8888；BU/本地配置原子写；login_guard 过期淘汰；BU pl.xlsx 先鉴权；admin form 登录审计；prune 用 localtime；401/403 分离。D-9/D-11 待拍板。
+- **E**：PRODUCT_CHANGELOG 补 2.6.1–2.6.7；税率公式取配置；progress 生产/本地 HEAD 分写。
+
 ## 2.6.6 · 2026-07-26
 
 六项深度体检 + 发现即修（**不改金额/口径/智云抓取**）：

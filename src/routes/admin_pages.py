@@ -88,6 +88,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             )
         login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
+        # 2.6.7 D-7：form 登录成功路径补审计（对齐 auth.py）
+        try:
+            _audit(cfg, root, account, ("登录", "管理员 form 登录成功"))
+        except Exception:
+            pass
         # 非管理员 next 默认忽略 /admin
         next_raw = next or ("/admin" if authz.is_admin(acc) else "")
         redir = login_redirect.resolve_login_redirect(

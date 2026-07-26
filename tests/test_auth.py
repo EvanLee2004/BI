@@ -237,7 +237,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(self.raw.get("/api/daily", params=q).status_code, 401)
         self.assertEqual(self.raw.get("/export.png").status_code, 401)
         cbu, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertEqual(cbu.get("/api/daily", params=q).status_code, 401)
+        self.assertEqual(cbu.get("/api/daily", params=q).status_code, 403)  # 2.6.7 D-10 已登录无权限
         cmain, _ = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(cmain.get("/api/daily", params=q).status_code, 200)
 

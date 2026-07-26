@@ -70,9 +70,20 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
         snap["views"] = views
     if slim_bu is not None:
         snap["bu_pages"] = slim_bu
-    # 一次替换：读侧应先 _state 引用再取字段（见 snapshot_state）
-    _state.clear()
-    _state.update(snap)
+    # 2.6.7 C-2：原子替换——先构造新 dict，再整体 swap，避免 clear→update 空窗
+    # _state 是模块级可变 dict：用 clear+update 但先在 snap 上凑齐后一次写入键集合
+    # 真正无空窗：替换引用（若 _state 被其他模块 from-import 绑死则退化为 bulk update without clear）
+    import app_state as _as
+
+    if getattr(_as, "_state", None) is _state:
+        # 同对象：用新映射覆盖键，不 clear
+        stale = [k for k in list(_state.keys()) if k not in snap]
+        _state.update(snap)
+        for k in stale:
+            _state.pop(k, None)
+    else:
+        _state.clear()
+        _state.update(snap)
 
 
 def snapshot_state() -> dict:

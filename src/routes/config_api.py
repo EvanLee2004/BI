@@ -103,7 +103,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/api/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
-        """保存 BU 数据归属 + 公共费用分摊，并立即重算重渲染 BU 页（一人一 BU）。C3：变更留痕。"""
+        """保存 BU 数据归属 + 公共费用分摊，并立即重算重渲染 BU 页（一人一 BU）。C3：变更留痕。
+
+        2.6.7 C-5：与铁律 8 对齐——刷新进行中返回 409 非阻塞等待。
+        """
         user = _require(request)
         bus = payload.get("bus")
         if not isinstance(bus, list):
@@ -117,7 +120,24 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             saved = bu.save_bu_config(cfg, root, bus, 公共费用分摊启用=new_alloc)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        recompute(cfg, root)
+        # 刷新进行中：配置已落盘，但 recompute 延后（与 manual 写路径同口径）
+        from app_state import _LOCK, _state
+
+        if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
+            _audit(
+                cfg,
+                root,
+                user,
+                _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))),
+            )
+            raise HTTPException(
+                status_code=409,
+                detail="更新进行中，BU 配置已保存，请稍后再点重算或等刷新结束后自动对齐",
+            )
+        try:
+            recompute(cfg, root)
+        finally:
+            _LOCK.release()
         _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))
         return {
             "bus": saved["bus"],

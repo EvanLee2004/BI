@@ -229,7 +229,24 @@ def write_local_config(cfg: dict, root: Path | None = None, updates: dict | None
     cur.pop("feishu_webhook_url", None)
     p = local_config_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # 2.6.7 D-4：临时文件 + os.replace 原子落盘
+    import os
+    import tempfile
+
+    text = json.dumps(cur, ensure_ascii=False, indent=2) + "\n"
+    fd, tmp = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=str(p.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, p)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
     _LOCAL_CONFIG_CORRUPT = None
     return cur
 

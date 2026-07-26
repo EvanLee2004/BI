@@ -1,0 +1,6 @@
+S3-S6 gates 2026-07-26T18:24:37Z
+VERSION=2.6.7
+run_verify EXIT:0
+regress: zero diff (in run_verify step 3)
+or True:
+(none)

@@ -355,7 +355,7 @@ def _date_control_dup_info(controls, date_col: str) -> list[str]:
 _date_control_dup_warnings = _date_control_dup_info
 
 
-def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
+def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:  # noqa: C901
     """在线抓取→校验→写盘；失败用 _fetch_fallback。"""
     info = post(
         "Worksheet/getWorksheetInfo",
@@ -369,8 +369,37 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
     fc = build_date_since_filter(controls, date_col, since)
     rows = fetch_all_rows(post, tbl["worksheetId"], zy["app_id"], filter_controls=fc)
     records = rows_to_records(rows, controls)
+    # 2.6.7 C-1 / C-13：0 行与缺列拆分支——0 行禁止静默沿用旧 xlsx
+    if len(records) == 0:
+        import datetime as _dt
+
+        mon = _dt.date.today().month
+        # 空表 write 会拒；删掉旧 xlsx 以免下游继续读陈旧全表
+        try:
+            if local.exists():
+                local.unlink()
+        except OSError:
+            pass
+        save_last_row_count(cfg, source, 0, root)
+        if mon == 1:
+            # 1 月 0 行：信息级（新年正常空），不抬体检红
+            return {
+                "status": "fetched",
+                "detail": f"新年正常空：1 月抓到 0 行（已清本地旧文件）→ {local.name}",
+                "rows": 0,
+                "info": ["新年正常空（1 月 0 行，不判抓取失败）"] + info_msgs,
+            }
+        # 非 1 月 0 行：抬体检红 + 告警，绝不 fallback 旧文件
+        return {
+            "status": "empty_fetch",
+            "detail": f"智云抓取 0 行（非1月），已拒沿用并清理旧文件 → {local.name}",
+            "rows": 0,
+            "warnings": [f"{source} 智云抓取 0 行，未沿用本地旧 xlsx，请检查过滤条件/账号权限"],
+            "info": info_msgs,
+        }
     missing = check_required_columns(records, cfg, source)
     if missing:
+        # 缺列：维持原状——可 fallback 本地旧文件
         return _fetch_fallback(local, f"抓到 {len(records)} 行但缺必需列 {missing}（可能无权限/表不对）")
     # 行数门槛护栏（智云配置.json tables.<源>.min_rows）：抓到的行数异常少=账号行级权限不足
     min_rows = int(tbl.get("min_rows") or 0)
@@ -378,19 +407,6 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:
         return _fetch_fallback(
             local, f"只抓到 {len(records)} 行 < 门槛 {min_rows}（疑似账号行级权限不足、只看到自己的记录）"
         )
-    # 新年 1 月 0 行：信息级，不当地抓取失败
-    import datetime as _dt
-
-    mon = _dt.date.today().month
-    if len(records) == 0 and mon == 1:
-        write_records_xlsx(records, local)
-        save_last_row_count(cfg, source, 0, root)
-        return {
-            "status": "fetched",
-            "detail": f"新年正常空：1 月抓到 0 行 → {local.name}",
-            "rows": 0,
-            "info": ["新年正常空（1 月 0 行，不判抓取失败）"] + info_msgs,
-        }
     prev_counts = load_last_row_counts(cfg, root)
     drop_msg = check_row_drop(prev_counts.get(source), len(records), row_drop_ratio(cfg))
     if drop_msg:

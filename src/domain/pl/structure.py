@@ -310,7 +310,25 @@ def pl_structure(
     rows: list[dict[str, Any]] = []
     details: dict[str, dict[str, Any]] = {}
 
-    rows.append(_row("交付收入（不含税）", p.get("revenue_net"), kind="system", formula="交付金额÷1.06"))
+    # 2.6.7 E-3：公式文案取配置税率（数字仍来自已算好的 p，零变化）
+    _vat = None
+    try:
+        import loaders as _ld
+
+        _vat = float((_ld.load_config(strict=False).get("tax") or {}).get("vat_rate") or 0.06)
+    except Exception:
+        _vat = 0.06
+    _vat_pct = f"{_vat * 100:.0f}".rstrip("0").rstrip(".") if _vat * 100 % 1 else f"{int(_vat * 100)}"
+    if _vat_pct == "":
+        _vat_pct = "6"
+    rows.append(
+        _row(
+            "交付收入（不含税）",
+            p.get("revenue_net"),
+            kind="system",
+            formula=f"交付金额÷(1+{_vat_pct}%)",
+        )
+    )
     rows.append(_row("交付成本（生产成本）", -float(p.get("production_cost") or 0), open_key="cost"))
     rows.append(_row("毛利", p.get("gross_profit"), total=True))
     rows.append(
@@ -336,7 +354,22 @@ def pl_structure(
         rows.extend(exp_rows)
         details.update(exp_det)
 
-    rows.append(_row("附加税费", -float(p.get("surtax") or 0), kind="system", formula="净收入×6%×12%"))
+    _sur = 0.12
+    try:
+        import loaders as _ld2
+
+        _sur = float((_ld2.load_config(strict=False).get("tax") or {}).get("surtax_rate") or 0.12)
+    except Exception:
+        _sur = 0.12
+    _sur_pct = f"{int(round(_sur * 100))}"
+    rows.append(
+        _row(
+            "附加税费",
+            -float(p.get("surtax") or 0),
+            kind="system",
+            formula=f"净收入×{_vat_pct}%×{_sur_pct}%",
+        )
+    )
     other_pl = float(p.get("other_pl") or 0)
     if is_bu:
         other_pending = not (abs(other_pl) > 0.005 or has_manual)

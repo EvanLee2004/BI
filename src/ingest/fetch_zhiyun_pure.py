@@ -98,9 +98,15 @@ def rows_to_records(rows: list[dict], controls: list[dict]) -> list[dict[str, st
 
 
 def check_required_columns(records: list[dict[str, str]], cfg: dict, source: str) -> list[str]:
-    """返回缺失的必需列名列表（空=齐）。records 为空也按缺列处理。"""
+    """返回缺失的必需列名列表（空=齐）。
+
+    2.6.7 C-1：0 行**不是**缺列——空 records 返回 []，由调用方按 0 行分支处理
+   （禁止再把 0 行当成缺列去静默沿用旧 xlsx）。
+    """
+    if not records:
+        return []
     wanted = [cfg["columns"][k] for k in SOURCES[source]["required_cols"]]
-    have = set(records[0].keys()) if records else set()
+    have = set(records[0].keys())
     return [w for w in wanted if w not in have]
 
 

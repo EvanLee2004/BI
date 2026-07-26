@@ -183,7 +183,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
             "/api/profit_ranking",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"},
         )
-        self.assertEqual(r0.status_code, 401, "BU 无 bu 参数不得看全公司")
+        self.assertEqual(r0.status_code, 403, "BU 无 bu 参数不得看全公司")
         r = c.get(
             "/api/profit_ranking",
             params={
@@ -214,7 +214,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
                 "bu": "BU乙",
             },
         )
-        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.status_code, 403)  # D-10
 
     def test_unauth_401(self):
         c = self.TC(self.app, follow_redirects=False)
@@ -222,7 +222,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
             "/api/profit_ranking",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"},
         )
-        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.status_code, 401)  # 未登录
 
 
 class TestFrontendHasFetchFallback(unittest.TestCase):

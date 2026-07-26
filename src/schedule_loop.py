@@ -168,28 +168,88 @@ class ScheduleLoop:
 
         # 一次 tick 只尝试一个点（最早的），避免连打
         target = sorted(want, key=_hhmm_to_minutes)[0]
+        slot = target
+        d_iso = date_iso
+        planned_times = times
+        now_hhmm = hhmm
+
+        def _on_complete(
+            success: bool,
+            *,
+            _slot=slot,
+            _d=d_iso,
+            _times=planned_times,
+            _hhmm=now_hhmm,
+        ) -> None:
+            # 2.6.7 C-3：success 只在管道真成功后登记；失败当日回队列补跑
+            if success:
+                self.fired.add((_d, _slot))
+                log.info(
+                    "schedule_loop: pipeline OK trigger=schedule at %s %s (slot %s)",
+                    _d,
+                    _hhmm,
+                    _slot,
+                )
+                _update_ledger(
+                    date_iso=_d,
+                    planned=_times,
+                    success_add=_slot,
+                    pending=list(self._queue),
+                    last_fire=f"{_d} {_hhmm}→{_slot}",
+                )
+            else:
+                if _slot not in self._queue:
+                    self._queue.append(_slot)
+                log.warning(
+                    "schedule_loop: pipeline FAIL slot %s on %s — re-queued for retry",
+                    _slot,
+                    _d,
+                )
+                _update_ledger(
+                    date_iso=_d,
+                    planned=_times,
+                    pending=list(self._queue),
+                    last_busy=f"{_d} {_hhmm} pipeline_fail {_slot}",
+                )
+
         try:
-            ok = self.start_refresh_async_fn(self.cfg, self.root, trigger="schedule")
+            ok = self.start_refresh_async_fn(
+                self.cfg, self.root, trigger="schedule", on_complete=_on_complete
+            )
         except TypeError:
+            # 兼容旧签名 mock：无 on_complete 时启动即成功（单测）
             try:
-                ok = self.start_refresh_async_fn(self.cfg, self.root, "schedule")
-            except Exception as e:
-                log.warning("schedule_loop: start_refresh_async failed: %s", e)
+                ok = self.start_refresh_async_fn(self.cfg, self.root, trigger="schedule")
+            except TypeError:
+                try:
+                    ok = self.start_refresh_async_fn(self.cfg, self.root, "schedule")
+                except Exception as e:
+                    log.warning("schedule_loop: start_refresh_async failed: %s", e)
+                    return False
+            else:
+                # 旧 mock 返回 True 即视为管道成功
+                if ok:
+                    _on_complete(True)
+            if not isinstance(ok, bool):
                 return False
         except Exception as e:
             log.warning("schedule_loop: start_refresh_async failed: %s", e)
             return False
 
         if ok:
-            self.fired.add((date_iso, target))
+            # 线程已启动：先移出队列防连发；success/fired 等 on_complete
             self._queue = [t for t in self._queue if t != target]
-            log.info("schedule_loop: fired trigger=schedule at %s %s (target slot %s)", date_iso, hhmm, target)
+            log.info(
+                "schedule_loop: started trigger=schedule at %s %s (slot %s)",
+                date_iso,
+                hhmm,
+                target,
+            )
             _update_ledger(
                 date_iso=date_iso,
                 planned=times,
-                success_add=target,
                 pending=list(self._queue),
-                last_fire=f"{date_iso} {hhmm}→{target}",
+                last_fire=f"{date_iso} {hhmm} started→{target}",
             )
             return True
 

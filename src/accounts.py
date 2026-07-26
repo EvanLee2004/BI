@@ -147,12 +147,11 @@ def _norm_one(raw: dict) -> dict | None:
         return None
     display = str(raw.get("显示名") or acct).strip() or acct
     # 明文为真相源；仅有哈希、无明文的存量行 → 密码空，登录失败直至管理员写入明文
+    # 2.6.7 D-3：空密码不得静默变出厂口令——保持空，登录失败直至管理员写入明文
     if "密码" in raw and raw["密码"] is not None and str(raw["密码"]).strip() != "":
         pw = str(raw["密码"])
     else:
-        pw = str(raw.get("密码") or "")
-        if not pw and not str(raw.get("密码哈希") or "").strip():
-            pw = DEFAULT_VIEW_PW
+        pw = str(raw.get("密码") or "").strip()
     try:
         pw_ver = int(raw.get("密码版本") or 0)
     except (TypeError, ValueError):

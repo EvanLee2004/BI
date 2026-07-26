@@ -335,13 +335,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.get("/bu/{name}/export/pl.xlsx")
     def api_bu_export_pl_xlsx(name: str, request: Request, blk: str = ""):
         """2.3.6：BU 页管理利润表 Excel；summary 与 BU 页 VM 同源。"""
+        # 2.6.7 D-6：先鉴权再判存在（防资源枚举）
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
+        if not _can_view_bu(request, name):
+            raise HTTPException(status_code=403, detail="无权查看该 BU")
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
-        if not _can_view_bu(request, name):
-            raise HTTPException(status_code=403, detail="无权查看该 BU")
         summary = page.get("summary") if isinstance(page, dict) else None
         if not summary:
             raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")

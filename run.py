@@ -36,7 +36,8 @@ def run_batch(trigger="manual") -> int:
     # 进门验证：格式不对先报；2.2.4·G 数据源缺失/未配置不再硬拦（体检黄+继续用现有/空数据）
     rep = validate.validate_all(cfg, today.year)
     validate.print_report(rep)
-    missing_like = ("不存在", "未配置", "缺 base", "缺账号", "缺密码")
+    # 2.6.7 D-2：缺年 sheet 走 soft（2.6.3·B6 已定：空集+体检红，不 CLI 拦死）
+    missing_like = ("不存在", "未配置", "缺 base", "缺账号", "缺密码", "找不到「", "新一年的 sheet")
     hard_errors = [
         e
         for e in rep.errors

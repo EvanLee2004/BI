@@ -433,14 +433,16 @@ def generate(cfg, today, trigger="manual", root=None):
     import viewmodels
 
     conn = db.connect(cfg, root)
-    ing = ingest.build_std_db(
-        cfg, today.year, root=root, conn=conn, today=today, trigger=trigger, archive_backups=True
-    )
-    summary = summary_from_conn(cfg, conn, today)
-    logo = assets.load_logo_base64(cfg)
-    bu_pages = build_bu_pages(cfg, conn, today, logo, root)
-    attach_unassigned(cfg, conn, today, summary, root)
-    conn.close()
+    try:
+        ing = ingest.build_std_db(
+            cfg, today.year, root=root, conn=conn, today=today, trigger=trigger, archive_backups=True
+        )
+        summary = summary_from_conn(cfg, conn, today)
+        logo = assets.load_logo_base64(cfg)
+        bu_pages = build_bu_pages(cfg, conn, today, logo, root)
+        attach_unassigned(cfg, conn, today, summary, root)
+    finally:
+        conn.close()
     frags_full = render.build_dashboard_fragments(summary, cfg, logo)
     # 兼容返回值仍带整页 html（导出 png 旧路径/测试）；运行态 _state 不预装（65·L2）
     html = render.assemble_dashboard_html(frags_full)

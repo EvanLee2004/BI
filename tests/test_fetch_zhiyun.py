@@ -134,7 +134,8 @@ class TestRequiredColumns(unittest.TestCase):
         self.assertEqual(fz.check_required_columns(good, self.CFG, "orders"), [])
         bad = [{"别的列": "x"}]
         self.assertEqual(fz.check_required_columns(bad, self.CFG, "orders"), ["下单预估额/本币", "下单日期"])
-        self.assertTrue(fz.check_required_columns([], self.CFG, "orders"))  # 空=缺
+        # 2.6.7 C-1：0 行不是缺列
+        self.assertEqual(fz.check_required_columns([], self.CFG, "orders"), [])
 
 
 class TestPagination(unittest.TestCase):
@@ -237,6 +238,23 @@ class TestPagination(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(ValueError):
                 fz.write_records_xlsx([], Path(td) / "x.xlsx")
+
+
+
+class TestEmptyVsMissingColumns(unittest.TestCase):
+    """2.6.7 C-1：0 行 vs 缺列分支。"""
+
+    def test_check_required_empty_not_missing(self):
+        cfg = {"columns": {"order_amount": "下单预估额/本币", "order_date": "下单日期"}}
+        self.assertEqual(fz.check_required_columns([], cfg, "orders"), [])
+
+    def test_missing_cols_still_detected_when_rows(self):
+        cfg = {"columns": {"order_amount": "下单预估额/本币", "order_date": "下单日期"}}
+        bad = [{"x": "1"}]
+        self.assertEqual(
+            set(fz.check_required_columns(bad, cfg, "orders")),
+            {"下单预估额/本币", "下单日期"},
+        )
 
 
 class TestZhiyunDefaults(unittest.TestCase):

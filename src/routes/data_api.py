@@ -362,8 +362,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
         v7.8 起要求整体页/管理员会话（全公司口径出口，BU 会话不给——否则 BU 链接持有者可绕过页面隔离）；
         **纯只读**、无任何写路径；金额显示串全部后端算好（铁律2）。入参严格校验：ISO日期、start<=end、区间≤366天。"""
-        if not _can_view_main(request):
+        # 2.6.7 D-10：未登录 401 / 已登录无权限 403
+        if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
+        if not _can_view_main(request):
+            raise HTTPException(status_code=403, detail="无权查看整体数据")
         import profit as _profit
 
         s, e = _parse_daily_range(start, end)
@@ -393,8 +396,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         name = (bu or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="缺少 bu")
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_bu(request, name):
-            raise HTTPException(status_code=401, detail="无权查看该 BU")
+            raise HTTPException(status_code=403, detail="无权查看该 BU")
         import bu as _bu
         import profit as _profit
 
@@ -431,11 +436,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         入参：dim∈{customer,sales}、ISO 日期、区间≤366天。
         """
         bu_name = (bu or "").strip()
+        # 2.6.7 D-10：未登录 401 / 已登录无权限 403
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="请先登录看板")
         if bu_name:
             if not _can_view_bu(request, bu_name):
-                raise HTTPException(status_code=401, detail="无权查看该 BU")
+                raise HTTPException(status_code=403, detail="无权查看该 BU")
         elif not _can_view_main(request):
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=403, detail="无权查看整体数据")
         name_col = {"customer": "客户", "sales": "销售"}.get(dim)
         if not name_col:
             raise HTTPException(status_code=400, detail="dim 须为 customer 或 sales")
@@ -622,12 +630,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     reasons = [msg] + list(reasons)
         except Exception:
             pass
+        # 2.6.7 C-4：匿名不下发可能含金额的 warnings；登录后给全文
+        # fetch_banners / run_reasons / schedule 不带金额，匿名仍可下发（横幅运维需要）
+        _warns = list(health.get("warnings") or [])
+        if not authed:
+            import re as _re
+            _amt = _re.compile(r"\d+[\d,\.]*\s*万|¥|￥|金额|元")
+            _warns = [w for w in _warns if not _amt.search(str(w))]
         body_out = {
             "result": result,
             "run_time": (run_log or {}).get("时间"),
             "built_at": _state.get("built_at"),
             "sources": health.get("sources", []),
-            "warnings": health.get("warnings", []),  # 「警」：数据体检（未填分类等）
+            "warnings": _warns,  # 「警」：数据体检（未填分类等）
             "run_reasons": reasons,
             "fetch_banners": banners,  # B9 醒目横幅；全源成功=[]
             "metrics": m_out,

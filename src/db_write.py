@@ -102,8 +102,9 @@ def prune_run_logs(conn: sqlite3.Connection, keep_days: int = 365) -> int:
     """删除超过 keep_days 的运行日志。返回删除行数。"""
     keep_days = max(1, int(keep_days))
     # SQLite：时间列为 'YYYY-MM-DD HH:MM:SS' 文本，用 date 比较
+    # 2.6.7 D-8：本地时区（SQLite date('now') 默认 UTC，会差 8h 错一天）
     cur = conn.execute(
-        "DELETE FROM meta_运行日志 WHERE date(substr(时间,1,10)) < date('now', ?)",
+        "DELETE FROM meta_运行日志 WHERE date(substr(时间,1,10)) < date('now', 'localtime', ?)",
         (f"-{keep_days} days",),
     )
     n = cur.rowcount if cur.rowcount is not None and cur.rowcount >= 0 else 0

@@ -363,8 +363,19 @@ def _snapshot_month_dir(base: Path, year: int, month: int) -> Path:
 
 
 def _month_snapshot_exists(base: Path, year: int, month: int) -> bool:
+    """2.6.7 C-6：半截（.partial）视为不存在；完整目录才算 exists。"""
     d = _snapshot_month_dir(base, year, month)
-    return d.is_dir() and any(d.iterdir())
+    if d.name.endswith(".partial"):
+        return False
+    partial = d.parent / (d.name + ".partial")
+    if partial.is_dir():
+        # 仅有 partial、无正式目录 → 不存在
+        return False
+    marker = d / "_SNAPSHOT_OK"
+    if d.is_dir() and marker.is_file():
+        return True
+    # 兼容旧快照（无 marker 但有内容）
+    return d.is_dir() and any(p.name != ".partial" for p in d.iterdir())
 
 
 def ensure_prev_month_snapshot(
@@ -414,29 +425,42 @@ def snapshot_if_month_end(
         return {"status": "skip", "detail": "非当月最后一天", "done": False}
     base = loaders.data_dir(cfg, root)
     snap = base / "快照存档" / f"{day:%Y-%m}"
-    snap.mkdir(parents=True, exist_ok=True)
+    # 2.6.7 C-6：先写 .partial，完成再原子 rename；半截不视为 exists
+    partial = base / "快照存档" / f"{day:%Y-%m}.partial"
+    if partial.exists():
+        shutil.rmtree(partial, ignore_errors=True)
+    partial.mkdir(parents=True, exist_ok=True)
     copied = []
     # 6 个原始源（项目明细是 stem 无后缀，补 .xlsx/.csv；其余已带后缀）
     for name in (cfg.get("files") or {}).values():
         for p in (base / name, base / f"{name}.xlsx", base / f"{name}.csv"):
             if p.exists() and p.is_file():
-                shutil.copy2(p, snap / p.name)
+                shutil.copy2(p, partial / p.name)
                 copied.append(p.name)
                 break
     # 看板.db
     dbp = db.db_path(cfg, root)
     if dbp.exists():
-        shutil.copy2(dbp, snap / dbp.name)
+        shutil.copy2(dbp, partial / dbp.name)
         copied.append(dbp.name)
     # summary.json（run_batch 写到 output_json）
     sj = loaders.ROOT / cfg.get("output_json", "data/驾驶舱数据.json")
     if sj.exists():
-        shutil.copy2(sj, snap / "summary.json")
+        shutil.copy2(sj, partial / "summary.json")
         copied.append("summary.json")
     done = bool(copied)
+    if done:
+        (partial / "_SNAPSHOT_OK").write_text("ok\n", encoding="utf-8")
+        if snap.exists():
+            shutil.rmtree(snap, ignore_errors=True)
+        partial.rename(snap)
+        path_out = str(snap)
+    else:
+        shutil.rmtree(partial, ignore_errors=True)
+        path_out = str(snap)
     return {
         "status": "snapshot" if done else "empty",
-        "path": str(snap),
+        "path": path_out,
         "copied": sorted(set(copied)),
         "done": done,
     }

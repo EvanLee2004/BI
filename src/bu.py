@@ -101,9 +101,26 @@ def load_bu_config(cfg: dict, root: Path | None = None) -> dict | None:
 
 
 def _write(cfg, root, data: dict) -> None:
+    """2.6.7 D-4：临时文件 + os.replace 原子落盘。"""
+    import os
+    import tempfile
+
     p = config_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    fd, tmp = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=str(p.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, p)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def validate_allocation(bus: list[dict], enabled: bool) -> str | None:

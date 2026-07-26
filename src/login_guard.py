@@ -47,6 +47,19 @@ def is_locked(
         return len(ts) >= n
 
 
+def _prune_expired(now: float, window: float) -> None:
+    """2.6.7 D-5：按窗口淘汰过期键，防止 _fails 无限涨。"""
+    dead = []
+    for k, ts in _fails.items():
+        kept = [t for t in ts if now - t < window]
+        if kept:
+            _fails[k] = kept
+        else:
+            dead.append(k)
+    for k in dead:
+        _fails.pop(k, None)
+
+
 def register_failure(
     account: str, cfg: dict | None = None, now: float | None = None, *, ip: str | None = None
 ) -> None:
@@ -57,6 +70,7 @@ def register_failure(
     _, window = _cfg_n(cfg)
     k = _key(account, ip)
     with _lock:
+        _prune_expired(now, window)
         ts = [t for t in (_fails.get(k) or []) if now - t < window]
         ts.append(now)
         _fails[k] = ts

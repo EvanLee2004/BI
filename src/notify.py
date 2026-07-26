@@ -23,7 +23,12 @@ def maybe_alert_pipeline(cfg: dict, report: dict, root=None) -> None:
             reasons.append("收单无源")
         if not (report.get("db_check") or {}).get("ok", True):
             reasons.append("db_check")
-        detail = "；".join(reasons) or str(report.get("result"))
+        detail = "；".join(reasons) or (
+            f"结果={report.get('result')}，未命中已知原因，详见体检明细"
+        )
+        # 禁止「体检红：红」这种无信息量文案
+        if detail in ("红", "黄", "绿") or detail == str(report.get("result")):
+            detail = f"结果={report.get('result')}，未命中已知原因，详见体检明细"
         log.warning("pipeline red: %s", detail)
         try:
             import alert_store
