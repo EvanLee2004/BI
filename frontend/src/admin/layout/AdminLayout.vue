@@ -400,6 +400,8 @@ import './admin-layout.css'
       data-testid="admin-health-pop"
       role="dialog"
       aria-label="体检明细"
+      @wheel.passive="onHealthWheelOrTouch"
+      @touchmove.passive="onHealthWheelOrTouch"
     >
       <h4>体检明细 · 运行 {{ healthRunTime }}</h4>
       <p class="health-pop-hint muted">滚动页面 / 点外部 / Esc 可收起</p>
