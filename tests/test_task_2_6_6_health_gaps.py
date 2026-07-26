@@ -25,13 +25,15 @@ class TestBusinessGapsOnHealth(unittest.TestCase):
         # 不强制全量 refresh：create_app 可读空 summary；business_gaps 仍应给出结构
         app = server.create_app(cfg, root=ROOT)
         c = TestClient(app)
-        # 匿名：无 business_gaps（D5 风格：内部细节登录后）
+        # 匿名：business_gaps 仅登录后（2.6.6·T1 authed-only）
         r0 = c.get("/api/health")
         self.assertEqual(r0.status_code, 200)
-        # 可能无 summary 仍 200
         body0 = r0.json()
-        # 匿名不应有完整 gaps 或 count 字段随意暴露也可无 —— 实现是 authed only
-        self.assertTrue("business_gaps" not in body0 or body0.get("business_gaps") is None or True)
+        self.assertNotIn(
+            "business_gaps",
+            body0,
+            "匿名 /api/health 不得暴露 business_gaps",
+        )
 
         import json
 
