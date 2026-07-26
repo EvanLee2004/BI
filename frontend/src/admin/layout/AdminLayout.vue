@@ -10,12 +10,57 @@ const router = useRouter()
 
 const health = ref<Record<string, unknown> | null>(null)
 const healthOpen = ref(false)
+const healthPopEl = ref<HTMLElement | null>(null)
+const healthPillEl = ref<HTMLElement | null>(null)
 const versionLabel = ref('v…')
 const refreshing = ref(false)
 const refreshMsg = ref('')
 const exceptions = ref<Record<string, number>>({})
 const formDirty = ref(0)
 const budgetDirty = ref(0)
+
+/** 2.6.6·T1/T2：展开详情；滚动/点外/Esc 收起，避免挡数据 */
+function closeHealthPop() {
+  healthOpen.value = false
+}
+function toggleHealthPop() {
+  healthOpen.value = !healthOpen.value
+}
+function onHealthScroll() {
+  if (!healthOpen.value) return
+  // 滚动超过一屏的一小段即收起展开面板（横幅 pill 保留）
+  if (window.scrollY > 48 || (document.documentElement?.scrollTop || 0) > 48) {
+    closeHealthPop()
+  }
+  // 管理主区也可能在 .admin-main 内滚
+  const main = document.querySelector('.admin-main')
+  if (main && (main as HTMLElement).scrollTop > 48) closeHealthPop()
+}
+function onHealthPointerDown(ev: MouseEvent) {
+  if (!healthOpen.value) return
+  const t = ev.target as Node | null
+  if (!t) return
+  if (healthPopEl.value?.contains(t)) return
+  if (healthPillEl.value?.contains(t)) return
+  closeHealthPop()
+}
+function onHealthKey(ev: KeyboardEvent) {
+  if (ev.key === 'Escape' && healthOpen.value) {
+    ev.preventDefault()
+    closeHealthPop()
+  }
+}
+
+type BusinessGaps = {
+  manual_missing_months?: string[]
+  manual_missing_count?: number
+  manual_impact?: string
+  manual_owner?: string
+  unassigned_count?: number
+  unassigned_impact?: string
+  unassigned_owner?: string
+}
+const businessGaps = computed(() => (health.value?.business_gaps as BusinessGaps) || null)
 
 provide('adminDirty', {
   formDirty,
@@ -243,6 +288,9 @@ onMounted(async () => {
   await loadVersion()
   healthTimer = window.setInterval(loadHealth, 30000)
   window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener('scroll', onHealthScroll, { passive: true, capture: true })
+  document.addEventListener('pointerdown', onHealthPointerDown, true)
+  window.addEventListener('keydown', onHealthKey)
   try {
     const s = await jget<{ running?: boolean }>('/api/refresh_status')
     if (s.running) {
@@ -257,6 +305,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (healthTimer) clearInterval(healthTimer)
   window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener('scroll', onHealthScroll, true)
+  document.removeEventListener('pointerdown', onHealthPointerDown, true)
+  window.removeEventListener('keydown', onHealthKey)
 })
 
 function badgeN(key?: string) {
@@ -285,18 +336,47 @@ import './admin-layout.css'
       <b>管理员控制台</b>
       <span class="ver-pill" title="版本" @click="showGroup('cfg')">{{ versionLabel }}</span>
       <span
+        ref="healthPillEl"
         class="admin-pill"
+        data-testid="admin-health-pill"
         :class="pillClass(health?.result)"
         :title="(healthRunReasons[0] || healthWarnings[0] || healthLabel)"
-        @click="healthOpen = !healthOpen"
+        role="button"
+        :aria-expanded="healthOpen"
+        @click="toggleHealthPop"
       >{{ healthLabel }}</span>
       <el-button type="primary" :loading="refreshing" @click="doRefresh">{{ refreshing ? '更新中…' : '更新数据' }}</el-button>
       <span class="muted">{{ refreshMsg }}</span>
       <span style="margin-left: auto" />
     </header>
 
-    <div v-if="healthOpen && health" class="health-pop">
+    <div
+      v-if="healthOpen && health"
+      ref="healthPopEl"
+      class="health-pop"
+      data-testid="admin-health-pop"
+      role="dialog"
+      aria-label="体检明细"
+    >
       <h4>体检明细 · 运行 {{ healthRunTime }}</h4>
+      <p class="health-pop-hint muted">滚动页面 / 点外部 / Esc 可收起</p>
+      <div class="grp" data-testid="health-gaps">
+        <div class="k">⓪ 业务缺口（可展开）</div>
+        <template v-if="businessGaps && (businessGaps.manual_missing_count || businessGaps.unassigned_count)">
+          <div v-if="businessGaps.manual_missing_count" class="gap-block" data-testid="health-gap-manual">
+            <b>手填缺 {{ businessGaps.manual_missing_count }} 个月</b>
+            <div>缺月：{{ (businessGaps.manual_missing_months || []).join('、') || '—' }}</div>
+            <div v-if="businessGaps.manual_impact" class="gap-impact">{{ businessGaps.manual_impact }}</div>
+            <div v-if="businessGaps.manual_owner" class="gap-owner">建议：{{ businessGaps.manual_owner }}</div>
+          </div>
+          <div v-if="businessGaps.unassigned_count" class="gap-block" data-testid="health-gap-unassigned">
+            <b>未归属 BU 销售 {{ businessGaps.unassigned_count }} 人</b>
+            <div v-if="businessGaps.unassigned_impact" class="gap-impact">{{ businessGaps.unassigned_impact }}</div>
+            <div v-if="businessGaps.unassigned_owner" class="gap-owner">建议：{{ businessGaps.unassigned_owner }}</div>
+          </div>
+        </template>
+        <div v-else class="ok">✓ 当前无结构化业务缺口（手填缺月 / 未归属）</div>
+      </div>
       <div class="grp">
         <div class="k">① 管道运行：{{ healthResult }}</div>
         <ul v-if="healthRunReasons.length">

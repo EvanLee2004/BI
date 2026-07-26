@@ -91,6 +91,7 @@ tests/test_task_2_6_5_profit_rank_modal.py
 tests/test_frontend_arch_guards.py
 tests/test_task_2_6_5_bu_nav_overall.py
 tests/test_task_2_6_5_echarts_solid_colors.py
+tests/test_task_2_6_6_health_gaps.py
 tests/test_task_2_6_2_mobile_layout.py
 tests/test_task_2_6_3_batch_a.py
 tests/test_task_2_6_3_batch_c.py

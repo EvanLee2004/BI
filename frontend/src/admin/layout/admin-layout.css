@@ -59,8 +59,11 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
   position: absolute;
   top: 52px;
   left: 14px;
+  right: 14px;
   z-index: 50;
   max-width: 560px;
+  max-height: min(70vh, 480px);
+  overflow: auto;
   background: var(--admin-panel, #151e30);
   border: 1px solid var(--admin-line, #2a364d);
   border-radius: 12px;
@@ -70,9 +73,27 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 .health-pop h4 { margin: 0 0 4px; font-size: 13px; }
+.health-pop-hint { margin: 0 0 6px; font-size: 11px; opacity: 0.75; }
 .health-pop .grp { margin-top: 10px; }
 .health-pop .k { color: var(--admin-mut); font-weight: 600; }
 .health-pop .ok { color: #16a34a; }
+.health-pop .gap-block {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+.health-pop .gap-impact { margin-top: 4px; color: var(--admin-mut, #93a1c0); }
+.health-pop .gap-owner { margin-top: 2px; font-weight: 600; }
+@media (max-width: 480px) {
+  .health-pop {
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    top: 48px;
+  }
+}
 .nav-badge { margin-left: 6px; }
 
 /* 2.6.4·B 未读告警持久横幅 */

@@ -153,6 +153,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["bu_names"] = list(pages.keys())
         # 54.11 R-01：有 BU 配置但未生成分页时勿静默（管理员/整体可见提示）
         out.update(_bu_nav_meta(cfg, root, pages))
+        # 2.6.6·T1-8：未归属挂到整体 VM，前端标明「整体 > 各 BU 之和」差额
+        _un = (summary.get("meta") or {}).get("unassigned") or {}
+        out["unassigned"] = {
+            "count": int(_un.get("count") or 0),
+            "by_period": dict(_un.get("by_period") or {}),
+        }
         return JSONResponse(out)
 
     @app.get("/api/v1/rankings/full")

@@ -44,6 +44,23 @@ const showOverall = computed(() => {
   return canMain.value
 })
 
+/** 2.6.6·T1-8：整体含未归属、BU 页不含 → 必须标明差额，禁止两数字对不上却不说明 */
+const unassignedNote = computed(() => {
+  if (store.scope !== 'main') return ''
+  const vm = store.vm as {
+    unassigned?: { count?: number; by_period?: Record<string, string> }
+    meta?: { unassigned?: { count?: number; by_period?: Record<string, string> } }
+  } | null
+  const u = vm?.unassigned || vm?.meta?.unassigned
+  const n = Number(u?.count || 0)
+  if (!n) return ''
+  const pk = store.period || ''
+  const amt = (u?.by_period && pk && u.by_period[pk]) || ''
+  return amt
+    ? `未归属 BU 销售 ${n} 人 · 本期未归属下单 ${amt}（只在整体、不进各 BU；整体合计大于各 BU 之和属正常）`
+    : `未归属 BU 销售 ${n} 人（其下单/收入只在整体页，不进各 BU；整体合计大于各 BU 之和属正常）`
+})
+
 function href(name: string) {
   if (name === '整体') return '/'
   return '/bu/' + encodeURIComponent(name)
@@ -105,6 +122,12 @@ onMounted(async () => {
         >{{ n }}</a
       >
     </span>
+    <div
+      v-if="unassignedNote"
+      class="bu-nav-unassigned"
+      role="status"
+      data-testid="bu-nav-unassigned-gap"
+    >{{ unassignedNote }}</div>
   </div>
   <div
     v-else-if="emptyHint"

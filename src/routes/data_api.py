@@ -633,6 +633,50 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "metrics": m_out,
             "schedule": sched,  # 2.6.3·B2 跑批台账
         }
+        # 2.6.6·T1：业务缺口结构化（登录后）；供管理端黄条展开「缺哪月 / 影响 / 谁补」
+        if authed:
+            try:
+                from datetime import date as _date
+
+                from profit.budget_manual import manual_missing_months as _miss_months
+
+                _conn2 = db.connect(cfg, root)
+                try:
+                    _manual = db.load_manual(cfg, _conn2)
+                finally:
+                    _conn2.close()
+                _today = _date.today()
+                _miss = _miss_months(cfg, _manual, _today.year, _today.month) or []
+                _un_meta = meta.get("unassigned") or {}
+                _un_n = int(_un_meta.get("count") or n_un or 0)
+                body_out["business_gaps"] = {
+                    "manual_missing_months": list(_miss),
+                    "manual_missing_count": len(_miss),
+                    "manual_impact": (
+                        "缺月按 0 计：生产成本手填、营销/管理/研发人力、财务费用补充、其他损益等偏低，"
+                        "税前利润可能偏高；补录后请点「更新数据」。"
+                    ),
+                    "manual_owner": "管理会计 · 管理端「人工填写」按月补录",
+                    "unassigned_count": _un_n,
+                    "unassigned_orders_by_period": _un_meta.get("by_period") or {},
+                    "unassigned_impact": (
+                        "未归属销售的下单/收入只在整体页，不进任何 BU 页；整体合计会大于各 BU 之和。"
+                        if _un_n
+                        else ""
+                    ),
+                    "unassigned_owner": "设置 · 销售归属 BU" if _un_n else "",
+                }
+            except Exception:
+                body_out["business_gaps"] = {
+                    "manual_missing_months": [],
+                    "manual_missing_count": 0,
+                    "manual_impact": "",
+                    "manual_owner": "",
+                    "unassigned_count": int(n_un or 0),
+                    "unassigned_orders_by_period": {},
+                    "unassigned_impact": "",
+                    "unassigned_owner": "",
+                }
         # 2.6.4·B：未读告警（仅管理员会话；看端不消费此字段做横幅）
         if authed and _user(request):
             try:
