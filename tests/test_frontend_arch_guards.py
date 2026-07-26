@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -184,6 +186,79 @@ class TestRedThenGreenGuards(unittest.TestCase):
             if probe_css.exists():
                 probe_css.unlink()
         lines.append("F2_GREEN_OK")
+
+        # F3 red: inject literal transition duration (must fail guard) then restore
+        probe_dur = FE / "styles" / "components" / "_f3_probe.css"
+        try:
+            probe_dur.write_text(".x{transition: opacity 0.3s ease;}\n", encoding="utf-8")
+            hits = []
+            for p in list(COMP.rglob("*.vue")) + list((FE / "styles").rglob("*.css")):
+                if p.resolve() == TOKENS.resolve():
+                    continue
+                if "vendor" in p.parts:
+                    continue
+                text = p.read_text(encoding="utf-8")
+                for i, line in enumerate(text.splitlines(), 1):
+                    if "transition" not in line:
+                        continue
+                    if "var(--dur-" in line:
+                        continue
+                    if DUR_LITERAL_RE.search(line):
+                        hits.append(f"{p.relative_to(ROOT)}:{i}:{line.strip()[:80]}")
+            lines.append(f"F3_BROKEN hits={len(hits)}")
+            self.assertTrue(
+                any("_f3_probe" in h for h in hits),
+                "F3 注入 transition: 0.3s 应被检出",
+            )
+            lines.append("F3_RED_OK")
+            # 与单元测同一路径：故意违规时 test_no_literal 也必须失败
+            r = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "unittest",
+                    "tests.test_frontend_arch_guards.TestF3DurationTokens.test_no_literal_transition_duration",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            lines.append(f"F3_UNITTEST_BROKEN exit={r.returncode}")
+            self.assertNotEqual(r.returncode, 0, "F3 违规时单元测应红")
+        finally:
+            if probe_dur.exists():
+                probe_dur.unlink()
+        # green again
+        hits = []
+        for p in list(COMP.rglob("*.vue")) + list((FE / "styles").rglob("*.css")):
+            if p.resolve() == TOKENS.resolve():
+                continue
+            if "vendor" in p.parts:
+                continue
+            text = p.read_text(encoding="utf-8")
+            for i, line in enumerate(text.splitlines(), 1):
+                if "transition" not in line:
+                    continue
+                if "var(--dur-" in line:
+                    continue
+                if DUR_LITERAL_RE.search(line):
+                    hits.append(f"{p.relative_to(ROOT)}:{i}:{line.strip()[:80]}")
+        lines.append(f"F3_RESTORED hits={len(hits)}")
+        self.assertEqual(hits, [], "F3 还原后不得残留字面量时长")
+        r_ok = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "tests.test_frontend_arch_guards.TestF3DurationTokens.test_no_literal_transition_duration",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        lines.append(f"F3_UNITTEST_GREEN exit={r_ok.returncode}")
+        self.assertEqual(r_ok.returncode, 0, "F3 还原后单元测应绿")
+        lines.append("F3_GREEN_OK")
 
         # F4 red: strip metaLabel guard temporarily via string check on synthetic
         bad = '<span v-if="meta" class="rank-bar__meta">{{ meta }}</span>'
