@@ -68,7 +68,12 @@ class TestBuTransition264(unittest.TestCase):
     def test_no_theme_class_regression(self):
         """不许动测试锚着的主题 class / 按钮文案关键词。"""
         app = (FE / "App.vue").read_text(encoding="utf-8")
-        self.assertTrue((ROOT / "static").exists() or "theme" in app.lower() or True)
+        self.assertTrue((ROOT / "static").is_dir(), "static/ 须存在")
+        # 主题切换入口在 ThemeToggle / TopBar，App 须接线主题相关
+        self.assertTrue(
+            "ThemeToggle" in app or "theme" in app.lower(),
+            "App.vue 须保留主题入口",
+        )
 
 
 if __name__ == "__main__":

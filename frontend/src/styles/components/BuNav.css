@@ -38,7 +38,7 @@
   flex: 1 1 100%;
   font-size: 12px;
   line-height: 1.4;
-  color: var(--orange, #fbbf24);
+  color: var(--orange);
   opacity: 0.95;
   max-width: 56rem;
 }

@@ -210,17 +210,17 @@ onMounted(load)
 
 <style scoped>
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
-.muted { color: var(--admin-mut, #94a3b8); font-size: 13px; }
-:deep(.exp-row) { --el-table-tr-bg-color: #3b1d1d; }
+.muted { color: var(--admin-mut); font-size: 13px; }
+:deep(.exp-row) { --el-table-tr-bg-color: var(--admin-exp-row); }
 .empty-guide {
   margin-top: 48px;
   text-align: center;
   padding: 32px 16px;
-  border: 1px dashed var(--admin-line, #2a364d);
+  border: 1px dashed var(--admin-line);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.35);
+  background: var(--admin-empty-bg);
 }
 .empty-ico { font-size: 36px; line-height: 1; margin-bottom: 12px; }
-.empty-title { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: var(--admin-ink, #e2e8f0); }
-.empty-desc { margin: 0 auto 16px; max-width: 420px; font-size: 13px; line-height: 1.55; color: var(--admin-mut, #94a3b8); }
+.empty-title { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: var(--admin-ink); }
+.empty-desc { margin: 0 auto 16px; max-width: 420px; font-size: 13px; line-height: 1.55; color: var(--admin-mut); }
 </style>

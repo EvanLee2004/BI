@@ -1,0 +1,10 @@
+domain_RED_EXIT:1
+domain_GREEN_EXIT:0
+pl_display_RED_EXIT:1
+pl_display_GREEN_EXIT:0
+bu_transition_RED_EXIT:1
+bu_transition_GREEN_EXIT:0
+b_http_RED_EXIT:1
+b_http_GREEN_EXIT:0
+OR_TRUE_HITS:0
+ALL_RED_THEN_GREEN_OK

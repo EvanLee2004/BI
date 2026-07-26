@@ -257,15 +257,15 @@ onMounted(load)
 
 <style scoped>
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.muted { color: var(--admin-mut, #94a3b8); font-size: 12px; }
+.muted { color: var(--admin-mut); font-size: 12px; }
 .matrix-wrap { overflow: auto; max-width: 100%; }
 .b-matrix { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-.b-matrix th, .b-matrix td { border: 1px solid var(--admin-line, #2a364d); padding: 8px 10px; vertical-align: top; }
+.b-matrix th, .b-matrix td { border: 1px solid var(--admin-line); padding: 8px 10px; vertical-align: top; }
 .b-lab { font-weight: 600; }
 .b-tip { margin-top: 2px; }
 .b-cur { margin-bottom: 4px; }
 .b-edit { display: flex; align-items: center; gap: 4px; }
 .pct { font-size: 12px; color: var(--admin-mut); }
 .b-sum-tip { margin-top: 4px; font-size: 12px; color: var(--admin-mut); }
-.b-sum-tip.warn { color: #fbbf24; font-weight: 600; }
+.b-sum-tip.warn { color: var(--admin-orange); font-weight: 600; }
 </style>

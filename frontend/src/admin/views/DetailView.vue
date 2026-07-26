@@ -287,7 +287,7 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 10px;
 }
-.muted { color: var(--admin-mut, #94a3b8); font-size: 13px; }
+.muted { color: var(--admin-mut); font-size: 13px; }
 .grow { flex: 1; }
 code { font-size: 12px; word-break: break-all; }
 </style>

@@ -234,4 +234,18 @@ else
   done
   [ "$fail" -eq 0 ] || exit 1
 fi
+# A-5：打印 skip 位点计数（装饰器 + self.skipTest 静态位点，非本轮执行 skip 数）
+SKIP_SITES=$($PY - <<'PY'
+import re
+from pathlib import Path
+n = 0
+for p in Path("tests").rglob("*.py"):
+    text = p.read_text(encoding="utf-8", errors="replace")
+    for line in text.splitlines():
+        if re.search(r"@unittest\.skip|@pytest\.mark\.skip|skipUnless|skipIf|self\.skipTest\(|pytest\.skip\(", line):
+            n += 1
+print(n)
+PY
+)
+echo "[skip] 测试源码 skip 位点数=$SKIP_SITES（清单见 docs/验收证据/2_6_7/skip_inventory.md）"
 echo "✓ 全部通过"

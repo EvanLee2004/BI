@@ -86,13 +86,9 @@ class TestHttpShippedFragments(unittest.TestCase):
     def test_http_cache_path_strips_all_client_fields(self):
         c = self._login_overall()
         # 缓存里仍有预拼
-        self.assertTrue(server._state["fragments"].get("kpi_views"))
-        self.assertIn(
-            "kpi-grid",
-            server._state["fragments"]["kpi_views"][:200]
-            if "kpi" in server._state["fragments"]["kpi_views"][:50].lower() or True
-            else "",
-        )
+        kv = server._state["fragments"].get("kpi_views") or ""
+        self.assertTrue(kv, "fragments.kpi_views 应有预拼 HTML")
+        self.assertIn("kpi-grid", kv[:400].lower() if "kpi" in kv[:80].lower() else kv)
         r = c.get("/api/v1/cockpit/fragments")
         self.assertEqual(r.status_code, 200, r.text[:400])
         body = r.json()

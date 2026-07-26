@@ -15,11 +15,13 @@ from domain.pl import structure as pl_structure  # noqa: E402
 
 class TestConfigEngineBasics(unittest.TestCase):
     def test_default_categories_nonempty(self):
-        cats = config_engine.default_expense_categories() if hasattr(config_engine, 'default_expense_categories') else None
-        # exercise public API surface
-        self.assertTrue(hasattr(config_engine, 'load_engine_config') or hasattr(config_engine, 'apply_overrides') or True)
-        # call whatever exists without breaking
-        names = [n for n in dir(config_engine) if not n.startswith('_')]
+        # 真断言：硬编码默认配置可加载且含核心键
+        self.assertTrue(hasattr(config_engine, "default_config_from_hardcoded"))
+        self.assertTrue(hasattr(config_engine, "load_all"))
+        cfg = config_engine.default_config_from_hardcoded()
+        self.assertIsInstance(cfg, dict)
+        self.assertIn("报表大类白名单", cfg)
+        names = [n for n in dir(config_engine) if not n.startswith("_")]
         self.assertGreater(len(names), 3)
 
     def test_pl_structure_empty_period_safe(self):
@@ -29,12 +31,9 @@ class TestConfigEngineBasics(unittest.TestCase):
             "expenses": {}, "expense_total": 0, "op_profit": 0,
             "tax_surcharge": 0, "profit_before_tax": 0,
         }
-        try:
-            out = pl_structure.pl_structure(p, {}, cfg={})
-            self.assertIsInstance(out, (dict, list))
-        except TypeError:
-            # signature may differ — still exercise module import path
-            self.assertTrue(callable(getattr(pl_structure, 'pl_structure', None)) or True)
+        self.assertTrue(callable(getattr(pl_structure, "pl_structure", None)))
+        out = pl_structure.pl_structure(p, {})
+        self.assertIsInstance(out, dict)
 
 
 if __name__ == '__main__':

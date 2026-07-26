@@ -1,0 +1,16 @@
+S1 gates 2026-07-26T16:39:50Z
+VERSION=2.6.6
+run_verify EXIT:0
+or True hits:
+(none)
+F-2:
+
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+OK
+a1 colors equal rgb(251,191,36) before/after
+-rw-r--r--@ 1 evanlee  staff  5471 Jul 27 01:21 docs/验收证据/2_6_7/a1_after.png
+-rw-r--r--@ 1 evanlee  staff  5986 Jul 27 01:21 docs/验收证据/2_6_7/a1_before.png
+carpet unique four: true (see carpet_a4_retake.md)
+skip sites=29

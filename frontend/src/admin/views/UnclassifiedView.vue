@@ -82,5 +82,5 @@ onMounted(() => load(true))
 
 <style scoped>
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-.muted { color: var(--admin-mut, #94a3b8); font-size: 13px; }
+.muted { color: var(--admin-mut); font-size: 13px; }
 </style>

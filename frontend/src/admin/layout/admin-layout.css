@@ -5,26 +5,26 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 10px 16px;
-  background: rgba(21, 30, 48, 0.92);
+  background: var(--admin-bar-bg);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--admin-line, #2a364d);
+  border-bottom: 1px solid var(--admin-line);
   position: sticky;
   top: 0;
   z-index: 40;
 }
-html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
+html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
 .admin-bar b { font-size: 15px; }
 .ver-pill {
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 8px;
-  border: 1px solid var(--admin-line, #2a364d);
-  color: var(--admin-mut, #8b9bb4);
+  border: 1px solid var(--admin-line);
+  color: var(--admin-mut);
   cursor: pointer;
 }
-.muted { color: var(--admin-mut, #8b9bb4); font-size: 13px; }
-.logout { color: var(--admin-mut, #8b9bb4); text-decoration: none; font-size: 13px; padding: 6px 10px; }
-.logout:hover { color: var(--admin-fg, #e8eef9); }
+.muted { color: var(--admin-mut); font-size: 13px; }
+.logout { color: var(--admin-mut); text-decoration: none; font-size: 13px; padding: 6px 10px; }
+.logout:hover { color: var(--admin-fg); }
 .admin-groups {
   display: flex;
   gap: 4px;
@@ -36,14 +36,14 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  color: var(--admin-mut, #8b9bb4);
+  color: var(--admin-mut);
   border: 1px solid transparent;
   border-bottom: none;
 }
 .gtab.on {
-  background: var(--admin-panel, #151e30);
-  color: var(--admin-fg, #e8eef9);
-  border-color: var(--admin-line, #2a364d);
+  background: var(--admin-panel);
+  color: var(--admin-fg);
+  border-color: var(--admin-line);
 }
 .admin-subnav {
   display: flex;
@@ -51,8 +51,8 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
   gap: 6px;
   align-items: center;
   padding: 10px 16px;
-  background: rgba(15, 22, 36, 0.65);
-  border-bottom: 1px solid var(--admin-line, #2a364d);
+  background: var(--admin-subnav-bg);
+  border-bottom: 1px solid var(--admin-line);
 }
 .admin-main { padding: 16px 20px 28px; }
 .health-pop {
@@ -64,27 +64,27 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
   max-width: 560px;
   max-height: min(70vh, 480px);
   overflow: auto;
-  background: var(--admin-panel, #151e30);
-  border: 1px solid var(--admin-line, #2a364d);
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-line);
   border-radius: 12px;
   padding: 14px 16px;
   font-size: 12px;
   line-height: 1.6;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--admin-shadow-pop);
 }
 .health-pop h4 { margin: 0 0 4px; font-size: 13px; }
 .health-pop-hint { margin: 0 0 6px; font-size: 11px; opacity: 0.75; }
 .health-pop .grp { margin-top: 10px; }
 .health-pop .k { color: var(--admin-mut); font-weight: 600; }
-.health-pop .ok { color: #16a34a; }
+.health-pop .ok { color: var(--admin-ok); }
 .health-pop .gap-block {
   margin-top: 6px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.25);
+  background: var(--admin-gap-bg);
+  border: 1px solid var(--admin-gap-border);
 }
-.health-pop .gap-impact { margin-top: 4px; color: var(--admin-mut, #93a1c0); }
+.health-pop .gap-impact { margin-top: 4px; color: var(--admin-mut); }
 .health-pop .gap-owner { margin-top: 2px; font-weight: 600; }
 @media (max-width: 480px) {
   .health-pop {
@@ -96,16 +96,16 @@ html.theme-light .admin-bar { background: rgba(255, 255, 255, 0.92); }
 }
 .nav-badge { margin-left: 6px; }
 
-/* 2.6.4·B 未读告警持久横幅 */
+/* 2.6.4·B 未读告警持久横幅（B-7 将下线 UI；token 仍保留） */
 .admin-alert-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 16px;
-  background: #7f1d1d;
-  color: #fecaca;
-  border-bottom: 1px solid #991b1b;
+  background: var(--admin-alert-bg);
+  color: var(--admin-alert-fg);
+  border-bottom: 1px solid var(--admin-alert-border);
   font-size: 13px;
   position: sticky;
   top: 0;

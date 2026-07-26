@@ -114,16 +114,16 @@ onMounted(load)
 .ovcard {
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid var(--admin-line, #2a364d);
-  background: var(--admin-panel2, #1a2438);
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel2);
   cursor: pointer;
 }
 .ovcard.disabled { opacity: 0.45; cursor: default; }
-.ovcard.ok { border-color: #14532d; }
-.ovcard.bad { border-color: #7c2d12; }
+.ovcard.ok { border-color: var(--admin-ok-border); }
+.ovcard.bad { border-color: var(--admin-bad-border); }
 .row { display: flex; align-items: center; gap: 8px; }
-.n { font-size: 22px; font-weight: 800; color: #fb923c; }
-.ovcard.ok .n { color: #4ade80; }
+.n { font-size: 22px; font-weight: 800; color: var(--admin-warn-num); }
+.ovcard.ok .n { color: var(--admin-ok-num); }
 .lab { font-weight: 700; }
-.muted { margin-top: 4px; font-size: 12.5px; color: var(--admin-mut, #94a3b8); }
+.muted { margin-top: 4px; font-size: 12.5px; color: var(--admin-mut); }
 </style>

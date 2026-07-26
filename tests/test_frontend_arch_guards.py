@@ -16,8 +16,10 @@ FE = ROOT / "frontend" / "src"
 COMP = FE / "components"
 BASE = COMP / "base"
 TOKENS = FE / "styles" / "tokens.css"
+# 管理端 token 唯一真相源（与 tokens.css 同级：色值只许出现在此）
+ADMIN_TOKENS = FE / "admin" / "styles" / "admin.css"
 SCRATCH = Path(
-    "/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/grok-goal-c31b43ef0cf9/implementer"
+    "/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/grok-goal-474f372d3ad1/implementer"
 )
 
 # F-1 白名单：须写明理由（仅 charts 宿主等无业务样式的壳）
@@ -37,6 +39,7 @@ DUR_LITERAL_RE = re.compile(
 
 
 def _vue_business_files() -> list[Path]:
+    """F-1：components/** 一层业务壳（base/charts 允许 scoped 宿主样式）。"""
     return sorted(p for p in COMP.glob("*.vue") if p.parent == COMP)
 
 
@@ -57,13 +60,17 @@ class TestF1NoStyleInBusiness(unittest.TestCase):
 
 
 class TestF2NoHardcodedColors(unittest.TestCase):
-    """硬编码色值只许出现在 tokens.css（看端 components + styles；admin/vendor 另册）。"""
+    """硬编码色值只许出现在 tokens.css 与 admin/styles/admin.css；vendor 不扫。"""
 
     SCAN_ROOTS = [
         FE / "components",
         FE / "styles",
         FE / "App.vue",
+        FE / "admin",
+        FE / "views",
     ]
+
+    TOKEN_FILES = {TOKENS.resolve(), ADMIN_TOKENS.resolve()}
 
     def _iter_files(self):
         for root in self.SCAN_ROOTS:
@@ -79,11 +86,8 @@ class TestF2NoHardcodedColors(unittest.TestCase):
                     continue
                 if "vendor" in p.parts:
                     continue
-                if p.resolve() == TOKENS.resolve():
+                if p.resolve() in self.TOKEN_FILES:
                     continue
-                if p.parts and "base" in p.parts and p.suffix == ".vue":
-                    # base 组件也不得硬编码色，须走 token
-                    pass
                 yield p
 
     def test_no_hardcoded_colors_outside_tokens(self):
@@ -93,7 +97,12 @@ class TestF2NoHardcodedColors(unittest.TestCase):
             for i, line in enumerate(text.splitlines(), 1):
                 if COLOR_RE.search(line):
                     hits.append(f"{p.relative_to(ROOT)}:{i}:{line.strip()[:80]}")
-        self.assertEqual(hits, [], "F-2 硬编码色值须只在 tokens.css:\n" + "\n".join(hits[:30]))
+        self.assertEqual(
+            hits,
+            [],
+            "F-2 硬编码色值须只在 tokens.css / admin/styles/admin.css:\n"
+            + "\n".join(hits[:40]),
+        )
 
 
 class TestF3DurationTokens(unittest.TestCase):

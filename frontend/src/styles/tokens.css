@@ -105,6 +105,8 @@
   --heat-d0: rgba(8, 16, 32, 0.2);
   --heat-d1: #0e7490;
   --heat-d4: #f59e0b;
+  /* 深空默认：橙/警示（与 scifi-bridge / echarts 兜底一致，禁止组件再写 hex） */
+  --orange: #fbbf24;
 }
 
 :root[data-theme="neon"] {
@@ -121,6 +123,7 @@
   --rank-name: var(--ink, #eef4ff);
   --rank-no: var(--mut, #a8b8d8);
   --rank-meta: var(--mut2, #7a8bb0);
+  --orange: #ffd23f;
 }
 
 :root[data-theme="light"],
@@ -144,6 +147,7 @@ html.theme-light {
   --err-soft-fg: #c2410c;
   --mut-label: #3d4a5c;
   --mask-heavy: rgba(15, 23, 42, 0.45);
+  --orange: #c2410c;
 }
 
 .rank-bar {

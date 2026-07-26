@@ -115,7 +115,7 @@ import './settings-view.css'
               <li v-for="(s, i) in (updatePayload.log as string[])" :key="i">{{ s }}</li>
             </ul>
             <el-button v-if="canUpdate" type="primary" size="small" style="margin-top: 8px" @click="applyUpdate">一键更新并重启</el-button>
-            <div v-else-if="updatePayload" class="muted" style="color: #fbbf24; margin-top: 6px">
+            <div v-else-if="updatePayload" class="muted warn-tone">
               ⚠ {{ (updatePayload.reason as string) || '当前不满足自动更新条件' }}
             </div>
           </div>
@@ -349,7 +349,7 @@ import './settings-view.css'
           <el-button size="small" text style="margin-top: 10px" @click="buAdd">＋ 加一个 BU</el-button>
           <div class="muted" style="margin-top: 8px">
             公共费用分摊比例已改为按月填写——去「数据调整 → 人工填写」。
-            <span v-if="buAllocLegacy" style="color: #fbbf24">⚠ 检测到旧全年分摊比例，已停用，请按月重填。</span>
+            <span v-if="buAllocLegacy" class="legacy-warn">⚠ 检测到旧全年分摊比例，已停用，请按月重填。</span>
           </div>
           <div class="muted">{{ setMsgs.bu }}</div>
         </el-card>
@@ -377,9 +377,9 @@ import './settings-view.css'
     </div>
 
     <!-- 2.2.4·F：退出从顶栏移到设置页最下 -->
-    <div class="admin-logout-foot" style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--el-border-color, #334155); text-align: center">
-      <div class="muted" style="margin-bottom: 10px; font-size: 12px">退出登录</div>
-      <a class="logout" href="/admin/logout" style="display: inline-block; padding: 8px 24px; border-radius: 8px; border: 1px solid var(--el-border-color, #475569); color: var(--el-text-color-regular, #e2e8f0); text-decoration: none">退出</a>
+    <div class="admin-logout-foot">
+      <div class="muted">退出登录</div>
+      <a class="logout" href="/admin/logout">退出</a>
     </div>
 
     <el-drawer v-model="verDrawer" title="更新日志" size="400px">

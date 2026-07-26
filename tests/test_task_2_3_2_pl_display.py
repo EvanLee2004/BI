@@ -198,7 +198,8 @@ class TestTask232PlDisplay(unittest.TestCase):
         import profit  # noqa: F401
         from profit import budget_manual  # noqa: F401
 
-        self.assertTrue(hasattr(budget_manual, "build_period") or True)
+        self.assertTrue(hasattr(budget_manual, "build_period"))
+        self.assertTrue(callable(budget_manual.build_period))
 
 
 if __name__ == "__main__":
