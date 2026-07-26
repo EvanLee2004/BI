@@ -4,3 +4,8 @@ run_verify EXIT:0
 regress: zero diff (in run_verify step 3)
 or True:
 (none)
+
+=== re-verify 2026-07-26T19:27:32Z ===
+run_verify EXIT:0
+or True:
+(none)

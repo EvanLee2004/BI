@@ -1,0 +1,6 @@
+2.6.7
+active
+login=200
+built_at 2026-07-27 02:30:05
+result 黄
+has_alerts_key False
