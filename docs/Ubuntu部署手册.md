@@ -320,3 +320,42 @@ sudo systemctl enable --now fail2ban
 ```bash
 timedatectl status   # NTP synchronized: yes
 ```
+
+---
+
+## 附录 · 整机灾难恢复（2.6.6 演练补）
+
+> 本地空机演练（2026-07-26）：`git clone` → `python3 -m venv` → `pip install -r requirements.txt` → 恢复 `数据/看板.db` → `create_app` 可建。墙钟约 **10s**（已有依赖缓存时；全新机器 pip 更久）。
+
+### 必拷数据（丢了就回不来）
+
+| 路径 | 作用 |
+|------|------|
+| `数据/看板.db` | 业务库（std / 手填 / 调整 / 预算 / 日志） |
+| `数据/看板账号.json` | 账号口令真相源（chmod 600） |
+| `数据/本地配置.json`（若有） | 路径/开关；损坏会退回默认 |
+| `数据/管理员密钥.json` | 会话密钥；无则首次启动自动生成（**旧会话全失效**） |
+| 智云 / 台账凭据 | **不进 git**；见机上运维笔记 / 公司电脑夹 |
+| CIFS 凭据 `/etc/kanban-cifs.cred` | 台账共享；不进 git |
+
+### 从备份恢复库
+
+```bash
+cd /opt/kanban/看板正式程序
+sudo systemctl stop kanban
+# 备份损坏库
+cp -a 数据/看板.db "数据/备份/看板_坏库_$(date +%Y%m%d%H%M).db"
+# 从异地/本机备份恢复（文件名按实际）
+cp -a 数据/备份/看板_上机前_YYYYMMDDHHMM.db 数据/看板.db
+# 手填/调整行数应与备份一致（见演练报告对照命令）
+sudo systemctl start kanban
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/login
+```
+
+### 手册曾漏、演练补上的点
+
+1. **明确写 `数据/看板.db` 文件名**与「先停服再拷」顺序。  
+2. **无共享盘时**：`KANBAN_OFFLINE=1` 或允许 local_fallback；正式机仍应修 CIFS。  
+3. **clone 后仓库已含 `frontend/dist`**：不必在部署机 `npm run build`（除非改前端源码）。  
+4. **账号样例** `docs/看板账号样例.json` ≠ 生产口令；生产用机上 `数据/看板账号.json`。
+
