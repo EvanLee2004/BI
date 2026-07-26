@@ -80,6 +80,62 @@ def _bu_sales_set(bucfg: dict, name: str) -> set:
     return sales
 
 
+def _profit_rank_margin_disp(dim: str, it: dict) -> str:
+    """陆总0714：系统成本率；按销售不显示（防「人力算不算」连锁追问）。"""
+    if dim == "sales":
+        return ""
+    cp = it.get("cost_pct")
+    return f"系统成本率 {cp:.0f}%" if cp is not None else "系统成本率 —"
+
+
+def _profit_rank_items_payload(rk: dict, dim: str) -> list[dict]:
+    def _wan(v):
+        return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+    items = [
+        {
+            "i": i,
+            "name": it["name"],
+            "revenue_disp": _wan(it["revenue"]),
+            "margin_disp": _profit_rank_margin_disp(dim, it),
+        }
+        for i, it in enumerate(rk["items"], 1)
+    ]
+    if rk.get("unfilled"):
+        uf = rk["unfilled"]
+        items.append(
+            {
+                "i": len(items) + 1,
+                "name": "（未填）",
+                "revenue_disp": _wan(uf["revenue"]),
+                "margin_disp": _profit_rank_margin_disp(dim, uf),
+                "unfilled": True,
+            }
+        )
+    return items
+
+
+def _load_project_for_profit_rank(cfg, root, bu_name: str):
+    """加载项目明细；有 bu 则按该 BU 销售过滤（隔离不放宽）。"""
+    import profit as _profit
+
+    conn = db.connect(cfg, root)
+    try:
+        project = db.load_project_detail(cfg, conn)
+    finally:
+        conn.close()
+    if not bu_name:
+        return project
+    import bu as _bu
+
+    bucfg = _bu.load_bu_config(cfg, root) or {"bus": []}
+    sales = _bu_sales_set(bucfg, bu_name)
+    known = {b.get("name") for b in bucfg.get("bus") or []}
+    if not sales and bu_name not in known:
+        raise HTTPException(status_code=404, detail="未知 BU")
+    return _profit.filter_rows_by_sales(project, sales)
+
+
 def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
     cfg = d.cfg
     root = d.root
@@ -360,57 +416,41 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/profit_ranking")
     def api_profit_ranking(
-        request: Request, dim: str = Query(""), start: str = Query(""), end: str = Query(""), top: int = Query(5000)
+        request: Request,
+        dim: str = Query(""),
+        start: str = Query(""),
+        end: str = Query(""),
+        top: int = Query(5000),
+        bu: str = Query(""),
     ):
         """板块③「收入与毛利结构」全量明细（「其余 N 个」点开）：确认口径 收入/毛利 按客户/销售。
-        与 /api/daily 同为全公司口径出口——要整体页/管理员会话（BU 会话 401，防绕过页面隔离）；
-        **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。入参严格校验：dim∈{customer,sales}、ISO 日期、区间≤366天。"""
-        if not _can_view_main(request):
+
+        - 无 bu：整体/管理员会话（全公司口径；BU 会话 401，防绕过隔离）
+        - 有 bu：须能看该 BU；仅该 BU 销售过滤后的项目行（铁律：BU 只能看自己的）
+        **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。
+        入参：dim∈{customer,sales}、ISO 日期、区间≤366天。
+        """
+        bu_name = (bu or "").strip()
+        if bu_name:
+            if not _can_view_bu(request, bu_name):
+                raise HTTPException(status_code=401, detail="无权查看该 BU")
+        elif not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
         name_col = {"customer": "客户", "sales": "销售"}.get(dim)
         if not name_col:
             raise HTTPException(status_code=400, detail="dim 须为 customer 或 sales")
-        import datetime as _dt
-
-        try:
-            s = _dt.date.fromisoformat(start)
-            e = _dt.date.fromisoformat(end)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="日期格式须为 YYYY-MM-DD") from None
-        if e < s:
-            raise HTTPException(status_code=400, detail="结束日期须不早于开始日期")
-        if (e - s).days > 366:
-            raise HTTPException(status_code=400, detail="区间最长 366 天")
-        top = max(1, min(5000, int(top)))
-        conn = db.connect(cfg, root)
-        try:
-            project = db.load_project_detail(cfg, conn)
-        finally:
-            conn.close()
+        s, e = _parse_daily_range(start, end)
+        top_n = max(1, min(5000, int(top)))
+        project = _load_project_for_profit_rank(cfg, root, bu_name)
         import profit as _profit
 
         vat = cfg["tax"]["vat_rate"]
-        rk = _profit.compute_profit_ranking(project, name_col, cfg["columns"], s, e, vat, top=top)
-
-        def _wan(v):
-            return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
-
-        def _mg(it):
-            # 陆总0714：改叫「系统成本率」；按销售的率先不显示（防"人力算不算"连锁追问）
-            if dim == "sales":
-                return ""
-            cp = it.get("cost_pct")
-            return f"系统成本率 {cp:.0f}%" if cp is not None else "系统成本率 —"
-
-        items = [
-            {"name": it["name"], "revenue_disp": _wan(it["revenue"]), "margin_disp": _mg(it)} for it in rk["items"]
-        ]
-        if rk.get("unfilled"):
-            uf = rk["unfilled"]
-            items.append(
-                {"name": "（未填）", "revenue_disp": _wan(uf["revenue"]), "margin_disp": _mg(uf), "unfilled": True}
-            )
-        return {"dim": dim, "start": start, "end": end, "items": items}
+        rk = _profit.compute_profit_ranking(project, name_col, cfg["columns"], s, e, vat, top=top_n)
+        items = _profit_rank_items_payload(rk, dim)
+        out = {"dim": dim, "start": start, "end": end, "items": items, "count": len(items)}
+        if bu_name:
+            out["bu"] = bu_name
+        return out
 
     @app.get("/api/exceptions")
     def api_exceptions(request: Request):

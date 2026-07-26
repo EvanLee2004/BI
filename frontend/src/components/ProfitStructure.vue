@@ -14,13 +14,51 @@ const pack = computed((): ProfitRankPeriod | null => {
 const modal = ref(false)
 const modalTitle = ref('')
 const modalItems = ref<RankItem[]>([])
+const modalTag = ref('')
 const showMeta = ref(true)
 
-function openOthers(side: RankSide) {
-  modalTitle.value = (side.title || '') + ' · 完整排名'
-  modalItems.value = side.full_items || []
-  showMeta.value = !!side.show_meta
+/**
+ * 2.6.5 A-1：首包 embed_full=False 不下发 full_items → 必须按需拉 /api/profit_ranking。
+ * 整体会话无 bu；BU 会话带 bu=本 BU（后端隔离，不可越权）。
+ */
+async function openOthers(side: RankSide) {
+  const title = (side.title || '') + ' · 完整排名'
+  modalTitle.value = title
+  showMeta.value = side.show_meta !== false
+  const local = side.full_items || []
+  if (local.length) {
+    modalTag.value = ''
+    modalItems.value = local
+    modal.value = true
+    return
+  }
+  modalTag.value = '加载中…'
+  modalItems.value = []
   modal.value = true
+  try {
+    const dim = side.dim === 'customer' ? 'customer' : 'sales'
+    const start = pack.value?.start || ''
+    const end = pack.value?.end || ''
+    const buQ =
+      store.scope === 'bu' && store.buName
+        ? `&bu=${encodeURIComponent(store.buName)}`
+        : ''
+    const r = await fetch(
+      `/api/profit_ranking?dim=${encodeURIComponent(dim)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&top=5000${buQ}`,
+      { credentials: 'same-origin' },
+    )
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const d = (await r.json()) as { items?: RankItem[] }
+    const items = (d.items || []).map((it, idx) => ({
+      ...it,
+      i: it.i ?? idx + 1,
+    }))
+    modalTag.value = items.length ? '' : '本期无数据'
+    modalItems.value = items
+  } catch {
+    modalTag.value = '加载失败'
+    modalItems.value = []
+  }
 }
 function close() {
   modal.value = false
@@ -56,6 +94,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           <div
             v-if="side.others"
             class="ev-row rk-row rk-others pr-more"
+            data-testid="profit-rank-others"
             @click="openOthers(side)"
           >
             <span class="rk-no">…</span>
@@ -76,14 +115,21 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
       <span class="pr-f-item"><b>集中度</b> = 前5大交付收入 ÷ 期内总交付收入</span>
     </div>
     <Teleport to="body">
-      <div v-if="modal" class="rkm-mask" style="display: flex" @click.self="close">
+      <div
+        v-if="modal"
+        class="rkm-mask"
+        style="display: flex"
+        data-testid="profit-rank-modal"
+        @click.self="close"
+      >
         <div class="rkm">
           <div class="rkm-h">
             <b>{{ modalTitle }}</b>
+            <span v-if="modalTag" class="tag" data-testid="profit-rank-modal-tag">{{ modalTag }}</span>
             <button type="button" class="ghost mini" @click="close">关闭</button>
           </div>
           <div class="rkm-list">
-            <div class="ev-list">
+            <div class="ev-list" data-testid="profit-rank-modal-list">
               <div v-for="it in modalItems" :key="'p' + it.i + it.name" class="ev-row rk-row">
                 <span class="rk-no">{{ it.i }}</span>
                 <span class="ev-name">{{ it.name }}</span>
