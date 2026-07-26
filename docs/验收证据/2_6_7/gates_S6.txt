@@ -9,3 +9,9 @@ or True:
 run_verify EXIT:0
 or True:
 (none)
+
+=== S6 probe_all 2026-07-26T19:38:49Z ===
+command: .venv/bin/python "../../方案与文档/软件工程文档/3_测试/20260725_全方位深度排查证据/probe_all.py"; echo EXIT:$?
+probe_all EXIT:0
+evidence: docs/验收证据/2_6_7/probe_all.txt
+data zero-loss: docs/验收证据/2_6_7/deploy/counts_before_after.txt ROW_COUNTS_EQUAL CRIT_OK

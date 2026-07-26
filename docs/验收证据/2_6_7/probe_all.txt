@@ -1,0 +1,40 @@
+账号表损坏已隔离: /var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/probe01_jbhfyhd5/看板账号.json (JSON 无效/读失败: JSONDecodeError) → /var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/probe01_jbhfyhd5/看板账号.json.corrupt-20260727043759
+【经营看板告警】账号表损坏：JSON 无效/读失败: JSONDecodeError；已保留 /var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/probe01_jbhfyhd5/看板账号.json.corrupt-20260727043759；未重置为出厂口令。请从 .corrupt 备份恢复后删 看板账号.json.needs_restore。
+========================================================================
+【BUG-01】账号表损坏 → 隔离不 seed（2.6.3·A1 修复验收）
+  ① 正常表: [('lushasha', 'StrongPw_A1b2'), ('overall', 'StrongPw_C3d4')]
+  ② 截断后 load_accounts: []
+  ③ 原路径已不存在（已隔离）: True
+  ④ .corrupt 备份数: 1 ['看板账号.json.corrupt-20260727043759']
+  ⑤ corrupt 备份保留损坏现场（非出厂 seed）
+  ⑥ needs_restore 旗标存在
+  ⑦ 出厂口令 kanban2026 不能登: OK
+  ⑧ 原密在无表时不能登: OK
+  ⑨ corrupt_status: JSON 无效/读失败: JSONDecodeError
+  RESULT: PASS
+========================================================================
+【BUG-02】db_path 双拼 → 明确抛错（2.6.3·A2 修复验收）
+  双拼 ValueError: config.db_path='数据/看板.db' 首段与 data_dir 末段 '数据' 重复，会拼成影子路径 /Users/evanlee/Documents/甲骨易实习/项目/利润看板可视化项目（系统）/程序/看板正式程序/数据/数
+  正确写法 → /Users/evanlee/Documents/甲骨易实习/项目/利润看板可视化项目（系统）/程序/看板正式程序/数据/看板.db
+  RESULT: PASS
+========================================================================
+【BUG-03】data_stale 不再被 db mtime 击穿（2.6.3·B1 修复验收）
+  healthcheck.sh 含 built_at: OK
+  无 mtime 判 stale: OK
+  起始 mtime: 2026-07-27 04:27:05
+  审计写后  : 2026-07-27 04:38:00
+  mtime 可能刷新 = True （演示：故不可用 mtime 做 stale）
+  RESULT: PASS
+========================================================================
+【BUG-05】半截归档不永久 exists（2.6.3·B4 修复验收）
+  再次跑归档 → archived 已归档 2026
+  非 exists 状态（会重做/报错）: OK status= archived
+  归档目录内容 → ['年度归档/2026.broken-20260727043800/下单.xlsx', '年度归档/2026/_ARCHIVE_OK', '年度归档/2026/下单.xlsx', '年度归档/2026/内部译员.xlsx', '年度归档/2026/回款记录.xlsx', '年度归档/2026/看板_2026.db', '年度归档/2026/项目明细.xlsx']
+  RESULT: PASS
+========================================================================
+  BUG-01: PASS
+  BUG-02: PASS
+  BUG-03: PASS
+  BUG-05: PASS
+探针全部通过（未触碰生产 数据/）
+EXIT:0

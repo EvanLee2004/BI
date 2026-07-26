@@ -1,5 +1,5 @@
-# counts_before from 看板_上机前_202607270225.db bytes 4444160
-# HEAD 上机前 ad58e31 VERSION=2.6.6
+# counts_after from 看板.db bytes 4448256
+# HEAD 上机后 fab6514 VERSION=2.6.7
 adj_调整记录	25
 manual_手填	11
 manual_手填BU	141
