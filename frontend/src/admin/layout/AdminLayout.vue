@@ -63,10 +63,17 @@ function toggleHealthPop() {
     detachHealthScrollTargets()
   }
 }
-/** 用户滚轮/触控滑动 = 在看数据，收起浮层（不依赖 scroll 冒泡） */
-function onHealthWheelOrTouch() {
+/** 用户滚轮/触控滑动 = 在看数据，收起浮层（不依赖 scroll 冒泡；浮层自身也可滚，同样收起） */
+function onHealthWheelOrTouch(ev?: Event) {
   if (!healthOpen.value) return
+  // 浮层内滚动也收起：避免「面板自己在滚、底下数据仍被挡」
   closeHealthPop()
+  // 阻止浮层内部继续吞滚轮（可选）
+  try {
+    ev?.preventDefault?.()
+  } catch {
+    /* passive 监听时 preventDefault 无效，忽略 */
+  }
 }
 function onHealthPointerDown(ev: MouseEvent) {
   if (!healthOpen.value) return
