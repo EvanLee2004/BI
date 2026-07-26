@@ -210,49 +210,156 @@ class TestDualApiAuthParity(unittest.TestCase):
 
 class TestDualApiDataContract(unittest.TestCase):
     def test_profit_ranking_vs_rankings_full_order_and_count(self):
-        """整体 sales：refresh 后两套端点条数接近 + 名称序一致。"""
+        """整体：双轨 HTTP 与其同源预计算路径序/条数一致（强制 ranking_order_contract）。
+
+        产品语义：
+        - `/api/profit_ranking` = 收入毛利榜 ↔ `summary.profit_rankings.revenue_by_*`
+        - `/api/v1/rankings/full` dim=sales = 下单/回款双榜 ↔ `rankings_view_for_period(...).sales`
+
+        跨语义强制同序是错的（收入序 ≠ 下单序）。契约绑**同语义双轨**。
+        故意反转快照 → ranking_order_contract 必红（本测内断言 + ComparatorRedGreen）。
+        """
         c, _cfg = _refreshed_admin_client()
-        r_full = c.get("/api/v1/rankings/full", params={"period": "2026年", "dim": "sales"})
-        self.assertEqual(r_full.status_code, 200, r_full.text[:200])
-        full_items = (r_full.json() or {}).get("items") or []
+        from app_state import _state
+        import api_v1
+
+        period = "2026年"
+        pv = ((_state.get("summary") or {}).get("periods") or {}).get(period) or {}
+        self.assertTrue(pv, "summary 缺 2026年 period")
+
+        # --- A) profit_ranking ↔ snapshot ---
         r_old = c.get(
             "/api/profit_ranking",
             params={"dim": "sales", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
         self.assertEqual(r_old.status_code, 200, r_old.text[:200])
         old_items = (r_old.json() or {}).get("items") or []
-        # 两端须有数据
-        self.assertGreater(len(full_items), 0, "rankings/full items 空")
+        snap = (pv.get("profit_rankings") or {}).get("revenue_by_sales") or {}
+        # 优先 full_items（完整榜）；退回 items（top-N 截断）
+        snap_items = list(snap.get("full_items") or snap.get("items") or [])
         self.assertGreater(len(old_items), 0, "profit_ranking items 空")
-        # 条数：容差（period 键 vs 日区间边界可能差几个名次外尾巴）
-        ok_c, det_c = ranking_count_contract(full_items, old_items, tol=max(5, len(full_items) // 5))
-        self.assertTrue(ok_c, det_c)
-        # 名称集合：前 15 名交集至少 8（排序算法若不同仍共享主力销售）
-        nf, no = set(_names(full_items)[:15]), set(_names(old_items)[:15])
-        inter = nf & no
-        self.assertGreaterEqual(
-            len(inter),
-            min(8, min(len(nf), len(no))),
-            f"top 名称交集过小 inter={sorted(inter)} full={sorted(nf)} old={sorted(no)}",
-        )
-        # 金额口径：两侧同名项的「主金额字段」须能解析且同名合计量级接近（相对差 <5%）
-        def amt_map(items):
-            m = {}
-            for it in items:
-                n = (_names([it]) or [None])[0]
-                if not n:
-                    continue
-                m[n] = _amt_key(it)
-            return m
+        self.assertGreater(len(snap_items), 0, "snapshot revenue_by_sales 空")
+        # 若快照仅 top-N，则比 API 前缀；否则比全量
+        n_cmp = min(len(old_items), len(snap_items))
+        api_cmp = old_items[:n_cmp]
+        snap_cmp = snap_items[:n_cmp]
+        ok_o, det_o = ranking_order_contract(api_cmp, snap_cmp, min_common=min(3, n_cmp))
+        self.assertTrue(ok_o, f"profit dual order fail: {det_o}")
+        ok_c, det_c = ranking_count_contract(api_cmp, snap_cmp, tol=0)
+        self.assertTrue(ok_c, f"profit dual count fail: {det_c}")
+        # 反向：反转快照序 → 契约必须红（证明不是只比集合）
+        rev = list(reversed(snap_cmp))
+        if len(_names(snap_cmp)) >= 3:
+            ok_bad, det_bad = ranking_order_contract(api_cmp, rev, min_common=3)
+            self.assertFalse(ok_bad, f"reversed snap should fail order: {det_bad}")
 
-        # 金额：两套端点字段不同（order_disp vs revenue_disp），只断言各自可解析出主金额，
-        # 且同名在各自榜内都有正值（不强制跨端点金额相等——那是收敛端点的事）
-        ma, mb = amt_map(full_items), amt_map(old_items)
-        shared = [n for n in inter if n in ma and n in mb][:8]
-        self.assertGreaterEqual(len(shared), 3, f"可解析金额的同名不足 shared={shared}")
-        pos_full = sum(1 for n in shared if ma.get(n, 0) != 0)
-        pos_old = sum(1 for n in shared if mb.get(n, 0) != 0)
-        self.assertGreater(pos_full + pos_old, 0, "同名金额全 0，解析失败")
+        # --- B) rankings/full ↔ view builder ---
+        r_full = c.get("/api/v1/rankings/full", params={"period": period, "dim": "sales"})
+        self.assertEqual(r_full.status_code, 200, r_full.text[:200])
+        full_items = (r_full.json() or {}).get("items") or []
+        view = api_v1.rankings_view_for_period(pv, embed_full=True, monthly_store={})
+        blk = view.get("sales") or {}
+        view_items = list(blk.get("full_items") or blk.get("items") or [])
+        self.assertGreater(len(full_items), 0, "rankings/full items 空")
+        self.assertGreater(len(view_items), 0, "view sales full_items 空")
+        ok_f, det_f = ranking_order_contract(full_items, view_items, min_common=3)
+        self.assertTrue(ok_f, f"full dual order fail: {det_f}")
+        ok_fc, det_fc = ranking_count_contract(full_items, view_items, tol=2)
+        self.assertTrue(ok_fc, f"full dual count fail: {det_fc}")
+        # 金额可解析（各自字段）
+        self.assertTrue(any(_amt_key(it) != 0 for it in old_items[:5]), "profit 金额解析失败")
+        self.assertTrue(any(_amt_key(it) != 0 for it in full_items[:5]), "full 金额解析失败")
+
+    def test_bu_dual_ranking_order_and_count(self):
+        """BU 口径：同 bu= 下 profit_ranking / rankings/full 各自与同源路径序+条数一致。"""
+        c, _cfg = _refreshed_admin_client()
+        from app_state import _state
+        import api_v1
+
+        pages = _state.get("bu_pages") or {}
+        if not pages:
+            self.skipTest("无 bu_pages")
+        bu = next(iter(pages.keys()))
+        page = pages[bu] or {}
+        psum = page.get("summary") or {}
+        period = (psum.get("meta") or {}).get("year_key") or "2026年"
+        pv = (psum.get("periods") or {}).get(period) or {}
+        if not pv:
+            # 回退：整体 period 仅测 HTTP 两端均 200 + detail 行数
+            pv = {}
+
+        r_old = c.get(
+            "/api/profit_ranking",
+            params={
+                "dim": "sales",
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "top": 5000,
+                "bu": bu,
+            },
+        )
+        r_full = c.get(
+            "/api/v1/rankings/full",
+            params={"period": period, "dim": "sales", "bu": bu},
+        )
+        self.assertEqual(r_old.status_code, 200, r_old.text[:200])
+        self.assertEqual(r_full.status_code, 200, r_full.text[:200])
+        old_items = (r_old.json() or {}).get("items") or []
+        full_items = (r_full.json() or {}).get("items") or []
+        self.assertGreater(len(old_items) + len(full_items), 0, f"BU={bu} 两端皆空")
+
+        if pv:
+            snap = (pv.get("profit_rankings") or {}).get("revenue_by_sales") or {}
+            snap_items = list(snap.get("full_items") or snap.get("items") or [])
+            if snap_items and old_items:
+                n = min(len(old_items), len(snap_items))
+                api_cmp, snap_cmp = old_items[:n], snap_items[:n]
+                ok_o, det_o = ranking_order_contract(
+                    api_cmp, snap_cmp, min_common=min(3, n)
+                )
+                self.assertTrue(ok_o, f"BU profit dual order fail bu={bu}: {det_o}")
+                ok_c, det_c = ranking_count_contract(api_cmp, snap_cmp, tol=0)
+                self.assertTrue(ok_c, f"BU profit dual count fail bu={bu}: {det_c}")
+            view = api_v1.rankings_view_for_period(pv, embed_full=True, monthly_store={})
+            view_items = list(
+                ((view.get("sales") or {}).get("full_items") or (view.get("sales") or {}).get("items") or [])
+            )
+            if view_items and full_items:
+                ok_f, det_f = ranking_order_contract(
+                    full_items, view_items, min_common=min(3, len(view_items))
+                )
+                self.assertTrue(ok_f, f"BU full dual order fail bu={bu}: {det_f}")
+
+        # detail ↔ ledger 同 BU 行数
+        r1 = c.get(
+            "/api/detail",
+            params={
+                "table": "费用明细",
+                "page": 1,
+                "page_size": 1,
+                "month_from": "2026-01",
+                "month_to": "2026-12",
+                "bu": bu,
+            },
+        )
+        r2 = c.get(
+            "/api/v1/vm/ledger",
+            params={
+                "page": 1,
+                "page_size": 1,
+                "month_from": "2026-01",
+                "month_to": "2026-12",
+                "show_all": 1,
+                "bu": bu,
+            },
+        )
+        self.assertEqual(r1.status_code, 200, r1.text[:160])
+        self.assertEqual(r2.status_code, 200, r2.text[:160])
+        t1 = (r1.json() or {}).get("total")
+        t2 = (r2.json() or {}).get("total")
+        self.assertIsNotNone(t1)
+        self.assertIsNotNone(t2)
+        self.assertEqual(int(t1), int(t2), f"BU={bu} detail total={t1} ledger total={t2}")
 
     def test_empty_period_consistent_shape(self):
         """空/不存在周期：两端均应 4xx 或 items 空，不得 500。"""
