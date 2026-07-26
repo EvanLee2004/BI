@@ -119,6 +119,9 @@ def set_budget(
     旧值 = old[0] if old else None
     now = _now()
     stored = money.budget_value_to_store(str(指标), 金额)
+    # 2.6.8 T6：新旧相等不记空操作历史
+    if 旧值 is not None and stored is not None and int(旧值) == int(stored):
+        return
     conn.execute(
         "INSERT INTO manual_预算历史(时间,经手人,年份,指标,范围,旧值,新值) VALUES(?,?,?,?,?,?,?)",
         (now, 经手人, 年份, 指标, 范围, 旧值, stored),

@@ -44,6 +44,11 @@ def set_manual(
     if scope == "全公司":
         old = conn.execute("SELECT 金额 FROM manual_手填 WHERE 归属月=? AND 项目=?", (归属月, 项目)).fetchone()
         旧值 = old[0] if old else None
+        # 2.6.8 T6：新旧值相等不记空操作历史（存量不删）
+        if 旧值 is not None and int(旧值) == int(fen):
+            if commit:
+                pass  # 无变更
+            return
         conn.execute(
             "INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
             (now, 经手人, 归属月, 项目, 旧值, fen),
@@ -57,6 +62,8 @@ def set_manual(
             "SELECT 金额 FROM manual_手填BU WHERE 归属月=? AND 范围=? AND 项目=?", (归属月, scope, 项目)
         ).fetchone()
         旧值 = old[0] if old else None
+        if 旧值 is not None and int(旧值) == int(fen):
+            return
         conn.execute(
             "INSERT INTO manual_历史(时间,经手人,归属月,项目,旧值,新值) VALUES(?,?,?,?,?,?)",
             (now, 经手人, f"{归属月}|{scope}", 项目, 旧值, fen),
@@ -105,12 +112,18 @@ def set_alloc_ratio(
     旧值 = float(old_row[0]) if old_row and old_row[0] is not None else None
     if pct is None or pct == "":
         新值 = None
+        # 2.6.8 T6：本来就没有行，删=空操作，不记历史
+        if 旧值 is None and not old_row:
+            return
         conn.execute("DELETE FROM manual_分摊比例 WHERE 归属月=? AND BU=?", (month, bu))
     else:
         v = money.quantize_rate(pct, places=1)
         if not (0 <= v <= 100):
             raise ValueError(f"比例须在 0~100：{bu}={pct}")
         新值 = v
+        # 2.6.8 T6：新旧值相等不记空操作
+        if 旧值 is not None and abs(float(旧值) - float(新值)) < 1e-9:
+            return
         conn.execute(
             "INSERT OR REPLACE INTO manual_分摊比例(归属月,BU,比例,填写时间,经手人) VALUES(?,?,?,?,?)",
             (month, bu, 新值, now, user),
@@ -174,9 +187,14 @@ def set_detax_rate(
             if not (0 <= v <= 100):
                 raise ValueError(f"去税率须在 0~100：{category}={rate}")
             新值 = v
+    # 2.6.8 T6：新旧值相等不记空操作
     if 新值 is None:
+        if 旧值 is None and not old_row:
+            return
         conn.execute("DELETE FROM manual_费用去税率 WHERE 费用类别=?", (category,))
     else:
+        if 旧值 is not None and abs(float(旧值) - float(新值)) < 1e-9:
+            return
         conn.execute(
             "INSERT OR REPLACE INTO manual_费用去税率(费用类别,税率,填写时间,经手人) VALUES(?,?,?,?)",
             (category, 新值, now, user),

@@ -98,8 +98,19 @@ type BusinessGaps = {
   unassigned_count?: number
   unassigned_impact?: string
   unassigned_owner?: string
+  /** 2.6.8 T1：台账共享不可达，费用沿用本地副本 */
+  ledger_fallback?: boolean
+  ledger_fallback_as_of?: string
+  ledger_fallback_data_end?: string
+  ledger_fallback_text?: string
+  ledger_fallback_owner?: string
 }
 const businessGaps = computed(() => (health.value?.business_gaps as BusinessGaps) || null)
+const hasBusinessGaps = computed(() => {
+  const g = businessGaps.value
+  if (!g) return false
+  return !!(g.manual_missing_count || g.unassigned_count || g.ledger_fallback)
+})
 
 provide('adminDirty', {
   formDirty,
@@ -374,7 +385,15 @@ import './admin-layout.css'
       <p class="health-pop-hint muted">滚动页面 / 点外部 / Esc 可收起</p>
       <div class="grp" data-testid="health-gaps">
         <div class="k">⓪ 业务缺口（可展开）</div>
-        <template v-if="businessGaps && (businessGaps.manual_missing_count || businessGaps.unassigned_count)">
+        <template v-if="businessGaps && hasBusinessGaps">
+          <div v-if="businessGaps.ledger_fallback" class="gap-block" data-testid="health-gap-ledger-fallback">
+            <b>费用台账沿用本地副本</b>
+            <div class="gap-impact">{{ businessGaps.ledger_fallback_text || '收单台账共享不可达，费用按本地旧副本计算' }}</div>
+            <div v-if="businessGaps.ledger_fallback_data_end" class="gap-impact">
+              费用数据止于：{{ businessGaps.ledger_fallback_data_end }}
+            </div>
+            <div v-if="businessGaps.ledger_fallback_owner" class="gap-owner">建议：{{ businessGaps.ledger_fallback_owner }}</div>
+          </div>
           <div v-if="businessGaps.manual_missing_count" class="gap-block" data-testid="health-gap-manual">
             <b>手填缺 {{ businessGaps.manual_missing_count }} 个月</b>
             <div>缺月：{{ (businessGaps.manual_missing_months || []).join('、') || '—' }}</div>
@@ -387,7 +406,7 @@ import './admin-layout.css'
             <div v-if="businessGaps.unassigned_owner" class="gap-owner">建议：{{ businessGaps.unassigned_owner }}</div>
           </div>
         </template>
-        <div v-else class="ok">✓ 当前无结构化业务缺口（手填缺月 / 未归属）</div>
+        <div v-else class="ok">✓ 当前无结构化业务缺口（台账降级 / 手填缺月 / 未归属）</div>
       </div>
       <div class="grp">
         <div class="k">① 管道运行：{{ healthResult }}</div>

@@ -207,6 +207,35 @@ def select_ledger_date_parts(conn: sqlite3.Connection, 定位键: str):
     ).fetchone()
 
 
+def remap_adj_locators(
+    conn: sqlite3.Connection,
+    table: str,
+    mapping: dict[str, str],
+) -> int:
+    """2.6.8 T2：把 adj_调整记录 中 table 的旧定位键批量改为新键。
+
+    mapping: {old_locator: new_locator}；仅改 目标表=table 且 定位键=old 的行。
+    返回受影响行数。
+    """
+    if table not in _STD or not mapping:
+        return 0
+    n = 0
+    for old, new in mapping.items():
+        if not old or not new or old == new:
+            continue
+        cur = conn.execute(
+            "UPDATE adj_调整记录 SET 定位键=? WHERE 目标表=? AND 定位键=?",
+            (new, table, old),
+        )
+        n += int(cur.rowcount or 0)
+    if n:
+        try:
+            conn.commit()
+        except Exception:
+            pass
+    return n
+
+
 # ---------- 审计流水导出归档（不删，只导出；任务书43·阶段三）----------
 _ARCHIVE_TABLES = {
     "manual_历史": ("时间", "经手人", "归属月", "项目", "旧值", "新值"),

@@ -664,6 +664,26 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 _miss = _miss_months(cfg, _manual, _today.year, _today.month) or []
                 _un_meta = meta.get("unassigned") or {}
                 _un_n = int(_un_meta.get("count") or n_un or 0)
+                # 2.6.8 T1：台账 local_fallback → 结构化缺口（费用用的是哪天的副本）
+                _fetch = body.get("fetch") if isinstance(body, dict) else {}
+                if not isinstance(_fetch, dict):
+                    _fetch = {}
+                _fb_active = _fetch.get("status") == "local_fallback"
+                _fb_as_of = (
+                    _fetch.get("local_as_of_cn")
+                    or _fetch.get("local_as_of")
+                    or ""
+                )
+                _fb_data = _fetch.get("data_as_of_cn") or _fb_as_of or ""
+                _fb_text = ""
+                if _fb_active:
+                    if _fb_as_of:
+                        _fb_text = (
+                            f"收单台账共享盘不可达，费用用的是 {_fb_as_of} 的本地副本"
+                            f"（数据止于 {_fb_data or '未知'}）"
+                        )
+                    else:
+                        _fb_text = str(_fetch.get("detail") or "收单台账本次未抓到，沿用本地旧台账")
                 body_out["business_gaps"] = {
                     "manual_missing_months": list(_miss),
                     "manual_missing_count": len(_miss),
@@ -680,6 +700,15 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                         else ""
                     ),
                     "unassigned_owner": "设置 · 销售归属 BU" if _un_n else "",
+                    "ledger_fallback": bool(_fb_active),
+                    "ledger_fallback_as_of": _fb_as_of if _fb_active else "",
+                    "ledger_fallback_data_end": _fb_data if _fb_active else "",
+                    "ledger_fallback_text": _fb_text,
+                    "ledger_fallback_owner": (
+                        "运维：检查共享盘/CIFS 挂载；业务：确认共享盘台账是否已更新"
+                        if _fb_active
+                        else ""
+                    ),
                 }
             except Exception:
                 body_out["business_gaps"] = {
@@ -691,6 +720,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     "unassigned_orders_by_period": {},
                     "unassigned_impact": "",
                     "unassigned_owner": "",
+                    "ledger_fallback": False,
+                    "ledger_fallback_as_of": "",
+                    "ledger_fallback_data_end": "",
+                    "ledger_fallback_text": "",
+                    "ledger_fallback_owner": "",
                 }
         # 2.6.7 B-7：不再下发未读告警计数/recent（红条 UI 已下线）；告警仍写本地日志
         # 2.6.3·D5：内部 info 仅登录后

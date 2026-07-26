@@ -166,6 +166,20 @@ def _run_reasons_fetch(report: dict, reasons: list[str]) -> None:
     st = fetch.get("status")
     if st == "no_source":
         reasons.append("收单台账无可用数据源（共享路径与本地副本都没有）→ 判红")
+    elif st == "local_fallback":
+        # 2.6.8 T1：人话——源名 + 本地副本日期 + 数据止于
+        src = fetch.get("source") or "收单台账"
+        as_of = fetch.get("local_as_of_cn") or fetch.get("local_as_of") or ""
+        data_end = fetch.get("data_as_of_cn") or as_of or "未知"
+        if as_of:
+            reasons.append(
+                f"{src}共享盘不可达，用的是 {as_of} 的本地副本（数据止于 {data_end}；费用按此副本算）→ 判红"
+            )
+        else:
+            det = (fetch.get("detail") or "")[:120]
+            reasons.append(
+                f"{src}本次未抓到：{det}→ 判红" if det else f"{src}本次未抓到（local_fallback）→ 判红"
+            )
     elif st and st not in ("fetched", "skipped", "skipped_no_share"):
         det = (fetch.get("detail") or "")[:80]
         reasons.append(f"收单台账本次未抓到（{st}：{det}）→ 判红" if det else f"收单台账本次未抓到（{st}）→ 判红")
@@ -288,7 +302,7 @@ def _short_fetch_reason(detail: str | None, limit: int = 72) -> str:
     return d
 
 
-def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dict]:
+def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dict]:  # noqa: C901
     """2.2.8：任一源 local_fallback/no_source → 横幅「本次未抓到」（禁止「今日」歧义）。
     返回 [{source, status, as_of, text}, …]；全部 fetched 或无报告 → []。"""
     report = report or {}
@@ -296,13 +310,31 @@ def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dic
     ddir = loaders.data_dir(cfg, root)
     files = cfg.get("files") or {}
 
-    def _add(name: str, status: str | None, path: Path | None, detail: str | None = None):
+    def _add(
+        name: str,
+        status: str | None,
+        path: Path | None,
+        detail: str | None = None,
+        *,
+        as_of_override: str | None = None,
+        data_end: str | None = None,
+    ):
         if not status or status in ("fetched", "skipped", "skipped_no_share"):
             return
-        as_of = _file_as_of_label(path) if path else "上次本地"
+        as_of = as_of_override or (_file_as_of_label(path) if path else "上次本地")
         short = _short_fetch_reason(detail)
         if status == "no_source":
             text = f"⚠ {name}本次未抓到：{short}，且无本地可用文件"
+        elif name == "收单台账" and status == "local_fallback":
+            # 2.6.8 T1：费用用的是哪天的台账副本（人话）
+            # 兼容旧测关键词：本次未抓到 / 沿用本地文件
+            end = data_end or as_of
+            text = (
+                f"⚠ {name}本次未抓到：共享盘不可达，已沿用本地文件（{as_of}），"
+                f"费用数据止于 {end}"
+            )
+            if short and "共享盘不可达" not in short and "本地" not in short:
+                text += f"（{short}）"
         else:
             text = f"⚠ {name}本次未抓到：{short}。已沿用本地文件（{as_of}）"
         banners.append({"source": name, "status": status, "as_of": as_of, "text": text})
@@ -310,7 +342,14 @@ def build_fetch_fallback_banners(report: dict, cfg: dict, root=None) -> list[dic
     fetch = report.get("fetch") or {}
     if isinstance(fetch, dict) and fetch.get("status"):
         led = ddir / files.get("ledger", "收单台账.xlsx")
-        _add("收单台账", fetch.get("status"), led, fetch.get("detail"))
+        _add(
+            "收单台账",
+            fetch.get("status"),
+            led,
+            fetch.get("detail"),
+            as_of_override=fetch.get("local_as_of_cn") or fetch.get("local_as_of"),
+            data_end=fetch.get("data_as_of_cn"),
+        )
 
     for src, zv in (report.get("fetch_zhiyun") or {}).items():
         if not isinstance(zv, dict) or str(src).startswith("_"):

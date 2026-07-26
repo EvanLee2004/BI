@@ -218,7 +218,9 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
     c_sales = lcols.get("业务员")
     c_po = lcols.get("配音费合同号")
 
-    out = []
+    # 2.6.8 T2：定位键 = hash(月,日,金额,BU,大类,明细类型,事项)；仍撞则稳定序号后缀
+    # 先收集再赋键，保证同批内序号按源表行序稳定
+    drafts: list[dict] = []
     for row in rows:
         if ledger_row_is_empty(row, lcols):
             continue
@@ -232,7 +234,10 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
         配音费合同号 = _txt(row, c_po)
         parts = periods.ledger_row_date(row, ledger_year, lcols)
         ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
-        out.append(
+        # v1 旧键（不含事项）仅作 adj 迁移对照，不入库
+        legacy = _hash(月份, 日期, 金额_store, bu, cat, fine)
+        base = _hash(月份, 日期, 金额_store, bu, cat, fine, 事项 or "")
+        drafts.append(
             {
                 "收单月份": 月份,
                 "收单日期": 日期,
@@ -248,7 +253,23 @@ def norm_ledger(header: list, rows: list[tuple], ledger_year: int, lcols: dict) 
                 "配音费合同号": 配音费合同号,
                 "归属月": ym,
                 "原值_归属月": ym,
-                "定位键": _hash(月份, 日期, 金额_store, bu, cat, fine),  # 台账无自然ID，行哈希
+                "_base": base,
+                "_legacy": legacy,
             }
         )
+    seen: dict[str, int] = {}
+    out: list[dict] = []
+    for d in drafts:
+        base = d.pop("_base")
+        legacy = d.pop("_legacy")
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        if n == 0:
+            loc = base
+        else:
+            # 稳定序号：同内容第 2、3… 行 → base#1、base#2（可读且稳定）
+            loc = f"{base}#{n}"
+        d["定位键"] = loc
+        d["_legacy_定位键"] = legacy  # 管道 remap 后剔除，不入库
+        out.append(d)
     return out

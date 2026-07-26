@@ -19,6 +19,7 @@ from db_write import (
     insert_run_log,
     prune_run_logs,
     rebuild_std_tables,
+    remap_adj_locators,
     vacuum_db,
 )
 from ingest import readers, normalize, fetch, fetch_zhiyun, migrate, adjust, archive
@@ -170,6 +171,11 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
     # 3) 全量重建标准表（人工表不动）
     _rebuild_std(conn, records)
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
+    # 3b) 2.6.8 T2：费用定位键含「事项」后，把仅旧键可唯一对应的 adj 迁到新键（防失配计数飙升）
+    try:
+        report["locator_remap"] = _remap_expense_adj_locators(conn, records.get("std_费用明细") or [])
+    except Exception as e:
+        report["locator_remap"] = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
     # 4) 一次性迁移手填（仅当 manual_手填 为空）
     report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root)
     # 5) 重放调整 + 过期校验（改数不改结果、只记指令）
@@ -202,8 +208,59 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
 
 
 def _rebuild_std(conn, records: dict) -> None:
-    """全量重建标准表（人工表不动）。SQL 在 db_write.rebuild_std_tables。"""
-    rebuild_std_tables(conn, records)
+    """全量重建标准表（人工表不动）。SQL 在 db_write.rebuild_std_tables。
+
+    2.6.8：剥掉 normalize 临时字段（_legacy_定位键 等）再入库。
+    """
+    clean: dict = {}
+    for t, rows in (records or {}).items():
+        if not isinstance(rows, list):
+            clean[t] = rows
+            continue
+        clean[t] = [
+            {k: v for k, v in r.items() if not str(k).startswith("_")} if isinstance(r, dict) else r
+            for r in rows
+        ]
+    rebuild_std_tables(conn, clean)
+
+
+def _remap_expense_adj_locators(conn, expense_rows: list) -> dict:
+    """2.6.8 T2：旧定位键（无事项）→ 新定位键。
+
+    仅当某个旧键在本批唯一对应 1 行新键时才改 adj（旧撞键行本就拒调，无有效 adj）。
+    SQL 在 db_write.remap_adj_locators（业务层零裸 SQL）。
+    """
+    legacy_to_new: dict[str, list[str]] = {}
+    for r in expense_rows or []:
+        if not isinstance(r, dict):
+            continue
+        leg = r.get("_legacy_定位键")
+        neu = r.get("定位键")
+        if not leg or not neu:
+            continue
+        legacy_to_new.setdefault(str(leg), []).append(str(neu))
+
+    mapping: dict[str, str] = {}
+    skipped_ambiguous = 0
+    unchanged = 0
+    for leg, news in legacy_to_new.items():
+        uniq = list(dict.fromkeys(news))  # 保序去重
+        if len(uniq) != 1:
+            skipped_ambiguous += 1
+            continue
+        neu = uniq[0]
+        if neu == leg:
+            unchanged += 1
+            continue
+        mapping[leg] = neu
+    remapped = remap_adj_locators(conn, "std_费用明细", mapping)
+    return {
+        "status": "ok",
+        "remapped_rows": remapped,
+        "skipped_ambiguous_keys": skipped_ambiguous,
+        "unchanged_keys": unchanged,
+        "mapping_size": len(mapping),
+    }
 
 
 def reapply(cfg: dict, conn, records: dict, today=None) -> dict:

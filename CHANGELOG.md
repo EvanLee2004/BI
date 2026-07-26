@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.6.8 · 2026-07-27
+
+后端数据正确性与台账可信度（**数字口径零变化，回归红线守住；不改 DDL**）：
+
+- **T1 台账降级说人话**：`local_fallback` 告警/体检/黄条点名源 + 本地副本时间 + 数据止于；禁止「体检红：红」；`business_gaps.ledger_fallback*` + 管理端缺口块。
+- **T2 费用定位键含「事项」**：仍撞则稳定 `#n` 后缀；旧唯一键 adj 经 `db_write.remap_adj_locators` 迁新键（业务层零裸 SQL）。
+- **T3 调整幂等 + 撤销撤净**：同(表,定位键,字段) 生效只保留一条；撤销时同键兄弟一并已撤销。
+- **T4 共享盘短重试**：`ledger_share_retries`/`ledger_share_retry_delay_sec`；fstab 步骤单只写不执行。
+- **T5 双轨 API 契约测试**：`/api/profit_ranking`↔`/api/v1/rankings/full`、`/api/detail`↔`/api/v1/vm/ledger` 鉴权与行数契约（不删旧端点）。
+- **T6 历史不记空操作**：manual 手填/分摊比例/去税率/预算 新旧相等跳过历史（存量不删）。
+
 ## 2.6.7 · 2026-07-27
 
 验收回修 + 存量问题清零 + 顶栏统一（**数字口径零变化，回归红线守住**）：

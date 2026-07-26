@@ -36,9 +36,12 @@ def add_adjustment(
     原因: str = "",
     类型: str = "改值",
 ) -> int:
-    """新增一条调整记录（状态=生效）。原值由服务端从库取。目标表/字段严格白名单（防注入）。
+    """新增/更新一条调整记录（状态=生效）。原值由服务端从库取。目标表/字段严格白名单（防注入）。
     定位键护栏：匹配 0 行拒（键不存在）、匹配多行拒（内容完全相同的重复行，改一条会波及全部——
-    真实台账已实测有撞车行；R2 raw 批次层给行级定位后放开）。"""
+    真实台账已实测有撞车行；R2 raw 批次层给行级定位后放开）。
+
+    2.6.8 T3 幂等：同(目标表,定位键,字段) 已有「生效」→ 更新该条（多余生效兄弟一并撤销），不插第二行。
+    """
 
     if 目标表 not in schema.STD_TABLE_NAMES:
         raise ValueError(f"未知目标表：{目标表}")
@@ -65,10 +68,30 @@ def add_adjustment(
             新值_store = "" if fen_new is None else str(int(fen_new))
         else:
             原值 = "" if 原值_raw is None else str(原值_raw)
+    fld = 字段 or ""
+    # 2.6.8 T3：幂等更新
+    existing = conn.execute(
+        "SELECT id FROM adj_调整记录 WHERE 目标表=? AND 定位键=? AND 字段=? AND 状态='生效' ORDER BY id",
+        (目标表, 定位键, fld),
+    ).fetchall()
+    ts = _now()
+    if existing:
+        keep_id = int(existing[0][0])
+        for row in existing[1:]:
+            conn.execute(
+                "UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=? AND 状态='生效'",
+                (int(row[0]),),
+            )
+        conn.execute(
+            "UPDATE adj_调整记录 SET 创建时间=?,经手人=?,原值=?,新值=?,原因=?,类型=?,状态='生效' WHERE id=?",
+            (ts, 经手人, 原值, 新值_store, 原因, 类型, keep_id),
+        )
+        conn.commit()
+        return keep_id
     cur = conn.execute(
         "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
         " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
-        (_now(), 经手人, 目标表, 定位键, 字段 or "", 原值, 新值_store, 原因, 类型),
+        (ts, 经手人, 目标表, 定位键, fld, 原值, 新值_store, 原因, 类型),
     )
     conn.commit()
     return cur.lastrowid
@@ -149,15 +172,34 @@ def add_adjustments_batch(
         prepared.append((定位键, 原值, 新值_store))
 
     ts = _now()
+    fld = 字段 or ""
     ids: list[int] = []
     try:
         for 定位键, 原值, 新值_store in prepared:
-            cur = conn.execute(
-                "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
-                " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
-                (ts, 经手人, 目标表, 定位键, 字段 or "", 原值, 新值_store, 原因, 类型),
-            )
-            ids.append(int(cur.lastrowid))
+            # 2.6.8 T3 幂等：已生效则更新，不叠插
+            existing = conn.execute(
+                "SELECT id FROM adj_调整记录 WHERE 目标表=? AND 定位键=? AND 字段=? AND 状态='生效' ORDER BY id",
+                (目标表, 定位键, fld),
+            ).fetchall()
+            if existing:
+                keep_id = int(existing[0][0])
+                for row in existing[1:]:
+                    conn.execute(
+                        "UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=? AND 状态='生效'",
+                        (int(row[0]),),
+                    )
+                conn.execute(
+                    "UPDATE adj_调整记录 SET 创建时间=?,经手人=?,原值=?,新值=?,原因=?,类型=?,状态='生效' WHERE id=?",
+                    (ts, 经手人, 原值, 新值_store, 原因, 类型, keep_id),
+                )
+                ids.append(keep_id)
+            else:
+                cur = conn.execute(
+                    "INSERT INTO adj_调整记录(创建时间,经手人,目标表,定位键,字段,原值,新值,原因,类型,状态)"
+                    " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
+                    (ts, 经手人, 目标表, 定位键, fld, 原值, 新值_store, 原因, 类型),
+                )
+                ids.append(int(cur.lastrowid))
         conn.commit()
     except Exception:
         conn.rollback()
@@ -166,7 +208,25 @@ def add_adjustments_batch(
 
 
 def revoke_adjustment(conn: sqlite3.Connection, adj_id: int) -> bool:
-    cur = conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=? AND 状态!='已撤销'", (adj_id,))
+    """撤销指定调整。2.6.8 T3：同(目标表,定位键,字段) 的其他「生效」一并撤净，避免残留兄弟仍生效。"""
+    row = conn.execute(
+        "SELECT 目标表,定位键,字段,状态 FROM adj_调整记录 WHERE id=?", (adj_id,)
+    ).fetchone()
+    if not row:
+        return False
+    目标表, 定位键, 字段, 状态 = row
+    if 状态 == "已撤销":
+        return False
+    cur = conn.execute(
+        "UPDATE adj_调整记录 SET 状态='已撤销' WHERE id=? AND 状态!='已撤销'", (adj_id,)
+    )
+    # 撤净同键生效兄弟（含历史重复插入）
+    if 目标表 and 定位键 is not None:
+        conn.execute(
+            "UPDATE adj_调整记录 SET 状态='已撤销' "
+            "WHERE 目标表=? AND 定位键=? AND 字段=? AND 状态='生效' AND id!=?",
+            (目标表, 定位键, 字段 or "", adj_id),
+        )
     conn.commit()
     return cur.rowcount > 0
 
