@@ -1,0 +1,216 @@
+?? ad58e31..fab6514
+Fast-forward
+?? https://gitee.com/Lee157/oracleeasy--bi
+   ad58e31..fab6514  main       -> origin/main
+ CHANGELOG.md                                       |  12 +-
+ CLAUDE.md                                          |  14 ++-
+ VERSION                                            |   2 +-
+ .../2_6_7/10_admin_\345\261\225\347\244\272.png"   | Bin 0 -> 563284 bytes
+ ...74\202\345\270\270\345\244\204\347\220\206.png" | Bin 0 -> 157291 bytes
+ ...25\260\346\215\256\350\260\203\346\225\264.png" | Bin 0 -> 239729 bytes
+ .../2_6_7/10_admin_\350\256\276\347\275\256.png"   | Bin 0 -> 125760 bytes
+ .../2_6_7/11_manual.png"                           | Bin 0 -> 143997 bytes
+ .../2_6_7/a1_after.png"                            | Bin 0 -> 5471 bytes
+ .../2_6_7/a1_before.png"                           | Bin 0 -> 5986 bytes
+ .../2_6_7/a3_or_true_red_green.log"                |  10 ++
+ .../2_6_7/c1_fetch_zhiyun_diff.txt"                |  84 +++++++++++++
+ .../2_6_7/c8_c9_d9_d11_prove_same.txt"             |   7 ++
+ .../2_6_7/carpet_a4_retake.md"                     |  37 ++++++
+ .../2_6_7/gates_S1.txt"                            |  16 +++
+ .../2_6_7/gates_S2.txt"                            |  15 +++
+ .../2_6_7/gates_S3.txt"                            |   6 +
+ .../2_6_7/gates_S4.txt"                            |   6 +
+ .../2_6_7/gates_S5.txt"                            |   6 +
+ .../2_6_7/gates_S6.txt"                            |   6 +
+ .../2_6_7/shots/admin_1440.png"                    | Bin 0 -> 561902 bytes
+ .../2_6_7/shots/admin_390.png"                     | Bin 0 -> 215077 bytes
+ .../2_6_7/shots/bu_1440.png"                       | Bin 0 -> 667768 bytes
+ .../2_6_7/shots/bu_390.png"                        | Bin 0 -> 252107 bytes
+ .../2_6_7/shots/main_1440.png"                     | Bin 0 -> 654430 bytes
+ .../2_6_7/shots/main_390.png"                      | Bin 0 -> 255099 bytes
+ .../2_6_7/shots_review.md"                         |  69 +++++++++++
+ .../2_6_7/skip_inventory.md"                       |  40 +++++++
+ frontend/dist-snapshot/snapshot.css                |   2 +-
+ frontend/dist-snapshot/snapshot.js                 |  40 +++----
+ frontend/dist/assets/AdminLayout-B9_CxF1X.css      |   1 +
+ frontend/dist/assets/AdminLayout-Cga0xm4z.js       |   1 -
+ frontend/dist/assets/AdminLayout-D595b6K4.js       |   1 +
+ frontend/dist/assets/AdminLayout-DENl6KEo.css      |   1 -
+ frontend/dist/assets/AuditView-BWUndpOh.css        |   1 -
+ ...AuditView-CgO11zxy.js => AuditView-BpNwnsGN.js} |   2 +-
+ frontend/dist/assets/AuditView-DgMzwDhu.css        |   1 +
+ .../{BUPage-DQaqX0cN.js => BUPage-NXZ5Mmmj.js}     |   2 +-
+ ...dgetView--8iuCrzs.js => BudgetView-B3QA1sKD.js} |   2 +-
+ frontend/dist/assets/BudgetView-BLHp5b0W.css       |   1 -
+ frontend/dist/assets/BudgetView-CcZTHsfS.css       |   1 +
+ frontend/dist/assets/DetailView-CKiSelcM.css       |   1 +
+ ...tailView-CvzlL1Sy.js => DetailView-DXUpv6TB.js} |   2 +-
+ frontend/dist/assets/DetailView-FV3KOm4_.css       |   1 -
+ ...w-bF2C_Wem.js => ExceptionOverview-CU8HM4Ja.js} |   2 +-
+ .../dist/assets/ExceptionOverview-DWLUwWaa.css     |   1 +
+ .../dist/assets/ExceptionOverview-jDecEe0u.css     |   1 -
+ frontend/dist/assets/ExpenseHeatmap-CRAoQHpd.js    |   1 -
+ frontend/dist/assets/ExpenseHeatmap-CsXg9pO9.js    |   1 +
+ ...ue_vue_type_script_setup_true_lang-DWgOv_v8.js} |   2 +-
+ frontend/dist/assets/HistoryView-B60cBNkm.css      |   1 +
+ frontend/dist/assets/HistoryView-BD_kmkNN.css      |   1 -
+ ...oryView-B6YFpRTQ.js => HistoryView-CnZ5CjoX.js} |   2 +-
+ frontend/dist/assets/LedgerTable-BQWJ_xuD.js       |   1 +
+ frontend/dist/assets/LedgerTable-DnBg0nGn.js       |   1 -
+ ...ue_vue_type_script_setup_true_lang-DRf3V9EU.js} |   2 +-
+ frontend/dist/assets/LedgerView-CDaK6CyH.css       |   1 +
+ ...dgerView-B3Ir2PLS.js => LedgerView-DOAcJciF.js} |   4 +-
+ frontend/dist/assets/LedgerView-DeMz_G4q.css       |   1 -
+ ...nualView-CVPzLjH_.js => ManualView-BRbL3c1r.js} |   2 +-
+ frontend/dist/assets/ManualView-C-Y1owKT.css       |   1 -
+ frontend/dist/assets/ManualView-DwwZd4cH.css       |   1 +
+ frontend/dist/assets/OrderDeptView-C-jG2CT8.css    |   1 +
+ ...tView-D0_ertnj.js => OrderDeptView-DRK6l9jJ.js} |   4 +-
+ frontend/dist/assets/OrderDeptView-DTAfhDWJ.css    |   1 -
+ frontend/dist/assets/SettingsView-CbYtxOCP.js      |   1 -
+ frontend/dist/assets/SettingsView-D8-b3ZAC.js      |   1 +
+ frontend/dist/assets/SettingsView-DZFYAi3S.css     |   1 -
+ frontend/dist/assets/SettingsView-RCrqc_oi.css     |   1 +
+ ...ew-C1KWkrJI.js => UnclassifiedView-BXbWZRLU.js} |   2 +-
+ frontend/dist/assets/UnclassifiedView-DJR4K5IF.css |   1 -
+ frontend/dist/assets/UnclassifiedView-iyg-scIh.css |   1 +
+ frontend/dist/assets/boot-cockpit-Brs_QfLJ.css     |   1 -
+ frontend/dist/assets/boot-cockpit-Libvtb_E.js      |   2 +
+ frontend/dist/assets/boot-cockpit-M07WX2Uw.js      |   2 -
+ frontend/dist/assets/boot-cockpit-uWcSAo9G.css     |   1 +
+ ...bootstrap-BQ7cwnwS.js => bootstrap-B9cvmWvT.js} |   4 +-
+ frontend/dist/assets/bootstrap-CBUQXrof.css        |   1 -
+ frontend/dist/assets/bootstrap-DpDzFS6N.css        |   1 +
+ .../{index-CqP0ife8.js => index-6nX4THEN.js}       |   4 +-
+ frontend/dist/index.html                           |   2 +-
+ frontend/src/admin/layout/AdminLayout.vue          |  35 +-----
+ frontend/src/admin/layout/admin-layout.css         |  65 ++++------
+ frontend/src/admin/styles/admin.css                |  25 ++++
+ frontend/src/admin/views/AuditView.vue             |   2 +-
+ frontend/src/admin/views/BudgetView.vue            |   6 +-
+ frontend/src/admin/views/DetailView.vue            |   2 +-
+ frontend/src/admin/views/ExceptionOverview.vue     |  14 +--
+ frontend/src/admin/views/HistoryView.vue           |   2 +-
+ frontend/src/admin/views/LedgerView.vue            |  12 +-
+ frontend/src/admin/views/ManualView.vue            |   2 +-
+ frontend/src/admin/views/OrderDeptView.vue         |   2 +-
+ frontend/src/admin/views/SettingsView.vue          |  10 +-
+ frontend/src/admin/views/UnclassifiedView.vue      |   2 +-
+ frontend/src/admin/views/settings-view.css         |  30 ++++-
+ frontend/src/components/TopBarActions.vue          | 131 ++++++++-------------
+ frontend/src/styles/components/BuNav.css           |   2 +-
+ frontend/src/styles/tokens.css                     |   4 +
+ run.py                                             |   3 +-
+ src/accounts.py                                    |   5 +-
+ src/bu.py                                          |  19 ++-
+ src/core.py                                        |  18 +--
+ src/db_write.py                                    |   3 +-
+ src/domain/pl/structure.py                         |  37 +++++-
+ src/export_html.py                                 |  18 ++-
+ src/ingest/archive.py                              |  36 +++++-
+ src/ingest/fetch_zhiyun.py                         |  44 ++++---
+ src/ingest/fetch_zhiyun_pure.py                    |  10 +-
+ src/loaders.py                                     |  19 ++-
+ src/login_guard.py                                 |  14 +++
+ src/notify.py                                      |   7 +-
+ src/refresh_pipeline.py                            |  17 ++-
+ src/routes/admin_pages.py                          |   5 +
+ src/routes/config_api.py                           |  36 ++++--
+ src/routes/data_api.py                             |  34 ++++--
+ src/routes/export.py                               |   5 +-
+ src/schedule_loop.py                               |  76 ++++++++++--
+ src/server.py                                      |  15 ++-
+ src/version.py                                     |  69 +++++++++++
+ static/css/theme.css                               |  27 ++---
+ tests/fixtures/pl_table_year_sha.txt               |   2 +-
+ tests/run_verify.sh                                |  14 +++
+ tests/test_alert_health_ack_2_6_4.py               |  67 +++--------
+ tests/test_auth.py                                 |   2 +-
+ tests/test_b_http_shipped.py                       |  10 +-
+ tests/test_domain_coverage_54p13.py                |  21 ++--
+ tests/test_fetch_zhiyun.py                         |  20 +++-
+ tests/test_frontend_arch_guards.py                 |  23 ++--
+ tests/test_multibu.py                              |   2 +-
+ tests/test_task_2_3_2_pl_display.py                |   3 +-
+ tests/test_task_2_6_2_mobile_layout.py             |  31 +++--
+ tests/test_task_2_6_4_bu_transition.py             |   7 +-
+ tests/test_task_2_6_5_profit_rank_modal.py         |   6 +-
+ tests/test_task_2_6_6_health_gaps.py               |  10 +-
+ 134 files changed, 1067 insertions(+), 462 deletions(-)
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/10_admin_\345\261\225\347\244\272.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/10_admin_\345\274\202\345\270\270\345\244\204\347\220\206.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/10_admin_\346\225\260\346\215\256\350\260\203\346\225\264.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/10_admin_\350\256\276\347\275\256.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/11_manual.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/a1_after.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/a1_before.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/a3_or_true_red_green.log"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/c1_fetch_zhiyun_diff.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/c8_c9_d9_d11_prove_same.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/carpet_a4_retake.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S1.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S2.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S3.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S4.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S5.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/gates_S6.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/admin_1440.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/admin_390.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/bu_1440.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/bu_390.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/main_1440.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots/main_390.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/shots_review.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_7/skip_inventory.md"
+ create mode 100644 frontend/dist/assets/AdminLayout-B9_CxF1X.css
+ delete mode 100644 frontend/dist/assets/AdminLayout-Cga0xm4z.js
+ create mode 100644 frontend/dist/assets/AdminLayout-D595b6K4.js
+ delete mode 100644 frontend/dist/assets/AdminLayout-DENl6KEo.css
+ delete mode 100644 frontend/dist/assets/AuditView-BWUndpOh.css
+ rename frontend/dist/assets/{AuditView-CgO11zxy.js => AuditView-BpNwnsGN.js} (72%)
+ create mode 100644 frontend/dist/assets/AuditView-DgMzwDhu.css
+ rename frontend/dist/assets/{BUPage-DQaqX0cN.js => BUPage-NXZ5Mmmj.js} (91%)
+ rename frontend/dist/assets/{BudgetView--8iuCrzs.js => BudgetView-B3QA1sKD.js} (96%)
+ delete mode 100644 frontend/dist/assets/BudgetView-BLHp5b0W.css
+ create mode 100644 frontend/dist/assets/BudgetView-CcZTHsfS.css
+ create mode 100644 frontend/dist/assets/DetailView-CKiSelcM.css
+ rename frontend/dist/assets/{DetailView-CvzlL1Sy.js => DetailView-DXUpv6TB.js} (96%)
+ delete mode 100644 frontend/dist/assets/DetailView-FV3KOm4_.css
+ rename frontend/dist/assets/{ExceptionOverview-bF2C_Wem.js => ExceptionOverview-CU8HM4Ja.js} (71%)
+ create mode 100644 frontend/dist/assets/ExceptionOverview-DWLUwWaa.css
+ delete mode 100644 frontend/dist/assets/ExceptionOverview-jDecEe0u.css
+ delete mode 100644 frontend/dist/assets/ExpenseHeatmap-CRAoQHpd.js
+ create mode 100644 frontend/dist/assets/ExpenseHeatmap-CsXg9pO9.js
+ rename frontend/dist/assets/{ExpenseHeatmap.vue_vue_type_script_setup_true_lang-CXpC95si.js => ExpenseHeatmap.vue_vue_type_script_setup_true_lang-DWgOv_v8.js} (97%)
+ create mode 100644 frontend/dist/assets/HistoryView-B60cBNkm.css
+ delete mode 100644 frontend/dist/assets/HistoryView-BD_kmkNN.css
+ rename frontend/dist/assets/{HistoryView-B6YFpRTQ.js => HistoryView-CnZ5CjoX.js} (65%)
+ create mode 100644 frontend/dist/assets/LedgerTable-BQWJ_xuD.js
+ delete mode 100644 frontend/dist/assets/LedgerTable-DnBg0nGn.js
+ rename frontend/dist/assets/{LedgerTable.vue_vue_type_script_setup_true_lang-CyYTkyFM.js => LedgerTable.vue_vue_type_script_setup_true_lang-DRf3V9EU.js} (98%)
+ create mode 100644 frontend/dist/assets/LedgerView-CDaK6CyH.css
+ rename frontend/dist/assets/{LedgerView-B3Ir2PLS.js => LedgerView-DOAcJciF.js} (97%)
+ delete mode 100644 frontend/dist/assets/LedgerView-DeMz_G4q.css
+ rename frontend/dist/assets/{ManualView-CVPzLjH_.js => ManualView-BRbL3c1r.js} (98%)
+ delete mode 100644 frontend/dist/assets/ManualView-C-Y1owKT.css
+ create mode 100644 frontend/dist/assets/ManualView-DwwZd4cH.css
+ create mode 100644 frontend/dist/assets/OrderDeptView-C-jG2CT8.css
+ rename frontend/dist/assets/{OrderDeptView-D0_ertnj.js => OrderDeptView-DRK6l9jJ.js} (96%)
+ delete mode 100644 frontend/dist/assets/OrderDeptView-DTAfhDWJ.css
+ delete mode 100644 frontend/dist/assets/SettingsView-CbYtxOCP.js
+ create mode 100644 frontend/dist/assets/SettingsView-D8-b3ZAC.js
+ delete mode 100644 frontend/dist/assets/SettingsView-DZFYAi3S.css
+ create mode 100644 frontend/dist/assets/SettingsView-RCrqc_oi.css
+ rename frontend/dist/assets/{UnclassifiedView-C1KWkrJI.js => UnclassifiedView-BXbWZRLU.js} (92%)
+ delete mode 100644 frontend/dist/assets/UnclassifiedView-DJR4K5IF.css
+ create mode 100644 frontend/dist/assets/UnclassifiedView-iyg-scIh.css
+ delete mode 100644 frontend/dist/assets/boot-cockpit-Brs_QfLJ.css
+ create mode 100644 frontend/dist/assets/boot-cockpit-Libvtb_E.js
+ delete mode 100644 frontend/dist/assets/boot-cockpit-M07WX2Uw.js
+ create mode 100644 frontend/dist/assets/boot-cockpit-uWcSAo9G.css
+ rename frontend/dist/assets/{bootstrap-BQ7cwnwS.js => bootstrap-B9cvmWvT.js} (71%)
+ delete mode 100644 frontend/dist/assets/bootstrap-CBUQXrof.css
+ create mode 100644 frontend/dist/assets/bootstrap-DpDzFS6N.css
+ rename frontend/dist/assets/{index-CqP0ife8.js => index-6nX4THEN.js} (86%)
+VERSION_AFTER_PULL=2.6.7
+sudo: A terminal is required to authenticate

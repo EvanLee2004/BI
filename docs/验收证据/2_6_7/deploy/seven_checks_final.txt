@@ -1,0 +1,27 @@
+-rw------- 1 lee lee 1138 Jul 24 10:17 数据/BU配置.json
+adj_调整记录 25
+manual_手填 11
+manual_手填BU 141
+manual_分摊比例 0
+manual_费用去税率 0
+manual_历史 161
+manual_预算 18
+manual_预算历史 18
+manual_配置变更 958
+manual_分摊比例历史 8
+manual_去税率历史 0
+manual_公共明细金额覆盖 0
+manual_公共明细金额覆盖历史 0
+manual_分摊_明细规则 0
+manual_分摊_明细规则历史 0
+db_bytes 4448256
+bak 看板_上机前_202607270225.db 4444160
+Python 3.14.4
+Python 3.14.4
+VERSION=2.6.7
+ACTIVE=active
+LOGIN=200
+HEALTH=2026-07-27 02:30:05 黄 False
+HEAD=fab6514
+    PID   RSS     ELAPSED
+ 546671 2050476     04:18
