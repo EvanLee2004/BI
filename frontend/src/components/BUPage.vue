@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/BUPage.css'
 import { computed, onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { fetchProductVersion, fetchSession } from '../api/client'
@@ -140,27 +141,3 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped>
-.snapshot-banner {
-  background: linear-gradient(90deg, #1e3a5f, #0e7490);
-  color: #e0f2fe;
-  text-align: center;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid #0284c7;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.tb-today {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--mut, #94a3b8);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  margin-right: 2px;
-  white-space: nowrap;
-}
-</style>

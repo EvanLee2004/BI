@@ -1,0 +1,19 @@
+.pl-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.pl-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pl-export-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  
+}

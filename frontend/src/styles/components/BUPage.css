@@ -1,0 +1,22 @@
+.snapshot-banner {
+  background: linear-gradient(90deg, var(--banner-archive-from), var(--banner-archive-to));
+  color: var(--banner-archive-fg);
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--banner-archive-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.tb-today {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mut, var(--mut-label));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  margin-right: 2px;
+  white-space: nowrap;
+}

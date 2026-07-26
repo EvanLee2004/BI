@@ -1,4 +1,11 @@
 <script setup lang="ts">
+
+function cssVar(name: string, fallback = ''): string {
+  if (typeof document === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+import '../styles/components/ExpenseSection.css'
 /** 期间费用构成：环形（按大类） + 三态进度条列表（按类别 / 按利润中心 / 按部门）。
  *  2026-07-21：三态列表点某一行 → 右侧抽屉展开该项「费用明细」，与「管理利润表」(PLTable) 同一交互；
  *  取代早前的左右分栏 master-detail 与行内嵌展开。
@@ -125,10 +132,10 @@ const option = computed(() => {
         itemStyle: {
           shadowBlur: 0,
           shadowColor: 'transparent',
-          borderColor: 'rgba(4,8,20,0.45)',
+          borderColor: cssVar('--chart-label-stroke-dark'),
           borderWidth: 2,
           /* 2.3.1：霓虹内圈发光仅样式字段，data/label 不动 */
-          ...pieGlowItemStyle('#2ff3ff'),
+          ...pieGlowItemStyle('var(--blue)'),
         },
         emphasis: pieEmphasis(),
         animationType: 'expansion',
@@ -245,24 +252,3 @@ const option = computed(() => {
   </SciFiPanel>
 </template>
 
-<style scoped>
-.exp-body-fixed {
-  min-height: 360px;
-}
-.exp-hbar-scroll {
-  max-height: 360px;
-  overflow-y: auto;
-}
-.exp-bar-row {
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s ease;
-}
-.exp-bar-row:hover {
-  background: rgba(34, 211, 238, 0.08);
-}
-.exp-bar-row.on {
-  background: rgba(34, 211, 238, 0.12);
-  outline: 1px solid rgba(34, 211, 238, 0.35);
-}
-</style>

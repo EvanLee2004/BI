@@ -42,10 +42,15 @@ class TestF1ModalCss(unittest.TestCase):
         self.assertIn("align-items:center", block.replace(" ", ""))
 
     def test_vue_teleport_body(self):
+        # 2.6.5：弹层收敛到 base/DataModal（Teleport to body）
+        modal = (ROOT / "frontend" / "src" / "components" / "base" / "DataModal.vue").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('Teleport to="body"', modal)
+        self.assertTrue("data-modal" in modal or "rkm-mask" in modal)
         for name in ("RankingsDual.vue", "ProfitStructure.vue"):
             src = (ROOT / "frontend" / "src" / "components" / name).read_text(encoding="utf-8")
-            self.assertIn('Teleport to="body"', src)
-            self.assertIn("rkm-mask", src)
+            self.assertIn("RankList", src)
 
     def test_pl_table_grid_not_14px_name(self):
         """Vue .pl-table 行不得用 14px 色点列当名列（否则 pl-name≈14px 竖排）。"""

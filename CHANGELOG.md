@@ -1,6 +1,17 @@
 # Changelog
 
+## 2.6.5 · 2026-07-26
+
+前端三层统一 + 排名弹层修复 + 全量体验（**不改金额/口径/智云抓取**）：
+
+- **A-1 弹层**：`ProfitStructure` 按需拉 `/api/profit_ranking`；端点支持 `bu=` + BU 隔离（不放宽）；整体/BU 弹层 items>0；先红后绿测试。
+- **三层架构**：`styles/tokens.css` → `components/base/{RankBar,RankList,DataModal}` → 业务组件无 `<style>`；F-1~F-4 守卫；四处排名 CSS 统一（非 ECharts）；收入榜「系统成本率」列头+解释。
+- **切 BU 过场**：1s、「正在计算 XX BU 数据……」、logo/字放大、扫描线、可跳过、reduced-motion；过场期间抑制 KPI count-up 连播。
+- **「整体」按钮**：BU 导航首项；仅 `can_main`/管理员可见；BU 账号不可见。
+- **体积**：板块五懒加载；首屏 gz ≤90.8KB。
+
 ## 2.6.4 · 2026-07-26
+
 
 本机告警闭环 + 失效模式守卫（**不改金额/口径/智云抓取**）：
 

@@ -1,0 +1,13 @@
+
+.bu-xfade{position:fixed;inset:0;z-index:var(--z-toast,100);display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);cursor:pointer;overflow:hidden;animation:bu-xfade-in var(--dur-base) var(--ease-out)}
+.bu-xfade-scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--blue) 18%,transparent) 48%,transparent 100%);background-size:100% 40%;animation:bu-scan var(--dur-bu-transition) linear infinite;opacity:.85}
+.bu-xfade-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-4);pointer-events:none;max-width:min(92vw,36rem);text-align:center;padding:var(--space-5)}
+.bu-xfade-logo{width:160px;height:160px;object-fit:contain;filter:drop-shadow(var(--shadow-neon-logo));animation:bu-xfade-logo var(--dur-med) var(--ease-out) both}
+.bu-xfade-name{font-size:clamp(1.35rem,3.2vw,1.85rem);font-weight:800;letter-spacing:.04em;color:var(--ink);line-height:1.35;animation:bu-xfade-title var(--dur-med) var(--ease-out) var(--dur-fast) both}
+.bu-xfade-hint{font-size:var(--fs-caption);color:var(--mut);opacity:.9}
+@keyframes bu-xfade-in{from{opacity:0}to{opacity:1}}
+@keyframes bu-xfade-logo{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1.08)}}
+@keyframes bu-xfade-title{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bu-scan{0%{background-position:0 -40%}100%{background-position:0 140%}}
+@media (prefers-reduced-motion:reduce){.bu-xfade{display:none}.bu-xfade-scan{animation:none}}
+@media (max-width:520px){.bu-xfade-logo{width:112px;height:112px}.bu-xfade-name{font-size:1.15rem}}

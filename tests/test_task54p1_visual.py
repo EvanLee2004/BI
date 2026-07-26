@@ -61,9 +61,9 @@ class TestV4V6ChartFx(unittest.TestCase):
         ):
             src = (FE / "components" / name).read_text(encoding="utf-8")
             self.assertIn("chart-fx", src, name)
-        # RankingsDual 经 dual-rank-option 间接用 chart-fx
+        # 2.6.5：排名改 CSS RankList；dual-rank-option 仍保留（测试锚），图表卡仍用 chart-fx
         rank = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
-        self.assertIn("dual-rank-option", rank)
+        self.assertIn("RankList", rank)
         self.assertIn("chart-fx", (FE / "dual-rank-option.ts").read_text(encoding="utf-8"))
 
 
@@ -134,13 +134,11 @@ class TestLiveReviewFixes54p1(unittest.TestCase):
         self.assertIn("dualRankBarOption", src)
         daily = (FE / "components" / "DailyQuery.vue").read_text(encoding="utf-8")
         rank = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
-        # 任务书54.3·B-01：查询结果不再由 DailyQuery 自渲染（会挤走回款总图/版面跳动），
-        # 改为写入 store（setDaily），由 RankingsDual「原位」用同一 dualRankBarOption 渲染——
-        # 「默认排名与区间结果同用一套 option、样式顺序一致」的不变式仍成立，只是收敛到一处。
+        # 2.6.5：区间结果仍写 store（setDaily），由 RankingsDual 原位用 CSS RankList 渲染
         self.assertIn("setDaily", daily)
-        self.assertIn("dualRankBarOption", rank)
+        self.assertIn("RankList", rank)
         self.assertIn("dailyDual", rank)
-        self.assertIn("rank-chart-host", rank)
+        self.assertIn("dual-rankings", rank)
 
 
 class TestTask54p2DeepSpace(unittest.TestCase):
@@ -153,7 +151,11 @@ class TestTask54p2DeepSpace(unittest.TestCase):
 
     def test_trend_gold_margin(self):
         src = (FE / "components" / "TrendChart.vue").read_text(encoding="utf-8")
-        self.assertIn("#fbbf24", src)
+        # 2.6.5：硬编码色收敛到 token，毛利率走 --orange
+        self.assertTrue(
+            "--orange" in src or "#fbbf24" in src or "cssVar('--orange'" in src,
+            "趋势毛利率色须用 --orange / 金",
+        )
 
     def test_receipts_dual_bars(self):
         src = (FE / "components" / "ReceiptsCard.vue").read_text(encoding="utf-8")

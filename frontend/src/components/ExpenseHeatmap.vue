@@ -1,4 +1,11 @@
 <script setup lang="ts">
+
+function cssVar(name: string, fallback = ''): string {
+  if (typeof document === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+import '../styles/components/ExpenseHeatmap.css'
 /**
  * 54.14 R-26：费用明细区「月份 × 报表大类」热力格子图（ECharts heatmap）。
  * 数据全部来自 VM expense.area_*（后端已聚合）；前端零金额运算，仅映射坐标与显示串。
@@ -36,17 +43,17 @@ const option = computed(() => {
   // 青 → 金（深空）；浅色略加深底
   const colors = light
     ? [
-        [0, '#e0f2fe'],
-        [0.35, '#67e8f9'],
-        [0.65, '#22d3ee'],
-        [1, '#b45309'],
+        [0, cssVar('--heat-l0')],
+        [0.35, cssVar('--heat-l1')],
+        [0.65, cssVar('--blue')],
+        [1, cssVar('--heat-l3')],
       ]
     : [
-        [0, 'rgba(8,16,32,0.2)'],
-        [0.25, '#0e7490'],
-        [0.55, '#22d3ee'],
-        [0.8, '#fbbf24'],
-        [1, '#f59e0b'],
+        [0, cssVar('--heat-d0')],
+        [0.25, cssVar('--heat-d1')],
+        [0.55, cssVar('--blue')],
+        [0.8, cssVar('--orange')],
+        [1, cssVar('--heat-d4')],
       ]
   const maxV = vmax > 0 ? vmax : 1
   return {
@@ -109,11 +116,15 @@ const option = computed(() => {
         emphasis: {
           itemStyle: {
             shadowBlur: 6,
-            shadowColor: light ? 'rgba(8,145,178,0.35)' : 'rgba(34,211,238,0.45)',
+            shadowColor: light
+              ? cssVar('--line-cyan-35')
+              : cssVar('--rank-others-border-hover'),
           },
         },
         itemStyle: {
-          borderColor: light ? 'rgba(255,255,255,0.85)' : 'rgba(4,8,20,0.55)',
+          borderColor: light
+            ? cssVar('--chart-label-stroke-light')
+            : cssVar('--chart-label-stroke-dark'),
           borderWidth: 1,
         },
       },
@@ -143,23 +154,3 @@ const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0)
   </SciFiPanel>
 </template>
 
-<style scoped>
-/* 外层可横滚（375）；内层保最小绘图宽，避免 ECharts 在窄视口被裁成空 */
-.exp-heat-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.exp-heat-fill {
-  min-height: 280px;
-  height: 340px;
-  width: 100%;
-  min-width: 0;
-}
-@media (max-width: 520px) {
-  .exp-heat-fill {
-    min-width: 560px;
-    height: 300px;
-  }
-}
-</style>

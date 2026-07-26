@@ -1,0 +1,53 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  box-sizing: border-box;
+}
+.login-card-host {
+  width: min(400px, 100%);
+}
+.login-sub {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+.login-lab {
+  display: block;
+  font-size: 12.5px;
+  color: var(--mut, var(--mut));
+  margin: 0 0 6px;
+}
+.login-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+}
+button.dsdk-button.login-btn,
+.login-btn {
+  width: 100%;
+  margin-top: 4px;
+  cursor: pointer;
+  border: 1px solid var(--blue) !important;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  background: linear-gradient(90deg, var(--login-btn-from), var(--login-btn-to)) !important;
+  color: var(--login-btn-fg) !important;
+  box-shadow: var(--shadow-cyan);
+}
+button.dsdk-button.login-btn:hover,
+.login-btn:hover {
+  filter: brightness(1.06);
+  background: linear-gradient(90deg, var(--login-btn-hover-from), var(--login-btn-hover-to)) !important;
+  border-color: var(--login-btn-hover-border) !important;
+}
+.login-err {
+  color: var(--neg, var(--neg));
+  font-size: 13px;
+  margin: 12px 0 0;
+}

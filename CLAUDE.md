@@ -34,17 +34,30 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.6.3 · 2026-07-25）
+## 当前状态（2.6.5 · 2026-07-26）
 
-- **版本**：`VERSION` = **2.6.3**（全方位隐患清零 20 项；基线 2.6.2）。其上：2.6.0 单会话 `kanban_sid`；2.5.0 统一 `/login`；2.4.3 根路径 BU 加固。
+- **版本**：`VERSION` = **2.6.5**（前端三层统一 + 排名弹层 + 体验；基线 2.6.4）。其上：2.6.4 告警闭环；2.6.3 隐患清零；2.6.0 `kanban_sid`；2.5.0 `/login`。
 - **会话**：`src/session_ctx.py` 唯一 resolve；权限只看账号表；退出清 sid+两旧名；MADR-0023。
-- **安全/可靠（2.6.3）**：账号表原子写+损坏隔离不 seed；`db_path` 禁双拼；本地配置危险键拒绝；登录锁定**账号+IP**；写路径与刷新互斥 409；跨年归档 partial 原子；缺台账年页降级不抛死管道。
-- **看端首包**：`vue-runtime` 独立分片 + echarts 异步；看端 deps **无** element-plus；首屏 gz ≤260KB。
-- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；`KANBAN_PROFILE=dev|staging|prod` 已实现（`loaders.load_config`）。
-- **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代（`location = /` 必 proxy）；运维见 `docs/Runbook.md` §0。
-- **红线**：核心 total/pretax/收入/成本 零未授权 diff；32 周期回归；导出禁止残壳假成功；**前端零金额运算**；只推 main 不推 tags。
+- **看端首包**：`vue-runtime` 分片 + echarts 异步；板块五懒加载；deps **无** element-plus；**首屏 gz ≤90.8KB**。
+- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；`KANBAN_PROFILE=dev|staging|prod` 已实现。
+- **部署**：Ubuntu 唯一主线；nginx 发 dist + 反代；运维 `docs/Runbook.md` §0。
+- **红线**：核心数字零未授权 diff；32 周期回归；**前端零金额运算**；只推 main 不推 tags。
 
-### 本轮新增铁律（2.6.3）
+### 前端三层铁律（2.6.5 · 守卫 `tests/test_frontend_arch_guards.py`）
+
+1. **Layer 1** `frontend/src/styles/tokens.css`：颜色/间距/圆角/字号/动效/阴影/z-index；三主题各一套；**硬编码色值只许出现在此文件**（F-2）。
+2. **Layer 2** `frontend/src/components/base/`：`RankBar` / `RankList` / `DataModal` 等只认 props，样式只用 token。
+3. **Layer 3** `frontend/src/components/*.vue`：**禁止 `<style>` 块**（F-1）；只做取数 + 组装 Layer 2。
+4. **动效时长** 必须 `var(--dur-*)`（F-3）；禁止 `transition: .3s` 字面量。
+5. **RankBar 副数值列** 无 `metaLabel` 不许渲染（F-4）；收入榜系统成本率列头小字 + 悬浮解释「项目成本 ÷ 交付收入」。
+6. **排名弹层** 逻辑只收敛在 `RankList`（按需 fetch / 加载中 / 失败）；禁止业务组件各自读 `full_items` 无兜底。
+7. **`/api/profit_ranking`**：无 `bu` 须整体权限；有 `bu` 须能看该 BU 且只返回本 BU 销售过滤行（隔离不放宽）。
+8. **切 BU 过场**：1s、文案「正在计算 XX BU 数据……」、可跳过、reduced-motion；过场中 KPI 不 count-up 连播。
+9. **「整体」导航按钮**：仅 `can_main`/管理员可见。
+10. **ECharts** 只留给真正图表（趋势/费用/热力）；排名条用 CSS RankBar。
+
+### 历史铁律（2.6.3 起仍生效）
+
 
 1. **私密文件必原子写**（同目录 tmp → chmod 0o600 → `os.replace`）；账号表坏 JSON **隔离不 seed**。
 2. **`db_path` 只写相对 data_dir**（如 `看板.db`）；首段等于 data_dir 末段 → 抛错，不静默纠正。

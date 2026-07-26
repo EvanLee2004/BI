@@ -1,0 +1,19 @@
+.exp-body-fixed {
+  min-height: 360px;
+}
+.exp-hbar-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.exp-bar-row {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.exp-bar-row:hover {
+  background: var(--blue-soft-08);
+}
+.exp-bar-row.on {
+  background: var(--rank-others-bg-hover);
+  outline: 1px solid var(--line-cyan-35);
+}

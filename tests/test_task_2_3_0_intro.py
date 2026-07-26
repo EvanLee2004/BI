@@ -15,8 +15,14 @@ class TestIntro230(unittest.TestCase):
         p = FE / "components" / "IntroSplash.vue"
         self.assertTrue(p.is_file())
         src = p.read_text(encoding="utf-8")
-        # 2.3.1：仍可兼容清理 pending；核心改为每次刷新 + min/max
-        self.assertIn("prefers-reduced-motion", src)
+        css = (FE / "styles" / "components" / "IntroSplash.css").read_text(encoding="utf-8")
+        # 2.3.1 / 2.6.5：reduced-motion 在 chart-fx prefersReducedMotion 或 CSS
+        self.assertTrue(
+            "prefers-reduced-motion" in src
+            or "prefersReducedMotion" in src
+            or "prefers-reduced-motion" in css,
+            "须尊重 reduced-motion",
+        )
         self.assertIn("skip", src.lower())
         self.assertIn("logo", src.lower())
         self.assertIn("900", src)

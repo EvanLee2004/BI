@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/IntroSplash.css'
 /**
  * 2.3.1 S1：logo 入场改为「填充加载等待」。
  * - 看端每次刷新都播（不依赖 kanban_intro_pending）
@@ -128,61 +129,3 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped>
-.intro-splash {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg, #01030a);
-  cursor: pointer;
-  transition: opacity 0.28s ease;
-}
-.intro-splash.phase-out {
-  opacity: 0;
-  pointer-events: none;
-}
-.intro-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-.intro-logo {
-  width: 180px;
-  height: 180px;
-  object-fit: contain;
-  transform: scale(0.85);
-  opacity: 0;
-  filter: drop-shadow(0 0 24px rgba(47, 243, 255, 0.45));
-  animation: intro-logo-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.intro-title {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--ink, #eef4ff);
-  opacity: 0;
-  transform: translateY(12px);
-  animation: intro-title-in 0.35s ease 0.45s forwards;
-}
-@keyframes intro-logo-in {
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@keyframes intro-title-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .intro-splash {
-    display: none;
-  }
-}
-</style>

@@ -113,13 +113,18 @@ class TestEchartsVmLabels(unittest.TestCase):
             self.assertNotIn("ECharts</span>", text, name)
             self.assertNotIn("环形 · ECharts", text, name)
 
-    def test_rankings_use_echarts_bars(self):
+    def test_rankings_use_css_rank_bars(self):
+        """2.6.5：四处排名改 CSS RankBar/RankList，不再用 ECharts 条形图。"""
         text = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
-        self.assertIn("EchartsHost", text)
-        # 54.1+：bar option 抽到 dual-rank-option（与 DailyQuery 共用）
-        self.assertIn("dualRankBarOption", text)
+        self.assertIn("RankList", text)
+        self.assertIn("RankBar", text)
+        self.assertNotIn("EchartsHost", text)
+        self.assertNotIn("dualRankBarOption", text)
+        # factory 仍保留给兼容/测试锚（禁删），但看端排名卡不再引用
         factory = (FE / "dual-rank-option.ts").read_text(encoding="utf-8")
         self.assertIn("type: 'bar'", factory)
+        base = (FE / "components" / "base" / "RankBar.vue").read_text(encoding="utf-8")
+        self.assertIn("rank-bar", base)
 
 
 if __name__ == "__main__":

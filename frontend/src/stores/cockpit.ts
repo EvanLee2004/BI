@@ -358,10 +358,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   /**
-   * 2.3.1 / 2.6.4·D1：切 BU 视觉转场。
-   * - 非 reduced：logo+BU 名叠加层（viewTransitioning）+ 内容区淡出/淡入
-   * - 延时合计 ≤800ms（120+200）；点叠加层可 skipViewTransition
-   * - reduced-motion：零动画，直接 loadBu
+   * 2.6.5·C：切 BU 过场（明昊指定）。
+   * - 1 秒、每次都播；文案「正在计算 XX BU 数据……」
+   * - 可跳过；prefers-reduced-motion 零动画
+   * - 过场期间 KPI count-up 被抑制（CountUpNumber 读 viewTransitioning），结束后不连播
    */
   async function transitionToBu(name: string) {
     if (!name || name === buName.value) return
@@ -389,8 +389,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
         setTimeout(tick, Math.min(16, ms))
       })
     try {
-      if (!reduced && !transitionSkipped.value) await wait(120)
-      await loadBu(name)
+      // 先开过场再拉数：仪式感 1s（跳过则立即结束等待）
+      const loadP = loadBu(name)
+      if (!reduced && !transitionSkipped.value) await wait(1000)
+      await loadP
       if (typeof history !== 'undefined' && !snapshotMode.value) {
         try {
           history.pushState({}, '', '/bu/' + encodeURIComponent(name))
@@ -398,7 +400,50 @@ export const useCockpitStore = defineStore('cockpit', () => {
           /* ignore */
         }
       }
-      if (!reduced && !transitionSkipped.value) await wait(200)
+    } finally {
+      viewTransitioning.value = false
+      transitionLabel.value = ''
+      transitionSkipped.value = false
+    }
+  }
+
+  /** 2.6.5·D：回整体（与切 BU 同套过场，label=整体） */
+  async function transitionToMain() {
+    if (scope.value === 'main' && !buName.value) return
+    let reduced = false
+    try {
+      reduced =
+        typeof window !== 'undefined' &&
+        !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    } catch {
+      reduced = false
+    }
+    transitionSkipped.value = false
+    transitionLabel.value = '整体'
+    if (!reduced) viewTransitioning.value = true
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const t0 = Date.now()
+        const tick = () => {
+          if (transitionSkipped.value || Date.now() - t0 >= ms) {
+            resolve()
+            return
+          }
+          setTimeout(tick, 16)
+        }
+        setTimeout(tick, Math.min(16, ms))
+      })
+    try {
+      const loadP = loadMain()
+      if (!reduced && !transitionSkipped.value) await wait(1000)
+      await loadP
+      if (typeof history !== 'undefined' && !snapshotMode.value) {
+        try {
+          history.pushState({}, '', '/')
+        } catch {
+          /* ignore */
+        }
+      }
     } finally {
       viewTransitioning.value = false
       transitionLabel.value = ''
@@ -467,6 +512,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
     loadMain,
     loadBu,
     transitionToBu,
+    transitionToMain,
     loadArchive,
     loadSnapshot,
     tryBootSnapshot,

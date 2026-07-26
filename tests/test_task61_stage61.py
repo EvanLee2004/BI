@@ -255,7 +255,13 @@ class TestStage61SourceGuards(unittest.TestCase):
         self.assertIn("/api/alloc_ratios", man)
         self.assertNotIn("/api/alloc_rates", man)
         rk = (root / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
-        self.assertIn("rk-others-btn", rk)
+        # 2.6.5：其余入口在 RankList（data-testid=rank-others-btn）
+        rl = (root / "components" / "base" / "RankList.vue").read_text(encoding="utf-8")
+        self.assertTrue(
+            "rank-others-btn" in rl or "rk-others-btn" in rk,
+            "须有「其余」点开入口",
+        )
+        self.assertIn("RankList", rk)
         exp = (root / "components" / "ExpenseSection.vue").read_text(encoding="utf-8")
         self.assertIn("exp-drawer-panel", exp)
         lt = (root / "components" / "LedgerTable.vue").read_text(encoding="utf-8")

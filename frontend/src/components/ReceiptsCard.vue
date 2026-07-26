@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/ReceiptsCard.css'
 /**
  * 下单/回款情况：紫柱下单 + 青柱回款 + 月均预算虚线 + 右侧摘要（本年下单/回款 + 年目标进度条）。
  * 任务书61·A：删尚待回款/年标签/回款占下单/黄回款率线；目标进度条有则显。
@@ -76,8 +77,8 @@ const option = computed(() => {
   // 2.2.4·C：先算 bud，再纳入 y 轴上限（游戏等低量 BU 的月均预算虚线不再被裁出画面）
   const bud = Number(r.value.budget_month) || 0
   const maxV = axisMaxCover(maxV0, interval, [...recs, ...ords, bud])
-  const cOrd = '#a78bfa'
-  const cRec = '#22d3ee'
+  const cOrd = 'var(--rank-primary-alt)'
+  const cRec = 'var(--blue)'
   // budget_month_disp 为裸数字；receipts_budget 已含「月均预算 X万」整句——勿双拼
   const budRaw = String(r.value.budget_month_disp || '').trim()
   const budFallback = String(r.value.receipts_budget || '').trim()
@@ -120,14 +121,14 @@ const option = computed(() => {
       lineStyle: {
         type: 'dashed',
         width: 1.5,
-        color: '#2dd4bf',
+        color: 'var(--teal)',
       },
-      itemStyle: { color: '#2dd4bf' },
+      itemStyle: { color: 'var(--teal)' },
       label: {
         show: true,
         position: 'end',
         formatter: () => budLabel,
-        color: '#2dd4bf',
+        color: 'var(--teal)',
         fontSize: 12,
       },
       tooltip: { show: true },
@@ -218,81 +219,3 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
   </SciFiPanel>
 </template>
 
-<style scoped>
-.rc-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
-  gap: 12px;
-  align-items: stretch;
-  min-height: 320px;
-}
-.rc-layout.rc-solo {
-  grid-template-columns: 1fr;
-}
-.rc-body {
-  min-width: 0;
-  min-height: 320px;
-  height: 100%;
-}
-.rc-side {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 4px 2px 4px 8px;
-  border-left: 1px solid rgba(125, 211, 252, 0.12);
-  font-size: 12.5px;
-}
-.rc-hero-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 0;
-}
-.rc-k {
-  color: var(--note, #8b9bb4);
-  font-weight: 500;
-}
-.rc-v {
-  font-family: var(--num-font, ui-monospace, monospace);
-  font-weight: 700;
-  color: var(--ink, #e8eef8);
-}
-.rc-v-rec {
-  color: #22d3ee;
-}
-.rc-bud-h {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 4px;
-  font-weight: 600;
-}
-.rc-bud-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(125, 211, 252, 0.12);
-  overflow: hidden;
-}
-.rc-bud-bar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #22d3ee, #a78bfa);
-  border-radius: 3px;
-}
-.rc-bud-sub {
-  font-size: 12px;
-  color: var(--note, #8b9bb4);
-  margin-bottom: 4px;
-}
-@media (max-width: 900px) {
-  .rc-layout {
-    grid-template-columns: 1fr;
-  }
-  .rc-side {
-    border-left: none;
-    border-top: 1px solid rgba(125, 211, 252, 0.12);
-    padding: 10px 0 0;
-  }
-}
-</style>

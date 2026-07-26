@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/LedgerTable.css'
 /**
  * 费用明细：走 /api/v1/vm/ledger，任何会话白名单列；单元格 text 转义（铁律10）。
  * 任务书58·R-50：日历起止 + 查询/本月/返回本年。
@@ -528,46 +529,3 @@ function hasColFilter(c: string): boolean {
     </div>
   </SciFiPanel>
 </template>
-<style scoped>
-.ledger-caliber-note{margin:0 0 8px;font-size:12px;color:var(--mut,#94a3b8);line-height:1.45}
-.ld-th{position:relative;vertical-align:top}
-.ld-th-btn{
-  display:inline-flex;align-items:center;gap:4px;max-width:100%;
-  background:transparent;border:0;color:inherit;font:inherit;font-weight:600;
-  cursor:pointer;padding:2px 0;text-align:left;
-}
-.ld-th-btn.on{color:#22d3ee}
-.ld-funnel{opacity:.65;font-size:10px}
-.ld-col-filter{
-  position:absolute;z-index:var(--z-popover, 40);left:0;top:100%;
-  min-width:200px;max-width:280px;padding:8px;border-radius:8px;
-  background:var(--overlay-panel, rgba(8,14,28,.97));
-  border:1px solid rgba(125,211,252,.25);
-  box-shadow:0 8px 24px rgba(0,0,0,.35);
-}
-.ld-opt-search{
-  width:100%;box-sizing:border-box;padding:4px 6px;border-radius:4px;margin-bottom:6px;
-  border:1px solid rgba(125,211,252,.2);background:rgba(0,0,0,.25);color:var(--ink,#e8eef8);
-}
-.ld-opt-list{
-  max-height:220px;overflow:auto;margin-bottom:6px;
-  border:1px solid rgba(125,211,252,.12);border-radius:6px;padding:4px;
-}
-.ld-opt-row{
-  display:flex;align-items:flex-start;gap:6px;padding:3px 4px;font-size:12px;font-weight:400;
-  cursor:pointer;line-height:1.35;
-}
-.ld-opt-row:hover{background:rgba(125,211,252,.08)}
-.ld-opt-row span{word-break:break-all}
-.ld-opt-hint,.ld-opt-err{font-size:12px;padding:6px 2px;color:var(--mut,#94a3b8)}
-.ld-opt-err{color:#f87171}
-.ld-col-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-/* 2.6.2 B1：表横滑容器锁宽，不撑 document */
-.ledger-scroll{
-  width:100%;
-  max-width:100%;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  box-sizing:border-box;
-}
-</style>

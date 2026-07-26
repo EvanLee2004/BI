@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, computed, onErrorCaptured, ref } from 'vue'
+import './styles/components/App.css'
+import { onMounted, computed, onErrorCaptured, ref, defineAsyncComponent } from 'vue'
 import { onVueErrorCaptured } from './utils/frontendErrorReporter'
 import { useCockpitStore } from './stores/cockpit'
 import { fetchProductVersion, fetchSession } from './api/client'
@@ -17,17 +18,18 @@ import KpiCards from './components/KpiCards.vue'
 import TrendChart from './components/TrendChart.vue'
 import PLTable from './components/PLTable.vue'
 import ExpenseSection from './components/ExpenseSection.vue'
-import ExpenseHeatmap from './components/ExpenseHeatmap.vue'
 import ProfitStructure from './components/ProfitStructure.vue'
 import RankingsDual from './components/RankingsDual.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
-import LedgerTable from './components/LedgerTable.vue'
 import BuNav from './components/BuNav.vue'
-import BUPage from './components/BUPage.vue'
 import TopBarActions from './components/TopBarActions.vue'
 import IntroSplash from './components/IntroSplash.vue'
 import BuTransitionOverlay from './components/BuTransitionOverlay.vue'
+/* 2.6.5：板块五台账/热力懒加载，压首屏 gz ≤90.8KB */
+const ExpenseHeatmap = defineAsyncComponent(() => import('./components/ExpenseHeatmap.vue'))
+const LedgerTable = defineAsyncComponent(() => import('./components/LedgerTable.vue'))
+const BUPage = defineAsyncComponent(() => import('./components/BUPage.vue'))
 
 const store = useCockpitStore()
 const productVer = ref('')
@@ -185,60 +187,3 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped>
-.archive-banner {
-  background: linear-gradient(90deg, #7c2d12, #9a3412);
-  color: #ffedd5;
-  text-align: center;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid #c2410c;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.archive-meta {
-  font-weight: 500;
-  opacity: 0.9;
-  margin-left: 8px;
-  font-size: 12px;
-}
-.snapshot-banner {
-  background: linear-gradient(90deg, #1e3a5f, #0e7490);
-  color: #e0f2fe;
-  text-align: center;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid #0284c7;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.tb-today {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--mut, #94a3b8);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  margin-right: 2px;
-  white-space: nowrap;
-}
-/* 2.3.1 S6：切 BU 转场（仅 opacity；错误条在链外不被遮挡） */
-.view-transition-host {
-  transition: opacity 0.2s ease;
-  opacity: 1;
-}
-.view-transition-host.is-transitioning {
-  opacity: 0.35;
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .view-transition-host {
-    transition: none;
-  }
-}
-</style>

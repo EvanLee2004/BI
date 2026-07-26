@@ -230,7 +230,7 @@ async function savePw() {
         display: flex;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.55);
+        background: var(--mask-heavy);
         z-index: 9999;
         align-items: center;
         justify-content: center;
@@ -239,31 +239,31 @@ async function savePw() {
     >
       <div
         style="
-          background: var(--card, #1e293b);
+          background: var(--card-solid);
           border-radius: 12px;
           padding: 20px;
           width: min(360px, 92vw);
-          border: 1px solid var(--line, #334155);
+          border: 1px solid var(--line);
         "
       >
         <div style="font-size: 16px; font-weight: 700; margin-bottom: 10px">修改密码</div>
         <div
           style="
             font-size: 12px;
-            color: #fde68a;
+            color: var(--warn-soft-fg);
             margin-bottom: 10px;
             padding: 8px;
-            background: #422006;
+            background: var(--warn-soft-bg);
             border-radius: 8px;
           "
         >
           密码管理员可见，请勿使用你在其他地方用的密码
         </div>
-        <label style="font-size: 12px; color: #94a3b8">旧密码</label>
+        <label style="font-size: 12px; color: var(--mut-label)">旧密码</label>
         <input v-model="oldPw" type="password" style="width: 100%; margin: 4px 0 10px" id="pwOld" />
-        <label style="font-size: 12px; color: #94a3b8">新密码（至少 4 位）</label>
+        <label style="font-size: 12px; color: var(--mut-label)">新密码（至少 4 位）</label>
         <input v-model="newPw" type="password" style="width: 100%; margin: 4px 0 10px" id="pwNew" />
-        <div id="pwMsg" :style="{ color: msgCls === 'err' ? '#f87171' : '#86efac', fontSize: '12px' }">
+        <div id="pwMsg" :style="{ color: msgCls === 'err' ? 'var(--err-soft-fg)' : 'var(--ok-soft-fg)', fontSize: '12px' }">
           {{ msg }}
         </div>
         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px">

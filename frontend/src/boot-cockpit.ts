@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-/* SciFi kit CSS (vendored, no CDN) + bridge to theme.css */
+/* Layer 1 tokens → SciFi kit + bridge（扩展不拆） */
+import './styles/tokens.css'
 import './vendor/scifi-kit/DynamicSciFiDashboardKit.css'
 import './vendor/scifi-kit/scifi-bridge.css'
 import App from './App.vue'

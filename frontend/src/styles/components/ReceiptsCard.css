@@ -1,0 +1,76 @@
+.rc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  align-items: stretch;
+  min-height: 320px;
+}
+.rc-layout.rc-solo {
+  grid-template-columns: 1fr;
+}
+.rc-body {
+  min-width: 0;
+  min-height: 320px;
+  height: 100%;
+}
+.rc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px 4px 8px;
+  border-left: 1px solid var(--line-12);
+  font-size: 12.5px;
+}
+.rc-hero-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+.rc-k {
+  color: var(--note, var(--note));
+  font-weight: 500;
+}
+.rc-v {
+  font-family: var(--num-font, ui-monospace, monospace);
+  font-weight: 700;
+  color: var(--ink, var(--ink));
+}
+.rc-v-rec {
+  color: var(--blue);
+}
+.rc-bud-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.rc-bud-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line-12);
+  overflow: hidden;
+}
+.rc-bud-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--rank-primary-alt));
+  border-radius: 3px;
+}
+.rc-bud-sub {
+  font-size: 12px;
+  color: var(--note, var(--note));
+  margin-bottom: 4px;
+}
+@media (max-width: 900px) {
+  .rc-layout {
+    grid-template-columns: 1fr;
+  }
+  .rc-side {
+    border-left: none;
+    border-top: 1px solid var(--line-12);
+    padding: 10px 0 0;
+  }
+}

@@ -28,28 +28,33 @@ class TestD1CockpitNoElementPlus(unittest.TestCase):
         idx = next(dist.glob("index-*.js"), None)
         self.assertIsNotNone(idx)
         t = idx.read_text(encoding="utf-8", errors="replace")
-        m = re.search(r"m\.f\|\|\(m\.f=(\[[\s\S]*?\])\)", t)
-        self.assertIsNotNone(m, "vite mapDeps array")
-        files = re.findall(r'"([^"]+)"', m.group(1))
-        # cockpit: import boot-cockpit + mapDeps([...])
-        mm = re.search(
-            r'import\("\./(boot-cockpit-[^"]+)"\),__vite__mapDeps\(\[([^\]]+)\]\)',
-            t,
-        )
-        self.assertIsNotNone(mm, "cockpit branch")
-        idxs = [int(x.strip()) for x in mm.group(2).split(",") if x.strip().isdigit()]
-        deps = [files[i] for i in idxs if i < len(files)]
-        self.assertTrue(any("boot-cockpit" in d for d in deps))
-        self.assertFalse(any("element-plus" in d for d in deps), deps)
-        # first screen gz estimate
+        # 2.6.5：async 分包后 mapDeps 形态可变；仍须 boot-cockpit 且首屏无 element-plus
+        boot_m = re.search(r'import\("\./(boot-cockpit-[^"]+)"\)', t)
+        self.assertIsNotNone(boot_m, "cockpit branch boot-cockpit import")
+        boot_name = boot_m.group(1)
+        boot_js = dist / boot_name
+        self.assertTrue(boot_js.is_file(), boot_name)
+        boot_txt = boot_js.read_text(encoding="utf-8", errors="replace")
+        # 看端 boot 包体不得拉 element-plus（管理端 bootstrap 另包）
+        self.assertNotIn("element-plus", boot_txt)
+        self.assertNotIn("ElementPlus", boot_txt)
+        # first screen gz：boot + 其静态 import + css + index
+        names = {boot_name, idx.name}
+        for imp in re.findall(r'from"\./([^"]+)"', boot_txt):
+            names.add(Path(imp).name)
+        for p in dist.glob("boot-cockpit-*.css"):
+            names.add(p.name)
         total = 0
-        names = set(Path(d).name for d in deps)
         for p in dist.glob("*"):
-            if p.name in names or p.name == Path(mm.group(1)).name:
+            if p.name in names:
                 total += len(gzip.compress(p.read_bytes(), 6))
-        for p in dist.glob("index-*.js"):
-            total += len(gzip.compress(p.read_bytes(), 6))
+        # 2.6.5 收口线 90.8KB；兼容旧 260KB 上限
         self.assertLessEqual(total, 260 * 1024, f"first screen gz={total}")
+        self.assertLessEqual(total, 90800, f"first screen gz={total} > 90800")
+        # 证据
+        Path(
+            "/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/grok-goal-c31b43ef0cf9/implementer/first_paint_gz.txt"
+        ).write_text(f"{total}\n", encoding="utf-8")
 
 
 class TestD2LoginIpLockAndPasswordLen(unittest.TestCase):

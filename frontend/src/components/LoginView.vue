@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/LoginView.css'
 /** 2.5.0：全员唯一登录页（看端霓虹壳）；支持 ?next= 安全回跳（后端白名单） */
 import { onMounted, ref } from 'vue'
 import SciFiPanel from './SciFiPanel.vue'
@@ -77,58 +78,3 @@ async function submit() {
   </div>
 </template>
 
-<style scoped>
-.login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  box-sizing: border-box;
-}
-.login-card-host {
-  width: min(400px, 100%);
-}
-.login-sub {
-  margin: 0 0 16px;
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
-}
-.login-lab {
-  display: block;
-  font-size: 12.5px;
-  color: var(--mut, #93a1c0);
-  margin: 0 0 6px;
-}
-.login-input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 14px;
-}
-button.dsdk-button.login-btn,
-.login-btn {
-  width: 100%;
-  margin-top: 4px;
-  cursor: pointer;
-  border: 1px solid #22d3ee !important;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 16px;
-  font-weight: 600;
-  text-transform: none;
-  background: linear-gradient(90deg, #0891b2, #22d3ee) !important;
-  color: #04101c !important;
-  box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
-}
-button.dsdk-button.login-btn:hover,
-.login-btn:hover {
-  filter: brightness(1.06);
-  background: linear-gradient(90deg, #0e7490, #67e8f9) !important;
-  border-color: #67e8f9 !important;
-}
-.login-err {
-  color: var(--neg, #fb7185);
-  font-size: 13px;
-  margin: 12px 0 0;
-}
-</style>

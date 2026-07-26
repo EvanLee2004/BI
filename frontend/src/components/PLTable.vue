@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/components/PLTable.css'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import SciFiPanel from './SciFiPanel.vue'
@@ -202,24 +203,3 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
   </SciFiPanel>
 </template>
 
-<style scoped>
-.pl-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-}
-.pl-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.pl-export-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
-  /* 主题色由 theme.css button.ghost + .pl-export-btn 提供（2.4.1 暗色适配） */
-}
-</style>

@@ -1,7 +1,11 @@
 <script setup lang="ts">
-/** 业务 BU 分页入口条（对齐 legacy chrome_prefix .bu-nav）；2.2.9 快照内 store 切换不跳路由 */
-import { computed } from 'vue'
+/**
+ * 业务 BU 分页：整体 | 多语营销 | …（2.6.5·D 加「整体」；按权限显隐）
+ */
+import '../styles/components/BuNav.css'
+import { computed, onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { fetchSession } from '../api/client'
 
 const props = withDefaults(
   defineProps<{
@@ -14,36 +18,65 @@ const props = withDefaults(
 )
 
 const store = useCockpitStore()
+/** 仅整体/管理员可见「整体」按钮 */
+const canMain = ref(false)
+
 const list = computed(() => {
   if (props.names && props.names.length) return props.names
   return store.buNames || []
 })
 const lab = computed(() => props.label || store.buNavLabel || '业务 BU 分页')
-const cur = computed(() => props.current || store.buName || '')
+const cur = computed(() => {
+  if (props.current) return props.current
+  if (store.scope === 'main') return '整体'
+  return store.buName || ''
+})
 const emptyHint = computed(() => {
   if (props.hint) return props.hint
   if (store.buNavHint) return store.buNavHint
-  // 有配置计数但名单空、后端未给文案时的兜底（管理员/整体可见）
   if ((store.buConfigCount || 0) > 0 && !list.value.length) {
     return `已配置 ${store.buConfigCount} 个业务 BU，但入口名单为空。请管理员「更新数据」后刷新。`
   }
   return ''
 })
+const showOverall = computed(() => {
+  if (store.snapshotMode) return store.snapshotCanGoOverall()
+  return canMain.value
+})
 
 function href(name: string) {
+  if (name === '整体') return '/'
   return '/bu/' + encodeURIComponent(name)
 }
 
 async function onBuClick(name: string, e: Event) {
   e.preventDefault()
-  if (name === store.buName) return
-  /* 2.3.1：三主题转场 + KPI 重跳（count-up 随 period/vm 变） */
+  if (name === '整体') {
+    if (store.scope === 'main' && !store.buName) return
+    await store.transitionToMain()
+    return
+  }
+  if (name === store.buName && store.scope === 'bu') return
   await store.transitionToBu(name)
 }
+
+onMounted(async () => {
+  if (store.snapshotMode) {
+    canMain.value = store.snapshotCanGoOverall()
+    return
+  }
+  try {
+    const sess = await fetchSession()
+    canMain.value = !!(sess as { can_main?: boolean; is_admin?: boolean }).can_main
+      || !!(sess as { is_admin?: boolean }).is_admin
+  } catch {
+    canMain.value = false
+  }
+})
 </script>
 <template>
   <div
-    v-if="list.length"
+    v-if="list.length || showOverall"
     class="bu-nav"
     role="navigation"
     :aria-label="lab"
@@ -52,6 +85,16 @@ async function onBuClick(name: string, e: Event) {
     <span class="bu-nav-label">{{ lab }}</span>
     <span class="bu-nav-links">
       <a
+        v-if="showOverall"
+        class="bu-nav-a"
+        data-testid="bu-nav-overall"
+        href="/"
+        :aria-current="cur === '整体' ? 'page' : undefined"
+        :style="cur === '整体' ? 'border-color:var(--blue)' : undefined"
+        @click="onBuClick('整体', $event)"
+        >整体</a
+      >
+      <a
         v-for="n in list"
         :key="n"
         class="bu-nav-a"
@@ -59,7 +102,8 @@ async function onBuClick(name: string, e: Event) {
         :aria-current="n === cur ? 'page' : undefined"
         :style="n === cur ? 'border-color:var(--blue)' : undefined"
         @click="onBuClick(n, $event)"
-      >{{ n }}</a>
+        >{{ n }}</a
+      >
     </span>
   </div>
   <div
@@ -72,42 +116,3 @@ async function onBuClick(name: string, e: Event) {
     <span class="bu-nav-hint">{{ emptyHint }}</span>
   </div>
 </template>
-
-<style scoped>
-.bu-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 8px 16px;
-  font-size: 13px;
-}
-.bu-nav-label {
-  opacity: 0.75;
-  white-space: nowrap;
-}
-.bu-nav-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.bu-nav-a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 4px 12px;
-  border: 1px solid var(--line, rgba(34, 211, 238, 0.35));
-  border-radius: 8px;
-  color: inherit;
-  text-decoration: none;
-}
-.bu-nav-a:hover {
-  border-color: var(--blue, #22d3ee);
-}
-.bu-nav--empty .bu-nav-hint {
-  color: var(--warn, #fbbf24);
-  font-size: 12px;
-  line-height: 1.4;
-  max-width: 52rem;
-}
-</style>

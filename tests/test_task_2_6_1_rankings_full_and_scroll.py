@@ -123,12 +123,12 @@ class TestRankingsScrollMount(unittest.TestCase):
             pass
 
     def test_scroll_rank_views_mounts_chart(self):
+        """2.6.5：排名改为 CSS RankBar/RankList，挂载判据改为 .rank-bar 行可见（非仅 canvas）。"""
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1440, "height": 900})
-            # 对齐既有活体测：login → 再显式 goto /
             page.goto(self.base + "/login", wait_until="networkidle", timeout=90000)
             page.locator("input[type=text], #account, input[autocomplete=username]").first.fill(
                 self.user
@@ -146,7 +146,6 @@ class TestRankingsScrollMount(unittest.TestCase):
             page.wait_for_timeout(1500)
             page.goto(self.base + "/", wait_until="networkidle", timeout=90000)
             page.wait_for_load_state("networkidle")
-            # 等 Vue 壳 + KPI 或排名区
             try:
                 page.wait_for_selector(
                     "#rankViews, .dual-rankings, .kpi-grid, .kpi-host, #app",
@@ -158,33 +157,22 @@ class TestRankingsScrollMount(unittest.TestCase):
                 browser.close()
                 self.fail(f"login or shell failed url={page.url}: {e}; html={body!r}")
 
-            # 强制滚到排名区（IntersectionObserver 懒挂载的前置条件）
             host_sel = "#rankViews, .dual-rankings"
-            # 若仅有 #app 壳，再等 rankViews 出现
             try:
                 page.wait_for_selector(host_sel, timeout=60000, state="attached")
             except Exception as e:
-                # dump useful diagnostics
                 diag = page.evaluate(
                     """() => ({
                       url: location.href,
                       hasApp: !!document.querySelector('#app'),
                       text: (document.body && document.body.innerText || '').replace(/\\s+/g,' ').slice(0,300),
-                      scripts: Array.from(document.scripts).map(s=>s.src).filter(Boolean).slice(0,8),
                     })"""
                 )
                 browser.close()
                 self.fail(f"#rankViews not in DOM after login: {e}; diag={diag}")
 
             page.locator(host_sel).first.scroll_into_view_if_needed()
-            page.evaluate(
-                """() => {
-                  const host = document.querySelector('#rankViews, .dual-rankings');
-                  if (host) host.scrollIntoView({block: 'center', behavior: 'instant'});
-                }"""
-            )
-            # 等 IO + ECharts 挂载（动画缓冲）
-            page.wait_for_timeout(2500)
+            page.wait_for_timeout(800)
 
             def _probe():
                 return page.evaluate(
@@ -192,12 +180,12 @@ class TestRankingsScrollMount(unittest.TestCase):
                       const host = document.querySelector('#rankViews, .dual-rankings');
                       if (!host) return {ok:false, reason:'no_host', url: location.href};
                       host.scrollIntoView({block: 'center', behavior: 'instant'});
+                      const bars = host.querySelectorAll('[data-testid=rank-bar], .rank-bar').length;
+                      const lists = host.querySelectorAll('[data-testid=rank-list], .rank-list').length;
                       const canv = Array.from(host.querySelectorAll('canvas'));
-                      const chartHost = host.querySelectorAll('.rank-chart-host, [_echarts_instance_]').length;
-                      const svg = host.querySelectorAll('svg').length;
                       const sizes = canv.map(c => ({w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight}));
-                      const mounted = sizes.some(s => (s.w > 10 && s.h > 10) || (s.cw > 10 && s.ch > 10))
-                        || svg > 0 || chartHost > 0;
+                      const canvasMounted = sizes.some(s => (s.w > 10 && s.h > 10) || (s.cw > 10 && s.ch > 10));
+                      const mounted = bars > 0 || lists > 0 || canvasMounted;
                       const empty = (host.innerText || '').includes('本期无数据');
                       const others = (host.innerText || '').includes('其余');
                       return {
@@ -205,10 +193,9 @@ class TestRankingsScrollMount(unittest.TestCase):
                         mounted,
                         empty,
                         others,
+                        bars,
+                        lists,
                         canvas: sizes.length,
-                        chartHost,
-                        sizes,
-                        svg,
                         url: location.href,
                         text: (host.innerText || '').replace(/\\s+/g, ' ').slice(0, 200),
                       };
@@ -217,7 +204,7 @@ class TestRankingsScrollMount(unittest.TestCase):
 
             info = _probe()
             if not info.get("mounted"):
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(1200)
                 info2 = _probe()
             else:
                 info2 = info
@@ -225,11 +212,10 @@ class TestRankingsScrollMount(unittest.TestCase):
 
         self.assertTrue(info.get("ok"), info)
         mounted = info.get("mounted") or info2.get("mounted")
-        # 有「其余」或非空态时，滚入视口后必须出图
         if info.get("others") or not info.get("empty"):
             self.assertTrue(
                 mounted,
-                f"scrollIntoView(#rankViews) but chart not mounted: info={info} info2={info2}",
+                f"scrollIntoView(#rankViews) but rank list not mounted: info={info} info2={info2}",
             )
         else:
             self.skipTest(f"no ranking data on this fixture: {info}")

@@ -24,14 +24,17 @@ class TestBuTransition264(unittest.TestCase):
         self.assertIn("viewTransitioning", src)
         self.assertIn("transitionLabel", src)
         self.assertIn("skipViewTransition", src)
-        m = re.search(r"async function transitionToBu[\s\S]*?^  function skipViewTransition", src, re.M)
+        m = re.search(
+            r"async function transitionToBu[\s\S]*?(?=async function transitionToMain|function skipViewTransition)",
+            src,
+        )
         self.assertTrue(m, "transitionToBu body")
         body = m.group(0) if m else ""
-        # 2.6.4·D1：wait(120)+wait(200)=320 ≤800
+        # 2.6.5·C：仪式感 1 秒（wait(1000)）；可跳过；reduced 零动画
         nums = [int(x) for x in re.findall(r"await wait\((\d+)\)", body)]
         self.assertTrue(nums, f"expected await wait(ms) in transitionToBu: {body[:300]}")
         total = sum(nums)
-        self.assertLessEqual(total, 800, f"transition delays sum {total}ms > 800ms: {nums}")
+        self.assertEqual(total, 1000, f"transition delays sum {total}ms != 1000ms: {nums}")
         self.assertIn("if (!reduced)", body)
         self.assertIn("loadBu", body)
         self.assertIn("transitionSkipped", body)
@@ -40,17 +43,23 @@ class TestBuTransition264(unittest.TestCase):
         app = (FE / "App.vue").read_text(encoding="utf-8")
         self.assertIn("view-transition-host", app)
         self.assertIn("is-transitioning", app)
-        self.assertIn("prefers-reduced-motion", app)
         self.assertIn("BuTransitionOverlay", app)
+        # reduced-motion 在 store + overlay CSS（App 本体可无字面量）
+        store = (FE / "stores" / "cockpit.ts").read_text(encoding="utf-8")
+        css = (FE / "styles" / "components" / "BuTransitionOverlay.css").read_text(encoding="utf-8")
+        self.assertIn("prefers-reduced-motion", store)
+        self.assertIn("prefers-reduced-motion", css)
 
     def test_overlay_logo_and_bu_name(self):
         ov = (FE / "components" / "BuTransitionOverlay.vue").read_text(encoding="utf-8")
+        css = (FE / "styles" / "components" / "BuTransitionOverlay.css").read_text(encoding="utf-8")
         self.assertIn("logo.png", ov)
         self.assertIn("transitionLabel", ov)
         self.assertIn("skipViewTransition", ov)
         self.assertIn("data-testid=\"bu-transition-overlay\"", ov)
-        self.assertIn("prefers-reduced-motion", ov)
+        self.assertIn("prefers-reduced-motion", css)
         self.assertIn("点击任意处跳过", ov)
+        self.assertIn("正在计算", ov)
 
     def test_bunav_uses_transition(self):
         nav = (FE / "components" / "BuNav.vue").read_text(encoding="utf-8")

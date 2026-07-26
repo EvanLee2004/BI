@@ -167,8 +167,9 @@ class TestMobileLiveOverflow(unittest.TestCase):
                 """() => {
                   const host = document.querySelector('#rankViews, .dual-rankings');
                   if (!host) return {ok:false};
-                  const canv = host.querySelectorAll('canvas, .rank-chart-host');
-                  return {ok:true, n: canv.length, text: (host.innerText||'').slice(0,80)};
+                  // 2.6.5：CSS RankBar/RankList（不再依赖 canvas）
+                  const bars = host.querySelectorAll('[data-testid=rank-bar], .rank-bar, .rank-list, canvas, .rank-chart-host');
+                  return {ok:true, n: bars.length, text: (host.innerText||'').slice(0,80)};
                 }"""
             )
             browser.close()
