@@ -92,6 +92,12 @@ tests/test_frontend_arch_guards.py
 tests/test_task_2_6_5_bu_nav_overall.py
 tests/test_task_2_6_5_echarts_solid_colors.py
 tests/test_task_2_6_6_health_gaps.py
+tests/test_task_2_6_8_t1_fallback_alert.py
+tests/test_task_2_6_8_t2_expense_locator.py
+tests/test_task_2_6_8_t3_adjust_idempotent.py
+tests/test_task_2_6_8_t4_share_retry.py
+tests/test_task_2_6_8_t5_dual_api_contract.py
+tests/test_task_2_6_8_t6_history_noop.py
 tests/test_task_2_6_2_mobile_layout.py
 tests/test_task_2_6_3_batch_a.py
 tests/test_task_2_6_3_batch_c.py
