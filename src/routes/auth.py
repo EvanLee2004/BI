@@ -149,19 +149,24 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
-        """BU 页：Vue dist SPA（54.4·C）。2.6.3·D3：先鉴权；无权不先 404 泄露存在性。"""
+        """BU 页：Vue dist SPA（54.4·C）。2.6.3·D3：先鉴权；未登录 303 登录。
+
+        2.6.10 V-5：已登录但无权时**仍返回 SPA**（勿 303 登录页），由前端调
+        `/api/v1/vm/bu/{name}` 得 403 后渲染 ErrorState +「回我的业务线」。
+        权限判定仍是 `_can_view_bu`（不改模型）；API 层 403 措辞不变。
+        """
         if not _can_view_bu(request, name):
             if not (_user(request) or _vacct(request)):
                 return RedirectResponse(
                     login_redirect.login_url(next_path=f"/bu/{name}"),
                     status_code=303,
                 )
-            # 已登录但无权：与无权者看「不存在」同形（登录页 303，不 404）
-            return RedirectResponse(login_redirect.login_url(), status_code=303)
+            # 已登录无权：下发 SPA，前端 ErrorState（不再踢回登录页）
+            return _bu_shell()
         page = _bu_pages().get(name)
         if not page:
-            # 有权但页未装载 / 真不存在
-            raise HTTPException(status_code=404, detail="Not Found")
+            # 有权但页未装载 / 真不存在：仍给 SPA，API 404/空态由前端处理
+            return _bu_shell()
         return _bu_shell()
     # ---------- v1.4 JSON API（只序列化 summary，不算账）----------
     @app.get("/api/v1/session")

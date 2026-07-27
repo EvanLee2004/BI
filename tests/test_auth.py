@@ -189,11 +189,10 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(j["fragments"].get("kpi_views"), "")
         self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
         self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
-        # 2.5.0：无权/未授权 BU 页 → 303 统一登录（不再内嵌登录 HTML）
+        # 2.6.10 V-5：已登录但无权 BU 页 → 200 SPA（前端 ErrorState），不再 303 登录页
         denied = c.get(f"/bu/{quote('BU乙')}")
-        self.assertIn(denied.status_code, (303, 200))
-        if denied.status_code == 303:
-            self.assertTrue((denied.headers.get("location") or "").startswith("/login"))
+        self.assertEqual(denied.status_code, 200, denied.headers.get("location"))
+        self.assertIn("经营看板", denied.text)
 
     def test_multi_account_same_bu(self):
         c1, r1 = self._login("user_b1", server.DEFAULT_VIEW_PW)
