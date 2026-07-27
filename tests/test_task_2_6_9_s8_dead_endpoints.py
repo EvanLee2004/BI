@@ -14,6 +14,16 @@ class TestS8DeadEndpointsGone(unittest.TestCase):
         self.assertNotIn('@app.get("/api/budget_depts")', src)
         self.assertNotIn("def api_budget_depts", src)
 
+    def test_detail_meta_route_removed(self):
+        src = (ROOT / "src" / "routes" / "data_api.py").read_text(encoding="utf-8")
+        self.assertNotIn('@app.get("/api/detail/meta")', src)
+        self.assertNotIn("def api_detail_meta", src)
+
+    def test_client_error_stats_route_removed(self):
+        src = (ROOT / "src" / "routes" / "data_api.py").read_text(encoding="utf-8")
+        self.assertNotIn('@app.get("/api/v1/client-error/stats")', src)
+        self.assertNotIn("def api_client_error_stats", src)
+
 
 if __name__ == "__main__":
     unittest.main()

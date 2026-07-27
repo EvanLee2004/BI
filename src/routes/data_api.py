@@ -348,14 +348,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/detail/meta")
-    def api_detail_meta(request: Request, table: str = Query("收入明细")):
-        """列名+类型（text/number/date），供表头筛选 UI。看端跟白名单。"""
-        _force_bu, _hs, audience = _detail_access(request, table, None)
-        try:
-            return {"table": table, "columns": db.detail_columns_meta(table, audience=audience)}
-        except KeyError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+    # 2.6.9 S8：/api/detail/meta 已删（前端/测试零引用；列元数据走 vm 白名单路径）
 
     @app.get("/api/daily")
     def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
@@ -494,18 +487,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         payload = {**payload, "ua": ua, "_client_ip": ip}
         return frontend_errors.record_frontend_error(payload, cfg=cfg, root=root)
 
-    @app.get("/api/v1/client-error/stats")
-    def api_client_error_stats(request: Request):
-        """近 24h 前端错误计数；仅管理员。不返回绝对路径。"""
-        import frontend_errors
-
-        _require(request)
-        st = frontend_errors.frontend_error_stats(cfg=cfg, root=root)
-        return {
-            "count_24h": int(st.get("count_24h") or 0),
-            "yellow": bool(st.get("yellow")),
-            "log_name": "前端错误.log",
-        }
+    # 2.6.9 S8：/api/v1/client-error/stats 已删（前端/测试零引用）
 
     @app.get("/api/health")
     def api_health(request: Request):  # noqa: C901  # 2.6.3 合成黄/红/台账/账号/schedule
