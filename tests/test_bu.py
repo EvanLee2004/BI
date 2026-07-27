@@ -475,12 +475,19 @@ class TestBuEndpoints(unittest.TestCase):
     def test_unknown_bu_404_no_hint(self):
         from urllib.parse import quote
 
+        # 2.6.10 V-5：已登录访问未知/无权 BU 文档路由 → 200 SPA（前端 ErrorState），
+        # 不再 303 登录页；仍不泄露真实 BU 名。空名可能落到 404（路由不存在）。
         for t in ("不存在BU", "x", ""):
             r = self.client.get(f"/bu/{quote(t)}")
-            # 2.6.3·D3：未登录/无权与不存在同一形——登录 303 或 404，不泄露真实 BU 名
-            self.assertIn(r.status_code, (404, 303, 307))  # ""→ /bu/ 路由不存在
-            if r.status_code == 404:
-                self.assertNotIn("BU甲", r.text)
+            self.assertIn(r.status_code, (200, 404, 303, 307), t)
+            if r.status_code == 200:
+                self.assertIn("经营看板", r.text)
+            # 404/SPA 响应体均不得枚举真实业务线名
+            self.assertNotIn("BU甲", r.text)
+        # 未登录：仍 303 登录（与无权同形，不 404 枚举）
+        for t in ("不存在BU", "x"):
+            r = self.anon.get(f"/bu/{quote(t)}")
+            self.assertIn(r.status_code, (303, 307, 404), t)
 
     def test_main_page_shell(self):
         r = self.client.get("/")
