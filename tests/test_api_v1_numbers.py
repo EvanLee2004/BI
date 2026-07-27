@@ -146,26 +146,42 @@ class TestCockpitHttp(unittest.TestCase):
         self.assertEqual(r.status_code, 401)
 
     def test_cockpit_numbers_match(self):
+        """2.6.9 S8-C：数字 golden 走 extract_numbers；HTTP 迁到 /api/v1/vm/cockpit。"""
         import api_v1
+
+        # 进程内：与 golden 全等的 numbers 仍由 extract_numbers 保证（test_extract_numbers_deep_equal）
+        exp = api_v1.extract_numbers(self.summary)
+        self.assertIn("periods", exp)
 
         r = self.client.post("/api/v1/login", json={"account": "overall", "password": "8888"})
         self.assertEqual(r.status_code, 200, r.text)
-        r2 = self.client.get("/api/v1/cockpit")
+        # 前端主路径 VM（旧 /api/v1/cockpit JSON 2.6.9 已删）
+        r2 = self.client.get("/api/v1/vm/cockpit")
         self.assertEqual(r2.status_code, 200, r2.text)
         body = r2.json()
-        exp = api_v1.extract_numbers(self.summary)
-        got = body["numbers"]
-        self.assertEqual(
-            json.loads(json.dumps(got, default=str)),
-            json.loads(json.dumps(exp, default=str)),
-        )
+        self.assertNotEqual(body.get("empty"), True)
+        self.assertIn("kpi", body)
+        year_key = exp.get("meta_year_key") or ""
+        cards = (body.get("kpi") or {}).get("cards_by_period") or {}
+        self.assertIn(year_key, cards, f"VM 缺 year_key={year_key!r}")
+        # 下单 KPI 显示串与 numbers 一致（万元一位小数）
+        order_wan = (exp.get("periods") or {}).get(year_key, {}).get("orders")
+        if order_wan is not None:
+            # numbers 里 orders 常为「分」整数；VM value 为万
+            if isinstance(order_wan, (int, float)) and order_wan > 1e6:
+                order_disp_wan = order_wan / 100 / 10000.0
+            else:
+                order_disp_wan = float(order_wan)
+            card0 = cards[year_key][0]
+            self.assertEqual(card0.get("label"), "下单")
+            self.assertAlmostEqual(float(card0.get("value")), order_disp_wan, places=2)
 
     def test_bu_forbidden_main(self):
         from fastapi.testclient import TestClient
 
         c = TestClient(self.app, follow_redirects=False)
         self.assertEqual(c.post("/api/v1/login", json={"account": "bu_only", "password": "8888"}).status_code, 200)
-        self.assertEqual(c.get("/api/v1/cockpit").status_code, 403)
+        self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 403)
 
 
 if __name__ == "__main__":

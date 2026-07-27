@@ -24,6 +24,17 @@ class TestS8DeadEndpointsGone(unittest.TestCase):
         self.assertNotIn('@app.get("/api/v1/client-error/stats")', src)
         self.assertNotIn("def api_client_error_stats", src)
 
+    def test_legacy_cockpit_json_routes_removed(self):
+        """S8-C：旧 /api/v1/cockpit JSON（非 fragments）已删；VM 路径保留。"""
+        src = (ROOT / "src" / "routes" / "cockpit.py").read_text(encoding="utf-8")
+        self.assertNotIn('@app.get("/api/v1/cockpit")\n', src)
+        self.assertNotIn("def api_v1_cockpit(", src)
+        self.assertNotIn('@app.get("/api/v1/cockpit/bu/{name}")', src)
+        self.assertNotIn("def api_v1_cockpit_bu(", src)
+        # 前端主路径与 fragments 仍在
+        self.assertIn('@app.get("/api/v1/vm/cockpit")', src)
+        self.assertIn('@app.get("/api/v1/cockpit/fragments")', src)
+
 
 if __name__ == "__main__":
     unittest.main()

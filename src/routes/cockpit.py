@@ -98,27 +98,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     _BU_NAV_TPL = d.BU_NAV_TPL
     _BU_NAV_LINK_TPL = d.BU_NAV_LINK_TPL
 
-    @app.get("/api/v1/cockpit")
-    def api_v1_cockpit(request: Request):
-        """整体驾驶舱 JSON（数字与 golden 全等；前端/飞书等复用）。"""
-        if not (_vacct(request) or _user(request)):
-            raise HTTPException(status_code=401, detail="未登录")
-        if not _can_view_main(request):
-            raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
-        summary = _state.get("summary")
-        # 2.2.4·G：无 summary 返回友好空态（保留登录鉴权；非死门 503）
-        if not summary:
-            return {
-                "scope": "整体",
-                "empty": True,
-                "empty_message": "暂无数据：请配置数据源后在管理端点「更新数据」，或等待定时刷新。可先浏览界面空态。",
-                "meta": {"built_at": _state.get("built_at") or ""},
-                "periods": {},
-            }
-        out = api_v1.cockpit_payload(summary, scope="整体")
-        if _state.get("built_at"):
-            out.setdefault("meta", {})["built_at"] = _state["built_at"]
-        return out
+    # 2.6.9 S8-C：/api/v1/cockpit 已删（前端走 /api/v1/vm/cockpit；数字 golden 走 extract_numbers）
 
     @app.get("/api/v1/vm/cockpit")
     def api_v1_vm_cockpit(request: Request):
@@ -531,20 +511,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": cd},
         )
 
-    @app.get("/api/v1/cockpit/bu/{name}")
-    def api_v1_cockpit_bu(name: str, request: Request):
-        if not (_vacct(request) or _user(request)):
-            raise HTTPException(status_code=401, detail="未登录")
-        if not _can_view_bu(request, name):
-            raise HTTPException(status_code=403, detail="无权查看该 BU")
-        page = (_state.get("bu_pages") or {}).get(name)
-        if not page:
-            raise HTTPException(status_code=404, detail="BU 不存在或未配置")
-        summary = page.get("summary")
-        if not summary:
-            # 基准版 bu_pages 仅有 html：现场重算会动 core——此处 503 提示需带 summary 的发布
-            raise HTTPException(status_code=503, detail="该 BU 尚无 JSON 快照（请更新数据）")
-        return api_v1.cockpit_payload(summary, scope="BU", bu_name=name)
+    # 2.6.9 S8-C：/api/v1/cockpit/bu/{name} 已删（前端走 /api/v1/vm/bu/{name}）
 
     # B-P5：真删 /api/v1/cockpit/view 与 SERVE_SHELL 直出。user_html 仅缓存供导出 PNG。
 
