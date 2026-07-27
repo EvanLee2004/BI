@@ -8,6 +8,8 @@ import '../styles/components/LedgerTable.css'
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { ApiError } from '../api/client'
+import { friendlyError } from '../utils/friendlyError'
 import { showToast } from '../utils/toast'
 import SciFiPanel from './SciFiPanel.vue'
 
@@ -183,7 +185,9 @@ async function load() {
     })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
-      throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
+      const detail = (d as { detail?: string }).detail || ''
+      if (detail) console.warn('[ledger]', r.status, detail)
+      throw new ApiError(r.status)
     }
     const d = await r.json()
     columns.value = d.columns || []
@@ -197,10 +201,14 @@ async function load() {
     if (d.caliber_note) caliberNote.value = String(d.caliber_note)
     const forbidden = new Set(d.forbidden || ['定位键', '收单月份', '归属月', '提单人', '提单人部门', '配音费合同号'])
     for (const c of columns.value) {
-      if (forbidden.has(c)) throw new Error('接口泄漏隐藏列：' + c)
+      if (forbidden.has(c)) {
+        console.warn('[ledger] forbidden column leaked', c)
+        throw new ApiError(500)
+      }
     }
   } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
+    console.warn('[ledger]', e)
+    err.value = friendlyError(e)
     columns.value = []
     rows.value = []
   } finally {
@@ -218,14 +226,17 @@ async function loadColumnOptions(column: string) {
     })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
-      throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
+      const detail = (d as { detail?: string }).detail || ''
+      if (detail) console.warn('[ledger/values]', r.status, detail)
+      throw new ApiError(r.status)
     }
     const d = await r.json()
     const vals = Array.isArray(d.values) ? d.values.map((x: unknown) => String(x ?? '')) : []
     // 空串也展示为「(空)」可选
     optionList.value = vals
   } catch (e) {
-    optionsErr.value = e instanceof Error ? e.message : String(e)
+    console.warn('[ledger/values]', e)
+    optionsErr.value = friendlyError(e)
   } finally {
     optionsLoading.value = false
   }

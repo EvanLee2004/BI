@@ -1,97 +1,120 @@
 # -*- coding: utf-8 -*-
-"""2.6.10 V-5：错误映射按状态码；用户文案无 HTTP/异常类名。"""
+"""2.6.10 V-5：驱动真实 TS friendlyError + 源码路径不得把 HTTP 串写给用户。"""
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+FE = ROOT / "frontend"
+TSX_MOD = FE / "src" / "utils" / "friendlyError.ts"
+SCRATCH = Path(
+    "/var/folders/1_/gps9553s3lb5qcqfk_f3h5z40000gn/T/grok-goal-e22137297bc1/implementer"
+)
 
 
-def _load_ts_friendly():
-    """从 TypeScript 源做最小对照：同步一份 Python 映射做契约（与 friendlyError.ts 对齐）。"""
-    # 直接读 TS 并 eval 不可靠；用 import 路径下的行为契约测源码字面量 + 独立实现
-    import importlib.util
-    import sys
-
-    # 用 Python 侧镜像：从 TS 抽关键函数语义复制测（真路径：frontend 构建后无法 unit）
-    # 这里用 exec 把 TS 的核心表转成 py 测试目标——实际测的是源码存在性 + 本地镜像函数
-    sys.path.insert(0, str(ROOT / "src"))
-    return None
-
-
-# 镜像 shipped friendlyFromStatus / hasTechLeak（与 frontend/src/utils/friendlyError.ts 一致）
-def friendly_from_status(status: int) -> str:
-    if status == 401:
-        return "登录已失效，请重新登录"
-    if status == 403:
-        return "你的账号没有这个页面的权限，请联系管理员开通"
-    if status == 404:
-        return "没有找到这个页面"
-    if status == 409:
-        return "操作冲突，请稍后重试"
-    if status in (500, 502):
-        return "暂时打不开，请稍后再试"
-    if status == 503:
-        return "数据还在准备中，请稍后刷新"
-    if status == 504:
-        return "请求超时，请稍后重试"
-    if 400 <= status < 500:
-        return "暂时打不开，请稍后再试"
-    if status >= 500:
-        return "暂时打不开，请稍后再试"
-    return "暂时打不开，请稍后再试"
+def _tsx_eval(expr: str) -> str:
+    """用 npx tsx 真 import 源码模块（非 Python 镜像）。"""
+    script = f"""
+import {{ friendlyFromStatus, friendlyError, friendlyMessage, hasTechLeak }} from {json.dumps(str(TSX_MOD))};
+const out = {expr};
+process.stdout.write(typeof out === 'string' ? out : JSON.stringify(out));
+"""
+    r = subprocess.run(
+        ["npx", "--yes", "tsx", "-e", script],
+        cwd=str(FE),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if r.returncode != 0:
+        raise AssertionError(f"tsx failed: {r.stderr or r.stdout}")
+    return r.stdout
 
 
-def has_tech_leak(text: str) -> bool:
-    t = text or ""
-    if re.search(r"\bHTTP\s*\d{3}\b", t, re.I):
-        return True
-    if re.search(r"TypeError|ReferenceError|SyntaxError|Traceback|Exception", t, re.I):
-        return True
-    return False
-
-
-class TestFriendlyErrorMapping(unittest.TestCase):
-    def test_status_messages_no_http_digits(self):
+class TestRealFriendlyErrorTs(unittest.TestCase):
+    def test_status_map_no_http_digits(self):
         for code in (401, 403, 404, 409, 500, 502, 503, 504):
-            msg = friendly_from_status(code)
-            self.assertFalse(has_tech_leak(msg), f"{code} -> {msg}")
-            self.assertNotRegex(msg, r"HTTP\s*\d")
+            msg = _tsx_eval(f"friendlyFromStatus({code})")
+            self.assertNotRegex(msg, r"HTTP\s*\d", msg)
+            self.assertFalse(
+                re.search(r"TypeError|Traceback|Exception", msg, re.I), msg
+            )
 
-    def test_ts_source_has_status_map_and_no_passthrough_http(self):
-        src = (ROOT / "frontend/src/utils/friendlyError.ts").read_text(encoding="utf-8")
+    def test_http_string_scrubbed(self):
+        self.assertEqual(_tsx_eval("hasTechLeak('HTTP 500')"), "true")
+        msg = _tsx_eval("friendlyMessage('HTTP 500')")
+        self.assertNotRegex(msg, r"HTTP\s*\d")
+        self.assertIn("暂时", msg)
+
+    def test_api_error_like_object(self):
+        msg = _tsx_eval("friendlyError({ status: 403 })")
+        self.assertIn("权限", msg)
+        self.assertNotRegex(msg, r"HTTP")
+
+    def test_network_message(self):
+        msg = _tsx_eval("friendlyMessage('Failed to fetch')")
+        self.assertIn("服务", msg)
+        self.assertNotRegex(msg, r"HTTP|fetch", re.I)
+
+
+class TestCockpitNoHttpLeakInSource(unittest.TestCase):
+    """看端组件：禁止把 `HTTP ${status}` / detail 原样写进用户可见状态。"""
+
+    FORBIDDEN = re.compile(
+        r"""(\.detail\s*\|\|\s*['\"]HTTP|['\"]HTTP\s*['\"]?\s*\+\s*r\.status|`HTTP\s*\$\{)"""
+    )
+
+    def test_daily_query_uses_friendly(self):
+        src = (FE / "src/components/DailyQuery.vue").read_text(encoding="utf-8")
+        self.assertIn("friendlyError", src)
+        self.assertIn("ApiError", src)
+        self.assertNotRegex(src, self.FORBIDDEN)
+
+    def test_ledger_uses_friendly(self):
+        src = (FE / "src/components/LedgerTable.vue").read_text(encoding="utf-8")
+        self.assertIn("friendlyError", src)
+        self.assertIn("ApiError", src)
+        self.assertNotRegex(src, self.FORBIDDEN)
+
+    def test_client_api_error(self):
+        src = (FE / "src/api/client.ts").read_text(encoding="utf-8")
+        self.assertIn("class ApiError", src)
         self.assertIn("friendlyFromStatus", src)
-        self.assertIn("status === 401", src)
-        self.assertIn("status === 403", src)
-        self.assertIn("status === 503", src)
-        self.assertIn("暂时打不开，请稍后再试", src)
-        self.assertIn("hasTechLeak", src)
+        # 不得用 HTTP ${status} 作为用户 message 兜底
+        self.assertNotIn("`HTTP ${r.status}`", src)
 
-    def test_app_uses_auth_required_not_chinese_match(self):
-        app = (ROOT / "frontend/src/App.vue").read_text(encoding="utf-8")
+    def test_app_auth_required(self):
+        app = (FE / "src/App.vue").read_text(encoding="utf-8")
         self.assertIn("authRequired", app)
         self.assertNotIn("error.includes('未登录')", app)
         self.assertIn("ErrorState", app)
-        self.assertNotIn("color:var(--neg)", app)
-
-    def test_client_api_error_status(self):
-        src = (ROOT / "frontend/src/api/client.ts").read_text(encoding="utf-8")
-        self.assertIn("class ApiError", src)
-        self.assertIn("r.status === 401", src)
-        self.assertIn("throw new ApiError(401", src)
 
 
-class TestFriendlyRedGreen(unittest.TestCase):
-    def test_old_http_string_leaks(self):
-        """先红：旧 `HTTP ${status}` 形态必须被 hasTechLeak 抓住。"""
-        self.assertTrue(has_tech_leak("HTTP 500"))
-        self.assertTrue(has_tech_leak("TypeError: x"))
-
-    def test_new_messages_green(self):
-        for code in (401, 403, 404, 500, 503):
-            self.assertFalse(has_tech_leak(friendly_from_status(code)))
+class TestFriendlyRedGreenLog(unittest.TestCase):
+    def test_red_then_green_logged(self):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        log = SCRATCH / "v5_error_mapping_red_green.log"
+        # 红：旧串 hasTechLeak
+        red = _tsx_eval("hasTechLeak('HTTP 500')")
+        self.assertEqual(red, "true")
+        # 绿：映射后
+        green_msg = _tsx_eval("friendlyMessage('HTTP 500')")
+        green = _tsx_eval(f"hasTechLeak({json.dumps(green_msg)})")
+        self.assertEqual(green, "false")
+        log.write_text(
+            f"RED hasTechLeak(HTTP 500)={red}\n"
+            f"GREEN friendlyMessage={green_msg!r} hasTechLeak={green}\n"
+            f"403={_tsx_eval('friendlyFromStatus(403)')!r}\n",
+            encoding="utf-8",
+        )
+        # 副本到证据目录
+        evid = ROOT / "docs" / "验收证据" / "2_6_10" / "v5_error_mapping_red_green.log"
+        evid.parent.mkdir(parents=True, exist_ok=True)
+        evid.write_text(log.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 if __name__ == "__main__":

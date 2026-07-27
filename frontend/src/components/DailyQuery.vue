@@ -6,6 +6,8 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { ApiError } from '../api/client'
+import { friendlyError } from '../utils/friendlyError'
 import SciFiPanel from './SciFiPanel.vue'
 import type { RankViewBlk } from '../types/vm'
 
@@ -59,7 +61,9 @@ async function runQuery() {
     const r = await fetch(u, { credentials: 'same-origin' })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
-      throw new Error((d as { detail?: string }).detail || 'HTTP ' + r.status)
+      const detail = (d as { detail?: string }).detail || ''
+      if (detail) console.warn('[daily]', r.status, detail)
+      throw new ApiError(r.status)
     }
     const d = await r.json()
     const dual = (d.dual_rankings || null) as { sales?: RankViewBlk; customer?: RankViewBlk } | null
@@ -70,7 +74,8 @@ async function runQuery() {
       (start.value === end.value ? '仅 ' + start.value : start.value + ' ~ ' + end.value) +
       (o || rc ? ` · 下单 ${o || '—'} / 回款 ${rc || '—'}` : '')
   } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
+    console.warn('[daily]', e)
+    err.value = friendlyError(e)
     store.clearDaily()
   } finally {
     loading.value = false
