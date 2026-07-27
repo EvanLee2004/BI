@@ -1,6 +1,13 @@
 .exp-body-fixed {
   min-height: 360px;
 }
+/* absorbed from theme (S7 sole SPA source) */
+.exp-trend-card {
+  margin-bottom: 16px;
+}
+.exp-trend-card .rc-body {
+  margin-top: 4px;
+}
 .exp-hbar-scroll {
   max-height: 360px;
   overflow-y: auto;

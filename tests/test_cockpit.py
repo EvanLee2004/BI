@@ -379,12 +379,31 @@ class TestReceiptsBudgetLayout(unittest.TestCase):
         self.assertNotIn(".rc-card .rc-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
 
     def test_receipt_body_column_layout(self):
-        """迭代20-A1 + 39·A：图例在图下方（rc-body 纵向列）；摘要条在图下。"""
+        """迭代20-A1 + 39·A：图例在图下方（rc-body 纵向列）；摘要条在图下。
+
+        S7：.rc-body 布局唯一源在 SPA components/ReceiptsCard.css（theme 已去重）。
+        """
+        from pathlib import Path
+
         import theme
 
         css = theme.get_css()
-        self.assertIn("flex-direction:column", css.split(".rc-card .rc-body{")[1].split("}")[0])
         self.assertIn("flex-direction:column", css.split(".rc-card .rc-stack{")[1].split("}")[0])
+        # SPA sole source for .rc-body (theme dual-source removed in 2.6.9 S7)
+        spa_rc = (
+            Path(__file__).resolve().parents[1]
+            / "frontend"
+            / "src"
+            / "styles"
+            / "components"
+            / "ReceiptsCard.css"
+        ).read_text(encoding="utf-8")
+        # bare .rc-body block must be flex column
+        self.assertRegex(
+            spa_rc,
+            r"\.rc-body\s*\{[^}]*flex-direction:\s*column",
+            "SPA .rc-body must be flex-direction:column",
+        )
 
     def test_note_texts_enlarged(self):
         """v1.0.4：口径/公式小字统一放大提亮（--note 色，chart-note/pr-formula >=13px）。"""

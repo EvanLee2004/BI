@@ -20,3 +20,8 @@
   margin-right: 2px;
   white-space: nowrap;
 }
+@media (max-width: 520px) {
+  .tb-today {
+    display: none !important;
+  }
+}

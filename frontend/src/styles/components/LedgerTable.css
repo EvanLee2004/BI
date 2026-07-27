@@ -32,10 +32,26 @@
 .ld-opt-err{color:var(--err-soft-fg)}
 .ld-col-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 
+/* SPA sole source for .ledger-scroll (S7); absorbed theme box/scroll props */
 .ledger-scroll{
   width:100%;
   max-width:100%;
+  overflow:auto;
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
   box-sizing:border-box;
+  max-height:min(70vh,720px);
+  min-height:200px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  position:relative;
+}
+@media (max-width: 520px) {
+  .ledger-scroll{
+    display:block;
+    width:100%;
+    max-width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
 }

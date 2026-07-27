@@ -8,18 +8,46 @@
 .rc-layout.rc-solo {
   grid-template-columns: 1fr;
 }
+/* SPA sole source for .rc-body (S7); flex layout absorbed from theme .rc-card .rc-body */
 .rc-body {
   min-width: 0;
   min-height: 320px;
   height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
+.rc-body svg {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+/* SPA sole source for .rc-side (S7); panel chrome absorbed from theme for parity */
 .rc-side {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 4px 2px 4px 8px;
+  border: 1px solid var(--line);
   border-left: 1px solid var(--line-12);
+  border-radius: 12px;
   font-size: 12.5px;
+  background: linear-gradient(
+    165deg,
+    var(--panel-2) 0%,
+    color-mix(in srgb, var(--panel) 55%, transparent) 100%
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent),
+    0 8px 24px color-mix(in srgb, var(--bg) 55%, transparent);
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+html[data-theme="light"] .rc-side {
+  background: var(--panel);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--blue) 8%, transparent);
 }
 .rc-hero-row {
   display: flex;
@@ -40,12 +68,21 @@
 .rc-v-rec {
   color: var(--blue);
 }
+/* SPA sole source for .rc-bud-h / .rc-bud-bar (S7) */
 .rc-bud-h {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 4px;
   font-weight: 600;
+  font-size: 12px;
+  color: var(--note);
+  gap: 8px;
+}
+.rc-bud-h b {
+  color: var(--ink);
+  font-family: var(--num-font);
+  font-size: 12.5px;
 }
 .rc-bud-bar {
   height: 6px;

@@ -1,4 +1,29 @@
+/* SPA sole source for trend chart layout (S7 absorbed theme rules) */
+.trend-chart-card {
+  display: flex;
+  flex-direction: column;
+}
+.trend-chart-card > .dsdk-panel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .trend-fill {
   min-height: 360px;
   height: 400px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+.trend-chart-card .trend-fill {
+  flex: 1 1 auto;
+  min-height: 240px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+.trend-chart-card .trend-fill > div {
+  flex: 1 1 auto;
+  min-height: 0;
 }

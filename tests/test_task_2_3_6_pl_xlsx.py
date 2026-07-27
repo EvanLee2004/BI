@@ -272,13 +272,19 @@ class TestBuildPlXlsxPure(unittest.TestCase):
         self.assertIn("管理利润表_整体_", fn2)
 
     def test_theme_ghost_styles_present(self):
-        """静态守卫：theme.css 含 ghost/mini 暗色样式（非仅 min-height）。"""
+        """静态守卫：theme.css 含 ghost/mini 暗色样式（非仅 min-height）。
+
+        S7：pl-export-btn 唯一源在 SPA PLTable.css（theme 已去重）。
+        """
         css = (ROOT / "static/css/theme.css").read_text(encoding="utf-8")
         self.assertIn("button.ghost", css)
         self.assertIn("button.mini", css)
-        self.assertIn("pl-export-btn", css)
         # 须有 panel/背景 token，禁止只写 min-height
         self.assertRegex(css, r"button\.ghost[^}]*background\s*:\s*var\(--panel\)")
+        spa_pl = (
+            ROOT / "frontend" / "src" / "styles" / "components" / "PLTable.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn("pl-export-btn", spa_pl)
 
 
 class TestPlXlsxHttp(unittest.TestCase):

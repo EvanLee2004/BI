@@ -89,6 +89,7 @@ tests/test_task_2_6_1_budget_pct_display.py
 tests/test_task_2_6_1_rankings_full_and_scroll.py
 tests/test_task_2_6_5_profit_rank_modal.py
 tests/test_frontend_arch_guards.py
+tests/test_css_no_dup_classes.py
 tests/test_task_2_6_5_bu_nav_overall.py
 tests/test_task_2_6_5_echarts_solid_colors.py
 tests/test_task_2_6_6_health_gaps.py

@@ -104,9 +104,14 @@ class TestDLedgerStyle(unittest.TestCase):
         self.assertIn("ledger-scroll", dash)
         self.assertIn("mlPager", dash)
         css = theme.get_css()
-        self.assertIn(".ledger-scroll", css)
+        # sticky 表头仍在 theme（.cock-ledger th）
         self.assertIn("position:sticky", css)
-        self.assertIn("min(70vh", css)
+        # S7：.ledger-scroll 唯一源在 SPA LedgerTable.css（含 max-height:min(70vh,…)）
+        spa_ld = (
+            ROOT / "frontend" / "src" / "styles" / "components" / "LedgerTable.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(".ledger-scroll", spa_ld)
+        self.assertIn("min(70vh", spa_ld)
 
     def test_js_period_ledger_sync(self):
         js = (ROOT / "static/js/cockpit.js").read_text(encoding="utf-8")

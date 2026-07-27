@@ -39,6 +39,12 @@
   margin-right: 2px;
   white-space: nowrap;
 }
+/* was theme @media 520 .tb-today{display:none} — SPA sole source (S7) */
+@media (max-width: 520px) {
+  .tb-today {
+    display: none !important;
+  }
+}
 
 .view-transition-host {
   transition: opacity var(--dur-base) var(--ease-out);

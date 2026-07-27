@@ -284,9 +284,12 @@ class TestThemeScale(unittest.TestCase):
         self.assertIn("--fs-kpi:32px", css)
         self.assertNotIn("--fs-kpi:35.2px", css)
         self.assertIn("--chart-h-sec2:317px", css)
-        # 业务 BU 分页：54.9 归 8pt 网格（原 7.7/17.6 → 8/16）
-        self.assertIn("font-size:15.4px", css)
-        self.assertIn("padding:8px 16px", css)
+        # 业务 BU 分页：S7 后唯一源 SPA BuNav.css（15.4px / padding 8 16）
+        bu_nav = (
+            ROOT / "frontend" / "src" / "styles" / "components" / "BuNav.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn("font-size: 15.4px", bu_nav)
+        self.assertIn("padding: 8px 16px", bu_nav)
         # 板块二图高
         svg = charts.combo_bar_line_chart([("1月", 1_000_000, 400_000, 60.0)])
         self.assertIn('viewBox="0 0 640 317"', svg)

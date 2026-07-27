@@ -1,3 +1,7 @@
+/* S7 stage_2_6_9_s7: dual-source SPA classes removed from theme.css
+   (bu-nav*, ledger-scroll, pl-export-btn, rc-body, rc-side, rc-bud-*, tb-today).
+   SPA sole source: frontend/src/styles/components/*.css (+ tokens).
+   Export snapshot still inlines this file + player CSS (components bundle). */
 
 :root{
   --bg:#04060d; --panel:rgba(16,24,46,.55); --panel-2:rgba(26,36,64,.72); --panel-solid:#0d1526;
@@ -28,9 +32,7 @@
   --chart-h-sec2:317px;
 }
 /* 金额数字：等宽对齐千分位；仅金额列/KPI 大数，勿套正文 */
-.num,.kpi-cum,.kpi-foot-v,.kpi-bu-a,.kpi-bu-p,.kpi-tgt-n,.kpi-tgt-h b,
-.pl-amt,.pl-drow .pl-amt,.ev-amt,.rc-hero-num,.rc-bud-t,.rc-pill b,
-.legend,.hbar-v{
+.num, .kpi-cum, .kpi-foot-v, .kpi-bu-a, .kpi-bu-p, .kpi-tgt-n, .kpi-tgt-h b, .pl-amt, .pl-drow .pl-amt, .ev-amt, .rc-hero-num, .rc-bud-t, .rc-pill b, .legend, .hbar-v{
   font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.2px;
 }
 /* 2.3.0 霓虹主题：近纯黑底 + 高亮青紫 + 多层光晕（token 集合 ⊇ light） */
@@ -78,7 +80,7 @@
   --banner-warn-fg:#78350f; --banner-warn-border:#d97706;
 }
 *{box-sizing:border-box}
-html,body{margin:0}
+html, body{margin:0}
 body{
   font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   background:var(--bg); color:var(--ink); font-size:14px; line-height:1.5;
@@ -108,13 +110,11 @@ body{
   position: relative;
 }
 /* 扫描光带：性能不达标时默认关；保留 keyframes 供需要时打开 */
-:root[data-theme="neon"] body::before,
-html[data-theme="neon"] body::before{
+:root[data-theme="neon"] body::before, html[data-theme="neon"] body::before{
   content:none;
   display:none;
 }
-:root[data-theme="neon"] body > *,
-html[data-theme="neon"] body > *{
+:root[data-theme="neon"] body > *, html[data-theme="neon"] body > *{
   position: relative;
   z-index: 1;
 }
@@ -130,15 +130,13 @@ html[data-theme="neon"] body > *{
   :root[data-theme="neon"] body, html[data-theme="neon"] body{
     animation: none !important;
   }
-  :root[data-theme="neon"] body::before,
-  html[data-theme="neon"] body::before{
+  :root[data-theme="neon"] body::before, html[data-theme="neon"] body::before{
     animation: none !important;
     opacity: 0 !important;
   }
 }
 /* 浅色：干净白底，无网格/光晕，简洁可切换 */
-.theme-light body,body.theme-light,
-:root[data-theme="light"] body, html[data-theme="light"] body{
+.theme-light body, body.theme-light, :root[data-theme="light"] body, html[data-theme="light"] body{
   background-image:none;
   background:var(--bg);
 }
@@ -178,11 +176,7 @@ button.ghost:disabled, button.mini:disabled, .ghost.mini:disabled{
 button.ghost:disabled:hover, button.mini:disabled:hover{
   color:var(--mut);border-color:var(--line-2)}
 /* 管理利润表导出：青描边强调 */
-.pl-card .pl-export-btn, button.pl-export-btn{
-  color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line-2))}
-.pl-card .pl-export-btn:hover, button.pl-export-btn:hover{
-  color:var(--ink);border-color:var(--accent);
-  background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+
 /* BU 页：返回整体 —— 顶栏固定（sticky topbar 内）+ 内容区紧贴「看哪段」 */
 .bu-back{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;
   border-radius:999px;border:1px solid var(--line-2);background:var(--panel);color:var(--blue);
@@ -197,15 +191,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .bu-subnav-cur{font-size:13px;color:var(--mut);margin-left:4px}
 .bu-subnav-cur b{color:var(--ink);font-weight:700}
 /* 整体页顶部：业务 BU 分页入口条；任务书46·0：字号/内边距 +10% */
-.bu-nav{max-width:min(1680px,100%);margin:12px auto 0;padding:12px 24px;display:flex;align-items:center;
-  flex-wrap:wrap;gap:8px 12px}
-.bu-nav-label{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.3px;flex-shrink:0}
-.bu-nav-links{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.bu-nav-a{display:inline-flex;align-items:center;padding:8px 16px;border-radius:999px;
-  border:1px solid var(--line-2);background:var(--panel);color:var(--blue);font-size:15.4px;
-  font-weight:600;text-decoration:none;transition:.15s}
-.bu-nav-a:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,var(--panel));
-  color:var(--ink)}
+
 /* A3 未归属提示：整行小字（另起一行，随周期切换金额） */
 .bu-unassigned{flex-basis:100%;font-size:12.5px;color:var(--mut2);line-height:1.5;margin-top:4px}
 .bu-unassigned b{color:var(--warn,#d97706);font-weight:700}
@@ -289,7 +275,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .kpi-mo b{color:var(--ink);font-weight:600}
 .kpi-src{font-size:12px;color:var(--mut2);margin-top:8px}
 .chart-note{font-size:13.5px;color:var(--note);margin-top:8px;line-height:1.55}
-.faint-note,.kpi-note{font-size:13px!important;color:var(--note)!important;line-height:1.5}
+.faint-note, .kpi-note{font-size:13px!important;color:var(--note)!important;line-height:1.5}
 
 /* —— 板块③ 收入与毛利结构：小字整体放大+统一、集中度突出、计算逻辑条（scoped 到 .pr-grid，不动板块④）—— */
 .pr-grid .card-h .tag{font-size:13px}
@@ -316,18 +302,17 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .grid-2e{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}  /* 对称两卡（收入/毛利结构：按客户|按销售）*/
 /* 任务书39·A：回款情况整行大图 + 图下横向摘要条（与板块二趋势同规格） */
 .rc-card .rc-stack{display:flex;flex-direction:column;gap:12px;margin-top:4px}
-.rc-card .rc-body{min-width:0;width:100%;display:flex;flex-direction:column;justify-content:center}
-.rc-card .rc-body svg{flex:0 0 auto;width:100%;max-width:100%;height:auto}
+
 /* 兼容旧类名：勿再左右挤图 */
 .rc-card .rc-split{display:flex;flex-direction:column;gap:12px;margin-top:4px}
-.rc-summary,.rc-side{border:1px solid var(--line);border-radius:12px;padding:12px 12px 12px;
+.rc-summary{border:1px solid var(--line);border-radius:12px;padding:12px 12px 12px;
   background:linear-gradient(165deg,var(--panel-2) 0%,rgba(15,23,42,.55) 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
   display:flex;flex-direction:column;min-height:0;width:100%;box-sizing:border-box}
-.theme-light .rc-summary,.theme-light .rc-side{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
-.rc-summary-title,.rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
+.theme-light .rc-summary{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
+.rc-summary-title, .rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
   padding:0 4px 8px;border-bottom:1px solid var(--line);flex:0 0 auto}
-.rc-summary-list,.rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:row;flex-wrap:wrap;
+.rc-summary-list, .rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:row;flex-wrap:wrap;
   gap:12px 16px;align-items:stretch}
 .rc-kpi{flex:1 1 120px;min-width:110px;display:flex;flex-direction:column;gap:4px;
   padding:8px 8px;border-radius:10px;border:1px solid var(--line);background:rgba(15,23,42,.28)}
@@ -385,11 +370,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .rc-pill b{color:var(--accent);font-weight:700}
 /* 年预算条 */
 .rc-bud{animation:riseIn .55s .2s cubic-bezier(.2,.7,.2,1) both;padding-top:4px}
-.rc-bud-h{font-size:12px;color:#cbd5e1;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;gap:8px}
-.rc-bud-h b{color:var(--ink);font-family:var(--num-font);font-size:12.5px}
-.rc-bud-bar{height:6px;border-radius:4px;background:var(--track);overflow:hidden}
-.rc-bud-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--blue));border-radius:4px;
-  transform-origin:left;animation:rcBarGrow .85s .15s cubic-bezier(.2,.75,.25,1) both}
+
 .rc-bud-t{font-size:12px;color:#94a3b8;margin-top:4px}
 .rc-side-empty{padding:24px 8px;text-align:center;color:#94a3b8;font-size:13px}
 /* 浅色：暗色专用的亮灰字会发白，全部改用 ink/mut/note，保证「累计下单」等可读 */
@@ -411,7 +392,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .theme-light .rc-rate-h b{color:var(--orange)}
 .theme-light .rc-rate-pair em{color:var(--mut)}
 .theme-light .rc-recv-note{color:var(--mut2)}
-.theme-light .rc-bud-h{color:var(--note)}
+
 .theme-light .rc-bud-t{color:var(--mut)}
 .theme-light .rc-side-empty{color:var(--mut)}
 .theme-light .rc-pill{background:#f8fafc}
@@ -422,19 +403,19 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .rc-rm-filter rect.bar.rm-on{filter:drop-shadow(0 0 8px var(--accent))!important}
 .rc-rm-filter circle.rm-on{filter:drop-shadow(0 0 6px var(--orange))}
 @media(max-width:900px){
-  .rc-card .rc-stack,.rc-card .rc-split{flex-direction:column}
-  .rc-summary-list,.rc-side-list{flex-direction:column}
+  .rc-card .rc-stack, .rc-card .rc-split{flex-direction:column}
+  .rc-summary-list, .rc-side-list{flex-direction:column}
 }
 @media(prefers-reduced-motion:reduce){
-  .rc-hero,.rc-rate,.rc-pills,.rc-bud,.rc-rate-bar i,.rc-bud-bar i{animation:none!important}
-  .rc-rm-filter [data-rm].rm-dim,.rc-rm-filter [data-rm].rm-on{transition:none!important}
+  .rc-hero, .rc-rate, .rc-pills, .rc-bud, .rc-rate-bar i{animation:none!important}
+  .rc-rm-filter [data-rm].rm-dim, .rc-rm-filter [data-rm].rm-on{transition:none!important}
 }
 .grid-2-main{display:flex;flex-direction:column;min-height:0}
 .pl-card{display:flex;flex-direction:column;height:100%;min-height:100%;box-sizing:border-box}
 .pl-card > .card-h{flex:0 0 auto}
 /* 可见 .pv 占满 card 剩余高度（隐藏块仍靠 inline display:none） */
 .pl-card > .pv{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-.pl-card > .pv[style*="display: none"],.pl-card > .pv[style*="display:none"]{display:none !important}
+.pl-card > .pv[style*="display: none"], .pl-card > .pv[style*="display:none"]{display:none !important}
 .pl-card .pl{flex:1 1 auto;width:100%;display:flex;flex-direction:column;justify-content:space-between}
 .pl-card .kinds{flex:0 0 auto;margin-top:8px}
 .pl-card .pl-details{flex:0 0 auto}
@@ -444,8 +425,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 /* legacy：dot + 名 + 金额；Vue .pl-table：仅 名 + 金额（无 14px 色点列，否则 .pl-name 被压成 14px 竖排） */
 .pl-row{display:grid;grid-template-columns:14px minmax(120px,1fr) auto;align-items:center;gap:8px;
   padding:8px 4px;border-bottom:1px solid var(--line)}
-.pl-table .pl-row,
-.pl-card .pl-table .pl-row{
+.pl-table .pl-row, .pl-card .pl-table .pl-row{
   grid-template-columns:minmax(140px,1fr) auto;
   gap:12px 16px;
 }
@@ -456,8 +436,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .pl-name{font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   min-width:0;line-height:1.35;word-break:keep-all}
 .pl-table .pl-name{min-width:8em}
-.pl-name .src,
-.pl-name .pl-src{font-size:12px;color:var(--mut);font-weight:400;white-space:normal}
+.pl-name .src, .pl-name .pl-src{font-size:12px;color:var(--mut);font-weight:400;white-space:normal}
 .pl-name .pl-open-hint{font-size:12px;color:var(--accent);margin-left:4px;white-space:nowrap}
 .pl-amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;
   white-space:nowrap;justify-self:end}
@@ -515,7 +494,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .ml-filter-pop .mlf-h{font-weight:700;margin:0 0 8px;font-size:13px}
 .ml-filter-pop .mlf-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
 .ml-filter-pop label{font-size:12px;color:var(--mut);font-weight:600}
-.ml-filter-pop input[type=text],.ml-filter-pop input[type=number],.ml-filter-pop input[type=date]{
+.ml-filter-pop input[type=text], .ml-filter-pop input[type=number], .ml-filter-pop input[type=date]{
   width:100%;box-sizing:border-box;background:var(--panel-2,#0c1424);border:1px solid var(--line);
   color:var(--ink);border-radius:8px;padding:4px 8px}
 .ml-filter-pop .mlf-vals{max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px}
@@ -527,7 +506,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 #tip{position:fixed;z-index:99;pointer-events:none;background:var(--panel-solid);color:var(--ink);
   border:1px solid var(--line-2);border-radius:9px;padding:8px 12px;font-size:12px;line-height:1.55;
   box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;transition:opacity .12s;max-width:240px}
-.hit,.hit-seg{cursor:pointer}
+.hit, .hit-seg{cursor:pointer}
 .ktip{cursor:help}
 .hbadge{cursor:help;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid;white-space:nowrap}
 .hb-ok{color:var(--pos);border-color:var(--pos);background:rgba(52,211,153,.08)}
@@ -537,7 +516,6 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .faint-note{margin-top:12px;text-align:center;font-size:12px;color:var(--mut2);opacity:.65}
 
 .foot{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut);line-height:1.7}
-
 
 /* 全局周期选择器 */
 .pbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:4px 0 4px;padding:8px 12px;
@@ -552,7 +530,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
   background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 .psel:hover{border-color:var(--accent)}
 .psel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.18)}
-.psel option,.psel optgroup{background:var(--panel-solid);color:var(--ink)}
+.psel option, .psel optgroup{background:var(--panel-solid);color:var(--ink)}
 /* 周期日历面板（自选月区间） */
 .pbtn{background-image:none;padding:4px 12px;display:inline-flex;align-items:center;gap:8px}
 .pbtn-c{color:var(--mut);font-size:12px}
@@ -580,41 +558,39 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .rk-no{flex:0 0 20px;text-align:center;font-size:12px;color:var(--mut);font-family:var(--mono,inherit)}
 .rk-row:nth-child(1) .rk-no{color:var(--accent);font-weight:800}
 .rk-meta{flex:0 0 74px;text-align:right;font-size:12px;color:var(--mut2);white-space:nowrap}
-.rk-others .ev-name,.rk-others .ev-amt{color:var(--mut2)}
+.rk-others .ev-name, .rk-others .ev-amt{color:var(--mut2)}
 /* 按天明细（批次B）：面板/表格；金额串由后端下发，前端零运算 */
 .daily-btn{order:9;margin-left:8px}
 .daily-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 8px;font-size:13px;color:var(--mut)}
-.daily-bar input[type=date],.cock-ctrl{background:transparent;border:1px solid var(--line-2);color:var(--ink);border-radius:999px;padding:4px 12px;font-size:13px;outline:none}
-.daily-bar input[type=date]:focus,.cock-ctrl:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.12)}
+.daily-bar input[type=date], .cock-ctrl{background:transparent;border:1px solid var(--line-2);color:var(--ink);border-radius:999px;padding:4px 12px;font-size:13px;outline:none}
+.daily-bar input[type=date]:focus, .cock-ctrl:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.12)}
 .cock-ctrl-bar select.cock-ctrl{appearance:none;-webkit-appearance:none;padding-right:24px;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 14px) 55%,calc(100% - 9px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.theme-light .cock-ctrl,.theme-light .daily-bar input[type=date]{background:#fff}
+.theme-light .cock-ctrl, .theme-light .daily-bar input[type=date]{background:#fff}
 .daily-note{font-size:12px;color:var(--mut2)}
 /* 任务书39·D：费用明细表（对齐管理端暗色明细：sticky 表头、容器滚动、等宽数字） */
-.ledger-scroll{overflow:auto;max-height:min(70vh,720px);min-height:200px;border:1px solid var(--line);border-radius:10px;position:relative}
+
 .cock-ledger{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}
-.cock-ledger th,.cock-ledger td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;color:var(--ink)}
+.cock-ledger th, .cock-ledger td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;color:var(--ink)}
 .cock-ledger th{position:sticky;top:0;z-index:2;background:var(--panel-solid,#0d1526);color:var(--mut);font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer}
 .theme-light .cock-ledger th{background:#f1f5f9}
-.cock-ledger td.num,.cock-ledger th.num{text-align:right;font-family:var(--num-font);font-variant-numeric:tabular-nums}
-.cock-ledger td.col-flex,.cock-ledger th.col-flex{white-space:normal;min-width:160px;max-width:420px}
+.cock-ledger td.num, .cock-ledger th.num{text-align:right;font-family:var(--num-font);font-variant-numeric:tabular-nums}
+.cock-ledger td.col-flex, .cock-ledger th.col-flex{white-space:normal;min-width:160px;max-width:420px}
 .cock-ledger tr:hover td{background:rgba(34,211,238,.04)}
 .ledger-pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--mut)}
 .ledger-pager .toggle{padding:4px 12px;font-size:12px}
 /* 任务书39·E / 46·0：费用月度堆叠面积图 */
-.exp-trend-card{margin-bottom:16px}
-.exp-trend-card .rc-body{margin-top:4px}
+
 .exp-trend-note{font-size:12px;color:var(--note);margin-top:4px;line-height:1.45}
 /* 板块二趋势图高度（SVG viewBox 已 +10%，此处兜底不压缩） */
-.grid-2-main > .card svg,
-.grid-2-main svg{min-height:var(--chart-h-sec2,317px)}
+.grid-2-main > .card svg, .grid-2-main svg{min-height:var(--chart-h-sec2,317px)}
 @media(max-width:375px){
   .grid-2-main svg{min-height:0} /* 手机单列不撑破 */
   .kpi-grid.kpi-5{grid-template-columns:1fr}
 }
 .daily-wrap{overflow-x:auto}
 .daily-tbl{border-collapse:collapse;width:100%;font-size:12.5px}
-.daily-tbl th,.daily-tbl td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:right;white-space:nowrap}
-.daily-tbl th:first-child,.daily-tbl td:first-child{text-align:left}
+.daily-tbl th, .daily-tbl td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:right;white-space:nowrap}
+.daily-tbl th:first-child, .daily-tbl td:first-child{text-align:left}
 .daily-tbl th{color:var(--mut);font-weight:600}
 .daily-total td{font-weight:700;color:var(--accent);border-top:1px solid var(--line-2)}
 /* 弹窗关闭仍靠右；「本年」已与本月同排在 daily-bar，不再用 daily-close 顶栏右贴 */
@@ -628,25 +604,16 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .rk-entity:hover{background:rgba(34,211,238,.08)}
 .dual-month .rk-no{color:var(--mut2);font-size:12px}
 /* 任务书52·F-1：Vue 弹窗 class=.rkm-mask（Teleport body）；legacy 仍用 #rkModal id */
-#rkModal,
-.rkm-mask{
+#rkModal, .rkm-mask{
   position:fixed;inset:0;z-index:80;
   background:var(--overlay-mask,rgba(0,0,0,.45));
   display:flex;align-items:center;justify-content:center;
   padding:16px;box-sizing:border-box;
 }
-html.light #rkModal,
-html.light .rkm-mask,
-body.light #rkModal,
-body.light .rkm-mask,
-[data-theme="light"] #rkModal,
-[data-theme="light"] .rkm-mask,
-html.theme-light #rkModal,
-html.theme-light .rkm-mask{
+html.light #rkModal, html.light .rkm-mask, body.light #rkModal, body.light .rkm-mask, [data-theme="light"] #rkModal, [data-theme="light"] .rkm-mask, html.theme-light #rkModal, html.theme-light .rkm-mask{
   background:var(--overlay-mask,rgba(15,23,42,.45));
 }
-.rkm-box,
-.rkm{
+.rkm-box, .rkm{
   background:var(--overlay-panel-solid,var(--panel-solid,#0b1222));
   border:1px solid var(--line-2);border-radius:12px;
   max-width:560px;width:100%;max-height:80vh;
@@ -654,14 +621,13 @@ html.theme-light .rkm-mask{
   box-sizing:border-box;
   color:var(--ink);
 }
-.rkm-box>.card-h,
-.rkm-h{flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rkm-box>.card-h, .rkm-h{flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .rkm-h b{font-size:15px;color:var(--ink)}
 /* flex 纵向：列表须 min-height:0 才会内部滚动，否则内容撑破盒子、首行（第1名）溢到表头下被裁掉 */
 .rkm-list{overflow-y:auto;margin-top:8px;flex:1 1 auto;min-height:0}
 .rkm-list .ev-list{max-height:none;overflow:visible}
 .rk-unfilled{opacity:.62}
-.rk-unfilled .ev-name,.rk-unfilled .ev-amt{color:var(--mut)}
+.rk-unfilled .ev-name, .rk-unfilled .ev-amt{color:var(--mut)}
 .rk-unfilled .rk-no{color:#f59e0b;font-size:12px}
 .pl-row.gchild .pl-name{padding-left:32px;font-size:12px;color:var(--mut2)}
 .pl-row.gchild .pl-name .src{display:none}
@@ -674,7 +640,7 @@ html.theme-light .rkm-mask{
 /* —— 一次性入场 —— */
 @keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-.pbar,.sec,.kpi,.card,.faint-note,.foot{animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both}
+.pbar, .sec, .kpi, .card, .faint-note, .foot{animation:riseIn .55s cubic-bezier(.2,.7,.2,1) both}
 .pbar{animation-delay:.02s}
 .sec{animation-delay:.05s}
 .kpi-grid .kpi:nth-child(1){animation-delay:.10s}
@@ -706,9 +672,9 @@ html.theme-light .rkm-mask{
 .kpi-grid .kpi:nth-child(3) .kpi-cum{animation-delay:.3s}
 .kpi-grid .kpi:nth-child(4) .kpi-cum{animation-delay:.45s}
 .kpi-grid .kpi:nth-child(5) .kpi-cum{animation-delay:.6s}
-.kpi-grid .kpi .kpi-tgt-track i,.kpi-grid .kpi .kpi-bu-track i{animation:rcBarGrow .9s cubic-bezier(.2,.75,.25,1) both}
+.kpi-grid .kpi .kpi-tgt-track i, .kpi-grid .kpi .kpi-bu-track i{animation:rcBarGrow .9s cubic-bezier(.2,.75,.25,1) both}
 @media(prefers-reduced-motion:reduce){
-  .kpi-grid .kpi::after,.kpi-grid .kpi .kpi-cum,.kpi-grid .kpi .kpi-tgt-track i{animation:none!important}
+  .kpi-grid .kpi::after, .kpi-grid .kpi .kpi-cum, .kpi-grid .kpi .kpi-tgt-track i{animation:none!important}
 }
 
 /* —— 顶部切周期：板块①②③ 统一淡出/淡入（periodSync；零金额）—— */
@@ -826,7 +792,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .pl-open:hover{background:var(--track)}
 .pl-more{font-size:12px;color:var(--accent);opacity:.85;margin-left:8px;font-weight:600}
 .ev-more{flex:0 0 44px;text-align:right;margin-left:0;opacity:.5;transition:opacity .15s;white-space:nowrap}
-.ev-row:hover .ev-more,.ev-row:focus .ev-more{opacity:1}
+.ev-row:hover .ev-more, .ev-row:focus .ev-more{opacity:1}
 .pl-drow{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)}
 .pl-drow:last-child{border-bottom:0}
 .pl-drow .pl-name{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -838,8 +804,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 
 /* 尊重系统"减少动态效果"偏好：全部降为静态 */
 @media(prefers-reduced-motion:reduce){
-  .pbar,.sec,.kpi,.card,.faint-note,.foot,.bar,body,.pl-row.grand .pl-amt,.kpi::before,.donut-sweep{animation:none}
-  .flowline,.particles,.comet,.donut-sweep{display:none}
+  .pbar, .sec, .kpi, .card, .faint-note, .foot, .bar, body, .pl-row.grand .pl-amt, .kpi::before, .donut-sweep{animation:none}
+  .flowline, .particles, .comet, .donut-sweep{display:none}
   .kpi:hover{transform:none}
   .drawer-panel{transition:none}
 }
@@ -853,13 +819,13 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 
 /* 面板四角发光角标（FUI 特征）——所有 .card 与 KPI；浅色弱化 */
 .card{position:relative;border-color:var(--line-2)}
-.card::before,.card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;
+.card::before, .card::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;
   opacity:.65;transition:opacity .25s;filter:drop-shadow(0 0 5px var(--accent))}
 .card::before{top:7px;left:7px;border-top:2px solid var(--accent);border-left:2px solid var(--accent)}
 .card::after{bottom:7px;right:7px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
 .card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(34,211,238,.16),0 0 32px rgba(34,211,238,.08),var(--glow)}
-.card:hover::before,.card:hover::after{opacity:1}
-.theme-light .card::before,.theme-light .card::after{opacity:.25;filter:none}
+.card:hover::before, .card:hover::after{opacity:1}
+.theme-light .card::before, .theme-light .card::after{opacity:.25;filter:none}
 .theme-light .card:hover{border-color:rgba(8,145,178,.45);
   box-shadow:0 2px 8px rgba(8,145,178,.10),0 6px 18px rgba(15,42,70,.08)}
 .kpi::after{content:"";position:absolute;top:7px;right:7px;width:12px;height:12px;pointer-events:none;
@@ -897,7 +863,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .kpi-grid.kpi-5{grid-template-columns:repeat(3,1fr)}
 }
 @media(max-width:900px){
-  .kpi-grid,.kpi-grid.kpi-5{grid-template-columns:repeat(2,1fr)}
+  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
   .grid-2e{grid-template-columns:1fr}
   .grid-3{grid-template-columns:1fr}
@@ -910,20 +876,17 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 }
 @media(max-width:520px){
   /* 2.6.2 B1：禁止整页被宽表撑出横滑；表在 .ledger-scroll 内横滑 */
-  html,body{overflow-x:hidden;max-width:100%;}
-  #app,.wrap,.scifi-panel,.card,.sec,.grid-2,.grid-2-main,.grid-2e{
+  html, body{overflow-x:hidden;max-width:100%;}
+  #app, .wrap, .scifi-panel, .card, .sec, .grid-2, .grid-2-main, .grid-2e{
     max-width:100%;min-width:0;box-sizing:border-box;
   }
-  .ledger-scroll{
-    display:block;width:100%;max-width:100%;
-    overflow-x:auto;-webkit-overflow-scrolling:touch;
-  }
-  .cock-ledger,.bu-ledger{max-width:none} /* 表可宽，但不出 .ledger-scroll */
-  .pl-card,.pl-table,table.pl-table{max-width:100%}
-  .pl-card .pl-body,.pl-scroll{overflow-x:auto;max-width:100%}
+  
+  .cock-ledger, .bu-ledger{max-width:none} /* 表可宽，但不出 .ledger-scroll */
+  .pl-card, .pl-table, table.pl-table{max-width:100%}
+  .pl-card .pl-body, .pl-scroll{overflow-x:auto;max-width:100%}
 
   /* 2.6.2 B4：首屏 KPI 两列紧凑（桌面仍 5 列，不受本段影响） */
-  .kpi-grid,.kpi-grid.kpi-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:repeat(2,minmax(0,1fr))}
   .kpi-grid > .scifi-panel.kpi-card:last-child:nth-child(odd){grid-column:1 / -1}
 
   /* 2.6.2 B2：顶栏单行主工具，次要信息隐藏 */
@@ -933,7 +896,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   }
   .tb-left{flex-wrap:nowrap !important;flex:1;min-width:0;gap:6px}
   .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
-  .tb-today,.tb-ver{display:none !important}
+  .tb-ver{display:none !important}
   .tb-right{flex-shrink:0;gap:6px;margin-left:4px}
   /* 2.6.7 B：窄屏仍横排一行图标，无 ⋯ 折叠 */
   .tb-actions{display:inline-flex !important;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
@@ -942,20 +905,16 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .tb-actions .tb-ico{font-size:16px;line-height:1}
 
   /* 54.9 R7：375 触目标 ≥44px（含周期芯片/费用 tab「按大类」等） */
-  .pbtn,.bu-back,.bu-nav-a,.pp-chip,.pp-m,.live,button.pbtn,.tb-right button,
-  .ev-tab,.ev-tabs button,.daily-bar button,.ledger-pager button,.pp-row button,
-  .daily-bar .cock-ctrl, .daily-bar button, .cock-ctrl-bar button,
-  button.cock-ctrl, .ledger-pager .el-button, .toolbar button{
+  .pbtn, .bu-back, .pp-chip, .pp-m, .live, button.pbtn, .tb-right button, .ev-tab, .ev-tabs button, .daily-bar button, .ledger-pager button, .pp-row button, .daily-bar .cock-ctrl, .daily-bar button, .cock-ctrl-bar button, button.cock-ctrl, .ledger-pager .el-button, .toolbar button{
     min-height:44px !important;box-sizing:border-box;padding-top:8px;padding-bottom:8px;
   }
   /* 54.9 R7：看端所有可点 button 统一触目标（含 .mini 幽灵钮） */
-  .wrap button, #app button, #periodSync button, .card button, .scifi-panel button,
-  button.mini, button.ghost, .ghost.mini, .ev-tab.mini {
+  .wrap button, #app button, #periodSync button, .card button, .scifi-panel button, button.mini, button.ghost, .ghost.mini, .ev-tab.mini{
     min-height:44px !important; min-width:44px; box-sizing:border-box;
     padding-top:8px !important; padding-bottom:8px !important;
   }
   .kpi-grid{gap:10px}
-  .kpi-v b,.kpi-host .kpi-v b{font-size:22px !important}
+  .kpi-v b, .kpi-host .kpi-v b{font-size:22px !important}
   .wrap{padding:0 12px 32px}
 }
 /* 2.6.7 B：全站唯一横排工具条（无 narrow/more） */
@@ -972,7 +931,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .rc-hero-l .rc-period{font-weight:600;color:var(--accent);margin-left:4px;font-size:12px;opacity:.95}
 .rc-gap-note{margin-top:8px;font-size:12px;color:#94a3b8}
 .rc-gap-note b{color:var(--orange);font-family:var(--num-font);font-size:14px}
-.theme-light .rc-tot em,.theme-light .rc-gap-note{color:var(--note)}
+.theme-light .rc-tot em, .theme-light .rc-gap-note{color:var(--note)}
 .theme-light .rc-gap-note b{color:#c2410c}
 /* A6 双血条：上=下单 下=回款；任务书37 图例不喧宾夺主 */
 .dual-row{align-items:flex-start}
@@ -991,7 +950,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .dual-grid{grid-template-columns:minmax(0,0.45fr) minmax(0,0.55fr) !important}
 .dual-grid > .card{min-width:0}
 /* 利润表/明细/排名行高统一 */
-.pl-row,.bu-ledger th,.bu-ledger td,.cock-ledger th,.cock-ledger td,.hbar-row,.dual-row{
+.pl-row, .bu-ledger th, .bu-ledger td, .cock-ledger th, .cock-ledger td, .hbar-row, .dual-row{
   padding-top:var(--row-pad-y);padding-bottom:var(--row-pad-y)}
 /* 辅助文字对比度：mut2 不低于可读阈值 */
 .theme-light{--mut2:#4a5a6e}
@@ -1005,7 +964,4 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 }
 
 /* ── 54.3：趋势图区随面板高自适应，修「利润表短的BU页(营销等)面板被压缩→固定高图区溢出→overflow:hidden裁掉月份轴」 ── */
-.trend-chart-card.scifi-panel.dsdk-panel{display:flex;flex-direction:column}
-.trend-chart-card>.dsdk-panel-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-.trend-chart-card .rc-body.trend-fill{flex:1 1 auto;min-height:240px;height:auto;display:flex;flex-direction:column}
-.trend-chart-card .rc-body.trend-fill>div{flex:1 1 auto;min-height:0}
+

@@ -12,8 +12,15 @@
   gap: 8px;
   min-width: 0;
 }
+/* SPA sole source for .pl-export-btn (S7); accent border/color absorbed from theme */
 .pl-export-btn {
   flex-shrink: 0;
   white-space: nowrap;
-  
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-2));
+}
+.pl-export-btn:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
 }
