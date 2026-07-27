@@ -221,7 +221,7 @@ class TestProfitRankingEndpoint(unittest.TestCase):
         self.assertTrue(d["items"][-1].get("unfilled"))
         it0 = d["items"][0]
         self.assertIn("万", it0["revenue_disp"])  # 金额成串
-        self.assertIn("系统成本率", it0["margin_disp"])  # 陆总0714 改名
+        self.assertIn("系统成本率", it0["cost_pct_disp"])  # 陆总0714 改名
         self.assertNotIn("revenue", it0)  # 原始数值不下发（前端零运算）
         self.assertNotIn("margin_pct", it0)
         self.assertNotIn("cost_pct", it0)

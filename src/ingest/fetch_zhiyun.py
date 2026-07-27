@@ -374,10 +374,14 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:  #
         import datetime as _dt
 
         mon = _dt.date.today().month
-        # 空表 write 会拒；删掉旧 xlsx 以免下游继续读陈旧全表
+        # 2.6.9 S5：0 行禁止 unlink；重命名为 .stale-<ts> 保留证据，下游不读 stale
+        stale_name = local.name
         try:
             if local.exists():
-                local.unlink()
+                ts = _dt.datetime.now().strftime("%Y%m%d%H%M%S")
+                stale = local.with_name(f"{local.name}.stale-{ts}")
+                local.rename(stale)
+                stale_name = stale.name
         except OSError:
             pass
         save_last_row_count(cfg, source, 0, root)
@@ -385,14 +389,14 @@ def _fetch_and_write_source(cfg, source, root, post, zy, tbl, local) -> dict:  #
             # 1 月 0 行：信息级（新年正常空），不抬体检红
             return {
                 "status": "fetched",
-                "detail": f"新年正常空：1 月抓到 0 行（已清本地旧文件）→ {local.name}",
+                "detail": f"新年正常空：1 月抓到 0 行（本地旧文件已标 stale 保留）→ {stale_name}",
                 "rows": 0,
                 "info": ["新年正常空（1 月 0 行，不判抓取失败）"] + info_msgs,
             }
         # 非 1 月 0 行：抬体检红 + 告警，绝不 fallback 旧文件
         return {
             "status": "empty_fetch",
-            "detail": f"智云抓取 0 行（非1月），已拒沿用并清理旧文件 → {local.name}",
+            "detail": f"智云抓取 0 行（非1月），已拒沿用并将旧文件标 stale 保留 → {stale_name}",
             "rows": 0,
             "warnings": [f"{source} 智云抓取 0 行，未沿用本地旧 xlsx，请检查过滤条件/账号权限"],
             "info": info_msgs,

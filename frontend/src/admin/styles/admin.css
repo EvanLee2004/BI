@@ -359,3 +359,73 @@ html.theme-light .admin-root .el-drawer,
 html.theme-light .admin-root .el-dialog {
   background: #ffffff !important;
 }
+
+/* 2.6.9 U-6：ElMessageBox 挂 body，不套 .admin-root；深空/浅色与 el-dialog 对齐 */
+.el-message-box {
+  background: var(--admin-panel2, #151e30) !important;
+  border: 1px solid var(--admin-line, rgba(125, 211, 252, 0.16)) !important;
+  border-radius: 12px !important;
+  color: var(--admin-ink, #eaf1ff) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
+.el-message-box__title {
+  color: var(--admin-ink, #eaf1ff) !important;
+  font-weight: 700 !important;
+}
+.el-message-box__content,
+.el-message-box__message {
+  color: var(--admin-mut, #93a1c0) !important;
+}
+.el-message-box__input input.el-input__inner,
+.el-message-box__input .el-input__wrapper {
+  background: var(--admin-panel, #0d1526) !important;
+  color: var(--admin-ink, #eaf1ff) !important;
+  box-shadow: 0 0 0 1px var(--admin-line, rgba(125, 211, 252, 0.2)) inset !important;
+}
+.el-message-box__btns .el-button {
+  border-radius: 8px !important;
+}
+html.theme-light .el-message-box {
+  background: #ffffff !important;
+  border-color: rgba(8, 145, 178, 0.2) !important;
+  color: #15202b !important;
+  box-shadow: 0 12px 40px rgba(15, 42, 70, 0.12) !important;
+}
+html.theme-light .el-message-box__title {
+  color: #15202b !important;
+}
+html.theme-light .el-message-box__content,
+html.theme-light .el-message-box__message {
+  color: #3d4a5c !important;
+}
+html.theme-light .el-message-box__input input.el-input__inner,
+html.theme-light .el-message-box__input .el-input__wrapper {
+  background: #f4f7fb !important;
+  color: #15202b !important;
+  box-shadow: 0 0 0 1px rgba(8, 145, 178, 0.2) inset !important;
+}
+/* 2.6.9 U-7：管理端霓虹主题（与 tokens.css neon 同源色） */
+html[data-theme="neon"] .admin-root,
+:root[data-theme="neon"] .admin-root {
+  --admin-bg: #01030a;
+  --admin-panel: rgba(8, 16, 36, 0.72);
+  --admin-panel2: #070e1c;
+  --admin-ink: #eef4ff;
+  --admin-mut: #a8b8d8;
+  --admin-line: rgba(47, 243, 255, 0.22);
+  --admin-accent: #2ff3ff;
+  --el-bg-color: #070e1c;
+  --el-bg-color-overlay: #0a1428;
+  --el-text-color-primary: #eef4ff;
+  --el-text-color-regular: #a8b8d8;
+  --el-border-color: rgba(47, 243, 255, 0.22);
+  --el-color-primary: #2ff3ff;
+  --el-fill-color-blank: #070e1c;
+  --el-mask-color: rgba(0, 0, 0, 0.55);
+}
+html[data-theme="neon"] .el-message-box {
+  background: #070e1c !important;
+  border-color: rgba(47, 243, 255, 0.35) !important;
+  color: #eef4ff !important;
+  box-shadow: 0 0 24px rgba(47, 243, 255, 0.18) !important;
+}

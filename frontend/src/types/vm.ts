@@ -137,7 +137,7 @@ export type RankItem = {
   i: number
   name: string
   revenue_disp?: string
-  margin_disp?: string
+  cost_pct_disp?: string
   bar_w?: number
   wo?: number
   wr?: number
@@ -150,7 +150,7 @@ export type RankSide = {
   dim: string
   conc_disp: string
   items: RankItem[]
-  others: { names?: number | string; amt_disp?: string; amt?: string; margin_disp?: string; count?: number | string } | null
+  others: { names?: number | string; amt_disp?: string; amt?: string; cost_pct_disp?: string; count?: number | string } | null
   empty: boolean
   full_items: RankItem[]
   show_meta?: boolean

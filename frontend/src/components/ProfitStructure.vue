@@ -22,7 +22,7 @@ function toListItems(side: RankSide | undefined): RankListItem[] {
     name: it.name,
     bar_w: it.bar_w,
     revenue_disp: it.revenue_disp,
-    margin_disp: it.margin_disp,
+    cost_pct_disp: it.cost_pct_disp,
   }))
 }
 
@@ -35,7 +35,7 @@ function fetchFull(side: RankSide) {
         name: it.name,
         bar_w: it.bar_w,
         revenue_disp: it.revenue_disp,
-        margin_disp: it.margin_disp,
+        cost_pct_disp: it.cost_pct_disp,
       }))
     }
     const dim = side.dim === 'customer' ? 'customer' : 'sales'
@@ -55,7 +55,7 @@ function fetchFull(side: RankSide) {
       i: it.i ?? idx + 1,
       name: it.name,
       revenue_disp: it.revenue_disp,
-      margin_disp: it.margin_disp,
+      cost_pct_disp: it.cost_pct_disp,
       bar_w: it.bar_w,
     }))
   }

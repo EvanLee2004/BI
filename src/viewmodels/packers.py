@@ -206,7 +206,7 @@ def pack_profit_rank_by_period(summary: dict, *, embed_full: bool = False) -> di
                     "i": i,
                     "name": it.get("name") or "",
                     "revenue_disp": charts.fmt_wan(rev) + "万",
-                    "margin_disp": (f"{it.get('cost_pct'):.1f}%" if show_meta and it.get("cost_pct") is not None else ""),
+                    "cost_pct_disp": (f"{it.get('cost_pct'):.1f}%" if show_meta and it.get("cost_pct") is not None else ""),
                     "bar_w": max(2.0, rev / mx * 100) if rev else 0,
                 }
             )
@@ -216,7 +216,7 @@ def pack_profit_rank_by_period(summary: dict, *, embed_full: bool = False) -> di
             others_out = {
                 "names": others.get("names"),
                 "amt_disp": charts.fmt_wan(others.get("revenue") or 0) + "万",
-                "margin_disp": (
+                "cost_pct_disp": (
                     f"{others.get('cost_pct'):.1f}%" if show_meta and others.get("cost_pct") is not None else ""
                 ),
             }
@@ -231,7 +231,7 @@ def pack_profit_rank_by_period(summary: dict, *, embed_full: bool = False) -> di
                         "i": i,
                         "name": it.get("name") or "",
                         "revenue_disp": charts.fmt_wan(rev) + "万",
-                        "margin_disp": (
+                        "cost_pct_disp": (
                             f"{it.get('cost_pct'):.1f}%" if show_meta and it.get("cost_pct") is not None else ""
                         ),
                         "bar_w": max(2.0, rev / fmx * 100) if rev else 0,

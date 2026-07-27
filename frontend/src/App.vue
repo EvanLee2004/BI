@@ -24,7 +24,6 @@ import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
 import BuNav from './components/BuNav.vue'
 import TopBarActions from './components/TopBarActions.vue'
-import IntroSplash from './components/IntroSplash.vue'
 import BuTransitionOverlay from './components/BuTransitionOverlay.vue'
 /* 2.6.5：板块五台账/热力懒加载，压首屏 gz ≤90.8KB */
 const ExpenseHeatmap = defineAsyncComponent(() => import('./components/ExpenseHeatmap.vue'))
@@ -35,13 +34,11 @@ const store = useCockpitStore()
 const productVer = ref('')
 /** 2.2.9：本机日历日，版本号左侧；不依赖后端 */
 const todayStr = ref('')
-/** 快照模式不播入场 */
-const showIntro = ref(false)
 const isBuRoute = computed(() => {
   const m = location.pathname.match(/^\/bu\/(.+)/)
   return m ? decodeURIComponent(m[1]) : ''
 })
-/** 2.2.4·G：无数据空态提示（后端 empty_message） */
+/** 2.2.4·G：空态提示（后端 empty_message） */
 const emptyHint = computed(() => {
   const v = store.vm as { empty?: boolean; empty_message?: string } | null
   if (!v?.empty) return ''
@@ -66,16 +63,12 @@ onMounted(async () => {
   const onAdmin = path.startsWith('/admin')
   if (onLogin || onAdmin) return
 
-  // 2.2.9：导出快照优先 boot（零 API）；快照不播入场
+  // 2.2.9：导出快照优先 boot（零 API）
   if (store.tryBootSnapshot()) {
     const sv = String(store.snapshotVersion || '').trim()
     productVer.value = sv ? (sv.startsWith('v') ? sv : 'v' + sv) : ''
-    showIntro.value = false
     return
   }
-
-  /* 2.3.1：看端每次刷新都播入场（与数据加载并行）；admin/snapshot 已在上方 return */
-  showIntro.value = true
 
   try {
     const v = await fetchProductVersion()
@@ -106,12 +99,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <IntroSplash v-if="showIntro" :data-ready="!store.loading && !!store.vm" @done="showIntro = false" />
   <BuTransitionOverlay />
   <div v-if="store.error && store.error.includes('未登录')">
     <LoginView />
   </div>
-  <div v-else-if="store.loading && !showIntro" class="wrap muted" style="padding:40px">加载中…</div>
+  <div v-else-if="store.loading" class="wrap muted" style="padding:40px">加载中…</div>
   <div v-else-if="store.error" class="wrap" style="padding:40px;color:var(--neg)">{{ store.error }}</div>
   <div
     v-else-if="store.scope === 'bu'"

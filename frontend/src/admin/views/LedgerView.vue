@@ -141,7 +141,7 @@ onMounted(load)
 
     <div v-if="!loading && !list.length" class="empty-guide" data-testid="ledger-empty">
       <div class="empty-ico" aria-hidden="true">📋</div>
-      <p class="empty-title">还没有数据调整记录</p>
+      <p class="empty-title">暂无数据调整记录</p>
       <p class="empty-desc">
         在「数据调整」改数或删行后，记录会出现在这里，可撤销或处理过期疑似。
       </p>

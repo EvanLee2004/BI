@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import '../styles/components/BUPage.css'
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
-import { fetchProductVersion, fetchSession } from '../api/client'
+import { fetchProductVersion } from '../api/client'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
 import logoUrl from '../assets/logo.png'
 import PeriodPicker from './PeriodPicker.vue'
@@ -24,20 +24,6 @@ const store = useCockpitStore()
 const productVer = ref('')
 /** 2.2.9：本机日历日，版本号左侧 */
 const todayStr = ref('')
-/**
- * 2.3.4：仅「有整体权限」才显示「← 整体」。
- * - 在线：session.can_main（整体账号 / 管理员）
- * - 快照：仍走 snapshotCanGoOverall（BU 专用包 / 空 cockpit 禁回）
- * 纯 BU 账号不渲染按钮，避免点进「无整体驾驶舱权限」空壳。
- * 默认 false：session 未回前不闪按钮。
- */
-const canMain = ref(false)
-
-const showOverallBack = computed(() => {
-  if (store.snapshotMode) return store.snapshotCanGoOverall()
-  return canMain.value
-})
-
 function localTodayYmd(): string {
   const d = new Date()
   const y = d.getFullYear()
@@ -46,33 +32,12 @@ function localTodayYmd(): string {
   return `${y}-${m}-${day}`
 }
 
-function goOverall(e?: Event) {
-  // 双保险：无权限不导航（防脏 DOM / 手改 HTML）
-  if (store.snapshotMode) {
-    e?.preventDefault()
-    if (!store.snapshotCanGoOverall()) return
-    store.loadMain()
-    return
-  }
-  if (!canMain.value) {
-    e?.preventDefault()
-  }
-  // 有 can_main：走 href="/" 全页回整体
-}
-
 onMounted(async () => {
   todayStr.value = localTodayYmd()
   if (store.snapshotMode) {
     const sv = String(store.snapshotVersion || '').trim()
     productVer.value = sv ? (sv.startsWith('v') ? sv : 'v' + sv) : ''
-    canMain.value = store.snapshotCanGoOverall()
     return
-  }
-  try {
-    const sess = await fetchSession()
-    canMain.value = !!(sess as { can_main?: boolean }).can_main
-  } catch {
-    canMain.value = false
   }
   try {
     const v = await fetchProductVersion()
@@ -99,13 +64,6 @@ onMounted(async () => {
     <header class="topbar">
       <div class="tb-left">
         <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
-        <a
-          v-if="showOverallBack"
-          class="bu-back"
-          href="/"
-          data-testid="bu-back-overall"
-          @click="goOverall"
-        >← 整体</a>
         <div class="tb-title"><b>{{ store.buName }}</b> 经营看板</div>
         <PeriodPicker />
       </div>

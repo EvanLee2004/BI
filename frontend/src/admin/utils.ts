@@ -65,15 +65,16 @@ export const STD_MAP: Record<string, string> = {
   费用明细: 'std_费用明细',
 }
 
+// 2.6.9 U-2：金额录入/显示统一「元」（库内仍为分；API 已转元）
 export const BUDGET_METRICS = [
-  { k: '下单H1目标', label: '下单H1目标', tip: '万元 · 上半年下单', thou: true, pct: false, wan: true, sumBu: false },
-  { k: '回款H1目标', label: '回款H1目标', tip: '万元 · 上半年回款', thou: true, pct: false, wan: true, sumBu: false },
-  { k: '毛利率H1目标', label: '毛利率H1目标', tip: '百分数 · 上半年毛利率', thou: false, pct: true, wan: false, sumBu: false },
-  { k: '税前利润率H1目标', label: '税前利润率H1目标', tip: '百分数 · 上半年税前利润率', thou: false, pct: true, wan: false, sumBu: false },
-  { k: '下单年预算', label: '下单年目标', tip: '万元 · 全年下单', thou: true, pct: false, wan: true, sumBu: true },
-  { k: '回款年预算', label: '回款年目标', tip: '万元 · 全年回款', thou: true, pct: false, wan: true, sumBu: true },
-  { k: '毛利率年目标', label: '毛利率年目标', tip: '百分数 · 如 35=35%', thou: false, pct: true, wan: false, sumBu: false },
-  { k: '税前利润率年目标', label: '税前利润率年目标', tip: '百分数 · 税前利润÷收入', thou: false, pct: true, wan: false, sumBu: false },
+  { k: '下单H1目标', label: '下单H1目标', tip: '元 · 上半年下单', thou: true, pct: false, wan: false, money: true, sumBu: false },
+  { k: '回款H1目标', label: '回款H1目标', tip: '元 · 上半年回款', thou: true, pct: false, wan: false, money: true, sumBu: false },
+  { k: '毛利率H1目标', label: '毛利率H1目标', tip: '百分数 · 上半年毛利率', thou: false, pct: true, wan: false, money: false, sumBu: false },
+  { k: '税前利润率H1目标', label: '税前利润率H1目标', tip: '百分数 · 上半年税前利润率', thou: false, pct: true, wan: false, money: false, sumBu: false },
+  { k: '下单年预算', label: '下单年目标', tip: '元 · 全年下单', thou: true, pct: false, wan: false, money: true, sumBu: true },
+  { k: '回款年预算', label: '回款年目标', tip: '元 · 全年回款', thou: true, pct: false, wan: false, money: true, sumBu: true },
+  { k: '毛利率年目标', label: '毛利率年目标', tip: '百分数 · 如 35=35%', thou: false, pct: true, wan: false, money: false, sumBu: false },
+  { k: '税前利润率年目标', label: '税前利润率年目标', tip: '百分数 · 税前利润÷收入', thou: false, pct: true, wan: false, money: false, sumBu: false },
 ] as const
 
 export const SRC_MAP: [string, string][] = [

@@ -49,7 +49,7 @@ def _amt_key(it: dict) -> float:
                 return float(it[k])
             except (TypeError, ValueError):
                 pass
-    for k in ("revenue_disp", "order_disp", "receipt_disp", "margin_disp"):
+    for k in ("revenue_disp", "order_disp", "receipt_disp", "cost_pct_disp"):
         v = _parse_disp_wan(it.get(k))
         if v is not None:
             return v

@@ -80,7 +80,7 @@ def _bu_sales_set(bucfg: dict, name: str) -> set:
     return sales
 
 
-def _profit_rank_margin_disp(dim: str, it: dict) -> str:
+def _profit_rank_cost_pct_disp(dim: str, it: dict) -> str:
     """陆总0714：系统成本率；按销售不显示（防「人力算不算」连锁追问）。"""
     if dim == "sales":
         return ""
@@ -97,7 +97,7 @@ def _profit_rank_items_payload(rk: dict, dim: str) -> list[dict]:
             "i": i,
             "name": it["name"],
             "revenue_disp": _wan(it["revenue"]),
-            "margin_disp": _profit_rank_margin_disp(dim, it),
+            "cost_pct_disp": _profit_rank_cost_pct_disp(dim, it),
         }
         for i, it in enumerate(rk["items"], 1)
     ]
@@ -108,7 +108,7 @@ def _profit_rank_items_payload(rk: dict, dim: str) -> list[dict]:
                 "i": len(items) + 1,
                 "name": "（未填）",
                 "revenue_disp": _wan(uf["revenue"]),
-                "margin_disp": _profit_rank_margin_disp(dim, uf),
+                "cost_pct_disp": _profit_rank_cost_pct_disp(dim, uf),
                 "unfilled": True,
             }
         )

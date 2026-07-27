@@ -13,10 +13,12 @@ const reloadDash = inject<() => void>('reloadDash', () => {})
 const d = new Date()
 const year = ref(String(Math.max(d.getFullYear(), 2026)))
 const month = ref(String(d.getMonth() + 1))
-const scope = ref('全公司')
+/** 2.6.9 U-1：手填多列（全公司+各BU），去掉顶部 scope 下拉 */
+const scopes = ref<string[]>(['全公司'])
 const buNames = ref<string[]>([])
 const items = ref<string[]>([])
-const manualRows = ref<{ item: string; cur: string; orig: string; val: string }[]>([])
+/** manualCells[item][scope] = { orig, val } 元 */
+const manualCells = ref<Record<string, Record<string, { orig: string; val: string }>>>({})
 const allocRows = ref<{ bu: string; orig: string; val: string }[]>([])
 const allocTotal = ref('—')
 const allocInherit = ref('')
@@ -46,8 +48,12 @@ const mOpts = monthOptions(false)
 
 function recountDirty() {
   let n = 0
-  for (const r of manualRows.value) {
-    if (r.val.replace(/,/g, '').trim() !== r.orig.replace(/,/g, '').trim()) n++
+  for (const it of items.value) {
+    for (const sc of scopes.value) {
+      const c = manualCells.value[it]?.[sc]
+      if (!c) continue
+      if (c.val.replace(/,/g, '').trim() !== c.orig.replace(/,/g, '').trim()) n++
+    }
   }
   for (const r of allocRows.value) {
     if (r.val.trim() !== r.orig.trim()) n++
@@ -148,22 +154,28 @@ async function load() {
   if (!m) return
   await loadScopes()
   if (!items.value.length) await loadItems()
-  const cur = await jget<{ 项目: string; 金额: unknown }[]>(
-    `/api/manual?month=${encodeURIComponent(m)}&scope=${encodeURIComponent(scope.value)}`,
+  scopes.value = ['全公司'].concat(buNames.value)
+  const next: typeof manualCells.value = {}
+  for (const it of items.value) next[it] = {}
+  await Promise.all(
+    scopes.value.map(async (sc) => {
+      const cur = await jget<{ 项目: string; 金额: unknown }[]>(
+        `/api/manual?month=${encodeURIComponent(m)}&scope=${encodeURIComponent(sc)}`,
+      )
+      const map: Record<string, unknown> = {}
+      ;(cur || []).forEach((x) => {
+        map[x['项目']] = x['金额']
+      })
+      for (const it of items.value) {
+        const orig = map[it] != null ? String(map[it]) : ''
+        next[it][sc] = {
+          orig,
+          val: map[it] != null ? fmtThousands(map[it]) : '',
+        }
+      }
+    }),
   )
-  const map: Record<string, unknown> = {}
-  ;(cur || []).forEach((x) => {
-    map[x['项目']] = x['金额']
-  })
-  manualRows.value = items.value.map((it) => {
-    const orig = map[it] != null ? String(map[it]) : ''
-    return {
-      item: it,
-      cur: map[it] != null ? fmtThousands(map[it]) : '（空=0）',
-      orig,
-      val: map[it] != null ? fmtThousands(map[it]) : '',
-    }
-  })
+  manualCells.value = next
   await loadAlloc()
   await loadDetax()
   recountDirty()
@@ -171,7 +183,7 @@ async function load() {
 
 async function loadAlloc() {
   const m = ymString(year.value, month.value)
-  if (scope.value !== '全公司' || !m) {
+  if (!m) {
     showAlloc.value = false
     return
   }
@@ -253,7 +265,8 @@ async function loadAlloc() {
 }
 
 async function loadDetax() {
-  if (scope.value !== '全公司') {
+  // 去税率始终全公司口径（U-1 去掉 scope 下拉后仍按公司层加载）
+  if (!ymString(year.value, month.value)) {
     showDetax.value = false
     return
   }
@@ -301,16 +314,20 @@ async function discard() {
 async function saveAll() {
   const m = ymString(year.value, month.value)
   const manuals: { 项目: string; 金额: number; 范围: string }[] = []
-  for (const r of manualRows.value) {
-    const cur = r.val.replace(/,/g, '').trim()
-    const orig = r.orig.replace(/,/g, '').trim()
-    if (cur === orig || cur === '') continue
-    const n = parseAmount(r.val)
-    if (isNaN(n) || n < 0) {
-      ElMessage.error(`「${r.item}」金额无效`)
-      return
+  for (const it of items.value) {
+    for (const sc of scopes.value) {
+      const c = manualCells.value[it]?.[sc]
+      if (!c) continue
+      const cur = c.val.replace(/,/g, '').trim()
+      const orig = c.orig.replace(/,/g, '').trim()
+      if (cur === orig || cur === '') continue
+      const n = parseAmount(c.val)
+      if (isNaN(n) || n < 0) {
+        ElMessage.error(`「${it} · ${sc}」金额无效`)
+        return
+      }
+      manuals.push({ 项目: it, 金额: n, 范围: sc })
     }
-    manuals.push({ 项目: r.item, 金额: n, 范围: scope.value })
   }
   const allocs: Record<string, number | null> = {}
   let allocSum = 0
@@ -425,7 +442,8 @@ async function saveAll() {
   }
   saving.value = true
   try {
-    if (manuals.length) await jpost('/api/manual_batch', { 归属月: m, 范围: scope.value, items: manuals })
+    // 批量可带行内 范围；顶层 范围 仅作缺省
+    if (manuals.length) await jpost('/api/manual_batch', { 归属月: m, 范围: '全公司', items: manuals })
     if (allocChanged || ovChanged || frChanged) {
       const body: Record<string, unknown> = { 归属月: m }
       if (allocChanged) body.ratios = allocs
@@ -457,24 +475,40 @@ onMounted(load)
       <el-select v-model="month" style="width: 100px">
         <el-option v-for="o in mOpts" :key="o.value" :label="o.label" :value="o.value" />
       </el-select>
-      <el-select v-model="scope" style="width: 160px" @change="safeLoad">
-        <el-option label="全公司" value="全公司" />
-        <el-option v-for="n in buNames" :key="n" :label="'BU · ' + n" :value="n" />
-      </el-select>
       <el-button type="primary" @click="safeLoad">查询</el-button>
-      <span class="muted">金额填元（千分位）；当月未填=0。全公司与各 BU 手填分开存。</span>
+      <span class="muted">金额填元（千分位）；当月未填=0。全公司与各 BU 并排一屏填完（窄屏横向滚动）。</span>
     </div>
     <div class="admin-note">人工填写：人力/补充等。可批量改数，离开会提醒。</div>
 
-    <el-table :data="manualRows" border stripe size="small" style="width: 100%; max-width: 720px">
-      <el-table-column prop="item" label="项目" min-width="160" />
-      <el-table-column prop="cur" label="当前金额(元)" width="140" />
-      <el-table-column label="新值(元)" width="180">
-        <template #default="{ row }">
-          <el-input v-model="row.val" size="small" placeholder="如 1,000,000" @input="recountDirty" />
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="matrix-wrap" data-testid="manual-multi-scope" style="overflow-x:auto;max-width:100%">
+      <table class="b-matrix manual-matrix" style="min-width:720px">
+        <thead>
+          <tr>
+            <th class="b-metric">项目</th>
+            <th v-for="sc in scopes" :key="sc">{{ sc === '全公司' ? '全公司' : 'BU · ' + sc }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="it in items" :key="it">
+            <td class="b-metric">{{ it }}</td>
+            <td v-for="sc in scopes" :key="sc">
+              <div class="b-cur muted" v-if="manualCells[it]?.[sc]?.orig">
+                {{ fmtThousands(manualCells[it][sc].orig) }} 元
+              </div>
+              <div class="b-cur muted" v-else>（空=0）</div>
+              <el-input
+                v-if="manualCells[it]?.[sc]"
+                v-model="manualCells[it][sc].val"
+                size="small"
+                placeholder="如 1,000,000"
+                style="width: 130px"
+                @input="recountDirty"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <div v-if="showAlloc" style="margin-top: 20px" data-testid="alloc-panel">
       <h3>🏦 公共费用统一分摊（两轴）</h3>

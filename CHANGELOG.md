@@ -1,3 +1,15 @@
+## 2.6.9 · 2026-07-27
+
+### 看端 / 管理端
+- S7：theme.css 与 components 双源 class 冲突清零（SPA 唯一源 + 守卫测试）
+- S3：删 IntroSplash / BU 页「← 整体」；空状态文案统一「暂无数据」；管理端 MessageBox/霓虹主题；margin_disp→cost_pct_disp
+- S1：人工填写多列并排（全公司+BU）
+- S2：业绩目标金额录入/显示统一「元」（库内分不动）
+- S4：账号可看整体页显式标志（行为兼容）
+- S5：智云 0 行本地文件 stale 保留，禁止 unlink
+- S6：存量重复调整较早 id 标已撤销
+- S8：删除死端点 `/api/budget_depts`
+
 # Changelog
 
 ## 2.6.8 · 2026-07-27

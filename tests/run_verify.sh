@@ -90,6 +90,9 @@ tests/test_task_2_6_1_rankings_full_and_scroll.py
 tests/test_task_2_6_5_profit_rank_modal.py
 tests/test_frontend_arch_guards.py
 tests/test_css_no_dup_classes.py
+tests/test_task_2_6_9_u2_budget_yuan.py
+tests/test_task_2_6_9_s5_zero_row_no_unlink.py
+tests/test_task_2_6_9_s8_dead_endpoints.py
 tests/test_task_2_6_5_bu_nav_overall.py
 tests/test_task_2_6_5_echarts_solid_colors.py
 tests/test_task_2_6_6_health_gaps.py

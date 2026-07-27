@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.3.1 S1：count-up 解绑主题 + intro 每次刷新/时长守卫。"""
+"""2.3.1 count-up + 2.6.9 U-5 IntroSplash 已下线守卫。"""
 from __future__ import annotations
 
 import re
@@ -17,7 +17,6 @@ class TestMotion231(unittest.TestCase):
         self.assertIn("prefersReducedMotion", src)
         self.assertNotIn("fxLevel() !== 1", src)
         self.assertNotIn("fxLevel() === 1", src)
-        # 终帧仍直赋
         self.assertIn("onDone(disp)", src)
         self.assertIn("isAnimatableDisp", src)
 
@@ -26,23 +25,13 @@ class TestMotion231(unittest.TestCase):
         for pat in (r"parseFloat\s*\([^)]*disp", r"Number\s*\([^)]*disp"):
             self.assertIsNone(re.search(pat, src, re.I), pat)
 
-    def test_intro_every_refresh_bounds(self):
-        intro = (FE / "components" / "IntroSplash.vue").read_text(encoding="utf-8")
-        self.assertIn("MIN_SHOW_MS", intro)
-        self.assertIn("900", intro)
-        self.assertIn("1600", intro)
-        self.assertIn("dataReady", intro)
-        # 不依赖主题
-        self.assertNotIn("fxLevel", intro)
-        self.assertNotIn("themeMode", intro)
-        # admin / reduced-motion 跳过
-        self.assertIn("/admin", intro)
-        self.assertIn("prefersReducedMotion", intro)
-
-    def test_app_shows_intro_on_boot(self):
+    def test_intro_splash_removed_2_6_9(self):
+        """U-5：短入场动画下线，切 BU 仍用 BuTransitionOverlay。"""
+        self.assertFalse((FE / "components" / "IntroSplash.vue").is_file())
         app = (FE / "App.vue").read_text(encoding="utf-8")
-        self.assertIn("showIntro.value = true", app)
-        self.assertIn(":data-ready", app)
+        self.assertNotIn("IntroSplash", app)
+        self.assertNotIn("showIntro", app)
+        self.assertIn("BuTransitionOverlay", app)
 
 
 if __name__ == "__main__":

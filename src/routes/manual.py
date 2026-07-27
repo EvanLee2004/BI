@@ -641,14 +641,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 conn.close()
         return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
-    @app.get("/api/budget_depts")
-    def api_budget_depts(request: Request):
-        _require(request)
-        conn = _conn()
-        try:
-            return db.list_budget_depts(conn)
-        finally:
-            conn.close()
+    # 2.6.9 S8：/api/budget_depts 已删（前端/测试零引用）
 
     @app.get("/api/adjust_fields")
     def api_adjust_fields(request: Request):

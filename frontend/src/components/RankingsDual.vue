@@ -140,7 +140,7 @@ function onItemClick(it: RankListItem) {
       </SciFiPanel>
     </div>
     <DataModal :open="monthModal" :title="monthTitle" @close="monthModal = false">
-      <div v-if="!monthRows.length" class="rank-list__empty">本期无数据</div>
+      <div v-if="!monthRows.length" class="rank-list__empty">暂无数据</div>
       <RankBar
         v-for="(it, idx) in monthRows"
         :key="'mo' + idx + it.name"

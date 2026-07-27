@@ -173,7 +173,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
         items = r.json().get("items") or []
         self.assertGreater(len(items), 0, "整体弹层 items 必须 > 0")
         self.assertIn("revenue_disp", items[0])
-        self.assertIn("系统成本率", items[0].get("margin_disp") or "")
+        self.assertIn("系统成本率", items[0].get("cost_pct_disp") or "")
 
     def test_bu_with_param_items_gt_zero(self):
         """BU 会话 + bu= 本 BU：合法路径 items > 0。"""

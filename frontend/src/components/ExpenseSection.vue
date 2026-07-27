@@ -218,9 +218,9 @@ const option = computed(() => {
           <span class="ev-track"><i :style="{ width: row.bar_w + '%' }"></i></span>
           <span class="ev-amt">{{ row.amt_disp }}</span>
         </div>
-        <div v-if="!hbar.length" class="ev-empty">本期无数据</div>
+        <div v-if="!hbar.length" class="ev-empty">暂无数据</div>
       </div>
-      <div v-else class="ev-empty">本期无数据</div>
+      <div v-else class="ev-empty">暂无数据</div>
     </div>
 
     <!-- 右侧抽屉：与 PLTable 同一套 body 直下 fixed（Teleport）；复用全局 drawer/pl-drow 样式 -->

@@ -65,17 +65,21 @@ class TestSourceGuards229(unittest.TestCase):
         self.assertIn("/api/export.html", src)
 
     def test_bu_only_snapshot_hides_overall_back(self):
-        """BU 专用包 / 无 can_main 不得提供「← 整体」入口，避免 loadMain 挂上空壳或 403。"""
+        """2.6.9 U-4：BU 页顶栏「← 整体」已删；回整体仅走 BuNav。
+
+        store 仍保留 snapshotCanGoOverall，供 BuNav/loadMain 禁空壳。
+        """
         bu = (ROOT / "frontend/src/components/BUPage.vue").read_text(encoding="utf-8")
         store = (ROOT / "frontend/src/stores/cockpit.ts").read_text(encoding="utf-8")
-        self.assertIn("showOverallBack", bu)
-        self.assertIn('v-if="showOverallBack"', bu)
-        self.assertIn("snapshotCanGoOverall", bu)
+        nav = (ROOT / "frontend/src/components/BuNav.vue").read_text(encoding="utf-8")
+        self.assertNotIn("showOverallBack", bu)
+        self.assertNotIn("bu-back-overall", bu)
+        self.assertNotIn("goOverall", bu)
+        self.assertNotIn("← 整体", bu)
+        self.assertIn("BuNav", bu)
         self.assertIn("function snapshotCanGoOverall", store)
-        # 2.3.4：在线必须读 session.can_main（纯 BU 账号不显示按钮）
-        self.assertIn("can_main", bu)
-        self.assertIn("fetchSession", bu)
-        self.assertIn("canMain", bu)
+        # BuNav 仍可按权限展示「整体」入口
+        self.assertTrue("整体" in nav or "overall" in nav.lower())
         # loadMain 对 BU 包 / 空 cockpit 必须 early return（禁止挂空整体）
         self.assertIn("snapshotCanGoOverall()", store)
         self.assertRegex(

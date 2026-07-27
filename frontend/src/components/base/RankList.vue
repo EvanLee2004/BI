@@ -14,7 +14,7 @@ export type RankListItem = {
   /** 单条：bar 宽度 */
   bar_w?: number
   revenue_disp?: string
-  margin_disp?: string
+  cost_pct_disp?: string
   /** 双条 */
   wo?: number
   wr?: number
@@ -66,7 +66,7 @@ async function openOthers() {
     return
   }
   if (!props.fetchFull) {
-    modalTag.value = '本期无数据'
+    modalTag.value = '暂无数据'
     modalItems.value = []
     modal.value = true
     return
@@ -80,7 +80,7 @@ async function openOthers() {
       ...it,
       i: it.i ?? idx + 1,
     }))
-    modalTag.value = modalItems.value.length ? '' : '本期无数据'
+    modalTag.value = modalItems.value.length ? '' : '暂无数据'
   } catch {
     modalTag.value = '加载失败'
     modalItems.value = []
@@ -112,7 +112,7 @@ defineExpose({ openOthers })
     >
       <span class="rank-bar__meta-head">{{ metaLabel }}</span>
     </div>
-    <div v-if="empty || !items?.length" class="rank-list__empty">本期无数据</div>
+    <div v-if="empty || !items?.length" class="rank-list__empty">暂无数据</div>
     <template v-else>
       <div
         v-for="it in items"
@@ -129,7 +129,7 @@ defineExpose({ openOthers })
           :primary-value="dual ? it.order_disp : it.revenue_disp"
           :secondary-width="dual ? Number(it.wr) || 0 : 0"
           :secondary-value="dual ? it.receipt_disp : undefined"
-          :meta="showMeta ? it.margin_disp : undefined"
+          :meta="showMeta ? it.cost_pct_disp : undefined"
           :meta-label="showMeta ? metaLabel : undefined"
           :meta-title="metaTitle"
         />
@@ -152,7 +152,7 @@ defineExpose({ openOthers })
 
     <DataModal :open="modal" :title="modalTitleRef" :tag="modalTag" @close="close">
       <div v-if="!modalItems.length" class="rank-list__empty">
-        {{ modalTag || '本期无数据' }}
+        {{ modalTag || '暂无数据' }}
       </div>
       <div v-else data-testid="rank-modal-list">
         <RankBar
@@ -165,7 +165,7 @@ defineExpose({ openOthers })
           :primary-value="dual ? it.order_disp : it.revenue_disp"
           :secondary-width="dual ? Number(it.wr) || 0 : 0"
           :secondary-value="dual ? it.receipt_disp : undefined"
-          :meta="showMeta ? it.margin_disp : undefined"
+          :meta="showMeta ? it.cost_pct_disp : undefined"
           :meta-label="showMeta ? metaLabel : undefined"
           :meta-title="metaTitle"
         />

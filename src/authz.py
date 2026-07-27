@@ -73,8 +73,15 @@ def can_view_salary(acc: dict | None, *, cfg: dict | None = None) -> bool:
 
 
 def can_main(acc: dict | None) -> bool:
-    """能看整体页：管理员或整体权限。"""
-    return accounts.is_admin(acc) or accounts.is_main(acc)
+    """能看整体页：管理员；或显式 可看整体页；或旧权限=整体。"""
+    if accounts.is_admin(acc):
+        return True
+    flag = (acc or {}).get("可看整体页")
+    if flag is True:
+        return True
+    if flag is False:
+        return False
+    return accounts.is_main(acc)
 
 
 def can_see_bu(acc: dict | None, name: str) -> bool:

@@ -2,7 +2,7 @@
 import { inject, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost } from '../api'
-import { BUDGET_METRICS, fmtThousands, parseAmount, wanToYuan, yuanToWan, yearOptions } from '../utils'
+import { BUDGET_METRICS, fmtThousands, parseAmount, yearOptions } from '../utils'
 
 const dirtyApi = inject<{
   setBudgetDirty: (n: number) => void
@@ -14,8 +14,10 @@ const d = new Date()
 const year = ref(String(Math.max(d.getFullYear(), 2026)))
 const yOpts = yearOptions(false)
 const scopes = ref<string[]>(['全公司'])
-/** cells[metric][scope] = { orig, val, pct, wan } */
-const cells = ref<Record<string, Record<string, { orig: string; val: string; pct: boolean; wan: boolean }>>>({})
+/** cells[metric][scope] = { orig, val, pct, money } — money=元录入 */
+const cells = ref<
+  Record<string, Record<string, { orig: string; val: string; pct: boolean; money: boolean }>>
+>({})
 const saving = ref(false)
 const sumTips = ref<Record<string, { text: string; warn: boolean }>>({})
 
@@ -55,7 +57,7 @@ function updateSumTips() {
     const co = cells.value[it.k]?.['全公司']
     const coRaw = co ? co.val.replace(/,/g, '').trim() : ''
     const coN = coRaw === '' ? null : Number(coRaw)
-    const text = '各 BU 合计 ' + fmtThousands(Math.round(buSum * 1e2) / 1e2) + ' 万'
+    const text = '各 BU 合计 ' + fmtThousands(Math.round(buSum * 1e2) / 1e2) + ' 元'
     const warn = coN != null && !isNaN(coN) && buSum > coN + 1e-9
     tips[it.k] = { text, warn }
   }
@@ -93,16 +95,13 @@ async function load() {
         if (it.pct) {
           orig = String(old)
           val = String(old)
-        } else if (it.wan) {
-          const w = yuanToWan(old)
-          orig = String(w)
-          val = fmtThousands(w)
         } else {
+          // 元（API 已 fen→yuan）；2.6.9 U-2 不再按万展示
           orig = String(old)
           val = fmtThousands(old)
         }
       }
-      next[it.k][sc] = { orig, val, pct: it.pct, wan: it.wan }
+      next[it.k][sc] = { orig, val, pct: it.pct, money: !!(it as { money?: boolean }).money }
     }
   }
   cells.value = next
@@ -153,15 +152,18 @@ async function save() {
         ElMessage.error(`「${it.label} · ${sc}」不能为负`)
         return
       }
-      if (c.wan) {
-        if (n > 0 && n < 10) {
+      if (c.money) {
+        // 原阈值「<10 万」→ 元口径 <100_000
+        if (n > 0 && n < 100_000) {
           try {
-            await ElMessageBox.confirm(`「${it.label} · ${sc}」=${n} 万，目标似乎过小，仍保存？`, '确认')
+            await ElMessageBox.confirm(
+              `「${it.label} · ${sc}」=${fmtThousands(n)} 元，目标似乎过小，仍保存？`,
+              '确认',
+            )
           } catch {
             return
           }
         }
-        n = wanToYuan(n)
       }
       budgets.push({ 指标: it.k, 金额: n, 范围: sc, 年份: year.value })
     }
@@ -188,7 +190,7 @@ function displayCur(it: (typeof BUDGET_METRICS)[number], sc: string): string {
   const c = cells.value[it.k]?.[sc]
   if (!c || c.orig === '') return '（未填）'
   if (it.pct) return c.orig + '%'
-  if (it.wan) return fmtThousands(c.orig) + ' 万'
+  if ((it as { money?: boolean }).money) return fmtThousands(c.orig) + ' 元'
   return fmtThousands(c.orig)
 }
 
@@ -202,9 +204,9 @@ onMounted(load)
         <el-option v-for="o in yOpts" :key="o.value" :label="o.label" :value="o.value" />
       </el-select>
       <el-button type="primary" @click="safeLoad">查询</el-button>
-      <span class="muted">金额填万元、毛利率填百分数；存储键名不变。</span>
+      <span class="muted">金额填元、毛利率填百分数；存储键名不变。</span>
     </div>
-    <div class="admin-note">🎯 业绩目标 · 下单/回款填<strong>万元</strong>，毛利率填百分数。年目标行在全公司列旁显示各 BU 合计。</div>
+    <div class="admin-note">🎯 业绩目标 · 下单/回款填<strong>元</strong>，毛利率填百分数。年目标行在全公司列旁显示各 BU 合计。</div>
 
     <div class="matrix-wrap">
       <table class="b-matrix">
@@ -227,12 +229,12 @@ onMounted(load)
                   v-if="cells[it.k]?.[sc]"
                   v-model="cells[it.k][sc].val"
                   size="small"
-                  :placeholder="it.wan ? '如 8,000' : '如 35'"
-                  style="width: 110px"
+                  :placeholder="(it as any).money ? '如 80,000,000' : '如 35'"
+                  style="width: 130px"
                   @input="recount"
                 />
                 <span v-if="it.pct" class="pct">%</span>
-                <span v-else-if="it.wan" class="pct">万</span>
+                <span v-else-if="(it as any).money" class="pct">元</span>
               </div>
               <div
                 v-if="it.sumBu && sc === '全公司' && sumTips[it.k]?.text"

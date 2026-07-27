@@ -522,7 +522,7 @@ function hasColFilter(c: string): boolean {
             >
           </tr>
           <tr v-if="!rows.length && !loading">
-            <td :colspan="columns.length || 1" class="muted">无数据</td>
+            <td :colspan="columns.length || 1" class="muted">暂无数据</td>
           </tr>
         </tbody>
       </table>

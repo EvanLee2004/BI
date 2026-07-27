@@ -420,7 +420,7 @@ import './admin-layout.css'
         <ul v-if="healthWarnings.length">
           <li v-for="(w, i) in healthWarnings" :key="i">{{ w }}</li>
         </ul>
-        <div v-else class="ok">✓ 无数据质量告警</div>
+        <div v-else class="ok">✓ 暂无质量告警</div>
       </div>
       <div class="grp">
         <div class="k">数据源覆盖</div>

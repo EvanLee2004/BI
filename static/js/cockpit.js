@@ -297,7 +297,7 @@
           '<span class="ev-name" title="'+nm+'" data-tip="'+esc(nm)+'">'+nm+'</span>'+
           '<span class="ev-track"></span>'+
           '<span class="ev-amt">'+esc(it.revenue_disp)+'</span>'+
-          '<span class="rk-meta">'+esc(it.margin_disp)+'</span></div>';});
+          '<span class="rk-meta">'+esc(it.cost_pct_disp)+'</span></div>';});
      list.innerHTML='<div class="ev-list">'+(h||'<div class="ev-empty">本期无数据</div>')+'</div>';
    }).catch(function(err){list.innerHTML='<div class="ev-empty">加载失败：'+esc(err.message)+
      '（要在服务器版页面用；file:// 快照不支持）</div>';});
