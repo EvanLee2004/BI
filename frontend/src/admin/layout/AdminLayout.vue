@@ -285,7 +285,7 @@ async function pollRefresh() {
         refreshMsg.value = '更新成功' + secs
         ElMessage.success('✓ ' + refreshMsg.value)
       } else {
-        refreshMsg.value = '更新完成，但有问题' + secs
+        refreshMsg.value = '更新完成' + secs
         ElMessage.warning(refreshMsg.value)
       }
       window.dispatchEvent(new CustomEvent('admin-reload-dash'))

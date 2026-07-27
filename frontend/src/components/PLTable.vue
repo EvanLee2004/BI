@@ -2,6 +2,7 @@
 import '../styles/components/PLTable.css'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { showToast } from '../utils/toast'
 import SciFiPanel from './SciFiPanel.vue'
 import type { PLDetail, PLDetailLine, PLTablePeriod } from '../types/vm'
 
@@ -39,7 +40,7 @@ const exporting = ref(false)
 async function exportPlExcel() {
   if (exporting.value || store.snapshotMode) return
   if (typeof location !== 'undefined' && location.protocol === 'file:') {
-    alert('导出需在看板服务页面使用')
+    showToast('这个页面是导出的静态快照，导出功能请回在线看板使用', 'warn')
     return
   }
   const blk = store.period || ''
@@ -51,21 +52,13 @@ async function exportPlExcel() {
   try {
     const r = await fetch(url, { credentials: 'same-origin' })
     if (!r.ok) {
-      let msg = `HTTP ${r.status}`
       try {
         const t = await r.text()
-        if (t) {
-          try {
-            const j = JSON.parse(t) as { detail?: string }
-            msg = j.detail || t.slice(0, 200)
-          } catch {
-            msg = t.slice(0, 200)
-          }
-        }
+        console.warn('[pl-export]', r.status, t?.slice?.(0, 200) || '')
       } catch {
-        /* ignore */
+        console.warn('[pl-export]', r.status)
       }
-      throw new Error(msg)
+      throw new Error('export_failed')
     }
     const cd = r.headers.get('Content-Disposition') || ''
     let fn = '管理利润表.xlsx'
@@ -95,7 +88,8 @@ async function exportPlExcel() {
     a.remove()
     URL.revokeObjectURL(a.href)
   } catch (e) {
-    alert('导出失败：' + (e instanceof Error ? e.message : String(e)))
+    console.warn('[pl-export]', e)
+    showToast('导出没成功，请稍后再试一次', 'error')
   } finally {
     exporting.value = false
   }

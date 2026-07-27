@@ -93,6 +93,9 @@ tests/test_css_no_dup_classes.py
 tests/test_task_2_6_9_u2_budget_yuan.py
 tests/test_task_2_6_9_s5_zero_row_no_unlink.py
 tests/test_task_2_6_9_s8_dead_endpoints.py
+tests/test_task_2_6_10_v2_bar_w.py
+tests/test_task_2_6_10_v4_no_native_alert.py
+tests/test_task_2_6_10_v5_friendly_error.py
 tests/test_task_2_6_5_bu_nav_overall.py
 tests/test_task_2_6_5_echarts_solid_colors.py
 tests/test_task_2_6_6_health_gaps.py

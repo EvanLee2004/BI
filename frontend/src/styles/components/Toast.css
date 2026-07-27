@@ -1,0 +1,25 @@
+/* 2.6.10 V-4：看端轻提示（token only） */
+.kb-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 10050;
+  max-width: min(92vw, 28rem);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--overlay-panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg, 0 8px 28px color-mix(in srgb, var(--ink) 18%, transparent));
+  cursor: pointer;
+  text-align: center;
+}
+.kb-toast--warn {
+  border-color: color-mix(in srgb, var(--orange) 55%, transparent);
+}
+.kb-toast--error {
+  border-color: color-mix(in srgb, var(--neg) 55%, transparent);
+}

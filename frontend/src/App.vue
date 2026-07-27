@@ -7,6 +7,7 @@ import { fetchProductVersion, fetchSession } from './api/client'
 import {
   navigateToBuPath,
   shouldRedirectRootToBu,
+  buPathFromSession,
   type SessionLike,
 } from './utils/buEntryRedirect'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
@@ -25,6 +26,8 @@ import DailyQuery from './components/DailyQuery.vue'
 import BuNav from './components/BuNav.vue'
 import TopBarActions from './components/TopBarActions.vue'
 import BuTransitionOverlay from './components/BuTransitionOverlay.vue'
+import Toast from './components/base/Toast.vue'
+import ErrorState from './components/base/ErrorState.vue'
 /* 2.6.5：板块五台账/热力懒加载，压首屏 gz ≤90.8KB */
 const ExpenseHeatmap = defineAsyncComponent(() => import('./components/ExpenseHeatmap.vue'))
 const LedgerTable = defineAsyncComponent(() => import('./components/LedgerTable.vue'))
@@ -44,6 +47,41 @@ const emptyHint = computed(() => {
   if (!v?.empty) return ''
   return v.empty_message || '暂无数据'
 })
+
+/** 2.6.10 V-5：按状态码选错误块标题/出口 */
+const errorPrimaryLabel = computed(() => {
+  const st = store.errorStatus
+  if (st === 403) return store.scope === 'bu' || store.buName ? '回我的业务线' : '回整体页'
+  if (st === 404) return '回整体页'
+  if (st === 503) return '刷新'
+  return '重试'
+})
+const errorTitle = computed(() => {
+  const st = store.errorStatus
+  if (st === 403) return '没有权限'
+  if (st === 404) return '页面不存在'
+  if (st === 503) return '数据准备中'
+  return '暂时打不开'
+})
+
+async function onErrorPrimary() {
+  const st = store.errorStatus
+  if (st === 403 || st === 404) {
+    try {
+      const sess = (await fetchSession()) as SessionLike
+      const dest = buPathFromSession(sess)
+      if (dest) {
+        navigateToBuPath(dest)
+        return
+      }
+    } catch {
+      /* fall through */
+    }
+    location.href = '/'
+    return
+  }
+  await store.retryLoad()
+}
 
 function localTodayYmd(): string {
   const d = new Date()
@@ -100,11 +138,19 @@ onMounted(async () => {
 
 <template>
   <BuTransitionOverlay />
-  <div v-if="store.error && store.error.includes('未登录')">
+  <Toast />
+  <!-- 2.6.10 V-5：按 HTTP 401 状态进登录，不靠中文 detail 匹配 -->
+  <div v-if="store.authRequired">
     <LoginView />
   </div>
-  <div v-else-if="store.loading" class="wrap muted" style="padding:40px">加载中…</div>
-  <div v-else-if="store.error" class="wrap" style="padding:40px;color:var(--neg)">{{ store.error }}</div>
+  <div v-else-if="store.loading" class="wrap muted app-loading">加载中…</div>
+  <ErrorState
+    v-else-if="store.error"
+    :title="errorTitle"
+    :message="store.error"
+    :primary-label="errorPrimaryLabel"
+    @primary="onErrorPrimary"
+  />
   <div
     v-else-if="store.scope === 'bu'"
     class="view-transition-host"

@@ -85,9 +85,13 @@ class TestAdminHealthCollapseSource(unittest.TestCase):
         self.assertIn("Escape", src)
 
     def test_bunav_unassigned_gap_testid(self):
+        """2.6.10 V-1：看端不再渲染未归属橙色提示；管理端体检块仍保留。"""
         src = (ROOT / "frontend/src/components/BuNav.vue").read_text(encoding="utf-8")
-        self.assertIn("bu-nav-unassigned-gap", src)
-        self.assertIn("unassignedNote", src)
+        self.assertNotIn("bu-nav-unassigned-gap", src)
+        self.assertNotIn("unassignedNote", src)
+        self.assertNotIn("不进各 BU", src)
+        admin = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
+        self.assertIn("未归属", admin)
 
 
 if __name__ == "__main__":

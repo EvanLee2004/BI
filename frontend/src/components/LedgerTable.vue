@@ -8,6 +8,7 @@ import '../styles/components/LedgerTable.css'
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
+import { showToast } from '../utils/toast'
 import SciFiPanel from './SciFiPanel.vue'
 
 const store = useCockpitStore()
@@ -357,7 +358,8 @@ async function exportXlsx() {
     credentials: 'same-origin',
   })
   if (!r.ok) {
-    alert('导出失败')
+    console.warn('[ledger-export]', r.status)
+    showToast('导出没成功，请稍后再试一次', 'error')
     return
   }
   const blob = await r.blob()

@@ -89,8 +89,24 @@ def _profit_rank_cost_pct_disp(dim: str, it: dict) -> str:
 
 
 def _profit_rank_items_payload(rk: dict, dim: str) -> list[dict]:
+    """打包利润排名弹层 items；bar_w 与主榜 packers 同源（最大 revenue=100%）。"""
+
     def _wan(v):
         return ("−" if v < 0 else "") + charts.fmt_wan(abs(v)) + "万"
+
+    raw = list(rk.get("items") or [])
+    uf = rk.get("unfilled")
+    # 归一化分母含「未填」行，与主榜 full 列表算法一致
+    revs = [float(it.get("revenue") or 0) for it in raw]
+    if uf:
+        revs.append(float(uf.get("revenue") or 0))
+    mx = max(revs, default=0) or 1
+
+    def _bar_w(rev: float) -> float:
+        # 与 viewmodels/packers.py 主榜一致：非零至少 2%，上限按比例
+        if not rev:
+            return 0.0
+        return round(max(2.0, rev / mx * 100), 1)
 
     items = [
         {
@@ -98,17 +114,18 @@ def _profit_rank_items_payload(rk: dict, dim: str) -> list[dict]:
             "name": it["name"],
             "revenue_disp": _wan(it["revenue"]),
             "cost_pct_disp": _profit_rank_cost_pct_disp(dim, it),
+            "bar_w": _bar_w(float(it.get("revenue") or 0)),
         }
-        for i, it in enumerate(rk["items"], 1)
+        for i, it in enumerate(raw, 1)
     ]
-    if rk.get("unfilled"):
-        uf = rk["unfilled"]
+    if uf:
         items.append(
             {
                 "i": len(items) + 1,
                 "name": "（未填）",
                 "revenue_disp": _wan(uf["revenue"]),
                 "cost_pct_disp": _profit_rank_cost_pct_disp(dim, uf),
+                "bar_w": _bar_w(float(uf.get("revenue") or 0)),
                 "unfilled": True,
             }
         )

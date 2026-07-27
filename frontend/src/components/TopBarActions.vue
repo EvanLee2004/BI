@@ -3,6 +3,7 @@
 import { onMounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
+import { showToast } from '../utils/toast'
 import DataModal from './base/DataModal.vue'
 
 const store = useCockpitStore()
@@ -46,7 +47,7 @@ function requestLogout() {
 async function exportHtml() {
   if (exporting.value) return
   if (location.protocol === 'file:') {
-    alert('导出需在看板服务页面使用')
+    showToast('这个页面是导出的静态快照，导出功能请回在线看板使用', 'warn')
     return
   }
   const blk = store.period || ''
@@ -71,7 +72,8 @@ async function exportHtml() {
     const r = await fetch(url, { credentials: 'same-origin' })
     if (!r.ok) {
       const t = await r.text().catch(() => '')
-      throw new Error(t || `HTTP ${r.status}`)
+      console.warn('[export]', r.status, t?.slice?.(0, 200) || '')
+      throw new Error('export_failed')
     }
     const fn =
       decodeURIComponent(r.headers.get('X-Filename') || '') || '甲骨易经营看板.html'
@@ -84,7 +86,8 @@ async function exportHtml() {
     a.remove()
     URL.revokeObjectURL(a.href)
   } catch (e) {
-    alert('导出失败：' + (e instanceof Error ? e.message : String(e)))
+    console.warn('[export]', e)
+    showToast('导出没成功，请稍后再试一次', 'error')
   } finally {
     exporting.value = false
   }

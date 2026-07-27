@@ -52,14 +52,7 @@
   line-height: 1.4;
   max-width: 52rem;
 }
-.bu-nav-unassigned {
-  flex: 1 1 100%;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--orange);
-  opacity: 0.95;
-  max-width: 56rem;
-}
+/* 2.6.10 V-1：.bu-nav-unassigned 已下线（看端不展示未归属技术提示） */
 @media (max-width: 520px) {
   .bu-nav-a {
     min-height: 44px !important;

@@ -49,7 +49,10 @@ function fetchFull(side: RankSide) {
       `/api/profit_ranking?dim=${encodeURIComponent(dim)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&top=5000${buQ}`,
       { credentials: 'same-origin' },
     )
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    if (!r.ok) {
+      console.warn('[profit_ranking]', r.status)
+      throw new Error('加载排名失败')
+    }
     const d = (await r.json()) as { items?: RankItem[] }
     return (d.items || []).map((it, idx) => ({
       i: it.i ?? idx + 1,

@@ -1,3 +1,6 @@
+.app-loading {
+  padding: 40px;
+}
 .archive-banner {
   background: linear-gradient(90deg, var(--banner-snap-from), var(--banner-snap-to));
   color: var(--banner-snap-fg);

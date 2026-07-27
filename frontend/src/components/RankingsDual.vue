@@ -81,7 +81,10 @@ function fetchFull(blk: RankViewBlk) {
     const r = await fetch(`/api/v1/rankings/full?period=${period}&dim=${dim}${buQ}`, {
       credentials: 'same-origin',
     })
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    if (!r.ok) {
+      console.warn('[rankings/full]', r.status)
+      throw new Error('加载完整排名失败')
+    }
     const d = (await r.json()) as { items?: RankItem[] }
     return (d.items || []).map((it, idx) => ({
       i: it.i ?? idx + 1,

@@ -1,17 +1,30 @@
 import type { BUPageVM, CockpitVM, PageVM } from '../types/vm'
+import { friendlyFromStatus } from '../utils/friendlyError'
+
+/** 带 HTTP 状态的错误，供 store 按状态码分流（2.6.10 V-5）。 */
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message?: string) {
+    super(message || friendlyFromStatus(status))
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
 
 export async function apiGet<T = unknown>(path: string): Promise<T> {
   const r = await fetch(path, { credentials: 'same-origin' })
   if (r.status === 401) {
-    // 会话过期 → 看端登录（54.4·C 替代 legacy shell fragments 401 跳转）
-    if (typeof location !== 'undefined' && !location.pathname.startsWith('/admin')) {
-      location.replace('/login')
-    }
-    throw new Error('未登录')
+    // 401 session expired → store.authRequired → App LoginView（不依赖中文 detail、不 location.replace）
+    throw new ApiError(401, '登录已失效，请重新登录')
   }
   if (!r.ok) {
     const d = await r.json().catch(() => ({}))
-    throw new Error((d as { detail?: string }).detail || `HTTP ${r.status}`)
+    const detail = typeof (d as { detail?: string }).detail === 'string' ? (d as { detail: string }).detail : ''
+    // 用户文案按状态码生成；detail 仅进 console
+    if (detail) {
+      console.warn('[api]', path, r.status, detail)
+    }
+    throw new ApiError(r.status, friendlyFromStatus(r.status))
   }
   return r.json() as Promise<T>
 }

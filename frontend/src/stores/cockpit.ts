@@ -1,4 +1,4 @@
-import { friendlyError } from '../utils/friendlyError'
+import { friendlyError, friendlyFromStatus } from '../utils/friendlyError'
 import {
   buPathFromSession,
   isOverallForbiddenError,
@@ -7,8 +7,12 @@ import {
 } from '../utils/buEntryRedirect'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchBuVm, fetchCockpitVm, fetchSession } from '../api/client'
+import { ApiError, fetchBuVm, fetchCockpitVm, fetchSession } from '../api/client'
 import type { PageVM, RankViewBlk } from '../types/vm'
+
+function isAuthRequired(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 401
+}
 
 /** 2.2.9 导出快照包（与后端 assemble_export_pack 对齐） */
 export type KanbanSnapshotPack = {
@@ -62,6 +66,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
   const vm = ref<PageVM | null>(null)
   const loading = ref(false)
   const error = ref('')
+  /** 2.6.10 V-5：HTTP 401 → 登录页（按状态码，不靠中文 detail） */
+  const authRequired = ref(false)
+  /** 最近错误 HTTP 状态（0=未知/网络），供错误块选出口 */
+  const errorStatus = ref(0)
   const scope = ref<'main' | 'bu'>('main')
   const buName = ref('')
   /**
@@ -185,9 +193,28 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
   }
 
+  function noteError(e: unknown) {
+    if (isAuthRequired(e)) {
+      authRequired.value = true
+      errorStatus.value = 401
+      error.value = friendlyFromStatus(401)
+      return
+    }
+    authRequired.value = false
+    if (e instanceof ApiError) {
+      errorStatus.value = e.status
+      error.value = friendlyError(e)
+      return
+    }
+    errorStatus.value = 0
+    error.value = friendlyError(e)
+  }
+
   async function loadArchive(day: string) {
     loading.value = true
     error.value = ''
+    authRequired.value = false
+    errorStatus.value = 0
     archiveMode.value = true
     archiveDay.value = day
     snapshotMode.value = false
@@ -195,12 +222,16 @@ export const useCockpitStore = defineStore('cockpit', () => {
     try {
       const r = await fetch(`/api/history/${day}/vm`, { credentials: 'same-origin' })
       if (r.status === 401) {
-        error.value = '未登录'
+        authRequired.value = true
+        errorStatus.value = 401
+        error.value = friendlyFromStatus(401)
         return
       }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        throw new Error((d as { detail?: string }).detail || `HTTP ${r.status}`)
+        const detail = (d as { detail?: string }).detail || ''
+        if (detail) console.warn('[history]', r.status, detail)
+        throw new ApiError(r.status, friendlyFromStatus(r.status))
       }
       const pack = (await r.json()) as {
         cockpit?: PageVM
@@ -225,7 +256,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
       archiveVersion.value = String(pack.version || '')
       clearDaily()
     } catch (e) {
-      error.value = friendlyError(e)
+      noteError(e)
     } finally {
       loading.value = false
     }
@@ -280,6 +311,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     snapshotMode.value = false
     loading.value = true
     error.value = ''
+    authRequired.value = false
+    errorStatus.value = 0
     try {
       const data = await fetchCockpitVm()
       vm.value = data
@@ -289,8 +322,12 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
+      if (isAuthRequired(e)) {
+        noteError(e)
+        return
+      }
       // 2.4.3：整体 cockpit 403「无整体…」→ 回流本账号业务线，禁止永久空壳
-      if (isOverallForbiddenError(e)) {
+      if (isOverallForbiddenError(e) || (e instanceof ApiError && e.status === 403)) {
         try {
           const sess = (await fetchSession()) as SessionLike
           const dest = buPathFromSession(sess)
@@ -298,11 +335,15 @@ export const useCockpitStore = defineStore('cockpit', () => {
             navigateToBuPath(dest)
             return
           }
-        } catch {
+        } catch (se) {
+          if (isAuthRequired(se)) {
+            noteError(se)
+            return
+          }
           /* fall through to friendly error */
         }
       }
-      error.value = friendlyError(e)
+      noteError(e)
     } finally {
       loading.value = false
     }
@@ -342,6 +383,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     }
     loading.value = true
     error.value = ''
+    authRequired.value = false
+    errorStatus.value = 0
     buName.value = name
     try {
       const data = await fetchBuVm(name)
@@ -351,9 +394,21 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
-      error.value = friendlyError(e)
+      noteError(e)
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 错误块「重试」：按当前路由再拉一次 */
+  async function retryLoad() {
+    error.value = ''
+    authRequired.value = false
+    errorStatus.value = 0
+    if (scope.value === 'bu' && buName.value) {
+      await loadBu(buName.value)
+    } else {
+      await loadMain()
     }
   }
 
@@ -487,6 +542,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     vm,
     loading,
     error,
+    authRequired,
+    errorStatus,
     scope,
     buName,
     buNames,
@@ -511,6 +568,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
     skipViewTransition,
     loadMain,
     loadBu,
+    retryLoad,
     transitionToBu,
     transitionToMain,
     loadArchive,
