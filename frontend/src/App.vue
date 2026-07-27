@@ -48,11 +48,14 @@ const emptyHint = computed(() => {
   return v.empty_message || '暂无数据'
 })
 
-/** 2.6.10 V-5：按状态码选错误块标题/出口 */
+/** 2.6.10 V-5：按状态码选错误块标题/出口（纯 BU 优先回自己的业务线） */
 const errorPrimaryLabel = computed(() => {
   const st = store.errorStatus
-  if (st === 403) return store.scope === 'bu' || store.buName ? '回我的业务线' : '回整体页'
-  if (st === 404) return '回整体页'
+  if (st === 403 || st === 404) {
+    // 有 buName / 在 bu 作用域 → 回业务线；否则回整体
+    if (store.scope === 'bu' || store.buName) return '回我的业务线'
+    return '回整体页'
+  }
   if (st === 503) return '刷新'
   return '重试'
 })
@@ -77,6 +80,7 @@ async function onErrorPrimary() {
     } catch {
       /* fall through */
     }
+    // 有整体权限才回 /；纯 BU 无 dest 时也落到 / 让入口回流逻辑接管
     location.href = '/'
     return
   }

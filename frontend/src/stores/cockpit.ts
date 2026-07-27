@@ -350,20 +350,15 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   async function loadBu(name: string) {
-    // 2.6.10：非法 BU 名直接友好错误，避免长时间挂在「加载中」
-    if (!name || name.includes('__no_such') || name.includes('..')) {
-      authRequired.value = false
-      errorStatus.value = 404
-      error.value = '没有找到这个页面'
-      loading.value = false
-      return
-    }
     // 2.2.9 快照：从 pack.bu[name] 取，禁止 API
     if (snapshotMode.value && snapshotPack.value) {
       const buMap = (snapshotPack.value.bu || {}) as Record<string, PageVM>
       const data = buMap[name]
       if (!data) {
-        error.value = `快照中无业务线「${name}」`
+        vm.value = null
+        errorStatus.value = 404
+        error.value = '没有找到这个页面'
+        loading.value = false
         return
       }
       loading.value = true
@@ -393,15 +388,17 @@ export const useCockpitStore = defineStore('cockpit', () => {
     error.value = ''
     authRequired.value = false
     errorStatus.value = 0
+    // 记住目标名；失败时勿保留旧 VM，否则 ErrorState 被成功页挡住
     buName.value = name
+    scope.value = 'bu'
     try {
       const data = await fetchBuVm(name)
       vm.value = data
-      scope.value = 'bu'
       applyNavFromVm(data)
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
+      vm.value = null
       noteError(e)
     } finally {
       loading.value = false
