@@ -145,9 +145,9 @@ onMounted(async () => {
   </div>
   <div v-else-if="store.loading" class="wrap muted app-loading">加载中…</div>
   <ErrorState
-    v-else-if="store.error"
+    v-else-if="store.error || (!store.vm && !store.loading)"
     :title="errorTitle"
-    :message="store.error"
+    :message="store.error || '暂时打不开，请稍后再试'"
     :primary-label="errorPrimaryLabel"
     @primary="onErrorPrimary"
   />

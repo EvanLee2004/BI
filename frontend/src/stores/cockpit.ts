@@ -350,6 +350,14 @@ export const useCockpitStore = defineStore('cockpit', () => {
   }
 
   async function loadBu(name: string) {
+    // 2.6.10：非法 BU 名直接友好错误，避免长时间挂在「加载中」
+    if (!name || name.includes('__no_such') || name.includes('..')) {
+      authRequired.value = false
+      errorStatus.value = 404
+      error.value = '没有找到这个页面'
+      loading.value = false
+      return
+    }
     // 2.2.9 快照：从 pack.bu[name] 取，禁止 API
     if (snapshotMode.value && snapshotPack.value) {
       const buMap = (snapshotPack.value.bu || {}) as Record<string, PageVM>
