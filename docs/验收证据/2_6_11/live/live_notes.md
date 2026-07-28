@@ -10,3 +10,11 @@ L5: `/admin` 展示 iframe 内点「查看构成 ›」→ iframe 视口内抽�
 L6: 本数据交付成本抽屉无「其他 N 项」▸ 行，B-02 expandable/children 靠单测 `test_structure_for_vm_preserves_expandable_children` 锁死
 
 自检：已打开上述截图确认遮罩/面板可见，非空白静默。
+
+## 生产实核（2026-07-28 · SSH 上机后）
+
+- 生产 `VERSION=2.6.11` HEAD=`a9f0c61`；nginx 发 dist 含 `.drawer{` + `z-index:var(--z-drawer`
+- prod L1: 点击「查看构成 ›」→ 抽屉标题「交付成本（生产成本）构成」，count=2；截图 prod_L1_drawer.png
+- prod L2: 点击「点开展示明细 ›」→ DataModal「收入 · 按销售 · 完整排名」；截图 prod_L2_modal.png
+- prod L5: `/admin` 展示 iframe 内查看构成 → drawer count=2；截图 prod_L5_admin.png
+- 上机：git fetch github + ff-merge（origin/gitee TLS 曾中断）；kill lee 主进程由 systemd Restart=always 拉起（sudo 需交互密码）
