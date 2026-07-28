@@ -156,20 +156,21 @@ class TestMonthSnapshotExistsMarker(unittest.TestCase):
 class TestVersionChangelog2612(unittest.TestCase):
     def test_version_and_changelog(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.7.2")
+        self.assertEqual(ver, "2.7.3")
         import sys
 
         sys.path.insert(0, str(ROOT / "src"))
         import version
 
-        self.assertEqual(version.read_version(), "2.7.2")
+        self.assertEqual(version.read_version(), "2.7.3")
         vers = [e.get("version") for e in version.PRODUCT_CHANGELOG if e.get("version")]
+        self.assertIn("2.7.3", vers)
         self.assertIn("2.7.2", vers)
         self.assertIn("2.7.1", vers)
         self.assertIn("2.7.0", vers)
         self.assertIn("2.6.13", vers)
         self.assertIn("2.6.12", vers)
-        self.assertEqual(vers[0], "2.7.2")
+        self.assertEqual(vers[0], "2.7.3")
 
 
 class TestF05ProfitRankingOneFen(unittest.TestCase):

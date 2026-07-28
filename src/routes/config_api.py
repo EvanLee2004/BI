@@ -191,6 +191,13 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     f"一键更新 {res.get('from') or '?'}→{res.get('to') or '?'}（{res.get('pulled') or 0} 个提交）",
                 ),
             )
+            # 2.7.3：先亮维护页再重启；pull 失败不进此分支（禁止 turn_on）
+            try:
+                import maintenance_mode
+
+                maintenance_mode.turn_on("update", cfg, root)
+            except Exception:
+                pass
             updater.request_restart()  # 后台延时退出→看门狗重启；HTTP 响应先发回
             res["restarting"] = True
         return res

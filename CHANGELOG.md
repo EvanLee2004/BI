@@ -1,3 +1,11 @@
+## 2.7.3 · 2026-07-28
+
+### 更新/重启可见维护页 + 全链路清理
+- 一键更新 / systemctl 重启 / 冷启动窗口：用户端稳定显示「系统正在更新中」维护页（自动刷新，Cache-Control: no-store）
+- 维护标志 `数据/maintenance.flag`（gitignore，防一键更新 dirty）+ 超时 10 分钟强制关闭并写告警
+- nginx：页面入口 flag/502/504 出维护 HTML；`/api/` 禁止 intercept 劫持 JSON；保留 location=/ 反代
+- 管理端一键更新文案说明用户端将显示维护页；Runbook/部署手册写死 pull 后 nginx 三步
+
 ## 2.7.2 · 2026-07-28
 
 ### API 写路径与卫生收官

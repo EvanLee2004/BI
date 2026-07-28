@@ -87,22 +87,59 @@ class TestNginxConfTemplate(unittest.TestCase):
                 continue
             if "X-Frame-Options" in line:
                 self.assertNotIn("DENY", line)
-        # 动态路径（2.2.7：export.html 与 export.png 均须反代，禁落 SPA）
-        self.assertRegex(t, r"api\|admin\|login\|bu")
+        # 动态路径：api / admin / login / bu 均须出现（可分 location）；export 反代保留
+        # 2.7.3 拆分 api 与页面类 location，故不再要求单行 api|admin|login|bu 字面量
+        self.assertRegex(t, r"location\s+~\s+\^/api")
+        self.assertRegex(t, r"location\s+~\s+\^/\(admin\|login\|bu\)")
         self.assertRegex(t, r"export\\\.\(png\|html\)|export\\\.\(html\|png\)|export\\.\(png\|html\)")
         self.assertIn("export.html", t)
+        # 2.7.3 维护页 + flag
+        self.assertIn("maintenance.html", t)
+        self.assertIn("maintenance.flag", t)
+        self.assertIn("@maint", t)
 
     def test_exact_root_proxies_backend_not_spa_index(self):
         """2.4.3：location = / 必须反代，禁止 try_files /index.html 抢先（BU 绕过 303）。"""
         import re
 
         t = (ROOT / "deploy" / "linux" / "nginx-kanban.conf").read_text(encoding="utf-8")
-        m = re.search(r"location\s+=\s+/\s*\{(.*?)\n\s*\}", t, flags=re.DOTALL)
+        # 匹配 location = / { ... } 到与之同级的闭合（允许内部 if 块）
+        m = re.search(
+            r"location\s+=\s+/\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
+            t,
+            flags=re.DOTALL,
+        )
         self.assertIsNotNone(m, "missing location = /")
         body = m.group(1)
         self.assertIn("proxy_pass", body)
         self.assertNotIn("try_files", body)
         self.assertNotIn("index.html", body)
+
+    def test_api_location_no_proxy_intercept_errors(self):
+        """2.7.3 R4：/api/ 禁止 proxy_intercept_errors 把 JSON 换成 HTML。"""
+        import re
+
+        t = (ROOT / "deploy" / "linux" / "nginx-kanban.conf").read_text(encoding="utf-8")
+        m = re.search(
+            r"location\s+~\s+\^/api\(/\|\$\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
+            t,
+            flags=re.DOTALL,
+        )
+        self.assertIsNotNone(m, "missing location ~ ^/api")
+        body = m.group(1)
+        # 只认生效指令行（# 注释可讨论禁止词，不计入违规）
+        active = "\n".join(
+            ln for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("#")
+        )
+        self.assertNotIn("proxy_intercept_errors", active)
+        self.assertIn("proxy_pass", body)
+
+    def test_listen_ports_unchanged(self):
+        """R7：不改 listen 端口 / upstream 8018。"""
+        t = (ROOT / "deploy" / "linux" / "nginx-kanban.conf").read_text(encoding="utf-8")
+        self.assertIn("listen 80", t)
+        self.assertIn("127.0.0.1:8018", t)
+        self.assertNotRegex(t, r"listen\s+8080")
 
 
 class TestNginxTIfPresent(unittest.TestCase):

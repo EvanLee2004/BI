@@ -24,6 +24,14 @@ MAX_FAILS=5
 
 while true; do
   echo "[看门狗] 启动服务 $(date '+%Y-%m-%d %H:%M:%S')"
+  # 2.7.3：每次启动 run.py --serve 之前亮维护（覆盖 systemctl restart / 更新后重启 / 冷启动）
+  # data_dir 与 loaders 一致（默认 数据/）；失败则 touch 兜底，不挡启动
+  if ! (
+    cd "${ROOT}" && PYTHONPATH=src "${PY}" -c "from maintenance_mode import turn_on; turn_on('boot')"
+  ) 2>/dev/null; then
+    mkdir -p "${ROOT}/数据" 2>/dev/null || true
+    echo '{"reason":"boot","ts":"","pid":0}' > "${ROOT}/数据/maintenance.flag" 2>/dev/null || true
+  fi
   "$PY" run.py --serve
   CODE=$?
 

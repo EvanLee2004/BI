@@ -153,21 +153,24 @@ export function useSettingsForm() {
 
   async function applyUpdate() {
     try {
-      await ElMessageBox.confirm('确认一键更新？将拉取新代码并重启服务（约 10 秒内不可用）。', '一键更新')
+      await ElMessageBox.confirm(
+        '确认一键更新？将拉取新代码并重启服务。用户端将显示「系统正在更新中」维护页，就绪后自动刷新；管理端请稍后刷新。',
+        '一键更新',
+      )
     } catch {
       return
     }
-    vuAvail.value = '更新中…拉取新代码…'
+    vuAvail.value = '更新中…拉取新代码…用户端将显示「系统正在更新中」…'
     try {
       const d = await jpost<{ ok?: boolean; from?: string; to?: string; reason?: string }>('/api/v1/admin/update/apply', {})
       if (d.ok) {
-        vuAvail.value = `✓ 已拉取 ${d.from || ''} → ${d.to || ''}，服务重启中…`
+        vuAvail.value = `✓ 已拉取 ${d.from || ''} → ${d.to || ''}，服务重启中。用户端显示「系统正在更新中」，就绪后自动恢复…`
         setTimeout(() => location.reload(), 12000)
       } else {
         vuAvail.value = '未更新：' + (d.reason || '')
       }
     } catch {
-      vuAvail.value = '更新请求已发出，服务可能正在重启…'
+      vuAvail.value = '更新请求已发出，服务可能正在重启；用户端将显示「系统正在更新中」…'
       setTimeout(() => location.reload(), 12000)
     }
   }

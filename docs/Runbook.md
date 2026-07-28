@@ -6,7 +6,7 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **2.7.2**（`VERSION`；业务/写/探活均 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
+| 版本 | **2.7.3**（`VERSION`；更新/重启可见「系统正在更新中」维护页；业务/写/探活均 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
 | 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、Restart=always、StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
 | 用户入口口径 | **只发两个根链接**：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`（办公区内勿用外网；用自己账号登录即可；**无**单独管理员登录 URL） |
@@ -35,6 +35,32 @@
    sudo nginx -t && sudo systemctl reload nginx
    ```
    **禁止**只 `git pull` 不 reload nginx。发版后管理端 chunk 404：用户强制刷新浏览器（Ctrl/Cmd+Shift+R）。
+
+## 0.1 发版上机铁律（2.7.3 · 必做三步）
+
+代码 `git pull` **不会**自动装载 nginx conf。每次 conf 或维护页相关发版：
+
+```bash
+cd /opt/kanban/看板正式程序 && git pull --ff-only origin main
+sudo cp deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+sudo nginx -t && sudo systemctl reload nginx
+systemctl is-active kanban
+```
+
+**禁止**只 pull 就勾「已上机」。
+
+## 0.2 维护模式开关（2.7.3）
+
+| 操作 | 命令 |
+|------|------|
+| 打开维护（用户见「系统正在更新中」） | `bash deploy/linux/maintenance_on.sh` 或 `manual`/`update`/`boot` |
+| 关闭维护 | `bash deploy/linux/maintenance_off.sh` |
+| 标志文件 | `数据/maintenance.flag`（已 gitignore；超时默认 10 分钟强制关 + 写 `数据/日志/告警.log`） |
+
+- 一键更新成功会在重启前自动 `turn_on(update)`；看门狗每次启动 `run.py --serve` 前 `turn_on(boot)`；`serve()` 首次构建成功后在 listen 前 `turn_off`。
+- 构建失败保持 on，依赖超时兜底。
+- **不要**只靠内存记维护态；**不要**对 `/api/` 用 nginx `proxy_intercept_errors` 把 JSON 换成 HTML。
+- 健康检查仍直连 `127.0.0.1:8018` + `/api/v1/health`（不走 :80 维护页）。
 
 ## 2. 回滚版本
 

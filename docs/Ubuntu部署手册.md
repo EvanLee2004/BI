@@ -232,9 +232,10 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/
 
 ## 10. 一键更新（Linux）
 
-与 Windows 相同护栏：`updater.apply_update` → `git pull --ff-only` → 依赖变则 pip → 写 `.update_rollback` → 退出码 **42**。
+护栏：`updater.apply_update` → `git pull --ff-only` → 依赖变则 pip → 写 `.update_rollback` → 维护 on → 退出码 **42**。
 
 - systemd `Restart=always` + 包装脚本处理 42；  
+- 2.7.3：更新/重启窗口用户端显示「系统正在更新中」；就绪后自动关维护；  
 - 坏版本：包装脚本按标记 `git reset --hard` 一次；  
 - 手工回滚：
 
@@ -242,6 +243,25 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/
 cd /opt/kanban/看板正式程序
 git reset --hard <好commit>
 sudo systemctl restart kanban
+```
+
+### 10.1 运维发版上机铁律（2.7.3 · 禁止只 pull）
+
+`git pull` **不会**自动装载 nginx conf。每次上机必须：
+
+```bash
+cd /opt/kanban/看板正式程序 && git pull --ff-only origin main
+sudo cp deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+sudo nginx -t && sudo systemctl reload nginx
+systemctl is-active kanban
+```
+
+维护开关（可选手工）：
+
+```bash
+bash deploy/linux/maintenance_on.sh    # 用户见「系统正在更新中」
+bash deploy/linux/maintenance_off.sh   # 关闭
+# 标志：数据/maintenance.flag（gitignore；超时 10 分钟强制关）
 ```
 
 ---
@@ -293,6 +313,9 @@ sudo nginx -t && sudo systemctl reload nginx
 # systemd 已设 KANBAN_SERVER_HOST=127.0.0.1 KANBAN_SERVE_STATIC=0
 sudo systemctl restart kanban
 ```
+
+**发版后再次上机**：仍须 `git pull` → `sudo cp …/nginx-kanban.conf` → `nginx -t && reload`（见 §10.1）。只 pull 不算完成。  
+**2.7.3**：页面入口在 `数据/maintenance.flag` 或上游 502/504 时出维护 HTML；`/api/` **不** intercept 成 HTML。
 
 ### 禁休眠 / ufw / fail2ban（台式机长开）
 

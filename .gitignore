@@ -93,3 +93,7 @@ docs/历史批次/**
 docs/_visual_2_3_1/
 docs/_visual_2_3_2/
 docs/_visual_2_3_4/
+
+# 2.7.3 维护模式标志（运行时；未 ignore 会 dirty 阻断一键更新）
+数据/maintenance.flag
+数据/*.flag

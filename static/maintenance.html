@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
+<meta http-equiv="refresh" content="8"/>
+<title>系统正在更新中 · 经营看板</title>
+<style>
+  /* 对齐看端深空/霓虹默认气质（静态页，不依赖 dist） */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "SF Pro SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: #eaf1ff;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34, 211, 238, 0.12), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(192, 132, 252, 0.08), transparent 50%),
+      #070b14;
+  }
+  .card {
+    width: min(22rem, calc(100vw - 2rem));
+    padding: 2rem 1.5rem 1.5rem;
+    text-align: center;
+    border-radius: 12px;
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    background: rgba(8, 14, 28, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(125, 211, 252, 0.06) inset,
+      0 0 32px rgba(34, 211, 238, 0.12),
+      0 16px 48px rgba(0, 0, 0, 0.45);
+  }
+  .brand {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #5f6d92;
+    margin-bottom: 1.25rem;
+  }
+  .spin {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    border: 2px solid rgba(34, 211, 238, 0.2);
+    border-top-color: #22d3ee;
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 {
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #22d3ee;
+    text-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+  }
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #93a1c0;
+  }
+  .sub {
+    margin-top: 0.5rem;
+    font-size: 12px;
+    color: #5f6d92;
+  }
+  button {
+    margin-top: 1.35rem;
+    padding: 0.55rem 1.4rem;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    border-radius: 8px;
+    background: rgba(34, 211, 238, 0.12);
+    color: #22d3ee;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover {
+    background: rgba(34, 211, 238, 0.22);
+  }
+</style>
+</head>
+<body>
+  <div class="card" role="status" aria-live="polite">
+    <div class="brand">甲骨易 · 经营看板</div>
+    <div class="spin" aria-hidden="true"></div>
+    <h1>系统正在更新中</h1>
+    <p>请稍后，服务恢复后将自动刷新。</p>
+    <p class="sub">约 8 秒自动重试 · 也可手动刷新</p>
+    <button type="button" onclick="location.reload()">刷新页面</button>
+  </div>
+</body>
+</html>

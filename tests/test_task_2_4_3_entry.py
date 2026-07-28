@@ -14,9 +14,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 
 def _extract_location_exact_root(conf: str) -> str:
-    """取出 location = / { ... } 块（不含 location /）。"""
+    """取出 location = / { ... } 块（不含 location /）。
+    允许块内一层 if { }（2.7.3 维护 flag）；不弱化 proxy_pass 铁律。"""
     m = re.search(
-        r"location\s+=\s+/\s*\{(.*?)\n\s*\}",
+        r"location\s+=\s+/\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
         conf,
         flags=re.DOTALL,
     )
@@ -35,8 +36,12 @@ class TestNginxRootProxiesBackend(unittest.TestCase):
         self.assertIn("kanban_api", body)
         self.assertNotIn("try_files", body)
         self.assertNotIn("index.html", body)
-        # 其它 SPA 路由仍可 try_files（location / 非 =）
-        self.assertRegex(t, r"location\s+/\s*\{[^}]*try_files", re.DOTALL)
+        # 其它 SPA 路由仍可 try_files（location / 非 =）；块内可有 if（2.7.3 维护 flag）
+        self.assertRegex(
+            t,
+            r"location\s+/\s*\{(?:[^{}]|\{[^{}]*\})*try_files",
+            re.DOTALL,
+        )
 
 
 class TestBuEntryRedirectHelperShipped(unittest.TestCase):

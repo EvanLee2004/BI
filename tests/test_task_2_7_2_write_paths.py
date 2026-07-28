@@ -225,7 +225,7 @@ class TestExportBarePathsGone(unittest.TestCase):
 class TestVersion272(unittest.TestCase):
     def test_version_file(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.7.2")
+        self.assertEqual(ver, "2.7.3")
 
 
 if __name__ == "__main__":

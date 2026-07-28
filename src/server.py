@@ -340,6 +340,45 @@ def create_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯路由/装配分�
             return resp
 
     app.add_middleware(_RequestIdMiddleware)
+
+    # 2.7.3：维护模式中间件——HTML 导航出维护页；/api/* 永不换成 HTML
+    class _MaintenanceMiddleware(BaseHTTPMiddleware):
+        _expire_every = 32
+        _expire_n = 0
+
+        async def dispatch(self, request, call_next):
+            try:
+                import maintenance_mode as _mm
+
+                # 低频超时兜底（勿每秒狂扫：每 N 次请求检查一次）
+                _MaintenanceMiddleware._expire_n += 1
+                if _MaintenanceMiddleware._expire_n >= _MaintenanceMiddleware._expire_every:
+                    _MaintenanceMiddleware._expire_n = 0
+                    _mm.maybe_expire(max_minutes=10, cfg=cfg, root=root)
+                path = request.url.path or ""
+                if path.startswith("/api"):
+                    return await call_next(request)
+                if request.method in ("GET", "HEAD") and _mm.is_on(cfg, root):
+                    accept = (request.headers.get("accept") or "").lower()
+                    wants_html = (
+                        "text/html" in accept
+                        or accept in ("", "*/*")
+                        or "text/*" in accept
+                    )
+                    if "application/json" in accept and "text/html" not in accept:
+                        wants_html = False
+                    if wants_html and not path.startswith("/openapi"):
+                        body = _mm.load_maintenance_html(root)
+                        return HTMLResponse(
+                            body,
+                            status_code=503,
+                            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+                        )
+            except Exception:
+                pass
+            return await call_next(request)
+
+    app.add_middleware(_MaintenanceMiddleware)
     sec = _load_or_init_secret(cfg, root)
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
@@ -632,11 +671,29 @@ def serve(cfg=None, root=None):
     except Exception:
         pass
     print("[server] 首次构建页面（跑管道+渲染）……")
+    boot_ok = False
     try:
         refresh(cfg, root)
+        boot_ok = True
         print(f"[server] 就绪 built_at={_state['built_at']}")
     except Exception as e:  # 数据有问题也让服务起来、页面提示
         print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/v1/admin/refresh 或重启）")
+        # 2.7.3：构建失败保持维护 on（看门狗启动前已 turn_on）；依赖超时兜底
+        try:
+            import maintenance_mode as _mm
+
+            if not _mm.is_on(cfg, root):
+                _mm.turn_on("boot", cfg, root)
+        except Exception:
+            pass
+    # 2.7.3：首次 refresh/publish 成功且可服务 → uvicorn 监听前关闭维护
+    if boot_ok:
+        try:
+            import maintenance_mode as _mm
+
+            _mm.turn_off(cfg, root)
+        except Exception as e:
+            print(f"[server] maintenance turn_off 跳过：{type(e).__name__}: {e}")
     app = create_app(cfg, root)
     import uvicorn
 
