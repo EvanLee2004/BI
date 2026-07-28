@@ -68,6 +68,55 @@ class TestOtherNExpandable(unittest.TestCase):
         self.assertIn("expandable", vue)
         self.assertIn("children", vue)
 
+    def test_structure_for_vm_preserves_expandable_children(self):
+        """B-05：锁 VM 打包链路 — expandable/children 经 structure_for_vm 不得丢。"""
+        from domain.pl.structure import structure_for_vm  # noqa: E402
+
+        pairs = [(f"项{i}", float(100 - i)) for i in range(12)]
+        lines = _fine_pairs(pairs, limit=8)
+        struct = {
+            "rows": [
+                {
+                    "name": "交付成本（生产成本）",
+                    "amt_disp": "−1.0万",
+                    "kind": "",
+                    "formula": "",
+                    "open_key": "cost",
+                    "total": False,
+                    "grand": False,
+                    "is_pct": False,
+                }
+            ],
+            "details": {
+                "cost": {
+                    "title": "交付成本构成",
+                    "lines": lines,
+                }
+            },
+        }
+        vm = structure_for_vm(struct)
+        vm_lines = (vm.get("details") or {}).get("cost", {}).get("lines") or []
+        other = [ln for ln in vm_lines if str(ln.get("name", "")).startswith("其他")]
+        self.assertEqual(len(other), 1, "VM 应保留「其他N项」行")
+        self.assertTrue(other[0].get("expandable"), "VM 须透传 expandable")
+        children = other[0].get("children") or []
+        self.assertEqual(len(children), 4)
+        self.assertEqual(children[0]["name"], "项8")
+        self.assertIn("amt_disp", children[0])
+        # 非 expandable 行不得凭空多字段
+        plain = [ln for ln in vm_lines if not ln.get("expandable")]
+        self.assertTrue(plain)
+        for ln in plain:
+            self.assertNotIn("children", ln)
+
+    def test_pltable_drawer_open_without_detail_gate(self):
+        """B-01：open 即挂抽屉，禁止 drawerOpen && detail 静默。"""
+        vue = (ROOT / "frontend/src/components/PLTable.vue").read_text(encoding="utf-8")
+        self.assertNotIn('v-if="drawerOpen && detail"', vue)
+        self.assertIn('v-if="drawerOpen"', vue)
+        self.assertIn("drawer-empty", vue)
+        self.assertIn("这条暂时没有构成明细", vue)
+
 
 if __name__ == "__main__":
     unittest.main()

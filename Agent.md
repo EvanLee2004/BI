@@ -1,4 +1,4 @@
-# CLAUDE.md — 看板正式程序（经营驾驶舱代码）
+# Agent.md — 看板正式程序（经营驾驶舱代码）
 
 > 进这份代码干活前先读本文。**本文只记：架构 / 怎么跑 / 模块地图 / 铁律 / 当前终态 / 文档指针**。
 > 运行·打包·部署细节看 `README.md`；进度看项目根 `progress.md` / `工作日志.md`；需求口径看 `../../方案与文档/软件工程文档/1_需求/`。
@@ -34,9 +34,10 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.6.7 · 2026-07-27）
+## 当前状态（2.6.11 · 2026-07-28）
 
-- **版本**：`VERSION` = **2.6.7**（验收回修 + 顶栏统一 + 存量清零）。其上：2.6.6 体检黄条；2.6.5 三层统一；2.6.0 `kanban_sid`；2.5.0 `/login`。
+- **版本**：`VERSION` = **2.6.11**（全站展开层可点开 + B-01～B-05 清零）。其上：2.6.10 体验；2.6.7 顶栏；2.6.5 三层统一；2.6.0 `kanban_sid`；2.5.0 `/login`。
+- **展开层铁律（2.6.11）**：抽屉基座 CSS 必须在 SPA `tokens.css`/dist；`v-if` 禁止 `drawerOpen && detail` 静默；`structure_for_vm` 须透传 expandable/children；`#periodSync` 禁常驻 will-change:transform。
 - **会话**：`src/session_ctx.py` 唯一 resolve；权限只看账号表；退出清 sid+两旧名；MADR-0023。
 - **看端顶栏（2.6.7）**：唯一横排 主题｜导出｜密码｜退出；无 ⋯；管理员无密码/退出；退出 DataModal 确认；红条下线、黄条保留。
 - **看端首包**：`vue-runtime` 分片 + echarts 异步；板块五懒加载；deps **无** element-plus；**首屏 gz ≤90.8KB**。
@@ -125,7 +126,7 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 
 ## 完美主义（2026-07-18 明昊拍板）
 
-生产封板 = PERF 全量 DoD；禁止「差不多先上 / 以后再说」打折。批次可排序，标准不可私下砍。见根工作区 `CLAUDE.md` #11。
+生产封板 = PERF 全量 DoD；禁止「差不多先上 / 以后再说」打折。批次可排序，标准不可私下砍。见根工作区 `Agent.md` #11。
 
 ## 铁律（违反就出错，必守）
 
@@ -152,7 +153,7 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 14. **账号与 BU 解耦**；可见范围走 `bu_names_of`/`can_see_bu`。
 15. **销售名一把尺**（strip 与过滤同源）。
 16. **配置留痕不落敏感值**。
-17. **`position:fixed` 弹窗挂 body**；Vue 用 `Teleport to="body"` + mask fixed。
+17. **`position:fixed` 弹窗挂 body**；Vue 用 `Teleport to="body"` + mask fixed。抽屉基座须在 SPA dist（tokens）；open 即挂 DOM、禁静默空态；`#periodSync` 禁常驻 will-change:transform。
 18. **一键更新 ff-only + 依赖同步 + `.update_rollback` 自愈**。
 19. **程序绝不写 `config.json`**；机器设置走 `数据/本地配置.json`。
 20. **验证只认真实退出码**，禁 `| tail`/`| head` 管道判绿。

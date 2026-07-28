@@ -153,43 +153,48 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
       <span><i class="s-man" />手填</span>
     </div>
 
-    <!-- 右侧抽屉：body 直下 fixed 用 portal 类 -->
+    <!-- 右侧抽屉：body 直下 fixed 用 portal 类；B-01：drawerOpen 即挂，无 detail 空态 -->
     <Teleport to="body">
       <div
-        v-if="drawerOpen && detail"
+        v-if="drawerOpen"
         class="drawer open"
         aria-hidden="false"
       >
         <div class="drawer-mask" data-testid="drawer-mask" @click="closeDrawer"></div>
         <div class="drawer-panel" data-testid="drawer-panel">
           <div class="drawer-h">
-            <b id="drawerTitle">{{ detail.title }}</b>
+            <b id="drawerTitle">{{ detail?.title || '构成明细' }}</b>
             <button type="button" class="ghost mini" data-close @click="closeDrawer">关闭</button>
           </div>
           <div class="drawer-body" id="drawerBody">
-            <template v-for="(ln, j) in detail.lines" :key="j">
-              <div
-                class="pl-drow"
-                :class="{ sub: ln.sub, 'pl-other-expandable': isExpandable(ln) }"
-                @click.stop="isExpandable(ln) && toggleOther(ln.name)"
-              >
-                <span class="pl-name">
-                  <template v-if="isExpandable(ln)">{{ expandedOther[ln.name] ? '▾ ' : '▸ ' }}</template>
-                  {{ ln.name }}
-                </span>
-                <span class="pl-amt">{{ ln.amt_disp }}</span>
-              </div>
-              <template v-if="isExpandable(ln) && expandedOther[ln.name]">
+            <template v-if="detail && detail.lines && detail.lines.length">
+              <template v-for="(ln, j) in detail.lines" :key="j">
                 <div
-                  v-for="(ch, k) in childLines(ln)"
-                  :key="j + '-' + k"
-                  class="pl-drow sub pl-other-child"
+                  class="pl-drow"
+                  :class="{ sub: ln.sub, 'pl-other-expandable': isExpandable(ln) }"
+                  @click.stop="isExpandable(ln) && toggleOther(ln.name)"
                 >
-                  <span class="pl-name">{{ ch.name }}</span>
-                  <span class="pl-amt">{{ ch.amt_disp }}</span>
+                  <span class="pl-name">
+                    <template v-if="isExpandable(ln)">{{ expandedOther[ln.name] ? '▾ ' : '▸ ' }}</template>
+                    {{ ln.name }}
+                  </span>
+                  <span class="pl-amt">{{ ln.amt_disp }}</span>
                 </div>
+                <template v-if="isExpandable(ln) && expandedOther[ln.name]">
+                  <div
+                    v-for="(ch, k) in childLines(ln)"
+                    :key="j + '-' + k"
+                    class="pl-drow sub pl-other-child"
+                  >
+                    <span class="pl-name">{{ ch.name }}</span>
+                    <span class="pl-amt">{{ ch.amt_disp }}</span>
+                  </div>
+                </template>
               </template>
             </template>
+            <div v-else class="drawer-empty" data-testid="drawer-empty">
+              这条暂时没有构成明细
+            </div>
           </div>
         </div>
       </div>

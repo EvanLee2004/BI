@@ -678,12 +678,13 @@ html.light #rkModal, html.light .rkm-mask, body.light #rkModal, body.light .rkm-
 }
 
 /* —— 顶部切周期：板块①②③ 统一淡出/淡入（periodSync；零金额）—— */
-#periodSync{transition:opacity .15s ease,transform .15s ease;will-change:opacity,transform}
-#periodSync.is-period-switching{opacity:0;transform:translateY(10px);pointer-events:none}
+/* R-01：默认无 will-change；仅 is-period-switching 瞬间加，避免 fixed 包含块 */
+#periodSync{transition:opacity .15s ease,transform .15s ease}
+#periodSync.is-period-switching{will-change:opacity,transform;opacity:0;transform:translateY(10px);pointer-events:none}
 #periodSync.is-period-enter{animation:riseIn .36s cubic-bezier(.2,.7,.2,1) both}
 @media (prefers-reduced-motion:reduce){
   #periodSync{transition:none!important}
-  #periodSync.is-period-switching{opacity:1;transform:none;pointer-events:auto}
+  #periodSync.is-period-switching{will-change:auto;opacity:1;transform:none;pointer-events:auto}
   #periodSync.is-period-enter{animation:none!important}
 }
 
@@ -770,23 +771,9 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
  .pr-grid .ev-name{flex-basis:96px;font-size:12.5px}.pr-grid .ev-amt{flex-basis:74px;font-size:12.5px}
  .pr-grid .rk-meta{flex-basis:84px;font-size:12px}.pr-grid .card-h .conc b{font-size:15px}
  .pr-formula{gap:4px 0;flex-direction:column}}
-/* —— 右侧抽屉（点利润表大类看构成）—— */
-.drawer{position:fixed;inset:0;z-index:60;visibility:hidden}
-.drawer.open{visibility:visible}
-.drawer-mask{position:absolute;inset:0;background:var(--overlay-mask,rgba(0,0,0,.45));opacity:0;transition:opacity .3s}
-.drawer.open .drawer-mask{opacity:1}
-.drawer-panel{position:absolute;top:0;right:0;height:100%;width:min(430px,92vw);
-  background:var(--overlay-panel-solid,var(--panel-solid,#0b1222));
-  color:var(--ink);
-  border-left:1px solid var(--line-2);box-shadow:-14px 0 44px rgba(0,0,0,.45);transform:translateX(100%);
-  transition:transform .34s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
-.drawer.open .drawer-panel{transform:none}
-.drawer-h{display:flex;align-items:center;justify-content:space-between;padding:16px 16px;
-  border-bottom:1px solid var(--line);flex:0 0 auto}
-.drawer-h span{font-size:15px;font-weight:700;color:var(--ink)}
-.drawer-x{cursor:pointer;background:none;border:0;color:var(--mut);font-size:24px;line-height:1;padding:0 4px;font-family:inherit}
-.drawer-x:hover{color:var(--ink)}
-.drawer-body{padding:4px 16px 24px;overflow-y:auto}
+/* —— 右侧抽屉基座 —— */
+/* 2.6.11：.drawer / .drawer-mask / .drawer-panel / .drawer-h / .drawer-body 唯一源 = SPA tokens.css
+   （进 dist，禁止 theme 与 tokens 同名 class 双源；本处仅保留明细行 pl-drow 与可点行） */
 /* 可点大类行 + 抽屉内明细行 */
 .pl-open{cursor:pointer;transition:background .15s ease}
 .pl-open:hover{background:var(--track)}
@@ -807,7 +794,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .pbar, .sec, .kpi, .card, .faint-note, .foot, .bar, body, .pl-row.grand .pl-amt, .kpi::before, .donut-sweep{animation:none}
   .flowline, .particles, .comet, .donut-sweep{display:none}
   .kpi:hover{transform:none}
-  .drawer-panel{transition:none}
+  /* drawer-panel transition 收敛在 SPA tokens.css */
 }
 
 /* ==================== FUI 科技大屏层（框线/角标/网格/扫描·纯装饰不碰数据）==================== */

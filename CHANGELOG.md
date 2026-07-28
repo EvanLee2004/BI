@@ -1,3 +1,13 @@
+## 2.6.11 · 2026-07-28
+
+### 全站展开层 + 真 bug 清零
+- B-01：管理利润表抽屉 `drawerOpen` 即挂载，无 detail 显示空态「这条暂时没有构成明细」（禁静默）
+- B-02/B-05：`structure_for_vm` 透传 `expandable`+递归 `children`；单测锁 VM 链路
+- B-03：抽屉基座 CSS 写入 SPA `tokens.css` 并进 dist（`.drawer{` + `z-index:var(--z-drawer`）
+- B-04：去掉 drawer `z-index:60`；统一 `var(--z-drawer, 80)`；theme 与 tokens 不双源同名 class
+- R-01：`#periodSync` 去掉常驻 `will-change:transform`（仅 `.is-period-switching` 瞬间）
+- ExpenseSection 对齐空态；活体 L1–L6（整体/BU/admin iframe）
+
 ## 2.6.10 · 2026-07-27
 
 ### 看端体验（用户视角）

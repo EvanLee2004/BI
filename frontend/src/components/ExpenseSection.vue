@@ -223,23 +223,25 @@ const option = computed(() => {
       <div v-else class="ev-empty">暂无数据</div>
     </div>
 
-    <!-- 右侧抽屉：与 PLTable 同一套 body 直下 fixed（Teleport）；复用全局 drawer/pl-drow 样式 -->
+    <!-- 右侧抽屉：与 PLTable 同一套 body 直下 fixed（Teleport）；open 即挂，无行数据也空态 -->
     <Teleport to="body">
-      <div v-if="drawerOpen && openRow" class="drawer open" aria-hidden="false">
+      <div v-if="drawerOpen" class="drawer open" aria-hidden="false">
         <div class="drawer-mask" data-testid="exp-drawer-mask" @click="closeDrawer"></div>
         <div class="drawer-panel" data-testid="exp-drawer-panel">
           <div class="drawer-h">
-            <b>{{ openRow.name }} · 费用明细</b>
+            <b>{{ openRow ? openRow.name + ' · 费用明细' : '费用明细' }}</b>
             <button type="button" class="ghost mini" data-close @click="closeDrawer">关闭</button>
           </div>
           <div class="drawer-body">
-            <template v-if="openRow.fine && openRow.fine.length">
+            <template v-if="openRow && openRow.fine && openRow.fine.length">
               <div v-for="(f, j) in openRow.fine" :key="j" class="pl-drow sub">
                 <span class="pl-name">{{ f.name }}</span>
                 <span class="pl-amt">{{ f.amt_disp }}</span>
               </div>
             </template>
-            <div v-else class="ev-empty">{{ emptyFineText }}</div>
+            <div v-else class="ev-empty drawer-empty" data-testid="exp-drawer-empty">
+              {{ openRow ? emptyFineText : '这条暂时没有费用明细' }}
+            </div>
           </div>
         </div>
       </div>

@@ -347,6 +347,127 @@ html.theme-light {
   white-space: nowrap;
 }
 
+/* z-index 栈（与 theme.css 对齐；抽屉/弹层 token 优先） */
+:root {
+  --z-base: 1;
+  --z-sticky: 20;
+  --z-topbar: 40;
+  --z-dropdown: 60;
+  --z-drawer: 80;
+  --z-modal: 90;
+  --z-toast: 100;
+}
+
+/* —— 右侧抽屉基座（B-03/B-04：必须进 SPA dist，禁止只靠 theme.css）—— */
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drawer, 80);
+  visibility: hidden;
+}
+.drawer.open {
+  visibility: visible;
+}
+.drawer-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-mask, var(--modal-mask, rgba(0, 0, 0, 0.45)));
+  opacity: 0;
+  transition: opacity var(--dur-med, 0.28s);
+}
+.drawer.open .drawer-mask {
+  opacity: 1;
+}
+.drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(430px, 92vw);
+  background: var(--overlay-panel-solid, var(--panel-solid, var(--modal-bg, #0b1222)));
+  color: var(--ink, #eaf1ff);
+  border-left: 1px solid var(--line-2, var(--line, rgba(125, 211, 252, 0.16)));
+  box-shadow: -14px 0 44px rgba(0, 0, 0, 0.45);
+  transform: translateX(100%);
+  transition: transform var(--dur-med, 0.28s) cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+.drawer.open .drawer-panel {
+  transform: none;
+}
+.drawer-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4, 16px);
+  border-bottom: 1px solid var(--line, rgba(125, 211, 252, 0.16));
+  flex: 0 0 auto;
+}
+.drawer-h b,
+.drawer-h span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink, #eaf1ff);
+}
+.drawer-body {
+  padding: 4px var(--space-4, 16px) var(--space-5, 24px);
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.drawer-empty {
+  padding: var(--space-5, 24px) var(--space-3, 12px);
+  text-align: center;
+  color: var(--mut, #93a1c0);
+  font-size: var(--fs-body, 14px);
+  line-height: 1.55;
+}
+/* pl-drow / pl-name / pl-amt 仍由 theme.css 提供，禁止与 tokens 双源同名 class */
+@media (prefers-reduced-motion: reduce) {
+  .drawer-mask,
+  .drawer-panel {
+    transition: none;
+  }
+}
+
+/* R-01：#periodSync 默认禁止常驻 will-change:transform（仅切换瞬间 class 可加） */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#periodSync {
+  transition: opacity var(--dur-fast, 0.15s) ease, transform var(--dur-fast, 0.15s) ease;
+}
+#periodSync.is-period-switching {
+  will-change: opacity, transform;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+#periodSync.is-period-enter {
+  animation: riseIn 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  #periodSync {
+    transition: none !important;
+  }
+  #periodSync.is-period-switching {
+    will-change: auto;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  #periodSync.is-period-enter {
+    animation: none !important;
+  }
+}
+
 .data-modal-mask {
   position: fixed;
   inset: 0;

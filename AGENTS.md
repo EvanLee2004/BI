@@ -1,6 +1,6 @@
 # AGENTS.md · 智能经营罗盘（看板正式程序）
 
-> 精简同步自 `CLAUDE.md`（agents.md 开放标准：https://agents.md）。完整铁律与业务口径以 **CLAUDE.md** 为准。
+> 精简同步自 `Agent.md`（agents.md 开放标准：https://agents.md）。完整铁律与业务口径以 **Agent.md** 为准。
 
 ## 产品
 

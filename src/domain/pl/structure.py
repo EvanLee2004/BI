@@ -404,8 +404,26 @@ def pl_structure(
     }
 
 
+def _line_for_vm(ln: dict[str, Any]) -> dict[str, Any]:
+    """单行明细 VM 字段；透传 expandable/children（递归，不改金额算法）。"""
+    out: dict[str, Any] = {
+        "name": ln["name"],
+        "amt_disp": ln["amt_disp"],
+        "kind": ln.get("kind") or "",
+        "sub": bool(ln.get("sub")),
+    }
+    if ln.get("expandable"):
+        out["expandable"] = True
+        kids = ln.get("children") or []
+        out["children"] = [_line_for_vm(ch) for ch in kids]
+    return out
+
+
 def structure_for_vm(struct: dict[str, Any]) -> dict[str, Any]:
-    """裁成 VM 公开字段（与任务书50 pack_pl 输出对齐：rows/details 仅 name/amt_disp/…）。"""
+    """裁成 VM 公开字段（与任务书50 pack_pl 输出对齐：rows/details 仅 name/amt_disp/…）。
+
+    2.6.11：details.lines 透传 expandable + children（递归），供抽屉「其他 N 项」展开。
+    """
     rows_out = []
     for r in struct.get("rows") or []:
         rows_out.append(
@@ -424,15 +442,7 @@ def structure_for_vm(struct: dict[str, Any]) -> dict[str, Any]:
     for k, block in (struct.get("details") or {}).items():
         details_out[k] = {
             "title": block.get("title") or "",
-            "lines": [
-                {
-                    "name": ln["name"],
-                    "amt_disp": ln["amt_disp"],
-                    "kind": ln.get("kind") or "",
-                    "sub": bool(ln.get("sub")),
-                }
-                for ln in (block.get("lines") or [])
-            ],
+            "lines": [_line_for_vm(ln) for ln in (block.get("lines") or [])],
         }
     return {"rows": rows_out, "details": details_out}
 
