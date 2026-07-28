@@ -120,3 +120,24 @@ class TestOtherNExpandable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDrawerCssNotOverriddenByNeonBodyStar(unittest.TestCase):
+    """2.6.11 根因：neon body>* {position:relative} 不得命中 .drawer / modal。"""
+
+    def test_theme_neon_body_star_excludes_overlays(self):
+        theme = (ROOT / "static/css/theme.css").read_text(encoding="utf-8")
+        self.assertIn("body > *", theme)
+        # 必须 exclude Teleport 弹层
+        self.assertRegex(
+            theme,
+            r"body\s*>\s*\*:not\(\.drawer\)",
+            "neon body>* 须 :not(.drawer) 排除 Teleport 抽屉",
+        )
+        self.assertIn(":not(.data-modal-mask)", theme)
+
+    def test_tokens_drawer_fixed_important(self):
+        tokens = (ROOT / "frontend/src/styles/tokens.css").read_text(encoding="utf-8")
+        self.assertIn("position: fixed", tokens)
+        self.assertIn("body > .drawer", tokens)
+        self.assertIn("--z-drawer", tokens)

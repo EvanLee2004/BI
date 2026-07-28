@@ -359,14 +359,26 @@ html.theme-light {
 }
 
 /* —— 右侧抽屉基座（B-03/B-04：必须进 SPA dist，禁止只靠 theme.css）—— */
+/* body > .drawer：压过 neon 主题 body>* 的 position:relative（特异度更高） */
+body > .drawer,
 .drawer {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-drawer, 80);
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: var(--z-drawer, 80) !important;
   visibility: hidden;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  pointer-events: none;
 }
+body > .drawer.open,
 .drawer.open {
   visibility: visible;
+  pointer-events: auto;
 }
 .drawer-mask {
   position: absolute;
@@ -374,6 +386,7 @@ html.theme-light {
   background: var(--overlay-mask, var(--modal-mask, rgba(0, 0, 0, 0.45)));
   opacity: 0;
   transition: opacity var(--dur-med, 0.28s);
+  pointer-events: auto;
 }
 .drawer.open .drawer-mask {
   opacity: 1;
@@ -383,6 +396,7 @@ html.theme-light {
   top: 0;
   right: 0;
   height: 100%;
+  min-height: 100%;
   width: min(430px, 92vw);
   background: var(--overlay-panel-solid, var(--panel-solid, var(--modal-bg, #0b1222)));
   color: var(--ink, #eaf1ff);
@@ -392,9 +406,17 @@ html.theme-light {
   transition: transform var(--dur-med, 0.28s) cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
 }
 .drawer.open .drawer-panel {
   transform: none;
+}
+/* DataModal 同理：防 neon body>* 覆盖 fixed */
+body > .data-modal-mask,
+.data-modal-mask {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: var(--z-modal, 90) !important;
 }
 .drawer-h {
   display: flex;

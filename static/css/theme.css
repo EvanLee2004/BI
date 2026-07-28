@@ -114,7 +114,10 @@ body{
   content:none;
   display:none;
 }
-:root[data-theme="neon"] body > *, html[data-theme="neon"] body > *{
+/* 2.6.11：不得把 Teleport 到 body 的 fixed 弹层（drawer/modal/toast/过场）打成 relative
+   否则 .drawer{position:fixed} 被更高特异度覆盖 → 抽屉挂在文档流末尾、视口内看不见 */
+:root[data-theme="neon"] body > *:not(.drawer):not(.data-modal-mask):not(.kb-toast):not(.bu-xfade),
+html[data-theme="neon"] body > *:not(.drawer):not(.data-modal-mask):not(.kb-toast):not(.bu-xfade){
   position: relative;
   z-index: 1;
 }
