@@ -8,7 +8,7 @@
 2.6.3·B2：
 - 判据改为「今天这个时间点已过且今天还没成功跑过 → 补跑」（不再要求 hhmm 精确相等）
 - start_refresh_async 返回 False 时排队重试不丢
-- 跑批台账：当天计划几次/成功几次/漏哪次；/api/health 可取 schedule_ledger()
+- 跑批台账：当天计划几次/成功几次/漏哪次；/api/v1/health 可取 schedule_ledger()
 - 漏跑 → 体检黄 + 告警
 """
 
@@ -26,7 +26,7 @@ log = logging.getLogger("kanban.schedule_loop")
 
 THREAD_NAME = "kanban-schedule-loop"
 
-# 进程内跑批台账（供 /api/health）
+# 进程内跑批台账（供 /api/v1/health）
 _LEDGER_LOCK = threading.Lock()
 _SCHEDULE_LEDGER: dict = {
     "date": "",

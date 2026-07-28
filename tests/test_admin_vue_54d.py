@@ -52,12 +52,12 @@ class TestAdminVueStructure(unittest.TestCase):
                 blob += p.read_text(encoding="utf-8") + "\n"
         markers = {
             "控制台 iframe": ('src="/"', "ConsoleView"),
-            "更新数据": ("/api/refresh", "doRefresh"),
+            "更新数据": ("/api/v1/admin/refresh", "doRefresh"),
             "手填": ("/api/v1/admin/manual", "manual_batch"),
             "分摊": ("/api/v1/admin/alloc_rates", "/api/alloc_rates"),  # 61·G：前端已对齐 ratios
             "去税": ("/api/v1/admin/detax_rates",),
             "预算": ("/api/v1/admin/budget", "budget_batch"),
-            "明细调整": ("/api/v1/admin/detail", "/api/adjust"),
+            "明细调整": ("/api/v1/admin/detail", "/api/v1/admin/adjust"),
             "账号": ("/api/v1/admin/accounts",),
             "BU": ("/api/v1/admin/bu_config", "sales_pool"),
             "设置": ("/api/v1/admin/settings",),
@@ -178,7 +178,7 @@ class TestAdminVueHttp(unittest.TestCase):
             "/api/v1/admin/accounts",
             "/api/v1/admin/bu_config",
             "/api/v1/version",
-            "/api/health",
+            "/api/v1/health",
             "/api/v1/admin/exceptions",
             "/api/v1/admin/adjust_fields",
             "/api/v1/admin/config_changes",

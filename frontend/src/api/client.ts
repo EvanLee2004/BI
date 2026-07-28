@@ -1,6 +1,7 @@
 import type { BUPageVM, CockpitVM, PageVM } from '../types/vm'
 import { friendlyFromStatus } from '../utils/friendlyError'
 
+/** 会话 cookie：仅 `kanban_sid`（2.7.1+）；请求须 credentials:same-origin。 */
 /** 带 HTTP 状态的错误，供 store 按状态码分流（2.6.10 V-5）。 */
 export class ApiError extends Error {
   status: number

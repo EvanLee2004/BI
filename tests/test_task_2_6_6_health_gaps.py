@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class TestBusinessGapsOnHealth(unittest.TestCase):
     def test_health_includes_business_gaps_when_authed(self):
-        """登录会话下 /api/health 应带 business_gaps（缺月列表/未归属计数）。"""
+        """登录会话下 /api/v1/health 应带 business_gaps（缺月列表/未归属计数）。"""
         import sys
 
         sys.path.insert(0, str(ROOT / "src"))
@@ -26,13 +26,13 @@ class TestBusinessGapsOnHealth(unittest.TestCase):
         app = server.create_app(cfg, root=ROOT)
         c = TestClient(app)
         # 匿名：business_gaps 仅登录后（2.6.6·T1 authed-only）
-        r0 = c.get("/api/health")
+        r0 = c.get("/api/v1/health")
         self.assertEqual(r0.status_code, 200)
         body0 = r0.json()
         self.assertNotIn(
             "business_gaps",
             body0,
-            "匿名 /api/health 不得暴露 business_gaps",
+            "匿名 /api/v1/health 不得暴露 business_gaps",
         )
 
         import json
@@ -43,7 +43,7 @@ class TestBusinessGapsOnHealth(unittest.TestCase):
         admin = next(a for a in rows if a.get("权限") == "管理员")
         lr = c.post("/api/v1/login", json={"account": admin["账号"], "password": admin["密码"]})
         self.assertIn(lr.status_code, (200, 303), lr.text[:200])
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertIn("business_gaps", body, body.keys())

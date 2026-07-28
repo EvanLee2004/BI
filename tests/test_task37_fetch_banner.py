@@ -95,7 +95,7 @@ class TestFetchFallbackBanners(unittest.TestCase):
         conn.close()
         app = server.create_app(cfg, root=tmp)
         c = TestClient(app)
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         d = r.json()
         self.assertIn("fetch_banners", d)

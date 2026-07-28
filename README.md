@@ -319,8 +319,8 @@ deploy/linux/          nginx / systemd 模板
 ```bash
 # 是否活着
 systemctl is-active kanban nginx
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/api/health
-curl -s http://127.0.0.1/api/health   # 看 built_at / 灯色
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/api/v1/health
+curl -s http://127.0.0.1/api/v1/health   # 看 built_at / 灯色
 
 # 版本
 cd /opt/kanban/看板正式程序 && cat VERSION && git rev-parse --short HEAD
@@ -374,7 +374,7 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 |------|------|
 | 完全打不开 | `systemctl status kanban nginx`；`curl` 本机 `:80` / `:8018` |
 | 业务线「第一次能进、再开根地址进不去」 | nginx `location = /` 是否仍 `try_files index`（§4）；前端是否已是 2.4.3+ |
-| 页面数据不随「到点」变 | `/api/health` 的 `built_at`；日志是否有 `schedule_loop`；管理端是否点过「更新数据」 |
+| 页面数据不随「到点」变 | `/api/v1/health` 的 `built_at`；日志是否有 `schedule_loop`；管理端是否点过「更新数据」 |
 | 体检黄/红 | 管理端控制台详情；手填缺月 / 未抓到源等（黄≠服务挂了） |
 | 一键更新被拒 | 工作区是否脏（如把日志写进了代码目录） |
 

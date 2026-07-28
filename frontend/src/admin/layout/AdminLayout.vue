@@ -221,7 +221,7 @@ const healthSources = computed(() => (health.value?.sources as { name: string; r
 
 async function loadHealth() {
   try {
-    health.value = await jget('/api/health')
+    health.value = await jget('/api/v1/health')
   } catch {
     /* ignore */
   }
@@ -252,7 +252,7 @@ async function doRefresh() {
   refreshMsg.value = '更新数据中…'
   refT0 = Date.now()
   try {
-    await jpost('/api/refresh', {})
+    await jpost('/api/v1/admin/refresh', {})
   } catch {
     /* 409 已在更新 → 轮询 */
   }
@@ -262,7 +262,7 @@ async function doRefresh() {
 async function pollRefresh() {
   try {
     const s = await jget<{ running?: boolean; last?: { status?: string; detail?: string; seconds?: number }; zhiyun_auto_fetch?: boolean }>(
-      '/api/refresh_status',
+      '/api/v1/admin/refresh_status',
     )
     if (s.running) {
       const el = Math.round((Date.now() - refT0) / 1000)
@@ -318,7 +318,7 @@ onMounted(async () => {
   document.addEventListener('pointerdown', onHealthPointerDown, true)
   window.addEventListener('keydown', onHealthKey)
   try {
-    const s = await jget<{ running?: boolean }>('/api/refresh_status')
+    const s = await jget<{ running?: boolean }>('/api/v1/admin/refresh_status')
     if (s.running) {
       refreshing.value = true
       refT0 = Date.now()

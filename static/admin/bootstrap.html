@@ -35,10 +35,10 @@ async function go(){const m=document.getElementById("m"),b=document.getElementBy
     await jj("/api/v1/admin/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(pay)});
   }catch(e){m.className="msg err";m.textContent="保存失败："+e.message;b.disabled=false;return;}
   m.textContent="开始取数…（智云在线抓约 80 秒 + 计算约 1 分钟）";t0=Date.now();
-  try{await jj("/api/refresh",{method:"POST"});}catch(e){}
+  try{await jj("/api/v1/admin/refresh",{method:"POST"});}catch(e){}
   poll();}
 async function poll(){const m=document.getElementById("m"),b=document.getElementById("go");
-  try{const s=await jj("/api/refresh_status");
+  try{const s=await jj("/api/v1/admin/refresh_status");
     if(s.running){m.textContent="取数中… 已 "+Math.round((Date.now()-t0)/1000)+" 秒（在线抓+32 周期计算，请勿关页）";setTimeout(poll,3000);return;}
     const last=s.last||{};
     if(last.status==="ok"){m.className="msg ok";m.textContent="✓ 完成，正在进入管理端…";setTimeout(()=>location.reload(),1200);return;}

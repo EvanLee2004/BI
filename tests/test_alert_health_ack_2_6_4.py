@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""2.6.7 B-7：红条/ack 下线后，/api/health 不再下发 alerts；告警仍写本地日志。
+"""2.6.7 B-7：红条/ack 下线后，/api/v1/health 不再下发 alerts；告警仍写本地日志。
 
 原 2.6.4 路径：造告警 → health unread → ack → 0。现改为：
 - POST /api/alerts/ack 不存在（404）
@@ -68,7 +68,7 @@ class TestAlertHealthAckHttp(unittest.TestCase):
             cfg=cfg,
             root=ROOT,
         )
-        h = self.client.get("/api/health")
+        h = self.client.get("/api/v1/health")
         self.assertEqual(h.status_code, 200, h.text[:300])
         body = h.json()
         # 红条下线：health 不再承载未读计数

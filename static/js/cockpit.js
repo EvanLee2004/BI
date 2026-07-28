@@ -328,7 +328,7 @@
   var msg=document.getElementById('pwMsg');
   if(nw.length<4){msg.textContent='新密码至少 4 位';return;}
   msg.textContent='保存中…';msg.style.color='#94a3b8';
-  fetch('/api/my_passwd',{method:'POST',credentials:'same-origin',
+  fetch('/api/v1/my_passwd',{method:'POST',credentials:'same-origin',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({old:old,new:nw})})
    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d,status:r.status};});})

@@ -65,7 +65,7 @@ if [ "$code2" != "200" ] && [ "$code2" != "301" ] && [ "$code2" != "302" ] && [ 
   alert "home_not_ok base=$BASE code=$code2"
 fi
 
-# 3) 数据新鲜度（2.6.3·B1）：只认 /api/health 的 built_at 业务时间戳
+# 3) 数据新鲜度（2.6.3·B1）：只认 /api/v1/health 的 built_at 业务时间戳
 # 禁止用 看板.db mtime——看端明细/登录审计写会刷新 mtime，导致 data_stale 永不触发。
 DATA_DIR="$ROOT/数据"
 if [ ! -d "$DATA_DIR" ]; then
@@ -77,7 +77,7 @@ from datetime import datetime
 base = r"$BASE"
 max_days = int(r"$MAX_STALE_DAYS" or "2")
 try:
-    with urllib.request.urlopen(base + "/api/health", timeout=5) as r:
+    with urllib.request.urlopen(base + "/api/v1/health", timeout=5) as r:
         body = json.loads(r.read().decode("utf-8", errors="replace"))
 except Exception as e:
     print(f"health_unreachable err={type(e).__name__}")

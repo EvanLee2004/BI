@@ -369,7 +369,7 @@ def main() -> int:
         kick = page.evaluate(
             """async (pw) => {
               const before = await fetch('/api/v1/session', {credentials:'same-origin'});
-              const r = await fetch('/api/my_passwd', {
+              const r = await fetch('/api/v1/my_passwd', {
                 method: 'POST', credentials: 'same-origin',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({old: pw, new: pw + 'K'})
@@ -395,7 +395,7 @@ def main() -> int:
             page.wait_for_timeout(1000)
             rest = page.evaluate(
                 """async (pw) => {
-                  const r = await fetch('/api/my_passwd', {
+                  const r = await fetch('/api/v1/my_passwd', {
                     method: 'POST', credentials: 'same-origin',
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({old: pw + 'K', new: pw})

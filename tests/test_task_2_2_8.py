@@ -233,7 +233,7 @@ class TestVersion228(unittest.TestCase):
 
 
 class TestHealthApiHandfillYellow(unittest.TestCase):
-    """真实 /api/health 路径：管道绿 + health.warnings 手填缺 → result 黄。"""
+    """真实 /api/v1/health 路径：管道绿 + health.warnings 手填缺 → result 黄。"""
 
     def test_api_health_green_run_handfill_warn_becomes_yellow(self):
         import json
@@ -288,7 +288,7 @@ class TestHealthApiHandfillYellow(unittest.TestCase):
         }
         app = server.create_app(cfg, root=tmp)
         c = TestClient(app)
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         d = r.json()
         self.assertEqual(d["result"], "黄", d)

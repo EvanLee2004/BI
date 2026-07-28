@@ -30,4 +30,4 @@
 
 - 读到旧「密码」明文 → 备份 `看板账号.json.bak-明文迁移-<日期>` 后写回哈希
 - `/api/v1/admin/accounts` 永不下发密码；`POST /api/v1/admin/accounts/{账号}/reset_passwd` 明文仅响应一次
-- 自改密码 `/api/my_passwd` 行为不变（验旧设新 + 密码版本+1）
+- 自改密码 `/api/v1/my_passwd` 行为不变（验旧设新 + 密码版本+1）

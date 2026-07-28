@@ -86,7 +86,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             _LOCK.release()
 
-    @app.post("/api/adjust")
+    @app.post("/api/v1/admin/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         with with_write_lock(rebuild_std=True):
@@ -108,7 +108,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 conn.close()
         return {"status": "ok", "adj_id": aid, "built_at": _state["built_at"]}
 
-    @app.post("/api/adjust/batch")
+    @app.post("/api/v1/admin/adjust/batch")
     def api_adjust_batch(request: Request, payload: dict = Body(default={})):
         """批量写调整（2.2.6）：预检全过再写，整批一次 recompute。
 
@@ -146,7 +146,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "built_at": _state["built_at"],
         }
 
-    @app.post("/api/adjust/{adj_id}/revoke")
+    @app.post("/api/v1/admin/adjust/{adj_id}/revoke")
     def api_revoke(request: Request, adj_id: int, payload: dict = Body(default={})):
         """撤销调整。任务书63·H-03：可选 reason 写入 config 审计。"""
         user = _require(request)
@@ -171,7 +171,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 pass
         return {"status": "ok" if ok else "noop", "built_at": _state["built_at"]}
 
-    @app.post("/api/adjust/expired/revoke_all")
+    @app.post("/api/v1/admin/adjust/expired/revoke_all")
     def api_revoke_all_expired(request: Request, payload: dict = Body(default={})):
         """批量撤销全部「过期疑似」=一键听源头新值。前端走"点按钮→确认保存"两步，这里只管执行。"""
         user = _require(request)
@@ -189,7 +189,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 _audit(cfg, root, user, ("调整", tip))
         return {"status": "ok", "revoked": n, "built_at": _state["built_at"]}
 
-    @app.post("/api/adjust/{adj_id}/rearm")
+    @app.post("/api/v1/admin/adjust/{adj_id}/rearm")
     def api_rearm(request: Request, adj_id: int, payload: dict = Body(default={})):
         """坚持我的数（仅过期疑似、仅逐条）：原值刷新为源头现值→重新生效→立即重算。"""
         user = _require(request)

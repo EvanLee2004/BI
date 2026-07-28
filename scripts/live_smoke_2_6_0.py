@@ -84,7 +84,7 @@ def _boot_app():
         try:
             import urllib.request
 
-            urllib.request.urlopen(base + "/api/health", timeout=1)
+            urllib.request.urlopen(base + "/api/v1/health", timeout=1)
             break
         except Exception:
             time.sleep(0.2)

@@ -39,7 +39,7 @@ CONFIG_NAME = "看板账号.json"
 # 隔离坏文件后留下此旗标，防止「改名后路径不存在 → 误 seed 出厂口令」
 NEEDS_RESTORE_SUFFIX = ".needs_restore"
 
-# 2.6.3·A1：账号表损坏态（进程内；供 /api/health 抬红 + 告警一次）
+# 2.6.3·A1：账号表损坏态（进程内；供 /api/v1/health 抬红 + 告警一次）
 _ACCOUNTS_CORRUPT: dict | None = None  # {"path": str, "reason": str, "quarantine": str}
 
 PERM_ADMIN = "管理员"

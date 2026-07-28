@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.2.6 门禁：下单未填部门 · 本页表筛批量归类 UX + POST /api/adjust/batch。"""
+"""2.2.6 门禁：下单未填部门 · 本页表筛批量归类 UX + POST /api/v1/admin/adjust/batch。"""
 from __future__ import annotations
 
 import sys
@@ -61,13 +61,13 @@ class TestOrderDeptViewSource226(unittest.TestCase):
 
     def test_batch_uses_filtered_rows_and_bulk_api(self):
         self.assertIn("filteredRows", self.src)
-        self.assertIn("/api/adjust/batch", self.src)
+        self.assertIn("/api/v1/admin/adjust/batch", self.src)
         self.assertIn("定位键列表", self.src)
         self.assertIn("对本页表筛结果批量归入", self.src)
         self.assertIn("批量归入部门", self.src)
 
     def test_single_save_still_uses_adjust(self):
-        self.assertIn("'/api/adjust'", self.src)
+        self.assertIn("'/api/v1/admin/adjust'", self.src)
         self.assertIn("saveOne", self.src)
 
 
@@ -107,7 +107,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
 
     def test_batch_requires_login(self):
         r = self.anon.post(
-            "/api/adjust/batch",
+            "/api/v1/admin/adjust/batch",
             json={
                 "目标表": "std_下单",
                 "字段": "部门",
@@ -119,7 +119,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
 
     def test_batch_empty_list_400(self):
         r = self.client.post(
-            "/api/adjust/batch",
+            "/api/v1/admin/adjust/batch",
             headers=self.hdr,
             json={
                 "目标表": "std_下单",
@@ -133,7 +133,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
     def test_batch_missing_key_400_no_write(self):
         before = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         r = self.client.post(
-            "/api/adjust/batch",
+            "/api/v1/admin/adjust/batch",
             headers=self.hdr,
             json={
                 "目标表": "std_下单",
@@ -151,7 +151,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
     def test_batch_dept_ok_writes_adjustments(self):
         """成功批量：写台账 count=2（recompute 在本测中 mock，不验 unfilled 实落）。"""
         r = self.client.post(
-            "/api/adjust/batch",
+            "/api/v1/admin/adjust/batch",
             headers=self.hdr,
             json={
                 "目标表": "std_下单",

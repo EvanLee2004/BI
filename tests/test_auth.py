@@ -243,15 +243,15 @@ class TestViewerAuth(unittest.TestCase):
     # ---- 自改 + 管理员改 ----
     def test_self_change_password(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        r = c.post("/api/my_passwd", json={"old": "wrong", "new": "newpw1xx"})
+        r = c.post("/api/v1/my_passwd", json={"old": "wrong", "new": "newpw1xx"})
         self.assertEqual(r.status_code, 400)
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": ""})
+        r = c.post("/api/v1/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": ""})
         self.assertEqual(r.status_code, 400)  # 2.6.12：空密仍拒
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "12"})
+        r = c.post("/api/v1/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "12"})
         self.assertEqual(r.status_code, 200)  # 2.6.12：短密非空即可
         # 改回后再测 8 位路径（沿用后续断言）
         c2, _ = self._login("overall", "12")
-        r = c2.post("/api/my_passwd", json={"old": "12", "new": "newpw1xx"})
+        r = c2.post("/api/v1/my_passwd", json={"old": "12", "new": "newpw1xx"})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertIn(old.status_code, (401, 303))
@@ -269,7 +269,7 @@ class TestViewerAuth(unittest.TestCase):
         """任务书46·1：改密后旧会话 401。"""
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(c.get("/api/v1/session").status_code, 200)
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "kickme1x"})
+        r = c.post("/api/v1/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "kickme1x"})
         self.assertEqual(r.status_code, 200)
         # 旧 cookie 密码版本过期
         self.assertEqual(c.get("/api/v1/session").status_code, 401)
@@ -425,7 +425,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn("请勿使用你在其他地方用的密码", render.PW_MODAL_HTML)
         _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", _js)
-        self.assertIn("/api/my_passwd", _js)
+        self.assertIn("/api/v1/my_passwd", _js)
         # Vue 管理端：明文密码列 + 可选重置
         vue_settings = (
             Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "composables" / "useSettingsForm.ts"

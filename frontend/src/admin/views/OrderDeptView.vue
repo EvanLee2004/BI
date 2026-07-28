@@ -133,7 +133,7 @@ async function saveOne(row: Record<string, unknown>) {
     return
   }
   try {
-    await jpost('/api/adjust', {
+    await jpost('/api/v1/admin/adjust', {
       目标表: 'std_下单',
       定位键: key,
       字段: '部门',
@@ -186,7 +186,7 @@ async function batchSave() {
   const keys = list.map((r) => String(r['定位键'] ?? '')).filter(Boolean)
   bulkLoading.value = true
   try {
-    const res = await jpost<{ count?: number }>('/api/adjust/batch', {
+    const res = await jpost<{ count?: number }>('/api/v1/admin/adjust/batch', {
       目标表: 'std_下单',
       字段: '部门',
       新值: dept,

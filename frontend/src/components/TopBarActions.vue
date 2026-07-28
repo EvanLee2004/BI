@@ -106,7 +106,7 @@ async function savePw() {
   msg.value = '保存中…'
   msgCls.value = ''
   try {
-    const r = await fetch('/api/my_passwd', {
+    const r = await fetch('/api/v1/my_passwd', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },

@@ -34,23 +34,19 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.7.1 · 2026-07-28）
+## 当前状态（2.7.2 · 2026-07-28）
 
-- **版本**：`VERSION` = **2.7.1**（干净目标态：无旧 cookie 认证、业务读仅 v1、只 vue）。其上：2.7.0 架构双源/int/文档；2.6.13 费用/税前 SSOT。
-- **上机后须重登**：旧 `kanban_session`/`kanban_view` **不能**维持登录；只认 **`kanban_sid`**。登录写 sid 并 delete 旧名。
-- **读 API 地图（业务读仅 `/api/v1/*`）**：
-  - 收入毛利榜：`GET /api/v1/rankings/profit`（**禁止**与下单回款 full 合并）
-  - 下单回款榜：`GET /api/v1/rankings/full`
-  - 管理端明细全列：`GET /api/v1/admin/detail` · `…/values` · `…/export`
-  - 看端费用明细白名单：`GET /api/v1/vm/ledger*`
-  - 日查/历史/异常/配置/手填/预算/账号/导出等：见 `docs/softeng/07_HTTP接口清单_全端点.md` 与路由；**旧 `/api/*` 业务 GET 已删 → 404**
-  - **例外（非 v1 可留）**：`GET /api/health`、`GET /api/refresh_status`
-  - **写路径 POST**（adjust/manual/budget/refresh/settings 等）：本刀以读干净为硬门闩；部分已随前端迁到 `/api/v1/admin/*`，其余仍 `/api/*`（见交付报告「写路径未迁清单」）
-- **前端模式**：只 **vue**；无 `frontend_mode==legacy` HTML 建造。
-- **render / fragments**：`src/render*.py` = 导出/碎片/测试辅助，**非**看端主 UI；看端 = `/api/v1/vm/*`。
-- **进程**：生产 **单 worker**；多 worker 未支持。
-- **算账 SSOT（2.6.13）**：`expense_totals_from_man_led` + `pretax_profit_fen`；core/structure int 分（2.7.0 C）；保留 `_legacy_定位键`。
-- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿（**禁管道吞退出码**）；只推 main 不推 tags；**前端零金额运算**。
+- **版本**：`VERSION` = **2.7.2**（API 写路径与探活全量 v1）。其上：2.7.1 读路径干净 + sid-only；2.7.0 双源/int/文档。
+- **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
+- **API 地图（业务/管理/运维均 `/api/v1/*`）**：
+  - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号…
+  - 写/运维：`POST /api/v1/admin/adjust*` · `POST /api/v1/admin/refresh` · `GET /api/v1/admin/refresh_status` · `POST /api/v1/my_passwd` · `POST /api/v1/admin/update/apply` · manual/budget/settings…
+  - 探活：`GET /api/v1/health`（`deploy/healthcheck.sh` 同步）
+  - **旧 `/api/adjust*` `/api/refresh*` `/api/my_passwd` `/api/health` `/api/update/apply` → 404**
+  - 导出：`/api/v1/export/*`；BU 页导出仍可 `/bu/{name}/export.*`（页面路径，非旧 `/api/*` 写清单）
+- **前端模式**：只 **vue**；cookie 会话载体 = `kanban_sid`。
+- **算账 SSOT**：不改公式；保留 `_legacy_定位键`。
+- **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；只推 main；**前端零金额运算**。
 - **部署**：`docs/Runbook.md` §0；文档 SSOT 见 `docs/文档SSOT指针.md`。
 
 ### 前端三层铁律（2.6.5+ · 守卫 `tests/test_frontend_arch_guards.py`）

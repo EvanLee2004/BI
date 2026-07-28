@@ -6,7 +6,7 @@
 - updater.check_update（真实临时 git 仓库）：已最新/落后可更新/脏工作区拒绝/分叉拒绝/非仓库不支持
 - updater.apply_update：落后+干净→ff 拉取成功 HEAD 前进；脏/分叉/已最新→拒绝不拉
 - RESTART_EXIT_CODE=42（须与 deploy/linux/start_with_rollback.sh 一致）；request_restart 不在测试里真跑
-- `/api/v1/update/check`、`/api/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
+- `/api/v1/update/check`、`/api/v1/admin/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
 - 控制台含一键更新 UI 锚点（checkUpdate/applyUpdate/vuAvail）
 """
 
@@ -245,7 +245,7 @@ class TestUpdateApi(unittest.TestCase):
     def test_check_requires_admin(self):
         anon = self._anon()
         self.assertEqual(anon.get("/api/v1/update/check").status_code, 401)
-        self.assertEqual(anon.post("/api/update/apply").status_code, 401)
+        self.assertEqual(anon.post("/api/v1/admin/update/apply").status_code, 401)
 
     def _anon(self):
         from fastapi.testclient import TestClient
@@ -267,7 +267,7 @@ class TestUpdateApi(unittest.TestCase):
 
     def test_apply_ok_restarts_and_audits(self):
         updater.apply_update = lambda root=None, remote="origin": {"ok": True, "pulled": 3, "from": "aaa", "to": "bbb"}
-        d = self.client.post("/api/update/apply", headers=self.hdr).json()
+        d = self.client.post("/api/v1/admin/update/apply", headers=self.hdr).json()
         self.assertTrue(d["ok"])
         self.assertTrue(d.get("restarting"))
         self.assertTrue(self.restarted)  # 触发了重启
@@ -278,7 +278,7 @@ class TestUpdateApi(unittest.TestCase):
 
     def test_apply_refused_no_restart(self):
         updater.apply_update = lambda root=None, remote="origin": {"ok": False, "reason": "已是最新版本"}
-        d = self.client.post("/api/update/apply", headers=self.hdr).json()
+        d = self.client.post("/api/v1/admin/update/apply", headers=self.hdr).json()
         self.assertFalse(d["ok"])
         self.assertNotIn("restarting", d)
         self.assertFalse(self.restarted)

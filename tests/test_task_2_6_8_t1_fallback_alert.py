@@ -134,7 +134,7 @@ class TestBusinessGapsLedgerFallback(unittest.TestCase):
         admin = next(a for a in rows if a.get("权限") == "管理员")
         lr = c.post("/api/v1/login", json={"account": admin["账号"], "password": admin["密码"]})
         self.assertIn(lr.status_code, (200, 303), lr.text[:200])
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         g = r.json().get("business_gaps") or {}
         for k in (

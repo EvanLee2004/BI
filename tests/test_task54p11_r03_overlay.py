@@ -47,7 +47,7 @@ class TestOverlayLiveOptional(unittest.TestCase):
         try:
             import urllib.request
 
-            urllib.request.urlopen(base + "/api/health", timeout=2)
+            urllib.request.urlopen(base + "/api/v1/health", timeout=2)
         except Exception:
             self.skipTest("8018 未起服")
         try:

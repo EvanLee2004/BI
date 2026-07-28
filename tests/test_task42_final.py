@@ -125,7 +125,7 @@ class TestTask42Final(unittest.TestCase):
 
     def test_admin_flow(self):
         c = self._login("admin1", admin=True)
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 20})
         self.assertEqual(r.status_code, 200)
@@ -180,7 +180,7 @@ class TestTask42Final(unittest.TestCase):
     def test_health_structure(self):
         c = self.TC(self.app)
         # health 可能无需登录（源码确认）
-        r = c.get("/api/health")
+        r = c.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         j = r.json()
         self.assertIn("warnings", j)

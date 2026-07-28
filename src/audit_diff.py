@@ -242,7 +242,7 @@ def apply_business_health_yellow(
     """2.2.8 方案 B：数据侧业务提醒抬绿→黄（**不覆盖红**）。
 
     管道 result 只看抓数/调整等；手填缺月、未归属 BU 等在 summary.meta.health，
-    须在 /api/health 合成时抬黄，否则「全源 fetched + 仅手填缺」会假绿。
+    须在 /api/v1/health 合成时抬黄，否则「全源 fetched + 仅手填缺」会假绿。
     返回 (result, reasons)。
     """
     reasons = list(reasons or [])

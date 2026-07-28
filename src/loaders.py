@@ -35,7 +35,7 @@ LOCAL_CONFIG_DENY_KEYS = frozenset({"data_dir", "db_path", "profiles"})
 # 允许覆盖的运维/业务开关（其余未知键仍允许，便于扩展；仅拒绝上面危险键）
 # 说明：白名单语义=「危险键拒绝」而非「仅允许列出键」——既防双拼又不大改现有本地配置面。
 
-# 2.6.3·A4：本地配置损坏态（进程内；供 /api/health 抬黄）
+# 2.6.3·A4：本地配置损坏态（进程内；供 /api/v1/health 抬黄）
 _LOCAL_CONFIG_CORRUPT: dict | None = None
 
 

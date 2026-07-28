@@ -124,7 +124,7 @@ async function saveEdit() {
     return
   }
   try {
-    await jpost('/api/adjust', {
+    await jpost('/api/v1/admin/adjust', {
       目标表: STD_MAP[tableName.value],
       定位键: editKey.value,
       字段: editField.value,
@@ -150,7 +150,7 @@ async function removeRow(row: Record<string, unknown>) {
     return
   }
   try {
-    await jpost('/api/adjust', {
+    await jpost('/api/v1/admin/adjust', {
       目标表: STD_MAP[tableName.value],
       定位键: key,
       字段: '',

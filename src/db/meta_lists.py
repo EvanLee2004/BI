@@ -100,7 +100,7 @@ def list_config_changes(conn: sqlite3.Connection, category: str | None = None, l
 
 def exceptions_summary(conn: sqlite3.Connection) -> dict:
     """异常处理中心「总览」计数（新增一类异常=这里加一个键+前端注册一张卡）。
-    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/health）。"""
+    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/v1/health）。"""
     n_dept = conn.execute(f"SELECT COUNT(*) FROM std_下单 WHERE 已删除=0 AND {UNFILLED_DEPT_WHERE}").fetchone()[0]
     n_uc = conn.execute(f"SELECT COUNT(*) FROM std_费用明细 WHERE 已删除=0 AND {UNCLASSIFIED_WHERE}").fetchone()[0]
     n_exp = conn.execute("SELECT COUNT(*) FROM adj_调整记录 WHERE 状态='过期疑似'").fetchone()[0]

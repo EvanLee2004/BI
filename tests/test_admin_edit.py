@@ -73,12 +73,12 @@ class TestAdminWrite(unittest.TestCase):
     # ---- 鉴权：写接口一律要会话 ----
     def test_write_requires_login(self):
         for method, path in [
-            ("post", "/api/adjust"),
+            ("post", "/api/v1/admin/adjust"),
             ("post", "/api/v1/admin/manual"),
-            ("post", "/api/refresh"),
+            ("post", "/api/v1/admin/refresh"),
             ("get", "/api/v1/admin/adjust_fields"),
             ("get", "/api/v1/admin/adjustments"),
-            ("post", "/api/adjust/1/revoke"),
+            ("post", "/api/v1/admin/adjust/1/revoke"),
         ]:
             r = getattr(self.anon, method)(path)  # 未登录：_require 在函数体首行先拦，body 走默认
             self.assertEqual(r.status_code, 401, f"{method} {path} 未登录应 401")
@@ -87,7 +87,7 @@ class TestAdminWrite(unittest.TestCase):
     def test_adjust_records_and_recomputes(self):
         server._state["built_at"] = "OLD"
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={
                 "目标表": "std_收入明细",
@@ -112,7 +112,7 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_adjust_bad_field_400(self):
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={"目标表": "std_收入明细", "定位键": "K1", "字段": "不存在的字段", "新值": "x", "类型": "改值"},
         )
@@ -120,7 +120,7 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_adjust_bad_table_400(self):
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={"目标表": "std_不存在", "定位键": "K1", "字段": "交付额", "新值": 1, "类型": "改值"},
         )
@@ -128,7 +128,7 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_remove_soft_delete_records(self):
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={"目标表": "std_收入明细", "定位键": "K1", "字段": "", "新值": "", "原因": "剔除", "类型": "剔除"},
         )
@@ -138,7 +138,7 @@ class TestAdminWrite(unittest.TestCase):
         conn = self._conn()
         aid = db.add_adjustment(conn, "明昊", "std_收入明细", "K1", "交付额", "9999", "待撤", "改值")
         conn.close()
-        r = self.client.post(f"/api/adjust/{aid}/revoke", headers=self.hdr, json={})
+        r = self.client.post(f"/api/v1/admin/adjust/{aid}/revoke", headers=self.hdr, json={})
         self.assertEqual(r.status_code, 200, r.text)
         conn = self._conn()
         st = conn.execute("SELECT 状态 FROM adj_调整记录 WHERE id=?", (aid,)).fetchone()[0]
@@ -189,7 +189,7 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_adjust_new_open_field_ok(self):
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={
                 "目标表": "std_费用明细",
@@ -205,7 +205,7 @@ class TestAdminWrite(unittest.TestCase):
     def test_adjust_blacklist_field_400(self):
         for banned in ("定位键", "归属月", "原值_归属月", "已删除"):
             r = self.client.post(
-                "/api/adjust",
+                "/api/v1/admin/adjust",
                 headers=self.hdr,
                 json={"目标表": "std_费用明细", "定位键": "L1", "字段": banned, "新值": "x", "类型": "改值"},
             )
@@ -215,7 +215,7 @@ class TestAdminWrite(unittest.TestCase):
     def test_refresh_mutex_returns_409(self):
         self.assertTrue(server._LOCK.acquire(blocking=False))
         try:
-            r = self.client.post("/api/refresh", headers=self.hdr, json={})
+            r = self.client.post("/api/v1/admin/refresh", headers=self.hdr, json={})
             self.assertEqual(r.status_code, 409)
             self.assertEqual(r.json().get("status"), "running")
         finally:
@@ -257,11 +257,11 @@ class TestAdminWrite(unittest.TestCase):
         orig = server._do_full
         server._do_full = lambda cfg, root, trigger: {"result": "绿"}
         try:
-            r = self.client.post("/api/refresh", headers=self.hdr, json={})
+            r = self.client.post("/api/v1/admin/refresh", headers=self.hdr, json={})
             self.assertEqual(r.status_code, 200, r.text)
             self.assertEqual(r.json().get("status"), "started")
             for _ in range(50):  # 最多等 5s，后台线程应瞬间跑完
-                s = self.client.get("/api/refresh_status", headers=self.hdr).json()
+                s = self.client.get("/api/v1/admin/refresh_status", headers=self.hdr).json()
                 if not s["running"]:
                     break
                 _t.sleep(0.1)
@@ -410,7 +410,7 @@ class TestAdminWrite(unittest.TestCase):
             server._state["admin_html"] = ""  # 模拟首次部署：从未取数成功
             r = self.client.get("/admin", headers=self.hdr)
             self.assertEqual(r.status_code, 200)
-            for anchor in ("首次取数", 'id="go"', "/api/v1/admin/settings", "/api/refresh"):
+            for anchor in ("首次取数", 'id="go"', "/api/v1/admin/settings", "/api/v1/admin/refresh"):
                 self.assertIn(anchor, r.text, f"引导页缺锚点 {anchor}")
             self.assertNotIn("数据尚未生成", r.text)
             # 未登录仍是登录页，不给引导页（引导页会回显智云账号）
@@ -424,7 +424,7 @@ class TestAdminWrite(unittest.TestCase):
     def test_settings_requires_login(self):
         self.assertEqual(self.anon.get("/api/v1/admin/settings").status_code, 401)
         self.assertEqual(self.anon.post("/api/v1/admin/settings", json={}).status_code, 401)
-        self.assertEqual(self.anon.get("/api/refresh_status").status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/refresh_status").status_code, 401)
         self.assertEqual(self.anon.get("/api/v1/history").status_code, 401)
         self.assertEqual(self.anon.get("/api/v1/history/20260710").status_code, 401)
 
@@ -600,7 +600,7 @@ class TestExpiredBatch(unittest.TestCase):
         return cur.lastrowid
 
     def test_endpoints_require_login(self):
-        for method, path in [("post", "/api/adjust/expired/revoke_all"), ("post", "/api/adjust/1/rearm")]:
+        for method, path in [("post", "/api/v1/admin/adjust/expired/revoke_all"), ("post", "/api/v1/admin/adjust/1/rearm")]:
             r = getattr(self.anon, method)(path)
             self.assertEqual(r.status_code, 401, f"{method} {path} 未登录应 401")
 
@@ -610,7 +610,7 @@ class TestExpiredBatch(unittest.TestCase):
         a2 = self._add_adj(conn, "过期疑似")
         a3 = self._add_adj(conn, "生效")
         conn.close()
-        r = self.client.post("/api/adjust/expired/revoke_all", headers=self.hdr)
+        r = self.client.post("/api/v1/admin/adjust/expired/revoke_all", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["revoked"], 2)
         conn = self._conn()
@@ -620,14 +620,14 @@ class TestExpiredBatch(unittest.TestCase):
         self.assertEqual(states[a2], "已撤销")
         self.assertEqual(states[a3], "生效")  # 生效的绝不能被批量误伤
         # 再点一次：无过期疑似 → revoked=0 幂等
-        r2 = self.client.post("/api/adjust/expired/revoke_all", headers=self.hdr)
+        r2 = self.client.post("/api/v1/admin/adjust/expired/revoke_all", headers=self.hdr)
         self.assertEqual(r2.json()["revoked"], 0)
 
     def test_rearm_refreshes_origin_and_reapplies(self):
         conn = self._conn()
         aid = self._add_adj(conn, "过期疑似", 原值="1888", 新值="2333")  # 原值1888已过期（源头现值2000元=200000分）
         conn.close()
-        r = self.client.post(f"/api/adjust/{aid}/rearm", headers=self.hdr)
+        r = self.client.post(f"/api/v1/admin/adjust/{aid}/rearm", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         conn = self._conn()
         原值, 状态 = conn.execute("SELECT 原值,状态 FROM adj_调整记录 WHERE id=?", (aid,)).fetchone()
@@ -659,7 +659,7 @@ class TestExpiredBatch(unittest.TestCase):
             (ghost, "源头行不存在不可坚持"),
             (999999, "id不存在"),
         ]:
-            r = self.client.post(f"/api/adjust/{aid}/rearm", headers=self.hdr)
+            r = self.client.post(f"/api/v1/admin/adjust/{aid}/rearm", headers=self.hdr)
             self.assertEqual(r.status_code, 400, why)
         conn = self._conn()
         conn.execute("UPDATE adj_调整记录 SET 状态='已撤销' WHERE id IN (?,?,?)", (active, removed, ghost))

@@ -5,7 +5,7 @@
 - 用户端 `/`：账号+密码登录，按 数据/看板账号.json 权限分流（管理员→/admin、整体→整体页、BU→本 BU 页）。
 - 管理员端 `/admin`：账号 lushasha（或任何权限=管理员的号）+ 密码；经手人=登录账号。
 - `/api/v1/admin/detail`：明细数据，**仅管理员会话内可用**（服务端挡，未登录 401；非前端藏）。
-- `/api/health`：最近一次运行日志（体检状态条数据源）。
+- `/api/v1/health`：最近一次运行日志（体检状态条数据源）。
 
 安全实现用标准库：会话 HMAC 签名 token；账号明文存 数据/看板账号.json（不进 git）。
 会话签名密钥存 数据/管理员密钥.json（只保留 cookie_key；旧 salt/pw_hash 字段读时忽略）。
@@ -636,7 +636,7 @@ def serve(cfg=None, root=None):
         refresh(cfg, root)
         print(f"[server] 就绪 built_at={_state['built_at']}")
     except Exception as e:  # 数据有问题也让服务起来、页面提示
-        print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/refresh 或重启）")
+        print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/v1/admin/refresh 或重启）")
     app = create_app(cfg, root)
     import uvicorn
 

@@ -169,7 +169,7 @@ class TestUnfilledDeptQueries(unittest.TestCase):
         self.assertAlmostEqual(rk["unfilled"]["amount"], 350000.0, places=2)
 
     def test_adjust_dept_field_allowed(self):
-        """「部门」在可调字段白名单内（R1 黑名单制），异常处理归类走 /api/adjust 的前提。"""
+        """「部门」在可调字段白名单内（R1 黑名单制），异常处理归类走 /api/v1/admin/adjust 的前提。"""
         self.assertIn("部门", db.adjustable_fields()["下单"])
 
 
@@ -240,9 +240,9 @@ class TestExceptionEndpoints(unittest.TestCase):
         self.assertNotIn(">复核<", html)
 
     def test_adjust_dept_via_api(self):
-        """异常处理归类的完整写链：POST /api/adjust 部门改值 → 记录入台账。"""
+        """异常处理归类的完整写链：POST /api/v1/admin/adjust 部门改值 → 记录入台账。"""
         r = self.client.post(
-            "/api/adjust",
+            "/api/v1/admin/adjust",
             headers=self.hdr,
             json={
                 "目标表": "std_下单",

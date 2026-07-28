@@ -159,7 +159,7 @@ export function useSettingsForm() {
     }
     vuAvail.value = '更新中…拉取新代码…'
     try {
-      const d = await jpost<{ ok?: boolean; from?: string; to?: string; reason?: string }>('/api/update/apply', {})
+      const d = await jpost<{ ok?: boolean; from?: string; to?: string; reason?: string }>('/api/v1/admin/update/apply', {})
       if (d.ok) {
         vuAvail.value = `✓ 已拉取 ${d.from || ''} → ${d.to || ''}，服务重启中…`
         setTimeout(() => location.reload(), 12000)

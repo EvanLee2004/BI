@@ -213,7 +213,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         session_ctx.clear_all_session_cookies(resp)
         return resp
 
-    @app.post("/api/my_passwd")
+    @app.post("/api/v1/my_passwd")
     def api_my_passwd(request: Request, payload: dict = Body(default={})):
         """看的人自改密码（整体页/BU 页右上 🔑）：验旧设新，密码版本+1（旧会话失效）。"""
         name = _vacct(request)

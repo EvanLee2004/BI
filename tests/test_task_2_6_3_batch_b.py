@@ -146,7 +146,7 @@ class TestB1HealthUsesBuiltAtNotMtime(unittest.TestCase):
     def test_healthcheck_script_mentions_built_at_not_db_mtime(self):
         sh = (ROOT / "deploy" / "healthcheck.sh").read_text(encoding="utf-8")
         self.assertIn("built_at", sh)
-        self.assertIn("/api/health", sh)
+        self.assertIn("/api/v1/health", sh)
         # 不得再用 看板.db mtime 作 stale 主判据
         self.assertNotIn('mtime_of "$DATA_DIR/看板.db"', sh)
         self.assertIn("2.6.3", sh)

@@ -41,7 +41,7 @@
 |------|------|------|------|
 | GET | `/api/v1/daily` | 整体/管理员 | 任意日期段逐日下单/回款+排名；BU 会话 401 |
 | GET | `/api/v1/rankings/profit` | 整体/管理员 | 收入/毛利按客户或销售全量 |
-| GET | `/api/health` | 管理员（管理端体检） | 绿/黄/红 + 警告 |
+| GET | `/api/v1/health` | 管理员（管理端体检） | 绿/黄/红 + 警告 |
 
 ## 四、管理端写读（均需管理员会话，除非注明）
 
@@ -49,7 +49,7 @@
 |------|------|------|
 | GET/POST | `/api/v1/admin/accounts` | 账号表管理（管理员会话**下发明文密码**；任务书64·P / MADR-0020） |
 | POST | `/api/v1/admin/accounts/{账号}/reset_passwd` | 管理员重置密码（可选快捷入口）；body `{new?}`；列表亦可直接编辑明文 |
-| POST | `/api/my_passwd` | 看的人自改密码（非管理员看端） |
+| POST | `/api/v1/my_passwd` | 看的人自改密码（非管理员看端） |
 | GET | `/api/v1/admin/detail` | 明细分页；看端费用明细列=白名单（audience）；`month` 或 `month_from`+`month_to` 归属月区间；可 unfilled_dept / unclassified |
 | GET | `/api/v1/admin/detail/export` | 明细导出 xlsx（列与当前会话明细一致：看端白名单/管理端全列） |
 | GET | `/api/v1/admin/detail/values` | 列去重值（多选筛） |
@@ -59,8 +59,8 @@
 | GET | `/api/v1/admin/archive_export?year=YYYY` | 管理员：审计流水年度 xlsx 归档（历史表不删） |
 | GET | `/api/v1/admin/exceptions` | 异常总览计数 |
 | GET | `/api/v1/admin/order_depts` | 下单部门清单 |
-| POST | `/api/refresh` | 立即更新（异步） |
-| GET | `/api/refresh_status` | 更新进度 |
+| POST | `/api/v1/admin/refresh` | 立即更新（异步） |
+| GET | `/api/v1/admin/refresh_status` | 更新进度 |
 | GET | `/api/v1/history` | 历史 VM 存档列表（`vm_YYYYMMDD.json`） |
 | GET | `/api/v1/history/{day}/vm` | 某日归档 VM JSON（管理员；Vue `/?archive=` 只读） |
 | GET | `/api/v1/history/{day}` | **410** 旧 HTML 快照已停用 |
@@ -68,9 +68,9 @@
 | GET | `/api/v1/admin/sales_pool` | 销售归属池 |
 | GET | `/api/v1/admin/config_changes` | 配置变更留痕 |
 | GET | `/api/v1/version` | 产品版本+changelog |
-| GET/POST | `/api/v1/update/check` · `/api/update/apply` | 一键更新 |
+| GET/POST | `/api/v1/update/check` · `/api/v1/admin/update/apply` | 一键更新 |
 | GET/POST | `/api/v1/admin/settings` | 调度/备份/智云/台账路径等 |
-| POST | `/api/adjust` · `…/revoke` · `…/rearm` · `…/expired/revoke_all` | 明细调整 |
+| POST | `/api/v1/admin/adjust` · `…/revoke` · `…/rearm` · `…/expired/revoke_all` | 明细调整 |
 | GET | `/api/v1/admin/adjustments` | 调整台账列表 |
 | GET/POST | `/api/v1/admin/manual` · `/api/v1/admin/manual_batch` | 手填 |
 | GET/POST | `/api/v1/admin/alloc_rates` | 公共费用按月分摊比例 |

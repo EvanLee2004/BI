@@ -175,7 +175,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         _require(request)
         return updater.check_update(loaders.ROOT, remote=cfg.get("update_remote") or "origin")
 
-    @app.post("/api/update/apply")
+    @app.post("/api/v1/admin/update/apply")
     def api_update_apply(request: Request):
         """④ 一键更新（管理员会话）：复检护栏 → git pull --ff-only <update_remote> → 触发看门狗重启。
         拉取成功才重启（进程以退出码 42 退出，看门狗用新代码拉起）；失败原样返回不重启。"""

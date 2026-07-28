@@ -41,6 +41,9 @@ OLD_TO_V1 = [
     ("/api/accounts", "/api/v1/admin/accounts"),
     ("/api/export.html", "/api/v1/export.html"),
     ("/api/export/pl.xlsx", "/api/v1/export/pl.xlsx"),
+    # 2.7.2 写路径收官后旧路径亦 404
+    ("/api/health", "/api/v1/health"),
+    ("/api/refresh_status", "/api/v1/admin/refresh_status"),
 ]
 
 
@@ -119,9 +122,9 @@ class TestOldGet404V1Present(unittest.TestCase):
 
     def test_health_exceptions_remain(self):
         c = self._client()
-        self.assertEqual(c.get("/api/health").status_code, 200)
+        self.assertEqual(c.get("/api/v1/health").status_code, 200)
         # refresh_status may 200 even without login
-        self.assertIn(c.get("/api/refresh_status").status_code, (200, 401, 403))
+        self.assertIn(c.get("/api/v1/admin/refresh_status").status_code, (200, 401, 403))
 
 
 class TestFrontendSrcNoOldReads(unittest.TestCase):
@@ -156,6 +159,10 @@ class TestFrontendSrcNoOldReads(unittest.TestCase):
         '"/api/accounts"',
         "/api/export.html",
         "/api/export/pl.xlsx",
+        "'/api/health'",
+        "'/api/refresh'",
+        "'/api/my_passwd'",
+        "'/api/adjust'",
     ]
 
     def test_src_clean(self):
@@ -173,7 +180,8 @@ class TestFrontendSrcNoOldReads(unittest.TestCase):
 class TestVersion271(unittest.TestCase):
     def test_version_file(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.7.1")
+        # 2.7.1 起；2.7.2 写路径收官后仍为 2.7.x
+        self.assertTrue(ver.startswith("2.7."), ver)
 
 
 if __name__ == "__main__":

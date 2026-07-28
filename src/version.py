@@ -60,6 +60,16 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.7.2",
+        "date": "2026-07-28",
+        "title": "经营看板 2.7.2：写操作与探活也统一到新接口",
+        "items": [
+            "调整/刷新/改密/一键更新全部走 /api/v1/*；旧地址返回 404。",
+            "探活统一为 /api/v1/health（运维脚本已同步）。",
+            "前端 Vue 与测试只调用 v1；文档 API 地图与运维手册写齐。",
+        ],
+    },
+    {
         "version": "2.7.1",
         "date": "2026-07-28",
         "title": "经营看板 2.7.1：干净目标态——只认新会话、业务读只走 v1",
@@ -67,7 +77,7 @@ PRODUCT_CHANGELOG: list[dict] = [
             "登录只认 kanban_sid；旧 cookie 不能再自动登录，请重新登录一次。",
             "业务读接口统一到 /api/v1/*；旧读地址返回 404。",
             "前端只保留 Vue；去掉 legacy HTML 建造分支。",
-            "运维健康检查 /api/health 与 /api/refresh_status 仍可用。",
+            "运维健康检查 /api/v1/health 与 /api/v1/admin/refresh_status 仍可用。",
         ],
     },
     {

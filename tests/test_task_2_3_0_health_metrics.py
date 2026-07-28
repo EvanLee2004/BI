@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.3.0 S6.B：/api/health metrics 不许恒 null；api_p95_ms 已删。"""
+"""2.3.0 S6.B：/api/v1/health metrics 不许恒 null；api_p95_ms 已删。"""
 from __future__ import annotations
 
 import unittest

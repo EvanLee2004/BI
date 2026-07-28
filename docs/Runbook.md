@@ -6,11 +6,11 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **2.7.1**（`VERSION`；干净目标态：业务读仅 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
+| 版本 | **2.7.2**（`VERSION`；业务/写/探活均 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
 | 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、Restart=always、StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
 | 用户入口口径 | **只发两个根链接**：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`（办公区内勿用外网；用自己账号登录即可；**无**单独管理员登录 URL） |
-| 会话 | 浏览器 cookie **仅 `kanban_sid`**（2.7.1）。**上机后须重登**；旧 `kanban_session`/`kanban_view` 不能维持登录（登录时 delete 清残留）。运维例外 GET：`/api/health`、`/api/refresh_status` |
+| 会话 | 浏览器 cookie **仅 `kanban_sid`**。**上机后须重登**。探活 `GET /api/v1/health`；刷新状态 `GET /api/v1/admin/refresh_status` |
 | 休眠 | `sleep`/`suspend`/`hibernate`/`hybrid-sleep` **target 已 mask** |
 | 每日更新 | **服务内 ScheduleLoop**（以机上 `schedule_times` 为准） |
 | 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled` |
@@ -23,11 +23,11 @@
 
 1. 看服务：`systemctl status kanban`（active=正常；failed 看 `journalctl -u kanban -n50`）
 2. 看日志：`/opt/kanban/看板正式程序/数据/日志/`；healthcheck 输出 `数据/日志/healthcheck_cron.out`（勿写 `deploy/`，否则 git 判脏挡一键更新）
-3. 健康：`curl -s http://127.0.0.1:8018/api/health | head` 或 `bash deploy/healthcheck.sh; echo $?`
+3. 健康：`curl -s http://127.0.0.1:8018/api/v1/health | head` 或 `bash deploy/healthcheck.sh; echo $?`
 4. 重启：`sudo systemctl restart kanban`（**别手动裸跑 run.py**，会和 systemd 抢端口）
 5. 对外不通但 app 活：查 nginx —— `systemctl status nginx`、`sudo nginx -t`、`curl -s -o/dev/null -w '%{http_code}' http://localhost/login`
 6. 若 503 数据未生成：管理端「更新数据」或机上 `sudo -u lee .venv/bin/python run.py`
-7. **`built_at` 不走 / 到点页面不刷新**：先看服务日志是否有 `schedule_loop started times=…`；再看 `/api/refresh_status` 的 `refreshing` 是否卡住；确认管理端 `schedule_times` 与机上本地时区。**勿**指望 cron `run.py --scheduled` 更新页面内存（独立进程不写 `_state`）
+7. **`built_at` 不走 / 到点页面不刷新**：先看服务日志是否有 `schedule_loop started times=…`；再看 `/api/v1/admin/refresh_status` 的 `refreshing` 是否卡住；确认管理端 `schedule_times` 与机上本地时区。**勿**指望 cron `run.py --scheduled` 更新页面内存（独立进程不写 `_state`）
 8. **业务线账号「第一次能进、再开根地址进不去」**（2.4.3）：多半是 nginx 根路径未反代。核对 `location = /` 含 `proxy_pass`、**无** `try_files /index.html`；仓库 conf 变更后必须：
    ```bash
    sudo cp /opt/kanban/看板正式程序/deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
@@ -41,7 +41,7 @@
 1. 业务 tag：`git tag -l 'stage5*'`
 2. `sudo systemctl stop kanban` → `git -C /opt/kanban/看板正式程序 checkout <tag>` → 依赖变了 `pip install -r requirements.txt`
 3. 恢复 `数据/看板.db` 与 `数据/看板账号.json` 备份（在 `数据/备份/`）
-4. `sudo systemctl start kanban`，curl `/api/health` 绿/黄可接受
+4. `sudo systemctl start kanban`，curl `/api/v1/health` 绿/黄可接受
 5. 一键更新（管理端按钮）走 `git pull --ff-only` + 依赖同步 + `.update_rollback` 自愈（铁律18）；坏版本看门狗自动回滚
 6. 口径配置：管理端 UI/API 已下线；引擎默认直通。紧急改口径仅运维层（代码默认值 / DB，见 MADR-0012）
 7. **账号密码（任务书64·P / MADR-0020）**：`看板账号.json` **明文为真相源**（管理员设置页可见可改）；写盘 `chmod 0o600`。保留：防爆破、改密踢会话、SESSION_TTL=12h、审计不记明文。生产若从未上过 63 哈希版则零迁移。
@@ -51,7 +51,7 @@
 1. 备份位置：`数据/备份/`（日更管道产出）
 2. 恢复：拷贝 `看板.db` 到 `数据/`（先停服务）
 3. 演练：`python tests/run_test.py tests/test_backup_restore.py`
-4. 起服后 `/api/health` + 登录抽查 KPI
+4. 起服后 `/api/v1/health` + 登录抽查 KPI
 
 ### 3.1 演练证据（2026-07-26 · 2.6.4 上机）
 

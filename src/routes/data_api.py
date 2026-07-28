@@ -485,7 +485,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/admin/exceptions")
     def api_exceptions(request: Request):
-        """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/health，不在这。"""
+        """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/v1/health，不在这。"""
         _require(request)  # 同函数作用域下文定义，调用时已存在
         conn = db.connect(cfg, root)
         try:
@@ -519,7 +519,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     # 2.6.9 S8：/api/v1/client-error/stats 已删（前端/测试零引用）
 
-    @app.get("/api/health")
+    @app.get("/api/v1/health")
     def api_health(request: Request):  # noqa: C901  # 2.6.3 合成黄/红/台账/账号/schedule
         """体检状态条数据源（公开：只给绿/黄/红 + 时间 + 各源行数，不含金额/客户名）。
         任务书37·B9：fetch_banners=抓数降级黄横幅（看端/管理端顶部）。
@@ -753,16 +753,16 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def _conn():
         return db.connect(cfg, root)
 
-    @app.post("/api/refresh")
+    @app.post("/api/v1/admin/refresh")
     def api_refresh(request: Request):
         """立即更新=完整 pipeline（fetch+重读+重建+重放），后台线程跑、立即返回（在线抓约80秒）。
-        运行中互斥，重复点返回进行中；进度轮询 /api/refresh_status。"""
+        运行中互斥，重复点返回进行中；进度轮询 /api/v1/admin/refresh_status。"""
         _require(request)
         if not start_refresh_async(cfg, root, "manual"):
             return JSONResponse({"status": "running", "detail": "更新进行中，请稍候"}, status_code=409)
         return {"status": "started", "refreshing": _state["refreshing"]}
 
-    @app.get("/api/refresh_status")
+    @app.get("/api/v1/admin/refresh_status")
     def api_refresh_status(request: Request):
         _require(request)
         return {

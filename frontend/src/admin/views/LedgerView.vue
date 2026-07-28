@@ -58,7 +58,7 @@ async function revoke(id: number) {
     return
   }
   try {
-    await jpost(`/api/adjust/${id}/revoke`, { reason })
+    await jpost(`/api/v1/admin/adjust/${id}/revoke`, { reason })
     ElMessage.success('已撤销')
     reloadDash()
     await load()
@@ -81,7 +81,7 @@ async function rearm(id: number) {
     return
   }
   try {
-    await jpost(`/api/adjust/${id}/rearm`, { reason })
+    await jpost(`/api/v1/admin/adjust/${id}/rearm`, { reason })
     ElMessage.success('已重新生效')
     reloadDash()
     await load()
@@ -110,7 +110,7 @@ async function batchDo() {
     return
   }
   try {
-    const r = await jpost<{ revoked?: number }>('/api/adjust/expired/revoke_all', { reason })
+    const r = await jpost<{ revoked?: number }>('/api/v1/admin/adjust/expired/revoke_all', { reason })
     ElMessage.success('已批量撤销 ' + (r.revoked || 0) + ' 条')
     reloadDash()
     await load()

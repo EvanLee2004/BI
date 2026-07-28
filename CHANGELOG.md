@@ -1,8 +1,16 @@
+## 2.7.2 · 2026-07-28
+
+### API 写路径与卫生收官
+- adjust* / refresh / refresh_status / my_passwd / update/apply / health 全部 `/api/v1/*`；旧路径 404
+- 前端 + healthcheck.sh + 测试对齐；同 handler 不复制业务逻辑
+- 文档 Agent API 全表；债台账写路径已清；VERSION=2.7.2
+- 回归 32 周期零 diff；活体可看可调
+
 ## 2.7.1 · 2026-07-28
 
 ### 干净目标态接力
 - 会话：只认 `kanban_sid`；删旧 cookie 读与 21 天窗；登录 delete 旧名；旧 cookie 不能登录（须重登）
-- 业务读：仅 `/api/v1/*`；旧业务 GET 路由删除 → 404；health/refresh_status 例外
+- 业务读：仅 `/api/v1/*`；旧业务 GET 路由删除 → 404
 - 前端：只 vue；删 `frontend_mode==legacy` HTML 建造
 - 文档：progress/Agent/Runbook/文档SSOT指针 = 2.7.1
 - 回归 32 周期零 diff；浏览器 live 可看
@@ -97,7 +105,7 @@
 六项深度体检 + 发现即修（**不改金额/口径/智云抓取**）：
 
 - **T1 数据完整性**：生产实测手填缺 1–5 月、定位键重复 19 组等；报告 `…/3_测试/20260726_数据完整性体检/`。
-- **T1/T2 黄条**：`/api/health` 增 `business_gaps`（缺月/影响/谁补/未归属）；管理端展开 + **滚动/Esc/点外收起**；整体 VM 挂 `unassigned` 差额标注。
+- **T1/T2 黄条**：`/api/v1/health` 增 `business_gaps`（缺月/影响/谁补/未归属）；管理端展开 + **滚动/Esc/点外收起**；整体 VM 挂 `unassigned` 差额标注。
 - **T3** 本地空机灾难演练 + `Ubuntu部署手册` 附录恢复步骤 + 跑路清单。
 - **T4** 新人文档可用性审计 + 最短启动/告警/禁碰。
 - **T5** 真·全量 `server.refresh` 叠库压测 1/3/5/10× = 21/61/104/215s（≪300s；台账年页 `2026` 保留；无产品码性能补丁）。
@@ -120,7 +128,7 @@
 本机告警闭环 + 失效模式守卫（**不改金额/口径/智云抓取**）：
 
 - **内建告警**：`alert_store` 写 `数据/日志/告警.log` + 已读水位；`notify` 只落盘/logging，**零 HTTP 外发**（飞书已废止）。
-- **管理端**：`/api/health` 管理员会话附 `alerts` 未读摘要；`POST /api/alerts/ack` 写水位；管理端顶栏未读横幅。
+- **管理端**：`/api/v1/health` 管理员会话附 `alerts` 未读摘要；`POST /api/alerts/ack` 写水位；管理端顶栏未读横幅。
 - **守卫**：`tests/test_failure_mode_guards.py` + `test_alert_store_2_6_4.py`；开工检查单 `docs/新功能开发检查单.md`。
 - **UI · D1 过场**：切 BU 时全屏 **甲骨易 logo + 目标 BU 名**（`BuTransitionOverlay`）；`transitionToBu` 延时 120+200ms≤800、点击/Esc 可跳过、`prefers-reduced-motion` 降级；无数字改动。
 
@@ -136,7 +144,7 @@
 全方位隐患清零（20 项 · 排查基线 2.6.2）：
 
 - **A 止血**：账号表原子写 + 损坏隔离不 seed 出厂口令；`db_path` 双拼明确抛错；本地配置危险键白名单；坏本地配置体检黄+告警；空密码 400。
-- **B 沉默失败**：healthcheck 新鲜度改 `/api/health` 的 `built_at`；定时刷新补跑+跑批台账；月末漏月补快照；跨年归档 `.partial`+`_ARCHIVE_OK`；缺当年台账 sheet 降级空集+体检红+横幅。
+- **B 沉默失败**：healthcheck 新鲜度改 `/api/v1/health` 的 `built_at`；定时刷新补跑+跑批台账；月末漏月补快照；跨年归档 `.partial`+`_ARCHIVE_OK`；缺当年台账 sheet 降级空集+体检红+横幅。
 - **C 并发**：管理端写路径持锁，忙时 409「更新进行中，请稍后再保存」；`_BUSY_TIMEOUT_MS=90s`；publish 一次引用替换；`generate` 贯通 `root`。
 - **D 门面**：看端首包拆 `vue-runtime` + echarts 异步，看端 deps 不再含 element-plus，首屏 gz 约 90KB（≤260KB）；登录锁定账号+IP；新密码下限 8 位；鉴权先于存在性；**实现** `KANBAN_PROFILE` 读 env 套 `config.profiles`；health 版本/info 仅登录后；pre-restore 纳入清理。
 
@@ -151,7 +159,7 @@
 - **本地测试数据（R0）**：BU 销售归属补齐；台账「多语营销」映射到营销；年目标量级校准（仅本机 `数据/`，不上生产覆盖）
 - **KPI 展示（R1）**：目标进度超 100% 主文案改为「目标待校准」，禁止吓人 `>999%`
 - **包体（R2）**：排名默认不 embed `full_items`；新增 `GET /api/v1/rankings/full` 按需加载
-- **观测（R4）**：`/api/health` metrics 始终含 version/built_at/update_ms 等真值字段
+- **观测（R4）**：`/api/v1/health` metrics 始终含 version/built_at/update_ms 等真值字段
 - **工程（R7）**：`fetch_zhiyun` → `fetch_zhiyun_pure.py`；`manual` 校验辅助 → `manual_helpers.py`（语义零变更）
 - **测试（R6）**：`run_verify` SERIAL 锁 2.6.1；Playwright `scrollIntoView(#rankViews)` 后断言 canvas 挂载
 - **体积实测**：export HTML 14.8MB→9.3MB；cockpit 仍 ~13MB（monthly_data 占大头，诚实记录）
@@ -339,7 +347,7 @@
 - **KPI count-up**：霓虹下数字滚动；中间帧用后端 `value` 插值，终帧直赋 `value_disp`
 - **导出快照主题**：pack 含 `theme` 字段；离线可切三主题；密级页脚「内部资料 · 请勿外传」
 - ECharts 按需引入瘦包（core + bar/line/pie/heatmap + canvas/svg 双渲染器）
-- `/api/health` metrics 写真实 `update_ms` / `fetch_fail_rate`（去掉恒 null 的 `api_p95_ms`）
+- `/api/v1/health` metrics 写真实 `update_ms` / `fetch_fail_rate`（去掉恒 null 的 `api_p95_ms`）
 
 ### Changed
 - 主题按钮文案三态：◈ 霓虹 / ◐ 深色 / ◑ 浅色（仍含「深色」「浅色」字样供测试定位）
@@ -404,7 +412,7 @@
 - 换页时重置列筛选（避免旧筛挂在新页）
 
 ### Added
-- `POST /api/adjust/batch`：预检全过再写、同一事务多条调整、**一次** `recompute`（策略 A）
+- `POST /api/v1/admin/adjust/batch`：预检全过再写、同一事务多条调整、**一次** `recompute`（策略 A）
 - tests `test_task_2_2_6.py`
 
 ---

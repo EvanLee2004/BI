@@ -7,7 +7,7 @@
 - A1 销售名扫描与规范化一致性：库四源列出的名 == 直接喂 filter_rows_by_sales 能过滤到（同一把尺）
 - A1 sales_pool：当年下单笔数/金额参考串 + 未归属计数/金额；未归属分组正确
 - A3 未归属：meta 仍挂人数+每周期金额（管理端/体检用）；看端整体页/BU 页均不展示文案
-- A3 体检：未归属人数>0 → /api/health 判黄 + 顶栏短原因
+- A3 体检：未归属人数>0 → /api/v1/health 判黄 + 顶栏短原因
 - C3 留痕：销售归属/BU/账号/设置/密码逐类写入；不含密码明文；操作记录接口鉴权
 """
 
@@ -233,7 +233,7 @@ class TestUnassignedHint(_Base):
         server._state["summary"] = s
         app = server.create_app(self.cfg, root=self.root)
         client = TestClient(app, follow_redirects=False)
-        h = client.get("/api/health").json()
+        h = client.get("/api/v1/health").json()
         self.assertEqual(h["result"], "黄")
         self.assertTrue(any("销售未归属 BU" in r for r in h["run_reasons"]))
 
@@ -317,7 +317,7 @@ class TestAuditTrail(unittest.TestCase):
         vc = TestClient(app, follow_redirects=False)  # 自带 cookie 罐，登录后自动带 VCOOKIE
         r = vc.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)
-        rr = vc.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "NEWPW_5566"})
+        rr = vc.post("/api/v1/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "NEWPW_5566"})
         self.assertEqual(rr.status_code, 200)
         ac = TestClient(app, follow_redirects=False)
         ar = ac.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})

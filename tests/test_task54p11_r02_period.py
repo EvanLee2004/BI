@@ -98,7 +98,7 @@ class TestPeriodLiveOptional(unittest.TestCase):
         try:
             import urllib.request
 
-            req = urllib.request.Request(base + "/api/health", method="GET")
+            req = urllib.request.Request(base + "/api/v1/health", method="GET")
             urllib.request.urlopen(req, timeout=2)
         except Exception:
             self.skipTest("8018 未起服")

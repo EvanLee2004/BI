@@ -239,7 +239,7 @@ class TestH03RevokeAudit(unittest.TestCase):
         conn.close()
 
         r = self.client.post(
-            f"/api/adjust/{aid}/revoke",
+            f"/api/v1/admin/adjust/{aid}/revoke",
             headers=self.hdr,
             json={"reason": "源头已更正"},
         )
@@ -284,7 +284,7 @@ class TestH03RevokeAudit(unittest.TestCase):
         conn.close()
 
         r = self.client.post(
-            f"/api/adjust/{aid}/rearm",
+            f"/api/v1/admin/adjust/{aid}/rearm",
             headers=self.hdr,
             json={"reason": "仍用我的数"},
         )
@@ -321,7 +321,7 @@ class TestH03RevokeAudit(unittest.TestCase):
         conn.close()
 
         r = self.client.post(
-            "/api/adjust/expired/revoke_all",
+            "/api/v1/admin/adjust/expired/revoke_all",
             headers=self.hdr,
             json={"reason": "一键听源头"},
         )
@@ -341,7 +341,7 @@ class TestH03RevokeAudit(unittest.TestCase):
         src = (ROOT / "frontend/src/admin/views/LedgerView.vue").read_text(encoding="utf-8")
         self.assertIn("ElMessageBox.prompt", src)
         self.assertIn("reason", src)
-        self.assertIn("/api/adjust/expired/revoke_all", src)
+        self.assertIn("/api/v1/admin/adjust/expired/revoke_all", src)
 
 
 if __name__ == "__main__":

@@ -91,7 +91,7 @@ class TestServerAuth(unittest.TestCase):
         self.assertEqual(r.status_code, 401)
 
     def test_health_public_no_amounts(self):
-        r = self.client.get("/api/health")
+        r = self.client.get("/api/v1/health")
         self.assertEqual(r.status_code, 200)
         j = r.json()
         self.assertIn("result", j)
