@@ -36,6 +36,8 @@ export type BuOrderRow = {
 export type KpiCard = {
   label: string
   period_tag: string
+  /** 2.7.5 口径 A：卡标题旁小字（如交付金额「含税」），后端下发 */
+  hint?: string
   /** 2.3.0 count-up 中间帧插值用；终帧仍直赋 value_disp */
   value?: number
   value_disp: string

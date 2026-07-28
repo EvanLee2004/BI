@@ -19,10 +19,16 @@ const playKey = computed(() => store.period)
       <SciFiPanel
         v-for="(c, i) in cards"
         :key="i"
-        :title="c.label"
         :tag="c.period_tag || ''"
         panel-class="kpi-card"
       >
+        <template #header>
+          <span class="kpi-title-row">
+            <span>{{ c.label }}</span>
+            <span v-if="c.hint" class="kpi-hint">{{ c.hint }}</span>
+          </span>
+          <span v-if="c.period_tag" class="tag">{{ c.period_tag }}</span>
+        </template>
         <div class="kpi-v">
           <CountUpNumber :value="Number(c.value) || 0" :value-disp="String(c.value_disp ?? '')" :play-key="playKey" />
           <span class="kpi-u">{{ c.value_unit || '万' }}</span>

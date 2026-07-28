@@ -62,7 +62,8 @@ def _kpi_delta(val: float, prev_key, P, key, up_good, _kpi_val) -> dict[str, Any
 def _kpi_subs(key, pctkey, p, val, charts) -> list[dict[str, str]]:
     subs: list[dict[str, str]] = []
     if key == "revenue_gross":
-        subs.append({"label": "交付收入(÷1.06)", "value_disp": charts.fmt_wan(p["revenue_net"]) + "万"})
+        # 2.7.5 口径 A：副行「不含税 · ÷1.06」；数值仍为后端已算 revenue_net
+        subs.append({"label": "不含税 · ÷1.06", "value_disp": charts.fmt_wan(p["revenue_net"]) + "万"})
         o = float(p.get("orders") or 0.0)
         if o > 0:
             subs.append({"label": "交付占下单", "value_disp": f"{val / o * 100:.0f}%"})
@@ -81,7 +82,11 @@ def _kpi_subs(key, pctkey, p, val, charts) -> list[dict[str, str]]:
 def _kpi_feet(key, p, val, peak, show_ar, charts) -> list[dict[str, str]]:
     feet: list[dict[str, str]] = []
     if peak:
-        feet.append({"kind": "peak", "label": peak["label"], "value_disp": peak["value_disp"]})
+        # 2.7.5 口径 A：交付金额峰值 Vue 前缀「全年峰值 · 」+ label → 「全年峰值 · {月} · 含税」
+        plab = peak["label"]
+        if key == "revenue_gross" and "含税" not in str(plab):
+            plab = f"{plab} · 含税"
+        feet.append({"kind": "peak", "label": plab, "value_disp": peak["value_disp"]})
     if key == "receipts" and show_ar:
         ar = float(p.get("revenue_gross") or 0.0) - val
         ar_s = ("−" if ar < 0 else "") + charts.fmt_wan(abs(ar))
@@ -130,22 +135,24 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
                 except (TypeError, ValueError):
                     fen = 0
                 anim_value = (fen / 100.0) / 10000.0
-            cards.append(
-                {
-                    "label": label,
-                    "period_tag": period_tag,
-                    "value": anim_value,
-                    "value_disp": headline,
-                    "value_unit": unit,
-                    "delta": _kpi_delta(val, prev, P, key, up_good, _kpi_val),
-                    "subs": _kpi_subs(key, pctkey, p, val, charts),
-                    "target": kpi_target_bar(tkey, pkey, p, budget),
-                    "bu_orders": _kpi_bu_orders_rows(BUO.get(pkey), charts) if key == "orders" else [],
-                    "feet": _kpi_feet(key, p, val, kpi_peak_for(summary, key), show_ar, charts),
-                    "src": src,
-                    "data_key": key,
-                }
-            )
+            card: dict[str, Any] = {
+                "label": label,
+                "period_tag": period_tag,
+                "value": anim_value,
+                "value_disp": headline,
+                "value_unit": unit,
+                "delta": _kpi_delta(val, prev, P, key, up_good, _kpi_val),
+                "subs": _kpi_subs(key, pctkey, p, val, charts),
+                "target": kpi_target_bar(tkey, pkey, p, budget),
+                "bu_orders": _kpi_bu_orders_rows(BUO.get(pkey), charts) if key == "orders" else [],
+                "feet": _kpi_feet(key, p, val, kpi_peak_for(summary, key), show_ar, charts),
+                "src": src,
+                "data_key": key,
+            }
+            # 2.7.5 口径 A：交付金额卡小字「含税」（整体+BU 同源 packers）
+            if key == "revenue_gross":
+                card["hint"] = "含税"
+            cards.append(card)
         out[pkey] = cards
     return out
 

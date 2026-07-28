@@ -85,9 +85,11 @@ const option = computed(() => {
   const cMar = cssColor('--orange')
   const glow = cssColor('--rank-others-border-hover')
   const area = areaGradient(cRev)
+  /* 2.7.5 口径 A：趋势收入序列为不含税（后端 net），图例/系列名标注 */
+  const revName = '收入(不含税)'
   const series: Record<string, unknown>[] = [
     {
-      name: '收入',
+      name: revName,
       type: 'bar',
       data: revPlot,
       itemStyle: barGlowStyle(cRev),
@@ -142,11 +144,11 @@ const option = computed(() => {
       formatter: (params: { dataIndex: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
         if (empty(i)) return `${labels[i] || ''} · 暂无数据`
-        return `${labels[i] || ''}<br/>收入 ${withWanUnit(revD[i] || '—')}<br/>成本 ${withWanUnit(costD[i] || '—')}<br/>毛利率 ${marD[i] || '—'}`
+        return `${labels[i] || ''}<br/>${revName} ${withWanUnit(revD[i] || '—')}<br/>成本 ${withWanUnit(costD[i] || '—')}<br/>毛利率 ${marD[i] || '—'}`
       },
     },
     legend: {
-      data: ['收入', '成本', '毛利率'],
+      data: [revName, '成本', '毛利率'],
       bottom: 4,
       left: 'center',
       textStyle: legendTextStyle(isN ? { fontSize: 11 } : {}),
@@ -188,7 +190,7 @@ const option = computed(() => {
 })
 </script>
 <template>
-  <SciFiPanel id="trendChartCard" title="收入 · 毛利趋势" panel-class="trend-chart-card">
+  <SciFiPanel id="trendChartCard" title="收入(不含税) · 毛利趋势" panel-class="trend-chart-card">
     <!-- 54.3 / 54.14 R-23：图区随面板高自适应填充 -->
     <div class="rc-body trend-fill" data-chart="trend">
       <EchartsHost :option="option" />
