@@ -409,9 +409,10 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
                 fine_rules_by_month=ctx.get("fine_rules"),
             )
         # 2.7.7 G2：刷新只挂 summary+views；不建 HTML fragments（看端 VM；导出按需）
+        # 2.7.9 G4：生产只装 JSON views（format），禁 HTML 装运层
         import api_v1
 
-        views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
+        views = api_v1.build_json_bu_views(b["name"], s, cfg)
         pages[b["name"]] = {
             "name": b["name"],
             "fragments": {},
@@ -446,7 +447,8 @@ def generate(cfg, today, trigger="manual", root=None):
         conn.close()
     # 2.7.7 G2：刷新不建 HTML fragments / 不预装整页
     # 2.7.8 G3：导出走 kanban_snapshot pack→HTML（export_html），PNG 截同款
-    views = api_v1.build_cockpit_views(summary, cfg)
+    # 2.7.9 G4：生产只装 JSON views（format），禁 HTML 装运层
+    views = api_v1.build_json_views(summary, cfg)
     html = ""  # 运行态不预装；兼容三元组返回位置
     summary.pop("_fragments", None)
     summary["_views"] = views

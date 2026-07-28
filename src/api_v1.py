@@ -263,12 +263,80 @@ def _period_keys(summary: dict) -> tuple[str, list[str]]:
     return yk, ordered
 
 
-def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
-    """整页渲染就绪 views（B-P2~P4 shipped）。
+def _empty_html_view_fields() -> dict:
+    """兼容缓存键：HTML 卡字段恒空（生产 JSON 路径不装 HTML）。"""
+    return {
+        "kpi_body": {},
+        "pl_body": {},
+        "donut_body": {},
+        "profit_rank_body": {},
+        "trend_html": "",
+        "receipts_budget": "",
+        "receipts_html": "",
+        "period_bar": "",
+        "daily_html": "",
+        "expense_trend_html": "",
+        "pl_tag": "",
+    }
 
-    - rankings_view：叶子显示串 → rankings.js 组装（无服务端拼排名 DOM）
-    - *_body：各周期卡正文的**显示串**（金额/条件已在 Python 算完；JS 只做 .pv 周期壳拼接）
-    - trend_html / receipts_budget / period_bar：非按周期 .pv 的显示串块
+
+def build_json_views(
+    summary: dict,
+    cfg: dict | None = None,
+    *,
+    embed_full: bool = False,
+    bu_name: str | None = None,
+) -> dict:
+    """生产 JSON/VM 就绪 views（2.7.9 G4 真路径）。
+
+    仅 period_keys + rankings_view（format 显示串）；**零** HTML 装运层。
+    recompute / generate / build_bu_pages 只许调本函数。
+    """
+    _ = cfg  # 预留与 HTML 签名对齐；JSON 路径暂不消费
+    meta = summary.get("meta") or {}
+    P = summary.get("periods") or {}
+    if not meta.get("year_key") and not P:
+        out = {
+            "year_key": "",
+            "period_keys": [],
+            "rankings_view": {},
+            "rankings_monthly_data": {},
+            **_empty_html_view_fields(),
+        }
+        if bu_name is not None:
+            out["scope"] = "BU"
+            out["bu_name"] = bu_name or ""
+        return out
+    yk, ordered = _period_keys(summary)
+    monthly_store: dict = {}
+    rankings_view = {
+        pk: rankings_view_for_period(pv, embed_full=embed_full, monthly_store=monthly_store)
+        for pk, pv in P.items()
+        if isinstance(pv, dict)
+    }
+    out = {
+        "year_key": yk,
+        "period_keys": ordered,
+        "rankings_view": rankings_view,
+        "rankings_monthly_data": monthly_store,
+        **_empty_html_view_fields(),
+    }
+    if bu_name is not None:
+        out["scope"] = "BU"
+        out["bu_name"] = bu_name or ""
+    return out
+
+
+def build_json_bu_views(bu_name: str, summary: dict, cfg: dict | None = None) -> dict:
+    """BU 生产 JSON views（铁律12：embed_full=True 本地完整名单）。"""
+    return build_json_views(summary, cfg, embed_full=True, bu_name=bu_name or "")
+
+
+def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
+    """遗留：HTML 卡正文 + rankings（测试/parity/fragments 用）。
+
+    **生产 recompute/generate 禁止调用**——请用 build_json_views。
+    HTML 块经 importlib 装运层；JSON 排名仍走 format。
     """
     # 兼容缓存/测试仍要 HTML 块；装运经 importlib 避免业务字面依赖 HTML 层
     import importlib
@@ -377,12 +445,9 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
 
 
 def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None) -> dict:
-    """BU 页渲染就绪 views（与 HTML BU 碎片同源渲染函数）。
+    """遗留：BU HTML 卡正文 + rankings（测试/parity 用）。
 
-    复用：basic / bu_pl_table / bu_expense_views /
-    profit_rankings(embed_full=True) / rankings_view_for_period /
-    trend / receipts / period_bar / bu_pl_tag 模板。
-    绝不走整体页 pl_table / expense_views / 无 embed_full 排名。
+    **生产 build_bu_pages 禁止调用**——请用 build_json_bu_views。
     """
     import importlib
 

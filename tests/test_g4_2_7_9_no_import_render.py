@@ -5,29 +5,30 @@
 真路径：
 - 静态闸：src/ 业务文件（非 render*.py）无 `import render` / `from render`
 - format 辅助与迁前同构（_esc / _rank_amt / attach_monthly）
-- rankings_view_for_period / dual 入口不依赖业务侧 import render
+- 生产 recompute/generate/build_bu_pages 只调 build_json_*_views（非 HTML build_cockpit_views）
+- 阻断 importlib 装载 render 后，build_json_views / build_cockpit_vm 仍返回 order_disp
 """
 from __future__ import annotations
 
+import importlib
 import re
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 # 业务侧禁止的字面模式（与 G4 验收 rg 一致；无词界会命中 render_widgets 等）
 _RENDER_IMPORT_RE = re.compile(r"import render|from render")
+FAKE = ROOT / "_golden_data"
 
 
 def _business_py_files() -> list[Path]:
     src = ROOT / "src"
     out = []
     for p in src.rglob("*.py"):
-        if p.name.startswith("render") or p.name.startswith("render_"):
-            continue
-        # render*.py already excluded by name prefix "render"
         if p.name.startswith("render"):
             continue
         out.append(p)
@@ -52,6 +53,19 @@ class TestG4NoImportRender(unittest.TestCase):
             "业务 src 仍含 import render|from render（含 render_widgets 等子串命中）:\n"
             + "\n".join(hits[:40]),
         )
+
+    def test_production_ship_uses_json_views_not_html_cockpit(self):
+        """core / refresh_pipeline 生产路径只调 build_json_*，不调 build_cockpit_views。"""
+        core_src = (ROOT / "src" / "core.py").read_text(encoding="utf-8")
+        ref_src = (ROOT / "src" / "refresh_pipeline.py").read_text(encoding="utf-8")
+        self.assertIn("build_json_views", core_src)
+        self.assertIn("build_json_bu_views", core_src)
+        self.assertIn("build_json_views", ref_src)
+        # 禁止生产装运仍绑 HTML cockpit views
+        self.assertNotIn("build_cockpit_views(", core_src)
+        self.assertNotIn("build_bu_cockpit_views(", core_src)
+        self.assertNotIn("build_cockpit_views(", ref_src)
+        self.assertNotIn("build_bu_cockpit_views(", ref_src)
 
 
 class TestG4FormatParity(unittest.TestCase):
@@ -81,7 +95,9 @@ class TestG4FormatParity(unittest.TestCase):
         }
         dual = _merge_dual_rank(o_rk, r_rk, top=10)
         store: dict = {}
-        out = attach_monthly_to_dual(dual, {"甲": {"order": [1] * 12, "receipt": [2] * 12}}, year=2026, dim="sales", store=store)
+        out = attach_monthly_to_dual(
+            dual, {"甲": {"order": [1] * 12, "receipt": [2] * 12}}, year=2026, dim="sales", store=store
+        )
         self.assertTrue(out.get("items"))
         self.assertTrue(out["items"][0].get("mkey"))
         self.assertIn(out["items"][0]["mkey"], store)
@@ -123,10 +139,97 @@ class TestG4VmPathNoRenderImport(unittest.TestCase):
         self.assertFalse(sales.get("empty"))
         item = (sales.get("items") or [None])[0]
         self.assertIsNotNone(item)
+        assert item is not None
         self.assertIn("order_disp", item)
         self.assertIn("receipt_disp", item)
         self.assertIn("name_esc", item)
         self.assertTrue(str(item["order_disp"]).endswith("万"))
+
+
+class TestG4JsonViewsRenderBlocked(unittest.TestCase):
+    """生产 JSON 路径：阻断 importlib render 后仍能装 rankings / VM。"""
+
+    @classmethod
+    def setUpClass(cls):
+        if not FAKE.exists():
+            raise unittest.SkipTest("缺 _golden_data")
+        import loaders
+        import core
+        import datetime as dt
+
+        cls.cfg = dict(loaders.load_config(ROOT))
+        cls.cfg["data_dir"] = "_golden_data"
+        cls.cfg["zhiyun_auto_fetch"] = False
+        cls.cfg["period_pin"] = {"year": 2026, "month": 7}
+        today = loaders.pinned_today(cls.cfg) if hasattr(loaders, "pinned_today") else dt.date(2026, 7, 15)
+        import db
+
+        conn = db.connect(cls.cfg, ROOT)
+        try:
+            cls.summary = core.summary_from_conn(cls.cfg, conn, today)
+        finally:
+            conn.close()
+
+    def _block_render(self):
+        real = importlib.import_module
+
+        def guarded(name, *a, **k):
+            base = str(name).split(".", 1)[0]
+            if base == "render" or str(name).startswith("render"):
+                raise ImportError(f"G4 blocked: {name}")
+            return real(name, *a, **k)
+
+        return mock.patch("importlib.import_module", side_effect=guarded)
+
+    def test_build_json_views_with_render_blocked(self):
+        import api_v1
+
+        with self._block_render():
+            views = api_v1.build_json_views(self.summary, self.cfg)
+        self.assertTrue(views.get("year_key") or views.get("period_keys"))
+        rk = views.get("rankings_view") or {}
+        self.assertTrue(rk, "rankings_view 不得空")
+        # HTML 字段必须空（JSON 路径）
+        self.assertEqual(views.get("kpi_body") or {}, {})
+        self.assertEqual(views.get("trend_html") or "", "")
+        # 任取一周期有 order_disp
+        sample = next(iter(rk.values()))
+        sales = (sample.get("sales") or {})
+        items = sales.get("items") or []
+        self.assertTrue(items, "双榜 items 不得空")
+        self.assertIn("order_disp", items[0])
+        self.assertTrue(str(items[0]["order_disp"]).endswith("万"))
+
+    def test_build_cockpit_vm_with_render_blocked(self):
+        import viewmodels
+
+        with self._block_render():
+            vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
+        dump = vm.model_dump()
+        ranks = dump.get("rankings") or {}
+        rv = ranks.get("rankings_view") or {}
+        self.assertTrue(rv, "VM rankings_view 不得空")
+        sample = next(iter(rv.values()))
+        items = ((sample.get("sales") or {}).get("items")) or []
+        self.assertTrue(items)
+        self.assertIn("order_disp", items[0])
+        # KPI 结构化 cards 有数（packers，不依赖 render）
+        cards = (dump.get("kpi") or {}).get("cards_by_period") or {}
+        self.assertTrue(cards)
+
+    def test_build_json_bu_views_with_render_blocked(self):
+        import api_v1
+
+        with self._block_render():
+            views = api_v1.build_json_bu_views("数据", self.summary, self.cfg)
+        self.assertEqual(views.get("scope"), "BU")
+        self.assertEqual(views.get("bu_name"), "数据")
+        rk = views.get("rankings_view") or {}
+        self.assertTrue(rk)
+        sample = next(iter(rk.values()))
+        # BU embed_full：有其余时可能有 full_items
+        sales = sample.get("sales") or {}
+        self.assertIn("items", sales)
 
 
 if __name__ == "__main__":

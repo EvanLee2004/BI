@@ -18,29 +18,10 @@ def frontend_mode(cfg: dict | None = None) -> str:  # noqa: ARG001
 
 
 def _vue_core_views(summary: dict) -> dict[str, Any]:
-    """Vue 路径仅建造结构化必需元数据：周期键 + 双血条 rankings_view（非 HTML）。
-
-    **不**调用 render_basic / render_pl_table / render_expense_views / SVG 等 HTML 路径。
-    """
+    """Vue 路径：与生产 recompute 同源 build_json_views（format only，零 HTML 装运层）。"""
     import api_v1
 
-    yk, ordered = api_v1._period_keys(summary)
-    P = summary.get("periods") or {}
-    monthly_store: dict = {}
-    # 2.6.1 R2：默认不 embed full_items（体积）；「其余」点开走 /api/v1/rankings/full
-    rankings_view = {
-        pk: api_v1.rankings_view_for_period(pv, embed_full=False, monthly_store=monthly_store)
-        for pk, pv in P.items()
-        if isinstance(pv, dict)
-    }
-    return {
-        "year_key": yk,
-        "period_keys": ordered,
-        "rankings_view": rankings_view,
-        "rankings_monthly_data": monthly_store,
-        "pl_tag": "",
-        "bu_name": "",
-    }
+    return api_v1.build_json_views(summary)
 
 
 class KpiCardsVM(BaseModel):

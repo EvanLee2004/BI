@@ -1,6 +1,7 @@
 ## 2.7.9 · 2026-07-29
 
 ### JSON/VM 路径去除 import render
+- 生产 recompute/generate/build_bu_pages 只装 build_json_views（format）；HTML build_cockpit_views 退出生产路径
 - 生产业务代码（非 `render*.py`）静态闸：`rg "import render|from render"` 零命中
 - 显示辅助 `_esc` / `_rank_amt` / `attach_monthly_to_dual` 等迁至 `viewmodels/format`
 - `api_v1.rankings_view_for_period`、packers、data_api 日查双榜、domain 门面不再依赖 HTML 装运层装 JSON

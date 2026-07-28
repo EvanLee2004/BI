@@ -180,7 +180,8 @@ def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
     finally:
         conn.close()
     # 2.7.7 G2：重算不建 HTML fragments；只建 views 供兼容缓存（看端走 VM）
-    views = api_v1.build_cockpit_views(summary, cfg)
+    # 2.7.9 G4：生产 JSON views only（format）；禁 HTML 装运层
+    views = api_v1.build_json_views(summary, cfg)
     publish(
         cfg,
         summary,
