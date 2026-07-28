@@ -1,0 +1,34 @@
+wait 6 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait 12 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait 18 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait 24 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait 30 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait 36 last=2026-07-28 16:12:21,915 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+HEALTH_OK attempt=41
+{"result":"黄","run_time":"2026-07-28 16:12:21","built_at":"2026-07-28 16:16:00","sources":[{"name":"项目明细(智云)","rows":5448,"months":[1,2,3,4,5,6,7]},{"name":"下单(智云)","rows":4475,"months":[1,2,3,4,5,6,7]},{"name":"回款(智云)","rows":1098,"months":[1,2,3,4,5,6,7]},{"name":"内部译员·IN-HOUSE(智云)","rows":3805,"months":[1,2,3,4,5,6,7,10]},{"name":"收单台账","rows":1529,"months":[1,2,3,4,5,6,7]}],"warnings":["手填缺 5 个月未录（2026-01、2026-02、2026-03、2026-04…）：缺月按 0 计，请当月补填","内部译员(智云) 有 1 行归属日期晚于今天（样例 2026-10-31），已计入对应未来月、不拦截"],"run_reasons":["定时刷新待补跑：12:00","手填缺 5 个月未录（2026-01、2026-02、2026-03、2026-04…）：缺月按 0 计，请当月补填","1 名销售未归属 BU（业务不进任何 BU 页，各 BU 合计小于全公司）"],"fetch_banners":[],"metrics":{"built_at":"2026-07-28 16:16:00","update_ms":0,"fetch_fail_rate":0.0},"schedule":{"date":"2026-07-28","planned":["09:30","12:00","17:00"],"success":[],"pending":["12:00"],"missed":[],"last_tick":"2026-07-28 16:16","last_fire":"2026-07-28 16:16 started→09:30","last_busy":""}}
+=== FINAL ===
+2.7.1
+acb9ad9
+nginx_login=200
+old_profit=404
+v1_session=401
+2026-07-28 16:16:00,826 INFO [kanban.stdout] [server] 内网服务 host=127.0.0.1 port=8018 模式=反代后端(无static挂载)
+2026-07-28 16:16:00,826 INFO [kanban.stdout] [server] 用户端 http://127.0.0.1:8018/   管理员 /admin
+2026-07-28 16:16:00,826 INFO [kanban.stdout] [server] schedule_loop started times=['09:30', '12:00', '17:00'] poll=20s
+2026-07-28 16:16:00,827 INFO [kanban.schedule_loop] schedule_loop started times=['09:30', '12:00', '17:00'] poll=20s
+2026-07-28 16:16:00,828 INFO [kanban.schedule_loop] schedule_loop: started trigger=schedule at 2026-07-28 16:16 (slot 09:30)
+use jiangzheng
+login 200 b'{"ok":true,"redirect":"/","session":{"account":"jiangzheng","display":"\xe5\xa7\x9c\xe5\xbe\x81","perm":"\xe6\x95\xb4\xe4\xbd\x93","bus":[],"is_admin":false,"can_main":true}}'
+session 200 b'{"account":"jiangzheng","display":"\xe5\xa7\x9c\xe5\xbe\x81","perm":"\xe6\x95\xb4\xe4\xbd\x93","bus":[],"is_admin":false,"can_main":true}'
+cockpit 200 len 1526396
+year_key 2026年
+orders 8606683948
+receipts 5147153986
+revenue_net 6367319861
+pretax_profit 2216539553
+gross_profit 2786095660
+cookies ['kanban_sid']
+=== deploy verify ===
+VERSION=2.7.1 HEAD=acb9ad9 built_at=2026-07-28 16:16:00
+old_profit=404 v1_session=401 nginx_login=200
+relogin KPI ok cookie=kanban_sid only
