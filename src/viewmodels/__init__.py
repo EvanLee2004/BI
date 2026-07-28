@@ -7,23 +7,13 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-def frontend_mode(cfg: dict | None = None) -> str:
-    """vue|legacy：env KANBAN_FRONTEND > config.frontend > vue。
-
-    任务书51·B1：vue 路径不执行 legacy HTML 建造；legacy 仍走完整 HTML views。
-    """
-    env = (os.environ.get("KANBAN_FRONTEND") or "").strip().lower()
-    if env in ("vue", "legacy"):
-        return env
-    cfg_fe = str((cfg or {}).get("frontend") or "").strip().lower()
-    if cfg_fe in ("vue", "legacy"):
-        return cfg_fe
+def frontend_mode(cfg: dict | None = None) -> str:  # noqa: ARG001
+    """2.7.1：只 vue；legacy HTML 建造已删。cfg/env 忽略。"""
     return "vue"
 
 
@@ -581,55 +571,17 @@ def _assemble_vm(
 
 
 def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
-    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。
-
-    任务书51·B1：vue 模式**不执行** legacy HTML 建造；legacy 模式才调 build_cockpit_views。
-    """
-    import api_v1
-
-    mode = frontend_mode(cfg)
-    if mode == "legacy":
-        views = api_v1.build_cockpit_views(summary, cfg)
-        html = {
-            "kpi_body": dict(views.get("kpi_body") or {}),
-            "pl_body": dict(views.get("pl_body") or {}),
-            "donut_body": dict(views.get("donut_body") or {}),
-            "profit_rank_body": dict(views.get("profit_rank_body") or {}),
-            "trend_html": views.get("trend_html") or "",
-            "expense_trend_html": views.get("expense_trend_html") or "",
-            "receipts_budget": views.get("receipts_budget") or "",
-            "period_bar": views.get("period_bar") or "",
-            "daily_html": views.get("daily_html") or "",
-        }
-    else:
-        views = _vue_core_views(summary)
-        html = {}
+    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。2.7.1：只 vue 核视图。"""
+    views = _vue_core_views(summary)
+    html: dict = {}
     return _assemble_vm(summary, views, scope="整体", cfg=cfg, html=html)  # type: ignore[return-value]
 
 
 def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
-    """BU 页 VM 薄包装（任务书51·B3 → _assemble_vm）。vue 同样跳过 legacy HTML。"""
-    import api_v1
-
-    mode = frontend_mode(cfg)
-    if mode == "legacy":
-        views = api_v1.build_bu_cockpit_views(bu_name, summary, cfg)
-        html = {
-            "kpi_body": dict(views.get("kpi_body") or {}),
-            "pl_body": dict(views.get("pl_body") or {}),
-            "donut_body": dict(views.get("donut_body") or {}),
-            "profit_rank_body": dict(views.get("profit_rank_body") or {}),
-            "trend_html": views.get("trend_html") or "",
-            "expense_trend_html": views.get("expense_trend_html") or "",
-            "receipts_html": views.get("receipts_html") or "",
-            "period_bar": views.get("period_bar") or "",
-            "daily_html": views.get("daily_html") or "",
-            "pl_tag": views.get("pl_tag") or "",
-        }
-    else:
-        views = _vue_core_views(summary)
-        views["bu_name"] = bu_name or ""
-        html = {}
+    """BU 页 VM 薄包装。2.7.1：只 vue 核视图。"""
+    views = _vue_core_views(summary)
+    views["bu_name"] = bu_name or ""
+    html: dict = {}
     return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name, html=html)  # type: ignore[return-value]
 
 

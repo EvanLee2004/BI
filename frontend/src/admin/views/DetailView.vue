@@ -58,7 +58,7 @@ function baseParams(): string {
 
 async function loadAdjFields() {
   try {
-    adjFields.value = await jget('/api/adjust_fields')
+    adjFields.value = await jget('/api/v1/admin/adjust_fields')
   } catch {
     /* ignore */
   }
@@ -76,7 +76,7 @@ async function query(reset = true) {
       total: number
       columns: string[]
       rows: Record<string, unknown>[]
-    }>(`/api/detail?table=${encodeURIComponent(tableName.value)}&page=${p}&page_size=50${baseParams()}`)
+    }>(`/api/v1/admin/detail?table=${encodeURIComponent(tableName.value)}&page=${p}&page_size=50${baseParams()}`)
     page.value = d.page
     pages.value = Math.max(1, Number(d.pages) || 1)
     total.value = d.total
@@ -170,7 +170,7 @@ async function removeRow(row: Record<string, unknown>) {
 async function exportExcel() {
   try {
     await downloadBlob(
-      `/api/detail_export?table=${encodeURIComponent(tableName.value)}${baseParams()}`,
+      `/api/v1/admin/detail/export?table=${encodeURIComponent(tableName.value)}${baseParams()}`,
       `${tableName.value}_${new Date().toISOString().slice(0, 10)}.xlsx`,
     )
     ElMessage.success('✓ 已导出 Excel（当前筛选，最多 5000 行）')

@@ -131,7 +131,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_batch_missing_key_400_no_write(self):
-        before = self.client.get("/api/adjustments", headers=self.hdr).json()
+        before = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         r = self.client.post(
             "/api/adjust/batch",
             headers=self.hdr,
@@ -145,7 +145,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
             },
         )
         self.assertEqual(r.status_code, 400, r.text)
-        after = self.client.get("/api/adjustments", headers=self.hdr).json()
+        after = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         self.assertEqual(len(after), len(before), "策略A：预检失败整批不写库")
 
     def test_batch_dept_ok_writes_adjustments(self):
@@ -167,7 +167,7 @@ class TestAdjustBatchApi226(unittest.TestCase):
         self.assertEqual(body.get("status"), "ok")
         self.assertEqual(body.get("count"), 2)
         self.assertEqual(len(body.get("adj_ids") or []), 2)
-        adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
+        adjs = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         by_key = {
             a["定位键"]: a
             for a in adjs

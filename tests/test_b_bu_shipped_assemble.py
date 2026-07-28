@@ -158,7 +158,7 @@ class TestBuShippedAssemble(unittest.TestCase):
         for m in ("含公共分摊", "rk-full", "pr-full", "dual-grid", "管理利润表", "下单/回款"):
             self.assertIn(m, html, m)
         # 铁律12：不得在 BU 组装脚本路径引入全公司 API 字面（组装结果/壳侧）
-        self.assertNotIn("/api/profit_ranking", html)
+        self.assertNotIn("/api/v1/rankings/profit", html)
 
 
 if __name__ == "__main__":

@@ -197,41 +197,41 @@ class TestAllocApi(unittest.TestCase):
         server.recompute = cls._orig_recompute
 
     def test_requires_login(self):
-        self.assertEqual(self.anon.get("/api/alloc_ratios?month=2026-07").status_code, 401)
-        self.assertEqual(self.anon.post("/api/alloc_ratios", json={}).status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/alloc_rates?month=2026-07").status_code, 401)
+        self.assertEqual(self.anon.post("/api/v1/admin/alloc_rates", json={}).status_code, 401)
 
     def test_month_format_guard(self):
-        r = self.client.get("/api/alloc_ratios?month=202607", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/alloc_rates?month=202607", headers=self.hdr)
         self.assertEqual(r.status_code, 400)
 
     def test_save_and_readback_and_partial_sum(self):
         r = self.client.post(
-            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"游戏": 30, "数据": 20}}
+            "/api/v1/admin/alloc_rates", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"游戏": 30, "数据": 20}}
         )
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertEqual(d["ratios"], {"游戏": 30.0, "数据": 20.0})
         self.assertAlmostEqual(d["sum_pct"], 50.0)
         self.assertAlmostEqual(d["remain_pct"], 50.0)  # 可 <100%
-        g = self.client.get("/api/alloc_ratios?month=2026-07", headers=self.hdr).json()
+        g = self.client.get("/api/v1/admin/alloc_rates?month=2026-07", headers=self.hdr).json()
         self.assertEqual(g["bus"], ["游戏", "数据"])  # 与设置页 BU 同源
         # None=删行
         r2 = self.client.post(
-            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"数据": None}}
+            "/api/v1/admin/alloc_rates", headers=self.hdr, json={"归属月": "2026-07", "ratios": {"数据": None}}
         )
         self.assertEqual(r2.json()["ratios"], {"游戏": 30.0})
 
     def test_reject_unknown_bu_and_over_100(self):
-        r = self.client.post("/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"野BU": 10}})
+        r = self.client.post("/api/v1/admin/alloc_rates", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"野BU": 10}})
         self.assertEqual(r.status_code, 400)
         r2 = self.client.post(
-            "/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"游戏": 60, "数据": 50}}
+            "/api/v1/admin/alloc_rates", headers=self.hdr, json={"归属月": "2026-08", "ratios": {"游戏": 60, "数据": 50}}
         )
         self.assertEqual(r2.status_code, 400)
         self.assertIn("100", r2.json()["detail"])
 
     def test_audit_logged(self):
-        self.client.post("/api/alloc_ratios", headers=self.hdr, json={"归属月": "2026-05", "ratios": {"游戏": 15}})
+        self.client.post("/api/v1/admin/alloc_rates", headers=self.hdr, json={"归属月": "2026-05", "ratios": {"游戏": 15}})
         conn = db.connect(self.cfg, self.root)
         try:
             rows = conn.execute("SELECT 摘要 FROM manual_配置变更 WHERE 类别='分摊'").fetchall()

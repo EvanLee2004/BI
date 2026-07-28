@@ -23,7 +23,7 @@ const loading = ref(false)
 async function load() {
   loading.value = true
   try {
-    ex.value = await jget('/api/exceptions')
+    ex.value = await jget('/api/v1/admin/exceptions')
   } catch {
     ex.value = {}
   } finally {

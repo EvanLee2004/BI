@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 按时间段查询（B-01）：日期区间 + 与全局周期联动 + 查询打 /api/daily。
+ * 按时间段查询（B-01）：日期区间 + 与全局周期联动 + 查询打 /api/v1/daily。
  * 查询结果写入 store（dailyDual），由下方 RankingsDual「原位」切换为区间双卡展示——
  * 本面板只保留查询控件与摘要，不再自渲染排名卡：回款情况总图不消失、版面不跳动。
  */
@@ -53,7 +53,7 @@ async function runQuery() {
   loading.value = true
   try {
     const u =
-      '/api/daily?start=' +
+      '/api/v1/daily?start=' +
       encodeURIComponent(start.value) +
       '&end=' +
       encodeURIComponent(end.value) +

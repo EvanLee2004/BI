@@ -53,18 +53,18 @@ class TestAdminVueStructure(unittest.TestCase):
         markers = {
             "控制台 iframe": ('src="/"', "ConsoleView"),
             "更新数据": ("/api/refresh", "doRefresh"),
-            "手填": ("/api/manual", "manual_batch"),
-            "分摊": ("/api/alloc_ratios", "/api/alloc_rates"),  # 61·G：前端已对齐 ratios
-            "去税": ("/api/detax_rates",),
-            "预算": ("/api/budget", "budget_batch"),
-            "明细调整": ("/api/detail", "/api/adjust"),
-            "账号": ("/api/accounts",),
-            "BU": ("/api/bu_config", "sales_pool"),
-            "设置": ("/api/settings",),
-            "审计": ("/api/config_changes",),
-            "历史": ("/api/history",),
-            "异常": ("/api/exceptions",),
-            "版本": ("/api/version", "/api/update/check"),
+            "手填": ("/api/v1/admin/manual", "manual_batch"),
+            "分摊": ("/api/v1/admin/alloc_rates", "/api/alloc_rates"),  # 61·G：前端已对齐 ratios
+            "去税": ("/api/v1/admin/detax_rates",),
+            "预算": ("/api/v1/admin/budget", "budget_batch"),
+            "明细调整": ("/api/v1/admin/detail", "/api/adjust"),
+            "账号": ("/api/v1/admin/accounts",),
+            "BU": ("/api/v1/admin/bu_config", "sales_pool"),
+            "设置": ("/api/v1/admin/settings",),
+            "审计": ("/api/v1/admin/config_changes",),
+            "历史": ("/api/v1/history",),
+            "异常": ("/api/v1/admin/exceptions",),
+            "版本": ("/api/v1/version", "/api/v1/update/check"),
             "登录": ("/api/v1/login", "adminLogin"),
             "无 v-html 不可信": (),  # 下面单独断言
         }
@@ -162,7 +162,7 @@ class TestAdminVueHttp(unittest.TestCase):
     def test_manual_items_api(self):
         c = self._client()
         c.post("/admin/login", data={"account": "lushasha", "password": self.DEFAULT_PW})
-        r = c.get("/api/manual_items")
+        r = c.get("/api/v1/admin/manual_items")
         self.assertEqual(r.status_code, 200)
         data = r.json()
         self.assertIn("items", data)
@@ -174,14 +174,14 @@ class TestAdminVueHttp(unittest.TestCase):
         c = self._client()
         c.post("/admin/login", data={"account": "lushasha", "password": self.DEFAULT_PW})
         for path in (
-            "/api/settings",
-            "/api/accounts",
-            "/api/bu_config",
-            "/api/version",
+            "/api/v1/admin/settings",
+            "/api/v1/admin/accounts",
+            "/api/v1/admin/bu_config",
+            "/api/v1/version",
             "/api/health",
-            "/api/exceptions",
-            "/api/adjust_fields",
-            "/api/config_changes",
+            "/api/v1/admin/exceptions",
+            "/api/v1/admin/adjust_fields",
+            "/api/v1/admin/config_changes",
         ):
             r = c.get(path)
             self.assertEqual(r.status_code, 200, path)
@@ -194,36 +194,31 @@ class TestAdminVueHttp(unittest.TestCase):
         # 2.5.0：退出到统一登录
         self.assertEqual(r.headers.get("location"), "/login")
 
-    def test_legacy_mode_static_admin(self):
-        """KANBAN_FRONTEND=legacy 时登录后仍走 static 骨架。"""
+    def test_admin_always_vue_spa(self):
+        """2.7.1：管理端仅 Vue SPA（legacy 模式已删）。"""
         import accounts
         import loaders
         import server
 
-        os.environ["KANBAN_FRONTEND"] = "legacy"
-        try:
-            tmp = Path(tempfile.mkdtemp())
-            cfg = loaders.load_config(ROOT)
-            accounts.save_accounts(
-                cfg,
-                tmp,
-                [{"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW}],
-            )
-            server._state["admin_html"] = "ready"
-            app = server.create_app(cfg, root=tmp)
-            from fastapi.testclient import TestClient
+        tmp = Path(tempfile.mkdtemp())
+        cfg = loaders.load_config(ROOT)
+        accounts.save_accounts(
+            cfg,
+            tmp,
+            [{"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": server.DEFAULT_PW}],
+        )
+        server._state["admin_html"] = "ready"
+        app = server.create_app(cfg, root=tmp)
+        from fastapi.testclient import TestClient
 
-            c = TestClient(app, follow_redirects=False)
-            c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-            r = c.get("/admin")
-            self.assertEqual(r.status_code, 200)
-            # legacy 骨架（.legacy）或仍含控制台字样
-            self.assertTrue(
-                "管理员控制台" in r.text or "/admin/app.js" in r.text or 'id="app"' in r.text,
-                "legacy 模式应出 static 控制台或可接受 SPA",
-            )
-        finally:
-            os.environ["KANBAN_FRONTEND"] = "vue"
+        c = TestClient(app, follow_redirects=False)
+        c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
+        r = c.get("/admin")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(
+            'id="app"' in r.text or "管理员" in r.text or "/app/" in r.text,
+            "admin should serve vue spa shell",
+        )
 
 
 if __name__ == "__main__":

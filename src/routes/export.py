@@ -172,11 +172,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         )
 
     @app.get("/export.html")
-    @app.get("/api/export.html")
+    @app.get("/api/v1/export.html")
     def api_export_html(request: Request, blk: str = "", theme: str = ""):
         """2.2.9：整体页导出静态可交互快照 HTML。
 
-        双路径：`/export.html`（计划主路径）+ `/api/export.html`（现网 nginx 已反代 /api）。
+        双路径：`/export.html`（计划主路径）+ `/api/v1/export.html`（现网 nginx 已反代 /api）。
         2.3.0：?theme=neon|dark|light。
         """
         if not _can_view_main(request):
@@ -233,7 +233,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=404, detail="Not Found")
         return _export_html_body(request, bu_name=name, blk=blk, theme=theme)
 
-    @app.get("/api/history")
+    @app.get("/api/v1/history")
     def api_history(request: Request):
         """历史 VM 存档列表（按天，倒序）。供管理员端「历史快照」页。2.2.7 起读 vm_*.json。"""
         _require(request)
@@ -241,7 +241,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
         return archive.list_vm_archives(cfg, root)
 
-    @app.get("/api/history/{day}/vm")
+    @app.get("/api/v1/history/{day}/vm")
     def api_history_vm(request: Request, day: str):
         """某日归档 VM（管理员可读）；供 Vue `/?archive=YYYYMMDD` 只读加载。"""
         _require(request)
@@ -254,9 +254,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=404, detail="该日无 VM 存档")
         return JSONResponse(data)
 
-    @app.get("/api/history/{day}")
+    @app.get("/api/v1/history/{day}")
     def api_history_page(request: Request, day: str):
-        """旧 HTML 快照接口：2.2.7 起返回 410，请用 /api/history/{day}/vm + Vue 打开。"""
+        """旧 HTML 快照接口：2.2.7 起返回 410，请用 /api/v1/history/{day}/vm + Vue 打开。"""
         _require(request)
         if not re.fullmatch(r"\d{8}", day):
             raise HTTPException(status_code=400, detail="日期格式须为 YYYYMMDD")
@@ -316,7 +316,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         )
 
     @app.get("/export/pl.xlsx")
-    @app.get("/api/export/pl.xlsx")
+    @app.get("/api/v1/export/pl.xlsx")
     def api_export_pl_xlsx(request: Request, blk: str = ""):
         """2.3.6：整体页管理利润表 Excel（跟随 ?blk= 当前筛选）。"""
         if not (_vacct(request) or _user(request)):

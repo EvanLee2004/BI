@@ -45,8 +45,8 @@ class TestSourceGuards227(unittest.TestCase):
     def test_topbar_export_html(self):
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
         self.assertIn("export.html", src)
-        # 整体页优先 /api/export.html（nginx 现网 /api 必反代）；BU 仍 /bu/.../export.html
-        self.assertIn("/api/export.html", src)
+        # 整体页优先 /api/v1/export.html（nginx 现网 /api 必反代）；BU 仍 /bu/.../export.html
+        self.assertIn("/api/v1/export.html", src)
         self.assertIn("exportHtml", src)
         self.assertNotIn("/export.png", src)
         self.assertIn("export-html-btn", src)
@@ -68,7 +68,7 @@ class TestSourceGuards227(unittest.TestCase):
     def test_history_opens_vue_archive(self):
         hv = (ROOT / "frontend/src/admin/views/HistoryView.vue").read_text(encoding="utf-8")
         self.assertIn("/?archive=", hv)
-        self.assertNotIn("frameSrc.value = '/api/history/'", hv)
+        self.assertNotIn("frameSrc.value = '/api/v1/history/'", hv)
 
     def test_snapshot_page_disabled_in_source(self):
         arch = (ROOT / "src/ingest/archive.py").read_text(encoding="utf-8")
@@ -190,11 +190,11 @@ class TestHistoryAndExportHttp(unittest.TestCase):
         from ingest import archive
 
         c = self._client()
-        self.assertEqual(c.get("/api/history").status_code, 401)
-        self.assertEqual(c.get("/api/history/20260722/vm").status_code, 401)
+        self.assertEqual(c.get("/api/v1/history").status_code, 401)
+        self.assertEqual(c.get("/api/v1/history/20260722/vm").status_code, 401)
 
         admin = self._admin()
-        self.assertEqual(admin.get("/api/history/19990101/vm").status_code, 404)
+        self.assertEqual(admin.get("/api/v1/history/19990101/vm").status_code, 404)
         archive.snapshot_vm(
             self.cfg,
             cockpit_vm={"year_key": "2026年", "period_keys": ["2026年"], "kpi": {}},
@@ -202,16 +202,16 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             root=self.tmp,
             version="2.2.7",
         )
-        r = admin.get("/api/history/20260715/vm")
+        r = admin.get("/api/v1/history/20260715/vm")
         self.assertEqual(r.status_code, 200, r.text[:200])
         body = r.json()
         self.assertIn("cockpit", body)
         self.assertEqual(body["day"], "20260715")
-        lst = admin.get("/api/history").json()
+        lst = admin.get("/api/v1/history").json()
         days = [x["day"] for x in lst]
         self.assertIn("20260715", days)
-        self.assertEqual(admin.get("/api/history/20260715").status_code, 410)
-        self.assertEqual(admin.get("/api/history/2026-7-9/vm").status_code, 400)
+        self.assertEqual(admin.get("/api/v1/history/20260715").status_code, 410)
+        self.assertEqual(admin.get("/api/v1/history/2026-7-9/vm").status_code, 400)
 
     def test_export_html_auth_matrix(self):
         # 2.2.9：路由校验成功体须含快照标记（鉴权矩阵仍 mock 装配，不测播放器）
@@ -227,13 +227,13 @@ class TestHistoryAndExportHttp(unittest.TestCase):
         ):
             raw = self._client()
             self.assertEqual(raw.get("/export.html").status_code, 401)
-            self.assertEqual(raw.get("/api/export.html").status_code, 401)
+            self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
             self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
             # 2.6.3·D3：未登录对不存在名也 401
             self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
             admin = self._admin()
-            for path in ("/export.html", "/api/export.html"):
+            for path in ("/export.html", "/api/v1/export.html"):
                 r = admin.get(path)
                 self.assertEqual(r.status_code, 200, f"{path}: {r.text[:300]}")
                 self.assertIn("text/html", r.headers.get("content-type", ""))
@@ -242,11 +242,11 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             self.assertEqual(admin.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
             self.assertEqual(admin.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
             self.assertEqual(admin.get("/export.html", params={"blk": "1999年"}).status_code, 400)
-            self.assertEqual(admin.get("/api/export.html", params={"blk": "1999年"}).status_code, 400)
+            self.assertEqual(admin.get("/api/v1/export.html", params={"blk": "1999年"}).status_code, 400)
 
             cmain, _ = self._login_view("overall")
             self.assertEqual(cmain.get("/export.html").status_code, 200)
-            self.assertEqual(cmain.get("/api/export.html").status_code, 200)
+            self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
 
             # PNG 兼容不 500
             orig = server._screenshot_png

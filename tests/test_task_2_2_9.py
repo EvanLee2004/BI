@@ -62,7 +62,7 @@ class TestSourceGuards229(unittest.TestCase):
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
         self.assertIn("snapshotMode", src)
         self.assertIn("export.html", src)
-        self.assertIn("/api/export.html", src)
+        self.assertIn("/api/v1/export.html", src)
 
     def test_bu_only_snapshot_hides_overall_back(self):
         """2.6.9 U-4：BU 页顶栏「← 整体」已删；回整体仅走 BuNav。
@@ -282,13 +282,13 @@ class TestExportHttp229(unittest.TestCase):
     def test_export_auth_matrix(self):
         raw = self._client()
         self.assertEqual(raw.get("/export.html").status_code, 401)
-        self.assertEqual(raw.get("/api/export.html").status_code, 401)
+        self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
         self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
         # 2.6.3·D3：未登录对不存在名也 401（与无权同形，不 404）
         self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
 
         admin = self._admin()
-        for path in ("/export.html", "/api/export.html"):
+        for path in ("/export.html", "/api/v1/export.html"):
             r = admin.get(path)
             self.assertEqual(r.status_code, 200, f"{path}: {r.text[:400]}")
             self.assertIn("text/html", r.headers.get("content-type", ""))
@@ -305,7 +305,7 @@ class TestExportHttp229(unittest.TestCase):
 
         cmain = self._login_view("overall")
         self.assertEqual(cmain.get("/export.html").status_code, 200)
-        self.assertEqual(cmain.get("/api/export.html").status_code, 200)
+        self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
 
     def test_export_bu_isolation_body(self):
         cbu = self._login_view("user_a")
@@ -331,7 +331,7 @@ class TestExportHttp229(unittest.TestCase):
         """KANBAN_OFFLINE=1 仍须真快照，禁止 fallback 残壳假成功。"""
         self.assertEqual(os.environ.get("KANBAN_OFFLINE"), "1")
         c = self._login_view("overall")
-        r = c.get("/api/export.html")
+        r = c.get("/api/v1/export.html")
         self.assertEqual(r.status_code, 200, r.text[:500])
         body = r.text
         self.assertIn("kanban_snapshot", body)
@@ -341,7 +341,7 @@ class TestExportHttp229(unittest.TestCase):
 
     def test_overall_pack_in_http_body(self):
         c = self._login_view("overall")
-        r = c.get("/api/export.html", params={"blk": "2026年"})
+        r = c.get("/api/v1/export.html", params={"blk": "2026年"})
         self.assertEqual(r.status_code, 200)
         m = re.search(r"window\.__KANBAN_SNAPSHOT__ = (\{.*\});\s*</script>", r.text)
         self.assertIsNotNone(m)

@@ -107,7 +107,7 @@ def main() -> int:
 
         ver = page.evaluate(
             """async () => {
-              const r = await fetch('/api/version', {credentials:'include'});
+              const r = await fetch('/api/v1/version', {credentials:'include'});
               return {status: r.status, body: await r.json()};
             }"""
         )

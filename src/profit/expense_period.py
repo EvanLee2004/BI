@@ -372,7 +372,7 @@ def compute_expense_monthly_by_cat(
 
 
 def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_to_bu=None):
-    """按天明细（/api/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
+    """按天明细（/api/v1/daily 实时算·纯函数只吃行数据）：任意日期区间 → 逐日下单/回款合计 + 期内排名。
     days 只含有业务发生的日（稀疏），升序；totals 与逐日合计守恒（测试守卫 ∑days==compute_orders/receipts）。
     只做下单/回款——费用/手填按月，切不出按天利润（2026-07-10 拍板口径）。
     sales_to_bu={销售名:BU名} 有值时额外算 rankings.orders_by_bu（与全年预渲染「下单·按BU」同口径）。"""

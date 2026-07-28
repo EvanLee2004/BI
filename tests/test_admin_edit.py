@@ -74,10 +74,10 @@ class TestAdminWrite(unittest.TestCase):
     def test_write_requires_login(self):
         for method, path in [
             ("post", "/api/adjust"),
-            ("post", "/api/manual"),
+            ("post", "/api/v1/admin/manual"),
             ("post", "/api/refresh"),
-            ("get", "/api/adjust_fields"),
-            ("get", "/api/adjustments"),
+            ("get", "/api/v1/admin/adjust_fields"),
+            ("get", "/api/v1/admin/adjustments"),
             ("post", "/api/adjust/1/revoke"),
         ]:
             r = getattr(self.anon, method)(path)  # 未登录：_require 在函数体首行先拦，body 走默认
@@ -102,7 +102,7 @@ class TestAdminWrite(unittest.TestCase):
         self.assertIn("adj_id", r.json())
         self.assertEqual(server._state["built_at"], "RECOMPUTED")  # 触发了秒级重算
         # 台账里能查到，且原值=服务端从库读的元文本（1000 元=100000 分；不是前端传的）
-        adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
+        adjs = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         mine = [a for a in adjs if a["字段"] == "交付额" and a["定位键"] == "K1"]
         self.assertTrue(mine)
         # list_adjustments 展示元/元（库内分）
@@ -148,12 +148,12 @@ class TestAdminWrite(unittest.TestCase):
     # ---- 手填：当月覆盖 + 留痕 manual_历史 ----
     def test_manual_write_and_history(self):
         r = self.client.post(
-            "/api/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": 5000}
+            "/api/v1/admin/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": 5000}
         )
         self.assertEqual(r.status_code, 200, r.text)
         # 再写一次覆盖
         r2 = self.client.post(
-            "/api/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": 6000}
+            "/api/v1/admin/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": 6000}
         )
         self.assertEqual(r2.status_code, 200)
         conn = self._conn()
@@ -165,19 +165,19 @@ class TestAdminWrite(unittest.TestCase):
 
     def test_manual_unknown_item_400(self):
         r = self.client.post(
-            "/api/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "不在枚举里", "金额": 1}
+            "/api/v1/admin/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "不在枚举里", "金额": 1}
         )
         self.assertEqual(r.status_code, 400)
 
     def test_manual_non_number_400(self):
         r = self.client.post(
-            "/api/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": "abc"}
+            "/api/v1/admin/manual", headers=self.hdr, json={"归属月": "2026-07", "项目": "营销人力成本", "金额": "abc"}
         )
         self.assertEqual(r.status_code, 400)
 
     # ---- R1：字段下拉从服务端下发（全部可调列），新开放字段可写、黑名单字段 400 ----
     def test_adjust_fields_served_full_lists(self):
-        r = self.client.get("/api/adjust_fields", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/adjust_fields", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         j = r.json()
         self.assertEqual(set(j), {"收入明细", "下单", "回款", "内部译员", "费用明细"})
@@ -236,9 +236,9 @@ class TestAdminWrite(unittest.TestCase):
         import openpyxl
 
         # 无会话 → 401
-        self.assertEqual(self.anon.get("/api/detail_export?table=收入明细").status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/detail/export?table=收入明细").status_code, 401)
         # 有/无数据都返回合法 xlsx（至少表头）
-        r = self.client.get("/api/detail_export?table=收入明细", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/detail/export?table=收入明细", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text[:200])
         ctype = (r.headers.get("content-type") or r.headers.get("Content-Type") or "").lower()
         self.assertIn("spreadsheetml", ctype)
@@ -277,7 +277,7 @@ class TestAdminWrite(unittest.TestCase):
         import shutil as _sh
 
         _sh.copy2(ROOT / "config.json", self.root / "config.json")
-        r = self.client.get("/api/settings", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/settings", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertIn("schedule_time", r.json())
         # 非法值 → 400
@@ -287,11 +287,11 @@ class TestAdminWrite(unittest.TestCase):
             {"backup_keep_days": 0},
             {"backup_keep_days": "abc"},
         ):
-            r = self.client.post("/api/settings", headers=self.hdr, json=bad)
+            r = self.client.post("/api/v1/admin/settings", headers=self.hdr, json=bad)
             self.assertEqual(r.status_code, 400, f"{bad} 应 400")
         # 合法保存 → cfg 即时生效 + 文件落盘
         r = self.client.post(
-            "/api/settings",
+            "/api/v1/admin/settings",
             headers=self.hdr,
             json={"schedule_time": "08:45", "backup_keep_days": 7, "zhiyun_auto_fetch": False},
         )
@@ -325,11 +325,11 @@ class TestAdminWrite(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        r = self.client.get("/api/settings", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/settings", headers=self.hdr)
         self.assertEqual(r.json()["zhiyun_username"], "old.user")
         # 改账号 → 写入 + 清 md_pss_id/account_id（下次更新强制新账号重登、自动取新GUID）
         r = self.client.post(
-            "/api/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
+            "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
         )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertIn("智云账号已更新", r.json()["note"])
@@ -339,12 +339,12 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(d["base_url"], "http://x")  # 其余键保留
         # 同值再存 → 不算变更（不清会话）
         r = self.client.post(
-            "/api/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
+            "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
         )
         self.assertNotIn("智云账号已更新", r.json()["note"])
         # 空密码 → 400
         r = self.client.post(
-            "/api/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": ""}
+            "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": ""}
         )
         self.assertEqual(r.status_code, 400)
 
@@ -358,7 +358,7 @@ class TestAdminWrite(unittest.TestCase):
         _sh.copy2(ROOT / "config.json", self.root / "config.json")
         before_cfg = (self.root / "config.json").read_text(encoding="utf-8")
         # GET：无本地文件也返回内置默认（部署机开箱即用）
-        r = self.client.get("/api/settings", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/settings", headers=self.hdr)
         conn = r.json()["zhiyun_conn"]
         self.assertEqual(conn["base_url"], fz.ZHIYUN_DEFAULTS["base_url"])
         self.assertEqual(conn["tables"]["orders"], fz.ZHIYUN_DEFAULTS["tables"]["orders"]["worksheetId"])
@@ -369,7 +369,7 @@ class TestAdminWrite(unittest.TestCase):
         tables = dict(conn["tables"])
         tables["orders"] = "my-custom-ws"
         r = self.client.post(
-            "/api/settings", headers=self.hdr, json={"zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables}
+            "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables}
         )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertIn("智云连接配置已更新", r.json()["note"])
@@ -380,12 +380,12 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual(d["md_pss_id"], "")  # 换服务器清旧会话
         # 同值再存 → 无变更
         r = self.client.post(
-            "/api/settings", headers=self.hdr, json={"zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables}
+            "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_base_url": "http://new-host:9", "zhiyun_tables": tables}
         )
         self.assertNotIn("智云连接配置已更新", r.json()["note"])
         # 存回内置默认 → 覆盖项被删除（文件精简、以后跟着代码默认走）
         r = self.client.post(
-            "/api/settings",
+            "/api/v1/admin/settings",
             headers=self.hdr,
             json={
                 "zhiyun_base_url": fz.ZHIYUN_DEFAULTS["base_url"],
@@ -397,7 +397,7 @@ class TestAdminWrite(unittest.TestCase):
         self.assertNotIn("base_url", d)
         self.assertNotIn("tables", d)
         # 空值 → 400
-        r = self.client.post("/api/settings", headers=self.hdr, json={"zhiyun_base_url": "", "zhiyun_tables": tables})
+        r = self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_base_url": "", "zhiyun_tables": tables})
         self.assertEqual(r.status_code, 400)
         # F-01：全程 config.json 一个字节没动
         self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before_cfg)
@@ -410,7 +410,7 @@ class TestAdminWrite(unittest.TestCase):
             server._state["admin_html"] = ""  # 模拟首次部署：从未取数成功
             r = self.client.get("/admin", headers=self.hdr)
             self.assertEqual(r.status_code, 200)
-            for anchor in ("首次取数", 'id="go"', "/api/settings", "/api/refresh"):
+            for anchor in ("首次取数", 'id="go"', "/api/v1/admin/settings", "/api/refresh"):
                 self.assertIn(anchor, r.text, f"引导页缺锚点 {anchor}")
             self.assertNotIn("数据尚未生成", r.text)
             # 未登录仍是登录页，不给引导页（引导页会回显智云账号）
@@ -422,11 +422,11 @@ class TestAdminWrite(unittest.TestCase):
         self.assertNotIn("首次取数", r.text)
 
     def test_settings_requires_login(self):
-        self.assertEqual(self.anon.get("/api/settings").status_code, 401)
-        self.assertEqual(self.anon.post("/api/settings", json={}).status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/settings").status_code, 401)
+        self.assertEqual(self.anon.post("/api/v1/admin/settings", json={}).status_code, 401)
         self.assertEqual(self.anon.get("/api/refresh_status").status_code, 401)
-        self.assertEqual(self.anon.get("/api/history").status_code, 401)
-        self.assertEqual(self.anon.get("/api/history/20260710").status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/history").status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/history/20260710").status_code, 401)
 
     def test_export_png(self):
         """导出图片：截图函数打桩，验证 PNG 返回/文件名头/未知周期400。"""
@@ -460,18 +460,18 @@ class TestAdminWrite(unittest.TestCase):
             ("20260710", {"day": "20260710", "cockpit": {"year_key": "2026年"}, "version": "2.2.7"}),
         ):
             (bdir / f"vm_{day}.json").write_text(_json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        d = self.client.get("/api/history", headers=self.hdr).json()
+        d = self.client.get("/api/v1/history", headers=self.hdr).json()
         days = [x["day"] for x in d]
         self.assertIn("20260710", days)
         self.assertIn("20260709", days)
         self.assertLess(days.index("20260710"), days.index("20260709"))  # 倒序
-        r = self.client.get("/api/history/20260709/vm", headers=self.hdr)
+        r = self.client.get("/api/v1/history/20260709/vm", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json().get("day"), "20260709")
         # 旧 HTML 快照接口停用
-        self.assertEqual(self.client.get("/api/history/20260709", headers=self.hdr).status_code, 410)
-        self.assertEqual(self.client.get("/api/history/2026-7-9/vm", headers=self.hdr).status_code, 400)
-        self.assertEqual(self.client.get("/api/history/19990101/vm", headers=self.hdr).status_code, 404)
+        self.assertEqual(self.client.get("/api/v1/history/20260709", headers=self.hdr).status_code, 410)
+        self.assertEqual(self.client.get("/api/v1/history/2026-7-9/vm", headers=self.hdr).status_code, 400)
+        self.assertEqual(self.client.get("/api/v1/history/19990101/vm", headers=self.hdr).status_code, 404)
 
 
 class TestArchive(unittest.TestCase):

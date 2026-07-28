@@ -47,7 +47,7 @@ async function exportPlExcel() {
   const url =
     store.scope === 'bu' && store.buName
       ? `/bu/${encodeURIComponent(store.buName)}/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
-      : `/api/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
+      : `/api/v1/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
   exporting.value = true
   try {
     const r = await fetch(url, { credentials: 'same-origin' })

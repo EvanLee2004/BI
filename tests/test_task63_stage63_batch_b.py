@@ -89,8 +89,8 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
             self.assertTrue(mode, f"期望 0o600，path={path}")
 
     def test_accounts_api_returns_plaintext_password(self):
-        """任务书64·P：管理员 /api/accounts 下发明文密码。"""
-        r = self.client.get("/api/accounts", headers=self.hdr)
+        """任务书64·P：管理员 /api/v1/admin/accounts 下发明文密码。"""
+        r = self.client.get("/api/v1/admin/accounts", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         for row in r.json()["accounts"]:
             self.assertIn("密码", row)
@@ -113,7 +113,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         )
         self.assertIn(r.status_code, (200, 303), r.text)
         hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
-        rows = c.get("/api/accounts", headers=hdr).json()["accounts"]
+        rows = c.get("/api/v1/admin/accounts", headers=hdr).json()["accounts"]
         overall = next(x for x in rows if x["账号"] == "overall")
         self.assertEqual(overall["密码"], accounts.DEFAULT_VIEW_PW)
         # 看端登录
@@ -123,7 +123,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         self.assertEqual(viewer.get("/api/v1/session").status_code, 200)
         # 管理员改密
         overall["密码"] = "newplain99"
-        r_save = c.post("/api/accounts", headers=hdr, json={"accounts": rows})
+        r_save = c.post("/api/v1/admin/accounts", headers=hdr, json={"accounts": rows})
         self.assertEqual(r_save.status_code, 200, r_save.text)
         # 旧会话踢
         self.assertEqual(viewer.get("/api/v1/session").status_code, 401)
@@ -145,7 +145,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         old_sid = viewer.cookies.get(server.SID_COOKIE) or viewer.cookies.get(server.VCOOKIE)
         self.assertTrue(old_sid, "应拿到会话 cookie (kanban_sid)")
         r = self.client.post(
-            "/api/accounts/v1/reset_passwd",
+            "/api/v1/admin/accounts/v1/reset_passwd",
             headers=self.hdr,
             json={"new": "reset9999"},
         )
@@ -163,9 +163,9 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         r_ok = self.client.post("/api/v1/login", json={"account": "v1", "password": "reset9999"})
         self.assertEqual(r_ok.status_code, 200)
         # 管理端列表可见新明文
-        rows = self.client.get("/api/accounts", headers=self.hdr).json()["accounts"]
+        rows = self.client.get("/api/v1/admin/accounts", headers=self.hdr).json()["accounts"]
         self.assertEqual(next(x for x in rows if x["账号"] == "v1")["密码"], "reset9999")
-        r2 = self.client.post("/api/accounts/v1/reset_passwd", headers=self.hdr, json={})
+        r2 = self.client.post("/api/v1/admin/accounts/v1/reset_passwd", headers=self.hdr, json={})
         self.assertEqual(r2.status_code, 200)
         plain = r2.json().get("password") or ""
         self.assertEqual(len(plain), 10)

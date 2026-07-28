@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""2.7.0：架构双源 / 文档守卫 / 旁路 int 分 / 前端 v1 路径。"""
+"""2.7.0/2.7.1：架构双源收口 / 旁路 int 分 / 前端 v1 路径守卫。"""
 from __future__ import annotations
 
 import re
@@ -15,11 +15,7 @@ class TestProfitRankingV1Path(unittest.TestCase):
     def test_profit_structure_uses_v1(self):
         src = (ROOT / "frontend/src/components/ProfitStructure.vue").read_text(encoding="utf-8")
         self.assertIn("/api/v1/rankings/profit", src)
-        # 主路径不再硬编码旧 URL 为唯一请求（旧路径可出现在注释）
-        self.assertNotRegex(
-            src,
-            r"fetch\(\s*[`'\"]/api/profit_ranking",
-        )
+        self.assertNotIn("/api/profit_ranking", src)
 
     def test_rankings_dual_still_full(self):
         src = (ROOT / "frontend/src/components/RankingsDual.vue").read_text(encoding="utf-8")
@@ -29,14 +25,16 @@ class TestProfitRankingV1Path(unittest.TestCase):
         src = (ROOT / "src/routes/data_api.py").read_text(encoding="utf-8")
         self.assertIn("def _profit_ranking_impl", src)
         self.assertIn('/api/v1/rankings/profit"', src)
-        self.assertIn('/api/profit_ranking"', src)
         self.assertIn('/api/v1/admin/detail"', src)
+        # 2.7.1：旧装饰器已删
+        self.assertNotIn('@app.get("/api/profit_ranking")', src)
+        self.assertNotIn('@app.get("/api/detail")', src)
 
 
 class TestMoneyTailNoRoundFloat(unittest.TestCase):
     def test_core_no_amount_round_float(self):
         src = (ROOT / "src/core.py").read_text(encoding="utf-8")
-        self.assertNotIn("round(float(out[name][\"amount\"])", src)
+        self.assertNotIn('round(float(out[name]["amount"])', src)
         self.assertNotIn("round(float(led2.get", src)
 
     def test_structure_int_direct(self):
@@ -47,7 +45,6 @@ class TestMoneyTailNoRoundFloat(unittest.TestCase):
     def test_profit_no_amount_round_float(self):
         for p in (ROOT / "src/profit").rglob("*.py"):
             text = p.read_text(encoding="utf-8")
-            # 允许注释；禁止金额链 round(float(exp 或 round(float(led
             if re.search(r"round\(\s*float\(\s*exp\[", text):
                 self.fail(f"{p.name} still has round(float(exp[")
             if re.search(r"round\(\s*float\(\s*led\.get", text):
@@ -65,10 +62,11 @@ class TestZIndexTokens(unittest.TestCase):
         self.assertIn("var(--z-bu-transition", bu)
 
 
-class TestVersion270(unittest.TestCase):
-    def test_version_file(self):
+class TestVersionAtLeast270(unittest.TestCase):
+    def test_version_file_ge_270(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.7.0")
+        # 2.7.0 起；2.7.1 干净目标态亦通过
+        self.assertTrue(ver.startswith("2.7."), ver)
 
 
 if __name__ == "__main__":

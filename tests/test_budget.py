@@ -117,7 +117,7 @@ class TestBudgetMatrixAdminUi(unittest.TestCase):
         self.assertIn("下单年预算", tpl)
         self.assertIn("回款年预算", tpl)
         self.assertNotIn("🎯 业绩目标（优先）", tpl)
-        self.assertIn("/api/bu_config", tpl)
+        self.assertIn("/api/v1/admin/bu_config", tpl)
 
 
 class TestBudgetBatchMultiScope(unittest.TestCase):
@@ -167,7 +167,7 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         co_yuan = 20000 * 10000
         bu_yuan = 8000 * 10000
         r = c.post(
-            "/api/budget_batch",
+            "/api/v1/admin/budget_batch",
             json={
                 "items": [
                     {"年份": "2026", "指标": "下单年预算", "金额": co_yuan, "范围": "全公司"},
@@ -179,7 +179,7 @@ class TestBudgetBatchMultiScope(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json().get("count"), 3)
 
-        rows = c.get("/api/budget?year=2026").json()
+        rows = c.get("/api/v1/admin/budget?year=2026").json()
         by = {(x["指标"], x["范围"]): x["金额"] for x in rows if x["指标"] != "费用年预算"}
         self.assertEqual(by[("下单年预算", "全公司")], co_yuan)
         self.assertEqual(by[("下单年预算", "数据")], bu_yuan)

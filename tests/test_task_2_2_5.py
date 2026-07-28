@@ -97,7 +97,7 @@ class TestLogoVersion225(unittest.TestCase):
 
     def test_client_fetches_api_version(self):
         src = (ROOT / "frontend/src/api/client.ts").read_text(encoding="utf-8")
-        self.assertIn("/api/version", src)
+        self.assertIn("/api/v1/version", src)
         self.assertIn("fetchProductVersion", src)
 
     def test_api_version_allows_viewer_session(self):

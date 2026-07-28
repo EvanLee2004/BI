@@ -56,9 +56,9 @@ PARTICLES_HTML = _PARTICLES_WRAP.format(
 PW_MODAL_HTML = tpl.load("partials/pw_modal.html")
 
 # ---------- 按天明细（迭代17 批次A：常显 + 跟顶 + 返回默认全年）----------
-# 铁律2：金额显示串全部由 /api/daily 后端算好（*_disp）；前端 JS 已外置 static/js/cockpit.js。
+# 铁律2：金额显示串全部由 /api/v1/daily 后端算好（*_disp）；前端 JS 已外置 static/js/cockpit.js。
 # 排名「其余」弹窗壳（整体页 API 展开 / BU 页本地预渲染展开共用）
 RK_MODAL_HTML = tpl.load("partials/rk_modal.html")
 
-# 顶部「看哪段」不动；本面板只改板块③排名（查询才打 /api/daily；跟顶只改日期框）。
+# 顶部「看哪段」不动；本面板只改板块③排名（查询才打 /api/v1/daily；跟顶只改日期框）。
 DAILY_HTML = tpl.load("partials/daily_panel.html") + RK_MODAL_HTML

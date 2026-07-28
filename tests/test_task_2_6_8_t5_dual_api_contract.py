@@ -137,7 +137,7 @@ class TestDualApiAuthParity(unittest.TestCase):
         cfg = dict(loaders.load_config(ROOT))
         cfg["zhiyun_auto_fetch"] = False
         c = TestClient(server.create_app(cfg, root=ROOT))
-        r1 = c.get("/api/profit_ranking", params={"dim": "sales", "start": "2026-01-01", "end": "2026-07-01"})
+        r1 = c.get("/api/v1/rankings/profit", params={"dim": "sales", "start": "2026-01-01", "end": "2026-07-01"})
         r1b = c.get(
             "/api/v1/rankings/profit",
             params={"dim": "sales", "start": "2026-01-01", "end": "2026-07-01"},
@@ -156,7 +156,7 @@ class TestDualApiAuthParity(unittest.TestCase):
         cfg = dict(loaders.load_config(ROOT))
         cfg["zhiyun_auto_fetch"] = False
         c = TestClient(server.create_app(cfg, root=ROOT))
-        r1 = c.get("/api/detail", params={"table": "费用明细", "page": 1, "page_size": 5})
+        r1 = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page": 1, "page_size": 5})
         r2 = c.get("/api/v1/vm/ledger", params={"page": 1, "page_size": 5})
         self.assertIn(r1.status_code, (401, 403), r1.text[:120])
         self.assertIn(r2.status_code, (401, 403), r2.text[:120])
@@ -198,7 +198,7 @@ class TestDualApiAuthParity(unittest.TestCase):
             self.skipTest(f"BU 登录失败 {lr.status_code}")
         # 故意要一个很可能无权的 BU 名
         r1 = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={
                 "dim": "sales",
                 "start": "2026-01-01",
@@ -219,7 +219,7 @@ class TestDualApiDataContract(unittest.TestCase):
         """整体：双轨 HTTP 与其同源预计算路径序/条数一致（强制 ranking_order_contract）。
 
         产品语义：
-        - `/api/profit_ranking` = 收入毛利榜 ↔ `summary.profit_rankings.revenue_by_*`
+        - `/api/v1/rankings/profit` = 收入毛利榜 ↔ `summary.profit_rankings.revenue_by_*`
         - `/api/v1/rankings/full` dim=sales = 下单/回款双榜 ↔ `rankings_view_for_period(...).sales`
 
         跨语义强制同序是错的（收入序 ≠ 下单序）。契约绑**同语义双轨**。
@@ -235,7 +235,7 @@ class TestDualApiDataContract(unittest.TestCase):
 
         # --- A) profit_ranking ↔ snapshot ---
         r_old = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "sales", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
         self.assertEqual(r_old.status_code, 200, r_old.text[:200])
@@ -276,18 +276,12 @@ class TestDualApiDataContract(unittest.TestCase):
         self.assertTrue(any(_amt_key(it) != 0 for it in old_items[:5]), "profit 金额解析失败")
         self.assertTrue(any(_amt_key(it) != 0 for it in full_items[:5]), "full 金额解析失败")
 
-        # --- C) 2.7.0：v1 rankings/profit 与旧 profit_ranking 同实现 ---
-        r_v1 = c.get(
-            "/api/v1/rankings/profit",
+        # --- C) 2.7.1：旧 /api/profit_ranking 已删 → 404；v1 唯一 ---
+        r_legacy = c.get(
+            "/api/profit_ranking",
             params={"dim": "sales", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
-        self.assertEqual(r_v1.status_code, 200, r_v1.text[:200])
-        v1_items = (r_v1.json() or {}).get("items") or []
-        ok_v, det_v = ranking_order_contract(old_items, v1_items, min_common=min(3, len(old_items)))
-        self.assertTrue(ok_v, f"v1 profit vs legacy order fail: {det_v}")
-        ok_vc, det_vc = ranking_count_contract(old_items, v1_items, tol=0)
-        self.assertTrue(ok_vc, f"v1 profit vs legacy count fail: {det_vc}")
-        self.assertEqual(_names(old_items)[:10], _names(v1_items)[:10])
+        self.assertEqual(r_legacy.status_code, 404, r_legacy.text[:200])
 
     def test_bu_dual_ranking_order_and_count(self):
         """BU 口径：同 bu= 下 profit_ranking / rankings/full 各自与同源路径序+条数一致。"""
@@ -308,7 +302,7 @@ class TestDualApiDataContract(unittest.TestCase):
             pv = {}
 
         r_old = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={
                 "dim": "sales",
                 "start": "2026-01-01",
@@ -351,7 +345,7 @@ class TestDualApiDataContract(unittest.TestCase):
 
         # detail ↔ ledger 同 BU 行数
         r1 = c.get(
-            "/api/detail",
+            "/api/v1/admin/detail",
             params={
                 "table": "费用明细",
                 "page": 1,
@@ -389,7 +383,7 @@ class TestDualApiDataContract(unittest.TestCase):
             items = (r_full.json() or {}).get("items") or []
             self.assertEqual(items, [])
         r_old = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "sales", "start": "1999-01-01", "end": "1999-01-31", "top": 50},
         )
         self.assertIn(r_old.status_code, (200, 400, 404), r_old.text[:120])
@@ -401,7 +395,7 @@ class TestDualApiDataContract(unittest.TestCase):
         """管理员：同月区间 detail 与 ledger?show_all=1 行数一致。"""
         c, _ = _refreshed_admin_client()
         r1 = c.get(
-            "/api/detail",
+            "/api/v1/admin/detail",
             params={
                 "table": "费用明细",
                 "page": 1,
@@ -434,8 +428,8 @@ class TestContractSourceGuards(unittest.TestCase):
     def test_both_endpoints_still_exist(self):
         data_api = (ROOT / "src/routes/data_api.py").read_text(encoding="utf-8")
         cockpit = (ROOT / "src/routes/cockpit.py").read_text(encoding="utf-8")
-        self.assertIn("/api/profit_ranking", data_api)
-        self.assertIn("/api/detail", data_api)
+        self.assertIn("/api/v1/rankings/profit", data_api)
+        self.assertIn("/api/v1/admin/detail", data_api)
         self.assertIn("rankings/full", cockpit)
         self.assertIn("vm/ledger", cockpit)
 

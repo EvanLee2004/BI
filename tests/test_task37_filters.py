@@ -171,12 +171,12 @@ class TestDetailFiltersHttp(unittest.TestCase):
     def test_api_filters_and_export_match(self):
         c = self._admin()
         filt = json.dumps({"客户": {"in": ["客户甲"]}}, ensure_ascii=False)
-        r = c.get("/api/detail", params={"table": "收入明细", "filters": filt, "page_size": 50})
+        r = c.get("/api/v1/admin/detail", params={"table": "收入明细", "filters": filt, "page_size": 50})
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertEqual(d["total"], 2)
         keys = {row["定位键"] for row in d["rows"]}
-        r2 = c.get("/api/detail_export", params={"table": "收入明细", "filters": filt})
+        r2 = c.get("/api/v1/admin/detail/export", params={"table": "收入明细", "filters": filt})
         self.assertEqual(r2.status_code, 200, r2.text[:200])
         self.assertIn(
             "spreadsheet",
@@ -187,7 +187,7 @@ class TestDetailFiltersHttp(unittest.TestCase):
 
     def test_values_endpoint(self):
         c = self._admin()
-        r = c.get("/api/detail/values", params={"table": "收入明细", "column": "客户"})
+        r = c.get("/api/v1/admin/detail/values", params={"table": "收入明细", "column": "客户"})
         self.assertEqual(r.status_code, 200)
         vals = set(r.json()["values"])
         self.assertIn("客户甲", vals)
@@ -200,7 +200,7 @@ class TestDetailFiltersHttp(unittest.TestCase):
             "filter" in detail.lower() or "筛选" in detail or "colFilter" in detail,
             "DetailView 须有列筛选",
         )
-        self.assertIn("/api/detail", detail)
+        self.assertIn("/api/v1/admin/detail", detail)
 
 
 if __name__ == "__main__":

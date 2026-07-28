@@ -10,7 +10,7 @@
 - 公共费用恒 0 + 标注"暂不分摊"；手填项标注"待陆总手填"；BU 税前利润 = 毛利 − 附加税费
 - 配置增改生效：改销售名单 → 数字随之变
 - XSS：BU 名/销售名含 HTML 特殊字符必转义
-- /api/bu_config：未登录 401；登录可读写
+- /api/v1/admin/bu_config：未登录 401；登录可读写
 """
 
 import datetime
@@ -369,8 +369,8 @@ class TestBuPages(_Base):
         self.assertNotIn('data-export="/export.html"', h)
         self.assertNotIn('data-export="/export.png"', h)
         self.assertNotIn("dailyBtn", h)
-        # 任务书39·B：BU 可有 dailyPanel，但 HTML 零 /api/daily 全公司口
-        self.assertNotIn("/api/daily", h)
+        # 任务书39·B：BU 可有 dailyPanel，但 HTML 零 /api/v1/daily 全公司口
+        self.assertNotIn("/api/v1/daily", h)
         self.assertNotIn("按40%分摊", h)
         self.assertNotIn("按 40%", h)
 
@@ -421,7 +421,7 @@ class TestBuPages(_Base):
         self.assertNotIn("BU乙", h)
         self.assertNotIn("按60%", h)
         self.assertNotIn("公共×60%", h)
-        self.assertNotIn("/api/daily", h)
+        self.assertNotIn("/api/v1/daily", h)
 
     def test_xss_escaped(self):
         """XSS：BU 名含 HTML 特殊字符必转义（铁律10）。"""
@@ -496,16 +496,16 @@ class TestBuEndpoints(unittest.TestCase):
         self.assertNotIn("USER-MAIN", r.text)
 
     def test_api_requires_login(self):
-        self.assertEqual(self.anon.get("/api/bu_config").status_code, 401)
-        self.assertEqual(self.anon.post("/api/bu_config", json={"bus": []}).status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/bu_config").status_code, 401)
+        self.assertEqual(self.anon.post("/api/v1/admin/bu_config", json={"bus": []}).status_code, 401)
 
     def test_api_get_with_session(self):
-        r = self.client.get("/api/bu_config", headers=self.hdr)
+        r = self.client.get("/api/v1/admin/bu_config", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["count"], 2)
 
     def test_api_post_validates(self):
-        r = self.client.post("/api/bu_config", json={"bus": "不是列表"}, headers=self.hdr)
+        r = self.client.post("/api/v1/admin/bu_config", json={"bus": "不是列表"}, headers=self.hdr)
         self.assertEqual(r.status_code, 400)
 
     def test_api_post_saves_and_recomputes(self):
@@ -514,7 +514,7 @@ class TestBuEndpoints(unittest.TestCase):
 
         payload = {"bus": [{"name": "BU丙", "负责人": "负责人丙", "销售": "销售C"}]}
         with patch.object(server, "recompute") as rec:
-            r = self.client.post("/api/bu_config", json=payload, headers=self.hdr)
+            r = self.client.post("/api/v1/admin/bu_config", json=payload, headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["count"], 1)
         self.assertNotIn("密码hash", r.json()["bus"][0])
@@ -523,8 +523,8 @@ class TestBuEndpoints(unittest.TestCase):
         self.assertEqual(rec.call_args[0][:2], (self.cfg, self.root))
 
     def test_sales_pool_requires_login_and_lists_seed(self):
-        self.assertEqual(self.anon.get("/api/sales_pool").status_code, 401)
-        r = self.client.get("/api/sales_pool", headers=self.hdr)
+        self.assertEqual(self.anon.get("/api/v1/admin/sales_pool").status_code, 401)
+        r = self.client.get("/api/v1/admin/sales_pool", headers=self.hdr)
         self.assertEqual(r.status_code, 200)
         names = {x["name"] for x in r.json()["sales"]}
         self.assertTrue({"销售A", "销售B", "销售C"} <= names)

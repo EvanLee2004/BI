@@ -6,11 +6,11 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **2.7.0**（`VERSION` 文件；架构 v1 双榜分域 + 算账 SSOT int 分 + 文档 SSOT；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
+| 版本 | **2.7.1**（`VERSION`；干净目标态：业务读仅 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
 | 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、Restart=always、StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
 | 用户入口口径 | **只发两个根链接**：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`（办公区内勿用外网；用自己账号登录即可；**无**单独管理员登录 URL） |
-| 会话 | 浏览器 cookie **`kanban_sid`**；legacy `kanban_session`/`kanban_view` 兼容可读至 **2026-08-15**（锚点 `数据/session_legacy_compat_since.txt` + 21 天；窗口内勿删读路径） |
+| 会话 | 浏览器 cookie **仅 `kanban_sid`**（2.7.1）。**上机后须重登**；旧 `kanban_session`/`kanban_view` 不能维持登录（登录时 delete 清残留）。运维例外 GET：`/api/health`、`/api/refresh_status` |
 | 休眠 | `sleep`/`suspend`/`hibernate`/`hybrid-sleep` **target 已 mask** |
 | 每日更新 | **服务内 ScheduleLoop**（以机上 `schedule_times` 为准） |
 | 其它 cron | healthcheck 每小时、备份 03:30；`kanban-schedule` 哨兵段**无** `run.py --scheduled` |

@@ -21,7 +21,7 @@ font-weight:700;font-size:14px;cursor:pointer}button:disabled{opacity:.5;cursor:
 <div class="msg" id="m"></div></div>
 <script>
 async function jj(url,opt){const r=await fetch(url,opt);if(!r.ok&&r.status!==409)throw new Error((await r.json().catch(()=>({}))).detail||("HTTP "+r.status));return r.json().catch(()=>({}));}
-jj("/api/settings").then(s=>{document.getElementById("u").value=s.zhiyun_username||"";
+jj("/api/v1/admin/settings").then(s=>{document.getElementById("u").value=s.zhiyun_username||"";
   document.getElementById("p").value=s.zhiyun_password||"";
   document.getElementById("lp").value=s.ledger_share_path||"";}).catch(()=>{});
 let t0=0;
@@ -32,7 +32,7 @@ async function go(){const m=document.getElementById("m"),b=document.getElementBy
   b.disabled=true;m.textContent="保存配置…";
   try{const pay={zhiyun_username:u,zhiyun_password:p};
     const lp=document.getElementById("lp").value.trim();if(lp)pay.ledger_share_path=lp;
-    await jj("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(pay)});
+    await jj("/api/v1/admin/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(pay)});
   }catch(e){m.className="msg err";m.textContent="保存失败："+e.message;b.disabled=false;return;}
   m.textContent="开始取数…（智云在线抓约 80 秒 + 计算约 1 分钟）";t0=Date.now();
   try{await jj("/api/refresh",{method:"POST"});}catch(e){}

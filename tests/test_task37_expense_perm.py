@@ -92,7 +92,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
 
     def test_overall_hides_salary_by_default(self):
         c = self._login("all")
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         cats = {row.get("对应报表大类") for row in d["rows"]}
@@ -106,7 +106,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
     def test_settings_salary_switch_removed(self):
         """54.12 R-01：开关废止；POST 忽略字段，GET 固定 False。"""
         c = self._login("admin1", admin=True)
-        r = c.post("/api/settings", json={"overall_see_salary": True})
+        r = c.post("/api/v1/admin/settings", json={"overall_see_salary": True})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertFalse(r.json().get("overall_see_salary"))
         cfg_file = ROOT / "config.json"
@@ -114,7 +114,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertNotIn("overall_see_salary", text)
 
         c2 = self._login("all")
-        r2 = c2.get("/api/detail", params={"table": "费用明细", "page_size": 50})
+        r2 = c2.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r2.status_code, 200)
         cats = {row.get("对应报表大类") for row in r2.json()["rows"]}
         self.assertNotIn("工资", cats)
@@ -122,7 +122,7 @@ class TestOverallExpenseSalary(unittest.TestCase):
     def test_admin_also_hides_salary(self):
         """54.12 R-01：管理端费用明细也不再单列工资。"""
         c = self._login("admin1", admin=True)
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r.status_code, 200)
         cats = {row.get("对应报表大类") for row in r.json()["rows"]}
         self.assertNotIn("工资", cats)
@@ -131,9 +131,9 @@ class TestOverallExpenseSalary(unittest.TestCase):
 
     def test_bu_cannot_see_other_bu(self):
         c = self._login("bu_a")
-        r = c.get("/api/detail", params={"table": "费用明细", "bu": "乙BU"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "bu": "乙BU"})
         self.assertEqual(r.status_code, 403)
-        r2 = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
+        r2 = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r2.status_code, 200)
         d = r2.json()
         # 任务书41·D：BU 看端不展示「业务BU」列；54.12 R-01 工资已隐 → 甲BU 仅剩「办公」1 行
@@ -153,17 +153,17 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("mlFilterPop", html, "整体页列筛弹层占位")
         js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("mainLedgerCard", js)
-        self.assertIn("/api/detail", js)
+        self.assertIn("/api/v1/admin/detail", js)
         self.assertIn("filters", js)
 
     def test_main_ledger_text_multiselect_like_b7(self):
-        """准则2 同款：文本列关键词 + /api/detail/values 去重值多选（非仅 prompt）。"""
+        """准则2 同款：文本列关键词 + /api/v1/admin/detail/values 去重值多选（非仅 prompt）。"""
         js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         # 截取 mainLedger 段
         i = js.find("mainLedgerCard")
         self.assertGreater(i, 0)
         chunk = js[i : i + 9000]
-        self.assertIn("/api/detail/values", chunk, "文本列须调 values 接口")
+        self.assertIn("/api/v1/admin/detail/values", chunk, "文本列须调 values 接口")
         self.assertIn("mlfVals", chunk, "去重值多选容器")
         self.assertIn("type=\"checkbox\"", chunk.replace("'", '"') or chunk, "多选 checkbox")
         self.assertIn("next.in", chunk, "应用多选 in 写入 colFilters")

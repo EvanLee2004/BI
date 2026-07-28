@@ -196,7 +196,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             table=table,
         )
 
-    @app.get("/api/detail_export")
+    @app.get("/api/v1/admin/detail/export")
     def api_detail_export(
         request: Request,
         table: str = Query("收入明细"),
@@ -268,7 +268,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": cd},
         )
 
-    @app.get("/api/detail")
+    @app.get("/api/v1/admin/detail")
     def api_detail(
         request: Request,
         table: str = Query("收入明细"),
@@ -324,40 +324,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/v1/admin/detail")
-    def api_v1_admin_detail(
-        request: Request,
-        table: str = Query("收入明细"),
-        month: str | None = None,
-        q: str | None = None,
-        page: int = 1,
-        page_size: int = 50,
-        unclassified: bool = False,
-        unfilled_dept: bool = False,
-        year: str | None = None,
-        bu: str | None = None,
-        filters: str | None = None,
-        month_from: str | None = None,
-        month_to: str | None = None,
-    ):
-        """2.7.0：管理端明细 v1 别名 → 转发 `/api/detail` 同逻辑（全列；零行为变）。"""
-        return api_detail(
-            request,
-            table=table,
-            month=month,
-            q=q,
-            page=page,
-            page_size=page_size,
-            unclassified=unclassified,
-            unfilled_dept=unfilled_dept,
-            year=year,
-            bu=bu,
-            filters=filters,
-            month_from=month_from,
-            month_to=month_to,
-        )
 
-    @app.get("/api/detail/values")
+    @app.get("/api/v1/admin/detail/values")
     def api_detail_values(
         request: Request,
         table: str = Query("收入明细"),
@@ -398,9 +366,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    # 2.6.9 S8：/api/detail/meta 已删（前端/测试零引用；列元数据走 vm 白名单路径）
+    # 2.6.9 S8：/api/v1/admin/detail/meta 已删（前端/测试零引用；列元数据走 vm 白名单路径）
 
-    @app.get("/api/daily")
+    @app.get("/api/v1/daily")
     def api_daily(request: Request, start: str = Query(""), end: str = Query(""), top: int = Query(10)):
         """按天明细（用户端「明细」入口·迭代计划13批次B）：任意日期区间的逐日下单/回款 + 期内排名。
         v7.8 起要求整体页/管理员会话（全公司口径出口，BU 会话不给——否则 BU 链接持有者可绕过页面隔离）；
@@ -426,7 +394,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         dual = _format_daily_disp(d, top)
         return {"start": start, "end": end, "dual_rankings": dual, **d}
 
-    @app.get("/api/bu_daily")
+    @app.get("/api/v1/bu_daily")
     def api_bu_daily(
         request: Request,
         bu: str = Query(""),
@@ -434,8 +402,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         end: str = Query(""),
         top: int = Query(10),
     ):
-        """任务书39·B/C：BU 页按时间段查询（本 BU 销售过滤，零跨界全公司 /api/daily）。
-        会话须能看该 BU；返回与 /api/daily 同形 dual_rankings。"""
+        """任务书39·B/C：BU 页按时间段查询（本 BU 销售过滤，零跨界全公司 /api/v1/daily）。
+        会话须能看该 BU；返回与 /api/v1/daily 同形 dual_rankings。"""
         name = (bu or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="缺少 bu")
@@ -472,7 +440,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     ):
         """板块③「收入与毛利结构」全量明细（「其余 N 个」点开）：确认口径 收入/毛利 按客户/销售。
 
-        2.7.0：v1 `/api/v1/rankings/profit` 与兼容 `/api/profit_ranking` 共用本实现（非下单回款榜）。
+        2.7.0：v1 `/api/v1/rankings/profit` 与兼容 `/api/v1/rankings/profit` 共用本实现（非下单回款榜）。
         - 无 bu：整体/管理员会话（全公司口径；BU 会话 403，防绕过隔离）
         - 有 bu：须能看该 BU；仅该 BU 销售过滤后的项目行
         **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。
@@ -512,22 +480,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         top: int = Query(5000),
         bu: str = Query(""),
     ):
-        """2.7.0 标准路径：收入毛利榜（与 /api/profit_ranking 同实现）。"""
+        """2.7.1 唯一路径：收入毛利榜（非下单/回款 full）。"""
         return _profit_ranking_impl(request, dim, start, end, top, bu)
 
-    @app.get("/api/profit_ranking")
-    def api_profit_ranking(
-        request: Request,
-        dim: str = Query(""),
-        start: str = Query(""),
-        end: str = Query(""),
-        top: int = Query(5000),
-        bu: str = Query(""),
-    ):
-        """兼容路径：同 `_profit_ranking_impl`（勿删；测与旧客户端依赖）。"""
-        return _profit_ranking_impl(request, dim, start, end, top, bu)
-
-    @app.get("/api/exceptions")
+    @app.get("/api/v1/admin/exceptions")
     def api_exceptions(request: Request):
         """异常处理「总览」计数（管理员）。体检黄红是运行信号，留在 /api/health，不在这。"""
         _require(request)  # 同函数作用域下文定义，调用时已存在
@@ -537,7 +493,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/order_depts")
+    @app.get("/api/v1/admin/order_depts")
     def api_order_depts(request: Request):
         """下单表已出现过的部门清单（「下单未填部门」归类下拉用）。"""
         _require(request)

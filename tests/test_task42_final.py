@@ -127,12 +127,12 @@ class TestTask42Final(unittest.TestCase):
         c = self._login("admin1", admin=True)
         r = c.get("/api/health")
         self.assertEqual(r.status_code, 200)
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 20})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 20})
         self.assertEqual(r.status_code, 200)
         cols = r.json()["columns"]
         self.assertIn("定位键", cols)
         self.assertIn("提单人", cols)
-        r = c.get("/api/detail_export", params={"table": "费用明细"})
+        r = c.get("/api/v1/admin/detail/export", params={"table": "费用明细"})
         self.assertEqual(r.status_code, 200)
         # 越权：无
         r = c.get("/admin/logout", follow_redirects=False)
@@ -140,18 +140,18 @@ class TestTask42Final(unittest.TestCase):
 
     def test_overall_flow_whitelist_and_export(self):
         c = self._login("all")
-        r = c.get("/api/detail", params={"table": "费用明细", "year": "2026", "page_size": 20})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "year": "2026", "page_size": 20})
         self.assertEqual(r.status_code, 200)
         cols = r.json()["columns"]
         self.assertEqual(cols, db.VIEW_EXPENSE_COLUMNS)
         self.assertNotIn("提单人", cols)
         r = c.get(
-            "/api/detail",
+            "/api/v1/admin/detail",
             params={"table": "费用明细", "month_from": "2026-01", "month_to": "2026-03"},
         )
         self.assertEqual(r.status_code, 200)
         self.assertGreaterEqual(r.json()["total"], 1)
-        r = c.get("/api/detail_export", params={"table": "费用明细", "year": "2026"})
+        r = c.get("/api/v1/admin/detail/export", params={"table": "费用明细", "year": "2026"})
         self.assertEqual(r.status_code, 200)
         import openpyxl
 
@@ -163,14 +163,14 @@ class TestTask42Final(unittest.TestCase):
             c.get(path, follow_redirects=False)
         # 新客户端无 cookie 必 401
         c2 = self.TC(self.app)
-        r2 = c2.get("/api/detail", params={"table": "费用明细"})
+        r2 = c2.get("/api/v1/admin/detail", params={"table": "费用明细"})
         self.assertEqual(r2.status_code, 401)
 
     def test_bu_isolation_and_cols(self):
         c = self._login("bu_a")
-        r = c.get("/api/detail", params={"table": "费用明细", "bu": "乙BU"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "bu": "乙BU"})
         self.assertEqual(r.status_code, 403)
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 20})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 20})
         self.assertEqual(r.status_code, 200)
         d = r.json()
         self.assertNotIn("业务BU", d["columns"])

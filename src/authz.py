@@ -119,7 +119,7 @@ def resolve_expense_view_access(
 
     返回 (force_bu, hide_salary, audience)。
 
-    - force_whitelist=False：/api/detail 路径——管理员 audience=admin 全列；
+    - force_whitelist=False：/api/v1/admin/detail 路径——管理员 audience=admin 全列；
       看端仅费用明细，整体 view / BU view_bu。
     - force_whitelist=True：/api/v1/vm/ledger 路径——**任何会话（含管理员）一律白名单**，
       管理员也走 view/view_bu，不走 admin 全列。
@@ -139,7 +139,7 @@ def resolve_expense_view_access(
             return bu_s, True, ("view_bu" if bu_s else "view")
         return _bu_view_access(vacc, bu_s)
 
-    # /api/detail：管理员全列但仍隐工资；看端仅费用明细
+    # /api/v1/admin/detail：管理员全列但仍隐工资；看端仅费用明细
     if user:
         return bu_s, True, "admin"
     if vacc and table == "费用明细":

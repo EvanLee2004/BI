@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""54.12 R-15：明细导出 xlsx 行数/合计与 /api/detail 页面一致；不含工资列/工资行。"""
+"""54.12 R-15：明细导出 xlsx 行数/合计与 /api/v1/admin/detail 页面一致；不含工资列/工资行。"""
 from __future__ import annotations
 
 import io
@@ -85,7 +85,7 @@ class TestExportConsistency(unittest.TestCase):
 
         c = self._login_admin()
         params = {"table": "费用明细", "page_size": 50, "year": "2026"}
-        r_page = c.get("/api/detail", params=params)
+        r_page = c.get("/api/v1/admin/detail", params=params)
         self.assertEqual(r_page.status_code, 200, r_page.text[:300])
         page = r_page.json()
         page_rows = page["rows"]
@@ -93,7 +93,7 @@ class TestExportConsistency(unittest.TestCase):
         self.assertNotIn("工资", {row.get("对应报表大类") for row in page_rows})
         self.assertEqual(len(page_rows), 2, "应仅管理+市场两行")
 
-        r_x = c.get("/api/detail_export", params={"table": "费用明细", "year": "2026"})
+        r_x = c.get("/api/v1/admin/detail/export", params={"table": "费用明细", "year": "2026"})
         self.assertEqual(r_x.status_code, 200, r_x.text[:200])
         self.assertIn(
             "spreadsheetml",

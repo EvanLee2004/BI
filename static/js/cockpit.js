@@ -196,7 +196,7 @@
   var s=iS.value,e=iE.value;
   if(!s||!e){sum.textContent='请选起止日期';return;}
   sum.textContent='查询中…';
-  fetch('/api/daily?start='+encodeURIComponent(s)+'&end='+encodeURIComponent(e),{credentials:'same-origin'}).then(function(r){
+  fetch('/api/v1/daily?start='+encodeURIComponent(s)+'&end='+encodeURIComponent(e),{credentials:'same-origin'}).then(function(r){
     if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
     return r.json();
   }).then(function(d){
@@ -288,7 +288,7 @@
   document.getElementById('rkmTag').textContent=(s===e)?s:(s+' ~ '+e);
   var list=document.getElementById('rkmList');
   list.innerHTML='<div class="ev-empty">加载中…</div>';modal.style.display='';
-  fetch('/api/profit_ranking?dim='+encodeURIComponent(dim)+'&start='+s+'&end='+e+'&top=5000')
+  fetch('/api/v1/rankings/profit?dim='+encodeURIComponent(dim)+'&start='+s+'&end='+e+'&top=5000')
    .then(function(r){if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});return r.json();})
    .then(function(d){
      var h='';(d.items||[]).forEach(function(it,i){
@@ -393,7 +393,7 @@
     return u+filtersQP();
   }
   function baseU(){
-    return "/api/detail?table="+encodeURIComponent("费用明细")+"&page="+page+"&page_size="+pageSize+ctxParams();
+    return "/api/v1/admin/detail?table="+encodeURIComponent("费用明细")+"&page="+page+"&page_size="+pageSize+ctxParams();
   }
   function hidePop(){if(!pop)return;pop.style.display="none";pop.hidden=true;pop.innerHTML="";}
   function openFilter(col, anchor){
@@ -421,7 +421,7 @@
     if(top+300>window.innerHeight)top=Math.max(8,r.top-300);
     pop.style.left=left+"px";pop.style.top=top+"px";
     if(kind==="text"){
-      var vu="/api/detail/values?table="+encodeURIComponent("费用明细")+
+      var vu="/api/v1/admin/detail/values?table="+encodeURIComponent("费用明细")+
         "&column="+encodeURIComponent(col)+ctxParams();
       fetch(vu,{credentials:"same-origin"}).then(function(res){
         if(!res.ok)throw new Error("HTTP "+res.status);
@@ -538,7 +538,7 @@
   var clr=document.getElementById("mlClearF");if(clr)clr.onclick=function(){colFilters={};hidePop();page=1;load();};
   var exp=document.getElementById("mlExport");
   if(exp)exp.onclick=function(){
-    var u="/api/detail_export?table="+encodeURIComponent("费用明细")+ctxParams();
+    var u="/api/v1/admin/detail/export?table="+encodeURIComponent("费用明细")+ctxParams();
     window.open(u,"_blank");
   };
   yEl.addEventListener("change",function(){handYm=true;page=1;});

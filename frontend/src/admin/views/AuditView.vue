@@ -16,7 +16,7 @@ async function load() {
     const d = await jget<{
       categories?: string[]
       changes?: { 时间?: string; 操作账号?: string; 类别?: string; 摘要?: string }[]
-    }>('/api/config_changes' + (cat.value ? '?category=' + encodeURIComponent(cat.value) : ''))
+    }>('/api/v1/admin/config_changes' + (cat.value ? '?category=' + encodeURIComponent(cat.value) : ''))
     if (!categories.value.length && d.categories) categories.value = d.categories
     rows.value = d.changes || []
     resetPage()

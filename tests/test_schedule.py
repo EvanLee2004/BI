@@ -6,7 +6,7 @@
 - normalize_schedule_times：接受 list/单串/分隔串；HH:MM 校验；去重、升序；空/非法/超上限 → ValueError
 - get_schedule_times：优先 schedule_times，缺失从旧 schedule_time 单值推导，坏值兜底 09:30
 - sync_schedule：仅 Linux crontab；非 Linux no-op（任务书54 退役 Windows schtasks/.bat）
-- /api/settings：GET 回 schedule_times；POST 列表→config 写 schedule_times + schedule_time(=最早)；
+- /api/v1/admin/settings：GET 回 schedule_times；POST 列表→config 写 schedule_times + schedule_time(=最早)；
   兼容旧单值 schedule_time；列表含非法 → 400
 - 控制台含多时间点 UI 锚点（schedTimes / schedAdd / saveSchedule）
 """
@@ -114,14 +114,14 @@ class TestSettingsApi(unittest.TestCase):
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
     def test_get_returns_times_list(self):
-        d = self.client.get("/api/settings", headers=self.hdr).json()
+        d = self.client.get("/api/v1/admin/settings", headers=self.hdr).json()
         self.assertIn("schedule_times", d)
         self.assertIsInstance(d["schedule_times"], list)
         self.assertTrue(d["schedule_times"])
 
     def test_post_multi_times(self):
         before_cfg = self._raw()  # 存下 config.json 原样
-        r = self.client.post("/api/settings", headers=self.hdr, json={"schedule_times": ["17:30", "09:30", "12:00"]})
+        r = self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"schedule_times": ["17:30", "09:30", "12:00"]})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["schedule_times"], ["09:30", "12:00", "17:30"])
         # F-01 修复：写覆盖文件、旧 schedule_time=最早时间点；**config.json 一字不动**
@@ -135,7 +135,7 @@ class TestSettingsApi(unittest.TestCase):
 
     def test_legacy_single_still_works(self):
         before_cfg = self._raw()
-        r = self.client.post("/api/settings", headers=self.hdr, json={"schedule_time": "08:45"})
+        r = self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"schedule_time": "08:45"})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["schedule_times"], ["08:45"])
         ov = self._override()
@@ -152,7 +152,7 @@ class TestSettingsApi(unittest.TestCase):
             {"ledger_share_path": r"\\srv\share\台账.xlsx"},
             {"zhiyun_auto_fetch": True},
         ):
-            self.assertEqual(self.client.post("/api/settings", headers=self.hdr, json=body).status_code, 200, body)
+            self.assertEqual(self.client.post("/api/v1/admin/settings", headers=self.hdr, json=body).status_code, 200, body)
         self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before)
         # 但效果都落进了覆盖文件
         ov = self._override()
@@ -162,18 +162,18 @@ class TestSettingsApi(unittest.TestCase):
     def test_ledger_path_via_settings(self):
         """台账路径经设置页填→GET 回显、落覆盖文件、load_config 合并生效。"""
         p = r"\\财务服务器\共享\收单台账.xlsx"
-        self.client.post("/api/settings", headers=self.hdr, json={"ledger_share_path": p})
-        self.assertEqual(self.client.get("/api/settings", headers=self.hdr).json()["ledger_share_path"], p)
+        self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"ledger_share_path": p})
+        self.assertEqual(self.client.get("/api/v1/admin/settings", headers=self.hdr).json()["ledger_share_path"], p)
         self.assertEqual(loaders.load_config(self.root)["ledger_share_path"], p)  # 合并后生效
 
     def test_invalid_in_list_400(self):
         for bad in ({"schedule_times": ["09:30", "25:00"]}, {"schedule_times": []}, {"schedule_times": ["9点"]}):
-            r = self.client.post("/api/settings", headers=self.hdr, json=bad)
+            r = self.client.post("/api/v1/admin/settings", headers=self.hdr, json=bad)
             self.assertEqual(r.status_code, 400, f"{bad} 应 400")
 
     def test_audit_records_time_change(self):
-        self.client.post("/api/settings", headers=self.hdr, json={"schedule_times": ["09:30", "18:00"]})
-        d = self.client.get("/api/config_changes?category=设置", headers=self.hdr).json()
+        self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"schedule_times": ["09:30", "18:00"]})
+        d = self.client.get("/api/v1/admin/config_changes?category=设置", headers=self.hdr).json()
         joined = json.dumps(d.get("changes", []), ensure_ascii=False)
         self.assertIn("更新时间", joined)
         self.assertIn("18:00", joined)

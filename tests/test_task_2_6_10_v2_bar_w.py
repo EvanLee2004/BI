@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""2.6.10 V-2：/api/profit_ranking items 必须带 bar_w（用户能看见有长短的条）。"""
+"""2.6.10 V-2：/api/v1/rankings/profit items 必须带 bar_w（用户能看见有长短的条）。"""
 from __future__ import annotations
 
 import unittest

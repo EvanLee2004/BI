@@ -159,7 +159,7 @@ class TestRenderProfitRankings(unittest.TestCase):
 
 
 def _seed_project(cfg, root):
-    """种入 std_收入明细（供 /api/profit_ranking 端到端）。金额元→分。"""
+    """种入 std_收入明细（供 /api/v1/rankings/profit 端到端）。金额元→分。"""
     import money
 
     conn = db.connect(cfg, root)
@@ -198,10 +198,10 @@ class TestProfitRankingEndpoint(unittest.TestCase):
     def _q(self, **kw):
         p = {"start": "2026-01-01", "end": "2026-12-31"}
         p.update(kw)
-        return self.main.get("/api/profit_ranking", params=p)
+        return self.main.get("/api/v1/rankings/profit", params=p)
 
     def test_requires_viewer_session(self):
-        r = self.raw.get("/api/profit_ranking", params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"})
+        r = self.raw.get("/api/v1/rankings/profit", params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"})
         self.assertEqual(r.status_code, 401)  # 全公司口径出口，未登录挡
 
     def test_bad_dim_400(self):

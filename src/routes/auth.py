@@ -226,14 +226,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         _audit(cfg, root, name, ("密码", f"账号 {name} 自改密码"))  # C3：不记密码内容
         return {"note": "密码已修改", "relogin": True}
 
-    @app.get("/api/accounts")
+    @app.get("/api/v1/admin/accounts")
     def api_accounts_get(request: Request):
         """账号表（管理员会话）：下发明文密码（管理端 👁 可见可改；任务书64·P 产品口径）。"""
         _require(request)
         rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
         return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
 
-    @app.post("/api/accounts")
+    @app.post("/api/v1/admin/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
         """保存账号表（管理员）。至少保留一个管理员；总账号不可删。C3：变更留痕（密码只记「改密码」）。"""
         user = _require(request)
@@ -251,7 +251,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         rows = [accounts.public_row(a, with_password=True) for a in saved]
         return {"accounts": rows, "count": len(rows), "note": "已保存", "master_account": accounts.MASTER_ACCOUNT}
 
-    @app.post("/api/accounts/{acct}/reset_passwd")
+    @app.post("/api/v1/admin/accounts/{acct}/reset_passwd")
     def api_accounts_reset_passwd(request: Request, acct: str, payload: dict = Body(default={})):
         """管理员重置密码（快捷入口；列表亦可直接编辑明文）。body.new 可选。"""
         user = _require(request)

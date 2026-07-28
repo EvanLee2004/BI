@@ -229,7 +229,7 @@ async function loadHealth() {
 
 async function loadExceptions() {
   try {
-    exceptions.value = await jget('/api/exceptions')
+    exceptions.value = await jget('/api/v1/admin/exceptions')
   } catch {
     /* ignore */
   }
@@ -237,7 +237,7 @@ async function loadExceptions() {
 
 async function loadVersion() {
   try {
-    const v = await jget<{ version?: string; stage?: string }>('/api/version')
+    const v = await jget<{ version?: string; stage?: string }>('/api/v1/version')
     const num = 'v' + String(v.version || '?').split('-')[0]
     const stage = v.stage || ''
     versionLabel.value = num + (stage ? ' · ' + stage : '')

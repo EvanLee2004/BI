@@ -202,7 +202,7 @@ class TestDetaxApi(unittest.TestCase):
 
     def test_get_categories_populated(self):
         # 非空台账 → categories 带金额串（fmt_wan）·降序·排除白名单外（回归 server.py 缺 import charts 的 500）
-        g = self.client.get("/api/detax_rates", headers=self.hdr)
+        g = self.client.get("/api/v1/admin/detax_rates", headers=self.hdr)
         self.assertEqual(g.status_code, 200, g.text)
         cats = g.json()["categories"]
         names = [c["category"] for c in cats]
@@ -222,25 +222,25 @@ class TestDetaxApi(unittest.TestCase):
         self.assertTrue("去税" in src or "detax" in src.lower(), "去税 UI 须在 Vue 管理端")
 
     def test_requires_login(self):
-        self.assertEqual(self.anon.get("/api/detax_rates").status_code, 401)
-        self.assertEqual(self.anon.post("/api/detax_rates", json={"rates": {"房租": 9}}).status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/detax_rates").status_code, 401)
+        self.assertEqual(self.anon.post("/api/v1/admin/detax_rates", json={"rates": {"房租": 9}}).status_code, 401)
 
     def test_reject_out_of_range(self):
-        r = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {"房租": 120}})
+        r = self.client.post("/api/v1/admin/detax_rates", headers=self.hdr, json={"rates": {"房租": 120}})
         self.assertEqual(r.status_code, 400)
         self.assertIn("0~100", r.json()["detail"])
-        r2 = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {}})
+        r2 = self.client.post("/api/v1/admin/detax_rates", headers=self.hdr, json={"rates": {}})
         self.assertEqual(r2.status_code, 400)  # 空 rates 拒
 
     def test_save_readback_delete_and_audit(self):
-        r = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {"房租": 9, "物业费": 6}})
+        r = self.client.post("/api/v1/admin/detax_rates", headers=self.hdr, json={"rates": {"房租": 9, "物业费": 6}})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["rates"], {"房租": 9.0, "物业费": 6.0})
-        g = self.client.get("/api/detax_rates", headers=self.hdr).json()
+        g = self.client.get("/api/v1/admin/detax_rates", headers=self.hdr).json()
         self.assertEqual(g["rates"], {"房租": 9.0, "物业费": 6.0})
         self.assertIn("categories", g)  # 类别清单字段在（空库=[]）
         # None=删行
-        r2 = self.client.post("/api/detax_rates", headers=self.hdr, json={"rates": {"物业费": None}})
+        r2 = self.client.post("/api/v1/admin/detax_rates", headers=self.hdr, json={"rates": {"物业费": None}})
         self.assertEqual(r2.json()["rates"], {"房租": 9.0})
         # C3 留痕类别「去税」
         conn = db.connect(self.cfg, self.root)

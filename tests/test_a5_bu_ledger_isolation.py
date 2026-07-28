@@ -88,15 +88,15 @@ class TestBuLedgerIsolation(unittest.TestCase):
 
     def test_bu_a_cannot_see_bu_b(self):
         c = self._client_as("bu_a")
-        r = c.get("/api/detail", params={"table": "费用明细", "bu": "乙BU"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "bu": "乙BU"})
         self.assertEqual(r.status_code, 403, r.text)
-        r = c.get("/api/detail", params={"table": "费用明细", "bu": "甲BU"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "bu": "甲BU"})
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertGreaterEqual(d["total"], 1)
         # 任务书41·D：BU 看端白名单不含「业务BU」列；隔离靠后端 force_bu + total
         self.assertNotIn("业务BU", d["columns"])
-        r2 = c.get("/api/detail", params={"table": "费用明细"})
+        r2 = c.get("/api/v1/admin/detail", params={"table": "费用明细"})
         self.assertEqual(r2.status_code, 200)
         d2 = r2.json()
         self.assertEqual(d2["total"], d["total"])
@@ -104,12 +104,12 @@ class TestBuLedgerIsolation(unittest.TestCase):
 
     def test_bu_cannot_open_other_tables(self):
         c = self._client_as("bu_b")
-        r = c.get("/api/detail", params={"table": "收入明细"})
+        r = c.get("/api/v1/admin/detail", params={"table": "收入明细"})
         self.assertIn(r.status_code, (401, 403), r.text)
 
     def test_admin_sees_all(self):
         c = self._client_as("admin1", admin=True)
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50})
         self.assertEqual(r.status_code, 200, r.text)
         bus = {row.get("业务BU") for row in r.json()["rows"]}
         self.assertIn("甲BU", bus)

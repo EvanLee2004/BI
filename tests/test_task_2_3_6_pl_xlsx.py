@@ -380,7 +380,7 @@ class TestPlXlsxHttp(unittest.TestCase):
 
     def test_overall_export_200_and_content_type(self):
         c = self._login("overall")
-        r = c.get("/api/export/pl.xlsx", params={"blk": self.yk})
+        r = c.get("/api/v1/export/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r.status_code, 200, r.text[:400])
         ct = r.headers.get("content-type", "")
         self.assertIn("spreadsheet", ct)
@@ -402,12 +402,12 @@ class TestPlXlsxHttp(unittest.TestCase):
 
     def test_unauthenticated_401(self):
         c = self._client()
-        r = c.get("/api/export/pl.xlsx", params={"blk": self.yk})
+        r = c.get("/api/v1/export/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r.status_code, 401)
 
     def test_unknown_blk_400(self):
         c = self._login("overall")
-        r = c.get("/api/export/pl.xlsx", params={"blk": "1999年不存在"})
+        r = c.get("/api/v1/export/pl.xlsx", params={"blk": "1999年不存在"})
         self.assertEqual(r.status_code, 400)
 
     def test_bu_isolation_403_and_own_200(self):

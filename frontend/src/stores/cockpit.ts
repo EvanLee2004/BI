@@ -220,7 +220,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
     snapshotMode.value = false
     snapshotPack.value = null
     try {
-      const r = await fetch(`/api/history/${day}/vm`, { credentials: 'same-origin' })
+      const r = await fetch(`/api/v1/history/${day}/vm`, { credentials: 'same-origin' })
       if (r.status === 401) {
         authRequired.value = true
         errorStatus.value = 401

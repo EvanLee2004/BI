@@ -46,7 +46,7 @@ class TestServerAuth(unittest.TestCase):
         self.assertIn("经营看板", r.text)  # shell，非 SSR 整页
         self.assertNotIn("USER-DASH", r.text)
         self.assertNotIn("管理员控制台", r.text)
-        self.assertNotIn("/api/detail", r.text)
+        self.assertNotIn("/api/v1/admin/detail", r.text)
 
     def test_admin_requires_login(self):
         r = self.client.get("/admin")
@@ -55,10 +55,10 @@ class TestServerAuth(unittest.TestCase):
         self.assertTrue((r.headers.get("location") or "").startswith("/login"))
 
     def test_detail_401_without_session(self):
-        r = self.client.get("/api/detail?table=收入明细")
+        r = self.client.get("/api/v1/admin/detail?table=收入明细")
         self.assertIn(
             r.status_code, (401, 303)
-        )  # form 登录失败可 303 回 /login            # ★验收：未登录 curl /api/detail 得 401
+        )  # form 登录失败可 303 回 /login            # ★验收：未登录 curl /api/v1/admin/detail 得 401
 
     def test_login_wrong_password(self):
         r = self.client.post("/admin/login", data={"account": "lushasha", "password": "错的"})
@@ -70,8 +70,8 @@ class TestServerAuth(unittest.TestCase):
         cookie = (r.cookies.get(getattr(server, "SID_COOKIE", "kanban_sid")) or r.cookies.get(server.COOKIE))
         self.assertTrue(cookie)
         hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
-        # 带会话 → /api/detail 200；/admin 出 Vue SPA 管理壳
-        r2 = self.client.get("/api/detail?table=收入明细", headers=hdr)
+        # 带会话 → /api/v1/admin/detail 200；/admin 出 Vue SPA 管理壳
+        r2 = self.client.get("/api/v1/admin/detail?table=收入明细", headers=hdr)
         self.assertEqual(r2.status_code, 200)
         self.assertIn("columns", r2.json())
         r3 = self.client.get("/admin", headers=hdr)
@@ -86,7 +86,7 @@ class TestServerAuth(unittest.TestCase):
 
         payload = base64.urlsafe_b64encode(b"\xe6\x98\x8e\xe6\x98\x8a|9999999999").decode()
         r = self.client.get(
-            "/api/detail?table=收入明细", headers={"Cookie": f"{server.COOKIE}={payload}.deadbeefbadsig"}
+            "/api/v1/admin/detail?table=收入明细", headers={"Cookie": f"{server.COOKIE}={payload}.deadbeefbadsig"}
         )
         self.assertEqual(r.status_code, 401)
 

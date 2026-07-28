@@ -40,4 +40,4 @@ v1.5+：生产固定 shell；unittest 直出 HTML 便于断言（不再用 `KANB
 
 ## 既有管理端 API
 
-`/api/manual*` `/api/alloc_ratios` `/api/detax_rates` `/api/detail` `/api/refresh*` `/api/settings` `/api/update/*` 等**保留**，行为与 v1.3.1 一致。
+`/api/v1/admin/manual*` `/api/v1/admin/alloc_rates` `/api/v1/admin/detax_rates` `/api/v1/admin/detail` `/api/refresh*` `/api/v1/admin/settings` `/api/update/*` 等**保留**，行为与 v1.3.1 一致。

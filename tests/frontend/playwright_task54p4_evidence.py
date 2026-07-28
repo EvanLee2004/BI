@@ -278,10 +278,10 @@ def main() -> int:
                 # 已登录 cookie 真 POST（非 TestClient）——保底写路径证据
                 api_write = page.evaluate(
                     """async () => {
-                      const g = await fetch('/api/accounts', {credentials:'same-origin'});
+                      const g = await fetch('/api/v1/admin/accounts', {credentials:'same-origin'});
                       const j = await g.json();
                       if (!g.ok) return {get: g.status};
-                      const r = await fetch('/api/accounts', {
+                      const r = await fetch('/api/v1/admin/accounts', {
                         method:'POST', credentials:'same-origin',
                         headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({accounts: j.accounts||[]})
@@ -340,7 +340,7 @@ def main() -> int:
             results["admin_detail_url"] = page.url
             api_st = page.evaluate(
                 """async () => {
-                  const r = await fetch('/api/accounts', {credentials:'same-origin'});
+                  const r = await fetch('/api/v1/admin/accounts', {credentials:'same-origin'});
                   const j = await r.json().catch(()=>({}));
                   return {status: r.status, n: (j.accounts||[]).length};
                 }"""
@@ -349,7 +349,7 @@ def main() -> int:
             page.goto(f"{BASE}/admin/logout", wait_until="networkidle")
             page.wait_for_timeout(400)
             results["F2_logout_accounts"] = page.evaluate(
-                """async () => (await fetch('/api/accounts', {credentials:'same-origin'})).status"""
+                """async () => (await fetch('/api/v1/admin/accounts', {credentials:'same-origin'})).status"""
             )
             shot(page, "sec/after_logout.png", False)
             page.goto(f"{BASE}/static/admin/admin.html", wait_until="networkidle")
@@ -420,9 +420,9 @@ def main() -> int:
               const o = {};
               let r = await fetch('/api/v1/vm/cockpit', {credentials:'same-origin'});
               o.vm_cockpit = r.status;
-              r = await fetch('/api/accounts', {credentials:'same-origin'});
+              r = await fetch('/api/v1/admin/accounts', {credentials:'same-origin'});
               o.accounts = r.status;
-              r = await fetch('/api/detail?table=' + encodeURIComponent('收入明细'), {credentials:'same-origin'});
+              r = await fetch('/api/v1/admin/detail?table=' + encodeURIComponent('收入明细'), {credentials:'same-origin'});
               o.detail = r.status;
               return o;
             }"""

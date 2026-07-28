@@ -88,7 +88,7 @@ class TestAllocPanelApi(unittest.TestCase):
 
     def test_get_panel_has_details_and_defaults(self):
         c = self._login_admin()
-        r = c.get("/api/alloc_ratios", params={"month": "2026-07"})
+        r = c.get("/api/v1/admin/alloc_rates", params={"month": "2026-07"})
         self.assertEqual(r.status_code, 200, r.text[:400])
         d = r.json()
         self.assertIn("bus", d)
@@ -102,7 +102,7 @@ class TestAllocPanelApi(unittest.TestCase):
         c = self._login_admin()
         # 先写默认比例
         r0 = c.post(
-            "/api/alloc_ratios",
+            "/api/v1/admin/alloc_rates",
             json={
                 "归属月": "2026-07",
                 "ratios": {"数据部": 20, "游戏部": 10},
@@ -119,7 +119,7 @@ class TestAllocPanelApi(unittest.TestCase):
                 "房租物业": {"mode": "比例", "values": {"数据部": 50, "游戏部": 30}},
             },
         }
-        r = c.post("/api/alloc_ratios", json=body)
+        r = c.post("/api/v1/admin/alloc_rates", json=body)
         self.assertEqual(r.status_code, 200, r.text[:500])
         d = r.json()
         self.assertEqual(d.get("status"), "ok")
@@ -144,7 +144,7 @@ class TestAllocPanelApi(unittest.TestCase):
     def test_reject_over_ratio_and_over_amount(self):
         c = self._login_admin()
         r = c.post(
-            "/api/alloc_ratios",
+            "/api/v1/admin/alloc_rates",
             json={
                 "归属月": "2026-07",
                 "detail_rules": {
@@ -158,11 +158,11 @@ class TestAllocPanelApi(unittest.TestCase):
         self.assertEqual(r.status_code, 400, r.text[:300])
         # 金额超额：先设覆盖 10 元，再配 8+5
         c.post(
-            "/api/alloc_ratios",
+            "/api/v1/admin/alloc_rates",
             json={"归属月": "2026-07", "overrides": {"装修费": 10.0}},
         )
         r2 = c.post(
-            "/api/alloc_ratios",
+            "/api/v1/admin/alloc_rates",
             json={
                 "归属月": "2026-07",
                 "detail_rules": {

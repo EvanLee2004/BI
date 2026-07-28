@@ -34,19 +34,22 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.7.0 · 2026-07-28）
+## 当前状态（2.7.1 · 2026-07-28）
 
-- **版本**：`VERSION` = **2.7.0**（架构双源命名空间 + 算账旁路 int + 文档 SSOT + 前端 v1/token）。其上：2.6.13 费用/税前 SSOT；2.6.12 月钻+密码；2.6.11 展开层。
-- **API 契约（2.7.0）**：
-  - **收入毛利榜**（ProfitStructure）：`GET /api/v1/rankings/profit`（主路径）；兼容 `GET /api/profit_ranking`（同 handler）。
-  - **下单回款榜**（RankingsDual）：`GET /api/v1/rankings/full`（**禁止**与收入毛利榜合并）。
-  - **管理端明细全列**：`GET /api/detail*`；v1 别名 `GET /api/v1/admin/detail`（转发）。
-  - **看端费用明细白名单**：`GET /api/v1/vm/ledger*`（任何会话 force_whitelist）。
-- **render / fragments**：`src/render*.py` = 导出/服务端碎片/测试辅助，**非**看端主 UI；看端主路径 = `/api/v1/vm/*`；`/api/v1/cockpit/fragments` 冷启动可懒构建（路由已保底）。
-- **进程 / 会话**：生产 **单 worker**（`_state`）；多 worker 未支持。`kanban_sid` 主会话；legacy cookie 兼容至 **2026-08-15**（锚点+21 天；窗口内不删读路径）。
-- **算账 SSOT（2.6.13）**：`expense_totals_from_man_led` + `pretax_profit_fen`；core/structure 金额旁路 int 分（2.7.0 C）。
-- **排名月钻（2.6.12）**：`RankList` 前十与完整排名弹层同 click 契约。
-- **展开层铁律（2.6.11）**：抽屉基座 CSS 在 SPA tokens；structure expandable 透传；`#periodSync` 禁常驻 will-change。
+- **版本**：`VERSION` = **2.7.1**（干净目标态：无旧 cookie 认证、业务读仅 v1、只 vue）。其上：2.7.0 架构双源/int/文档；2.6.13 费用/税前 SSOT。
+- **上机后须重登**：旧 `kanban_session`/`kanban_view` **不能**维持登录；只认 **`kanban_sid`**。登录写 sid 并 delete 旧名。
+- **读 API 地图（业务读仅 `/api/v1/*`）**：
+  - 收入毛利榜：`GET /api/v1/rankings/profit`（**禁止**与下单回款 full 合并）
+  - 下单回款榜：`GET /api/v1/rankings/full`
+  - 管理端明细全列：`GET /api/v1/admin/detail` · `…/values` · `…/export`
+  - 看端费用明细白名单：`GET /api/v1/vm/ledger*`
+  - 日查/历史/异常/配置/手填/预算/账号/导出等：见 `docs/softeng/07_HTTP接口清单_全端点.md` 与路由；**旧 `/api/*` 业务 GET 已删 → 404**
+  - **例外（非 v1 可留）**：`GET /api/health`、`GET /api/refresh_status`
+  - **写路径 POST**（adjust/manual/budget/refresh/settings 等）：本刀以读干净为硬门闩；部分已随前端迁到 `/api/v1/admin/*`，其余仍 `/api/*`（见交付报告「写路径未迁清单」）
+- **前端模式**：只 **vue**；无 `frontend_mode==legacy` HTML 建造。
+- **render / fragments**：`src/render*.py` = 导出/碎片/测试辅助，**非**看端主 UI；看端 = `/api/v1/vm/*`。
+- **进程**：生产 **单 worker**；多 worker 未支持。
+- **算账 SSOT（2.6.13）**：`expense_totals_from_man_led` + `pretax_profit_fen`；core/structure int 分（2.7.0 C）；保留 `_legacy_定位键`。
 - **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿（**禁管道吞退出码**）；只推 main 不推 tags；**前端零金额运算**。
 - **部署**：`docs/Runbook.md` §0；文档 SSOT 见 `docs/文档SSOT指针.md`。
 
@@ -58,7 +61,7 @@
 4. **动效时长** 必须 `var(--dur-*)`（F-3）；禁止 `transition: .3s` 字面量。
 5. **RankBar 副数值列** 无 `metaLabel` 不许渲染（F-4）；收入榜系统成本率列头小字 + 悬浮解释「项目成本 ÷ 交付收入」。
 6. **排名弹层** 逻辑只收敛在 `RankList`（按需 fetch / 加载中 / 失败）；禁止业务组件各自读 `full_items` 无兜底。
-7. **收入毛利榜** `GET /api/v1/rankings/profit`（兼容 `/api/profit_ranking`）：未登录 401；已登录无权限 403；有 `bu` 须能看该 BU 且只返回本 BU 销售过滤行。**下单回款榜**另走 `/api/v1/rankings/full`，禁止合并。
+7. **收入毛利榜** `GET /api/v1/rankings/profit`（2.7.1 唯一路径）：未登录 401；已登录无权限 403；有 `bu` 须能看该 BU 且只返回本 BU 销售过滤行。**下单回款榜**另走 `/api/v1/rankings/full`，禁止合并。
 8. **切 BU 过场**：1s、文案「正在计算 XX BU 数据……」、可跳过、reduced-motion；过场中 KPI 不 count-up 连播。
 9. **「整体」导航按钮**：仅 `can_main`/管理员可见。
 10. **ECharts** 只留给真正图表（趋势/费用/热力）；排名条用 CSS RankBar。

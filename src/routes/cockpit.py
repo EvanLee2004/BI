@@ -256,7 +256,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     ):
         """任务书50·B：看端费用明细 VM。
         **任何会话（含管理员）一律白名单列**——管理员也走 view/view_bu，不走管理端全列。
-        管理端数据调整仍用 /api/detail（audience=admin）。
+        管理端数据调整仍用 /api/v1/admin/detail（audience=admin）。
         任务书51·B4：鉴权统一 resolve_expense_view_access(force_whitelist=True)。
         任务书56·R-45：默认仅期间费用白名单大类（与图表口径一致）；show_all=1 显示台账全量。
         任务书58·R-50：date_from/date_to 按收单日期日级闭区间（优先看端）；month_from/to 归属月仍兼容。"""

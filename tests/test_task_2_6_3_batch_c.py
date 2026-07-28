@@ -47,7 +47,7 @@ class TestC1WriteLock409(unittest.TestCase):
                     f"{(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"
                 }
                 resp = client.post(
-                    "/api/manual",
+                    "/api/v1/admin/manual",
                     headers=hdr,
                     json={"归属月": "2026-07", "项目": "装修费", "金额": 1, "范围": "全公司"},
                 )

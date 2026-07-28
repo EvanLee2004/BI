@@ -18,7 +18,7 @@ async function load(resetPage = false) {
   loading.value = true
   try {
     const d = await jget<{ pages: number; total: number; rows: Record<string, unknown>[] }>(
-      `/api/detail?table=${encodeURIComponent('费用明细')}&unclassified=1&page=${page.value}&page_size=${pageSize}`,
+      `/api/v1/admin/detail?table=${encodeURIComponent('费用明细')}&unclassified=1&page=${page.value}&page_size=${pageSize}`,
     )
     pages.value = Math.max(1, Number(d.pages) || 1)
     total.value = Number(d.total) || 0

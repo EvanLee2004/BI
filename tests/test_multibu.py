@@ -177,7 +177,7 @@ class TestServerMultiBu(unittest.TestCase):
 
     def test_bu_account_not_main(self):
         c = self._login("multi")
-        self.assertEqual(c.get("/api/daily").status_code, 403)
+        self.assertEqual(c.get("/api/v1/daily").status_code, 403)
 
     def test_all_bound_removed(self):
         c = self._login("ghost")

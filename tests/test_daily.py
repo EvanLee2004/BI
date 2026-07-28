@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""v7.5 按天明细测试（迭代计划13批次B）：compute_daily 守恒/边界 + /api/daily 只读接口校验 + 前端入口。
+"""v7.5 按天明细测试（迭代计划13批次B）：compute_daily 守恒/边界 + /api/v1/daily 只读接口校验 + 前端入口。
 跑：.venv/bin/python tests/test_daily.py
 
 守卫点：
 - ∑按天 == compute_orders/compute_receipts 同区间合计（守恒红线）
 - 空区间/单日边界/非法入参（格式/顺序/超366天）
-- 接口纯只读：POST /api/daily 不存在（405）；v7.8 起须整体页/管理员会话（未登录 401）
+- 接口纯只读：POST /api/v1/daily 不存在（405）；v7.8 起须整体页/管理员会话（未登录 401）
 - 用户页含「按天明细」入口与面板；显示串由后端下发（days/totals/rankings 全是 *_disp）
 """
 
@@ -150,12 +150,12 @@ class TestDailyEndpoint(unittest.TestCase):
         assert r.status_code == 303
 
     def test_requires_viewer_session(self):
-        """v7.8：/api/daily 是全公司口径出口，未登录 401（防拿 BU 链接的人绕过页面隔离）。"""
-        r = self.raw.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31"})
+        """v7.8：/api/v1/daily 是全公司口径出口，未登录 401（防拿 BU 链接的人绕过页面隔离）。"""
+        r = self.raw.get("/api/v1/daily", params={"start": "2026-03-01", "end": "2026-03-31"})
         self.assertEqual(r.status_code, 401)
 
     def test_public_and_display_strings(self):
-        r = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31"})
+        r = self.anon.get("/api/v1/daily", params={"start": "2026-03-01", "end": "2026-03-31"})
         self.assertEqual(r.status_code, 200)
         d = r.json()
         self.assertEqual(len(d["days"]), 3)
@@ -179,22 +179,22 @@ class TestDailyEndpoint(unittest.TestCase):
             {"start": "2025-01-01", "end": "2026-03-01"},
             {"start": "", "end": ""},
         ):
-            r = self.anon.get("/api/daily", params=q)
+            r = self.anon.get("/api/v1/daily", params=q)
             self.assertEqual(r.status_code, 400, q)
 
     def test_read_only_no_write_route(self):
-        self.assertEqual(self.anon.post("/api/daily", json={}).status_code, 405)
+        self.assertEqual(self.anon.post("/api/v1/daily", json={}).status_code, 405)
 
     def test_top_param_full_ranking(self):
         """top=2000 拿全量（「其余点开看明细」用）：items 含全部名字、others 消失；top 越界被钳制不报错。"""
-        r = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "2000"})
+        r = self.anon.get("/api/v1/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "2000"})
         d = r.json()
         rk = d["rankings"]["orders_by_sales"]
         self.assertIsNone(rk["others"])
         self.assertEqual({i["name"] for i in rk["items"]}, {"张三", "李四", "王五"})
-        r2 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "999999"})
+        r2 = self.anon.get("/api/v1/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "999999"})
         self.assertEqual(r2.status_code, 200)
-        r3 = self.anon.get("/api/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "1"})
+        r3 = self.anon.get("/api/v1/daily", params={"start": "2026-03-01", "end": "2026-03-31", "top": "1"})
         self.assertIsNotNone(r3.json()["rankings"]["orders_by_sales"]["others"])
 
 
@@ -239,7 +239,7 @@ class TestDailyFrontend(unittest.TestCase):
 
         js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         for token in (
-            "/api/daily",
+            "/api/v1/daily",
             "_syncDailyDates",
             "restoreYear",
             "yearRange",
@@ -267,7 +267,7 @@ class TestDailyFrontend(unittest.TestCase):
             self.assertNotIn(bad, js)
 
     def test_bu_page_daily_is_bu_scoped(self):
-        """任务书39·B/C + 铁律12：BU 页可有「按时间段看」，但只走 /api/bu_daily，零 /api/daily 全公司。
+        """任务书39·B/C + 铁律12：BU 页可有「按时间段看」，但只走 /api/v1/bu_daily，零 /api/v1/daily 全公司。
         允许本地「其余」弹窗（rkModal + 预渲染 full）。"""
         import assets
         import render
@@ -291,15 +291,15 @@ class TestDailyFrontend(unittest.TestCase):
 
         bu_js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit-bu.js").read_text(encoding="utf-8")
         # 全公司动态口不得出现在 BU 页 HTML / 脚本
-        for leak in ("/api/daily", "/api/profit_ranking"):
+        for leak in ("/api/v1/daily", "/api/v1/rankings/profit"):
             self.assertNotIn(leak, h, leak)
-            # 脚本里可用字面量拼 /api/bu_daily，但不得裸 /api/daily 字符串
-            if leak == "/api/daily":
-                self.assertNotIn('"/api/daily"', bu_js.replace("/api/bu_daily", ""))
-                self.assertNotIn("'/api/daily'", bu_js.replace("/api/bu_daily", ""))
+            # 脚本里可用字面量拼 /api/v1/bu_daily，但不得裸 /api/v1/daily 字符串
+            if leak == "/api/v1/daily":
+                self.assertNotIn('"/api/v1/daily"', bu_js.replace("/api/v1/bu_daily", ""))
+                self.assertNotIn("'/api/v1/daily'", bu_js.replace("/api/v1/bu_daily", ""))
             else:
                 self.assertNotIn(leak, bu_js, leak)
-        self.assertIn("/api/bu_daily", bu_js)
+        self.assertIn("/api/v1/bu_daily", bu_js)
         self.assertIn('src="/static/js/cockpit-bu.js"', h)
         self.assertIn("rkModal", h)
         self.assertIn("openFull", bu_js)

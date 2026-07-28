@@ -45,7 +45,7 @@ function fetchFull(side: RankSide) {
       store.scope === 'bu' && store.buName
         ? `&bu=${encodeURIComponent(store.buName)}`
         : ''
-    // 2.7.0：收入毛利榜走 v1；旧 /api/profit_ranking 仍兼容同实现
+    // 2.7.0：收入毛利榜走 v1；旧 /api/v1/rankings/profit 仍兼容同实现
     const r = await fetch(
       `/api/v1/rankings/profit?dim=${encodeURIComponent(dim)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&top=5000${buQ}`,
       { credentials: 'same-origin' },

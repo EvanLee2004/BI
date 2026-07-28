@@ -1,43 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.6.0：单会话 resolve + 21 天遗留 cookie 兼容。
+"""2.7.1：单会话 resolve 仅 kanban_sid（无旧 cookie 读、无 21 天窗）。
 
-2.7.0 铁律：
-- 生产 **单 worker**（`_state` 进程内缓存；多 worker 未支持，勿上 Redis 当本单范围）。
-- legacy cookie（`kanban_session`/`kanban_view`）可读窗口：锚点 `session_legacy_compat_since`
-  + `SESSION_LEGACY_COMPAT_DAYS`（21 天）。锚点 2026-07-25 → **至 2026-08-15 前**勿删读路径。
+2.7.1 铁律：
+- 生产 **单 worker**（`_state` 进程内缓存；多 worker 未支持）。
+- 身份解析**只认** `kanban_sid`；`kanban_session`/`kanban_view` 不再维持登录。
+- 登录/升级写 sid 并 **delete** 旧 cookie 名；退出清 sid + 两旧名。
+- 用户须重登一次（旧 cookie 无法续会话）。
 
-参考：OWASP Session Management Cheat Sheet（HttpOnly/SameSite、改密使会话失效已由 pw_ver 覆盖）；
-MDN Set-Cookie（path 与 delete 一致）。
-
+参考：OWASP Session Management；MDN Set-Cookie（path 与 delete 一致）。
 权限永不写入 cookie 名：角色一律账号表 + authz。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
-from pathlib import Path
+from datetime import date
 from typing import Any
 
 import accounts
 import auth_session
 import authz
-import loaders
 from app_state import (
     COOKIE,
-    SESSION_LEGACY_COMPAT_DAYS,
-    SESSION_LEGACY_COMPAT_SINCE_FILE,
     SESSION_TTL,
     SID_COOKIE,
     VCOOKIE,
 )
 
-# 测试可注入「今天」
+# 测试可注入「今天」（保留 API，兼容旧测桩）
 _today_override: date | None = None
 
 
 def set_today_override(d: date | None) -> None:
-    """单测用：固定「今天」以测兼容窗外。"""
+    """单测用：固定「今天」。"""
     global _today_override
     _today_override = d
 
@@ -46,53 +41,13 @@ def today() -> date:
     return _today_override if _today_override is not None else date.today()
 
 
-def compat_since_path(cfg, root=None) -> Path:
-    return loaders.data_dir(cfg, root) / SESSION_LEGACY_COMPAT_SINCE_FILE
-
-
-def ensure_compat_since(cfg, root=None, *, since: date | None = None) -> date:
-    """读或写入兼容锚点日（默认今天）。上机首次 2.6.0 应落到生产日。"""
-    p = compat_since_path(cfg, root)
-    if p.is_file():
-        try:
-            raw = p.read_text(encoding="utf-8").strip().split()[0]
-            return date.fromisoformat(raw[:10])
-        except (ValueError, OSError, IndexError):
-            pass
-    d = since or today()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(d.isoformat() + "\n", encoding="utf-8")
-    try:
-        p.chmod(0o600)
-    except OSError:
-        pass
-    return d
-
-
-def compat_until(cfg, root=None) -> date:
-    since = ensure_compat_since(cfg, root)
-    return since + timedelta(days=SESSION_LEGACY_COMPAT_DAYS)
-
-
-def legacy_compat_active(cfg, root=None, *, on: date | None = None) -> bool:
-    """on < since+21 天（含 since 当天起算 21 个自然日的窗口）。
-
-    窗口定义：自 since 日起共 SESSION_LEGACY_COMPAT_DAYS 天可读旧 cookie；
-    即 on ∈ [since, since+DAYS) 时 active（第 0 天～第 20 天 = 21 天）。
-    若需含第 21 天整天，用 on <= since+DAYS-1 等价 on < since+DAYS。
-    """
-    on = on or today()
-    since = ensure_compat_since(cfg, root)
-    return on < since + timedelta(days=SESSION_LEGACY_COMPAT_DAYS)
-
-
 @dataclass(frozen=True)
 class AccountContext:
     account: str
     row: dict
     is_admin: bool
-    source: str  # sid | legacy_session | legacy_view
-    needs_upgrade: bool
+    source: str  # sid only (2.7.1)
+    needs_upgrade: bool  # 恒 False；保留字段兼容调用方
 
     @property
     def can_main(self) -> bool:
@@ -123,13 +78,13 @@ def resolve_session(
     sec: dict,
     cfg,
     root=None,
-    on: date | None = None,
+    on: date | None = None,  # noqa: ARG001 — 保留签名兼容
 ) -> AccountContext | None:
     """唯一身份解析。cookies 为 request.cookies 或 dict。
 
-    顺序：sid →（窗内）legacy session → legacy view。
-    新旧并存：只认 sid。两旧并存：优先 session。
+    2.7.1：只认 kanban_sid；忽略 legacy cookie。
     """
+
     def get(name: str) -> str:
         try:
             return str(cookies.get(name) or "")
@@ -137,50 +92,23 @@ def resolve_session(
             return ""
 
     sid = get(SID_COOKIE)
-    if sid:
-        hit = _subject_from_token(sec, sid, cfg, root)
-        if hit:
-            name, acc = hit
-            return AccountContext(
-                account=name,
-                row=acc,
-                is_admin=authz.is_admin(acc),
-                source="sid",
-                needs_upgrade=False,
-            )
-
-    if not legacy_compat_active(cfg, root, on=on):
+    if not sid:
         return None
-
-    leg_s = get(COOKIE)
-    leg_v = get(VCOOKIE)
-    if leg_s:
-        hit = _subject_from_token(sec, leg_s, cfg, root)
-        if hit:
-            name, acc = hit
-            return AccountContext(
-                account=name,
-                row=acc,
-                is_admin=authz.is_admin(acc),
-                source="legacy_session",
-                needs_upgrade=True,
-            )
-    if leg_v:
-        hit = _subject_from_token(sec, leg_v, cfg, root)
-        if hit:
-            name, acc = hit
-            return AccountContext(
-                account=name,
-                row=acc,
-                is_admin=authz.is_admin(acc),
-                source="legacy_view",
-                needs_upgrade=True,
-            )
-    return None
+    hit = _subject_from_token(sec, sid, cfg, root)
+    if not hit:
+        return None
+    name, acc = hit
+    return AccountContext(
+        account=name,
+        row=acc,
+        is_admin=authz.is_admin(acc),
+        source="sid",
+        needs_upgrade=False,
+    )
 
 
 def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str):
-    """登录/升级：只写 kanban_sid，删两旧名。"""
+    """登录：只写 kanban_sid，删两旧名。"""
     acc = accounts.find_account(cfg, root, account)
     tok = auth_session.make_token(sec, account, pw_ver=accounts.password_version_of(acc))
     resp.set_cookie(
@@ -192,7 +120,6 @@ def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str):
         path="/",
     )
     clear_legacy_cookies(resp)
-    # 再清一次 sid 以外的旧名（clear 已含）
     return resp
 
 

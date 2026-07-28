@@ -6,9 +6,9 @@
 - 账号表读写/缺文件自动 seed；账号名唯一；一个 BU 可挂多账号
 - `/` 登录按权限分流：管理员→/admin；整体→整体页；BU→本 BU 页；错号/错密 401 同文案
 - 中文密码不 500（bytes 比较）；cookie 防篡改
-- BU 会话只看本 BU；/api/daily、/export.png 仅整体/管理员；未知 BU 404
+- BU 会话只看本 BU；/api/v1/daily、/export.png 仅整体/管理员；未知 BU 404
 - 自改密码 + 管理员改双向生效；权限改绑即生效；删号即失效
-- 明文密码只在管理员 /api/accounts 出现；黄标=初始密码；自改弹窗文案
+- 明文密码只在管理员 /api/v1/admin/accounts 出现；黄标=初始密码；自改弹窗文案
 - /admin 无身份下拉，账号+密码；经手人=登录账号
 """
 
@@ -233,12 +233,12 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_company_endpoints_gated(self):
         q = {"start": "2026-03-01", "end": "2026-03-31"}
-        self.assertEqual(self.raw.get("/api/daily", params=q).status_code, 401)
+        self.assertEqual(self.raw.get("/api/v1/daily", params=q).status_code, 401)
         self.assertEqual(self.raw.get("/export.png").status_code, 401)
         cbu, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertEqual(cbu.get("/api/daily", params=q).status_code, 403)  # 2.6.7 D-10 已登录无权限
+        self.assertEqual(cbu.get("/api/v1/daily", params=q).status_code, 403)  # 2.6.7 D-10 已登录无权限
         cmain, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        self.assertEqual(cmain.get("/api/daily", params=q).status_code, 200)
+        self.assertEqual(cmain.get("/api/v1/daily", params=q).status_code, 200)
 
     # ---- 自改 + 管理员改 ----
     def test_self_change_password(self):
@@ -259,7 +259,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(new.status_code, 303)
         # 任务书64·P：管理员端下发明文；新密码可登录、初始标清除
         a = self._admin()
-        rows = a.get("/api/accounts").json()["accounts"]
+        rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
         self.assertEqual(row.get("密码"), "newpw1xx")
         self.assertNotIn("密码哈希", row)
@@ -295,7 +295,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertFalse(body.get("is_admin"), body)
         self.assertEqual(body.get("account"), "user_a")
         # 管理端路径不应仍认管理员
-        self.assertIn(c.get("/api/accounts").status_code, (401, 403))
+        self.assertIn(c.get("/api/v1/admin/accounts").status_code, (401, 403))
 
     def test_t60_3_cookie_mutual_clear_view_then_admin(self):
         """T-60-3 反向：看端→管理员后为管理员。"""
@@ -314,11 +314,11 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_admin_change_password_via_accounts_api(self):
         a = self._admin()
-        rows = a.get("/api/accounts").json()["accounts"]
+        rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         for r in rows:
             if r["账号"] == "user_a":
                 r["密码"] = "adminset1"
-        r = a.post("/api/accounts", json={"accounts": rows})
+        r = a.post("/api/v1/admin/accounts", json={"accounts": rows})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("user_a", server.DEFAULT_VIEW_PW)
         self.assertIn(old.status_code, (401, 303))
@@ -353,11 +353,11 @@ class TestViewerAuth(unittest.TestCase):
         self.assertFalse(baks)
 
     def test_no_legacy_reset_password_path(self):
-        """旧路径 /api/accounts/reset_password 仍 404；新路径 reset_passwd 可用。"""
+        """旧路径 /api/v1/admin/accounts/reset_password 仍 404；新路径 reset_passwd 可用。"""
         a = self._admin()
-        r = a.post("/api/accounts/reset_password", json={"账号": "overall"})
+        r = a.post("/api/v1/admin/accounts/reset_password", json={"账号": "overall"})
         self.assertEqual(r.status_code, 404)
-        r2 = a.post("/api/accounts/overall/reset_passwd", json={})
+        r2 = a.post("/api/v1/admin/accounts/overall/reset_passwd", json={})
         self.assertEqual(r2.status_code, 200, r2.text)
         plain = r2.json().get("password") or ""
         self.assertEqual(len(plain), 10)
@@ -366,11 +366,11 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_rebind_permission_takes_effect(self):
         a = self._admin()
-        rows = a.get("/api/accounts").json()["accounts"]
+        rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         for r in rows:
             if r["账号"] == "user_a":
                 r["权限"] = "BU乙"
-        self.assertEqual(a.post("/api/accounts", json={"accounts": rows}).status_code, 200)
+        self.assertEqual(a.post("/api/v1/admin/accounts", json={"accounts": rows}).status_code, 200)
         c, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
         r0 = c.get("/")
         # 重绑后可能 303 到 BU 或 shell；数据看 fragments
@@ -389,29 +389,29 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_delete_account_invalidates(self):
         a = self._admin()
-        rows = [r for r in a.get("/api/accounts").json()["accounts"] if r["账号"] != "user_a"]
-        self.assertEqual(a.post("/api/accounts", json={"accounts": rows}).status_code, 200)
+        rows = [r for r in a.get("/api/v1/admin/accounts").json()["accounts"] if r["账号"] != "user_a"]
+        self.assertEqual(a.post("/api/v1/admin/accounts", json={"accounts": rows}).status_code, 200)
         _, r = self._login("user_a", server.DEFAULT_VIEW_PW)
         self.assertIn(r.status_code, (401, 303))  # 删号后 form 登录失败
 
     def test_plaintext_only_on_admin_accounts_api(self):
         # 未登录
-        self.assertEqual(self.raw.get("/api/accounts").status_code, 401)
+        self.assertEqual(self.raw.get("/api/v1/admin/accounts").status_code, 401)
         # BU 会话
         cbu, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
-        self.assertEqual(cbu.get("/api/accounts").status_code, 401)
+        self.assertEqual(cbu.get("/api/v1/admin/accounts").status_code, 401)
         # 整体会话
         cmain, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        self.assertEqual(cmain.get("/api/accounts").status_code, 401)
+        self.assertEqual(cmain.get("/api/v1/admin/accounts").status_code, 401)
         # 设置/BU 配置不下发明文看板密码
         a = self._admin()
-        settings = a.get("/api/settings").json()
+        settings = a.get("/api/v1/admin/settings").json()
         self.assertNotIn("密码", json.dumps(settings, ensure_ascii=False))
-        for b in a.get("/api/bu_config").json()["bus"]:
+        for b in a.get("/api/v1/admin/bu_config").json()["bus"]:
             self.assertNotIn("密码", b)
             self.assertNotIn("密码hash", b)
         # 管理员 accounts：任务书64·P 下发明文密码；非管理员/设置接口仍无
-        rows = a.get("/api/accounts").json()["accounts"]
+        rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         self.assertTrue(rows)
         for r in rows:
             self.assertIn("密码", r)
@@ -440,14 +440,14 @@ class TestViewerAuth(unittest.TestCase):
 
     def test_initial_password_yellow_flag(self):
         a = self._admin()
-        rows = a.get("/api/accounts").json()["accounts"]
+        rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         init = [r for r in rows if r["账号"] == "overall"][0]
         self.assertTrue(init["初始密码"])
         for r in rows:
             if r["账号"] == "overall":
                 r["密码"] = "changed9"
-        a.post("/api/accounts", json={"accounts": rows})
-        again = [r for r in a.get("/api/accounts").json()["accounts"] if r["账号"] == "overall"][0]
+        a.post("/api/v1/admin/accounts", json={"accounts": rows})
+        again = [r for r in a.get("/api/v1/admin/accounts").json()["accounts"] if r["账号"] == "overall"][0]
         self.assertFalse(again["初始密码"])
 
     def test_admin_console_has_accounts_card_unified_save(self):
@@ -491,7 +491,7 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(r.headers.get("location"), "/admin")
         # 换 admin 表单登录同样成功
         a = self._admin()
-        self.assertEqual(a.get("/api/accounts").status_code, 200)
+        self.assertEqual(a.get("/api/v1/admin/accounts").status_code, 200)
 
     def test_bu_config_no_password_column_persists_clean(self):
         saved = bu.save_bu_config(

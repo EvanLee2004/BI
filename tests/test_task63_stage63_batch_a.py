@@ -58,7 +58,7 @@ class TestF02BatchAtomicity(unittest.TestCase):
         conn.close()
 
         r = self.client.post(
-            "/api/manual_batch",
+            "/api/v1/admin/manual_batch",
             headers=self.hdr,
             json={
                 "归属月": "2026-07",
@@ -83,7 +83,7 @@ class TestF02BatchAtomicity(unittest.TestCase):
 
     def test_manual_batch_all_valid_commits(self):
         r = self.client.post(
-            "/api/manual_batch",
+            "/api/v1/admin/manual_batch",
             headers=self.hdr,
             json={
                 "归属月": "2026-08",
@@ -110,7 +110,7 @@ class TestF02BatchAtomicity(unittest.TestCase):
         conn.close()
 
         r = self.client.post(
-            "/api/budget_batch",
+            "/api/v1/admin/budget_batch",
             headers=self.hdr,
             json={
                 "items": [
@@ -134,7 +134,7 @@ class TestF02BatchAtomicity(unittest.TestCase):
 
     def test_budget_batch_all_valid_commits(self):
         r = self.client.post(
-            "/api/budget_batch",
+            "/api/v1/admin/budget_batch",
             headers=self.hdr,
             json={
                 "items": [

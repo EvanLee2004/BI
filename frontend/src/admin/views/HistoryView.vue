@@ -18,7 +18,7 @@ const { page, pages, pageRows, pageInfo, resetPage, prevPage, nextPage } = useCl
 
 async function load() {
   try {
-    list.value = await jget('/api/history')
+    list.value = await jget('/api/v1/history')
     if (!list.value.length) {
       info.value = '还没有历史快照（每次更新后自动生成，明天起就有了）'
       frameSrc.value = 'about:blank'

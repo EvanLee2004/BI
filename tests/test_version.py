@@ -5,7 +5,7 @@
 守卫点（明昊 2026-07-12 拍板·2026-07-13 升 Beta）：
 - 产品版本号唯一源=根目录 VERSION（现 1.0-beta=公测 Beta；0.9=试运行；主版本≥1 无 -beta=正式版），与 git 开发号(v8.x)分开；
 - version 模块：read_version / product_stage / product_label / version_info 结构；changelog 是副本（改不动常量）；
-- `/api/version`：仅管理员会话（无会话/查看端 401），下发 version/stage/label/changelog。
+- `/api/v1/version`：仅管理员会话（无会话/查看端 401），下发 version/stage/label/changelog。
 """
 
 import sys
@@ -112,11 +112,11 @@ class TestVersionApi(unittest.TestCase):
     def test_requires_admin(self):
         # 未登录 → 401
         c = self._client()
-        self.assertEqual(c.get("/api/version").status_code, 401)
+        self.assertEqual(c.get("/api/v1/version").status_code, 401)
         # 2.2.5：展示端会话也可读版本号（顶栏展示用；非敏感）
         cv = self._client()
         cv.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
-        rv = cv.get("/api/version")
+        rv = cv.get("/api/v1/version")
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(rv.json().get("version"), V.PRODUCT_VERSION)
 
@@ -124,7 +124,7 @@ class TestVersionApi(unittest.TestCase):
         c = self._client()
         r = c.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
         self.assertEqual(r.status_code, 303, r.text)
-        d = c.get("/api/version").json()
+        d = c.get("/api/v1/version").json()
         self.assertEqual(d["version"], V.PRODUCT_VERSION)
         self.assertEqual(d["stage"], V.PRODUCT_STAGE)
         self.assertIn(V.PRODUCT_STAGE, d["label"])

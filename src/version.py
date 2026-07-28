@@ -60,6 +60,17 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.7.1",
+        "date": "2026-07-28",
+        "title": "经营看板 2.7.1：干净目标态——只认新会话、业务读只走 v1",
+        "items": [
+            "登录只认 kanban_sid；旧 cookie 不能再自动登录，请重新登录一次。",
+            "业务读接口统一到 /api/v1/*；旧读地址返回 404。",
+            "前端只保留 Vue；去掉 legacy HTML 建造分支。",
+            "运维健康检查 /api/health 与 /api/refresh_status 仍可用。",
+        ],
+    },
+    {
         "version": "2.7.0",
         "date": "2026-07-28",
         "title": "经营看板 2.7.0：接口命名更清楚，文档与内部数字路径收齐",
@@ -800,7 +811,7 @@ def changelog() -> list[dict]:
 
 
 def version_info() -> dict:
-    """给 /api/version 下发的结构：版本号 + 阶段 + 标签 + 更新日志。"""
+    """给 /api/v1/version 下发的结构：版本号 + 阶段 + 标签 + 更新日志。"""
     v = read_version()
     return {
         "version": v,

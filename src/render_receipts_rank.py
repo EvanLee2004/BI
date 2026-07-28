@@ -443,7 +443,7 @@ def _dual_card(title, dual, dim="", embed_full=False):
     return tpl.fill("render/dual_card.html", dim=_esc(dim), title=title, body=body)
 
 def dual_rankings_from_daily(rankings: dict, top: int = 10) -> dict:
-    """任务书39·C：/api/daily 的四维单血条 → 双血条两卡就绪结构（显示串/宽度已算）。
+    """任务书39·C：/api/v1/daily 的四维单血条 → 双血条两卡就绪结构（显示串/宽度已算）。
     自定义区间不带月度下钻（mkey 空；语义：跨任意日段非完整自然月）。"""
     dual_s = _merge_dual_rank(rankings.get("orders_by_sales"), rankings.get("receipts_by_sales"), top=top)
     dual_c = _merge_dual_rank(rankings.get("orders_by_customer"), rankings.get("receipts_by_customer"), top=top)
@@ -581,7 +581,7 @@ def _profit_rank_rows_html(items, show_meta=True):
 
 def _profit_rank_card(title, tag, rk, dim="", show_meta=True, embed_full=False):
     """收入/毛利排名卡：名次 + 名称 + 横条(按收入归一) + 收入 + 系统成本率。金额/率均后端算好，前端零运算（铁律2）。
-    整体页「其余」→ /api/profit_ranking；BU 页 embed_full 预渲染 .pr-full 本地展开（铁律12）。
+    整体页「其余」→ /api/v1/rankings/profit；BU 页 embed_full 预渲染 .pr-full 本地展开（铁律12）。
     show_meta=False → 隐藏成本率列（陆总 0714：按销售的率先不显示，防"人力算不算"连锁追问）。
     用户端不展示「（未填）」行。"""
     items = (rk or {}).get("items") or []

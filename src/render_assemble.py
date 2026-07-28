@@ -199,7 +199,7 @@ def build_bu_dashboard_fragments(bu_name, summary, cfg, logo_b64) -> dict:
 
     bu_exp = filter_expense_monthly_raw_for_charts(bu_exp, cfg)
     expense_trend_html = render_expense_trend(bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类")
-    # 任务书39·B：BU 页同款「按时间段看」（查询走 /api/bu_daily；弹窗壳仍走 rk_modal，避免双份）
+    # 任务书39·B：BU 页同款「按时间段看」（查询走 /api/v1/bu_daily；弹窗壳仍走 rk_modal，避免双份）
     daily_html = tpl.load("partials/daily_panel.html")
     return {
         "title": f"甲骨易经营看板 · {name}",

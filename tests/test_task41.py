@@ -105,7 +105,7 @@ class TestViewWhitelist(unittest.TestCase):
 class TestDetailAudience(_Base):
     def test_view_columns_whitelist(self):
         c = self._login_view()
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50, "year": "2026"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50, "year": "2026"})
         self.assertEqual(r.status_code, 200, r.text)
         cols = r.json()["columns"]
         self.assertEqual(cols, VIEW_COLS)
@@ -124,7 +124,7 @@ class TestDetailAudience(_Base):
 
     def test_export_follows_view(self):
         c = self._login_view()
-        r = c.get("/api/detail_export", params={"table": "费用明细", "year": "2026"})
+        r = c.get("/api/v1/admin/detail/export", params={"table": "费用明细", "year": "2026"})
         self.assertEqual(r.status_code, 200, r.text)
         import openpyxl
         import io
@@ -139,7 +139,7 @@ class TestDetailAudience(_Base):
     def test_month_range_q1(self):
         c = self._login_view()
         r = c.get(
-            "/api/detail",
+            "/api/v1/admin/detail",
             params={
                 "table": "费用明细",
                 "month_from": "2026-01",

@@ -57,7 +57,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def _conn():
         return db.connect(cfg, root)
 
-    @app.get("/api/bu_config")
+    @app.get("/api/v1/admin/bu_config")
     def api_bu_config_get(request: Request):
         """BU 配置（管理员会话）：BU 清单/负责人/销售名单/分摊比例 + 分摊总开关。"""
         _require(request)
@@ -68,7 +68,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "公共费用分摊启用": bool(bucfg.get("公共费用分摊启用")),
         }
 
-    @app.get("/api/sales_pool")
+    @app.get("/api/v1/admin/sales_pool")
     def api_sales_pool(request: Request):
         """四源销售池（管理员·A1 归属页）：供批量/拖拽归属。含配置里有、库里暂无的名字（rows=0）。
         每人带当年下单笔数+金额参考串（服务端算好=铁律2）；顶层带 A3 未归属计数+当年未归属下单额。"""
@@ -101,7 +101,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         people = [{"name": n, "rows": by[n], **_ref(n)} for n in sorted(by.keys(), key=lambda k: (-by[k], k))]
         return {"sales": people, "count": len(people), **snap}
 
-    @app.post("/api/bu_config")
+    @app.post("/api/v1/admin/bu_config")
     def api_bu_config_post(request: Request, payload: dict = Body(default={})):
         """保存 BU 数据归属 + 公共费用分摊，并立即重算重渲染 BU 页（一人一 BU）。C3：变更留痕。
 
@@ -146,7 +146,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "note": "已保存并重算",
         }
 
-    @app.get("/api/config_changes")
+    @app.get("/api/v1/admin/config_changes")
     def api_config_changes(request: Request, category: str | None = None, limit: int = 200):
         """C3 操作记录（管理员）：配置变更留痕倒序，可按类别筛。仅摘要，无密码明文。"""
         _require(request)
@@ -159,7 +159,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/version")
+    @app.get("/api/v1/version")
     def api_version(request: Request):
         """产品版本号 + 更新日志（2.2.5：展示端/管理端任一登录会话可读；非敏感）。
         版本号=根目录 VERSION，与 git 开发号分开。"""
@@ -167,7 +167,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=401, detail="未登录")
         return product_version.version_info()
 
-    @app.get("/api/update/check")
+    @app.get("/api/v1/update/check")
     def api_update_check(request: Request):
         """④ 检测远端有没有新版本（管理员会话）：git fetch + 比对 HEAD 与 <update_remote>/分支。
         对标的远端由 config `update_remote` 决定（默认 origin；部署机从 Gitee clone 则 origin 即 Gitee）。
@@ -195,7 +195,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             res["restarting"] = True
         return res
 
-    @app.get("/api/settings")
+    @app.get("/api/v1/admin/settings")
     def api_settings_get(request: Request):
         _require(request)
         out = {k: cfg.get(k) for k in EDITABLE_SETTINGS}
@@ -214,7 +214,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["backup_stats"] = {"count": len(baks), "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
         return out
 
-    @app.post("/api/settings")
+    @app.post("/api/v1/admin/settings")
     def api_settings_post(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         old_times = get_schedule_times(cfg)
@@ -247,7 +247,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     # 2.6.7 B-7：/api/alerts/ack 与红色未读横幅一并下线；告警仍 append 写 数据/日志/告警.log
 
-    @app.get("/api/archive_export")
+    @app.get("/api/v1/admin/archive_export")
     def api_archive_export(request: Request, year: str = Query("")):
         """审计流水年度导出归档（手填历史/预算历史/配置变更）→ xlsx；不删库内数据。管理员。"""
         _require(request)

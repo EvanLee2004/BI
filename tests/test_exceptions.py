@@ -203,24 +203,24 @@ class TestExceptionEndpoints(unittest.TestCase):
         server.recompute = cls._orig_recompute
 
     def test_endpoints_require_login(self):
-        for p in ("/api/exceptions", "/api/order_depts", "/api/detail?table=%E4%B8%8B%E5%8D%95&unfilled_dept=1"):
+        for p in ("/api/v1/admin/exceptions", "/api/v1/admin/order_depts", "/api/v1/admin/detail?table=%E4%B8%8B%E5%8D%95&unfilled_dept=1"):
             self.assertEqual(self.anon.get(p).status_code, 401, p)
 
     def test_exceptions_summary_endpoint(self):
-        ex = self.client.get("/api/exceptions", headers=self.hdr).json()
+        ex = self.client.get("/api/v1/admin/exceptions", headers=self.hdr).json()
         self.assertEqual(ex["order_unfilled_dept"], 3)
         for k in ("expense_unclassified", "adjust_expired", "adjust_missing"):
             self.assertIn(k, ex)
 
     def test_order_depts_endpoint(self):
-        self.assertEqual(self.client.get("/api/order_depts", headers=self.hdr).json(), ["部门A", "部门B"])
+        self.assertEqual(self.client.get("/api/v1/admin/order_depts", headers=self.hdr).json(), ["部门A", "部门B"])
 
     def test_detail_unfilled_dept_endpoint(self):
-        d = self.client.get("/api/detail", params={"table": "下单", "unfilled_dept": "1"}, headers=self.hdr).json()
+        d = self.client.get("/api/v1/admin/detail", params={"table": "下单", "unfilled_dept": "1"}, headers=self.hdr).json()
         self.assertEqual(d["total"], 3)
 
     def test_detail_unfilled_dept_wrong_table_400(self):
-        r = self.client.get("/api/detail", params={"table": "回款", "unfilled_dept": "1"}, headers=self.hdr)
+        r = self.client.get("/api/v1/admin/detail", params={"table": "回款", "unfilled_dept": "1"}, headers=self.hdr)
         self.assertEqual(r.status_code, 400)
 
     def test_admin_console_renamed_tabs(self):
@@ -254,7 +254,7 @@ class TestExceptionEndpoints(unittest.TestCase):
             },
         )
         self.assertEqual(r.status_code, 200, r.text)
-        adjs = self.client.get("/api/adjustments", headers=self.hdr).json()
+        adjs = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
         a = [x for x in adjs if x["定位键"] == "O3"][0]
         self.assertEqual((a["字段"], a["新值"], a["状态"]), ("部门", "部门A", "生效"))
 

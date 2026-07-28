@@ -4,7 +4,7 @@
 
 - 用户端 `/`：账号+密码登录，按 数据/看板账号.json 权限分流（管理员→/admin、整体→整体页、BU→本 BU 页）。
 - 管理员端 `/admin`：账号 lushasha（或任何权限=管理员的号）+ 密码；经手人=登录账号。
-- `/api/detail`：明细数据，**仅管理员会话内可用**（服务端挡，未登录 401；非前端藏）。
+- `/api/v1/admin/detail`：明细数据，**仅管理员会话内可用**（服务端挡，未登录 401；非前端藏）。
 - `/api/health`：最近一次运行日志（体检状态条数据源）。
 
 安全实现用标准库：会话 HMAC 签名 token；账号明文存 数据/看板账号.json（不进 git）。
@@ -344,21 +344,7 @@ def create_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯路由/装配分�
     # 确保账号文件存在（部署零配置）
     accounts.load_accounts(cfg, root, create=True)
 
-    # 2.6.0：遗留 cookie 命中后静默升级为 kanban_sid（OWASP 会话统一载体）
-    class _SidUpgradeMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request, call_next):
-            resp = await call_next(request)
-            acc = getattr(request.state, "kanban_upgrade_account", None)
-            if acc:
-                try:
-                    import session_ctx as _sc
-
-                    _sc.apply_sid_cookie(resp, sec=sec, cfg=cfg, root=root, account=str(acc))
-                except Exception:
-                    pass
-            return resp
-
-    app.add_middleware(_SidUpgradeMiddleware)
+    # 2.7.1：不再从 legacy cookie 静默升级；仅 kanban_sid 可登录
     # 静态：直连模式挂载；nginx 模式由 nginx 伺服 /static/（serve_static=false）
     if resolve_serve_static(cfg) and STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -439,27 +425,19 @@ def create_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯路由/装配分�
 
     import session_ctx as _session_ctx
 
-    # 2.6.0：确保兼容锚点文件存在（首次创建=今天；上机应在生产日）
-    try:
-        _session_ctx.ensure_compat_since(cfg, root)
-    except OSError:
-        pass
-
     def _session_subject(cookie_val: str) -> str | None:
         """校验单枚 token：签名/过期 + 密码版本与账号表一致（改密踢会话）。"""
         hit = _session_ctx._subject_from_token(sec, cookie_val or "", cfg, root)
         return hit[0] if hit else None
 
     def _resolve(request: Request):
-        """唯一身份解析（缓存于 request.state）。"""
+        """唯一身份解析（缓存于 request.state）。2.7.1：只认 kanban_sid。"""
         cached = getattr(request.state, "kanban_ctx", None)
         if cached is not None or getattr(request.state, "kanban_ctx_resolved", False):
             return cached
         ctx = _session_ctx.resolve_session(request.cookies, sec=sec, cfg=cfg, root=root)
         request.state.kanban_ctx = ctx
         request.state.kanban_ctx_resolved = True
-        if ctx and ctx.needs_upgrade:
-            request.state.kanban_upgrade_account = ctx.account
         return ctx
 
     def _user(request: Request) -> str | None:

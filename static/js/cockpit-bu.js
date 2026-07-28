@@ -210,7 +210,7 @@
 })();
 
 
-/* 任务书39·B/C：BU 页「按时间段看」— 走 /api/bu_daily（本 BU 过滤，零跨界 /api/daily） */
+/* 任务书39·B/C：BU 页「按时间段看」— 走 /api/v1/bu_daily（本 BU 过滤，零跨界 /api/v1/daily） */
 (function(){
   var panel=document.getElementById('dailyPanel');
   if(!panel)return;
@@ -260,7 +260,7 @@
     if(!s||!e){sum.textContent='请选起止日期';return;}
     if(!bu){sum.textContent='缺少 BU';return;}
     sum.textContent='查询中…';
-    var u='/api/bu_daily?bu='+encodeURIComponent(bu)+'&start='+encodeURIComponent(s)+'&end='+encodeURIComponent(e);
+    var u='/api/v1/bu_daily?bu='+encodeURIComponent(bu)+'&start='+encodeURIComponent(s)+'&end='+encodeURIComponent(e);
     fetch(u,{credentials:'same-origin'}).then(function(r){
       if(!r.ok)return r.json().then(function(d){throw new Error(d.detail||('HTTP '+r.status));});
       return r.json();
@@ -371,7 +371,7 @@
     if(next)next.onclick=function(){if(page<pages){page++;load();}};
   }
   function load(){
-    var u="/api/detail?table="+encodeURIComponent("费用明细")+"&page="+page+"&page_size="+pageSize+ctxParams();
+    var u="/api/v1/admin/detail?table="+encodeURIComponent("费用明细")+"&page="+page+"&page_size="+pageSize+ctxParams();
     info.textContent="加载中…";
     fetch(u,{credentials:"same-origin"}).then(function(r){
       if(r.status===401||r.status===403){info.textContent="无权限";return null;}

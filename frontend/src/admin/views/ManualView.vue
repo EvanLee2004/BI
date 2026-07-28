@@ -133,7 +133,7 @@ function detailSumHint() {
 
 async function loadScopes() {
   try {
-    const d0 = await jget<{ bus?: { name: string }[] }>('/api/bu_config')
+    const d0 = await jget<{ bus?: { name: string }[] }>('/api/v1/admin/bu_config')
     buNames.value = (d0.bus || []).map((b) => b.name).filter(Boolean)
   } catch {
     buNames.value = []
@@ -142,7 +142,7 @@ async function loadScopes() {
 
 async function loadItems() {
   try {
-    const d0 = await jget<{ items?: string[] }>('/api/manual_items')
+    const d0 = await jget<{ items?: string[] }>('/api/v1/admin/manual_items')
     items.value = d0.items || []
   } catch {
     items.value = []
@@ -160,7 +160,7 @@ async function load() {
   await Promise.all(
     scopes.value.map(async (sc) => {
       const cur = await jget<{ 项目: string; 金额: unknown }[]>(
-        `/api/manual?month=${encodeURIComponent(m)}&scope=${encodeURIComponent(sc)}`,
+        `/api/v1/admin/manual?month=${encodeURIComponent(m)}&scope=${encodeURIComponent(sc)}`,
       )
       const map: Record<string, unknown> = {}
       ;(cur || []).forEach((x) => {
@@ -204,7 +204,7 @@ async function loadAlloc() {
       }[]
       by_bu_disp?: Record<string, string>
       remain_company_disp?: string
-    }>(`/api/alloc_ratios?month=${encodeURIComponent(m)}`)
+    }>(`/api/v1/admin/alloc_rates?month=${encodeURIComponent(m)}`)
     if (!d0.bus?.length) {
       showAlloc.value = false
       return
@@ -274,7 +274,7 @@ async function loadDetax() {
     const d0 = await jget<{
       categories?: { category: string; amount_disp?: string }[]
       rates?: Record<string, number>
-    }>('/api/detax_rates')
+    }>('/api/v1/admin/detax_rates')
     if (!d0.categories?.length) {
       showDetax.value = false
       return
@@ -443,15 +443,15 @@ async function saveAll() {
   saving.value = true
   try {
     // 批量可带行内 范围；顶层 范围 仅作缺省
-    if (manuals.length) await jpost('/api/manual_batch', { 归属月: m, 范围: '全公司', items: manuals })
+    if (manuals.length) await jpost('/api/v1/admin/manual_batch', { 归属月: m, 范围: '全公司', items: manuals })
     if (allocChanged || ovChanged || frChanged) {
       const body: Record<string, unknown> = { 归属月: m }
       if (allocChanged) body.ratios = allocs
       if (ovChanged) body.overrides = overrides
       if (frChanged) body.detail_rules = detail_rules
-      await jpost('/api/alloc_ratios', body)
+      await jpost('/api/v1/admin/alloc_rates', body)
     }
-    if (detaxChanged) await jpost('/api/detax_rates', { rates: detax })
+    if (detaxChanged) await jpost('/api/v1/admin/detax_rates', { rates: detax })
     dirtyApi?.setFormDirty(0)
     ElMessage.success(`✓ 已保存 ${nSave} 项并重算`)
     reloadDash()

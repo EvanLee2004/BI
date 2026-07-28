@@ -4,7 +4,7 @@
 战例（F1）：2.6.1 embed_full=False 后 ProfitStructure 仍只读 full_items → 空弹层。
 本文件锁：
 1. VM 首包 full_items 空 + others 在 → 必须走 API
-2. /api/profit_ranking 整体会话 items>0
+2. /api/v1/rankings/profit 整体会话 items>0
 3. BU 会话带 bu 参数 items>0；无 bu 仍 401；他 BU 401
 4. 前端源码含按需拉取（防再漏）
 5. 故意断数据源 → 断言失败（红）再还原（写证据）
@@ -166,7 +166,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
         """整体会话：点开后 API items 数量 > 0。"""
         c = self._login("overall")
         r = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
         self.assertEqual(r.status_code, 200, r.text[:300])
@@ -180,12 +180,12 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
         c = self._login("user_a")
         # 无 bu → 仍 401（不可放宽为全公司）
         r0 = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"},
         )
         self.assertEqual(r0.status_code, 403, "BU 无 bu 参数不得看全公司")
         r = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={
                 "dim": "customer",
                 "start": "2026-01-01",
@@ -206,7 +206,7 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
     def test_bu_cannot_view_other_bu(self):
         c = self._login("user_a")
         r = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={
                 "dim": "customer",
                 "start": "2026-01-01",
@@ -219,18 +219,18 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
     def test_unauth_401(self):
         c = self.TC(self.app, follow_redirects=False)
         r = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31"},
         )
         self.assertEqual(r.status_code, 401)  # 未登录
 
 
 class TestFrontendHasFetchFallback(unittest.TestCase):
-    """源码守卫：ProfitStructure 必须按需拉 /api/profit_ranking（含 bu）。"""
+    """源码守卫：ProfitStructure 必须按需拉 /api/v1/rankings/profit（含 bu）。"""
 
     def test_profit_structure_source(self):
         src = (ROOT / "frontend" / "src" / "components" / "ProfitStructure.vue").read_text(encoding="utf-8")
-        self.assertIn("/api/profit_ranking", src)
+        self.assertIn("/api/v1/rankings/profit", src)
         self.assertIn("top=5000", src)
         self.assertIn("bu=", src)
         # 不得只剩 local full_items 赋值而无 fetch
@@ -279,7 +279,7 @@ class TestRedThenGreenDataSource(unittest.TestCase):
         conn.commit()
         conn.close()
         r_broken = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
         items_broken = (r_broken.json() or {}).get("items") or []
@@ -295,7 +295,7 @@ class TestRedThenGreenDataSource(unittest.TestCase):
         # --- 还原 ---
         _seed_project(cfg, tmp)
         r_ok = c.get(
-            "/api/profit_ranking",
+            "/api/v1/rankings/profit",
             params={"dim": "customer", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
         )
         items_ok = (r_ok.json() or {}).get("items") or []

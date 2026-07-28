@@ -102,7 +102,7 @@ export function useSettingsForm() {
   async function loadVersion() {
     try {
       const v = await jget<{ version?: string; stage?: string; changelog?: { title?: string; date?: string; items?: string[] }[] }>(
-        '/api/version',
+        '/api/v1/version',
       )
       verNum.value = 'v' + String(v.version || '?').split('-')[0]
       verStage.value = v.stage || ''
@@ -133,7 +133,7 @@ export function useSettingsForm() {
         remote?: string
         log?: string[]
         can_update?: boolean
-      }>('/api/update/check')
+      }>('/api/v1/update/check')
       if (!d.supported) {
         vuMsg.value = d.reason || '一键更新不可用'
         return
@@ -185,7 +185,7 @@ export function useSettingsForm() {
         disk_free_min_ratio?: number
         zhiyun_conn?: { base_url?: string; tables?: Record<string, string> }
         backup_stats?: { count?: number; mb?: number }
-      }>('/api/settings')
+      }>('/api/v1/admin/settings')
       scheduleTimes.value =
         s.schedule_times && s.schedule_times.length ? s.schedule_times.slice() : [s.schedule_time || '09:30']
       sKeep.value = s.backup_keep_days || 30
@@ -238,7 +238,7 @@ export function useSettingsForm() {
     sArchMsg.value = '导出中…'
     try {
       await downloadBlob(
-        '/api/archive_export?year=' + encodeURIComponent(String(sArchYear.value)),
+        '/api/v1/admin/archive_export?year=' + encodeURIComponent(String(sArchYear.value)),
         '审计归档_' + sArchYear.value + '.xlsx',
       )
       sArchMsg.value = '✓ 已下载 ' + sArchYear.value + ' 年归档（库内未删）'
@@ -288,7 +288,7 @@ export function useSettingsForm() {
       const typed = String(value || '').trim()
       if (typed) body.new = typed
       const d = await jpost<{ password?: string; note?: string }>(
-        `/api/accounts/${encodeURIComponent(acct)}/reset_passwd`,
+        `/api/v1/admin/accounts/${encodeURIComponent(acct)}/reset_passwd`,
         body,
       )
       const plain = d.password || ''
@@ -323,7 +323,7 @@ export function useSettingsForm() {
   }
   async function loadAccts() {
     try {
-      const d = await jget<{ accounts?: Acct[]; master_account?: string }>('/api/accounts')
+      const d = await jget<{ accounts?: Acct[]; master_account?: string }>('/api/v1/admin/accounts')
       acctList.value = d.accounts || []
       if (d.master_account) masterAccount.value = d.master_account
       acctPwShow.value = {}
@@ -424,8 +424,8 @@ export function useSettingsForm() {
         unassigned_orders_disp?: string
       }
       const [d, pool] = await Promise.all([
-        jget<{ bus?: BuItem[]; 公共费用分摊启用?: boolean }>('/api/bu_config'),
-        jget<PoolRes>('/api/sales_pool').catch((): PoolRes => ({ sales: [] })),
+        jget<{ bus?: BuItem[]; 公共费用分摊启用?: boolean }>('/api/v1/admin/bu_config'),
+        jget<PoolRes>('/api/v1/admin/sales_pool').catch((): PoolRes => ({ sales: [] })),
       ])
       buList.value = (d.bus || []).map((b) => ({
         name: b.name,
@@ -453,7 +453,7 @@ export function useSettingsForm() {
       return false
     }
     try {
-      const d = await jpost<{ schedule_times?: string[]; note?: string }>('/api/settings', { schedule_times: times })
+      const d = await jpost<{ schedule_times?: string[]; note?: string }>('/api/v1/admin/settings', { schedule_times: times })
       if (d.schedule_times?.length) scheduleTimes.value = d.schedule_times.slice()
       setMsgs.sched = d.note || '已保存'
       return true
@@ -465,7 +465,7 @@ export function useSettingsForm() {
   async function saveBackup() {
     setMsgs.backup = '保存中…'
     try {
-      const d = await jpost<{ note?: string }>('/api/settings', { backup_keep_days: sKeep.value })
+      const d = await jpost<{ note?: string }>('/api/v1/admin/settings', { backup_keep_days: sKeep.value })
       setMsgs.backup = d.note || '已保存'
       return true
     } catch (e) {
@@ -477,7 +477,7 @@ export function useSettingsForm() {
     setMsgs.alert = '保存中…'
     const pct = sDiskMin.value || 10
     try {
-      const d = await jpost<{ note?: string }>('/api/settings', {
+      const d = await jpost<{ note?: string }>('/api/v1/admin/settings', {
         run_log_keep_days: sLogKeep.value,
         disk_free_min_ratio: pct * 1e-2,
       })
@@ -505,7 +505,7 @@ export function useSettingsForm() {
       }
     }
     try {
-      const d = await jpost<{ note?: string }>('/api/settings', p)
+      const d = await jpost<{ note?: string }>('/api/v1/admin/settings', p)
       setMsgs.zy = d.note || '已保存'
       return true
     } catch (e) {
@@ -524,7 +524,7 @@ export function useSettingsForm() {
       return false
     }
     try {
-      const d = await jpost<{ accounts?: Acct[]; master_account?: string; note?: string; count?: number }>('/api/accounts', {
+      const d = await jpost<{ accounts?: Acct[]; master_account?: string; note?: string; count?: number }>('/api/v1/admin/accounts', {
         accounts: acctList.value,
       })
       acctList.value = d.accounts || []
@@ -545,7 +545,7 @@ export function useSettingsForm() {
         销售: salesArr(b.销售),
         分摊比例: b.分摊比例,
       }))
-      const d = await jpost<{ bus?: BuItem[]; 公共费用分摊启用?: boolean; note?: string; count?: number }>('/api/bu_config', {
+      const d = await jpost<{ bus?: BuItem[]; 公共费用分摊启用?: boolean; note?: string; count?: number }>('/api/v1/admin/bu_config', {
         bus: payload,
         公共费用分摊启用: buAllocEnabled(),
       })

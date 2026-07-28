@@ -1,10 +1,19 @@
+## 2.7.1 · 2026-07-28
+
+### 干净目标态接力
+- 会话：只认 `kanban_sid`；删旧 cookie 读与 21 天窗；登录 delete 旧名；旧 cookie 不能登录（须重登）
+- 业务读：仅 `/api/v1/*`；旧业务 GET 路由删除 → 404；health/refresh_status 例外
+- 前端：只 vue；删 `frontend_mode==legacy` HTML 建造
+- 文档：progress/Agent/Runbook/文档SSOT指针 = 2.7.1
+- 回归 32 周期零 diff；浏览器 live 可看
+
 ## 2.7.0 · 2026-07-28
 
 ### 架构双源 / 文档 SSOT / 算账旁路 / 前端 v1+token
-- B1/F1：`GET /api/v1/rankings/profit` + 旧 `/api/profit_ranking` 同 handler；ProfitStructure 主路径 v1；下单回款榜 full 不合并
-- B2：`/api/v1/admin/detail` 转发 detail；Agent 写清 detail vs ledger
+- B1/F1：`GET /api/v1/rankings/profit` + 兼容旧 path（2.7.1 已删旧 path）；ProfitStructure 主路径 v1
+- B2：`/api/v1/admin/detail`；Agent 写清 detail vs ledger
 - B3：render=导出/碎片辅助；fragments 冷启动懒构建已有保底
-- B4/B5：单 worker；legacy cookie 至 2026-08-15
+- B4/B5：单 worker；legacy cookie 窗（2.7.1 已关）
 - C1/C2：core/structure 金额 int 分
 - F2：Toast/BUPage/密码层 z-index 走 tokens
 - O5：progress/Agent/Runbook/债台账 + `docs/文档SSOT指针.md`
@@ -58,7 +67,7 @@
 - S4：账号可看整体页显式标志（行为兼容）
 - S5：智云 0 行本地文件 stale 保留，禁止 unlink
 - S6：存量重复调整较晚空操作 id 标已撤销（保留较早真实变更）
-- S8：删除死端点 `/api/budget_depts` 等
+- S8：删除死端点 `/api/v1/admin/budget_depts` 等
 
 # Changelog
 
@@ -70,7 +79,7 @@
 - **T2 费用定位键含「事项」**：仍撞则稳定 `#n` 后缀；旧唯一键 adj 经 `db_write.remap_adj_locators` 迁新键（业务层零裸 SQL）。
 - **T3 调整幂等 + 撤销撤净**：同(表,定位键,字段) 生效只保留一条；撤销时同键兄弟一并已撤销。
 - **T4 共享盘短重试**：`ledger_share_retries`/`ledger_share_retry_delay_sec`；fstab 步骤单只写不执行。
-- **T5 双轨 API 契约测试**：`/api/profit_ranking`↔`/api/v1/rankings/full`、`/api/detail`↔`/api/v1/vm/ledger` 鉴权与行数契约（不删旧端点）。
+- **T5 双轨 API 契约测试**：`/api/v1/rankings/profit`↔`/api/v1/rankings/full`、`/api/v1/admin/detail`↔`/api/v1/vm/ledger` 鉴权与行数契约（不删旧端点）。
 - **T6 历史不记空操作**：manual 手填/分摊比例/去税率/预算 新旧相等跳过历史（存量不删）。
 
 ## 2.6.7 · 2026-07-27
@@ -98,7 +107,7 @@
 
 前端三层统一 + 排名弹层修复 + 全量体验（**不改金额/口径/智云抓取**）：
 
-- **A-1 弹层**：`ProfitStructure` 按需拉 `/api/profit_ranking`；端点支持 `bu=` + BU 隔离（不放宽）；整体/BU 弹层 items>0；先红后绿测试。
+- **A-1 弹层**：`ProfitStructure` 按需拉 `/api/v1/rankings/profit`；端点支持 `bu=` + BU 隔离（不放宽）；整体/BU 弹层 items>0；先红后绿测试。
 - **三层架构**：`styles/tokens.css` → `components/base/{RankBar,RankList,DataModal}` → 业务组件无 `<style>`；F-1~F-4 守卫；四处排名 CSS 统一（非 ECharts）；收入榜「系统成本率」列头+解释。
 - **切 BU 过场**：1s、「正在计算 XX BU 数据……」、logo/字放大、扫描线、可跳过、reduced-motion；过场期间抑制 KPI count-up 连播。
 - **「整体」按钮**：BU 导航首项；仅 `can_main`/管理员可见；BU 账号不可见。
@@ -245,7 +254,7 @@
 
 ### Added
 - **管理利润表 Excel 导出（陆总）**：整体页 + 各 BU 页 `PLTable` 面板「导出 Excel」
-  - `GET /api/export/pl.xlsx?blk=`（整体；双挂 `/export/pl.xlsx`）
+  - `GET /api/v1/export/pl.xlsx?blk=`（整体；双挂 `/export/pl.xlsx`）
   - `GET /bu/{name}/export/pl.xlsx?blk=`（该 BU；越权 403）
   - 跟随当前筛选 `blk` + scope；主表大项整行加粗 + 各 `构成_*` 明细 sheet（数据行不加粗）+ `导出说明`
   - 纯函数 `export_pl_xlsx.build_pl_xlsx_bytes` 复用 `pack_pl_by_period`，金额只写 `amt_disp`
@@ -342,7 +351,7 @@
 ## [2.2.9] - 2026-07-22
 
 ### Changed
-- **导出主路径 = 方案 A 自包含静态可交互快照**：`/export.html`、`/api/export.html`、`/bu/{name}/export.html` 下载单文件 HTML，内嵌 `kind=kanban_snapshot` 数据包 + Vue 播放器（`frontend/dist-snapshot`）；`file://` 可离线打开，可切周期、展开利润表、看期间费用等图；整体包含全部已发布 BU 可切换，BU 包仅本 BU
+- **导出主路径 = 方案 A 自包含静态可交互快照**：`/export.html`、`/api/v1/export.html`、`/bu/{name}/export.html` 下载单文件 HTML，内嵌 `kind=kanban_snapshot` 数据包 + Vue 播放器（`frontend/dist-snapshot`）；`file://` 可离线打开，可切周期、展开利润表、看期间费用等图；整体包含全部已发布 BU 可切换，BU 包仅本 BU
 - **禁止残壳假成功**：`KANBAN_OFFLINE=1` 或 Playwright 不可用时仍出真快照；装配失败 → HTTP 503；退役 `capture_vue_export_html` / `fallback_export_html` 作为成功主路径（`/export.png` 与 `/?archive=` 保留）
 - **顶栏今日日期**：在线整体页与 BU 页版本号左侧显示本机 `YYYY-MM-DD`（`tb-today`）
 
@@ -379,12 +388,12 @@
 - **管理端去掉顶栏「浅色」**（登录页主题钮一并去掉）；展示 iframe 内 `ThemeToggle` 保留
 
 ### Added
-- `GET /api/history/{day}/vm`：管理员读归档 VM
+- `GET /api/v1/history/{day}/vm`：管理员读归档 VM
 - `snapshot_vm` / `list_vm_archives` / `load_vm_archive`；`export_html` 模块（Playwright 抓 Vue 优先，失败降级壳）
 - tests `test_task_2_2_7.py`
 
 ### Removed
-- 历史列表对 `页面_*.html` 的依赖；旧 `GET /api/history/{day}` HTML 回看 → **410**
+- 历史列表对 `页面_*.html` 的依赖；旧 `GET /api/v1/history/{day}` HTML 回看 → **410**
 
 ---
 
@@ -405,10 +414,10 @@
 ### Changed
 - **管理端长列表翻页**：配置变更/数据修正/费用未分类/下单未填部门/历史快照日表/异常总览/数据调整 统一上一页/下一页，每页 50；筛选或刷新归第 1 页；表单类视图不加分页
 - **「看」→「展示」**：管理端顶栏页签及用户可见「看」措辞改为展示/显示；`group:'see'` 与产品名「经营罗盘」保留
-- **`/api/version`**：任意登录会话可读（展示端顶栏版本号）
+- **`/api/v1/version`**：任意登录会话可读（展示端顶栏版本号）
 
 ### Added
-- 展示页顶栏甲骨易 logo（`import` → `/app/assets/*.png`，兼容 nginx 只缓存 assets）+ 产品版本号（拉 `/api/version`）
+- 展示页顶栏甲骨易 logo（`import` → `/app/assets/*.png`，兼容 nginx 只缓存 assets）+ 产品版本号（拉 `/api/v1/version`）
 - tests `test_task_2_2_5.py`（含构建产物 PNG 门禁）；`useClientPager` 客户端分页 composable
 
 ### Fixed
@@ -534,7 +543,7 @@
 
 ### Security / Fixed
 - **批次 A**：批量手填/预算原子提交（F-02）；分摊比例/去税率写删追加历史表（H-04）；调整撤销/坚持/批量撤销可选理由 + 配置审计（H-03）；测试依赖迁入 `requirements-dev.txt`（M-02）
-- **批次 B**：账号密码 PBKDF2 哈希存储；明文自动迁移备份；`/api/accounts` 不下发密码；`POST …/reset_passwd` 管理员重置；会话 TTL 12h（H-05）
+- **批次 B**：账号密码 PBKDF2 哈希存储；明文自动迁移备份；`/api/v1/admin/accounts` 不下发密码；`POST …/reset_passwd` 管理员重置；会话 TTL 12h（H-05）
 - **批次 C**：前端金额字面量守卫改为显式白名单；去掉 `1e-4` 规避写法（M-01）
 
 ---
@@ -548,7 +557,7 @@
 - 月度图 x 轴裁到当前系统月（尊重 `period_pin`）；删除费用月度趋势折线卡 ExpenseTrend
 - 排名双卡：前 N 名标注、「其余」完整弹层；**按下单额降序**
 - 管理端 / 看端列筛选；期间费用「按部门」master-detail
-- 人工填写分摊对齐 `/api/alloc_ratios` + `ratios`
+- 人工填写分摊对齐 `/api/v1/admin/alloc_rates` + `ratios`
 - 房租 / 物业费 / 装修费：台账默认口径剔除 + 人工按 BU×月分摊（未填=0）
 - BU 公共分摊重算保留三类人工分摊（mac）
 

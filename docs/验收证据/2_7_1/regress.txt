@@ -1,0 +1,1 @@
+regress: 32 periods zero diff (see run_verify.log step 3)

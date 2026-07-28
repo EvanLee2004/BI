@@ -114,7 +114,7 @@ class _LedgerApp(unittest.TestCase):
 class TestDetailJsonAndExport(_LedgerApp):
     def test_view_json_no_hidden_fields(self):
         c = self._login("all")
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50, "year": "2026"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50, "year": "2026"})
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertEqual(d["columns"], WHITELIST)
@@ -126,7 +126,7 @@ class TestDetailJsonAndExport(_LedgerApp):
 
     def test_bu_json_omits_bu_col(self):
         c = self._login("bu_a")
-        r = c.get("/api/detail", params={"table": "费用明细", "page_size": 50, "year": "2026", "bu": "甲BU"})
+        r = c.get("/api/v1/admin/detail", params={"table": "费用明细", "page_size": 50, "year": "2026", "bu": "甲BU"})
         self.assertEqual(r.status_code, 200, r.text)
         d = r.json()
         self.assertEqual(d["columns"], db.VIEW_EXPENSE_COLUMNS_BU)
@@ -138,7 +138,7 @@ class TestDetailJsonAndExport(_LedgerApp):
 
     def test_export_whitelist_only(self):
         c = self._login("all")
-        r = c.get("/api/detail_export", params={"table": "费用明细", "year": "2026"})
+        r = c.get("/api/v1/admin/detail/export", params={"table": "费用明细", "year": "2026"})
         self.assertEqual(r.status_code, 200, r.text)
         import openpyxl
 

@@ -35,7 +35,7 @@ function rowClassName({ row }: { row: Adj }) {
 async function load() {
   loading.value = true
   try {
-    list.value = await jget('/api/adjustments')
+    list.value = await jget('/api/v1/admin/adjustments')
     resetPage()
   } catch (e) {
     ElMessage.error(String(e))

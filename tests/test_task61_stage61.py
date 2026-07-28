@@ -253,7 +253,7 @@ class TestStage61SourceGuards(unittest.TestCase):
         app = (root / "App.vue").read_text(encoding="utf-8")
         self.assertNotIn("ExpenseTrend", app)
         man = (root / "admin" / "views" / "ManualView.vue").read_text(encoding="utf-8")
-        self.assertIn("/api/alloc_ratios", man)
+        self.assertIn("/api/v1/admin/alloc_rates", man)
         self.assertNotIn("/api/alloc_rates", man)
         rk = (root / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
         # 2.6.5：其余入口在 RankList（data-testid=rank-others-btn）

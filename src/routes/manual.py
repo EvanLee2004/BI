@@ -212,7 +212,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             _audit(cfg, root, user, ("调整", tip))
         return {"status": "ok", "built_at": _state["built_at"]}
 
-    @app.get("/api/adjustments")
+    @app.get("/api/v1/admin/adjustments")
     def api_adjustments(request: Request):
         _require(request)
         conn = _conn()
@@ -221,14 +221,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/manual_items")
+    @app.get("/api/v1/admin/manual_items")
     def api_manual_items(request: Request):
         """手填项目名列表（Vue 管理端用；与 config.manual_items / legacy __MANUAL_ITEMS__ 同源）。"""
         _require(request)
         items = [it["name"] for it in (cfg.get("manual_items") or []) if isinstance(it, dict) and it.get("name")]
         return {"items": items}
 
-    @app.get("/api/manual")
+    @app.get("/api/v1/admin/manual")
     def api_manual_get(request: Request, month: str | None = None, scope: str = "全公司"):
         _require(request)
         conn = _conn()
@@ -237,7 +237,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.post("/api/manual")
+    @app.post("/api/v1/admin/manual")
     def api_manual_set(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         item = payload.get("项目", "")
@@ -256,7 +256,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 conn.close()
         return {"status": "ok", "built_at": _state["built_at"]}
 
-    @app.post("/api/manual_batch")
+    @app.post("/api/v1/admin/manual_batch")
     def api_manual_batch(request: Request, payload: dict = Body(default={})):
         """批量手填：payload={归属月, 范围?, items:[{项目,金额,范围?}]}，只重算一遍。
 
@@ -443,7 +443,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         )
         return base
 
-    @app.get("/api/alloc_ratios")
+    @app.get("/api/v1/admin/alloc_rates")
     def api_alloc_get(request: Request, month: str = ""):
         _require(request)
         conn = _conn()
@@ -487,7 +487,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     )
         return _alloc_panel_payload(conn, month)
 
-    @app.post("/api/alloc_ratios")
+    @app.post("/api/v1/admin/alloc_rates")
     def api_alloc_set(request: Request, payload: dict = Body(default={})):
         """写某月分摊（管理员）。兼容 ratios；扩展 overrides / detail_rules。"""
         user = _require(request)
@@ -533,7 +533,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             "rates": rates,
         }
 
-    @app.get("/api/detax_rates")
+    @app.get("/api/v1/admin/detax_rates")
     def api_detax_get(request: Request):
         _require(request)
         conn = _conn()
@@ -542,7 +542,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.post("/api/detax_rates")
+    @app.post("/api/v1/admin/detax_rates")
     def api_detax_set(request: Request, payload: dict = Body(default={})):
         """写费用去税率（管理员·全局一套·陆总0714）。payload={rates:{费用类别:税率%|null}}。
         税率 0~100；null/空/0 → 删行=该类别不去税（等价默认，页面数字回归红线中性）。"""
@@ -580,7 +580,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out.update({"status": "ok", "built_at": _state["built_at"]})
         return out
 
-    @app.get("/api/budget")
+    @app.get("/api/v1/admin/budget")
     def api_budget_get(request: Request, year: str | None = None):
         _require(request)
         conn = _conn()
@@ -589,7 +589,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.post("/api/budget")
+    @app.post("/api/v1/admin/budget")
     def api_budget_set(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         metric = payload.get("指标", "")
@@ -614,7 +614,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 conn.close()
         return {"status": "ok", "built_at": _state["built_at"]}
 
-    @app.post("/api/budget_batch")
+    @app.post("/api/v1/admin/budget_batch")
     def api_budget_batch(request: Request, payload: dict = Body(default={})):
         """批量业绩目标：payload={items:[{年份,指标,金额,范围?}]}，一次重算。
 
@@ -641,9 +641,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 conn.close()
         return {"status": "ok", "count": n, "built_at": _state["built_at"]}
 
-    # 2.6.9 S8：/api/budget_depts 已删（前端/测试零引用）
+    # 2.6.9 S8：/api/v1/admin/budget_depts 已删（前端/测试零引用）
 
-    @app.get("/api/adjust_fields")
+    @app.get("/api/v1/admin/adjust_fields")
     def api_adjust_fields(request: Request):
         """R1：各明细表可调整字段（schema 黑名单制推导），管理员端字段下拉数据源。"""
         _require(request)

@@ -67,14 +67,14 @@ function updateSumTips() {
 async function load() {
   let bus: { name: string }[] = []
   try {
-    const d0 = await jget<{ bus?: { name: string }[] }>('/api/bu_config')
+    const d0 = await jget<{ bus?: { name: string }[] }>('/api/v1/admin/bu_config')
     bus = d0.bus || []
   } catch {
     /* ignore */
   }
   scopes.value = ['全公司'].concat(bus.map((b) => b.name).filter(Boolean))
   const cur = await jget<{ 指标: string; 范围?: string; 金额: unknown }[]>(
-    `/api/budget?year=${encodeURIComponent(year.value)}`,
+    `/api/v1/admin/budget?year=${encodeURIComponent(year.value)}`,
   )
   const map: Record<string, Record<string, unknown>> = {}
   ;(cur || []).forEach((x) => {
@@ -174,7 +174,7 @@ async function save() {
   }
   saving.value = true
   try {
-    await jpost('/api/budget_batch', { items: budgets })
+    await jpost('/api/v1/admin/budget_batch', { items: budgets })
     dirtyApi?.setBudgetDirty(0)
     ElMessage.success(`✓ 已保存 ${budgets.length} 项业绩目标并重算`)
     reloadDash()

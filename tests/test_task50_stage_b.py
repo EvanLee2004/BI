@@ -276,52 +276,22 @@ class TestStageBDisplayStringParity(unittest.TestCase):
             else:
                 os.environ["KANBAN_FRONTEND"] = old
 
-    def test_kpi_value_disps_in_legacy_html(self):
-        """legacy 打包路径 body HTML 仍含 KPI 主数（与结构化串一致）。
-        注：看端壳已删，但 packer 在 KANBAN_FRONTEND=legacy 时仍可造 HTML 供导出/对照。
-        """
-        import os
+    def test_legacy_mode_removed_always_vue(self):
+        """2.7.1：frontend_mode 恒 vue；结构化 KPI/PL 仍有 value_disp / amt_disp。"""
         import viewmodels as vm_mod
 
-        old = os.environ.get("KANBAN_FRONTEND")
-        os.environ["KANBAN_FRONTEND"] = "legacy"
-        try:
-            legacy_cfg = dict(self.cfg)
-            legacy_cfg["frontend"] = "legacy"
-            vm = vm_mod.build_cockpit_vm(self.summary, legacy_cfg)
-            cards = vm.kpi.cards_by_period.get(self.yk) or []
-            html = (vm.kpi.body_by_period or {}).get(self.yk) or ""
-            self.assertTrue(html, "legacy 应生成 KPI HTML")
-            for c in cards:
-                self.assertIn(c["value_disp"], html, f"KPI {c['label']} 显示串不在 legacy HTML")
-        finally:
-            if old is None:
-                os.environ.pop("KANBAN_FRONTEND", None)
-            else:
-                os.environ["KANBAN_FRONTEND"] = old
-
-    def test_pl_amt_disps_in_legacy_html(self):
-        import os
-        import viewmodels as vm_mod
-
-        old = os.environ.get("KANBAN_FRONTEND")
-        os.environ["KANBAN_FRONTEND"] = "legacy"
-        try:
-            legacy_cfg = dict(self.cfg)
-            legacy_cfg["frontend"] = "legacy"
-            vm = vm_mod.build_cockpit_vm(self.summary, legacy_cfg)
-            t = vm.pl.table_by_period.get(self.yk) or {}
-            html = (vm.pl.body_by_period or {}).get(self.yk) or ""
-            self.assertTrue(html, "legacy 应生成 PL HTML")
-            for r in t.get("rows") or []:
-                if r.get("is_pct"):
-                    continue
-                self.assertIn(r["amt_disp"], html, f"PL 行 {r['name']} 金额串缺失")
-        finally:
-            if old is None:
-                os.environ.pop("KANBAN_FRONTEND", None)
-            else:
-                os.environ["KANBAN_FRONTEND"] = old
+        self.assertEqual(vm_mod.frontend_mode({"frontend": "legacy"}), "vue")
+        vm = vm_mod.build_cockpit_vm(self.summary, {**self.cfg, "frontend": "legacy"})
+        cards = vm.kpi.cards_by_period.get(self.yk) or []
+        self.assertTrue(cards)
+        self.assertIn("value_disp", cards[0])
+        t = vm.pl.table_by_period.get(self.yk) or {}
+        rows = t.get("rows") or []
+        self.assertTrue(rows)
+        self.assertTrue(any(r.get("amt_disp") for r in rows if not r.get("is_pct")))
+        # 无 legacy HTML 体
+        self.assertEqual(vm.kpi.body_by_period or {}, {})
+        self.assertEqual(vm.pl.body_by_period or {}, {})
 
 
 if __name__ == "__main__":

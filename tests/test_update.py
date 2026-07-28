@@ -6,7 +6,7 @@
 - updater.check_update（真实临时 git 仓库）：已最新/落后可更新/脏工作区拒绝/分叉拒绝/非仓库不支持
 - updater.apply_update：落后+干净→ff 拉取成功 HEAD 前进；脏/分叉/已最新→拒绝不拉
 - RESTART_EXIT_CODE=42（须与 deploy/linux/start_with_rollback.sh 一致）；request_restart 不在测试里真跑
-- `/api/update/check`、`/api/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
+- `/api/v1/update/check`、`/api/update/apply`：仅管理员会话；apply 成功→触发重启+C3 留痕「更新」，失败不重启
 - 控制台含一键更新 UI 锚点（checkUpdate/applyUpdate/vuAvail）
 """
 
@@ -244,7 +244,7 @@ class TestUpdateApi(unittest.TestCase):
 
     def test_check_requires_admin(self):
         anon = self._anon()
-        self.assertEqual(anon.get("/api/update/check").status_code, 401)
+        self.assertEqual(anon.get("/api/v1/update/check").status_code, 401)
         self.assertEqual(anon.post("/api/update/apply").status_code, 401)
 
     def _anon(self):
@@ -260,7 +260,7 @@ class TestUpdateApi(unittest.TestCase):
             return {"supported": True, "available": True, "behind": 2, "can_update": True}
 
         updater.check_update = _stub
-        d = self.client.get("/api/update/check", headers=self.hdr).json()
+        d = self.client.get("/api/v1/update/check", headers=self.hdr).json()
         self.assertTrue(d["available"])
         self.assertEqual(d["behind"], 2)
         self.assertEqual(seen["remote"], "origin")  # 默认对标 origin（config update_remote）
@@ -271,7 +271,7 @@ class TestUpdateApi(unittest.TestCase):
         self.assertTrue(d["ok"])
         self.assertTrue(d.get("restarting"))
         self.assertTrue(self.restarted)  # 触发了重启
-        au = self.client.get("/api/config_changes?category=更新", headers=self.hdr).json()
+        au = self.client.get("/api/v1/admin/config_changes?category=更新", headers=self.hdr).json()
         joined = str(au.get("changes", []))
         self.assertIn("一键更新", joined)
         self.assertIn("bbb", joined)

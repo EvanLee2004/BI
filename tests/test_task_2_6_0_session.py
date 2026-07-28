@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.6.0：kanban_sid 单会话 + 21 天遗留兼容（驱动真实 session_ctx + 登录路径）。"""
+"""2.7.1：kanban_sid 单会话；旧 cookie 不能维持登录（驱动真实 session_ctx + 登录路径）。"""
 from __future__ import annotations
 
 import sys
 import tempfile
 import unittest
-from datetime import date, timedelta
 from pathlib import Path
-from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -19,28 +17,7 @@ import session_ctx  # noqa: E402
 from app_state import COOKIE, SID_COOKIE, VCOOKIE  # noqa: E402
 
 
-class TestCompatWindow(unittest.TestCase):
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        (self.tmp / "数据").mkdir()
-        self.cfg = {"data_dir": "数据", "db_path": "看板.db"}
-        session_ctx.set_today_override(None)
-
-    def tearDown(self):
-        session_ctx.set_today_override(None)
-
-    def test_ensure_and_window_21_days(self):
-        since = session_ctx.ensure_compat_since(self.cfg, self.tmp, since=date(2026, 7, 25))
-        self.assertEqual(since, date(2026, 7, 25))
-        # 第 0 天 active
-        self.assertTrue(session_ctx.legacy_compat_active(self.cfg, self.tmp, on=date(2026, 7, 25)))
-        # 第 20 天 still active (on < since+21)
-        self.assertTrue(session_ctx.legacy_compat_active(self.cfg, self.tmp, on=date(2026, 8, 14)))
-        # 第 21 天 inactive
-        self.assertFalse(session_ctx.legacy_compat_active(self.cfg, self.tmp, on=date(2026, 8, 15)))
-
-
-class TestResolveOrder(unittest.TestCase):
+class TestResolveSidOnly(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         (self.tmp / "数据").mkdir()
@@ -70,8 +47,7 @@ class TestResolveOrder(unittest.TestCase):
             ],
         )
         self.sec = auth_session.load_or_init_secret(self.cfg, self.tmp)
-        session_ctx.ensure_compat_since(self.cfg, self.tmp, since=date(2026, 7, 25))
-        session_ctx.set_today_override(date(2026, 7, 26))  # 窗内
+        session_ctx.set_today_override(None)
 
     def tearDown(self):
         session_ctx.set_today_override(None)
@@ -82,44 +58,34 @@ class TestResolveOrder(unittest.TestCase):
             self.sec, account, pw_ver=accounts.password_version_of(acc)
         )
 
-    def test_sid_wins_over_legacy(self):
-        cookies = {
-            SID_COOKIE: self._tok("overall"),
-            COOKIE: self._tok("lushasha"),
-        }
+    def test_sid_auth_works(self):
+        cookies = {SID_COOKIE: self._tok("overall")}
         ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
         self.assertIsNotNone(ctx)
         self.assertEqual(ctx.account, "overall")
         self.assertEqual(ctx.source, "sid")
         self.assertFalse(ctx.needs_upgrade)
 
-    def test_legacy_session_before_view(self):
+    def test_legacy_session_alone_fails(self):
+        cookies = {COOKIE: self._tok("lushasha")}
+        ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
+        self.assertIsNone(ctx)
+
+    def test_legacy_view_alone_fails(self):
+        cookies = {VCOOKIE: self._tok("user_a")}
+        ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
+        self.assertIsNone(ctx)
+
+    def test_legacy_ignored_when_sid_present(self):
         cookies = {
+            SID_COOKIE: self._tok("overall"),
             COOKIE: self._tok("lushasha"),
             VCOOKIE: self._tok("user_a"),
         }
         ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
-        self.assertEqual(ctx.account, "lushasha")
-        self.assertTrue(ctx.is_admin)
-        self.assertTrue(ctx.needs_upgrade)
-        self.assertEqual(ctx.source, "legacy_session")
-
-    def test_legacy_view_only(self):
-        cookies = {VCOOKIE: self._tok("user_a")}
-        ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
-        self.assertEqual(ctx.account, "user_a")
-        self.assertTrue(ctx.needs_upgrade)
-
-    def test_outside_window_legacy_fails(self):
-        session_ctx.set_today_override(date(2026, 8, 20))  # 窗外
-        cookies = {VCOOKIE: self._tok("user_a")}
-        ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
-        self.assertIsNone(ctx)
-        # sid 仍有效
-        cookies = {SID_COOKIE: self._tok("user_a")}
-        ctx = session_ctx.resolve_session(cookies, sec=self.sec, cfg=self.cfg, root=self.tmp)
         self.assertIsNotNone(ctx)
-        self.assertEqual(ctx.account, "user_a")
+        self.assertEqual(ctx.account, "overall")
+        self.assertEqual(ctx.source, "sid")
 
 
 class TestLoginSetsSidOnly(unittest.TestCase):
@@ -170,29 +136,11 @@ class TestLoginSetsSidOnly(unittest.TestCase):
         server._state["has_data"] = True
         cls.app = server.create_app(cls.cfg, root=cls.tmp)
         cls.server = server
-        session_ctx.ensure_compat_since(cls.cfg, cls.tmp, since=date.today())
 
     def _client(self):
         from fastapi.testclient import TestClient
 
         return TestClient(self.app, follow_redirects=False)
-
-    def _set_cookie_names(self, r) -> set[str]:
-        # httpx/starlette: set-cookie headers
-        names = set()
-        for k, v in r.headers.multi_items() if hasattr(r.headers, "multi_items") else []:
-            if k.lower() == "set-cookie":
-                names.add(v.split("=", 1)[0].strip())
-        if not names:
-            # fallback: raw list
-            raw = r.headers.get_list("set-cookie") if hasattr(r.headers, "get_list") else []
-            if not raw:
-                sc = r.headers.get("set-cookie") or ""
-                if sc:
-                    raw = [sc]
-            for line in raw:
-                names.add(line.split("=", 1)[0].strip())
-        return names
 
     def test_api_login_sets_sid_not_legacy_as_primary(self):
         c = self._client()
@@ -204,10 +152,12 @@ class TestLoginSetsSidOnly(unittest.TestCase):
             r = c.post("/api/v1/login", json={"account": acc, "password": pw})
             self.assertEqual(r.status_code, 200, r.text)
             body = r.json()
-            self.assertTrue(str(body.get("redirect") or "").startswith(redir_prefix) or body.get("redirect") == redir_prefix, body)
-            # Cookie jar should have sid
+            self.assertTrue(
+                str(body.get("redirect") or "").startswith(redir_prefix)
+                or body.get("redirect") == redir_prefix,
+                body,
+            )
             self.assertIn(SID_COOKIE, c.cookies)
-            # Response should mention kanban_sid
             sc = str(r.headers).lower()
             self.assertIn("kanban_sid", sc)
 
@@ -219,7 +169,6 @@ class TestLoginSetsSidOnly(unittest.TestCase):
         raw = r.headers.get_list("set-cookie") if hasattr(r.headers, "get_list") else []
         if not raw and r.headers.get("set-cookie"):
             raw = [r.headers.get("set-cookie")]
-        # 必须对三名都下删除指令（Max-Age=0 或 expires 过期）
         joined = " ".join(raw).lower()
         for name in (SID_COOKIE, COOKIE, VCOOKIE):
             self.assertTrue(
@@ -227,24 +176,23 @@ class TestLoginSetsSidOnly(unittest.TestCase):
                 f"logout must Set-Cookie delete {name}; got {raw}",
             )
         self.assertIn("max-age=0", joined)
-        # 清 jar 后会话必 401
         c.cookies.clear()
         r2 = c.get("/api/v1/session")
         self.assertEqual(r2.status_code, 401)
 
-    def test_legacy_cookie_auth_within_window(self):
+    def test_legacy_cookie_cannot_auth(self):
+        """2.7.1：仅旧 cookie 不能维持登录。"""
         c = self._client()
-        # mint legacy view token via auth_session
         sec = auth_session.load_or_init_secret(self.cfg, self.tmp)
         acc = accounts.find_account(self.cfg, self.tmp, "user_a")
         tok = auth_session.make_token(sec, "user_a", pw_ver=accounts.password_version_of(acc))
         c.cookies.set(VCOOKIE, tok)
         r = c.get("/api/v1/session")
-        self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(r.json().get("account") or r.json().get("账号"), "user_a")
-        # silent upgrade may set sid on response
-        sc = str(r.headers).lower()
-        self.assertIn("kanban_sid", sc)
+        self.assertEqual(r.status_code, 401, r.text)
+        c.cookies.clear()
+        c.cookies.set(COOKIE, tok)
+        r2 = c.get("/api/v1/session")
+        self.assertEqual(r2.status_code, 401, r2.text)
 
     def test_bu_next_admin_still_blocked(self):
         c = self._client()

@@ -147,10 +147,10 @@ class TestSalesPoolEndpoint(unittest.TestCase):
         cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def test_requires_login(self):
-        self.assertEqual(self.anon.get("/api/sales_pool").status_code, 401)
+        self.assertEqual(self.anon.get("/api/v1/admin/sales_pool").status_code, 401)
 
     def test_ref_disp_and_unassigned(self):
-        d = self.client.get("/api/sales_pool", headers=self.hdr).json()
+        d = self.client.get("/api/v1/admin/sales_pool", headers=self.hdr).json()
         by = {x["name"]: x for x in d["sales"]}
         self.assertIn("1 笔", by["销售A"]["ref_disp"])  # 参考=当年下单笔数
         self.assertIn("100.0万", by["销售A"]["ref_disp"])  # 100 万
@@ -246,7 +246,7 @@ class TestAuditTrail(unittest.TestCase):
         from fastapi.testclient import TestClient
 
         cls.root = Path(tempfile.mkdtemp())
-        shutil.copy(ROOT / "config.json", cls.root / "config.json")  # /api/settings 写 root/config.json
+        shutil.copy(ROOT / "config.json", cls.root / "config.json")  # /api/v1/admin/settings 写 root/config.json
         cls.cfg = loaders.load_config()
         _seed(cls.cfg, cls.root)
         _write_bucfg(cls.cfg, cls.root, [{"name": "BU甲", "负责人": ["负责人甲"], "销售": ["销售A"]}])
@@ -261,12 +261,12 @@ class TestAuditTrail(unittest.TestCase):
         cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
 
     def _changes(self, category=None):
-        u = "/api/config_changes" + (f"?category={category}" if category else "")
+        u = "/api/v1/admin/config_changes" + (f"?category={category}" if category else "")
         return self.client.get(u, headers=self.hdr).json()["changes"]
 
     def test_endpoint_auth(self):
-        self.assertEqual(self.anon.get("/api/config_changes").status_code, 401)
-        self.assertEqual(self.client.get("/api/config_changes", headers=self.hdr).status_code, 200)
+        self.assertEqual(self.anon.get("/api/v1/admin/config_changes").status_code, 401)
+        self.assertEqual(self.client.get("/api/v1/admin/config_changes", headers=self.hdr).status_code, 200)
 
     def test_bu_config_change_logged(self):
         """销售归属改动 → 「销售归属」类记录；新增 BU → 「BU配置」类记录。"""
@@ -274,7 +274,7 @@ class TestAuditTrail(unittest.TestCase):
 
         with patch.object(server, "recompute"):
             self.client.post(
-                "/api/bu_config",
+                "/api/v1/admin/bu_config",
                 headers=self.hdr,
                 json={
                     "bus": [
@@ -298,7 +298,7 @@ class TestAuditTrail(unittest.TestCase):
             if a["权限"] == accounts.PERM_MAIN:
                 a["密码"] = "TOPSECRET_9182"
         with patch.object(server, "recompute"):
-            self.client.post("/api/accounts", headers=self.hdr, json={"accounts": accs})
+            self.client.post("/api/v1/admin/accounts", headers=self.hdr, json={"accounts": accs})
         recs = self._changes("账号")
         self.assertTrue(recs, "账号改动应留痕")
         self.assertTrue(any("改密码" in c["摘要"] for c in recs))
@@ -326,7 +326,7 @@ class TestAuditTrail(unittest.TestCase):
             "Cookie": f"{server.SID_COOKIE}="
             f"{(ar.cookies.get(server.SID_COOKIE) or ar.cookies.get(server.COOKIE))}"
         }
-        allc = ac.get("/api/config_changes", headers=hdr).json()["changes"]
+        allc = ac.get("/api/v1/admin/config_changes", headers=hdr).json()["changes"]
         pwc = [c for c in allc if c["类别"] == "密码"]
         self.assertTrue(any("overall" in c["摘要"] and "改密码" in c["摘要"] for c in pwc))
         self.assertNotIn("NEWPW_5566", " ".join(c["摘要"] for c in allc))
@@ -335,7 +335,7 @@ class TestAuditTrail(unittest.TestCase):
         from unittest.mock import patch
 
         with patch.object(server, "recompute"):
-            self.client.post("/api/settings", headers=self.hdr, json={"backup_keep_days": 99})
+            self.client.post("/api/v1/admin/settings", headers=self.hdr, json={"backup_keep_days": 99})
         recs = self._changes("设置")
         self.assertTrue(any("备份保留" in c["摘要"] and "99" in c["摘要"] for c in recs))
 

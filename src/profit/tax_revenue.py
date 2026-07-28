@@ -163,7 +163,7 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
         if rest
         else None
     )
-    # full_items：完整排序（供 BU 页「其余」本地展开，不调全公司 /api/daily·铁律12）
+    # full_items：完整排序（供 BU 页「其余」本地展开，不调全公司 /api/v1/daily·铁律12）
     return {"items": items, "others": others, "unfilled": unfilled, "total": total, "full_items": full_items}
 
 
@@ -219,7 +219,7 @@ def compute_profit_ranking(
     # 集中度=前 conc_k 大不含税收入 / 总不含税收入（分/分）
     conc_rev = sum(split_tax(int(g[0]), vat_rate)["revenue_net"] for _, g in ranked[:conc_k])
     conc_pct = round(conc_rev / total_rev * 100, 1) if total_rev else None
-    # full_items：完整排序（供 BU 页「其余」本地展开，不调 /api/profit_ranking·铁律12）
+    # full_items：完整排序（供 BU 页「其余」本地展开，不调 /api/v1/rankings/profit·铁律12）
     return {
         "items": items,
         "others": others,

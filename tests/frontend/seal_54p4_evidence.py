@@ -211,7 +211,7 @@ def writeback_checklists(results: dict) -> None:
         kick = results.get("F2_passwd_kick") or {}
         block = (
             "## F2 logout / 会话\n"
-            "- **活体 logout**：管理员 form 登录 → `/api/accounts` 200 → `/admin/logout` → `/api/accounts` **401**\n"
+            "- **活体 logout**：管理员 form 登录 → `/api/v1/admin/accounts` 200 → `/admin/logout` → `/api/v1/admin/accounts` **401**\n"
             f"  - 证据：`docs/pixel/vue54p4/sec/results.json`（F2_logout_accounts={results.get('F2_logout_accounts')}）\n"
             "- **活体改密踢会话（F2）**：看端 overall 登录 → `POST /api/my_passwd` "
             f"{{old,new}} → change={kick.get('change')} → `/api/v1/session` **{kick.get('after_session')}** "

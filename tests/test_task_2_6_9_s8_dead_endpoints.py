@@ -11,12 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 class TestS8DeadEndpointsGone(unittest.TestCase):
     def test_budget_depts_route_removed(self):
         src = (ROOT / "src" / "routes" / "manual.py").read_text(encoding="utf-8")
-        self.assertNotIn('@app.get("/api/budget_depts")', src)
+        self.assertNotIn('@app.get("/api/v1/admin/budget_depts")', src)
         self.assertNotIn("def api_budget_depts", src)
 
     def test_detail_meta_route_removed(self):
         src = (ROOT / "src" / "routes" / "data_api.py").read_text(encoding="utf-8")
-        self.assertNotIn('@app.get("/api/detail/meta")', src)
+        self.assertNotIn('@app.get("/api/v1/admin/detail/meta")', src)
         self.assertNotIn("def api_detail_meta", src)
 
     def test_client_error_stats_route_removed(self):

@@ -66,7 +66,7 @@ async function exportHtml() {
   const url =
     store.scope === 'bu' && store.buName
       ? `/bu/${encodeURIComponent(store.buName)}/export.html?${q}`
-      : `/api/export.html?${q}`
+      : `/api/v1/export.html?${q}`
   exporting.value = true
   try {
     const r = await fetch(url, { credentials: 'same-origin' })

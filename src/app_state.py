@@ -16,15 +16,12 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 # B-P5：不再提供 SERVE_SHELL 化石开关；看端固定 shell + fragments。
 
-# 2.6.0：唯一会话 cookie（OWASP：HttpOnly + SameSite；不硬开 Secure——外网仍 HTTP）
+# 2.7.1：唯一会话 cookie（OWASP：HttpOnly + SameSite；不硬开 Secure——外网仍 HTTP）
 SID_COOKIE = "kanban_sid"
-# 遗留名：兼容读 21 天（见 session_ctx）；登录不再写入
-COOKIE = "kanban_session"  # legacy admin
-VCOOKIE = "kanban_view"  # legacy viewer
+# 遗留名：2.7.1 起不再读；登录/退出时 delete 清浏览器残留
+COOKIE = "kanban_session"  # legacy name — delete only
+VCOOKIE = "kanban_view"  # legacy name — delete only
 SESSION_TTL = 12 * 3600  # 任务书63·H-05/H-06 过渡：管理端会话 ≤12h
-SESSION_LEGACY_COMPAT_DAYS = 21
-# 兼容锚点文件名（相对 data_dir）：内容 YYYY-MM-DD = 2.6.0 上生产日
-SESSION_LEGACY_COMPAT_SINCE_FILE = "session_legacy_compat_since.txt"
 
 # 服务内存态：汇总 + 碎片 + 原始记录（秒级重算）+ 刷新状态
 # publish-once：fragments=已 strip 的 client 碎片；views=client-ready（HTTP 直接取，不再 rebuild）

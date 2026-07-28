@@ -261,17 +261,17 @@ class TestArchiveExportAndFeishuSettings(unittest.TestCase):
             c = TestClient(app)
             r = c.post("/admin/login", data={"account": "admin1", "password": "8888"}, follow_redirects=False)
             self.assertIn(r.status_code, (302, 303))
-            r = c.post("/api/settings", json={"feishu_webhook_url": "https://example.com/hook", "run_log_keep_days": 100})
+            r = c.post("/api/v1/admin/settings", json={"feishu_webhook_url": "https://example.com/hook", "run_log_keep_days": 100})
             self.assertEqual(r.status_code, 200, r.text)
             self.assertNotIn("feishu_webhook_url", r.json())
-            g = c.get("/api/settings")
+            g = c.get("/api/v1/admin/settings")
             self.assertNotIn("feishu_webhook_url", g.json())
             # 本地配置不得留下该键
             loc = tmp / "数据" / "本地配置.json"
             if loc.is_file():
                 raw = loc.read_text(encoding="utf-8")
                 self.assertNotIn("feishu_webhook_url", raw)
-            r2 = c.get("/api/archive_export", params={"year": "2026"})
+            r2 = c.get("/api/v1/admin/archive_export", params={"year": "2026"})
             self.assertEqual(r2.status_code, 200, r2.text[:200])
             self.assertIn("spreadsheet", r2.headers.get("content-type", ""))
         finally:

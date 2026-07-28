@@ -247,7 +247,7 @@ class TestDailyApiDual(unittest.TestCase):
         c = TestClient(app, follow_redirects=False)
         lr = c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(lr.status_code, 303)
-        r = c.get("/api/daily", params={"start": "2026-01-01", "end": "2026-03-31"})
+        r = c.get("/api/v1/daily", params={"start": "2026-01-01", "end": "2026-03-31"})
         self.assertEqual(r.status_code, 200)
         d = r.json()
         self.assertIn("dual_rankings", d)
