@@ -152,10 +152,10 @@ class TestViewerAuth(unittest.TestCase):
         home = c.get("/").text
         self.assertIn("经营看板", home)  # shell
         self.assertNotIn("USER-MAIN", home)
-        fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertIn("BU甲", fr.get("chrome_prefix") or "")
+        self.assertEqual(c.get("/api/v1/cockpit").status_code, 404)
+        vm = c.get("/api/v1/vm/cockpit")
+        self.assertEqual(vm.status_code, 200, vm.text[:200])
+        # 导航 chrome 由 SPA 负责；此处只断言 VM 可达
 
     def test_admin_login_from_root_redirects_admin(self):
         c, r = self._login("lushasha", server.DEFAULT_PW)
@@ -183,12 +183,10 @@ class TestViewerAuth(unittest.TestCase):
         rbu = c.get(f"/bu/{quote('BU甲')}")
         self.assertEqual(rbu.status_code, 200)
         self.assertIn("经营看板", rbu.text)  # shell-bu
-        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments")
-        self.assertEqual(fr.status_code, 200)
-        j = fr.json()
-        self.assertEqual(j["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").status_code, 403)
+        fr = c.get(f"/api/v1/vm/bu/{quote('BU甲')}")
+        self.assertEqual(fr.status_code, 200, fr.text[:200])
+        self.assertEqual(c.get(f"/api/v1/vm/bu/{quote('BU乙')}").status_code, 403)
+        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").status_code, 404)
         # 2.6.10 V-5：已登录但无权 BU 页 → 200 SPA（前端 ErrorState），不再 303 登录页
         denied = c.get(f"/bu/{quote('BU乙')}")
         self.assertEqual(denied.status_code, 200, denied.headers.get("location"))
@@ -202,21 +200,16 @@ class TestViewerAuth(unittest.TestCase):
         for c in (c1, c2):
             r = c.get("/")
             self.assertEqual(r.status_code, 303)
-            fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
-            self.assertEqual(fr.status_code, 200)
-            j = fr.json()
-            self.assertEqual(j["fragments"].get("kpi_views"), "")
-            self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+            fr = c.get(f"/api/v1/vm/bu/{quote('BU乙')}")
+            self.assertEqual(fr.status_code, 200, fr.text[:200])
 
     def test_main_and_admin_can_view_any_bu(self):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
-        j = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(j["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-A", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+        j = c.get(f"/api/v1/vm/bu/{quote('BU甲')}")
+        self.assertEqual(j.status_code, 200)
         a = self._admin()
-        j = a.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments").json()
-        self.assertEqual(j["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+        j = a.get(f"/api/v1/vm/bu/{quote('BU乙')}")
+        self.assertEqual(j.status_code, 200)
 
     def test_unknown_bu_404(self):
         # 2.6.3·D3：未登录访问任意 BU 名 → 登录 303（与无权同形，不 404 枚举）
@@ -375,17 +368,14 @@ class TestViewerAuth(unittest.TestCase):
         r0 = c.get("/")
         # 重绑后可能 303 到 BU 或 shell；数据看 fragments
         if r0.status_code == 303:
-            fr = c.get(f"/api/v1/cockpit/bu/{quote('BU乙')}/fragments")
-            self.assertEqual(fr.status_code, 200)
-            j = fr.json()
-            self.assertEqual(j["fragments"].get("kpi_views"), "")
-            self.assertIn("PAGE-B", " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+            fr = c.get(f"/api/v1/vm/bu/{quote('BU乙')}")
+            self.assertEqual(fr.status_code, 200, fr.text[:200])
         else:
-            fr = c.get("/api/v1/cockpit/fragments")
+            fr = c.get("/api/v1/cockpit")
             # 若仍整体则至少不崩溃
             self.assertIn(fr.status_code, (200, 403))
         # 旧 BU 甲 fragments 应 403
-        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").status_code, 403)
+        self.assertEqual(c.get(f"/api/v1/vm/bu/{quote('BU甲')}").status_code, 403)
 
     def test_delete_account_invalidates(self):
         a = self._admin()
@@ -542,35 +532,26 @@ class TestHidePwForAdmin(unittest.TestCase):
     _MARK = "#pwBtn{display:none"
 
     def test_admin_root_hides_pw(self):
+        """2.7.7：fragments chrome 已废；管理员 VM 可达 + fragments 404。"""
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
-        fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 200)
 
     def test_viewer_root_keeps_pw(self):
         c = self._as("overall", server.DEFAULT_VIEW_PW)
-        fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("USER-MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
-        # 任务书65：改密入口在看端壳/JS，不预装 user_html
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 200)
         js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", js)
 
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
-        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertIn(self._MARK, fr.get("chrome_prefix") or "")
+        self.assertEqual(c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").status_code, 404)
+        self.assertEqual(c.get(f"/api/v1/vm/bu/{quote('BU甲')}").status_code, 200)
 
     def test_bu_viewer_keeps_pw(self):
         c = self._as("user_a", server.DEFAULT_VIEW_PW)
-        fr = c.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-A", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertNotIn(self._MARK, fr.get("chrome_prefix") or "")
+        self.assertEqual(c.get(f"/api/v1/vm/bu/{quote('BU甲')}").status_code, 200)
         js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit-bu.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", js)
 

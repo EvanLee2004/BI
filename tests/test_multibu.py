@@ -124,24 +124,21 @@ class TestServerMultiBu(unittest.TestCase):
 
         loc = unquote(r0.headers.get("location") or "")
         self.assertIn("/bu/BU甲", loc)
-        fr = c.get("/api/v1/cockpit/bu/BU甲/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-甲", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        chrome = fr.get("chrome_prefix") or ""
-        self.assertIn("我的 BU", chrome)
-        self.assertIn("BU甲", chrome)
-        self.assertIn("BU乙", chrome)
-        self.assertNotIn("BU丙", chrome)
+        fr = c.get("/api/v1/vm/bu/BU甲")
+        self.assertEqual(fr.status_code, 200, fr.text[:200])
+        self.assertEqual(c.get("/api/v1/cockpit/bu/BU甲/fragments").status_code, 404)
+        # shell 仍带导航
+        shell = c.get("/bu/BU甲").text
+        self.assertIn("经营看板", shell)
 
     def test_multi_can_view_each_bound(self):
         c = self._login("multi")
         for n, mark in (("BU甲", "PAGE-甲"), ("BU乙", "PAGE-乙")):
             self.assertEqual(c.get(f"/bu/{n}").status_code, 200)
             self.assertIn("经营看板", c.get(f"/bu/{n}").text)
-            fr = c.get(f"/api/v1/cockpit/bu/{n}/fragments").json()
-            self.assertEqual(fr["fragments"].get("kpi_views"), "")
-            self.assertIn(mark, " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-            self.assertIn("我的 BU", fr.get("chrome_prefix") or "")
+            r = c.get(f"/api/v1/vm/bu/{n}")
+
+            self.assertEqual(r.status_code, 200, r.text[:200])
 
     def test_multi_cannot_view_unbound(self):
         c = self._login("multi")
@@ -149,31 +146,25 @@ class TestServerMultiBu(unittest.TestCase):
         # 2.6.10 V-5：已登录无权 BU 文档路由 → 200 SPA（前端 ErrorState），API 仍 403
         self.assertEqual(r.status_code, 200, r.headers.get("location"))
         self.assertIn("经营看板", r.text)
-        self.assertEqual(c.get("/api/v1/cockpit/bu/BU丙/fragments").status_code, 403)
+        self.assertEqual(c.get("/api/v1/vm/bu/BU丙").status_code, 403)
 
     def test_legacy_single_still_works(self):
         c = self._login("legacy")
         r0 = c.get("/")
         self.assertEqual(r0.status_code, 303)
-        fr = c.get("/api/v1/cockpit/bu/BU丙/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-丙", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
-        self.assertNotIn("我的 BU", fr.get("chrome_prefix") or "")
-        self.assertEqual(c.get("/api/v1/cockpit/bu/BU甲/fragments").status_code, 403)
+        r = c.get("/api/v1/vm/bu/BU丙")
+
+        self.assertEqual(r.status_code, 200, r.text[:200])
+        self.assertEqual(c.get("/api/v1/vm/bu/BU甲").status_code, 403)
 
     def test_overall_sees_all(self):
         c = self._login("overall")
         home = c.get("/").text
         self.assertIn("经营看板", home)
-        fr = c.get("/api/v1/cockpit/fragments").json()
-        self.assertEqual(fr["fragments"].get("kpi_views"), "")
-        self.assertIn("MAIN", " ".join((fr.get("views") or {}).get("kpi_body", {}).values()))
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 200)
         for n in ("BU甲", "BU乙", "BU丙"):
-            self.assertIn(n, fr.get("chrome_prefix") or "")
-            mark = f"PAGE-{n[-1]}"
-            j = c.get(f"/api/v1/cockpit/bu/{n}/fragments").json()
-            self.assertEqual(j["fragments"].get("kpi_views"), "")
-            self.assertIn(mark, " ".join((j.get("views") or {}).get("kpi_body", {}).values()))
+            self.assertEqual(c.get(f"/api/v1/vm/bu/{n}").status_code, 200)
 
     def test_bu_account_not_main(self):
         c = self._login("multi")

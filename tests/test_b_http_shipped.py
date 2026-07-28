@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B shipped HTTP 真路径：create_app + publish 缓存后 GET /api/v1/cockpit/fragments
+"""B shipped HTTP（2.7.7：fragments 404；strip 工具与 publish 缓存守卫）
 必须清空全部 client 卡字段，并带 views（cfg 参与）。
 
 禁止只测 api_v1.cockpit_fragments(client=True) 绕过 server 缓存分支。
@@ -84,34 +84,23 @@ class TestHttpShippedFragments(unittest.TestCase):
         return c
 
     def test_http_cache_path_strips_all_client_fields(self):
+        """2.7.7：fragments API 404；状态可仍有历史键但不得再 HTTP 下发。"""
         c = self._login_overall()
-        # 缓存里仍有预拼
-        kv = server._state["fragments"].get("kpi_views") or ""
-        self.assertTrue(kv, "fragments.kpi_views 应有预拼 HTML")
-        self.assertIn("kpi-grid", kv[:400].lower() if "kpi" in kv[:80].lower() else kv)
         r = c.get("/api/v1/cockpit/fragments")
-        self.assertEqual(r.status_code, 200, r.text[:400])
-        body = r.json()
-        fr = body["fragments"]
-        for f in _CLIENT_FIELDS:
-            if f in self.fr_full:
-                self.assertEqual(fr.get(f), "", f"HTTP 缓存路径未清空 {f}；仍有 {str(fr.get(f))[:80]!r}")
-        self.assertIn("views", body)
-        self.assertIn("rankings_view", body["views"])
-        self.assertTrue(body["views"].get("kpi_body"), "views.kpi_body 应有各周期正文")
-        self.assertTrue(body["views"].get("pl_body"))
-        # 预拼串不得出现在响应 fragments 卡字段
-        for f in ("kpi_views", "rank_views", "pl_views"):
-            self.assertFalse(fr.get(f))
+        self.assertEqual(r.status_code, 404, r.text[:200])
+        r2 = c.get("/api/v1/vm/cockpit")
+        self.assertEqual(r2.status_code, 200, r2.text[:300])
+        self.assertIn("kpi", r2.json())
 
     def test_http_views_built_with_cfg(self):
-        """rebuild views 须带 cfg（show_delivered_unpaid 等）。"""
         c = self._login_overall()
-        r = c.get("/api/v1/cockpit/fragments")
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        r = c.get("/api/v1/vm/cockpit")
         self.assertEqual(r.status_code, 200)
-        v = r.json()["views"]
-        self.assertEqual(v.get("year_key"), self.summary["meta"]["year_key"])
-        self.assertIn(self.summary["meta"]["year_key"], v.get("period_keys") or [])
+        body = r.json()
+        yk = self.summary["meta"]["year_key"]
+        cards = (body.get("kpi") or {}).get("cards_by_period") or {}
+        self.assertIn(yk, cards)
 
     def test_client_strip_helper_clears_all(self):
         dirty = {f: f"X-{f}" for f in _CLIENT_FIELDS}
@@ -122,19 +111,15 @@ class TestHttpShippedFragments(unittest.TestCase):
             self.assertEqual(clean[f], "")
 
     def test_publish_then_http_strip(self):
-        """经 refresh_pipeline.publish 写入缓存后，HTTP 仍 strip。"""
+        """publish 可写入任意 fragments 键；HTTP fragments 仍 404。"""
         import refresh_pipeline
 
         refresh_pipeline.set_admin_page_builder(lambda h, s, c: "ready")
         fr_full = dict(self.fr_full)
         refresh_pipeline.publish(self.cfg, self.summary, self.html, bu_pages={}, fragments=fr_full)
-        self.assertTrue(server._state["fragments"].get("kpi_views"))
         c = self._login_overall()
-        r = c.get("/api/v1/cockpit/fragments")
-        self.assertEqual(r.status_code, 200)
-        fr = r.json()["fragments"]
-        for f in ("kpi_views", "pl_views", "rank_views", "trend_html", "period_bar"):
-            self.assertEqual(fr.get(f), "", f"publish 后 HTTP 未 strip {f}")
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 200)
 
 
 if __name__ == "__main__":

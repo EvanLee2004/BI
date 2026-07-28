@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """数据刷新与重算管道（C：从 server 抽出）。
 
-任务书65·L2：刷新只发布 summary/fragments/views/bu 数据；不预装整页 HTML。
-导出 PNG 在 export 路由按需装配（见 assemble_export_html）。
+任务书65·L2：刷新只发布 summary/views/bu 数据；不预装整页 HTML。
+2.7.7 G2：刷新不再 build_dashboard_fragments；SPA 只靠 VM；导出按需装配。
 """
 
 from __future__ import annotations
@@ -64,8 +64,11 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
         "built_at": built,
         "export_html_cache": None,  # 失效
     }
+    # 2.7.7：刷新显式清空或写入 fragments；None 表示清空（禁长期残留 HTML 碎片）
     if fragments is not None:
         snap["fragments"] = fragments
+    else:
+        snap["fragments"] = {}
     if views is not None:
         snap["views"] = views
     if slim_bu is not None:
@@ -136,12 +139,14 @@ def do_full(cfg, root, trigger) -> dict:
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger, root=root)
     _state["records"] = ing.get("records")
     _state["source_fp"] = source_data_fingerprint(cfg, root)
+    # 2.7.7：不 publish HTML fragments；仅 views + summary
+    summary.pop("_fragments", None)
     publish(
         cfg,
         summary,
         html,
         bu_pages,
-        fragments=summary.pop("_fragments", None) or _state.get("fragments"),
+        fragments={},
         views=summary.pop("_views", None) or _state.get("views"),
     )
     return ing
@@ -175,14 +180,14 @@ def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    frags_full = render.build_dashboard_fragments(summary, cfg, logo)
+    # 2.7.7 G2：重算不建 HTML fragments；只建 views 供兼容缓存（看端走 VM）
     views = api_v1.build_cockpit_views(summary, cfg)
     publish(
         cfg,
         summary,
         None,
         bu_pages,
-        fragments=api_v1.client_strip_fragments(frags_full),
+        fragments={},
         views=views,
     )
 

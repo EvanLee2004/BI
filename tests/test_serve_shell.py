@@ -67,13 +67,11 @@ class TestServeShellProductionPath(unittest.TestCase):
         self.assertIn('id="app"', body)
         self.assertNotIn("assemble/page.js", body)
         self.assertNotIn("USER-MAIN", body)
-        # 碎片 API 仍可用（VM 对照）；卡字段 strip
+        # 2.7.7：fragments 404；VM 可达
         fr = c.get("/api/v1/cockpit/fragments")
-        self.assertEqual(fr.status_code, 200)
-        payload = fr.json()
-        self.assertEqual(payload["fragments"].get("kpi_views"), "")
-        kpi_body = (payload.get("views") or {}).get("kpi_body") or {}
-        self.assertIn("USER-MAIN", " ".join(str(v) for v in kpi_body.values()))
+        self.assertEqual(fr.status_code, 404, fr.text[:300])
+        vm = c.get("/api/v1/vm/cockpit")
+        self.assertEqual(vm.status_code, 200, vm.text[:300])
 
     def test_no_serve_shell_attr_fossil(self):
         """P5：不存在 SERVE_SHELL 开关（或即使残留也不得再控制 / 直出）。"""

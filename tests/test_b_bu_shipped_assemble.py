@@ -91,10 +91,10 @@ class TestBuShippedAssemble(unittest.TestCase):
             raise unittest.SkipTest(f"BU 页未生成: keys={list(pages)}")
         cls.page = pages[_BU]
         summary = cls.page["summary"]
-        # 65·L2：build_bu_pages 不预装 html；Python 真源 = render_bu_page(summary)
+        # 65·L2 / 2.7.7 G2：build_bu_pages 不预装 html/fragments；导出链按需建碎片
         cls.py_html = render.render_bu_page(_BU, summary, cfg, logo)
-        # page.fragments 已是 client_strip；再 strip 幂等
-        cls.fr_client = api_v1.client_strip_fragments(cls.page["fragments"])
+        frags = render.build_bu_dashboard_fragments(_BU, summary, cfg, logo)
+        cls.fr_client = api_v1.client_strip_fragments(frags)
         cls.views = api_v1.build_bu_cockpit_views(_BU, summary, cfg)
 
         # 前置条件：本用例依赖的业务特征必须存在

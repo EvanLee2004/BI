@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B-P4：回款卡/双血条/drawer/日段 + BU 隔离回归 + data-assembled 契约。"""
+"""B-P4：回款卡/双血条/drawer/日段 + BU 隔离回归 + data-assembled 契约。
+
+2.7.7 G2：generate 不再预装整页 HTML；本测对导出 assemble 链与 bu_pages 空 fragments 契约。
+"""
 
 from __future__ import annotations
 
@@ -39,9 +42,12 @@ class TestP4Remainder(unittest.TestCase):
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
-        cls.summary, cls.html, _, cls.bu_pages = core.generate(cfg, date(2026, 6, 30), trigger="b-p4")
+        cls.summary, gen_html, _, cls.bu_pages = core.generate(cfg, date(2026, 6, 30), trigger="b-p4")
+        cls.gen_html = gen_html
         logo = assets.load_logo_base64(cfg) or ""
         cls.frags = render.build_dashboard_fragments(cls.summary, cfg, logo)
+        # 导出链真源（非 generate 返回值）
+        cls.html = render.assemble_dashboard_html(cls.frags)
         cls.cfg = cfg
 
     def test_remainder_in_fragments_and_equal_page(self):
@@ -72,15 +78,21 @@ class TestP4Remainder(unittest.TestCase):
         self.assertIn('data-assembled="1"', self.html)
         self.assertFalse((ROOT / "static" / "shell.html").is_file())
 
-    def test_bu_pages_have_fragments_for_shell(self):
-        """BU 页有 summary + fragments + views；65·L2 不预装 html。"""
+    def test_bu_pages_g2_no_html_fragments(self):
+        """2.7.7 G2：BU 页有 summary + views；fragments 为空 dict（不预装 HTML 碎片）。"""
+        self.assertEqual(self.gen_html, "")
         self.assertIsInstance(self.bu_pages, dict)
         for name, page in (self.bu_pages or {}).items():
             self.assertNotIn("html", page, name)
             self.assertIn("fragments", page)
             self.assertIn("summary", page)
-            self.assertTrue(page["fragments"].get("kpi_views") is not None)
-            self.assertIn(name, page["fragments"].get("name", "") or name)
+            self.assertIn("views", page)
+            fr = page.get("fragments") or {}
+            self.assertFalse(fr.get("kpi_views"), f"BU {name} 不得预装 kpi_views")
+            self.assertTrue(
+                (page.get("views") or {}).get("period_keys") or (page.get("views") or {}).get("rankings_view"),
+                f"BU {name} 应有 views",
+            )
 
 
 if __name__ == "__main__":

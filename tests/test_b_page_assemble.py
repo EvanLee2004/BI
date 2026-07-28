@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B：整页碎片 + page.js（node）组装 == render_dashboard 逐字节。"""
+"""B：整页碎片 + page.js（node）组装 == Python assemble_dashboard_html 逐字节。
+
+2.7.7 G2：core.generate 运行态不再预装 HTML（html=""）；本测仍锁导出/遗留 assemble 链
+（build_dashboard_fragments → assemble_dashboard_html / page.js）Python 与 Node 同源。
+"""
 
 from __future__ import annotations
 
@@ -31,15 +35,26 @@ class TestPageAssemble(unittest.TestCase):
         cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         cls.cfg = cfg
-        cls.summary, cls.html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-page")
+        cls.summary, gen_html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-page")
+        # G2：刷新/generate 不再返回预装整页 HTML
+        cls.gen_html = gen_html
         cls.logo = assets.load_logo_base64(cfg) or ""
         cls.frags = render.build_dashboard_fragments(cls.summary, cfg, cls.logo)
+        cls.html = render.assemble_dashboard_html(cls.frags)
+
+    def test_generate_no_longer_ships_html(self):
+        """2.7.7：generate 运行态 html 为空，看数走 VM。"""
+        self.assertEqual(self.gen_html, "")
+        self.assertGreater(len(self.html), 100_000, "assemble 导出链仍应产出完整 HTML")
 
     def test_python_assemble_equals_dashboard(self):
         import render
 
         a = render.assemble_dashboard_html(self.frags)
+        # 与 render_dashboard 兼容入口同源
+        b = render.render_dashboard(self.summary, self.cfg, self.logo)
         self.assertEqual(a, self.html)
+        self.assertEqual(b, self.html)
 
     def test_node_page_js_equals_dashboard(self):
         pack = {

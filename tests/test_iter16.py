@@ -202,21 +202,27 @@ class TestUnassignedHint(_Base):
         main = client.get("/", headers=hdr).text
         # shell 不含业务文案；看 chrome/fragments
         self.assertIn("经营看板", main)
-        fr = client.get("/api/v1/cockpit/fragments", headers=hdr).json()
-        chrome = fr.get("chrome_prefix") or ""
-        body = fr["fragments"].get("kpi_views") or ""
-        # 看端整体页：不展示未归属提示（只留 BU 分页入口；配置仍走管理端）
-        self.assertNotIn("未归属 BU 的业务", chrome + body)
-        self.assertNotIn("名销售待配置归属", chrome + body)
-        self.assertNotIn("bu-unassigned", chrome + body)
-        self.assertIn("业务 BU 分页", chrome)
-        # BU 页同样无未归属文案，也不泄漏其他 BU/未归属人名
+        self.assertEqual(client.get("/api/v1/cockpit/fragments", headers=hdr).status_code, 404)
+        fr = client.get("/api/v1/vm/cockpit", headers=hdr).json()
+        # 2.7.7：VM 有 KPI；未归属提示不进看端文案
+        cards = (fr.get("kpi") or {}).get("cards_by_period") or {}
+        body = str(cards) + str(fr)
+        self.assertTrue(cards, "VM 应有 KPI 卡")
+        self.assertNotIn("未归属 BU 的业务", body)
+        self.assertNotIn("名销售待配置归属", body)
+        self.assertNotIn("bu-unassigned", body)
+        # BU 导航在 SPA 壳/VM bu_nav；不经 fragments chrome
         from urllib.parse import quote
 
         bupage = client.get(f"/bu/{quote('BU甲')}", headers=hdr).text
         self.assertIn("经营看板", bupage)
-        bfr = client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments", headers=hdr).json()
-        bhtml = (bfr.get("chrome_prefix") or "") + str(bfr.get("fragments") or {})
+        self.assertEqual(
+            client.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments", headers=hdr).status_code,
+            404,
+        )
+        bvm = client.get(f"/api/v1/vm/bu/{quote('BU甲')}", headers=hdr)
+        self.assertEqual(bvm.status_code, 200)
+        bhtml = bvm.text
         self.assertNotIn("未归属 BU 的业务", bhtml)
         self.assertNotIn("名销售待配置归属", bhtml)
         self.assertNotIn("销售B", bhtml)

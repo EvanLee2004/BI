@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""批次2 · publish-once：generate 一次产出 client-ready fragments+views，HTTP 直接取缓存。
+"""2.7.7 G2：generate 只挂 _views（不建 HTML fragments）；fragments HTTP 404。
 
 守卫：
-- generate 后 _fragments 已 strip、_views 有 period_keys/rankings_view
-- BU pages 同理
-- client_strip_fragments 对已 strip 缓存幂等；assert_clean 能抓回潮
-- 不在 HTTP 路径强制 rebuild（缓存 views 原样下发）
+- generate 后 _views 有 period_keys/rankings_view；无 _fragments 预拼
+- BU pages 有 views、fragments 为空
+- client_strip_fragments 工具仍幂等
+- fragments API 404
 """
 
 from __future__ import annotations
@@ -36,23 +36,14 @@ class TestPublishOnce(unittest.TestCase):
         cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
         summary, html, ing, bu_pages = core.generate(cfg, datetime.date(2026, 6, 30), trigger="publish-once")
-        self.assertTrue(html)
-        fr = summary.get("_fragments") or {}
+        # 2.7.7：刷新不预装整页/fragments
+        self.assertFalse(summary.get("_fragments"), "generate 不得挂 _fragments")
         views = summary.get("_views") or {}
-        self.assertTrue(fr, "generate 须挂 _fragments")
         self.assertTrue(views.get("period_keys") or views.get("rankings_view"), "generate 须挂 client-ready _views")
-        self.assertTrue(
-            api_v1.fragments_client_fields_empty(fr),
-            f"publish-once fragments 应已 strip: {[f for f in api_v1._CLIENT_ASSEMBLE_FIELDS if fr.get(f)]}",
-        )
-        # 幂等 strip + assert_clean 不炸
-        api_v1.client_strip_fragments(fr, assert_clean=True)
-        # BU
         if bu_pages:
             for name, page in bu_pages.items():
-                self.assertTrue(
-                    api_v1.fragments_client_fields_empty(page.get("fragments") or {}), f"BU {name} fragments 应已 strip"
-                )
+                fr = page.get("fragments") or {}
+                self.assertFalse((fr.get("kpi_views") or "").strip(), f"BU {name} 不得预拼 kpi_views")
                 self.assertTrue(
                     (page.get("views") or {}).get("period_keys") or (page.get("views") or {}).get("rankings_view"),
                     f"BU {name} 应有 views",
@@ -112,16 +103,14 @@ class TestPublishOnce(unittest.TestCase):
         c = TestClient(app, follow_redirects=False)
         r = c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)
-        pack = c.get("/api/v1/cockpit/fragments").json()
-        self.assertEqual(pack["fragments"].get("kpi_views"), "")
-        self.assertIn(mark, " ".join((pack.get("views") or {}).get("kpi_body", {}).values()))
-        # BU
+        # 2.7.7：fragments 死；状态 views 标记仍在（不经 HTTP 下发）
+        self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
+        self.assertIn(mark, " ".join((server._state.get("views") or {}).get("kpi_body", {}).values()))
         c2 = TestClient(app, follow_redirects=False)
         r2 = c2.post("/login", data={"account": "user_a", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r2.status_code, 303)
-        bpack = c2.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").json()
-        self.assertEqual(bpack["fragments"].get("kpi_views"), "")
-        self.assertIn("PAGE-A", " ".join((bpack.get("views") or {}).get("kpi_body", {}).values()))
+        self.assertEqual(c2.get(f"/api/v1/cockpit/bu/{quote('BU甲')}/fragments").status_code, 404)
+        # 桩 summary 不全，不强制 VM 200；只锁 fragments 404
 
 
 if __name__ == "__main__":

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import bu
 import profit
-import render
 import charts
 import assets
 import db
@@ -409,15 +408,13 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
                 public_month_details=ctx.get("public_month_details"),
                 fine_rules_by_month=ctx.get("fine_rules"),
             )
-        # summary + fragments + views：publish-once（HTTP 直接取 client-ready）
-        # 任务书65·L2 真·按需：刷新路径不装配整页 html；导出走 assemble_export_html / render_bu_page
+        # 2.7.7 G2：刷新只挂 summary+views；不建 HTML fragments（看端 VM；导出按需）
         import api_v1
 
-        fr_full = render.build_bu_dashboard_fragments(b["name"], s, cfg, logo_b64)
         views = api_v1.build_bu_cockpit_views(b["name"], s, cfg)
         pages[b["name"]] = {
             "name": b["name"],
-            "fragments": api_v1.client_strip_fragments(fr_full),
+            "fragments": {},
             "views": views,
             "summary": s,
         }
@@ -447,12 +444,10 @@ def generate(cfg, today, trigger="manual", root=None):
         attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    frags_full = render.build_dashboard_fragments(summary, cfg, logo)
-    # 兼容返回值仍带整页 html（导出 png 旧路径/测试）；运行态 _state 不预装（65·L2）
-    html = render.assemble_dashboard_html(frags_full)
+    # 2.7.7 G2：刷新不建 HTML fragments / 不预装整页；导出走 assemble_export_html
     views = api_v1.build_cockpit_views(summary, cfg)
-    # attach for server publish（client-ready，已 strip）
-    summary["_fragments"] = api_v1.client_strip_fragments(frags_full)
+    html = ""  # 运行态不预装；兼容三元组返回位置
+    summary.pop("_fragments", None)
     summary["_views"] = views
     try:  # VM 归档失败（磁盘满等）不影响出页面
         cockpit_vm = viewmodels.build_cockpit_vm(summary, cfg).model_dump()

@@ -543,75 +543,16 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/cockpit/fragments")
     def api_v1_cockpit_fragments(request: Request):
-        """B：整体页渲染就绪碎片（shell 组装）。"""
-        if not (_vacct(request) or _user(request)):
-            raise HTTPException(status_code=401, detail="请先登录看板")
-        if not _can_view_main(request) and not _user(request):
-            raise HTTPException(status_code=403, detail="无权限")
-        summary = _state.get("summary")
-        fr = _state.get("fragments")
-        views = _state.get("views")
-        if not fr:
-            # 冷启动：无 fragments 时一次性建 client-ready
-            if not summary:
-                raise HTTPException(status_code=503, detail="数据尚未生成")
-            logo = ""
-            try:
-                logo = assets.load_logo_base64(cfg) or ""
-            except OSError as e:
-                print(f"[cockpit] logo 加载失败：{e}")
-                logo = ""
-            pack = api_v1.cockpit_fragments(summary, cfg, logo, client=True)
-            fr = pack["fragments"]
-            views = pack["views"]
-            _state["fragments"] = fr
-            _state["views"] = views
-        else:
-            # publish-once / 测试桩：有 fragments 则 strip 幂等；views 优先缓存
-            fr = api_v1.client_strip_fragments(fr)
-            if not views:
-                if summary and (summary.get("meta") or {}).get("year_key"):
-                    try:
-                        views = api_v1.build_cockpit_views(summary, cfg)
-                        _state["views"] = views
-                    except Exception as e:
-                        # 任务书33·B：不可静默空 views（周期切换会空）。记日志后退化空壳，不 500。
-                        print(f"[cockpit] build_cockpit_views 失败：{type(e).__name__}: {e}")
-                        views = {"year_key": "", "period_keys": [], "rankings_view": {}}
-                else:
-                    views = {"year_key": "", "period_keys": [], "rankings_view": {}}
-        hide_pw = bool(_user(request))
-        return JSONResponse(
-            {
-                "api_version": "v1",
-                "mode": "fragments",
-                "fragments": fr,
-                "views": views,
-                "chrome_prefix": _main_chrome_prefix(hide_pw=hide_pw),
-                "data_assembled": "1",
-            }
+        """2.7.7 G2：HTML fragments 已废止；看端请用 /api/v1/vm/cockpit。"""
+        raise HTTPException(
+            status_code=404,
+            detail="fragments 已废止，请使用 /api/v1/vm/cockpit",
         )
 
     @app.get("/api/v1/cockpit/bu/{name}/fragments")
     def api_v1_cockpit_bu_fragments(name: str, request: Request):
-        """B-P4：BU 页碎片 + views（shell-bu + rankings.js + page.js）。"""
-        if not (_vacct(request) or _user(request)):
-            raise HTTPException(status_code=401, detail="请先登录看板")
-        if not _can_view_bu(request, name):
-            raise HTTPException(status_code=403, detail="无权查看该 BU")
-        page = (_state.get("bu_pages") or {}).get(name)
-        if not page:
-            raise HTTPException(status_code=404, detail="BU 不存在或未配置")
-        fr, views = _ensure_bu_fragments(name, page, cfg)
-        return JSONResponse(
-            {
-                "api_version": "v1",
-                "mode": "fragments",
-                "scope": "BU",
-                "bu_name": name,
-                "fragments": fr,
-                "views": views,
-                "chrome_prefix": _bu_chrome_prefix(name, request),
-                "data_assembled": "1",
-            }
+        """2.7.7 G2：BU HTML fragments 已废止；看端请用 /api/v1/vm/bu/{name}。"""
+        raise HTTPException(
+            status_code=404,
+            detail="fragments 已废止，请使用 /api/v1/vm/bu/{name}",
         )

@@ -1,3 +1,13 @@
+## 2.7.7 · 2026-07-29
+
+### 刷新停建 HTML 驾驶舱碎片 + 废止 fragments API
+- 刷新/重算（`do_recompute` / `do_full` / publish / `core.generate` / `build_bu_pages`）不再调用 `build_dashboard_fragments` 全量装配；运行态 `html=""`、BU `fragments={}`
+- `GET /api/v1/cockpit/fragments` 与 `GET /api/v1/cockpit/bu/{name}/fragments` 恒 **404**（detail 指向 `/api/v1/vm/*`）
+- 看数唯一链：Domain→packers→`/api/v1/vm/*`→Vue；前端 `frontend/src` 对 fragments 零调用；无永久 feature flag 双轨
+- 导出/遗留 assemble 链仍可按需 `build_dashboard_fragments`（G3 再收）；未改 profit 算账
+- 契约测 `tests/test_g2_2_7_7_no_html_fragments.py`；相关历史测改为 404/空 fragments/按需 assemble
+- run_verify EXIT:0；回归 32 周期零 diff；浏览器两轮 overall+≥2 BU+管理端
+
 ## 2.7.6 · 2026-07-29
 
 ### VM 数字契约锁死

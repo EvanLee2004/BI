@@ -70,17 +70,12 @@ class TestP5NoViewPath(unittest.TestCase):
 
     def test_fragments_ok(self):
         from fastapi.testclient import TestClient
-
         c = TestClient(self.app, follow_redirects=False)
         c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         r = c.get("/api/v1/cockpit/fragments")
-        self.assertEqual(r.status_code, 200)
-        body = r.json()
-        self.assertEqual(body.get("mode"), "fragments")
-        self.assertIn("fragments", body)
-        self.assertIn("chrome_prefix", body)
-        self.assertIn("views", body)
-        self.assertEqual(body["fragments"].get("rank_views"), "")  # P0 shipped：JS 组装
+        self.assertEqual(r.status_code, 404)
+        r2 = c.get("/api/v1/vm/cockpit")
+        self.assertEqual(r2.status_code, 200)
 
     def test_no_view_route_and_shell_gone(self):
         """54.4·C：无 cockpit/view 路由；看端 shell 已删。"""

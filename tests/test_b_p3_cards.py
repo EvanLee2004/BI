@@ -41,12 +41,17 @@ class TestP3BigCardsShipped(unittest.TestCase):
         import api_v1
         import assets
 
+        import render
+
         cfg = dict(loaders.load_config(ROOT))
         cfg["data_dir"] = "_golden_data"
         cfg["db_path"] = "看板.db"
         cfg["zhiyun_auto_fetch"] = False
-        cls.summary, cls.py_html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-p3")
+        # 2.7.7 G2：generate 不返回预装 HTML；Python 真源 = render_dashboard
+        cls.summary, gen_html, _, _ = core.generate(cfg, date(2026, 6, 30), trigger="b-p3")
+        assert gen_html == ""
         logo = assets.load_logo_base64(cfg) or ""
+        cls.py_html = render.render_dashboard(cls.summary, cfg, logo)
         cls.pack = api_v1.cockpit_fragments(cls.summary, cfg, logo, client=True)
 
     def test_client_does_not_ship_prejoined_card_html(self):

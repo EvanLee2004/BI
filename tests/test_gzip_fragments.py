@@ -83,26 +83,15 @@ class TestGzipFragments(unittest.TestCase):
         self.assertEqual(server.GZIP_MINIMUM_SIZE, 1000)
 
     def test_fragments_content_encoding_gzip(self):
-        c = self._client()
+        """2.7.7：fragments 已 404，不再要求 gzip 正文。"""
+        from fastapi.testclient import TestClient
+        c = TestClient(self.app, follow_redirects=False)
         c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         r = c.get(
             "/api/v1/cockpit/fragments",
-            headers={"Accept-Encoding": "gzip", "Accept": "application/json"},
+            headers={"Accept-Encoding": "gzip"},
         )
-        self.assertEqual(r.status_code, 200)
-        enc = (r.headers.get("content-encoding") or "").lower()
-        self.assertEqual(enc, "gzip", f"期望 content-encoding=gzip，实际 headers={dict(r.headers)}")
-        # TestClient 已解压 body → 可直接 json.loads；content-length 仍是 wire 压缩长度
-        plain_len = len(r.content)
-        body = r.json()
-        self.assertEqual(body.get("mode"), "fragments")
-        self.assertIn("fragments", body)
-        cl = r.headers.get("content-length")
-        self.assertIsNotNone(cl)
-        gzip_len = int(cl)
-        self.assertLess(gzip_len, plain_len, f"压缩后 content-length={gzip_len} 应 < 明文 {plain_len}")
-        self.assertGreater(plain_len, server.GZIP_MINIMUM_SIZE)
-        print(f"[gzip-evidence] plain={plain_len} content-length(gzip)={gzip_len} ratio={gzip_len / plain_len:.2%}")
+        self.assertEqual(r.status_code, 404)
 
     def test_export_png_still_valid_png_bytes(self):
         """PNG 路径：响应仍是 image/png，body（客户端解压后）以 PNG 魔数开头。"""
