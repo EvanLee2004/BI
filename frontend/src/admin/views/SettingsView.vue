@@ -122,8 +122,9 @@ import './settings-view.css'
         </el-card>
       </el-col>
 
-      <!-- 自动更新 -->
+      <!-- 2.7.4：双列堆叠——左列自动更新→运行日志，右列备份→智云；两列顶对齐 -->
       <el-col :xs="24" :md="12">
+        <!-- 自动更新 -->
         <el-card shadow="never" class="scard" @input="mark('sched')" @change="mark('sched')">
           <template #header>
             <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div><div class="sub">每天多个时间点完整更新</div></div></div>
@@ -135,10 +136,25 @@ import './settings-view.css'
           <el-button size="small" text style="margin-top: 8px" @click="schedAdd">＋ 添加时间点</el-button>
           <div class="muted foot">{{ setMsgs.sched }}</div>
         </el-card>
+        <!-- 运行日志 / 磁盘（仅本机） -->
+        <el-card shadow="never" class="scard">
+          <template #header>
+            <div class="scard-h"><span class="ico">📋</span><div><div class="ttl">运行日志 · 磁盘</div><div class="sub">仅本机日志与体检阈值</div></div></div>
+          </template>
+          <el-form label-position="top">
+            <el-form-item label="运行日志保留（天）">
+              <el-input-number v-model="sLogKeep" :min="30" :max="3650" @change="mark('alert')" />
+            </el-form-item>
+            <el-form-item label="磁盘告警阈值（% 剩余以下体检红）">
+              <el-input-number v-model="sDiskMin" :min="1" :max="50" @change="mark('alert')" />
+            </el-form-item>
+          </el-form>
+          <div class="muted">{{ setMsgs.alert }}</div>
+        </el-card>
       </el-col>
 
-      <!-- 备份 -->
       <el-col :xs="24" :md="12">
+        <!-- 备份 -->
         <el-card shadow="never" class="scard">
           <template #header>
             <div class="scard-h"><span class="ico">🗄</span><div><div class="ttl">备份清理 · 审计归档</div><div class="sub">备份保留天数 + 按年导出</div></div></div>
@@ -156,28 +172,7 @@ import './settings-view.css'
           </div>
           <div class="muted">{{ sArchMsg || setMsgs.backup }}</div>
         </el-card>
-      </el-col>
-
-      <!-- 运行日志 / 磁盘（仅本机） -->
-      <el-col :xs="24" :md="12">
-        <el-card shadow="never" class="scard">
-          <template #header>
-            <div class="scard-h"><span class="ico">📋</span><div><div class="ttl">运行日志 · 磁盘</div><div class="sub">仅本机日志与体检阈值</div></div></div>
-          </template>
-          <el-form label-position="top">
-            <el-form-item label="运行日志保留（天）">
-              <el-input-number v-model="sLogKeep" :min="30" :max="3650" @change="mark('alert')" />
-            </el-form-item>
-            <el-form-item label="磁盘告警阈值（% 剩余以下体检红）">
-              <el-input-number v-model="sDiskMin" :min="1" :max="50" @change="mark('alert')" />
-            </el-form-item>
-          </el-form>
-          <div class="muted">{{ setMsgs.alert }}</div>
-        </el-card>
-      </el-col>
-
-      <!-- 智云 -->
-      <el-col :xs="24" :md="12">
+        <!-- 智云 -->
         <el-card shadow="never" class="scard">
           <template #header>
             <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号 · 台账路径</div><div class="sub">只存本机，不进代码库</div></div></div>
