@@ -1,0 +1,23 @@
+wait_6 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait_12 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait_18 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait_24 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait_30 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+wait_36 last=2026-07-28 18:58:55,591 INFO [kanban.stdout] [server] 首次构建页面（跑管道+渲染）……
+HEALTH_OK attempt=39
+built_at 2026-07-28 19:02:25 result 黄
+VERSION=2.7.2
+HEAD=924c020
+old_export_html=404
+old_export_png=404
+old_health=404
+old_refresh=404
+v1_health=200
+nginx_login=200
+viewer_login 200 cookies ['kanban_sid']
+kpi year 2026年 orders 8608210543 pretax 2212448308
+v1_export_html 200 text/html; charset=utf-8
+refresh_status 200 b'{"running":true,"refreshing":{"started_at":"2026-07-28 19:02:26","trigger":"schedule"},"last":null,"'
+/export.html 404
+/export.png 404
+/bu/x/export.html 404
