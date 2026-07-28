@@ -221,5 +221,36 @@ class TestG2FrontendZeroFragmentsCall(unittest.TestCase):
         self.assertEqual(bad, [], "前端仍引用 fragments API:\n" + "\n".join(bad))
 
 
+class TestG2ProductionPathsNoFragmentAssembly(unittest.TestCase):
+    """生产刷新/路由不得再装配 HTML fragments（导出/render 模块可留到 G3–G6）。"""
+
+    FORBIDDEN = (
+        "build_dashboard_fragments",
+        "build_bu_dashboard_fragments",
+        "_ensure_bu_fragments",
+    )
+
+    def test_refresh_core_cockpit_no_assembly_calls(self):
+        paths = [
+            ROOT / "src" / "routes" / "cockpit.py",
+            ROOT / "src" / "refresh_pipeline.py",
+            ROOT / "src" / "core.py",
+        ]
+        hits = []
+        for p in paths:
+            text = p.read_text(encoding="utf-8")
+            for i, line in enumerate(text.splitlines(), 1):
+                # 注释/文档串可提「不再 build_*」；只拦可执行调用形态
+                s = line.strip()
+                if s.startswith("#") or s.startswith('"""') or s.startswith("'''"):
+                    continue
+                if "不再" in line and "build_" in line:
+                    continue
+                for tok in self.FORBIDDEN:
+                    if tok in line and ("(" in line or f"def {tok}" in line or f"import {tok}" in line):
+                        hits.append(f"{p.relative_to(ROOT)}:{i}: {line.strip()[:120]}")
+        self.assertEqual(hits, [], "生产路径仍装配 fragments:\n" + "\n".join(hits))
+
+
 if __name__ == "__main__":
     unittest.main()

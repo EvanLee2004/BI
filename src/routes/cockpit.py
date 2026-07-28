@@ -1,4 +1,7 @@
-"""看端 fragments / cockpit JSON — 从 server.create_app 纯搬家。"""
+"""看端 cockpit / VM JSON — 从 server.create_app 纯搬家。
+
+2.7.7 G2：HTML fragments 生产装配已删；fragments HTTP 恒 404；看数只走 /api/v1/vm/*。
+"""
 
 from __future__ import annotations
 
@@ -9,8 +12,6 @@ from fastapi.responses import JSONResponse
 
 import accounts
 import api_v1
-import assets
-import render
 from app_state import _state
 
 
@@ -28,44 +29,6 @@ def _bu_nav_meta(cfg, root, pages: dict | None) -> dict:
             "请管理员在管理端点「更新数据」后刷新本页。"
         )
     return {"bu_config_count": n_cfg, "bu_nav_hint": hint}
-
-
-def _empty_bu_views() -> dict:
-    return {"year_key": "", "period_keys": [], "rankings_view": {}, "scope": "BU"}
-
-
-def _ensure_bu_fragments(name: str, page: dict, cfg) -> tuple[dict, dict]:
-    """冷启动或补全 BU 碎片/views；就地写回 page。返回 (fr, views)。"""
-    summary = page.get("summary")
-    fr = page.get("fragments")
-    views = page.get("views")
-    if not fr:
-        if not summary:
-            raise HTTPException(status_code=503, detail="该 BU 尚无碎片快照")
-        logo = ""
-        try:
-            logo = assets.load_logo_base64(cfg) or ""
-        except OSError as e:
-            print(f"[cockpit] BU logo 加载失败：{e}")
-            logo = ""
-        fr_full = render.build_bu_dashboard_fragments(name, summary, cfg, logo)
-        fr = api_v1.client_strip_fragments(fr_full)
-        views = api_v1.build_bu_cockpit_views(name, summary, cfg)
-        page["fragments"] = fr
-        page["views"] = views
-        return fr, views
-    fr = api_v1.client_strip_fragments(fr)
-    if not views:
-        if summary and (summary.get("meta") or {}).get("year_key"):
-            try:
-                views = api_v1.build_bu_cockpit_views(name, summary, cfg)
-                page["views"] = views
-            except Exception as e:
-                print(f"[cockpit] build_bu_cockpit_views 失败：{type(e).__name__}: {e}")
-                views = _empty_bu_views()
-        else:
-            views = _empty_bu_views()
-    return fr, views or _empty_bu_views()
 
 
 def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
