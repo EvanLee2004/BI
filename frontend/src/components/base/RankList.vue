@@ -155,20 +155,27 @@ defineExpose({ openOthers })
         {{ modalTag || '暂无数据' }}
       </div>
       <div v-else data-testid="rank-modal-list">
-        <RankBar
+        <!-- 2.6.12：弹层行与主列表同 click 契约（onItemClick + mkey → 月钻） -->
+        <div
           v-for="it in modalItems"
           :key="'m' + it.i + it.name"
-          :rank="it.i ?? ''"
-          :name="it.name"
-          :dual="dual"
-          :primary-width="dual ? Number(it.wo) || 0 : barW(it)"
-          :primary-value="dual ? it.order_disp : it.revenue_disp"
-          :secondary-width="dual ? Number(it.wr) || 0 : 0"
-          :secondary-value="dual ? it.receipt_disp : undefined"
-          :meta="showMeta ? it.cost_pct_disp : undefined"
-          :meta-label="showMeta ? metaLabel : undefined"
-          :meta-title="metaTitle"
-        />
+          class="rank-list__row"
+          :class="{ 'is-clickable': !!onItemClick && it.mkey }"
+          @click="onItemClick && it.mkey ? onItemClick(it) : undefined"
+        >
+          <RankBar
+            :rank="it.i ?? ''"
+            :name="it.name"
+            :dual="dual"
+            :primary-width="dual ? Number(it.wo) || 0 : barW(it)"
+            :primary-value="dual ? it.order_disp : it.revenue_disp"
+            :secondary-width="dual ? Number(it.wr) || 0 : 0"
+            :secondary-value="dual ? it.receipt_disp : undefined"
+            :meta="showMeta ? it.cost_pct_disp : undefined"
+            :meta-label="showMeta ? metaLabel : undefined"
+            :meta-title="metaTitle"
+          />
+        </div>
       </div>
     </DataModal>
   </div>

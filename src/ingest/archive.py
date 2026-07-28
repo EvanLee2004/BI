@@ -363,19 +363,19 @@ def _snapshot_month_dir(base: Path, year: int, month: int) -> Path:
 
 
 def _month_snapshot_exists(base: Path, year: int, month: int) -> bool:
-    """2.6.7 C-6：半截（.partial）视为不存在；完整目录才算 exists。"""
+    """2.6.7 C-6 / 2.6.12 F-04：仅正式目录存在且有 _SNAPSHOT_OK 才算 exists。
+
+    半截（.partial / 无 marker）视为不存在，允许补做；去掉「无 marker 有内容也 exists」兼容。
+    """
     d = _snapshot_month_dir(base, year, month)
     if d.name.endswith(".partial"):
         return False
     partial = d.parent / (d.name + ".partial")
-    if partial.is_dir():
+    if partial.is_dir() and not d.is_dir():
         # 仅有 partial、无正式目录 → 不存在
         return False
     marker = d / "_SNAPSHOT_OK"
-    if d.is_dir() and marker.is_file():
-        return True
-    # 兼容旧快照（无 marker 但有内容）
-    return d.is_dir() and any(p.name != ".partial" for p in d.iterdir())
+    return d.is_dir() and marker.is_file()
 
 
 def ensure_prev_month_snapshot(

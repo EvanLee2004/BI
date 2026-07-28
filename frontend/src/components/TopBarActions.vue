@@ -98,8 +98,8 @@ function openPw() {
 }
 
 async function savePw() {
-  if (newPw.value.length < 4) {
-    msg.value = '新密码至少 4 位'
+  if (!newPw.value || !String(newPw.value).trim()) {
+    msg.value = '新密码不能为空'
     msgCls.value = 'err'
     return
   }
@@ -231,7 +231,7 @@ async function savePw() {
         </div>
         <label style="font-size: 12px; color: var(--mut-label)">旧密码</label>
         <input v-model="oldPw" type="password" style="width: 100%; margin: 4px 0 10px" id="pwOld" />
-        <label style="font-size: 12px; color: var(--mut-label)">新密码（至少 4 位）</label>
+        <label style="font-size: 12px; color: var(--mut-label)">新密码（非空即可）</label>
         <input v-model="newPw" type="password" style="width: 100%; margin: 4px 0 10px" id="pwNew" />
         <div id="pwMsg" :style="{ color: msgCls === 'err' ? 'var(--err-soft-fg)' : 'var(--ok-soft-fg)', fontSize: '12px' }">
           {{ msg }}

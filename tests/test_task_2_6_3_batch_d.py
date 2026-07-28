@@ -67,18 +67,23 @@ class TestD2LoginIpLockAndPasswordLen(unittest.TestCase):
         self.assertFalse(login_guard.is_locked("lushasha", cfg, ip="2.2.2.2"))
         login_guard.reset_all_for_tests()
 
-    def test_password_min_8(self):
+    def test_password_nonempty_free_length(self):
+        """2.6.12：密码非空即可；短密成功；空密失败。"""
         tmp = Path(tempfile.mkdtemp())
         try:
             cfg = loaders.load_config()
             cfg = dict(cfg)
             cfg["data_dir"] = str(tmp)
             accounts.seed_defaults(cfg, None)
-            err = accounts.change_password(cfg, None, "lushasha", accounts.DEFAULT_ADMIN_PW, "1234567")
+            err = accounts.change_password(cfg, None, "lushasha", accounts.DEFAULT_ADMIN_PW, "")
             self.assertIsNotNone(err)
-            self.assertIn("8", err or "")
-            err2 = accounts.change_password(cfg, None, "lushasha", accounts.DEFAULT_ADMIN_PW, "12345678")
+            self.assertIn("空", err or "")
+            err2 = accounts.change_password(cfg, None, "lushasha", accounts.DEFAULT_ADMIN_PW, "1234567")
             self.assertIsNone(err2)
+            err3 = accounts.set_password(cfg, None, "lushasha", "ab")
+            self.assertIsNone(err3)
+            err4 = accounts.set_password(cfg, None, "lushasha", "   ")
+            self.assertIsNotNone(err4)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

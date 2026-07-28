@@ -204,7 +204,8 @@ def compute_profit_ranking(
         tot = [sum(x[0] for x in gs), sum(x[1] for x in gs), sum(x[2] for x in gs)]
         return _row(name, tot)
 
-    total_rev = split_tax(int(sum(g[0] for g in agg.values())), vat_rate)["revenue_net"]
+    # 2.6.12 F-05：总分用「分项去税再加总」，与行级 revenue 守恒（避免 split_tax(Σ) 与 Σsplit_tax 差 1 分）
+    total_rev = int(sum(split_tax(int(g[0]), vat_rate)["revenue_net"] for g in agg.values()))
     total_prof = int(sum(split_tax(int(g[0]), vat_rate)["revenue_net"] - g[1] for g in agg.values()))
     uf = agg.pop(empty_label, None)
     unfilled = _row(empty_label, uf) if uf else None

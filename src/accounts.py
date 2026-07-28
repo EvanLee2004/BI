@@ -172,15 +172,23 @@ def _norm_one(raw: dict) -> dict | None:
 
 
 def _write(path: Path, accounts: list[dict]) -> None:
-    """落盘：明文密码 + 密码版本；chmod 0o600。不写密码哈希。"""
+    """落盘：明文密码 + 密码版本；chmod 0o600。不写密码哈希。
+
+    2.6.12：空密码禁止静默回落 DEFAULT_VIEW_PW（8888）；seed_defaults 须显式写默认串。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for a in accounts:
+        pw = a.get("密码")
+        if pw is None or not str(pw).strip():
+            raise ValueError(
+                f"账号「{a.get('账号') or '?'}」密码不能为空（禁止静默写入默认口令）"
+            )
         row = {
             "账号": a["账号"],
             "显示名": a["显示名"],
             "权限": a["权限"],
-            "密码": a.get("密码") or DEFAULT_VIEW_PW,
+            "密码": str(pw),
             "密码版本": int(a.get("密码版本") or 0),
         }
         if a.get("权限") == PERM_BU:
@@ -435,9 +443,12 @@ def mark_login(cfg: dict, root: Path | None, account: str) -> None:
 
 
 def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new_pw: str) -> str | None:
-    """自改密码：验旧设新，密码版本+1（旧会话失效）。成功返回 None；失败返回错误文案。"""
-    if len(new_pw or "") < 8:
-        return "新密码至少 8 位"
+    """自改密码：验旧设新，密码版本+1（旧会话失效）。成功返回 None；失败返回错误文案。
+
+    2.6.12 明昊拍板：密码非空即可，不强制长度/字符类型。
+    """
+    if not str(new_pw or "").strip():
+        return "新密码不能为空"
     acc = find_account(cfg, root, account)
     if not acc:
         return "账号不存在"
@@ -454,9 +465,12 @@ def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new
 
 
 def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str | None:
-    """管理员直接设某账号密码（不验旧，版本+1）。成功 None；失败错误文案。"""
-    if len(new_pw or "") < 8:
-        return "新密码至少 8 位"
+    """管理员直接设某账号密码（不验旧，版本+1）。成功 None；失败错误文案。
+
+    2.6.12 明昊拍板：密码非空即可，不强制长度/字符类型。
+    """
+    if not str(new_pw or "").strip():
+        return "新密码不能为空"
     rows = load_accounts(cfg, root, create=False)
     found = False
     for a in rows:
@@ -479,8 +493,7 @@ def reset_password(
     任务书64·P：明文已可在管理端列表查看；重置仍保留为快捷入口。
     """
     plain = str(new_pw).strip() if new_pw is not None and str(new_pw).strip() else generate_random_password(10)
-    if len(plain) < 4:
-        return None, "新密码至少 4 位"
+    # 2.6.12：与 set_password 对齐，仅禁空（空时上面已走随机 10 位）
     err = set_password(cfg, root, account, plain)
     if err:
         return None, err

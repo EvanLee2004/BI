@@ -245,9 +245,13 @@ class TestViewerAuth(unittest.TestCase):
         c, _ = self._login("overall", server.DEFAULT_VIEW_PW)
         r = c.post("/api/my_passwd", json={"old": "wrong", "new": "newpw1xx"})
         self.assertEqual(r.status_code, 400)
+        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": ""})
+        self.assertEqual(r.status_code, 400)  # 2.6.12：空密仍拒
         r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "12"})
-        self.assertEqual(r.status_code, 400)  # 2.6.3·D2：至少 8 位
-        r = c.post("/api/my_passwd", json={"old": server.DEFAULT_VIEW_PW, "new": "newpw1xx"})
+        self.assertEqual(r.status_code, 200)  # 2.6.12：短密非空即可
+        # 改回后再测 8 位路径（沿用后续断言）
+        c2, _ = self._login("overall", "12")
+        r = c2.post("/api/my_passwd", json={"old": "12", "new": "newpw1xx"})
         self.assertEqual(r.status_code, 200)
         _, old = self._login("overall", server.DEFAULT_VIEW_PW)
         self.assertIn(old.status_code, (401, 303))
