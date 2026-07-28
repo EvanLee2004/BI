@@ -114,6 +114,7 @@ tests/test_task46_stage0.py
 tests/test_task50_stage_b.py
 tests/test_authz.py
 tests/test_vm_contract.py
+tests/test_g1_2_7_6_vm_numbers_contract.py
 tests/test_config_engine.py
 tests/test_backup_restore.py
 tests/test_domain_reexport.py
