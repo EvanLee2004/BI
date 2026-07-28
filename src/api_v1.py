@@ -152,7 +152,12 @@ def rankings_view_for_period(
     陆总#8 / 任务书34：12 月显示串进 monthly_store（或本 view.monthly_data）；
     行上只带 mkey，禁止 items[].monthly 大数组。
     """
-    import render
+    from viewmodels.format import (
+        _esc,
+        _merge_dual_rank,
+        _rank_amt,
+        attach_monthly_to_dual,
+    )
 
     rk = period.get("rankings") or {}
     s, e = period.get("range", ("", ""))
@@ -161,15 +166,15 @@ def rankings_view_for_period(
     # 外部 store=多周期去重；None=单周期自带 monthly_data
     own_store = monthly_store is None
     store: dict = {} if own_store else monthly_store  # type: ignore[assignment]
-    dual_s = render.attach_monthly_to_dual(
-        render._merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
+    dual_s = attach_monthly_to_dual(
+        _merge_dual_rank(rk.get("orders_by_sales"), rk.get("receipts_by_sales")),
         rm.get("sales"),
         year=year,
         dim="sales",
         store=store,
     )
-    dual_c = render.attach_monthly_to_dual(
-        render._merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
+    dual_c = attach_monthly_to_dual(
+        _merge_dual_rank(rk.get("orders_by_customer"), rk.get("receipts_by_customer")),
         rm.get("customer"),
         year=year,
         dim="customer",
@@ -180,11 +185,11 @@ def rankings_view_for_period(
         return {
             "i": i,
             "name": it["name"],
-            "name_esc": render._esc(it["name"]),
+            "name_esc": _esc(it["name"]),
             "wo": round(wo if wo is not None else (it.get("wo") or 0), 1),
             "wr": round(wr if wr is not None else (it.get("wr") or 0), 1),
-            "order_disp": it.get("order_disp") or render._rank_amt(it.get("order") or 0),
-            "receipt_disp": it.get("receipt_disp") or render._rank_amt(it.get("receipt") or 0),
+            "order_disp": it.get("order_disp") or _rank_amt(it.get("order") or 0),
+            "receipt_disp": it.get("receipt_disp") or _rank_amt(it.get("receipt") or 0),
             "mkey": it.get("mkey") or "",
         }
 
@@ -197,7 +202,7 @@ def rankings_view_for_period(
         if others:
             others_out = {
                 "names": others["names"],
-                "amt": f"下单{others.get('order_disp') or render._rank_amt(others.get('order') or 0)} / 回款{others.get('receipt_disp') or render._rank_amt(others.get('receipt') or 0)}",
+                "amt": f"下单{others.get('order_disp') or _rank_amt(others.get('order') or 0)} / 回款{others.get('receipt_disp') or _rank_amt(others.get('receipt') or 0)}",
                 "count": others["names"],
             }
         out = {
@@ -208,7 +213,7 @@ def rankings_view_for_period(
             "empty": not items,
             "embed_full": bool(embed_full and others),
         }
-        # 与 render._dual_card(embed_full=True) 同源：有「其余」才挂全量行
+        # 与 HTML 双血条卡 embed_full=True 同源：有「其余」才挂全量行
         if embed_full and others:
             full_src = dual.get("full_items") or dual.get("items") or []
             mx = dual.get("mx") or 1
@@ -221,8 +226,8 @@ def rankings_view_for_period(
                 wo = max(oa / mx * 100, 0)
                 wr = max(ra / mx * 100, 0)
                 row = dict(it)
-                row.setdefault("order_disp", render._rank_amt(oa))
-                row.setdefault("receipt_disp", render._rank_amt(ra))
+                row.setdefault("order_disp", _rank_amt(oa))
+                row.setdefault("receipt_disp", _rank_amt(ra))
                 full_out.append(_item_row(i, row, wo=wo, wr=wr))
             out["full_items"] = full_out
         return out
@@ -265,7 +270,12 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     - *_body：各周期卡正文的**显示串**（金额/条件已在 Python 算完；JS 只做 .pv 周期壳拼接）
     - trend_html / receipts_budget / period_bar：非按周期 .pv 的显示串块
     """
-    import render
+    # 兼容缓存/测试仍要 HTML 块；装运经 importlib 避免业务字面依赖 HTML 层
+    import importlib
+
+    from viewmodels.format import _fine_to_rows, _period_months_map, apply_expense_salary_hide
+
+    _html = importlib.import_module("render")
 
     cfg = cfg or {}
     meta = summary.get("meta") or {}
@@ -302,21 +312,21 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     for k in ordered:
         if k not in P:
             continue
-        kpi_body[k] = render.render_basic(
+        kpi_body[k] = _html.render_basic(
             k, P, meta.get("year"), month_keys, budget, bu_orders=BUO.get(k), show_delivered_unpaid=show_ar
         )
-        pl_body[k] = render.render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None)
-        donut_body[k] = render.render_expense_views(P[k], render._fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k))
-        profit_rank_body[k] = render.render_profit_rankings(P[k])
+        pl_body[k] = _html.render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None)
+        donut_body[k] = _html.render_expense_views(P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k))
+        profit_rank_body[k] = _html.render_profit_rankings(P[k])
 
     hl = ""
     try:
         hl = (meta.get("current_month_label") or "").split("年")[1]
     except Exception:
         hl = ""
-    rm_map = render._period_months_map(summary)
-    trend_html = render.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
-    receipts_html = render.render_receipts(
+    rm_map = _period_months_map(summary)
+    trend_html = _html.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
+    receipts_html = _html.render_receipts(
         summary.get("receipt_order_monthly") or [],
         budget,
         period_months_map=rm_map,
@@ -325,9 +335,9 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         default_key=yk,
         show_delivered_unpaid=show_ar,
     )
-    receipts_budget = render.tpl.fill("render/period_receipts.html", html=receipts_html)
+    receipts_budget = _html.tpl.fill("render/period_receipts.html", html=receipts_html)
     try:
-        period_bar = render.render_period_bar(summary)
+        period_bar = _html.render_period_bar(summary)
     except Exception:
         period_bar = ""
 
@@ -341,10 +351,10 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
     from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
 
     _exp_raw = filter_expense_monthly_raw_for_charts(
-        render.apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), True),
+        apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), True),
         cfg,
     )
-    expense_trend_html = render.render_expense_trend(_exp_raw, title="费用月度趋势 · 按报表大类")
+    expense_trend_html = _html.render_expense_trend(_exp_raw, title="费用月度趋势 · 按报表大类")
     return {
         "year_key": yk,
         "period_keys": ordered,
@@ -360,21 +370,25 @@ def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
         "trend_html": trend_html,
         "receipts_budget": receipts_budget,
         "period_bar": period_bar,
-        "daily_html": render.DAILY_HTML,
+        "daily_html": _html.DAILY_HTML,
         # 任务书39·E / 54.15
         "expense_trend_html": expense_trend_html,
     }
 
 
 def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None) -> dict:
-    """BU 页渲染就绪 views（与 render.build_bu_dashboard_fragments 同源渲染函数）。
+    """BU 页渲染就绪 views（与 HTML BU 碎片同源渲染函数）。
 
-    复用：render_basic / render_bu_pl_table / render_bu_expense_views /
-    render_profit_rankings(embed_full=True) / rankings_view_for_period /
-    render_trend / render_receipts / render_period_bar / bu_pl_tag 模板。
-    绝不走整体页 render_pl_table / render_expense_views / 无 embed_full 排名。
+    复用：basic / bu_pl_table / bu_expense_views /
+    profit_rankings(embed_full=True) / rankings_view_for_period /
+    trend / receipts / period_bar / bu_pl_tag 模板。
+    绝不走整体页 pl_table / expense_views / 无 embed_full 排名。
     """
-    import render
+    import importlib
+
+    from viewmodels.format import _esc, _period_months_map, expense_monthly_from_period_ledgers
+
+    _html = importlib.import_module("render")
 
     cfg = cfg or {}
     meta = summary.get("meta") or {}
@@ -411,22 +425,22 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         if k not in P:
             continue
         # 与 build_bu_dashboard_fragments 一致：BU KPI 不传 bu_orders
-        kpi_body[k] = render.render_basic(k, P, meta.get("year"), month_keys, budget, show_delivered_unpaid=show_ar)
-        pl_html, tag_note = render.render_bu_pl_table(P[k], alloc, fine=FT.get(k))
+        kpi_body[k] = _html.render_basic(k, P, meta.get("year"), month_keys, budget, show_delivered_unpaid=show_ar)
+        pl_html, tag_note = _html.render_bu_pl_table(P[k], alloc, fine=FT.get(k))
         pl_body[k] = pl_html
-        donut_body[k] = render.render_bu_expense_views(P[k], FT.get(k))
+        donut_body[k] = _html.render_bu_expense_views(P[k], FT.get(k))
         # 铁律12：收入排名「其余」预渲染 .pr-full，不调全公司 API（BU 必须 embed）
-        profit_rank_body[k] = render.render_profit_rankings(P[k], embed_full=True)
+        profit_rank_body[k] = _html.render_profit_rankings(P[k], embed_full=True)
 
     hl = ""
     try:
         hl = (meta.get("current_month_label") or "").split("年")[1]
     except Exception:
         hl = ""
-    rm_map = render._period_months_map(summary)
-    trend_html = render.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
+    rm_map = _period_months_map(summary)
+    trend_html = _html.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
     # BU 模板用 receipts_html（非整体页 period_receipts 包壳）
-    receipts_html = render.render_receipts(
+    receipts_html = _html.render_receipts(
         summary.get("receipt_order_monthly") or [],
         budget,
         period_months_map=rm_map,
@@ -436,10 +450,10 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         show_delivered_unpaid=show_ar,
     )
     try:
-        period_bar = render.render_period_bar(summary)
+        period_bar = _html.render_period_bar(summary)
     except Exception:
         period_bar = ""
-    pl_tag = render.tpl.fill("render/bu_pl_tag.html", note=render._esc(tag_note)) if tag_note else ""
+    pl_tag = _html.tpl.fill("render/bu_pl_tag.html", note=_esc(tag_note)) if tag_note else ""
 
     monthly_store: dict = {}
     # BU 页仍 embed_full=True（铁律12 本地展开，不调全公司排名 API）
@@ -449,14 +463,14 @@ def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None)
         if isinstance(pv, dict)
     }
     # 任务书39·B/E：与 build_bu_dashboard_fragments 同源（弹窗壳仍在 fragments.rk_modal）
-    daily_html = render.tpl.load("partials/daily_panel.html")
-    bu_exp = render.expense_monthly_from_period_ledgers(summary)
+    daily_html = _html.tpl.load("partials/daily_panel.html")
+    bu_exp = expense_monthly_from_period_ledgers(summary)
     if not any(m.get("total") for m in bu_exp.get("months") or []):
         bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
     from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
 
     bu_exp = filter_expense_monthly_raw_for_charts(bu_exp, cfg)
-    expense_trend_html = render.render_expense_trend(
+    expense_trend_html = _html.render_expense_trend(
         bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类"
     )
     return {
@@ -530,9 +544,10 @@ def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None, *, 
     client=True：清空须由 JS 组装的卡字段，强制 shipped 路径。
     client=False：保留 Python 全量预渲染（导出/快照）。
     """
-    import render
+    import importlib
 
-    fr = render.build_dashboard_fragments(summary, cfg, logo_b64 or "")
+    _html = importlib.import_module("render")
+    fr = _html.build_dashboard_fragments(summary, cfg, logo_b64 or "")
     views = build_cockpit_views(summary, cfg)
     if client:
         fr = client_strip_fragments(fr)

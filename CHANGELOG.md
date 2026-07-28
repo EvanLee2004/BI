@@ -1,3 +1,13 @@
+## 2.7.9 · 2026-07-29
+
+### JSON/VM 路径去除 import render
+- 生产业务代码（非 `render*.py`）静态闸：`rg "import render|from render"` 零命中
+- 显示辅助 `_esc` / `_rank_amt` / `attach_monthly_to_dual` 等迁至 `viewmodels/format`
+- `api_v1.rankings_view_for_period`、packers、data_api 日查双榜、domain 门面不再依赖 HTML 装运层装 JSON
+- domain 分包去掉 HTML re-export（算账/结构函数保留）；HTML 兼容路径仍经 `render*.py`（G5/G6 再物理删）
+- 契约测 `tests/test_g4_2_7_9_no_import_render.py` 进 run_verify SERIAL
+- 未改 profit 算账；无永久 dual flag
+
 ## 2.7.8 · 2026-07-29
 
 ### 导出 HTML 与 PNG 同源 kanban_snapshot

@@ -1,4 +1,3 @@
-"""收入毛利趋势（任务书46·5 纯搬家 re-export）。"""
-from render import render_trend
+"""收入毛利趋势（任务书46·5；2.7.9 G4：HTML 趋势卡在 HTML 装运层，本包无再导出）。"""
 
-__all__ = ["render_trend"]
+__all__: list[str] = []

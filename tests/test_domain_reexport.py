@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""任务书46·5：domain 分包可 import + re-export 指向真实函数。"""
+"""任务书46·5：domain 分包可 import；2.7.9 G4 起 HTML 函数不再经 domain 再导出。"""
 from __future__ import annotations
 
 import ast
@@ -24,7 +24,7 @@ class TestDomainReexport(unittest.TestCase):
 
     def test_import_and_callable(self):
         import domain.kpi as kpi
-        import domain.trend as trend
+        import domain.trend as trend  # noqa: F401 — 包可 import
         import domain.pl as pl
         import domain.expense as expense
         import domain.rankings as rankings
@@ -33,21 +33,27 @@ class TestDomainReexport(unittest.TestCase):
         import domain.export as export  # noqa: F401
 
         self.assertTrue(callable(kpi.build_period))
-        self.assertTrue(callable(trend.render_trend))
-        self.assertTrue(callable(pl.render_pl_table))
+        self.assertTrue(callable(pl.pl_structure))
         self.assertTrue(callable(expense.compute_ledger_expenses))
-        self.assertTrue(callable(rankings.render_profit_rankings))
-        self.assertTrue(callable(receipts.render_receipts))
+        self.assertTrue(callable(rankings.compute_ranking))
+        self.assertTrue(callable(receipts.compute_receipts))
         self.assertTrue(callable(ledger.compute_ledger_expenses))
 
-    def test_same_object_as_profit_render(self):
+    def test_domain_packages_no_html_reexport(self):
+        """G4：domain 业务包不得再 from/import HTML 装运层。"""
+        import re
+
+        pat = re.compile(r"import render|from render")
+        for name in ("pl", "expense", "rankings", "receipts", "trend"):
+            p = ROOT / "src" / "domain" / name / "__init__.py"
+            src = p.read_text(encoding="utf-8")
+            self.assertIsNone(pat.search(src), f"domain.{name} 仍依赖 HTML 装运层")
+
+    def test_same_object_as_profit(self):
         import profit
-        import render
         import domain.expense as expense
-        import domain.trend as trend
 
         self.assertIs(expense.compute_ledger_expenses, profit.compute_ledger_expenses)
-        self.assertIs(trend.render_trend, render.render_trend)
 
 
 if __name__ == "__main__":

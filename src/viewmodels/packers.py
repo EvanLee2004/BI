@@ -101,7 +101,7 @@ def pack_kpi_cards_by_period(summary: dict, cfg: dict | None = None) -> dict[str
     """
     import charts
     from domain.pl.structure import kpi_peak_for, kpi_target_bar
-    from render_widgets import KPI_CARDS, _kpi_period_label, _kpi_val, _prev_period_key
+    from viewmodels.format import KPI_CARDS, _kpi_period_label, _kpi_val, _prev_period_key
 
     cfg = cfg or {}
     meta = summary.get("meta") or {}
@@ -275,7 +275,7 @@ def pack_profit_rank_by_period(summary: dict, *, embed_full: bool = False) -> di
 def pack_expense_views_by_period(summary: dict) -> dict[str, dict[str, Any]]:
     """期间费用构成：四态横条数据（大类环形已有 donut_by_period）。"""
     import charts
-    import render
+    from viewmodels.format import _fine_to_rows
 
     P = summary.get("periods") or {}
     FT = summary.get("expense_fine_type") or {}
@@ -311,7 +311,7 @@ def pack_expense_views_by_period(summary: dict) -> dict[str, dict[str, Any]]:
         if not isinstance(p, dict):
             continue
         e = p.get("expense") or {}
-        fine_rows = render._fine_to_rows(FT.get(pkey) or {})
+        fine_rows = _fine_to_rows(FT.get(pkey) or {})
         out[pkey] = {
             "total_disp": charts.fmt_wan(e.get("total") or 0) + "万",
             "by_category": hbar(fine_rows, "fine"),
@@ -373,13 +373,13 @@ def pack_period_month_ranges(summary: dict) -> dict[str, dict[str, str]]:
 
     年 key → 空串（不筛月，与旧 Ledger 行为一致）；季/月/区间 → 起止月。
     """
-    import render
+    from viewmodels.format import _period_months_map
 
     meta = summary.get("meta") or {}
     year = int(meta.get("year") or 2026)
     yk = meta.get("year_key") or ""
     out: dict[str, dict[str, str]] = {}
-    for k, months in (render._period_months_map(summary) or {}).items():
+    for k, months in (_period_months_map(summary) or {}).items():
         if not k:
             continue
         # 全年：不限月

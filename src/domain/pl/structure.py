@@ -463,13 +463,17 @@ def structure_for_vm(struct: dict[str, Any]) -> dict[str, Any]:
     return {"rows": rows_out, "details": details_out}
 
 
-# ---------- KPI 目标条 / 峰值（packers 与 render_widgets 共用）----------
+# ---------- KPI 目标条 / 峰值（packers 与 HTML 装运层共用）----------
+
+
+def _kpi_val(p, key):
+    """KPI 取值：period 已算好字段（2.7.9：本域内联，不装载 HTML 层）。"""
+    return p[key]
 
 
 def kpi_peak_for(summary: dict, key: str) -> dict[str, str] | None:
     """跨月峰值 {label, value_disp}；全 0 或无月则 None。"""
     import charts
-    from render_widgets import _kpi_val
 
     meta = summary.get("meta") or {}
     P = summary.get("periods") or {}
@@ -506,7 +510,6 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
     - HTML 用 tgt（毛利数值）/ tgt_wan·done_wan（金额模板自拼「万」）。
     """
     import charts
-    from render_widgets import _kpi_val
 
     if not budget or not tkey:
         return None

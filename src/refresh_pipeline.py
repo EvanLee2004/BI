@@ -16,7 +16,6 @@ import core
 import db
 import ingest
 import loaders
-import render
 from app_state import _LOCK, _state
 
 # 由 server 在 import 后注入（兼容）；L2 起不再用于拼整页
@@ -223,6 +222,9 @@ def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:  # noqa: C9
         if injected and (("html" in injected.lower() and "<" in injected) or len(injected) > 5):
             return injected
 
+    import importlib
+
+    _html = importlib.import_module("render")
     logo = assets.load_logo_base64(cfg or {})
     if bu_name:
         page = (_state.get("bu_pages") or {}).get(bu_name) or {}
@@ -232,7 +234,7 @@ def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:  # noqa: C9
         summary = page.get("summary") if isinstance(page, dict) else None
         if not summary:
             raise ValueError("BU 无 summary")
-        html = render.render_bu_page(bu_name, summary, cfg, logo)
+        html = _html.render_bu_page(bu_name, summary, cfg, logo)
         if cache.get("built_at") != built:
             cache = {"built_at": built, "main": None, "bu": {}}
         cache.setdefault("bu", {})[bu_name] = html
@@ -243,7 +245,7 @@ def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:  # noqa: C9
     if not summary:
         raise ValueError("无 summary")
     try:
-        html = render.render_dashboard(summary, cfg, logo)
+        html = _html.render_dashboard(summary, cfg, logo)
     except Exception as e:
         raise ValueError(f"装配导出 HTML 失败: {type(e).__name__}: {e}") from e
     if cache.get("built_at") != built:

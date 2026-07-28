@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """进程内看板缓存与锁（C：从 server 抽出；行为零变）。
 
-依赖铁律：本模块不 import render/profit/core（避免环依赖）。
+依赖铁律：本模块不装载 HTML 装运层 / profit / core（避免环依赖）。
 server / refresh_pipeline / 路由读同一套 _state。
 """
 

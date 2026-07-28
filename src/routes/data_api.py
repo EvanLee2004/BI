@@ -35,13 +35,13 @@ def _daily_wan(v) -> str:
 
 def _format_daily_disp(d: dict, top: int) -> dict:
     """金额→显示串 + dual_rankings（就地改 d 的 days/totals/rankings）。"""
-    import render as _render
+    from viewmodels.format import dual_rankings_from_daily
 
     for row in d["days"]:
         row["orders_disp"], row["receipts_disp"] = _daily_wan(row.pop("orders")), _daily_wan(row.pop("receipts"))
     t = d["totals"]
     t["orders_disp"], t["receipts_disp"] = _daily_wan(t.pop("orders")), _daily_wan(t.pop("receipts"))
-    dual = _render.dual_rankings_from_daily(d["rankings"], top=min(top, 10))
+    dual = dual_rankings_from_daily(d["rankings"], top=min(top, 10))
     for rk in d["rankings"].values():
         for it in rk["items"]:
             it["disp"] = _daily_wan(it.pop("amount"))

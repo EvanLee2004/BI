@@ -436,8 +436,8 @@ def _assemble_vm(
     """
     import api_v1
     import db
-    import render
     from viewmodels import packers
+    from viewmodels.format import apply_expense_salary_hide, expense_monthly_from_period_ledgers
 
     html = html or {}
     is_bu = scope == "BU"
@@ -464,11 +464,11 @@ def _assemble_vm(
     rs["y_axis_interval"] = rmeta["interval"]
 
     if is_bu:
-        exp_raw = render.expense_monthly_from_period_ledgers(summary)
+        exp_raw = expense_monthly_from_period_ledgers(summary)
         if not any(m.get("total") for m in (exp_raw.get("months") or [])):
             exp_raw = summary.get("expense_monthly_by_cat") or exp_raw
     else:
-        exp_raw = render.apply_expense_salary_hide(
+        exp_raw = apply_expense_salary_hide(
             summary.get("expense_monthly_by_cat"),
             True,  # 54.12 R-01 全端隐工资
         )
