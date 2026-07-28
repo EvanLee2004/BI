@@ -1,0 +1,110 @@
+=== SSH deploy start 2026-07-28T13:35:04+09:00 ===
+try kanban-home
+Connection closed by UNKNOWN port 65535
+try kanban-lan
+OK_HOST
+lee-ThinkCentre-M755e-D182
+2.6.11
+50d9537
+CONNECTED=kanban-lan
+pre VERSION=2.6.11 HEAD=50d9537
+?? https://gitee.com/Lee157/oracleeasy--bi
+   43db936..8cf9b7a  main       -> origin/main
+?? 50d9537..8cf9b7a
+Fast-forward
+ Agent.md                                           |   7 +-
+ CHANGELOG.md                                       |  10 +
+ VERSION                                            |   2 +-
+ ...272\244\344\273\230\346\212\245\345\221\212.md" |   4 +
+ ...272\244\344\273\230\346\212\245\345\221\212.md" |  37 +++
+ .../2_6_11/gates_run_verify.txt"                   |  10 +-
+ .../2_6_11/live/live_notes.md"                     |   7 +
+ .../2_6_11/live/prod_L1_drawer.png"                | Bin 594197 -> 394113 bytes
+ .../2_6_11/live/prod_L2_modal.png"                 | Bin 534459 -> 387192 bytes
+ .../2_6_11/live/prod_L5_admin.png"                 | Bin 564076 -> 368605 bytes
+ .../2_6_11/live/prod_L5_admin_modal.png"           | Bin 0 -> 393390 bytes
+ .../2_6_11/live/prod_live_notes.md"                |   8 +-
+ .../2_6_12/S0_repro.md"                            |  26 ++
+ .../2_6_12/live/L0_rank_area.png"                  | Bin 0 -> 611016 bytes
+ .../2_6_12/live/L1_top10_month.png"                | Bin 0 -> 366634 bytes
+ .../2_6_12/live/L2_full_modal.png"                 | Bin 0 -> 378168 bytes
+ .../2_6_12/live/L2_modal_month.png"                | Bin 0 -> 2167813 bytes
+ .../2_6_12/live/L3_customer_full_month.png"        | Bin 0 -> 254148 bytes
+ .../2_6_12/live/L3_customer_month.png"             | Bin 0 -> 369599 bytes
+ .../2_6_12/live/live_notes.md"                     |  17 ++
+ .../2_6_12/regress.txt"                            |   2 +
+ .../2_6_12/run_verify.log"                         | 177 +++++++++++++
+ frontend/dist-snapshot/snapshot.css                |   2 +-
+ frontend/dist-snapshot/snapshot.js                 |  34 +--
+ ...nLayout-DvvXy1cP.js => AdminLayout-pDpC6DWH.js} |   2 +-
+ ...AuditView-earQxafV.js => AuditView-BVxYR6d-.js} |   2 +-
+ .../{BUPage-DfWRA_9Q.js => BUPage-bmrj23B1.js}     |   2 +-
+ ...dgetView-CWfSDD0V.js => BudgetView-Cyion55U.js} |   2 +-
+ ...tailView-DZYTBWVI.js => DetailView-BlemR__n.js} |   2 +-
+ ...w-BXo6QpMO.js => ExceptionOverview-CJrdKzzD.js} |   2 +-
+ frontend/dist/assets/ExpenseHeatmap-ByJYMwTi.js    |   1 -
+ frontend/dist/assets/ExpenseHeatmap-CxSg2r0d.js    |   1 +
+ ...ue_vue_type_script_setup_true_lang-DEAhNDwF.js} |   2 +-
+ ...oryView-BsCcMyXd.js => HistoryView-CS_L6r7u.js} |   2 +-
+ frontend/dist/assets/LedgerTable-BJE6-YJ-.js       |   1 +
+ frontend/dist/assets/LedgerTable-DtN218M8.js       |   1 -
+ ...ue_vue_type_script_setup_true_lang-C6ba45x-.js} |   2 +-
+ ...dgerView-BcsgsHlX.js => LedgerView-Cr5ptiIO.js} |   2 +-
+ ...nualView-uUcVGRno.js => ManualView-56yhu21H.js} |   2 +-
+ ...tView-Cz66WPeM.js => OrderDeptView-BT6LeCKh.js} |   2 +-
+ ...gsView-C_UASyHE.js => SettingsView-CulNmyrY.js} |   2 +-
+ ...ew-BaOcuDET.js => UnclassifiedView-B5Q1AEUm.js} |   2 +-
+ frontend/dist/assets/boot-cockpit-BhFdbZQE.js      |   2 -
+ frontend/dist/assets/boot-cockpit-xr6PI4Nq.js      |   2 +
+ ...bootstrap-CI7bXob1.js => bootstrap-CAw3By9t.js} |   4 +-
+ .../{index-Dlx9jJEN.js => index-BQTX8aBI.js}       |   4 +-
+ frontend/dist/index.html                           |   2 +-
+ frontend/src/components/TopBarActions.vue          |   6 +-
+ frontend/src/components/base/RankList.vue          |  31 ++-
+ golden/baseline_numbers.json                       | 286 ++++++++++-----------
+ src/accounts.py                                    |  33 ++-
+ src/ingest/archive.py                              |  12 +-
+ src/profit/tax_revenue.py                          |   3 +-
+ src/version.py                                     |  21 ++
+ tests/run_verify.sh                                |   1 +
+ tests/test_auth.py                                 |   8 +-
+ tests/test_task_2_6_12_rank_modal_monthly.py       | 200 ++++++++++++++
+ tests/test_task_2_6_3_batch_d.py                   |  13 +-
+ 58 files changed, 768 insertions(+), 235 deletions(-)
+ create mode 100644 "docs/20260728_\344\273\273\345\212\241\344\271\2462.6.12\344\272\244\344\273\230\346\212\245\345\221\212.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_11/live/prod_L5_admin_modal.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/S0_repro.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L0_rank_area.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L1_top10_month.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L2_full_modal.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L2_modal_month.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L3_customer_full_month.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/L3_customer_month.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/live/live_notes.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/regress.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/2_6_12/run_verify.log"
+ rename frontend/dist/assets/{AdminLayout-DvvXy1cP.js => AdminLayout-pDpC6DWH.js} (98%)
+ rename frontend/dist/assets/{AuditView-earQxafV.js => AuditView-BVxYR6d-.js} (94%)
+ rename frontend/dist/assets/{BUPage-DfWRA_9Q.js => BUPage-bmrj23B1.js} (88%)
+ rename frontend/dist/assets/{BudgetView-CWfSDD0V.js => BudgetView-Cyion55U.js} (97%)
+ rename frontend/dist/assets/{DetailView-DZYTBWVI.js => DetailView-BlemR__n.js} (97%)
+ rename frontend/dist/assets/{ExceptionOverview-BXo6QpMO.js => ExceptionOverview-CJrdKzzD.js} (96%)
+ delete mode 100644 frontend/dist/assets/ExpenseHeatmap-ByJYMwTi.js
+ create mode 100644 frontend/dist/assets/ExpenseHeatmap-CxSg2r0d.js
+ rename frontend/dist/assets/{ExpenseHeatmap.vue_vue_type_script_setup_true_lang-D7fFXHoj.js => ExpenseHeatmap.vue_vue_type_script_setup_true_lang-DEAhNDwF.js} (97%)
+ rename frontend/dist/assets/{HistoryView-BsCcMyXd.js => HistoryView-CS_L6r7u.js} (96%)
+ create mode 100644 frontend/dist/assets/LedgerTable-BJE6-YJ-.js
+ delete mode 100644 frontend/dist/assets/LedgerTable-DtN218M8.js
+ rename frontend/dist/assets/{LedgerTable.vue_vue_type_script_setup_true_lang-BOUF3A4c.js => LedgerTable.vue_vue_type_script_setup_true_lang-C6ba45x-.js} (99%)
+ rename frontend/dist/assets/{LedgerView-BcsgsHlX.js => LedgerView-Cr5ptiIO.js} (98%)
+ rename frontend/dist/assets/{ManualView-uUcVGRno.js => ManualView-56yhu21H.js} (98%)
+ rename frontend/dist/assets/{OrderDeptView-Cz66WPeM.js => OrderDeptView-BT6LeCKh.js} (97%)
+ rename frontend/dist/assets/{SettingsView-C_UASyHE.js => SettingsView-CulNmyrY.js} (99%)
+ rename frontend/dist/assets/{UnclassifiedView-BaOcuDET.js => UnclassifiedView-B5Q1AEUm.js} (95%)
+ delete mode 100644 frontend/dist/assets/boot-cockpit-BhFdbZQE.js
+ create mode 100644 frontend/dist/assets/boot-cockpit-xr6PI4Nq.js
+ rename frontend/dist/assets/{bootstrap-CI7bXob1.js => bootstrap-CAw3By9t.js} (74%)
+ rename frontend/dist/assets/{index-Dlx9jJEN.js => index-BQTX8aBI.js} (89%)
+ create mode 100644 tests/test_task_2_6_12_rank_modal_monthly.py
+post VERSION=2.6.12 HEAD=8cf9b7a
+sudo: A terminal is required to authenticate
