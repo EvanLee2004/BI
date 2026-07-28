@@ -116,7 +116,7 @@ class TestGzipFragments(unittest.TestCase):
         try:
             c = self._client()
             c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
-            r = c.get("/export.png", headers={"Accept-Encoding": "gzip"})
+            r = c.get("/api/v1/export.png", headers={"Accept-Encoding": "gzip"})
             self.assertEqual(r.status_code, 200, getattr(r, "text", "")[:200])
             data = r.content
             self.assertTrue(

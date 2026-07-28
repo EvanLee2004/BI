@@ -45,10 +45,10 @@ class TestSourceGuards227(unittest.TestCase):
     def test_topbar_export_html(self):
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
         self.assertIn("export.html", src)
-        # 整体页优先 /api/v1/export.html（nginx 现网 /api 必反代）；BU 仍 /bu/.../export.html
+        # 整体页优先 /api/v1/export.html（nginx 现网 /api 必反代）；BU 走 /api/v1/export/bu/.../html
         self.assertIn("/api/v1/export.html", src)
         self.assertIn("exportHtml", src)
-        self.assertNotIn("/export.png", src)
+        self.assertNotIn("/api/v1/export.png", src)
         self.assertIn("export-html-btn", src)
 
     def test_admin_layout_no_light_toggle(self):
@@ -226,33 +226,33 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             return_value=(snap_html, "snapshot"),
         ):
             raw = self._client()
-            self.assertEqual(raw.get("/export.html").status_code, 401)
             self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
-            self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
+            self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
+            self.assertEqual(raw.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 401)
             # 2.6.3·D3：未登录对不存在名也 401
-            self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
+            self.assertEqual(raw.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
 
             admin = self._admin()
-            for path in ("/export.html", "/api/v1/export.html"):
+            for path in ("/api/v1/export.html",):
                 r = admin.get(path)
                 self.assertEqual(r.status_code, 200, f"{path}: {r.text[:300]}")
                 self.assertIn("text/html", r.headers.get("content-type", ""))
                 disp = (r.headers.get("x-filename") or "") + (r.headers.get("content-disposition") or "")
                 self.assertIn(".html", disp.lower(), path)
-            self.assertEqual(admin.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
-            self.assertEqual(admin.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
-            self.assertEqual(admin.get("/export.html", params={"blk": "1999年"}).status_code, 400)
+            self.assertEqual(admin.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 200)
+            self.assertEqual(admin.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 404)
+            self.assertEqual(admin.get("/api/v1/export.html", params={"blk": "1999年"}).status_code, 400)
             self.assertEqual(admin.get("/api/v1/export.html", params={"blk": "1999年"}).status_code, 400)
 
             cmain, _ = self._login_view("overall")
-            self.assertEqual(cmain.get("/export.html").status_code, 200)
+            self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
             self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
 
             # PNG 兼容不 500
             orig = server._screenshot_png
             server._screenshot_png = lambda html, blk="", width=1440: b"\x89PNGFAKE"
             try:
-                r = admin.get("/export.png")
+                r = admin.get("/api/v1/export.png")
                 self.assertNotEqual(r.status_code, 500)
             finally:
                 server._screenshot_png = orig
@@ -269,11 +269,11 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             return_value=(snap_html, "snapshot"),
         ):
             cbu, _ = self._login_view("user_a")
-            self.assertEqual(cbu.get("/export.html").status_code, 401)
-            self.assertEqual(cbu.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
-            self.assertEqual(cbu.get(f"/bu/{quote('BU乙')}/export.html").status_code, 401)
+            self.assertEqual(cbu.get("/api/v1/export.html").status_code, 401)
+            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 200)
+            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 401)
             # 2.6.3·D3：无权对不存在名与无权对他 BU 同 401
-            self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
+            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
 
 
 class TestVersion227(unittest.TestCase):

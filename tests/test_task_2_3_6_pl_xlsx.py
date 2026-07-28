@@ -397,7 +397,7 @@ class TestPlXlsxHttp(unittest.TestCase):
                 continue
             self.assertNotIn("万", str(val), f"data amount row {rr}")
         # dual mount
-        r2 = c.get("/export/pl.xlsx", params={"blk": self.yk})
+        r2 = c.get("/api/v1/export/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r2.status_code, 200)
 
     def test_unauthenticated_401(self):
@@ -413,10 +413,10 @@ class TestPlXlsxHttp(unittest.TestCase):
     def test_bu_isolation_403_and_own_200(self):
         c = self._login("user_a")
         # 他人 BU
-        r = c.get(f"/bu/{quote('乙BU')}/export/pl.xlsx", params={"blk": self.yk})
+        r = c.get(f"/api/v1/export/bu/{quote('乙BU')}/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r.status_code, 403, r.text[:300])
         # 自己的 BU
-        r2 = c.get(f"/bu/{quote('甲BU')}/export/pl.xlsx", params={"blk": self.yk})
+        r2 = c.get(f"/api/v1/export/bu/{quote('甲BU')}/pl.xlsx", params={"blk": self.yk})
         self.assertEqual(r2.status_code, 200, r2.text[:400])
         self.assertIn("spreadsheet", r2.headers.get("content-type", ""))
         wb = openpyxl.load_workbook(io.BytesIO(r2.content))

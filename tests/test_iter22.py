@@ -452,11 +452,11 @@ class TestBuExportGate(unittest.TestCase):
 
     def test_unknown_bu_same_as_forbidden(self):
         """2.6.3·D3：不存在与无权同一 401，不泄露 BU 是否存在。"""
-        r = self.client.get("/bu/不存在/export.png")
+        r = self.client.get("/api/v1/export/bu/不存在/png")
         self.assertEqual(r.status_code, 401)
 
     def test_anonymous_401(self):
-        self.assertEqual(self.client.get("/bu/游戏/export.png").status_code, 401)
+        self.assertEqual(self.client.get("/api/v1/export/bu/游戏/png").status_code, 401)
 
 
 if __name__ == "__main__":

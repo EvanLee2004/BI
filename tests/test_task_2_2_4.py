@@ -37,7 +37,7 @@ class TestSourceGuards224(unittest.TestCase):
         """2.2.7：导出主路径改为 HTML（原 PNG 按钮类名/路径同步）。"""
         src = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
         self.assertIn("export-html-btn", src)
-        self.assertIn("/export.html", src)
+        self.assertIn("/api/v1/export.html", src)
         self.assertIn("exportHtml", src)
 
     def test_receipts_maxv_covers_bud(self):

@@ -65,7 +65,7 @@ async function exportHtml() {
   const q = `blk=${encodeURIComponent(blk)}&theme=${encodeURIComponent(theme)}`
   const url =
     store.scope === 'bu' && store.buName
-      ? `/bu/${encodeURIComponent(store.buName)}/export.html?${q}`
+      ? `/api/v1/export/bu/${encodeURIComponent(store.buName)}/html?${q}`
       : `/api/v1/export.html?${q}`
   exporting.value = true
   try {

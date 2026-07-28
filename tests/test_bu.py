@@ -362,12 +362,12 @@ class TestBuPages(_Base):
         self.assertIn("基本情况", h)
         self.assertNotIn("返回整体", h)
         self.assertNotIn("bu-back-inline", h)
-        # 迭代22·D5 / 2.2.7：BU 页有自己的导出（指向 /bu/{名}/export.html），但绝不指向全公司总导出
+        # 迭代22·D5 / 2.7.2：BU 页导出走 v1 BU 路径，绝不指向全公司总导出
         self.assertIn("exportBtn", h)
-        self.assertIn("/export.html", h)
-        self.assertIn('data-export="/bu/', h)
-        self.assertNotIn('data-export="/export.html"', h)
-        self.assertNotIn('data-export="/export.png"', h)
+        self.assertIn("/api/v1/export/bu/", h)
+        self.assertIn("data-export=", h)
+        self.assertNotIn('data-export="/api/v1/export.html"', h)
+        self.assertNotIn('data-export="/api/v1/export.png"', h)
         self.assertNotIn("dailyBtn", h)
         # 任务书39·B：BU 可有 dailyPanel，但 HTML 零 /api/v1/daily 全公司口
         self.assertNotIn("/api/v1/daily", h)

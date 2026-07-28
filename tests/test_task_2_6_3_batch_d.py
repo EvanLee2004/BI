@@ -103,8 +103,8 @@ class TestD3AuthBeforeExistence(unittest.TestCase):
             client = TestClient(app, follow_redirects=False)
             # 未登录：存在 BU 与不存在 BU 同一 401
             # 未登录：存在 BU 与不存在 BU 同 401（先鉴权，不 404 泄露）
-            r1 = client.get("/bu/语言/export.html")
-            r2 = client.get("/bu/__no_such_bu__/export.html")
+            r1 = client.get("/api/v1/export/bu/语言/html")
+            r2 = client.get("/api/v1/export/bu/__no_such_bu__/html")
             self.assertEqual(r1.status_code, 401)
             self.assertEqual(r2.status_code, 401)
             self.assertEqual(r1.content, r2.content)

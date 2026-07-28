@@ -135,10 +135,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
 
-    @app.get("/export.png")
+    @app.get("/api/v1/export.png")
     def api_export_png(request: Request, blk: str = ""):
-        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。v7.8 起要求整体页/管理员会话。
-        任务书65·L2：HTML 按需装配（不依赖刷新预装 user_html）。兼容保留；前端主路径改 .html。"""
+        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。2.7.2：仅 v1。
+        任务书65·L2：HTML 按需装配（不依赖刷新预装 user_html）；前端主路径为 .html。"""
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _state.get("summary") and not (_state.get("user_html") or "").strip():
@@ -171,21 +171,18 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
 
-    @app.get("/export.html")
     @app.get("/api/v1/export.html")
     def api_export_html(request: Request, blk: str = "", theme: str = ""):
-        """2.2.9：整体页导出静态可交互快照 HTML。
-
-        双路径：`/export.html`（计划主路径）+ `/api/v1/export.html`（现网 nginx 已反代 /api）。
+        """2.2.9 / 2.7.2：整体页导出静态可交互快照 HTML（仅 `/api/v1/export.html`）。
         2.3.0：?theme=neon|dark|light。
         """
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
         return _export_html_body(request, bu_name=None, blk=blk, theme=theme)
 
-    @app.get("/bu/{name}/export.png")
+    @app.get("/api/v1/export/bu/{name}/png")
     def api_bu_export_png(name: str, request: Request, blk: str = ""):
-        """BU 页导出：按需装配该 BU HTML 后截图（65·L2）。兼容保留。2.6.3·D3 先鉴权。"""
+        """BU 页导出 PNG：按需装配该 BU HTML 后截图（65·L2）。2.7.2 仅 v1。2.6.3·D3 先鉴权。"""
         if not _can_view_bu(request, name):
             # 无权/未登录：与「不存在」对无权者同形 401（不先 404 泄露）
             raise HTTPException(status_code=401, detail="请先登录看板")
@@ -223,9 +220,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
 
-    @app.get("/bu/{name}/export.html")
+    @app.get("/api/v1/export/bu/{name}/html")
     def api_bu_export_html(name: str, request: Request, blk: str = "", theme: str = ""):
-        """2.2.9：BU 页导出快照 HTML。2.6.3·D3：先鉴权；无权一律 401（不先 404）；有权再 404。"""
+        """2.2.9 / 2.7.2：BU 页导出快照 HTML（仅 v1）。2.6.3·D3：先鉴权；无权一律 401（不先 404）；有权再 404。"""
         if not _can_view_bu(request, name):
             raise HTTPException(status_code=401, detail="请先登录看板")
         page = _state.get("bu_pages", {}).get(name)
@@ -315,10 +312,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": cd, "X-Filename": quote(fname)},
         )
 
-    @app.get("/export/pl.xlsx")
     @app.get("/api/v1/export/pl.xlsx")
     def api_export_pl_xlsx(request: Request, blk: str = ""):
-        """2.3.6：整体页管理利润表 Excel（跟随 ?blk= 当前筛选）。"""
+        """2.3.6 / 2.7.2：整体页管理利润表 Excel（跟随 ?blk=；仅 v1）。"""
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_main(request):
@@ -332,9 +328,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             blk=blk,
         )
 
-    @app.get("/bu/{name}/export/pl.xlsx")
+    @app.get("/api/v1/export/bu/{name}/pl.xlsx")
     def api_bu_export_pl_xlsx(name: str, request: Request, blk: str = ""):
-        """2.3.6：BU 页管理利润表 Excel；summary 与 BU 页 VM 同源。"""
+        """2.3.6 / 2.7.2：BU 页管理利润表 Excel；summary 与 BU 页 VM 同源（仅 v1）。"""
         # 2.6.7 D-6：先鉴权再判存在（防资源枚举）
         if not (_vacct(request) or _user(request)):
             raise HTTPException(status_code=401, detail="请先登录看板")

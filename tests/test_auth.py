@@ -234,7 +234,7 @@ class TestViewerAuth(unittest.TestCase):
     def test_company_endpoints_gated(self):
         q = {"start": "2026-03-01", "end": "2026-03-31"}
         self.assertEqual(self.raw.get("/api/v1/daily", params=q).status_code, 401)
-        self.assertEqual(self.raw.get("/export.png").status_code, 401)
+        self.assertEqual(self.raw.get("/api/v1/export.png").status_code, 401)
         cbu, _ = self._login("user_a", server.DEFAULT_VIEW_PW)
         self.assertEqual(cbu.get("/api/v1/daily", params=q).status_code, 403)  # 2.6.7 D-10 已登录无权限
         cmain, _ = self._login("overall", server.DEFAULT_VIEW_PW)

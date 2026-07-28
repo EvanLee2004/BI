@@ -281,14 +281,14 @@ class TestExportHttp229(unittest.TestCase):
 
     def test_export_auth_matrix(self):
         raw = self._client()
-        self.assertEqual(raw.get("/export.html").status_code, 401)
         self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
-        self.assertEqual(raw.get(f"/bu/{quote('BU甲')}/export.html").status_code, 401)
+        self.assertEqual(raw.get("/api/v1/export.html").status_code, 401)
+        self.assertEqual(raw.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 401)
         # 2.6.3·D3：未登录对不存在名也 401（与无权同形，不 404）
-        self.assertEqual(raw.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
+        self.assertEqual(raw.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
 
         admin = self._admin()
-        for path in ("/export.html", "/api/v1/export.html"):
+        for path in ("/api/v1/export.html",):
             r = admin.get(path)
             self.assertEqual(r.status_code, 200, f"{path}: {r.text[:400]}")
             self.assertIn("text/html", r.headers.get("content-type", ""))
@@ -299,18 +299,18 @@ class TestExportHttp229(unittest.TestCase):
             disp = (r.headers.get("x-filename") or "") + (r.headers.get("content-disposition") or "")
             self.assertIn(".html", disp.lower(), path)
 
-        self.assertEqual(admin.get(f"/bu/{quote('BU甲')}/export.html").status_code, 200)
-        self.assertEqual(admin.get(f"/bu/{quote('不存在')}/export.html").status_code, 404)
-        self.assertEqual(admin.get("/export.html", params={"blk": "1999年"}).status_code, 400)
+        self.assertEqual(admin.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 200)
+        self.assertEqual(admin.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 404)
+        self.assertEqual(admin.get("/api/v1/export.html", params={"blk": "1999年"}).status_code, 400)
 
         cmain = self._login_view("overall")
-        self.assertEqual(cmain.get("/export.html").status_code, 200)
+        self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
         self.assertEqual(cmain.get("/api/v1/export.html").status_code, 200)
 
     def test_export_bu_isolation_body(self):
         cbu = self._login_view("user_a")
-        self.assertEqual(cbu.get("/export.html").status_code, 401)
-        r = cbu.get(f"/bu/{quote('BU甲')}/export.html")
+        self.assertEqual(cbu.get("/api/v1/export.html").status_code, 401)
+        r = cbu.get(f"/api/v1/export/bu/{quote('BU甲')}/html")
         self.assertEqual(r.status_code, 200, r.text[:300])
         body = r.text
         self.assertIn("kanban_snapshot", body)
@@ -323,9 +323,9 @@ class TestExportHttp229(unittest.TestCase):
         self.assertEqual(list(pack["bu"].keys()), ["BU甲"])
         self.assertEqual(pack.get("cockpit") or {}, {})
         self.assertNotIn("BU乙", json.dumps(pack, ensure_ascii=False))
-        self.assertEqual(cbu.get(f"/bu/{quote('BU乙')}/export.html").status_code, 401)
+        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 401)
         # 2.6.3·D3：无权看「不存在」与无权看他 BU 同 401（不 404 泄露存在性）
-        self.assertEqual(cbu.get(f"/bu/{quote('不存在')}/export.html").status_code, 401)
+        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
 
     def test_offline_export_not_residual_shell(self):
         """KANBAN_OFFLINE=1 仍须真快照，禁止 fallback 残壳假成功。"""

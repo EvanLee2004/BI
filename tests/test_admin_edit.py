@@ -436,14 +436,14 @@ class TestAdminWrite(unittest.TestCase):
         server._state["summary"] = {"periods": {"2026年": {}, "2026年3月": {}}, "meta": {"year_key": "2026年"}}
         server._state["user_html"] = "<html><body>export-test</body></html>"
         try:
-            r = self.client.get("/export.png")  # 需整体/管理员会话
+            r = self.client.get("/api/v1/export.png")  # 需整体/管理员会话
             self.assertEqual(r.status_code, 200)
             self.assertEqual(r.headers["content-type"], "image/png")
             self.assertIn("filename", r.headers["content-disposition"])
             self.assertEqual(r.content, b"\x89PNGFAKE")
-            r = self.client.get("/export.png", params={"blk": "2026年3月"})
+            r = self.client.get("/api/v1/export.png", params={"blk": "2026年3月"})
             self.assertEqual(r.status_code, 200)
-            r = self.client.get("/export.png", params={"blk": "1999年"})
+            r = self.client.get("/api/v1/export.png", params={"blk": "1999年"})
             self.assertEqual(r.status_code, 400)  # 未知周期
         finally:
             server._screenshot_png = orig

@@ -43,7 +43,7 @@
   - 写/运维：`POST /api/v1/admin/adjust*` · `POST /api/v1/admin/refresh` · `GET /api/v1/admin/refresh_status` · `POST /api/v1/my_passwd` · `POST /api/v1/admin/update/apply` · manual/budget/settings…
   - 探活：`GET /api/v1/health`（`deploy/healthcheck.sh` 同步）
   - **旧 `/api/adjust*` `/api/refresh*` `/api/my_passwd` `/api/health` `/api/update/apply` → 404**
-  - 导出：`/api/v1/export/*`；BU 页导出仍可 `/bu/{name}/export.*`（页面路径，非旧 `/api/*` 写清单）
+  - 导出（2.7.2 仅 v1）：`GET /api/v1/export.html` · `/api/v1/export.png` · `/api/v1/export/pl.xlsx`；BU：`/api/v1/export/bu/{name}/html|png|pl.xlsx`（旧裸 `/export.*`、`/bu/*/export.*` → 404）
 - **前端模式**：只 **vue**；cookie 会话载体 = `kanban_sid`。
 - **算账 SSOT**：不改公式；保留 `_legacy_定位键`。
 - **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；只推 main；**前端零金额运算**。

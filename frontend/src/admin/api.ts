@@ -1,8 +1,8 @@
 import { friendlyError } from '../utils/friendlyError'
 
 /**
- * 管理端 API 客户端（credentials include · 与 static/admin jget/jpost 对齐）
- * Cookie 会话 kanban_session 由后端 Set-Cookie，前端不碰 token。
+ * 管理端 API 客户端（credentials: same-origin · 与 static/admin jget/jpost 对齐）
+ * Cookie 会话仅 `kanban_sid`（2.7.1+）由后端 Set-Cookie，前端不碰 token。
  */
 
 export class AdminApiError extends Error {

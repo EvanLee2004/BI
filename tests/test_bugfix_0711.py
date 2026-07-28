@@ -124,7 +124,7 @@ class TestExportThrottle(unittest.TestCase):
     def test_busy_returns_429(self):
         self.assertTrue(server._EXPORT_LOCK.acquire(blocking=False))
         try:
-            r = self.client.get("/export.png")
+            r = self.client.get("/api/v1/export.png")
             self.assertEqual(r.status_code, 429)
         finally:
             server._EXPORT_LOCK.release()

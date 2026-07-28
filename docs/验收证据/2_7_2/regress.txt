@@ -1,1 +1,1 @@
-regress: 32 periods zero diff (run_verify step 3)
+regress: 32 periods zero diff (export S4 + api.ts kanban_sid)

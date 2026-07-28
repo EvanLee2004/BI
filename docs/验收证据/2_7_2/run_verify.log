@@ -7,11 +7,6 @@
 > kanban-cockpit-frontend@2.0.3 typecheck
 > vue-tsc --noEmit
 
-npm notice
-npm notice New major version of npm available! 11.17.0 -> 12.0.1
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.1
-npm notice To update run: npm install -g npm@12.0.1
-npm notice
 [1c/5] scripts/gen_vm_ts.py --check
 vm.ts GEN block OK
 [2/5] 端到端生成
@@ -135,10 +130,10 @@ OK  tests/test_task54p12_export_consistency.py
 OK  tests/test_task54p15_chart_whitelist.py
 OK  tests/test_task54p14_r21_r26.py
 OK  tests/test_task54p14_r20_no_double_wan.py
-OK  tests/test_task56_r45_ledger_caliber.py
-OK  tests/test_task55_friendly_error.py
-OK  tests/test_task57_b5_frontend_errors.py
 OK  tests/test_task57_b5_admin_hook.py
+OK  tests/test_task56_r45_ledger_caliber.py
+OK  tests/test_task57_b5_frontend_errors.py
+OK  tests/test_task55_friendly_error.py
 OK  tests/test_task57_b6_domain_coverage.py
 OK  tests/test_task57_c_export_cap.py
 OK  tests/test_ledger_excel_filter.py
@@ -159,11 +154,11 @@ OK  tests/test_task_2_2_6.py
 OK  tests/test_task_2_2_8.py
 OK  tests/test_task_2_2_7.py
 OK  tests/test_task_2_3_0_theme_enum.py
-OK  tests/test_task_2_3_0_fx_guard.py
-OK  tests/test_task_2_3_0_neon_tokens.py
 OK  tests/test_task_2_2_9.py
-OK  tests/test_task_2_3_0_countup.py
+OK  tests/test_task_2_3_0_neon_tokens.py
+OK  tests/test_task_2_3_0_fx_guard.py
 OK  tests/test_task_2_3_0_intro.py
+OK  tests/test_task_2_3_0_countup.py
 OK  tests/test_task_2_3_0_export_theme.py
 OK  tests/test_task_2_3_0_echarts_registry.py
 OK  tests/test_task_2_3_0_health_metrics.py
@@ -172,8 +167,8 @@ OK  tests/test_task_2_3_1_neon_hud.py
 OK  tests/test_task_2_3_2_pl_display.py
 OK  tests/test_task_2_6_3_batch_b.py
 OK  tests/test_task_2_6_12_rank_modal_monthly.py
-OK  tests/test_task_2_6_13_money_ssot.py
 OK  tests/test_task_2_6_3_batch_d.py
+OK  tests/test_task_2_6_13_money_ssot.py
 OK  tests/test_task_2_7_0_arch_ssot.py
 OK  tests/test_alert_store_2_6_4.py
 OK  tests/test_task_2_7_2_write_paths.py

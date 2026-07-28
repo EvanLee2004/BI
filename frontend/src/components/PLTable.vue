@@ -46,7 +46,7 @@ async function exportPlExcel() {
   const blk = store.period || ''
   const url =
     store.scope === 'bu' && store.buName
-      ? `/bu/${encodeURIComponent(store.buName)}/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
+      ? `/api/v1/export/bu/${encodeURIComponent(store.buName)}/pl.xlsx?blk=${encodeURIComponent(blk)}`
       : `/api/v1/export/pl.xlsx?blk=${encodeURIComponent(blk)}`
   exporting.value = true
   try {

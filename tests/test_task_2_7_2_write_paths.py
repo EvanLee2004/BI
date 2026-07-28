@@ -179,6 +179,49 @@ class TestFrontendNoOldWritePaths(unittest.TestCase):
         self.assertNotIn("/api/health", stripped)
 
 
+class TestExportBarePathsGone(unittest.TestCase):
+    """2.7.2 S4：裸 /export.* 与 /bu/*/export.* 装饰器已删；仅 v1。"""
+
+    BARE = (
+        "/export.png",
+        "/export.html",
+        "/export/pl.xlsx",
+        "/bu/{name}/export.png",
+        "/bu/{name}/export.html",
+        "/bu/{name}/export/pl.xlsx",
+    )
+    V1 = (
+        "/api/v1/export.png",
+        "/api/v1/export.html",
+        "/api/v1/export/pl.xlsx",
+        "/api/v1/export/bu/{name}/png",
+        "/api/v1/export/bu/{name}/html",
+        "/api/v1/export/bu/{name}/pl.xlsx",
+    )
+
+    def test_export_py_decorators(self):
+        src = (ROOT / "src/routes/export.py").read_text(encoding="utf-8")
+        for p in self.BARE:
+            self.assertNotIn(f'@app.get("{p}")', src, f"bare still registered: {p}")
+        for p in self.V1:
+            self.assertIn(f'@app.get("{p}")', src, f"v1 missing: {p}")
+
+    def test_frontend_export_urls(self):
+        top = (ROOT / "frontend/src/components/TopBarActions.vue").read_text(encoding="utf-8")
+        pl = (ROOT / "frontend/src/components/PLTable.vue").read_text(encoding="utf-8")
+        self.assertIn("/api/v1/export.html", top)
+        self.assertIn("/api/v1/export/bu/", top)
+        self.assertNotIn("`/bu/", top)
+        self.assertIn("/api/v1/export/pl.xlsx", pl)
+        self.assertIn("/api/v1/export/bu/", pl)
+        self.assertNotIn("`/bu/", pl)
+
+    def test_admin_api_ts_cookie_sid(self):
+        api = (ROOT / "frontend/src/admin/api.ts").read_text(encoding="utf-8")
+        self.assertIn("kanban_sid", api)
+        self.assertNotIn("kanban_session", api)
+
+
 class TestVersion272(unittest.TestCase):
     def test_version_file(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
