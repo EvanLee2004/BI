@@ -3,6 +3,7 @@
 2.2.7：历史 = vm JSON + Vue 只读；导出主路径 = HTML。
 2.2.9：导出 = 方案 A 自包含静态可交互快照（kanban_snapshot + Vue 播放器）；
        禁止 Playwright/残壳 fallback 假成功；PNG 与 /?archive= 保留。
+2.7.8 G3：PNG 与 HTML 共用同一 kanban_snapshot pack→HTML 串；禁 render 整页 PNG / assemble_export_html。
 """
 
 from __future__ import annotations
@@ -75,57 +76,65 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except Exception:
             return ""
 
-    def _export_html_body(
-        request: Request, *, bu_name: str | None, blk: str, theme: str = ""
-    ) -> Response:
-        """2.2.9：方案 A 快照导出；鉴权由调用方完成。2.3.0：theme 白名单。"""
+    def _ready_for_export() -> None:
         if not _state.get("summary") and not (_state.get("user_html") or "").strip():
             if not _state.get("has_data") and not _state.get("summary"):
                 raise HTTPException(status_code=503, detail="页面尚未构建，稍后再试")
+
+    def _build_snapshot_html(*, bu_name: str | None, blk: str, theme: str = "") -> str:
+        """2.7.8：HTML 与 PNG 唯一 HTML 源 — pack → build_export_html（kanban_snapshot）。"""
+        from export_html import assemble_export_pack, build_export_html
+
+        scope = "BU" if bu_name else "整体"
+        label_bu = bu_name or ""
+        try:
+            pack = assemble_export_pack(
+                scope=scope,
+                bu_name=label_bu,
+                blk=blk,
+                version=_version(),
+                state=_state,
+                cfg=cfg,
+                theme=theme,
+            )
+            html, _mode = build_export_html(
+                blk=blk,
+                scope=scope,
+                bu_name=label_bu,
+                version=_version(),
+                root=root,
+                pack=pack,
+                prefer_playwright=False,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(
+                status_code=503,
+                detail=f"导出快照失败（{type(e).__name__}: {e}）；请确认 frontend/dist-snapshot 已构建",
+            ) from e
+        if "data-export-fallback" in html and 'data-export-fallback="1"' in html:
+            raise HTTPException(status_code=503, detail="导出拒绝残壳 fallback")
+        if "kanban_snapshot" not in html and "__KANBAN_SNAPSHOT__" not in html:
+            raise HTTPException(status_code=503, detail="导出体缺少快照标记")
+        return html
+
+    def _export_html_body(
+        request: Request, *, bu_name: str | None, blk: str, theme: str = ""
+    ) -> Response:
+        """2.2.9 / 2.7.8：方案 A 快照 HTML；与 PNG 同源 _build_snapshot_html。"""
+        _ready_for_export()
         _check_blk(blk)
         if not _EXPORT_LOCK.acquire(blocking=False):
             raise HTTPException(status_code=429, detail="正在生成另一份导出，请稍候几秒再点")
         try:
-            from export_html import assemble_export_pack, build_export_html
-
-            scope = "BU" if bu_name else "整体"
-            label_bu = bu_name or ""
-            try:
-                pack = assemble_export_pack(
-                    scope=scope,
-                    bu_name=label_bu,
-                    blk=blk,
-                    version=_version(),
-                    state=_state,
-                    cfg=cfg,
-                    theme=theme,
-                )
-                html, _mode = build_export_html(
-                    blk=blk,
-                    scope=scope,
-                    bu_name=label_bu,
-                    version=_version(),
-                    root=root,
-                    pack=pack,
-                    prefer_playwright=False,
-                )
-            except HTTPException:
-                raise
-            except Exception as e:  # noqa: BLE001
-                raise HTTPException(
-                    status_code=503,
-                    detail=f"导出快照失败（{type(e).__name__}: {e}）；请确认 frontend/dist-snapshot 已构建",
-                ) from e
-            # 静态断言：成功体不得是残壳
-            if "data-export-fallback" in html and "data-export-fallback=\"1\"" in html:
-                raise HTTPException(status_code=503, detail="导出拒绝残壳 fallback")
-            if "kanban_snapshot" not in html and "__KANBAN_SNAPSHOT__" not in html:
-                raise HTTPException(status_code=503, detail="导出体缺少快照标记")
+            html = _build_snapshot_html(bu_name=bu_name, blk=blk, theme=theme)
         except HTTPException:
             raise
         finally:
             _EXPORT_LOCK.release()
 
+        label_bu = bu_name or ""
         period_label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
         stem = f"甲骨易经营看板_{label_bu}_{period_label}" if label_bu else f"甲骨易经营看板_{period_label}"
         fn = quote(f"{stem}_{time.strftime('%Y%m%d_%H%M')}.html")
@@ -135,41 +144,43 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
 
-    @app.get("/api/v1/export.png")
-    def api_export_png(request: Request, blk: str = ""):
-        """导出=当前所选周期的整页 PNG（服务端 Playwright 截图）。2.7.2：仅 v1。
-        任务书65·L2：HTML 按需装配（不依赖刷新预装 user_html）；前端主路径为 .html。"""
-        if not _can_view_main(request):
-            raise HTTPException(status_code=401, detail="请先登录看板")
-        if not _state.get("summary") and not (_state.get("user_html") or "").strip():
-            raise HTTPException(status_code=503, detail="页面尚未构建，稍后再试")
+    def _export_png_body(*, bu_name: str | None, blk: str) -> Response:
+        """2.7.8：PNG = Playwright 截同款 kanban_snapshot HTML（与 export.html 同源）。"""
+        _ready_for_export()
         _check_blk(blk)
         if not _EXPORT_LOCK.acquire(blocking=False):
             raise HTTPException(status_code=429, detail="正在生成另一张导出图，请稍候几秒再点")
         try:
-            from refresh_pipeline import assemble_export_html
-
+            html = _build_snapshot_html(bu_name=bu_name, blk=blk, theme="")
             try:
-                html = assemble_export_html(cfg, bu_name=None)
-            except ValueError as e:
-                raise HTTPException(status_code=503, detail=str(e) or "页面尚未构建") from e
-            png = _screenshot_png(html, blk)
+                png = _screenshot_png(html, blk)
+            except Exception as e:  # noqa: BLE001 chromium 未装/超时等
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"截图失败（{type(e).__name__}）；部署机需先 playwright install chromium",
+                ) from e
         except HTTPException:
             raise
-        except Exception as e:  # noqa: BLE001 chromium 未装/超时等
-            raise HTTPException(
-                status_code=503, detail=f"截图失败（{type(e).__name__}）；部署机需先 playwright install chromium"
-            ) from e
         finally:
             _EXPORT_LOCK.release()
-        label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
 
-        fn = quote(f"甲骨易经营看板_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
+        if bu_name:
+            fn = quote(f"甲骨易经营看板_{bu_name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
+        else:
+            fn = quote(f"甲骨易经营看板_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
         return Response(
             content=png,
             media_type="image/png",
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
+
+    @app.get("/api/v1/export.png")
+    def api_export_png(request: Request, blk: str = ""):
+        """2.7.8：整体页 PNG = 截 kanban_snapshot HTML（与 /api/v1/export.html 同源）。"""
+        if not _can_view_main(request):
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        return _export_png_body(bu_name=None, blk=blk)
 
     @app.get("/api/v1/export.html")
     def api_export_html(request: Request, blk: str = "", theme: str = ""):
@@ -182,43 +193,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/export/bu/{name}/png")
     def api_bu_export_png(name: str, request: Request, blk: str = ""):
-        """BU 页导出 PNG：按需装配该 BU HTML 后截图（65·L2）。2.7.2 仅 v1。2.6.3·D3 先鉴权。"""
+        """2.7.8：BU PNG = 截同源 kanban_snapshot HTML。2.6.3·D3 先鉴权。"""
         if not _can_view_bu(request, name):
             # 无权/未登录：与「不存在」对无权者同形 401（不先 404 泄露）
             raise HTTPException(status_code=401, detail="请先登录看板")
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
-        _check_blk(blk)
-        if not _EXPORT_LOCK.acquire(blocking=False):
-            raise HTTPException(status_code=429, detail="正在生成另一张导出图，请稍候几秒再点")
-        try:
-            from refresh_pipeline import assemble_export_html
-
-            try:
-                # 若测试注入了 page.html 则优先
-                html = page.get("html") if isinstance(page, dict) else None
-                if not html:
-                    html = assemble_export_html(cfg, bu_name=name)
-            except ValueError as e:
-                raise HTTPException(status_code=503, detail=str(e) or "该 BU 尚无数据") from e
-            png = _screenshot_png(html, blk)
-        except HTTPException:
-            raise
-        except Exception as e:  # noqa: BLE001
-            raise HTTPException(
-                status_code=503, detail=f"截图失败（{type(e).__name__}）；部署机需先 playwright install chromium"
-            ) from e
-        finally:
-            _EXPORT_LOCK.release()
-        label = blk or ((_state.get("summary") or {}).get("meta") or {}).get("year_key", "")
-
-        fn = quote(f"甲骨易经营看板_{name}_{label}_{time.strftime('%Y%m%d_%H%M')}.png")
-        return Response(
-            content=png,
-            media_type="image/png",
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
-        )
+        return _export_png_body(bu_name=name, blk=blk)
 
     @app.get("/api/v1/export/bu/{name}/html")
     def api_bu_export_html(name: str, request: Request, blk: str = "", theme: str = ""):

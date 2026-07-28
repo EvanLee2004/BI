@@ -444,7 +444,8 @@ def generate(cfg, today, trigger="manual", root=None):
         attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    # 2.7.7 G2：刷新不建 HTML fragments / 不预装整页；导出走 assemble_export_html
+    # 2.7.7 G2：刷新不建 HTML fragments / 不预装整页
+    # 2.7.8 G3：导出走 kanban_snapshot pack→HTML（export_html），PNG 截同款
     views = api_v1.build_cockpit_views(summary, cfg)
     html = ""  # 运行态不预装；兼容三元组返回位置
     summary.pop("_fragments", None)

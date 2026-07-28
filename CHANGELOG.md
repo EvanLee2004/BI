@@ -1,3 +1,11 @@
+## 2.7.8 · 2026-07-29
+
+### 导出 HTML 与 PNG 同源 kanban_snapshot
+- PNG 与 HTML 共用 `assemble_export_pack` → `build_export_html`（`kanban_snapshot` 播放器）
+- 删除 PNG 路由对 `assemble_export_html` / `render_dashboard` / `render_bu_page` 的依赖
+- `export_png.screenshot_png`：快照页用临时 file:// 打开以执行 ES module，等 KPI 文案后再截
+- 契约测 `tests/test_g3_2_7_8_export_same_pack.py`；run_verify SERIAL
+
 ## 2.7.7 · 2026-07-29
 
 ### 刷新停建 HTML 驾驶舱碎片 + 废止 fragments API

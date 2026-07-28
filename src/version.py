@@ -60,6 +60,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.7.8",
+        "date": "2026-07-29",
+        "title": "经营看板 2.7.8：导出 HTML 与 PNG 同一快照",
+        "items": [
+            "导出 HTML 与 PNG 共用同一份经营快照（kanban_snapshot），截图即打开同款页面。",
+            "旧的整页 render 导出路径已停用；回款与经营数字展示不变。",
+        ],
+    },
+    {
         "version": "2.7.7",
         "date": "2026-07-29",
         "title": "经营看板 2.7.7：刷新不再拼整页 HTML，只走实时接口",
