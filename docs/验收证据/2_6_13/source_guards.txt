@@ -1,0 +1,19 @@
+# 2.6.13 source guards
+## budget_manual has SSOT
+29:    expense_totals_from_man_led,
+30:    pretax_profit_fen,
+127:    exp = expense_totals_from_man_led(man, led, cfg)
+131:    pretax = pretax_profit_fen(gross_profit, exp["total"], surtax, other_pl)
+## bu_alloc no round float exp
+29:from .expense_period import _fen_amount, expense_totals_from_man_led, pretax_profit_fen
+44:    p["pretax_profit"] = pretax_profit_fen(
+120:            add = money.mul_rates_fen(_fen_amount(led_src.get(cat)), rate)
+148:    2.6.13：mul_rates_fen HALF_UP 整分。
+158:            add[cat] += money.mul_rates_fen(_fen_amount(led.get(cat)), rate)
+170:    2.6.13：比例份额用 mul_rates_fen；金额模式仍 value=元 → yuan_to_fen。
+188:                        (str(bu), money.mul_rates_fen(amt, Decimal(str(pct)) / Decimal(100)))
+209:        (str(bu), money.mul_rates_fen(amt, Decimal(str(pct)) / Decimal(100)))
+## expense_totals signature
+183:def pretax_profit_fen(
+190:def expense_totals_from_man_led(man: dict | None, led: dict | None, cfg=None) -> dict[str, int]:
+479:def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):

@@ -23,7 +23,12 @@ from __future__ import annotations
 import periods
 import money
 
-from .expense_period import compute_inhouse_cost, compute_ledger_expenses, manual_alloc_amounts_by_cat
+from .expense_period import (
+    compute_inhouse_cost,
+    compute_ledger_expenses,
+    expense_totals_from_man_led,
+    pretax_profit_fen,
+)
 from .tax_revenue import build_rankings_monthly, compute_orders, compute_profit_ranking, compute_ranking, compute_receipts, compute_revenue_cost
 
 
@@ -118,18 +123,12 @@ def build_period(
     gross_profit = int(net - production_cost)
 
     led, led_count = compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols)
-    # 任务书61·J：台账细类 房租/物业费/装修费 已剔；手填分摊（2.3.3：房租物业/其他/装修费）归回对应报表大类（未填=0）
-    mac = manual_alloc_amounts_by_cat(man, cfg)
-    sales_exp = int(man["营销人力成本"] + led["市场费用"] + mac.get("市场费用", 0))
-    admin_exp = int(man["管理人力成本"] + led["管理费用"] + mac.get("管理费用", 0))
-    fixed_exp = int(led["固定运营费用"] + mac.get("固定运营费用", 0))
-    rd_exp = int(man["研发人力成本"] + led["技术服务费"] + mac.get("技术服务费", 0))
-    fin_exp = int(led["财务费用"] + man["财务费用补充"] + mac.get("财务费用", 0))
+    # 2.6.13：期间费用五类 + total 唯一 SSOT（含 J 类 mac）；禁止本处内联五行
+    exp = expense_totals_from_man_led(man, led, cfg)
     # 附加税费=不含税收入×增值税率×附加率；任务书66·A：分上 Decimal 连乘 + ROUND_HALF_UP
     surtax = money.mul_rates_fen(int(net), vat, surtax_rate)
     other_pl = int(man["其他损益"])
-    period_expense = int(sales_exp + admin_exp + fixed_exp + rd_exp + fin_exp)
-    pretax = int(gross_profit - period_expense - surtax + other_pl)
+    pretax = pretax_profit_fen(gross_profit, exp["total"], surtax, other_pl)
 
     orders_amt = compute_orders(order_rows, cols_cfg, start, end)
     receipts_amt = compute_receipts(receipt_rows, cols_cfg, start, end)
@@ -150,14 +149,7 @@ def build_period(
         "ledger_expenses": led,
         "ledger_count": led_count,
         "manual": man,
-        "expense": {
-            "营销费用": sales_exp,
-            "管理费用": admin_exp,
-            "固定运营费用": fixed_exp,
-            "研发费用": rd_exp,
-            "财务费用": fin_exp,
-            "total": period_expense,
-        },
+        "expense": dict(exp),
         "surtax": surtax,
         "other_pl": other_pl,
         "pretax_profit": pretax,

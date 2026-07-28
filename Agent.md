@@ -34,9 +34,10 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.6.12 · 2026-07-28）
+## 当前状态（2.6.13 · 2026-07-28）
 
-- **版本**：`VERSION` = **2.6.12**（完整排名弹层月钻统一 + 密码非空即可 + 排查 F-04/F-06 收口）。其上：2.6.11 展开层；2.6.10 体验；2.6.7 顶栏；2.6.5 三层统一；2.6.0 `kanban_sid`；2.5.0 `/login`。
+- **版本**：`VERSION` = **2.6.13**（算账金额 SSOT：期间费用/税前/台账汇总/BU 分摊全程 int 分，规则只实现一次）。其上：2.6.12 月钻+密码；2.6.11 展开层；2.6.10 体验；2.6.7 顶栏。
+- **算账 SSOT（2.6.13）**：`expense_totals_from_man_led` + `pretax_profit_fen` 为费用/税前唯一源；`build_period` 与 bu_alloc 只调用；分摊 `mul_rates_fen`；禁止 profit 核心 `round(float)` 写金额。
 - **排名月钻（2.6.12）**：`RankList` 完整排名弹层与主列表同 click 契约（`onItemClick` + `mkey`）；前十与「其余→完整排名」均可开 1～12 月下单/回款。
 - **展开层铁律（2.6.11）**：抽屉基座 CSS 必须在 SPA `tokens.css`/dist；`v-if` 禁止 `drawerOpen && detail` 静默；`structure_for_vm` 须透传 expandable/children；`#periodSync` 禁常驻 will-change:transform。
 - **会话**：`src/session_ctx.py` 唯一 resolve；权限只看账号表；退出清 sid+两旧名；MADR-0023。

@@ -1,3 +1,11 @@
+## 2.6.13 · 2026-07-28
+
+### 算账金额 SSOT 与双路径统一（int 分）
+- U-01：`expense_totals_from_man_led` → `dict[str,int]`；`build_period` / `_apply_expense_and_pretax` 只调 SSOT + `pretax_profit_fen`；删内联五行与 `round(float(exp…))`
+- U-02：台账 by_cat / fine / group / 月矩阵金额桶 int 分
+- U-03：BU 分摊 `mul_rates_fen` + led 写回 int 分
+- 回归 32 周期零 diff；用户可见数字与 2.6.12 同库同口径
+
 ## 2.6.12 · 2026-07-28
 
 ### 完整排名月钻统一 + 密码自由化 + 排查收口

@@ -143,9 +143,10 @@ class TestManualAllocJ(unittest.TestCase):
         admin = int(led["管理费用"] + man["管理人力成本"] + manual_alloc_amounts_by_cat(man, cfg).get("管理费用", 0))
         self.assertEqual(fixed, 12000_00)
         self.assertEqual(admin, 1000_00)
-        # 源码守卫：budget_manual 已接 mac
+        # 源码守卫：2.6.13 期间费用走 SSOT（内部含 mac），不再内联五行
         bm = (ROOT / "src" / "profit" / "budget_manual.py").read_text(encoding="utf-8")
-        self.assertIn("manual_alloc_amounts_by_cat", bm)
+        self.assertIn("expense_totals_from_man_led", bm)
+        self.assertNotIn('sales_exp = int(man["营销人力成本"]', bm)
 
     def test_merge_ledger_caliber_excludes_types(self):
         from domain.expense.chart_whitelist import merge_ledger_caliber_filters

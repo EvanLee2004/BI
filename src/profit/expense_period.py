@@ -164,20 +164,59 @@ def inject_manual_alloc_into_breakdowns(pman, cfg, fine_by_cat, by_pc, by_dept):
     )
 
 
-def expense_totals_from_man_led(man: dict | None, led: dict | None, cfg=None) -> dict[str, float]:
+def _fen_amount(val) -> int:
+    """算账入分：int 已是分；float 按历史「分的 float 壳」取整分；其余走 money.as_fen。
+
+    2.6.13：禁止把 float 分误当元再 ×100（as_fen 对 float 按元解析）。
+    """
+    if val is None or val == "":
+        return 0
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return int(round(val))
+    return int(money.as_fen(val) or 0)
+
+
+def pretax_profit_fen(
+    gross_profit: int, period_expense_total: int, surtax: int, other_pl: int = 0
+) -> int:
+    """税前 = 毛利 − 期间费用 − 附加 + 其他损益。全程 int 分（2.6.13 SSOT）。"""
+    return int(gross_profit) - int(period_expense_total) - int(surtax) + int(other_pl)
+
+
+def expense_totals_from_man_led(man: dict | None, led: dict | None, cfg=None) -> dict[str, int]:
     """台账 led + 手填 man + 任务书61·J 三类人工分摊 → 期间费用五类与 total。
 
-    与 budget_manual.build_period 同口径；供 bu_alloc 公共分摊重算复用，禁止只写 man+led 漏 mac。
-    返回 float 分（与 bu_alloc 现有 round 路径兼容）。
+    与 budget_manual.build_period / bu_alloc 同口径（2.6.13 唯一 SSOT）。
+    返回 dict[str, int] 分；禁止 float。
     """
     man = man or {}
     led = led or {}
     mac = manual_alloc_amounts_by_cat(man, cfg)
-    sales = float(man.get("营销人力成本") or 0) + float(led.get("市场费用") or 0) + float(mac.get("市场费用") or 0)
-    admin = float(man.get("管理人力成本") or 0) + float(led.get("管理费用") or 0) + float(mac.get("管理费用") or 0)
-    fixed = float(led.get("固定运营费用") or 0) + float(mac.get("固定运营费用") or 0)
-    rd = float(man.get("研发人力成本") or 0) + float(led.get("技术服务费") or 0) + float(mac.get("技术服务费") or 0)
-    fin = float(led.get("财务费用") or 0) + float(man.get("财务费用补充") or 0) + float(mac.get("财务费用") or 0)
+    sales = (
+        _fen_amount(man.get("营销人力成本"))
+        + _fen_amount(led.get("市场费用"))
+        + _fen_amount(mac.get("市场费用", 0))
+    )
+    admin = (
+        _fen_amount(man.get("管理人力成本"))
+        + _fen_amount(led.get("管理费用"))
+        + _fen_amount(mac.get("管理费用", 0))
+    )
+    fixed = _fen_amount(led.get("固定运营费用")) + _fen_amount(mac.get("固定运营费用", 0))
+    rd = (
+        _fen_amount(man.get("研发人力成本"))
+        + _fen_amount(led.get("技术服务费"))
+        + _fen_amount(mac.get("技术服务费", 0))
+    )
+    fin = (
+        _fen_amount(led.get("财务费用"))
+        + _fen_amount(man.get("财务费用补充"))
+        + _fen_amount(mac.get("财务费用", 0))
+    )
     total = sales + admin + fixed + rd + fin
     return {
         "营销费用": sales,
@@ -253,7 +292,7 @@ def _apply_alloc_monthly(alloc_by_month, year, all_cats, by_m) -> list:
             if cat and cat != "非利润表":
                 if cat not in all_cats:
                     all_cats.append(cat)
-                by_m[m][cat] += float(amt or 0)
+                by_m[m][cat] += _fen_amount(amt)
     return all_cats
 
 
@@ -265,9 +304,9 @@ def _merge_salary_into_other(all_cats, by_m, hide_salary: bool) -> tuple[list, b
     if "其他" not in all_cats:
         all_cats.append("其他")
     for m in range(1, 13):
-        sal = float(by_m[m].pop("工资", 0) or 0)
+        sal = _fen_amount(by_m[m].pop("工资", 0))
         if sal:
-            by_m[m]["其他"] += sal
+            by_m[m]["其他"] = _fen_amount(by_m[m].get("其他")) + sal
     all_cats = [c for c in all_cats if c != "工资"]
     return all_cats, True, note
 
@@ -314,7 +353,7 @@ def compute_expense_monthly_by_cat(
     返回 {categories:[...], months:[{m,total,by_cat:{…}}], salary_merged:bool}。
     """
     all_cats = _expense_all_cats(cfg)
-    by_m: dict[int, dict[str, float]] = {m: defaultdict(float) for m in range(1, 13)}
+    by_m: dict[int, dict[str, int]] = {m: defaultdict(int) for m in range(1, 13)}
     c_amt = lcols.get("含税金额")
     if c_amt is None:
         return {"categories": all_cats, "months": [], "salary_merged": False, "note": ""}
@@ -326,8 +365,8 @@ def compute_expense_monthly_by_cat(
     all_cats, salary_merged, note = _merge_salary_into_other(all_cats, by_m, hide_salary)
     months = []
     for m in range(1, 13):
-        bc = {c: round(float(by_m[m].get(c) or 0), 2) for c in all_cats}
-        total = round(sum(bc.values()), 2)
+        bc = {c: int(by_m[m].get(c) or 0) for c in all_cats}
+        total = int(sum(bc.values()))
         months.append({"m": m, "total": total, "by_cat": bc})
     return {"categories": all_cats, "months": months, "salary_merged": salary_merged, "note": note}
 
@@ -438,15 +477,16 @@ def detax_ledger_rows(ledger_header, ledger_rows, detax_rates):
 
 
 def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
+    """台账白名单大类汇总。返回 (dict[str,int] 分, count)。2.6.13：全程 int 分。"""
     included = cfg["expense_categories_included"]
-    by_cat = defaultdict(float)
+    by_cat: dict[str, int] = defaultdict(int)
     count = 0
     c_amt = lcols["含税金额"]
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
-        if amt == 0.0:
+        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
             continue
@@ -455,20 +495,23 @@ def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
             continue
         by_cat[cat] += amt
         count += 1
-    return {cat: round(by_cat.get(cat, 0.0), 2) for cat in included}, count
+    return {cat: int(by_cat.get(cat, 0)) for cat in included}, count
 
 
 def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lcols):
-    """台账费用按报表大类 → 预算明细费用类型 细分（下钻一层，供利润表台账行展开）。"""
+    """台账费用按报表大类 → 预算明细费用类型 细分（下钻一层，供利润表台账行展开）。
+
+    返回 {大类: [(细类, 分 int), ...]}；2.6.13 金额桶 int 分。
+    """
     included = set(cfg["expense_categories_included"])
     fine_label = cfg["unclassified_label_fine_type"]
     c_amt, c_fine = lcols["含税金额"], lcols["预算明细费用类型"]
-    out: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    out: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
-        if amt == 0.0:
+        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
             continue
@@ -483,7 +526,7 @@ def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lco
 
 def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, group_field):
     """白名单内费用按台账某列分组（预算归属部门/业务BU 两个视角共用）+ 组内细类嵌套。
-    返回 [(组名, 合计, [(细类, 金额), ...按金额降序]), ...按合计降序]；
+    返回 [(组名, 合计 int 分, [(细类, 金额 int), ...按金额降序]), ...按合计降序]；
     台账没有该列 → None（前端降级提示"台账无此列"）。
     口径与 compute_ledger_expenses 完全一致（白名单8大类内、含税、同期间）——守恒：各组合计==期间费用合计。"""
     c_grp = lcols.get(group_field)
@@ -492,13 +535,13 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
     included = set(cfg["expense_categories_included"])
     fine_label = cfg["unclassified_label_fine_type"]
     c_amt, c_fine = lcols["含税金额"], lcols["预算明细费用类型"]
-    agg: dict[str, float] = defaultdict(float)
-    fine: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    agg: dict[str, int] = defaultdict(int)
+    fine: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
-        if amt == 0.0:
+        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
             continue
@@ -511,7 +554,7 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
         agg[grp] += amt
         fine[grp][f] += amt
     return [
-        (g, round(v, 2), sorted(fine[g].items(), key=lambda x: -x[1]))
+        (g, int(v), sorted(fine[g].items(), key=lambda x: -x[1]))
         for g, v in sorted(agg.items(), key=lambda x: -x[1])
     ]
 
