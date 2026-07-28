@@ -1,3 +1,10 @@
+## 2.7.6 · 2026-07-29
+
+### VM 数字契约锁死
+- 契约测 `tests/test_g1_2_7_6_vm_numbers_contract.py`：全年 KPI / PL 关键行 / ranking total / trend 样本点与 `extract_numbers` 一致
+- 只比数字与 `*_disp`，禁止新增 HTML SHA 作架构锁；未改算账、未删 render
+- 历史 VERSION 钉死测改为跟 tip / 不低于里程碑，避免每升一版全红
+
 ## 2.7.5 · 2026-07-29
 
 ### 口径标注方案 A（含税 / 不含税小字）

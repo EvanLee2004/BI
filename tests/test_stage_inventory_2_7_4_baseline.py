@@ -15,9 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestStageInventory274Baseline(unittest.TestCase):
-    def test_version_is_2_7_4(self):
+    def test_version_at_least_2_7_4(self):
+        """2.7.4 调查基线之后 tip 只升不降；不再锁死等于 2.7.4。"""
         v = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(v, "2.7.4")
+        parts = [int(x) for x in v.split(".")[:3]]
+        while len(parts) < 3:
+            parts.append(0)
+        self.assertGreaterEqual(tuple(parts[:3]), (2, 7, 4), f"VERSION={v}")
 
     def test_password_policy_free_not_min8(self):
         """N01 superseded：2.6.12 非空即可，禁止再当『必须≥8』开单。"""

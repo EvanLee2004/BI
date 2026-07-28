@@ -224,8 +224,18 @@ class TestExportBarePathsGone(unittest.TestCase):
 
 class TestVersion272(unittest.TestCase):
     def test_version_file(self):
+        """VERSION 文件非空且与 version.read_version 一致（不锁死历史次版本号）。"""
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(ver, "2.7.4")
+        self.assertTrue(ver)
+        import sys
+
+        sys.path.insert(0, str(ROOT / "src"))
+        import version
+
+        self.assertEqual(version.read_version(), ver)
+        # 2.7.2 起写路径已 v1；版本号不低于该里程碑
+        parts = [int(x) for x in ver.split(".")[:3]]
+        self.assertGreaterEqual(tuple(parts + [0, 0, 0])[:3], (2, 7, 2))
 
 
 if __name__ == "__main__":
