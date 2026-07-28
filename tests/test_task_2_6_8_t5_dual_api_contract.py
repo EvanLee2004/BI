@@ -138,8 +138,14 @@ class TestDualApiAuthParity(unittest.TestCase):
         cfg["zhiyun_auto_fetch"] = False
         c = TestClient(server.create_app(cfg, root=ROOT))
         r1 = c.get("/api/profit_ranking", params={"dim": "sales", "start": "2026-01-01", "end": "2026-07-01"})
+        r1b = c.get(
+            "/api/v1/rankings/profit",
+            params={"dim": "sales", "start": "2026-01-01", "end": "2026-07-01"},
+        )
         r2 = c.get("/api/v1/rankings/full", params={"period": "2026年", "dim": "sales"})
         self.assertIn(r1.status_code, (401, 403), r1.text[:120])
+        self.assertIn(r1b.status_code, (401, 403), r1b.text[:120])
+        self.assertEqual(r1.status_code, r1b.status_code)
         self.assertIn(r2.status_code, (401, 403), r2.text[:120])
 
     def test_unauth_detail_vs_ledger_rejected(self):
@@ -269,6 +275,19 @@ class TestDualApiDataContract(unittest.TestCase):
         # 金额可解析（各自字段）
         self.assertTrue(any(_amt_key(it) != 0 for it in old_items[:5]), "profit 金额解析失败")
         self.assertTrue(any(_amt_key(it) != 0 for it in full_items[:5]), "full 金额解析失败")
+
+        # --- C) 2.7.0：v1 rankings/profit 与旧 profit_ranking 同实现 ---
+        r_v1 = c.get(
+            "/api/v1/rankings/profit",
+            params={"dim": "sales", "start": "2026-01-01", "end": "2026-12-31", "top": 5000},
+        )
+        self.assertEqual(r_v1.status_code, 200, r_v1.text[:200])
+        v1_items = (r_v1.json() or {}).get("items") or []
+        ok_v, det_v = ranking_order_contract(old_items, v1_items, min_common=min(3, len(old_items)))
+        self.assertTrue(ok_v, f"v1 profit vs legacy order fail: {det_v}")
+        ok_vc, det_vc = ranking_count_contract(old_items, v1_items, tol=0)
+        self.assertTrue(ok_vc, f"v1 profit vs legacy count fail: {det_vc}")
+        self.assertEqual(_names(old_items)[:10], _names(v1_items)[:10])
 
     def test_bu_dual_ranking_order_and_count(self):
         """BU 口径：同 bu= 下 profit_ranking / rankings/full 各自与同源路径序+条数一致。"""

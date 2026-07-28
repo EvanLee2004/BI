@@ -9,7 +9,7 @@
   border-bottom: 1px solid var(--banner-archive-border);
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-bu-transition, 50);
 }
 .tb-today {
   font-size: 13px;

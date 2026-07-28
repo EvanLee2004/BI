@@ -352,10 +352,13 @@ html.theme-light {
   --z-base: 1;
   --z-sticky: 20;
   --z-topbar: 40;
+  --z-bu-transition: 50;
   --z-dropdown: 60;
   --z-drawer: 80;
   --z-modal: 90;
   --z-toast: 100;
+  --z-toast-top: 10050;
+  --z-password-mask: 9999;
 }
 
 /* —— 右侧抽屉基座（B-03/B-04：必须进 SPA dist，禁止只靠 theme.css）—— */

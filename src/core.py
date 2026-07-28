@@ -88,13 +88,14 @@ def _build_public_month_details(cfg, public_rows, lcols, year: int, month: int) 
             name = str(fine or "").strip()
             if not name:
                 continue
-            fen = float(amt or 0)
-            if abs(fen) < 1e-12:
+            # 2.7.0 C1：金额全程 int 分（fine 对已是分）
+            fen = int(amt or 0) if not isinstance(amt, float) else int(round(amt))
+            if fen == 0:
                 continue
             if name in out:
-                out[name]["amount"] = round(float(out[name]["amount"]) + fen, 2)
+                out[name]["amount"] = int(out[name]["amount"]) + fen
             else:
-                out[name] = {"amount": round(fen, 2), "cat": str(cat)}
+                out[name] = {"amount": fen, "cat": str(cat)}
     return out
 
 
@@ -160,14 +161,17 @@ def _public_pools_for_year(cfg, public_rows, lcols, year: int, upto_month: int, 
         if not details:
             public_month_led[(year, m)] = led
             continue
-        led2: dict[str, float] = {}
+        # 2.7.0 C1：公共池大类汇总 int 分
+        led2: dict[str, int] = {}
         for _fine, info in details.items():
             cat = str((info or {}).get("cat") or "")
             if not cat:
                 continue
-            led2[cat] = round(float(led2.get(cat) or 0) + float((info or {}).get("amount") or 0), 2)
+            amt = (info or {}).get("amount") or 0
+            fen = int(amt) if not isinstance(amt, float) else int(round(amt))
+            led2[cat] = int(led2.get(cat) or 0) + fen
         keys = list(led.keys()) if led else list(led2.keys())
-        public_month_led[(year, m)] = {c: round(float(led2.get(c) or 0), 2) for c in keys}
+        public_month_led[(year, m)] = {c: int(led2.get(c) or 0) for c in keys}
     return public_month_led, public_month_details
 
 

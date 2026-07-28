@@ -324,6 +324,39 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
+    @app.get("/api/v1/admin/detail")
+    def api_v1_admin_detail(
+        request: Request,
+        table: str = Query("收入明细"),
+        month: str | None = None,
+        q: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+        unclassified: bool = False,
+        unfilled_dept: bool = False,
+        year: str | None = None,
+        bu: str | None = None,
+        filters: str | None = None,
+        month_from: str | None = None,
+        month_to: str | None = None,
+    ):
+        """2.7.0：管理端明细 v1 别名 → 转发 `/api/detail` 同逻辑（全列；零行为变）。"""
+        return api_detail(
+            request,
+            table=table,
+            month=month,
+            q=q,
+            page=page,
+            page_size=page_size,
+            unclassified=unclassified,
+            unfilled_dept=unfilled_dept,
+            year=year,
+            bu=bu,
+            filters=filters,
+            month_from=month_from,
+            month_to=month_to,
+        )
+
     @app.get("/api/detail/values")
     def api_detail_values(
         request: Request,
@@ -429,19 +462,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         dual = _format_daily_disp(d, top)
         return {"start": start, "end": end, "bu": name, "dual_rankings": dual, **d}
 
-    @app.get("/api/profit_ranking")
-    def api_profit_ranking(
+    def _profit_ranking_impl(
         request: Request,
-        dim: str = Query(""),
-        start: str = Query(""),
-        end: str = Query(""),
-        top: int = Query(5000),
-        bu: str = Query(""),
+        dim: str,
+        start: str,
+        end: str,
+        top: int,
+        bu: str,
     ):
         """板块③「收入与毛利结构」全量明细（「其余 N 个」点开）：确认口径 收入/毛利 按客户/销售。
 
-        - 无 bu：整体/管理员会话（全公司口径；BU 会话 401，防绕过隔离）
-        - 有 bu：须能看该 BU；仅该 BU 销售过滤后的项目行（铁律：BU 只能看自己的）
+        2.7.0：v1 `/api/v1/rankings/profit` 与兼容 `/api/profit_ranking` 共用本实现（非下单回款榜）。
+        - 无 bu：整体/管理员会话（全公司口径；BU 会话 403，防绕过隔离）
+        - 有 bu：须能看该 BU；仅该 BU 销售过滤后的项目行
         **纯只读**；金额/毛利率显示串全部后端算好（铁律2）。
         入参：dim∈{customer,sales}、ISO 日期、区间≤366天。
         """
@@ -469,6 +502,30 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if bu_name:
             out["bu"] = bu_name
         return out
+
+    @app.get("/api/v1/rankings/profit")
+    def api_v1_rankings_profit(
+        request: Request,
+        dim: str = Query(""),
+        start: str = Query(""),
+        end: str = Query(""),
+        top: int = Query(5000),
+        bu: str = Query(""),
+    ):
+        """2.7.0 标准路径：收入毛利榜（与 /api/profit_ranking 同实现）。"""
+        return _profit_ranking_impl(request, dim, start, end, top, bu)
+
+    @app.get("/api/profit_ranking")
+    def api_profit_ranking(
+        request: Request,
+        dim: str = Query(""),
+        start: str = Query(""),
+        end: str = Query(""),
+        top: int = Query(5000),
+        bu: str = Query(""),
+    ):
+        """兼容路径：同 `_profit_ranking_impl`（勿删；测与旧客户端依赖）。"""
+        return _profit_ranking_impl(request, dim, start, end, top, bu)
 
     @app.get("/api/exceptions")
     def api_exceptions(request: Request):

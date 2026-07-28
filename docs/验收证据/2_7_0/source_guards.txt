@@ -1,0 +1,13 @@
+# 2.7.0 guards
+327:    @app.get("/api/v1/admin/detail")
+465:    def _profit_ranking_impl(
+475:        2.7.0：v1 `/api/v1/rankings/profit` 与兼容 `/api/profit_ranking` 共用本实现（非下单回款榜）。
+506:    @app.get("/api/v1/rankings/profit")
+516:        return _profit_ranking_impl(request, dim, start, end, top, bu)
+527:        """兼容路径：同 `_profit_ranking_impl`（勿删；测与旧客户端依赖）。"""
+528:        return _profit_ranking_impl(request, dim, start, end, top, bu)
+50:      `/api/v1/rankings/profit?dim=${encodeURIComponent(dim)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&top=5000${buQ}`,
+54:      console.warn('[rankings/profit]', r.status)
+src/profit/bu_alloc.py:38:    2.6.13：全程 int 分；禁止 round(float(...)) 写费用/税前。
+355:  --z-bu-transition: 50;
+360:  --z-toast-top: 10050;

@@ -4,7 +4,7 @@
   left: 50%;
   bottom: 28px;
   transform: translateX(-50%);
-  z-index: 10050;
+  z-index: var(--z-toast-top, 10050);
   max-width: min(92vw, 28rem);
   padding: 12px 18px;
   border-radius: var(--radius);

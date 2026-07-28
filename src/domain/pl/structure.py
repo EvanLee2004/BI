@@ -166,6 +166,22 @@ def _pl_cost_details(p: dict, man: dict) -> dict[str, Any]:
     return {"title": "交付成本（生产成本）构成", "lines": cost_lines}
 
 
+def _fen_amount(v) -> int:
+    """2.7.0 C2：构成金额中间量 int 分。"""
+    if v is None or v == "":
+        return 0
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(round(v))
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _pl_bu_expense_block(p, e, man, led, fine, alloc_meta) -> tuple[str, bool, bool, list, dict]:
     """BU 费用行 + 抽屉；返回 (tag_note, has_fee, has_manual, rows, details)。"""
     alloc = alloc_meta or {}
@@ -200,8 +216,8 @@ def _pl_bu_expense_block(p, e, man, led, fine, alloc_meta) -> tuple[str, bool, b
         v = float(e.get(nm) or 0)
         pending = not (has_fee or abs(v) > 0.005)
         rows.append(_row(nm, -v, open_key=cat_key, pending=pending))
-        alloc_amt = float(alloc_added.get(led_cat) or 0.0)
-        direct_amt = round(float(led.get(led_cat) or 0.0) - alloc_amt, 2)
+        alloc_amt = _fen_amount(alloc_added.get(led_cat))
+        direct_amt = _fen_amount(led.get(led_cat)) - alloc_amt
         lines: list[dict[str, Any]] = []
         if man_key:
             lines.append(_dline(man_key, man.get(man_key, 0), "manual"))

@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 """2.6.0：单会话 resolve + 21 天遗留 cookie 兼容。
 
+2.7.0 铁律：
+- 生产 **单 worker**（`_state` 进程内缓存；多 worker 未支持，勿上 Redis 当本单范围）。
+- legacy cookie（`kanban_session`/`kanban_view`）可读窗口：锚点 `session_legacy_compat_since`
+  + `SESSION_LEGACY_COMPAT_DAYS`（21 天）。锚点 2026-07-25 → **至 2026-08-15 前**勿删读路径。
+
 参考：OWASP Session Management Cheat Sheet（HttpOnly/SameSite、改密使会话失效已由 pw_ver 覆盖）；
 MDN Set-Cookie（path 与 delete 一致）。
 

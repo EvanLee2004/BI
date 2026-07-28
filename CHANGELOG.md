@@ -1,3 +1,15 @@
+## 2.7.0 · 2026-07-28
+
+### 架构双源 / 文档 SSOT / 算账旁路 / 前端 v1+token
+- B1/F1：`GET /api/v1/rankings/profit` + 旧 `/api/profit_ranking` 同 handler；ProfitStructure 主路径 v1；下单回款榜 full 不合并
+- B2：`/api/v1/admin/detail` 转发 detail；Agent 写清 detail vs ledger
+- B3：render=导出/碎片辅助；fragments 冷启动懒构建已有保底
+- B4/B5：单 worker；legacy cookie 至 2026-08-15
+- C1/C2：core/structure 金额 int 分
+- F2：Toast/BUPage/密码层 z-index 走 tokens
+- O5：progress/Agent/Runbook/债台账 + `docs/文档SSOT指针.md`
+- 回归 32 周期零 diff
+
 ## 2.6.13 · 2026-07-28
 
 ### 算账金额 SSOT 与双路径统一（int 分）

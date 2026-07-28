@@ -194,6 +194,7 @@ tests/test_task_2_6_3_batch_b.py
 tests/test_task_2_6_3_batch_d.py
 tests/test_task_2_6_12_rank_modal_monthly.py
 tests/test_task_2_6_13_money_ssot.py
+tests/test_task_2_7_0_arch_ssot.py
 tests/test_alert_store_2_6_4.py
 tests/test_alert_health_ack_2_6_4.py
 tests/test_failure_mode_guards.py
