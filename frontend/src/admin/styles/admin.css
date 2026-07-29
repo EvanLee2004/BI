@@ -262,6 +262,118 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
   background: #f2f5f9;
 }
 
+/* 数据调整矩阵页共用壳（人工填写 / 业绩目标） */
+.admin-root .mf-page {
+  padding-bottom: 24px;
+  color: var(--admin-fg);
+}
+.admin-root .mf-page .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.admin-root .mf-ym {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-cyan);
+  padding: 4px 10px;
+  border-radius: var(--admin-radius-sm);
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel2);
+}
+.admin-root .mf-page .muted {
+  color: var(--admin-mut);
+  font-size: 12.5px;
+}
+.admin-root .mf-em {
+  color: var(--admin-fg);
+  font-weight: 600;
+}
+.admin-root .mf-card {
+  margin-bottom: 14px;
+  padding: 14px 16px 16px;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+}
+.admin-root .mf-card-h {
+  margin-bottom: 10px;
+}
+.admin-root .mf-card-h h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--admin-fg);
+}
+.admin-root .mf-card-h p {
+  margin: 0;
+  line-height: 1.5;
+}
+.admin-root .mf-page .matrix-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.admin-root .mf-page .b-matrix {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 720px;
+  font-size: 12.5px;
+}
+.admin-root .mf-page .b-matrix th,
+.admin-root .mf-page .b-matrix td {
+  border: 1px solid var(--admin-line);
+  padding: 8px 10px;
+  vertical-align: top;
+}
+.admin-root .mf-page .b-matrix th {
+  background: var(--admin-panel2);
+  color: var(--admin-fg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.admin-root .mf-page .b-metric {
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 110px;
+}
+.admin-root .mf-page .b-cur {
+  margin-bottom: 4px;
+  font-size: 11.5px;
+}
+.admin-root .mf-input {
+  width: 120px;
+  max-width: 100%;
+}
+.admin-root .mf-select {
+  width: 128px;
+}
+.admin-root .mf-page .b-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.admin-root .mf-page .b-lab {
+  font-weight: 600;
+}
+.admin-root .mf-page .b-tip {
+  margin-top: 2px;
+}
+.admin-root .mf-page .pct {
+  font-size: 12px;
+  color: var(--admin-mut);
+}
+.admin-root .mf-page .b-sum-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--admin-mut);
+}
+.admin-root .mf-page .b-sum-tip.warn {
+  color: var(--admin-orange);
+  font-weight: 600;
+}
+
 .admin-note {
   border-left: 4px solid var(--admin-cyan);
   padding: 12px 16px;

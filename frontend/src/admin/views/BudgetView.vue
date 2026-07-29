@@ -198,76 +198,69 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="mf-page" data-testid="budget-page">
     <div class="toolbar">
       <el-select v-model="year" style="width: 110px">
         <el-option v-for="o in yOpts" :key="o.value" :label="o.label" :value="o.value" />
       </el-select>
       <el-button type="primary" @click="safeLoad">查询</el-button>
-      <span class="muted">金额填元、毛利率填百分数；存储键名不变。</span>
+      <span class="mf-ym" data-testid="budget-ym">当前编辑：{{ year }} 年</span>
+      <span class="muted">金额填元、毛利率填百分数；改年后请点查询。</span>
     </div>
-    <div class="admin-note">🎯 业绩目标 · 下单/回款填<strong>元</strong>，毛利率填百分数。年目标行在全公司列旁显示各 BU 合计。</div>
 
-    <div class="matrix-wrap">
-      <table class="b-matrix">
-        <thead>
-          <tr>
-            <th class="b-metric">指标</th>
-            <th v-for="sc in scopes" :key="sc">{{ sc === '全公司' ? '全公司' : 'BU · ' + sc }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="it in BUDGET_METRICS" :key="it.k">
-            <td class="b-metric">
-              <div class="b-lab">{{ it.label }}</div>
-              <div class="muted b-tip">{{ it.tip }}</div>
-            </td>
-            <td v-for="sc in scopes" :key="sc">
-              <div class="b-cur muted">{{ displayCur(it, sc) }}</div>
-              <div class="b-edit">
-                <el-input
-                  v-if="cells[it.k]?.[sc]"
-                  v-model="cells[it.k][sc].val"
-                  size="small"
-                  :placeholder="(it as any).money ? '如 80,000,000' : '如 35'"
-                  style="width: 130px"
-                  @input="recount"
-                />
-                <span v-if="it.pct" class="pct">%</span>
-                <span v-else-if="(it as any).money" class="pct">元</span>
-              </div>
-              <div
-                v-if="it.sumBu && sc === '全公司' && sumTips[it.k]?.text"
-                class="b-sum-tip"
-                :class="{ warn: sumTips[it.k]?.warn }"
-              >
-                {{ sumTips[it.k]?.text }}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <section class="mf-card" data-testid="budget-matrix">
+      <div class="mf-card-h">
+        <h3>业绩目标（按年 · 全公司 + 各 BU）</h3>
+        <p class="muted">
+          下单/回款填<strong class="mf-em">元</strong>，毛利率/税前利润率填百分数。年目标在全公司列旁显示各 BU 合计。
+        </p>
+      </div>
+      <div class="matrix-wrap">
+        <table class="b-matrix">
+          <thead>
+            <tr>
+              <th class="b-metric">指标</th>
+              <th v-for="sc in scopes" :key="sc">{{ sc === '全公司' ? '全公司' : 'BU · ' + sc }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="it in BUDGET_METRICS" :key="it.k">
+              <td class="b-metric">
+                <div class="b-lab">{{ it.label }}</div>
+                <div class="muted b-tip">{{ it.tip }}</div>
+              </td>
+              <td v-for="sc in scopes" :key="sc">
+                <div class="b-cur muted">{{ displayCur(it, sc) }}</div>
+                <div class="b-edit">
+                  <el-input
+                    v-if="cells[it.k]?.[sc]"
+                    v-model="cells[it.k][sc].val"
+                    size="small"
+                    :placeholder="(it as any).money ? '如 80,000,000' : '如 35'"
+                    class="mf-input"
+                    @input="recount"
+                  />
+                  <span v-if="it.pct" class="pct">%</span>
+                  <span v-else-if="(it as any).money" class="pct">元</span>
+                </div>
+                <div
+                  v-if="it.sumBu && sc === '全公司' && sumTips[it.k]?.text"
+                  class="b-sum-tip"
+                  :class="{ warn: sumTips[it.k]?.warn }"
+                >
+                  {{ sumTips[it.k]?.text }}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <div v-if="dirtyApi && dirtyApi.budgetDirty.value > 0" class="admin-dirty-bar">
-      <span>有 <b>{{ dirtyApi.budgetDirty.value }}</b> 项未保存</span>
+      <span>有 <b>{{ dirtyApi.budgetDirty.value }}</b> 项未保存（{{ year }} 年）</span>
       <el-button @click="discard">放弃更改</el-button>
       <el-button type="primary" :loading="saving" @click="save">保存业绩目标</el-button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.muted { color: var(--admin-mut); font-size: 12px; }
-.matrix-wrap { overflow: auto; max-width: 100%; }
-.b-matrix { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-.b-matrix th, .b-matrix td { border: 1px solid var(--admin-line); padding: 8px 10px; vertical-align: top; }
-.b-lab { font-weight: 600; }
-.b-tip { margin-top: 2px; }
-.b-cur { margin-bottom: 4px; }
-.b-edit { display: flex; align-items: center; gap: 4px; }
-.pct { font-size: 12px; color: var(--admin-mut); }
-.b-sum-tip { margin-top: 4px; font-size: 12px; color: var(--admin-mut); }
-.b-sum-tip.warn { color: var(--admin-orange); font-weight: 600; }
-</style>

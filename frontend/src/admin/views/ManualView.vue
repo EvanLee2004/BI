@@ -678,55 +678,8 @@ onMounted(load)
 </template>
 
 <style scoped>
-.mf-page {
-  padding-bottom: 24px;
-  color: var(--admin-fg);
-}
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.mf-ym {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--admin-cyan);
-  padding: 4px 10px;
-  border-radius: var(--admin-radius-sm);
-  border: 1px solid var(--admin-line);
-  background: var(--admin-panel2);
-}
-.muted {
-  color: var(--admin-mut);
-  font-size: 12.5px;
-}
-.mf-em {
-  color: var(--admin-fg);
-  font-weight: 600;
-}
-.mf-card {
-  margin-bottom: 14px;
-  padding: 14px 16px 16px;
-  border-radius: var(--admin-radius);
-  border: 1px solid var(--admin-line);
-  background: var(--admin-panel);
-}
-.mf-card-h {
-  margin-bottom: 10px;
-}
-.mf-card-h h3 {
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--admin-fg);
-}
-.mf-card-h p {
-  margin: 0;
-  line-height: 1.5;
-}
-h4 {
+/* 共用壳在 admin.css（.mf-page / .mf-card / .b-matrix）；本页仅多块标题 */
+.mf-page h4 {
   margin: 12px 0 6px;
   font-size: 13px;
   font-weight: 600;
@@ -735,43 +688,5 @@ h4 {
 .mf-tip {
   margin: 0 0 8px;
   line-height: 1.45;
-}
-.matrix-wrap {
-  overflow-x: auto;
-  max-width: 100%;
-}
-.b-matrix {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 720px;
-  font-size: 12.5px;
-}
-.b-matrix th,
-.b-matrix td {
-  border: 1px solid var(--admin-line);
-  padding: 8px 10px;
-  vertical-align: top;
-}
-.b-matrix th {
-  background: var(--admin-panel2);
-  color: var(--admin-fg);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.b-metric {
-  font-weight: 600;
-  white-space: nowrap;
-  min-width: 110px;
-}
-.b-cur {
-  margin-bottom: 4px;
-  font-size: 11.5px;
-}
-.mf-input {
-  width: 120px;
-  max-width: 100%;
-}
-.mf-select {
-  width: 128px;
 }
 </style>
