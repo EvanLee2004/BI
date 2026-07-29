@@ -1,9 +1,9 @@
 # 07 · HTTP 接口清单（权威 · 从 server.py 数出）
 
-> **产品 v2.6.0**（2026-07-25；以根目录 `VERSION` 为准）  
+> 产品现网以根 **`VERSION`（3.3.1）** 为准。下列路径表为落盘扫描快照——**业务/管理/运维均以 `/api/v1/*` 现行代码为准**（旧裸路径多已 404）。  
 > **统计方法**：对 `src/routes/*` + `server.py` 注册路由扫描；另挂载 dist/`/static/*`。  
 > **鉴权**：`_require` / `_user` / `_vacct` / `_can_view_*`；细节以源码为准。  
-> 页面 HTML；`/api/*` JSON。VM 字段闸：`scripts/gen_vm_ts.py --check`。cockpit 字段见 `docs/api-v1-cockpit.md`。
+> 页面 HTML；API JSON。VM 字段闸：`scripts/gen_vm_ts.py --check`。cockpit 字段见 `docs/api-v1-cockpit.md`。
 
 ## 一、页面与静态
 
