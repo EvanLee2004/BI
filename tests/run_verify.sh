@@ -118,6 +118,7 @@ tests/test_g1_2_7_6_vm_numbers_contract.py
 tests/test_g2_2_7_7_no_html_fragments.py
 tests/test_g3_2_7_8_export_same_pack.py
 tests/test_g4_2_7_9_no_import_render.py
+tests/test_g5_2_8_0_pl_structure_contract.py
 tests/test_config_engine.py
 tests/test_backup_restore.py
 tests/test_domain_reexport.py

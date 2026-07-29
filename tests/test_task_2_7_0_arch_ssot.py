@@ -65,8 +65,12 @@ class TestZIndexTokens(unittest.TestCase):
 class TestVersionAtLeast270(unittest.TestCase):
     def test_version_file_ge_270(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        # 2.7.0 起；2.7.1 干净目标态亦通过
-        self.assertTrue(ver.startswith("2.7."), ver)
+        # 2.7.0 起；2.8.x 等递增仍通过（G5+）
+        parts = ver.split(".")
+        self.assertTrue(
+            len(parts) >= 2 and parts[0] == "2" and parts[1].isdigit() and int(parts[1]) >= 7,
+            ver,
+        )
 
 
 if __name__ == "__main__":

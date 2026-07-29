@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""任务书52：F-1 CSS 源码守卫 + F-3 logout 会话作废 + F-4 面积轴/裁月 + F-5 密码出库 + F-6 ledger/SHA。"""
+"""任务书52：F-1 CSS 源码守卫 + F-3 logout 会话作废 + F-4 面积轴/裁月 + F-5 密码出库 + F-6 ledger。
+
+2.8.0 G5：废除 render_pl_table HTML SHA 架构锁（见 tests/test_g5_2_8_0_pl_structure_contract.py）。
+"""
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -20,7 +22,6 @@ import accounts  # noqa: E402
 import core  # noqa: E402
 import db  # noqa: E402
 import loaders  # noqa: E402
-import render  # noqa: E402
 import server  # noqa: E402
 import viewmodels  # noqa: E402
 
@@ -250,36 +251,6 @@ class TestF6LedgerAndPlSha(unittest.TestCase):
         j = r.json()
         self.assertNotIn("forbidden", j)
         self.assertNotIn("forbidden_columns", j)
-
-    def test_render_pl_table_sha_golden(self):
-        """B2 逐字节基线：golden 数据下全年 PL HTML SHA 固化。"""
-        if not FAKE.exists():
-            self.skipTest("缺 _golden_data")
-        cfg = dict(loaders.load_config(ROOT))
-        cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "看板.db"
-        cfg["zhiyun_auto_fetch"] = False
-        today = loaders.pinned_today(cfg)
-        conn = db.connect(cfg, ROOT)
-        try:
-            s = core.summary_from_conn(cfg, conn, today)
-        finally:
-            conn.close()
-        yk = s["meta"]["year_key"]
-        FT = s.get("expense_fine_type") or {}
-        unc = (s.get("meta") or {}).get("unclassified") or {}
-        unc_amt = float((unc.get("expense") or {}).get("amount") or 0)
-        html = render.render_pl_table(
-            s["periods"][yk],
-            FT.get(yk, {}),
-            unclassified_amt=unc_amt if unc_amt else None,
-        )
-        full = hashlib.sha256(html.encode("utf-8")).hexdigest()
-        expected_path = ROOT / "tests" / "fixtures" / "pl_table_year_sha.txt"
-        self.assertTrue(expected_path.is_file(), "缺 tests/fixtures/pl_table_year_sha.txt")
-        exp = expected_path.read_text(encoding="utf-8").strip()
-        self.assertEqual(full, exp, "render_pl_table SHA 与固化基线不符——PL 结构漂移")
-
 
 if __name__ == "__main__":
     unittest.main()

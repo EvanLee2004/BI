@@ -97,6 +97,7 @@ class TestTask42Final(unittest.TestCase):
             or (v.startswith("2.5.") and all(p.isdigit() for p in v.split(".")[1:]))
             or (v.startswith("2.6.") and all(p.isdigit() for p in v.split(".")[1:]))
             or (v.startswith("2.7.") and all(p.isdigit() for p in v.split(".")[1:]))
+            or (v.startswith("2.8.") and all(p.isdigit() for p in v.split(".")[1:]))
         )
         self.assertTrue(ok, v)
         self.assertTrue(version.PRODUCT_CHANGELOG)

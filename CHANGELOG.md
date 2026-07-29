@@ -1,3 +1,10 @@
+## 2.8.0 · 2026-07-29
+
+### 测试迁出 HTML SHA 架构锁
+- 废除 `render_pl_table` 全年 HTML `hashlib.sha256` 金样（`tests/fixtures/pl_table_year_sha.txt` 删除）
+- 新契约测 `tests/test_g5_2_8_0_pl_structure_contract.py`：`pl_structure` / packers / extract_numbers 关键行 `*_disp` 对齐
+- 为 G6 物理删除 render 扫清 SHA 门禁障碍；未改 profit 算账
+
 ## 2.7.9 · 2026-07-29
 
 ### JSON/VM 路径去除 import render

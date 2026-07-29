@@ -60,6 +60,15 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "2.8.0",
+        "date": "2026-07-29",
+        "title": "经营看板 2.8.0：利润表结构改为数字契约锁死",
+        "items": [
+            "后台验收不再用整页 HTML 指纹锁结构，改为利润表行与经营数字（含回款口径）同源校验。",
+            "看板展示与算账方式不变；为后续清理旧 HTML 拼装铺路。",
+        ],
+    },
+    {
         "version": "2.7.9",
         "date": "2026-07-29",
         "title": "经营看板 2.7.9：经营接口不再依赖旧 HTML 拼装",

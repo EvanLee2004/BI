@@ -180,8 +180,12 @@ class TestFrontendSrcNoOldReads(unittest.TestCase):
 class TestVersion271(unittest.TestCase):
     def test_version_file(self):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        # 2.7.1 起；2.7.2 写路径收官后仍为 2.7.x
-        self.assertTrue(ver.startswith("2.7."), ver)
+        # 2.7.1 起；后续 2.8.x 等小版本递增仍通过（G5+）
+        parts = ver.split(".")
+        self.assertTrue(
+            len(parts) >= 2 and parts[0] == "2" and parts[1].isdigit() and int(parts[1]) >= 7,
+            ver,
+        )
 
 
 if __name__ == "__main__":
