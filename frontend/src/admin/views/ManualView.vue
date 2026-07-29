@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost } from '../api'
 import { fmtThousands, parseAmount, yearOptions, monthOptions, ymString } from '../utils'
@@ -45,6 +45,13 @@ const showDetax = ref(false)
 const saving = ref(false)
 const yOpts = yearOptions(false)
 const mOpts = monthOptions(false)
+
+/** 顶栏当前编辑月（查询后即本页数据所属月） */
+const ymLabel = computed(() => ymString(year.value, month.value) || '—')
+
+function allocCell(bu: string) {
+  return allocRows.value.find((r) => r.bu === bu)
+}
 
 function recountDirty() {
   let n = 0
@@ -320,7 +327,12 @@ async function saveAll() {
       if (!c) continue
       const cur = c.val.replace(/,/g, '').trim()
       const orig = c.orig.replace(/,/g, '').trim()
-      if (cur === orig || cur === '') continue
+      if (cur === orig) continue
+      // 清空已填 → 写 0（与「空=0」口径一致）
+      if (cur === '') {
+        if (orig !== '' && orig !== '0') manuals.push({ 项目: it, 金额: 0, 范围: sc })
+        continue
+      }
       const n = parseAmount(c.val)
       if (isNaN(n) || n < 0) {
         ElMessage.error(`「${it} · ${sc}」金额无效`)
@@ -467,7 +479,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div>
+  <div class="mf-page" data-testid="manual-page">
     <div class="toolbar">
       <el-select v-model="year" style="width: 110px">
         <el-option v-for="o in yOpts" :key="o.value" :label="o.label" :value="o.value" />
@@ -476,115 +488,189 @@ onMounted(load)
         <el-option v-for="o in mOpts" :key="o.value" :label="o.label" :value="o.value" />
       </el-select>
       <el-button type="primary" @click="safeLoad">查询</el-button>
-      <span class="muted">金额填元（千分位）；当月未填=0。全公司与各 BU 并排一屏填完（窄屏横向滚动）。</span>
-    </div>
-    <div class="admin-note">人工填写：人力/补充等。可批量改数，离开会提醒。</div>
-
-    <div class="matrix-wrap" data-testid="manual-multi-scope" style="overflow-x:auto;max-width:100%">
-      <table class="b-matrix manual-matrix" style="min-width:720px">
-        <thead>
-          <tr>
-            <th class="b-metric">项目</th>
-            <th v-for="sc in scopes" :key="sc">{{ sc === '全公司' ? '全公司' : 'BU · ' + sc }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="it in items" :key="it">
-            <td class="b-metric">{{ it }}</td>
-            <td v-for="sc in scopes" :key="sc">
-              <div class="b-cur muted" v-if="manualCells[it]?.[sc]?.orig">
-                {{ fmtThousands(manualCells[it][sc].orig) }} 元
-              </div>
-              <div class="b-cur muted" v-else>（空=0）</div>
-              <el-input
-                v-if="manualCells[it]?.[sc]"
-                v-model="manualCells[it][sc].val"
-                size="small"
-                placeholder="如 1,000,000"
-                style="width: 130px"
-                @input="recountDirty"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <span class="mf-ym" data-testid="manual-ym">当前编辑：{{ ymLabel }}</span>
+      <span class="muted">金额填元（千分位）；空=0。改月后请点查询。</span>
     </div>
 
-    <div v-if="showAlloc" style="margin-top: 20px" data-testid="alloc-panel">
-      <h3>🏦 公共费用统一分摊（两轴）</h3>
-      <div class="admin-note">
-        本月公共费用总额 <b>{{ allocTotal }}</b> 元。顶部为默认比例（未精配明细走这里）；下方按明细项精配比例/金额。
+    <!-- ① 人力/补充：按月 · 全公司+各BU 横填 -->
+    <section class="mf-card" data-testid="manual-multi-scope">
+      <div class="mf-card-h">
+        <h3>① 人工项目（按月 · 全公司 + 各 BU）</h3>
+        <p class="muted">列=全公司与各业务线；直接横填。保存后进对应范围。</p>
       </div>
-      <p class="muted">{{ allocInherit }}</p>
-      <el-table :data="allocRows" border stripe size="small" style="max-width: 480px" data-testid="alloc-default-ratios">
-        <el-table-column prop="bu" label="BU" />
-        <el-table-column label="默认分摊比例(%)">
-          <template #default="{ row }">
-            <el-input v-model="row.val" size="small" placeholder="未填=沿用上次" @input="recountDirty" />
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="matrix-wrap">
+        <table class="b-matrix">
+          <thead>
+            <tr>
+              <th class="b-metric">项目</th>
+              <th v-for="sc in scopes" :key="sc">{{ sc === '全公司' ? '全公司' : 'BU · ' + sc }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="it in items" :key="it">
+              <td class="b-metric">{{ it }}</td>
+              <td v-for="sc in scopes" :key="sc">
+                <div class="b-cur muted" v-if="manualCells[it]?.[sc]?.orig">
+                  {{ fmtThousands(manualCells[it][sc].orig) }} 元
+                </div>
+                <div class="b-cur muted" v-else>（空=0）</div>
+                <el-input
+                  v-if="manualCells[it]?.[sc]"
+                  v-model="manualCells[it][sc].val"
+                  size="small"
+                  placeholder="如 1,000,000"
+                  class="mf-input"
+                  @input="recountDirty"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ② 公共费用：按月 · 进各 BU（默认比例 + 明细精配） -->
+    <section v-if="showAlloc" class="mf-card" data-testid="alloc-panel">
+      <div class="mf-card-h">
+        <h3>② 公共费用分摊（按月 · 进各 BU）</h3>
+        <p class="muted">
+          本月公共池总额 <b class="mf-em">{{ allocTotal }}</b> 元。
+          默认比例：未精配明细走这里；明细精配：选「比例% / 金额元」后右侧各 BU 可填。
+        </p>
+        <p v-if="allocInherit" class="muted">{{ allocInherit }}</p>
+      </div>
+
+      <h4>默认分摊比例（% · 与上方同一套 BU）</h4>
+      <div class="matrix-wrap" data-testid="alloc-default-ratios">
+        <table class="b-matrix">
+          <thead>
+            <tr>
+              <th class="b-metric">项</th>
+              <th v-for="b in buNames" :key="b">BU · {{ b }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="b-metric">默认比例 %</td>
+              <td v-for="b in buNames" :key="b">
+                <el-input
+                  v-if="allocCell(b)"
+                  v-model="allocCell(b)!.val"
+                  size="small"
+                  placeholder="未填=沿用"
+                  class="mf-input"
+                  @input="recountDirty"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p class="muted">{{ allocSumText }}</p>
 
-      <h4 style="margin-top: 16px">公共明细（台账降序 · 精配优先）</h4>
-      <el-table :data="detailRows" border stripe size="small" style="width: 100%" data-testid="alloc-detail-table">
-        <el-table-column prop="category" label="明细项" min-width="120" fixed />
-        <el-table-column label="本月金额(元)" min-width="140">
-          <template #default="{ row }">
-            <template v-if="row.amount_editable">
-              <el-input
-                v-model="row.amount_val"
-                size="small"
-                :placeholder="row.amount_disp + '（手填覆盖）'"
-                @input="recountDirty"
-              />
-              <span class="muted" style="font-size: 11px">台账 {{ row.amount_disp }} · 〔手填〕</span>
-            </template>
-            <template v-else>
-              <span>{{ row.amount_disp }}</span>
-              <span class="muted" style="font-size: 11px"> 〔自动〕</span>
-            </template>
-          </template>
-        </el-table-column>
-        <el-table-column label="分摊方式" width="130">
-          <template #default="{ row }">
-            <el-select v-model="row.mode" size="small" clearable placeholder="默认" @change="recountDirty">
-              <el-option label="比例%" value="比例" />
-              <el-option label="金额元" value="金额" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column v-for="b in buNames" :key="b" :label="b" min-width="100">
-          <template #default="{ row }">
-            <el-input
-              v-model="row.bu_val[b]"
-              size="small"
-              :disabled="!row.mode"
-              :placeholder="row.mode === '金额' ? '元' : row.mode === '比例' ? '%' : '—'"
-              @input="recountDirty"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
+      <h4>公共明细精配（台账降序 · 优先于默认比例）</h4>
+      <p class="muted mf-tip">
+        分摊方式选「默认」= 走上面默认比例，BU 列灰掉；
+        选「比例%」或「金额元」后，可直接在各 BU 列填写（按月生效）。
+      </p>
+      <div class="matrix-wrap">
+        <table class="b-matrix" data-testid="alloc-detail-table">
+          <thead>
+            <tr>
+              <th class="b-metric">明细项</th>
+              <th>本月金额(元)</th>
+              <th>分摊方式</th>
+              <th v-for="b in buNames" :key="b">BU · {{ b }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in detailRows" :key="row.category">
+              <td class="b-metric">{{ row.category }}</td>
+              <td>
+                <template v-if="row.amount_editable">
+                  <el-input
+                    v-model="row.amount_val"
+                    size="small"
+                    :placeholder="row.amount_disp + '（覆盖）'"
+                    class="mf-input"
+                    @input="recountDirty"
+                  />
+                  <div class="muted b-cur">台账 {{ row.amount_disp }} · 手填</div>
+                </template>
+                <template v-else>
+                  <span>{{ row.amount_disp }}</span>
+                  <span class="muted"> · 自动</span>
+                </template>
+              </td>
+              <td>
+                <el-select
+                  v-model="row.mode"
+                  size="small"
+                  clearable
+                  placeholder="默认(走比例)"
+                  class="mf-select"
+                  @change="recountDirty"
+                >
+                  <el-option label="比例%" value="比例" />
+                  <el-option label="金额元" value="金额" />
+                </el-select>
+              </td>
+              <td v-for="b in buNames" :key="b">
+                <el-input
+                  v-model="row.bu_val[b]"
+                  size="small"
+                  :disabled="!row.mode"
+                  :placeholder="row.mode === '金额' ? '元' : row.mode === '比例' ? '%' : '—'"
+                  class="mf-input"
+                  @input="recountDirty"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p class="muted" data-testid="alloc-summary">{{ allocByBuText }}</p>
-    </div>
+    </section>
 
-    <div v-if="showDetax" style="margin-top: 20px">
-      <h3>💧 费用去税率（按类别·全公司）</h3>
-      <div class="admin-note">能抵扣进项的费用可填增值税率 %；默认全空=不去税。</div>
-      <el-table :data="detaxRows" border stripe size="small" style="max-width: 640px">
-        <el-table-column prop="cat" label="费用类别" min-width="140" />
-        <el-table-column prop="amount" label="全年含税金额" width="140" />
-        <el-table-column label="去税率(%)" width="140">
-          <template #default="{ row }">
-            <el-input v-model="row.val" size="small" placeholder="留空=不去税" @input="recountDirty" />
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <!-- ③ 去税：全局（不算月、不算 BU）——产品口径 -->
+    <section v-if="showDetax" class="mf-card" data-testid="detax-panel">
+      <div class="mf-card-h">
+        <h3>③ 费用去税率（全局 · 不按月 · 不按 BU）</h3>
+        <p class="muted">
+          按「费用细类」填增值税率；<strong>全公司共用一套</strong>，算账时先对台账行去税，再进公共分摊/各 BU。
+          参考金额为库内<strong>全年</strong>含税合计，不随上方月份切换。
+        </p>
+      </div>
+      <div class="matrix-wrap">
+        <table class="b-matrix" style="min-width: 480px; max-width: 720px">
+          <thead>
+            <tr>
+              <th class="b-metric">费用类别</th>
+              <th>全年含税金额</th>
+              <th>去税率 %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in detaxRows" :key="row.cat">
+              <td class="b-metric">{{ row.cat }}</td>
+              <td class="muted">{{ row.amount }}</td>
+              <td>
+                <el-input
+                  v-model="row.val"
+                  size="small"
+                  placeholder="留空=不去税"
+                  class="mf-input"
+                  @input="recountDirty"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <div v-if="dirtyApi && dirtyApi.formDirty.value > 0" class="admin-dirty-bar">
-      <span>有 <b>{{ dirtyApi.formDirty.value }}</b> 项未保存</span>
+      <span>有 <b>{{ dirtyApi.formDirty.value }}</b> 项未保存（{{ ymLabel }}）</span>
       <el-button @click="discard">放弃更改</el-button>
       <el-button type="primary" :loading="saving" @click="saveAll">保存全部更改</el-button>
     </div>
@@ -592,8 +678,100 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.muted { color: var(--admin-mut); font-size: 13px; }
-h3 { font-size: 15px; margin: 12px 0 8px; }
-h4 { font-size: 13px; margin: 8px 0; font-weight: 600; }
+.mf-page {
+  padding-bottom: 24px;
+  color: var(--admin-fg);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.mf-ym {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-cyan);
+  padding: 4px 10px;
+  border-radius: var(--admin-radius-sm);
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel2);
+}
+.muted {
+  color: var(--admin-mut);
+  font-size: 12.5px;
+}
+.mf-em {
+  color: var(--admin-fg);
+  font-weight: 600;
+}
+.mf-card {
+  margin-bottom: 14px;
+  padding: 14px 16px 16px;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+}
+.mf-card-h {
+  margin-bottom: 10px;
+}
+.mf-card-h h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--admin-fg);
+}
+.mf-card-h p {
+  margin: 0;
+  line-height: 1.5;
+}
+h4 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-us-title, var(--admin-fg));
+}
+.mf-tip {
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+.matrix-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.b-matrix {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 720px;
+  font-size: 12.5px;
+}
+.b-matrix th,
+.b-matrix td {
+  border: 1px solid var(--admin-line);
+  padding: 8px 10px;
+  vertical-align: top;
+}
+.b-matrix th {
+  background: var(--admin-panel2);
+  color: var(--admin-fg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.b-metric {
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 110px;
+}
+.b-cur {
+  margin-bottom: 4px;
+  font-size: 11.5px;
+}
+.mf-input {
+  width: 120px;
+  max-width: 100%;
+}
+.mf-select {
+  width: 128px;
+}
 </style>
