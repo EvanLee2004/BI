@@ -421,15 +421,18 @@ def alloc_amounts_by_period(
     *,
     public_month_details: dict | None = None,
     fine_rules_by_month: dict | None = None,
-) -> dict[str, dict[str, float]]:
-    """每周期每 BU 的分摊总额（供全公司「构成·按业务BU」视图跟着挪·迭代20/2.4.0）。
-    只认在 bu_names 里的 BU。返回 {周期key: {BU: 金额}}。"""
+) -> dict[str, dict[str, int]]:
+    """每周期每 BU 的分摊总额（**int 分**；供全公司「构成·按业务BU」视图跟着挪·迭代20/2.4.0/3.3.1）。
+    只认在 bu_names 里的 BU。返回 {周期key: {BU: 分}}。
+
+    3.3.1：池合计与份额全程 int 分 + mul_rates_fen/_share_by_pct；禁止把 float 金额四舍五入当真相。
+    """
     want = set(bu_names or [])
     ranges = periods.all_period_ranges(today)
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, int]] = {}
     use_detail = bool(public_month_details)
     for key, (_lab, start, end, _grp) in ranges.items():
-        per: dict[str, float] = {}
+        per: dict[str, int] = {}
         for y, m in periods.months_in(start, end, today):
             mk = f"{y:04d}-{m:02d}"
             if use_detail:
@@ -442,42 +445,52 @@ def alloc_amounts_by_period(
                 for b, cats in month_map.items():
                     if b not in want:
                         continue
-                    s = sum(float(v) for v in cats.values())
+                    s = sum(_fen_amount(v) for v in cats.values())
                     if s:
-                        per[b] = per.get(b, 0.0) + s
+                        per[b] = per.get(b, 0) + int(s)
             else:
                 r = ratios_by_month.get(mk) or {}
                 led = public_month_led.get((y, m)) or {}
-                month_pub = sum(float(led.get(c) or 0.0) for c in _LEDGER_TO_EXPENSE)
+                month_pub = sum(_fen_amount(led.get(c)) for c in _LEDGER_TO_EXPENSE)
                 for b, pct in r.items():
                     if b in want and pct:
-                        per[b] = per.get(b, 0.0) + month_pub * float(pct) / 100.0
-        cleaned = {b: round(v, 2) for b, v in per.items() if round(v, 2)}
+                        per[b] = per.get(b, 0) + _share_by_pct(int(month_pub), float(pct))
+        cleaned = {b: int(v) for b, v in per.items() if int(v)}
         if cleaned:
             out[key] = cleaned
     return out
 
 
-def apply_alloc_to_pc_view(groups, alloc_by_bu: dict[str, float]):
+def apply_alloc_to_pc_view(groups, alloc_by_bu: dict[str, int]):
     """把分摊结果套进「构成·按业务BU（利润中心）」单周期分组列表（迭代20·防两处真相）。
-    groups=[(组名,合计,[(细类,金额)…])]；公共组减去已摊总额并挂负数行，各 BU 组加分摊额并挂正数行。
-    **各组合计之和不变**（分摊只挪归属）。groups 为 None（台账无此列）原样返回。"""
+    groups=[(组名,合计分,[(细类,金额分)…])]；公共组减去已摊总额并挂负数行，各 BU 组加分摊额并挂正数行。
+    **各组合计之和不变**（分摊只挪归属）。groups 为 None（台账无此列）原样返回。
+
+    3.3.1：合计/明细/分摊额全程 int 分；禁止把 float 金额四舍五入当真相。
+    """
     if not groups or not alloc_by_bu:
         return groups
-    total_alloc = round(sum(alloc_by_bu.values()), 2)
+    alloc_i = {str(b): _fen_amount(amt) for b, amt in alloc_by_bu.items()}
+    total_alloc = sum(v for v in alloc_i.values() if v > 0)
     if total_alloc <= 0:
         return groups
-    gmap = {g: (t, list(f)) for g, t, f in groups}
+    gmap: dict[str, tuple[int, list[tuple[str, int]]]] = {}
+    for g, t, f in groups:
+        fines = [(str(n), _fen_amount(a)) for n, a in (f or [])]
+        gmap[str(g)] = (_fen_amount(t), fines)
     if "公共" not in gmap:  # 分摊额来自公共池；池不存在说明上游没数，不动
         return groups
-    for b, amt in alloc_by_bu.items():
+    for b, amt in alloc_i.items():
         if amt <= 0:
             continue
-        t, f = gmap.get(b, (0.0, []))
-        gmap[b] = (round(t + amt, 2), f + [(ALLOC_IN_LABEL, round(amt, 2))])
+        t, f = gmap.get(b, (0, []))
+        gmap[b] = (int(t) + int(amt), list(f) + [(ALLOC_IN_LABEL, int(amt))])
     t, f = gmap["公共"]
-    gmap["公共"] = (round(t - total_alloc, 2), f + [(ALLOC_OUT_LABEL, round(-total_alloc, 2))])
-    return [(g, t, sorted(f, key=lambda x: -x[1])) for g, (t, f) in sorted(gmap.items(), key=lambda kv: -kv[1][0])]
+    gmap["公共"] = (int(t) - int(total_alloc), list(f) + [(ALLOC_OUT_LABEL, -int(total_alloc))])
+    return [
+        (g, t, sorted(f, key=lambda x: -x[1]))
+        for g, (t, f) in sorted(gmap.items(), key=lambda kv: -kv[1][0])
+    ]
 
 
 

@@ -167,7 +167,8 @@ class TestBuNamesOnVmWhenPagesExist(unittest.TestCase):
         """结构守卫：BuNav 在 list 非空时必有 data-testid=bu-nav。"""
         src = (ROOT / "frontend" / "src" / "components" / "BuNav.vue").read_text(encoding="utf-8")
         self.assertIn('data-testid="bu-nav"', src)
-        self.assertIn('v-if="list.length"', src)
+        # 2.6.5+：有名单或「整体」按钮时渲染（非仅 list.length）
+        self.assertIn('v-if="list.length || showOverall"', src)
         self.assertIn("bu-nav-empty-hint", src)
         self.assertIn("bu_nav_hint", (ROOT / "src" / "routes" / "cockpit.py").read_text(encoding="utf-8"))
 

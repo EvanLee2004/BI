@@ -6,8 +6,8 @@
 - 读回层**刻意返回与旧 loaders 完全相同的结构**，让 profit/columns/periods 原样计算，守刀1回归红线：
   * 智云四源 → list[dict]，键=config.columns 里的源列名（如「整单交付日期」「交付额/本币」）；
   * 收单台账 → (表头行, 数据行)，与 loaders.load_ledger 同形（逐行原样、含空行，保证行数一致）；
-  * 手填 → {'YYYY-MM': {项目: 金额float}}，与 loaders.load_manual 同形。
-- 金额库内 INTEGER 分（任务书33·A3）；读回转元 float 交给 profit/fmt；写入侧元→分。
+  * 手填 → {'YYYY-MM': {项目: 金额 int 分}}，与 loaders.load_manual 同形。
+- 金额库内 INTEGER 分（任务书33·A3）；读回 **int 分** 交给 profit 算账；显示/API 边界再 fen_to_yuan；写入侧元→分。
 """
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ import money
 - 读回层**刻意返回与旧 loaders 完全相同的结构**，让 profit/columns/periods 原样计算，守刀1回归红线：
   * 智云四源 → list[dict]，键=config.columns 里的源列名（如「整单交付日期」「交付额/本币」）；
   * 收单台账 → (表头行, 数据行)，与 loaders.load_ledger 同形（逐行原样、含空行，保证行数一致）；
-  * 手填 → {'YYYY-MM': {项目: 金额float}}，与 loaders.load_manual 同形。
-- 金额库内 INTEGER 分（任务书33·A3）；读回转元 float 交给 profit/fmt；写入侧元→分。
+  * 手填 → {'YYYY-MM': {项目: 金额 int 分}}，与 loaders.load_manual 同形。
+- 金额库内 INTEGER 分（任务书33·A3）；读回 **int 分** 交给 profit 算账；显示/API 边界再 fen_to_yuan；写入侧元→分。
 """
 
 

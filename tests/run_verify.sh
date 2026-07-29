@@ -113,6 +113,11 @@ tests/test_echarts_vm_labels.py
 tests/frontend/parity/test_parity_structure.py
 tests/test_task66_stage66_batch_b.py
 tests/test_task_2_3_6_pl_xlsx.py
+tests/test_maintenance_mode.py
+tests/test_task54p11_r01_bu_nav.py
+tests/test_task54p11_r02_period.py
+tests/test_task54p11_r03_overlay.py
+tests/test_task_2_4_0_calc.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
@@ -182,6 +187,14 @@ tests/test_alert_store_2_6_4.py
 tests/test_alert_health_ack_2_6_4.py
 tests/test_failure_mode_guards.py
 tests/test_task_2_6_4_bu_transition.py
+tests/test_task_2_2_4.py
+tests/test_stage_inventory_3_3_1_baseline.py
+tests/test_task_3_3_1_alloc_int_fen.py
+tests/test_domain_coverage_54p13.py
+tests/test_g0_2_7_5_tax_labels.py
+tests/test_task_2_3_3_manual_rename.py
+tests/test_task_2_4_0_display.py
+tests/test_task_2_4_0_schema.py
 "
 run_one() {
   f="$1"

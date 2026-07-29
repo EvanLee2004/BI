@@ -6,8 +6,8 @@
 - 读回层**刻意返回与旧 loaders 完全相同的结构**，让 profit/columns/periods 原样计算，守刀1回归红线：
   * 智云四源 → list[dict]，键=config.columns 里的源列名（如「整单交付日期」「交付额/本币」）；
   * 收单台账 → (表头行, 数据行)，与 loaders.load_ledger 同形（逐行原样、含空行，保证行数一致）；
-  * 手填 → {'YYYY-MM': {项目: 金额float}}，与 loaders.load_manual 同形。
-- 金额库内 INTEGER 分（任务书33·A3）；读回转元 float 交给 profit/fmt；写入侧元→分。
+  * 手填 → {'YYYY-MM': {项目: 金额 int 分}}，与 loaders.load_manual 同形。
+- 金额库内 INTEGER 分（任务书33·A3）；读回 **int 分** 交给 profit 算账；显示/API 边界再 fen_to_yuan；写入侧元→分。
 """
 
 from __future__ import annotations
@@ -76,8 +76,11 @@ def set_manual(
         conn.commit()
 
 
-def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[str, dict[str, float]]:
-    """某 BU 范围手填 → {'YYYY-MM': {项目: 金额元}}。无表/无数据 → {}。"""
+def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[str, dict[str, int]]:
+    """某 BU 范围手填 → {'YYYY-MM': {项目: 金额 int 分}}。无表/无数据 → {}。
+
+    对内算账单位=分；管理端 API 若对外仍返回元，须在 API 层显式 fen_to_yuan。
+    """
     scope = (scope or "").strip()
     if not scope or scope == "全公司":
         return load_manual(cfg, conn)
@@ -85,7 +88,7 @@ def load_manual_scope(cfg: dict, conn: sqlite3.Connection, scope: str) -> dict[s
         rows = conn.execute("SELECT 归属月,项目,金额 FROM manual_手填BU WHERE 范围=?", (scope,)).fetchall()
     except sqlite3.OperationalError:
         return {}
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, int]] = {}
     for 归属月, 项目, 金额 in rows:
         if 归属月 is None or 项目 is None or 金额 is None:
             continue

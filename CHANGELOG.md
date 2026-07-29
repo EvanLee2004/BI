@@ -1,3 +1,11 @@
+## 3.3.1 · 2026-07-29
+
+### 工程债卫生收口（金额 SSOT + 测试假绿 + 文档对齐）
+- 分摊展示路径 `alloc_amounts_by_period` / `apply_alloc_to_pc_view`：金额全程 **int 分** + `mul_rates_fen`/`_share_by_pct`，去掉 float 旁路当真相
+- 修炸锚测（render_* / templates/render）；阶段守卫 3.3.1；~16 orphan 处置（进门禁/optional/归档）
+- 文档 SSOT / Agent / Runbook / progress 与 VERSION=3.3.1 对齐
+- **未改** profit 主公式、双榜、智云抓数、分摊业务开关
+
 ## 3.3.0 · 2026-07-29
 
 ### 管理端「用户统计」+ 配置变更去访问噪音

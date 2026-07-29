@@ -41,13 +41,12 @@ class TestSourceGuards224(unittest.TestCase):
         self.assertIn("exportHtml", src)
 
     def test_receipts_maxv_covers_bud(self):
+        """看端 Vue：下单/回款轴覆盖预算；3.0+ 无 static/templates/render 遗留。"""
         src = (ROOT / "frontend/src/components/ReceiptsCard.vue").read_text(encoding="utf-8")
         self.assertIn("axisMaxCover(maxV0, interval, [...recs, ...ords, bud])", src)
         self.assertIn('title="下单/回款情况"', src)
-        # D：legacy 服务端模板同步改名（导出/legacy 路径）
-        rc = (ROOT / "static/templates/render/rc_card.html").read_text(encoding="utf-8")
-        self.assertIn("下单/回款情况", rc)
-        self.assertNotIn(">回款情况 <", rc)
+        # 已删 render 模板路径不得再断言存在
+        self.assertFalse((ROOT / "static/templates/render").exists())
 
     def test_admin_logout_moved_to_settings(self):
         layout = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
@@ -60,11 +59,13 @@ class TestSourceGuards224(unittest.TestCase):
         self.assertIn("退出", settings)
 
     def test_kpi_margin_headline_is_pct(self):
-        rw = (ROOT / "src/render_widgets.py").read_text(encoding="utf-8")
-        self.assertIn('("毛利率", "gross_profit"', rw)
+        """KPI 定义 + packers：毛利率卡大数字=%%（锁 Vue/viewmodels，不读已删 render_*）。"""
+        fmt = (ROOT / "src/viewmodels/format.py").read_text(encoding="utf-8")
+        self.assertIn('("毛利率", "gross_profit"', fmt)
         pk = (ROOT / "src/viewmodels/packers.py").read_text(encoding="utf-8")
         self.assertIn('unit = "%"', pk)
         self.assertIn('key == "gross_profit" and pctkey', pk)
+        self.assertFalse((ROOT / "src/render_widgets.py").exists())
 
     def test_config_zhuangxiu_fixed_ops(self):
         cfg = (ROOT / "config.json").read_text(encoding="utf-8")

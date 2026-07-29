@@ -30,12 +30,17 @@ TODAY = datetime.date(2026, 7, 15)
 CATS = list(profit._LEDGER_TO_EXPENSE)
 
 
-def _month_led(vals: dict[int, float]) -> dict:
-    """构造 {(2026,m): 五类均分该月总额} 的公共池。"""
+def _month_led(vals: dict[int, int | float]) -> dict:
+    """构造 {(2026,m): 五类均分该月总额} 的公共池（**单位：分**，3.3.1 与实现一致）。"""
     out = {}
     for m, tot in vals.items():
-        per = round(tot / len(CATS), 2)
-        out[(2026, m)] = {c: per for c in CATS}
+        tot_i = int(round(float(tot)))
+        n = len(CATS)
+        base, rem = divmod(tot_i, n)
+        row = {}
+        for i, c in enumerate(CATS):
+            row[c] = base + (rem if i == 0 else 0)
+        out[(2026, m)] = row
     return out
 
 
@@ -67,30 +72,31 @@ class TestDbAllocRatios(unittest.TestCase):
 
 class TestAllocMath(unittest.TestCase):
     def test_partial_alloc_conserves(self):
-        """部分分摊守恒：Σ各BU分摊 + 残留 == 公共池全额（当月）。"""
-        led = _month_led({7: 1000.0})
+        """部分分摊守恒：Σ各BU分摊 + 残留 == 公共池全额（当月·分）。"""
+        led = _month_led({7: 1000})  # 1000 分
         ratios = {"2026-07": {"游戏": 30, "数据": 20}}
         per = profit.alloc_amounts_by_period(led, ratios, ["游戏", "数据"], TODAY)
         # 找 7 月周期
         m7 = next(v for k, v in per.items() if "7月" in k)
         total_alloc = sum(m7.values())
         pool = sum(led[(2026, 7)].values())
-        self.assertAlmostEqual(m7["游戏"], pool * 0.30, places=1)
-        self.assertAlmostEqual(m7["数据"], pool * 0.20, places=1)
-        self.assertAlmostEqual(total_alloc + pool * 0.50, pool, places=1)  # 残留 50%
+        self.assertIsInstance(m7["游戏"], int)
+        self.assertEqual(m7["游戏"], int(round(pool * 0.30)))
+        self.assertEqual(m7["数据"], int(round(pool * 0.20)))
+        self.assertEqual(total_alloc + int(round(pool * 0.50)), pool)  # 残留 50%
 
     def test_missing_month_no_alloc(self):
-        led = _month_led({6: 500.0, 7: 1000.0})
+        led = _month_led({6: 500, 7: 1000})
         ratios = {"2026-07": {"游戏": 40}}  # 6 月没填=不摊
         per = profit.alloc_amounts_by_period(led, ratios, ["游戏"], TODAY)
         m6 = [v for k, v in per.items() if k.endswith("6月")]
         self.assertTrue(all("游戏" not in v or v["游戏"] == 0 for v in m6) or not m6)
         year_key = [k for k in per if k.endswith("年")]
         if year_key:  # 全年=只含 7 月那份
-            self.assertAlmostEqual(per[year_key[0]]["游戏"], 1000.0 * 0.40, places=1)
+            self.assertEqual(per[year_key[0]]["游戏"], int(round(1000 * 0.40)))
 
     def test_orphan_bu_ignored(self):
-        led = _month_led({7: 1000.0})
+        led = _month_led({7: 1000})
         ratios = {"2026-07": {"游戏": 30, "不存在BU": 50}}
         per = profit.alloc_amounts_by_period(led, ratios, ["游戏"], TODAY)
         for v in per.values():
@@ -98,72 +104,72 @@ class TestAllocMath(unittest.TestCase):
 
     def test_monthly_ratio_varies(self):
         """比例按月可不同：6 月 10%、7 月 40%，年周期=各月各自比例之和。"""
-        led = _month_led({6: 500.0, 7: 1000.0})
+        led = _month_led({6: 500, 7: 1000})
         ratios = {"2026-06": {"游戏": 10}, "2026-07": {"游戏": 40}}
         per = profit.alloc_amounts_by_period(led, ratios, ["游戏"], TODAY)
         yk = next(k for k in per if k.endswith("年"))
-        self.assertAlmostEqual(per[yk]["游戏"], 500 * 0.10 + 1000 * 0.40, places=1)
+        self.assertEqual(per[yk]["游戏"], int(round(500 * 0.10)) + int(round(1000 * 0.40)))
 
 
 class TestPcViewConsistency(unittest.TestCase):
     def test_view_moves_with_alloc_total_unchanged(self):
-        """构成视图三处一致：公共条减、BU 条加正数行、各条合计一分不变。"""
-        groups = [("公共", 1000.0, [("房租", 800.0), ("水电", 200.0)]), ("游戏", 300.0, [("差旅", 300.0)])]
-        out = profit.apply_alloc_to_pc_view(groups, {"游戏": 300.0, "数据": 200.0})
+        """构成视图三处一致：公共条减、BU 条加正数行、各条合计一分不变（单位：分）。"""
+        groups = [("公共", 1000, [("房租", 800), ("水电", 200)]), ("游戏", 300, [("差旅", 300)])]
+        out = profit.apply_alloc_to_pc_view(groups, {"游戏": 300, "数据": 200})
         gm = {g: (t, dict(f)) for g, t, f in out}
-        self.assertAlmostEqual(gm["公共"][0], 500.0)
-        self.assertAlmostEqual(gm["游戏"][0], 600.0)
-        self.assertAlmostEqual(gm["数据"][0], 200.0)  # 无直记 BU 也出现
-        self.assertEqual(gm["游戏"][1][profit.ALLOC_IN_LABEL], 300.0)
-        self.assertEqual(gm["公共"][1][profit.ALLOC_OUT_LABEL], -500.0)
+        self.assertEqual(gm["公共"][0], 500)
+        self.assertEqual(gm["游戏"][0], 600)
+        self.assertEqual(gm["数据"][0], 200)  # 无直记 BU 也出现
+        self.assertEqual(gm["游戏"][1][profit.ALLOC_IN_LABEL], 300)
+        self.assertEqual(gm["公共"][1][profit.ALLOC_OUT_LABEL], -500)
         # 总额守恒
-        self.assertAlmostEqual(sum(t for _, t, _ in out), sum(t for _, t, _ in groups))
+        self.assertEqual(sum(t for _, t, _ in out), sum(t for _, t, _ in groups))
         # 组内细类合计==组合计
         for g, t, f in out:
-            self.assertAlmostEqual(sum(v for _, v in f), t, places=1, msg=g)
+            self.assertEqual(sum(v for _, v in f), t, msg=g)
 
     def test_no_public_group_untouched(self):
-        groups = [("游戏", 300.0, [("差旅", 300.0)])]
-        self.assertEqual(profit.apply_alloc_to_pc_view(groups, {"游戏": 100.0}), groups)
-        self.assertIsNone(profit.apply_alloc_to_pc_view(None, {"游戏": 1.0}))
+        groups = [("游戏", 300, [("差旅", 300)])]
+        self.assertEqual(profit.apply_alloc_to_pc_view(groups, {"游戏": 100}), groups)
+        self.assertIsNone(profit.apply_alloc_to_pc_view(None, {"游戏": 1}))
 
 
 class TestBuSummaryMonthlyAlloc(unittest.TestCase):
     def test_apply_monthly_into_bu_summary(self):
-        """按月分摊叠进 BU summary：费用/税前联动；无比例月不动。"""
+        """按月分摊叠进 BU summary：费用/税前联动；无比例月不动（单位：分）。"""
         p = {
             "range": ("2026-07-01", "2026-07-31"),
             "manual": {},
-            "ledger_expenses": {c: 0.0 for c in CATS},
-            "gross_profit": 1000.0,
-            "surtax": 0.0,
-            "other_pl": 0.0,
-            "revenue_net": 2000.0,
-            "expense": {"total": 0.0},
+            "ledger_expenses": {c: 0 for c in CATS},
+            "gross_profit": 1000,
+            "surtax": 0,
+            "other_pl": 0,
+            "revenue_net": 2000,
+            "expense": {"total": 0},
         }
         s = {"periods": {"2026年7月": p}, "meta": {}}
-        led = _month_led({7: 1000.0})
+        led = _month_led({7: 1000})
         profit.apply_public_expense_allocation_monthly(s, led, {"2026-07": {"游戏": 30}}, "游戏", TODAY)
         self.assertTrue(s["meta"]["public_allocation"]["enabled"])
         self.assertEqual(s["meta"]["public_allocation"]["mode"], "monthly")
-        self.assertAlmostEqual(p["expense"]["total"], 300.0, places=1)
-        self.assertAlmostEqual(p["pretax_profit"], 700.0, places=1)
+        self.assertEqual(p["expense"]["total"], 300)
+        self.assertEqual(p["pretax_profit"], 700)
 
     def test_no_ratio_disabled(self):
         p = {
             "range": ("2026-07-01", "2026-07-31"),
             "manual": {},
-            "ledger_expenses": {c: 0.0 for c in CATS},
-            "gross_profit": 1000.0,
-            "surtax": 0.0,
-            "other_pl": 0.0,
-            "revenue_net": 2000.0,
-            "expense": {"total": 0.0},
+            "ledger_expenses": {c: 0 for c in CATS},
+            "gross_profit": 1000,
+            "surtax": 0,
+            "other_pl": 0,
+            "revenue_net": 2000,
+            "expense": {"total": 0},
         }
         s = {"periods": {"2026年7月": p}, "meta": {}}
-        profit.apply_public_expense_allocation_monthly(s, _month_led({7: 1000.0}), {}, "游戏", TODAY)
+        profit.apply_public_expense_allocation_monthly(s, _month_led({7: 1000}), {}, "游戏", TODAY)
         self.assertFalse(s["meta"]["public_allocation"]["enabled"])
-        self.assertEqual(p["expense"]["total"], 0.0)
+        self.assertEqual(p["expense"]["total"], 0)
 
 
 class TestAllocApi(unittest.TestCase):

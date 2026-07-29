@@ -34,25 +34,26 @@ from .tax_revenue import build_rankings_monthly, compute_orders, compute_profit_
 
 # pure-move funcs from _impl.py
 
-def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> dict[tuple[int, int], dict[str, float]]:
-    """把手填表补成每月一份（1..cur_month）。
+def build_manual_monthly(cfg, manual_raw: dict, year: int, cur_month: int) -> dict[tuple[int, int], dict[str, int]]:
+    """把手填表补成每月一份（1..cur_month）。金额单位：**int 分**（与库读回/manual_for_period 一致）。
     default=zero（现行）：缺月/缺项 = 0，不再沿用上月（陆总当月必填）。
-    default=prev：兼容旧配置，缺则取上月。"""
+    default=prev：兼容旧配置，缺则取上月。
+    值可能仍是历史 float 元壳；下游 manual_for_period 经 as_fen 兼容。"""
     items = cfg["manual_items"]
-    filled: dict[tuple[int, int], dict[str, float]] = {}
+    filled: dict[tuple[int, int], dict[str, int]] = {}
     for m in range(1, cur_month + 1):
         key = f"{year}-{m:02d}"
         row = manual_raw.get(key, {})
-        cur: dict[str, float] = {}
+        cur: dict[str, int] = {}
         prev = filled.get((year, m - 1), {})
         for it in items:
             name, dflt = it["name"], it.get("default", "zero")
             if name in row:
                 cur[name] = row[name]
             elif dflt == "prev":
-                cur[name] = prev.get(name, 0.0)
+                cur[name] = prev.get(name, 0)
             else:
-                cur[name] = 0.0
+                cur[name] = 0
         filled[(year, m)] = cur
     return filled
 

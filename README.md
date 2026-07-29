@@ -4,11 +4,11 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v2.6.4**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v3.3.1**（以根目录 [`VERSION`](./VERSION) 为准） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **2.6.4 要点**：本机 `告警.log` + 管理端未读横幅（**零外发**；飞书 webhook 已废止）；失效模式 CI 守卫。  
-> **2.6.0**：全员 `/login`；会话 **`kanban_sid`**；旧 cookie 兼容读 21 天。**2.5.0** 删独立管理员登录门面。**2.4.3** 根地址 BU 加固。  
+> **3.3.1 要点**：分摊展示金额 int 分；测试假绿/孤儿测清零；文档 SSOT 对齐。  
+> **3.3.0**：管理端用户统计。**3.0+**：无 render 双轨，看数 Domain→VM→Vue。**2.7.x**：全量 `/api/v1/*`、会话仅 `kanban_sid`、飞书 webhook 已废止。  
 > **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)

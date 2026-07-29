@@ -370,8 +370,12 @@ class TestFrontendStructure(unittest.TestCase):
         self.assertIn("用户统计", audit)
 
     def test_version_file(self):
+        """用户统计自 3.3.0 起在线；tip 只升不降。"""
         v = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(v, "3.3.0")
+        parts = [int(x) for x in v.split(".")[:3]]
+        while len(parts) < 3:
+            parts.append(0)
+        self.assertGreaterEqual(tuple(parts[:3]), (3, 3, 0), f"VERSION={v}")
 
 
 if __name__ == "__main__":

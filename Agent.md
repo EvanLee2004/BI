@@ -28,24 +28,24 @@
 | 算账 | `src/profit/`（子包；口径禁区） |
 | 库访问 | `src/db/`（detail/loaders_std/…）+ `db_write.py` / `schema.py` |
 | HTTP | `src/routes/{auth,cockpit,data_api,manual,export,admin_pages,config_*}.py` |
-| 渲染碎片 | `src/render_*.py`（expense/pl/receipts/assemble/widgets） |
+| 渲染碎片 | **已删除**（3.0.0+）；导出走 `kanban_snapshot` / export_html |
 | 前端 | `frontend/src/components/*` · `frontend/src/admin/views/*` |
 
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（2.7.3 · 2026-07-28）
+## 当前状态（3.3.1 · 2026-07-29）
 
-- **版本**：`VERSION` = **2.7.3**（更新/重启/冷启动维护页「系统正在更新中」；API 写路径与探活全量 v1）。其上：2.7.2 写路径 v1；2.7.1 读路径干净 + sid-only；2.7.0 双源/int/文档。
+- **版本**：`VERSION` = **3.3.1**（工程债卫生：分摊展示金额 int 分 + 测试假绿清零 + 文档 SSOT）。其上：3.3.0 用户统计；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
 - **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
 - **API 地图（业务/管理/运维均 `/api/v1/*`）**：
-  - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号…
+  - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号、user_stats…
   - 写/运维：`POST /api/v1/admin/adjust*` · `POST /api/v1/admin/refresh` · `GET /api/v1/admin/refresh_status` · `POST /api/v1/my_passwd` · `POST /api/v1/admin/update/apply` · manual/budget/settings…
   - 探活：`GET /api/v1/health`（`deploy/healthcheck.sh` 同步）
   - **旧 `/api/adjust*` `/api/refresh*` `/api/my_passwd` `/api/health` `/api/update/apply` → 404**
-  - 导出（2.7.2 仅 v1）：`GET /api/v1/export.html` · `/api/v1/export.png` · `/api/v1/export/pl.xlsx`；BU：`/api/v1/export/bu/{name}/html|png|pl.xlsx`（旧裸 `/export.*`、`/bu/*/export.*` → 404）
-- **前端模式**：只 **vue**；cookie 会话载体 = `kanban_sid`。
-- **算账 SSOT**：不改公式；保留 `_legacy_定位键`。
+  - 导出：`GET /api/v1/export.html` · `/api/v1/export.png` · `/api/v1/export/pl.xlsx`；BU：`/api/v1/export/bu/{name}/html|png|pl.xlsx`（旧裸路径 → 404）
+- **前端模式**：只 **vue**；cookie 会话载体 = `kanban_sid`。**无** `src/render_*.py` / `static/templates/render/`。
+- **算账 SSOT**：不改公式；库内/算账 **int 分**；分摊展示挪归属亦 int 分（3.3.1）。
 - **工程**：`KANBAN_OFFLINE=1 sh tests/run_verify.sh` 判绿；只推 main；**前端零金额运算**。
 - **部署**：`docs/Runbook.md` §0；文档 SSOT 见 `docs/文档SSOT指针.md`。
 
@@ -122,7 +122,7 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 | `routes/` | FastAPI 路由注册壳 + 业务 handler |
 | `server.py` | `create_app` 装配中间件/静态/异常页 |
 | `authz.py` / `accounts.py` / `bu.py` | 鉴权·账号·BU 归属 |
-| `render_*.py` / `charts.py` | 服务端 HTML/SVG 碎片（兼容与导出） |
+| `charts.py` | 图表辅助（仍保留；驾驶舱 HTML render_* 已删） |
 | `settings_io.py` / `audit_diff.py` | 设置落盘·配置 diff/横幅 |
 | `updater.py` / `version.py` | 一键更新·产品版本 |
 
