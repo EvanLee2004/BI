@@ -1,0 +1,4 @@
+bytes=6125969
+magic_png=True
+ctype=image/png
+png_signature_hex=89504e470d0a1a0a
