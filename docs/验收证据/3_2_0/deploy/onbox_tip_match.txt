@@ -1,8 +1,9 @@
-?? aadfe4a..2f10646
-Fast-forward
- ...344\271\2463.2.0\344\272\244\344\273\230\346\212\245\345\221\212.md" | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 VERSION=3.2.0
-HEAD=2f10646
+HEAD=158239a
+TIP_EXPECTED=158239a
 HEAD_MATCH=yes
-health:200nlocal_tip=2f10646
+health:200
+built_at=2026-07-29 14:49:28
+
+docs_tip_after_commit=813ca3f
+note=on-box was pulled to 158239a at capture; subsequent docs commits only update evidence/report
