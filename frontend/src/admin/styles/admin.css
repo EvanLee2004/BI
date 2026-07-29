@@ -170,16 +170,60 @@ html.theme-light .admin-root .el-card {
   --el-button-hover-bg-color: #67e8f9;
   --el-button-hover-border-color: #67e8f9;
 }
+/* 表单控件：压住 EP 默认白底；随 .admin-root / theme-light 的 --admin-* 切换 */
+.admin-root {
+  --el-fill-color-blank: var(--admin-panel2);
+  --el-disabled-bg-color: var(--admin-empty-bg);
+  --el-disabled-text-color: var(--admin-mut);
+  --el-input-bg-color: var(--admin-panel2);
+  --el-input-text-color: var(--admin-fg);
+  --el-input-border-color: var(--admin-line);
+  --el-input-hover-border-color: var(--admin-cyan);
+  --el-input-focus-border-color: var(--admin-cyan);
+  --el-input-placeholder-color: var(--admin-mut);
+}
 .admin-root .el-input__wrapper,
 .admin-root .el-textarea__inner,
 .admin-root .el-select__wrapper {
   border-radius: var(--admin-radius-sm);
-  background: var(--admin-panel2);
-  box-shadow: 0 0 0 1px var(--admin-line) inset;
+  background-color: var(--admin-panel2) !important;
+  box-shadow: 0 0 0 1px var(--admin-line) inset !important;
 }
 .admin-root .el-input__wrapper:hover,
 .admin-root .el-select__wrapper:hover {
-  box-shadow: 0 0 0 1px var(--admin-cyan) inset;
+  box-shadow: 0 0 0 1px var(--admin-cyan) inset !important;
+}
+.admin-root .el-input__wrapper.is-focus,
+.admin-root .el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--admin-cyan) inset !important;
+}
+.admin-root .el-input__inner,
+.admin-root .el-textarea__inner,
+.admin-root .el-select__placeholder,
+.admin-root .el-select__selected-item {
+  color: var(--admin-fg);
+  -webkit-text-fill-color: var(--admin-fg);
+  background: transparent !important;
+}
+.admin-root .el-input__inner::placeholder,
+.admin-root .el-textarea__inner::placeholder {
+  color: var(--admin-mut);
+  -webkit-text-fill-color: var(--admin-mut);
+  opacity: 1;
+}
+/* 禁用：略暗/略浅，仍非纯白 */
+.admin-root .el-input.is-disabled .el-input__wrapper,
+.admin-root .el-textarea.is-disabled .el-textarea__inner,
+.admin-root .el-select.is-disabled .el-select__wrapper {
+  background-color: var(--admin-empty-bg) !important;
+  box-shadow: 0 0 0 1px var(--admin-line) inset !important;
+  cursor: not-allowed;
+}
+.admin-root .el-input.is-disabled .el-input__inner,
+.admin-root .el-select.is-disabled .el-select__selected-item,
+.admin-root .el-select.is-disabled .el-select__placeholder {
+  color: var(--admin-mut);
+  -webkit-text-fill-color: var(--admin-mut);
 }
 .admin-root .el-table {
   --el-table-bg-color: var(--admin-panel);
