@@ -1,0 +1,165 @@
+PWD=/opt/kanban/看板正式程序
+BEFORE_VERSION=3.1.0
+BEFORE_HEAD=655ed2d
+github	https://github.com/EvanLee2004/BI.git (fetch)
+github	https://github.com/EvanLee2004/BI.git (push)
+origin	https://gitee.com/Lee157/oracleeasy--bi.git (fetch)
+origin	https://gitee.com/Lee157/oracleeasy--bi.git (push)
+## main...origin/main
+???? origin
+?? https://gitee.com/Lee157/oracleeasy--bi
+   655ed2d..c2f1649  main       -> origin/main
+???? github
+fatal: ???? 'https://github.com/EvanLee2004/BI.git/':Failed to connect to github.com port 443 after 135509 ms: Could not connect to server
+error: ???? github
+?? 655ed2d..c2f1649
+Fast-forward
+ AGENTS.md                                          |   2 +-
+ CHANGELOG.md                                       |   9 +
+ VERSION                                            |   2 +-
+ docs/architecture_ssot_3.md                        |  41 +-
+ .../3_1_0/deploy/_matrix_log.txt"                  |  14 +
+ .../3_1_0/deploy/deploy_ssh.log"                   |   1 +
+ .../3_1_0/deploy/notes.md"                         |  14 +
+ .../3_1_0/deploy/r1_bu_data.png"                   | Bin 0 -> 2182846 bytes
+ .../3_1_0/deploy/r1_bu_game.png"                   | Bin 0 -> 2512918 bytes
+ .../3_1_0/deploy/r1_export_html_head.html"         |  40 ++
+ .../3_1_0/deploy/r1_export_png_proof.txt"          |   4 +
+ .../3_1_0/deploy/r1_overall.png"                   | Bin 0 -> 2655819 bytes
+ .../3_1_0/deploy/r2_bu_data.png"                   | Bin 0 -> 2506138 bytes
+ .../3_1_0/deploy/r2_bu_game.png"                   | Bin 0 -> 2512148 bytes
+ .../3_1_0/deploy/r2_export_html_head.html"         |  40 ++
+ .../3_1_0/deploy/r2_export_png_proof.txt"          |   4 +
+ .../3_1_0/deploy/r2_overall.png"                   | Bin 0 -> 2660613 bytes
+ .../3_1_0/live/network_no_legacy_js.txt"           |  39 +-
+ .../3_1_0/live/r1_export_html_head.html"           |   9 +-
+ .../3_1_0/live/r1_export_png_proof.txt"            |   4 +
+ .../3_1_0/live/r2_export_html_head.html"           |   9 +-
+ .../3_1_0/live/r2_export_png_proof.txt"            |   4 +
+ .../3_2_0/g8.txt"                                  |   5 +
+ .../3_2_0/live/_matrix_log.txt"                    |  13 +
+ .../3_2_0/live/network_no_legacy_js.txt"           |  86 +++
+ .../3_2_0/live/notes.md"                           |  15 +
+ .../3_2_0/live/r1_bu_data.png"                     | Bin 0 -> 685006 bytes
+ .../3_2_0/live/r1_bu_game.png"                     | Bin 0 -> 671261 bytes
+ .../3_2_0/live/r1_export_html_head.html"           | 141 +++++
+ .../3_2_0/live/r1_export_png_proof.txt"            |   4 +
+ .../3_2_0/live/r1_overall.png"                     | Bin 0 -> 656918 bytes
+ .../3_2_0/live/r2_bu_data.png"                     | Bin 0 -> 685006 bytes
+ .../3_2_0/live/r2_bu_game.png"                     | Bin 0 -> 671247 bytes
+ .../3_2_0/live/r2_export_html_head.html"           | 141 +++++
+ .../3_2_0/live/r2_export_png_proof.txt"            |   4 +
+ .../3_2_0/live/r2_overall.png"                     | Bin 0 -> 652932 bytes
+ .../3_2_0/run_verify_exit.txt"                     | 161 +++++
+ .../3_2_0/waste_rg.txt"                            |  20 +
+ frontend/src/types/vm.ts                           |  15 +-
+ scripts/live_smoke_2_6_0.py                        |   3 +-
+ src/api_v1.py                                      |  23 +-
+ src/app_factory.py                                 | 337 ++++++++++
+ src/app_state.py                                   |   3 +-
+ src/middleware_stack.py                            |  69 +++
+ src/refresh_pipeline.py                            | 123 +++-
+ src/routes/cockpit.py                              |   2 +-
+ src/routes/export.py                               |   2 +-
+ src/server.py                                      | 675 +++------------------
+ src/viewmodels/__init__.py                         |  55 +-
+ src/viewmodels/packers.py                          |   2 +-
+ tests/contracts/BUPageVM.schema.json               |  48 --
+ tests/contracts/CockpitVM.schema.json              |  48 --
+ tests/contracts/ExpenseVM.schema.json              |  12 -
+ tests/contracts/KpiCardsVM.schema.json             |   7 -
+ tests/contracts/PLTableVM.schema.json              |   7 -
+ tests/contracts/RankingsVM.schema.json             |   7 -
+ tests/contracts/ReceiptsVM.schema.json             |   5 -
+ tests/contracts/TrendVM.schema.json                |   5 -
+ tests/frontend/parity/test_parity_structure.py     |  23 +-
+ tests/run_verify.sh                                |   1 +
+ tests/support.py                                   |  69 +--
+ tests/test_admin_edit.py                           |   4 +-
+ tests/test_admin_static.py                         |   1 -
+ tests/test_admin_vue_54d.py                        |   2 +-
+ tests/test_alloc_monthly.py                        |   1 -
+ tests/test_api_v1_numbers.py                       |   2 +-
+ tests/test_auth.py                                 |  16 +-
+ tests/test_b_p4_login_static.py                    |  17 +-
+ tests/test_b_p5_no_view.py                         |   2 +-
+ tests/test_detax.py                                |   1 -
+ tests/test_g3_2_7_8_export_same_pack.py            |   1 -
+ tests/test_g4_2_7_9_no_import_render.py            |   6 +-
+ tests/test_g8_3_2_0_structure.py                   | 118 ++++
+ tests/test_gzip_fragments.py                       |   2 +-
+ tests/test_login_cache_p0.py                       |   4 +-
+ tests/test_multibu.py                              |   4 +-
+ tests/test_profile.py                              |   4 +-
+ tests/test_publish_once.py                         |  14 +-
+ tests/test_schedule.py                             |   1 -
+ tests/test_serve_shell.py                          |   5 +-
+ tests/test_server.py                               |   4 +-
+ tests/test_task51_assemble_vm.py                   |   6 +-
+ tests/test_task63_stage63_batch_a.py               |   2 -
+ tests/test_task63_stage63_batch_b.py               |   1 -
+ tests/test_task64_stage64.py                       |  18 +-
+ tests/test_task_2_2_6.py                           |   1 -
+ tests/test_task_2_2_7.py                           |   1 -
+ tests/test_task_2_2_9.py                           |   1 -
+ tests/test_task_2_3_0_health_metrics.py            |   3 +-
+ tests/test_task_2_3_6_pl_xlsx.py                   |   1 -
+ tests/test_task_2_4_0_admin.py                     |   1 -
+ tests/test_task_2_5_0_login.py                     |   1 -
+ tests/test_task_2_6_0_session.py                   |   1 -
+ tests/test_task_2_6_3_batch_c.py                   |   3 -
+ tests/test_task_2_6_5_profit_rank_modal.py         |   2 -
+ tests/test_task_2_7_1_clean_target.py              |   1 -
+ tests/test_task_2_7_2_write_paths.py               |   1 -
+ tests/test_update.py                               |   1 -
+ tests/test_version.py                              |   4 +-
+ tests/test_vm_contract.py                          |   8 +-
+ ...272\244\344\273\230\346\212\245\345\221\212.md" |  50 +-
+ ...272\244\344\273\230\346\212\245\345\221\212.md" |  54 ++
+ 102 files changed, 1705 insertions(+), 1032 deletions(-)
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/_matrix_log.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/deploy_ssh.log"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/notes.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r1_bu_data.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r1_bu_game.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r1_export_html_head.html"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r1_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r1_overall.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r2_bu_data.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r2_bu_game.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r2_export_html_head.html"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r2_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/deploy/r2_overall.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/live/r1_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_1_0/live/r2_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/g8.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/_matrix_log.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/network_no_legacy_js.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/notes.md"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r1_bu_data.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r1_bu_game.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r1_export_html_head.html"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r1_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r1_overall.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r2_bu_data.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r2_bu_game.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r2_export_html_head.html"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r2_export_png_proof.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/live/r2_overall.png"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/run_verify_exit.txt"
+ create mode 100644 "docs/\351\252\214\346\224\266\350\257\201\346\215\256/3_2_0/waste_rg.txt"
+ create mode 100644 src/app_factory.py
+ create mode 100644 src/middleware_stack.py
+ create mode 100644 tests/test_g8_3_2_0_structure.py
+ create mode 100644 "\350\275\257\344\273\266\345\267\245\347\250\213\346\226\207\346\241\243/20260729_\344\273\273\345\212\241\344\271\2463.2.0\344\272\244\344\273\230\346\212\245\345\221\212.md"
+AFTER_VERSION=3.2.0
+AFTER_HEAD=c2f1649
+[reload] root=/opt/kanban/看板正式程序 2026-07-29 14:38:01
+[reload] no passwordless sudo; stopping run.py --serve for watchdog/systemd restart
+[reload] no matching run.py --serve; try systemctl start if unit exists
+[reload] health=200 after 1 tries
+[reload] VERSION=3.2.0
+health=200 i=1
+HEALTH_BODY={"result":"黄","run_time":"2026-07-29 12:54:28","built_at":"2026-07-29 12:58:07","sources":[{"name":"项目明细(智云)","rows":5455,"months":[1,2,3,4,5,6,7]},{"name":"下单(智云)","rows":4492,"months":[1,2,3,4,5,6,7]},{"name":"回款(智云)",
+FINAL_VERSION=3.2.0
+FINAL_HEAD=c2f1649

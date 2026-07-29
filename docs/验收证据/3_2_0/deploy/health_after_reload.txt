@@ -1,0 +1,16 @@
+i=1 code=000000 built=2026-07-29 00:33:33
+i=2 code=000000 built=2026-07-29 00:33:33
+i=3 code=000000 built=2026-07-29 00:33:33
+i=4 code=000000 built=2026-07-29 00:33:33
+i=5 code=000000 built=2026-07-29 00:33:33
+i=6 code=000000 built=2026-07-29 00:33:33
+i=7 code=000000 built=2026-07-29 00:33:33
+i=8 code=000000 built=2026-07-29 00:33:33
+i=9 code=000000 built=2026-07-29 00:33:33
+i=10 code=200 built=2026-07-29 14:42:16
+{"result":"黄","run_time":"2026-07-29 14:38:37","built_at":"2026-07-29 14:42:16","sources":[{"name":"项目明细(智云)","rows":5462,"months":[1,2,3,4,5,6,7]},{"name":"下单(智云)","rows":4501,"months":[1,2,3,4,5,6,7]},{"name":"回款(智云)","rows":1102,"months":[1,2,3,4,5,6,7]},{"name":"内部译员·IN-HOUSE(智云)","rows":3805,"months":[1,2,3,4,5,6,7,10]},{"name":"收单台账","rows":
+VERSION=3.2.0 HEAD=c2f1649
+ 686224 /bin/bash /opt/kanban/??????????????????/deploy/linux/start_with_rollback.sh
+ 718105 /opt/kanban/??????????????????/.venv/bin/python run.py --serve
+has_app_factory=yes
+194 src/server.py
