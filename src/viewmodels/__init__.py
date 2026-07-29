@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """任务书46·阶段2：版本化 ViewModel（语义键 + 后端算好的显示串）。
 
-字段一律 value_disp / pct_disp / *_html（SVG 字符串），前端零金额运算。
+字段一律 value_disp / pct_disp；*_html / body_by_period 为 3.1.0 起 deprecated 空占位（Vue 不读），前端零金额运算。
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class KpiCardsVM(BaseModel):
     model_config = ConfigDict(extra="allow")
     year_key: str = ""
     period_keys: list[str] = Field(default_factory=list)
-    # 周期 → 已渲染 KPI 卡 HTML（legacy/deprecated，Vue 改用 cards_by_period）
+    # 3.1.0：body_by_period deprecated 恒空；Vue 用 cards_by_period
     body_by_period: dict[str, str] = Field(default_factory=dict)
     # 任务书50·B：结构化 KPI
     cards_by_period: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)

@@ -362,8 +362,8 @@ def summary_from_conn(cfg, conn, today):
 
 def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     """BU 分页（迭代 14·v7.9 账号制 · 迭代17 分摊 · 65·L2 按需）：读 BU 配置 → 每 BU 按销售名单
-    过滤四源行 → 独立 summary（分摊开时注入全公司台账公共×比例）→ fragments + views（不装 html）。
-    返回 {BU名: {name, summary, fragments, views}}；没配置/配置无效 → {}。
+    过滤四源行 → 独立 summary（分摊开时注入全公司台账公共×比例）→ views（JSON）。
+    返回 {BU名: {name, summary, views}}；没配置/配置无效 → {}。
     导出 PNG 在 export 路由按需 BU page HTML (removed 3.0.0)；严格保密：每页只吃本 BU 过滤后的行。"""
     bucfg = bu.load_bu_config(cfg, root)
     if not bucfg:
@@ -415,7 +415,6 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
         views = api_v1.build_json_bu_views(b["name"], s, cfg)
         pages[b["name"]] = {
             "name": b["name"],
-            "fragments": {},
             "views": views,
             "summary": s,
         }
@@ -423,12 +422,11 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
 
 
 def generate(cfg, today, trigger="manual", root=None):
-    """跑一次更新管道 → 算 summary → 渲染 HTML（主页 + BU 分页）→ 存当日 VM 归档（历史回看用）。
-    返回 (summary, html, ing报告, bu_pages)。
+    """跑一次更新管道 → 算 summary → 挂 JSON views → 存当日 VM 归档。
+    返回 (summary, html, ing报告, bu_pages)；html 恒空串（运行态不预装）。
 
-    publish-once：同时产出 client-ready fragments（已 strip）+ views，挂 summary._fragments/_views，
-    HTTP 路径直接取缓存，不再 build-full→strip→rebuild。
-    2.2.7：历史 = vm_YYYYMMDD.json（Vue 只读打开），不再写 页面_*.html。
+    3.1.0：只挂 summary._views；看端 /api/v1/vm/*；导出按需 snapshot。
+    2.2.7：历史 = vm_YYYYMMDD.json（Vue 只读打开）。
     2.6.3·C3：贯通 root 给 db.connect / build_bu_pages / attach_unassigned / 归档。
     """
     import api_v1

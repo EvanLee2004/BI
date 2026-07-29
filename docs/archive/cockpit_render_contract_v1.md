@@ -1,3 +1,5 @@
+<!-- 历史归档 · 自 3.0.0 起作废；现行主路径=/api/v1/vm/* + Vue + kanban_snapshot 导出。见 docs/architecture_ssot_3.md -->
+
 # 驾驶舱渲染就绪 JSON Contract v1（阶段 B）
 
 > 基准=阶段 A 完成后的看端形态。前端只拼 DOM，零金额运算。

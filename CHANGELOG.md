@@ -1,3 +1,13 @@
+## 3.1.0 · 2026-07-29
+
+### 工程债清零（零行为）
+- 文档 SSOT：归档 fragments 合同；现行 `/api/v1/vm/*` + Vue + kanban_snapshot
+- 删除 28 个重复 TestRenderRetired；恢复真 G2；新增 G7 卫生闸
+- 删除 api 空壳别名、fragments 路由注册、assemble_export_html 误导名
+- publish/state 只发 summary+views；删除 static/js 旧拼装
+- 部署：`deploy/linux/reload_kanban.sh` 无交互热加载
+- 未改 profit 算账
+
 ## 3.0.0 · 2026-07-29
 
 ### 物理删除 render 驾驶舱双轨

@@ -96,3 +96,19 @@ systemctl is-active kanban
 - 跨年：智云 auto 首抓前自动归档上年四源 xlsx+库；台账 sheet 由亮晶新建当年名。
 - 部署：nginx 安全头 + systemd `NoNewPrivileges`/`ProtectSystem=strict`/`PrivateTmp`；healthcheck 失败**只写本地 log**（飞书外发已删除）+ 磁盘余量检查。
 - 密码：明文 + 文件 0600；**禁止猜生产口令**。
+
+## 无 sudo 的代码热加载（lee · 3.1.0）
+
+公司内网 `lee@192.168.30.46` 上，发版后若无交互 sudo：
+
+```bash
+cd /opt/kanban/看板正式程序
+git pull --ff-only origin main
+bash deploy/linux/reload_kanban.sh
+# 等待 health 200（冷启动可能数分钟）
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/api/v1/health
+cat VERSION
+```
+
+脚本优先 `sudo -n systemctl restart kanban`；失败则结束 `run.py --serve`，由看门狗/systemd 拉起。
+

@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-CONTRACT = ROOT / "docs" / "cockpit_render_contract_v1.md"
+CONTRACT = ROOT / "docs" / "archive" / "cockpit_render_contract_v1.md"
 TPL = ROOT / "static" / "templates"
 
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """管理利润表单一结构建造（任务书51·B2）。
 
-render_*（legacy HTML）与 packers（VM）均消费 pl_structure；业务口径只在此维护一份。
+packers/VM 消费 pl_structure（HTML render 已于 3.0.0 删除）；业务口径只在此维护一份。
 """
 
 from __future__ import annotations

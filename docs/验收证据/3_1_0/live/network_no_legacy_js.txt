@@ -1,0 +1,1 @@
+no cockpit.js request expected; static/js removed

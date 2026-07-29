@@ -382,3 +382,18 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/login
 3. **clone 后仓库已含 `frontend/dist`**：不必在部署机 `npm run build`（除非改前端源码）。  
 4. **账号样例** `docs/看板账号样例.json` ≠ 生产口令；生产用机上 `数据/看板账号.json`。
 
+## 无 sudo 的代码热加载（lee · 3.1.0）
+
+公司内网 `lee@192.168.30.46` 上，发版后若无交互 sudo：
+
+```bash
+cd /opt/kanban/看板正式程序
+git pull --ff-only origin main
+bash deploy/linux/reload_kanban.sh
+# 等待 health 200（冷启动可能数分钟）
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8018/api/v1/health
+cat VERSION
+```
+
+脚本优先 `sudo -n systemctl restart kanban`；失败则结束 `run.py --serve`，由看门狗/systemd 拉起。
+

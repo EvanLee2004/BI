@@ -1,6 +1,6 @@
 """看端 cockpit / VM JSON — 从 server.create_app 纯搬家。
 
-2.7.7 G2：HTML fragments 生产装配已删；fragments HTTP 恒 404；看数只走 /api/v1/vm/*。
+3.1.0：fragments 路由不注册；看数只走 /api/v1/vm/*；导出 kanban_snapshot。
 """
 
 from __future__ import annotations
@@ -504,18 +504,4 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             parts.append(_bu_switcher_html(my, name))
         return "".join(parts)
 
-    @app.get("/api/v1/cockpit/fragments")
-    def api_v1_cockpit_fragments(request: Request):
-        """2.7.7 G2：HTML fragments 已废止；看端请用 /api/v1/vm/cockpit。"""
-        raise HTTPException(
-            status_code=404,
-            detail="fragments 已废止，请使用 /api/v1/vm/cockpit",
-        )
-
-    @app.get("/api/v1/cockpit/bu/{name}/fragments")
-    def api_v1_cockpit_bu_fragments(name: str, request: Request):
-        """2.7.7 G2：BU HTML fragments 已废止；看端请用 /api/v1/vm/bu/{name}。"""
-        raise HTTPException(
-            status_code=404,
-            detail="fragments 已废止，请使用 /api/v1/vm/bu/{name}",
-        )
+    # 3.1.0：fragments 路由不再注册（HTTP 仍 404）；看数只用 /api/v1/vm/*

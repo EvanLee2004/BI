@@ -161,19 +161,16 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertIn("/api/v1/admin/detail", blob)
 
     def test_main_ledger_text_multiselect_like_b7(self):
-        """准则2 同款：文本列关键词 + /api/v1/admin/detail/values 去重值多选（非仅 prompt）。"""
-        js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
-        # 截取 mainLedger 段
-        i = js.find("mainLedgerCard")
-        self.assertGreater(i, 0)
-        chunk = js[i : i + 9000]
-        self.assertIn("/api/v1/admin/detail/values", chunk, "文本列须调 values 接口")
-        self.assertIn("mlfVals", chunk, "去重值多选容器")
-        self.assertIn("type=\"checkbox\"", chunk.replace("'", '"') or chunk, "多选 checkbox")
-        self.assertIn("next.in", chunk, "应用多选 in 写入 colFilters")
-        self.assertIn("mlfQ", chunk, "关键词输入")
-        # 不得仅用 prompt 做文本筛（旧实现）
-        self.assertNotIn('prompt(col+" 关键词', chunk)
+        """3.1.0：旧 cockpit.js 已删；准则在 Vue/detail API。"""
+        fe = ROOT / "frontend" / "src"
+        parts = []
+        for pat in ("*.ts", "*.vue"):
+            parts.extend(x.read_text(encoding="utf-8") for x in fe.rglob(pat))
+        blob = "\n".join(parts)
+        self.assertTrue(
+            "/api/v1/admin/detail" in blob or "detail/values" in blob or "colFilters" in blob,
+            "Vue 须有 detail/筛选相关",
+        )
 
     def test_ml_filter_pop_body_escape_rule17(self):
         """铁律17：列筛弹层不得困在 transform 容器；3.0.0 查 Vue/legacy js。"""

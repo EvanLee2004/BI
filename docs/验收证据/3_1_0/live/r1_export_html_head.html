@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-kanban-export="snapshot" data-export-scheme="A">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>甲骨易经营看板（静态快照）</title>
+<script>
+try {
+  var v2 = localStorage.getItem('cockpit-theme-v2');
+  var t = localStorage.getItem('cockpit-theme');
+  if (!v2) {
+    t = 'neon';
+    localStorage.setItem('cockpit-theme', 'neon');
+    localStorage.setItem('cockpit-theme-v2', '1');
+  }
+  if (t !== 'neon' && t !== 'dark' && t !== 'light') t = 'neon';
+  document.documentElement.setAttribute('data-theme', t);
+  if (t === 'light') document.documentElement.classList.add('theme-light');
+  else document.documentElement.classList.remove('theme-light');
+} catch (e) {}
+</script>
+<style>/* S7 stage_2_6_9_s7: dual-source SPA classes removed from theme.css
+   (bu-nav*, ledger-scroll, pl-export-btn, rc-body, rc-side, rc-bud-*, tb-today).
+   SPA sole source: frontend/src/styles/components/*.css (+ tokens).
+   Export snapshot still inlines this file + player CSS (components bundle). */
+
+:root{
+  --bg:#04060d; --panel:rgba(16,24,46,.55); --panel-2:rgba(26,36,64,.72); --panel-solid:#0d1526;
+  /* 54.11 R-03：弹层内容近实色(≥0.95) + 遮罩隔离底层叠字 */
+  --overlay-panel:rgba(8,14,28,.97); --overlay-panel-solid:#0b1222;
+  --overlay-mask:rgba(0,0,0,.45);
+  /* 54.14 R-22：全站弹层 z-index token（禁魔法数字） */
+  --z-base:1; --z-topbar:40; --z-sticky:20; --z-dr

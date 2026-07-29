@@ -4,7 +4,7 @@
 
 1) 组件清单与 dist
 2) 铁律2：无金额四则
-3) 真实路径：同一 summary → VM 显示串与 build_cockpit_views / extract_numbers 全等
+3) 真实路径：同一 summary → VM 显示串与 build_json_views / extract_numbers 全等
 4) 板块顺序：Vue App 源含 一..五 与「收入与毛利结构」
 """
 from __future__ import annotations
@@ -190,7 +190,7 @@ class TestVmLegacyDisplayParity(unittest.TestCase):
         import viewmodels
 
         mode = viewmodels.frontend_mode(self.cfg)
-        views = api_v1.build_cockpit_views(self.summary, self.cfg)
+        views = api_v1.build_json_views(self.summary, self.cfg)
         vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
         if mode == "vue":
             self.assertEqual(vm.kpi.body_by_period or {}, {})

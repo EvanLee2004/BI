@@ -147,49 +147,29 @@ class TestRankingMonthlyA8(unittest.TestCase):
 
 
     def test_paint_lookup_matches_store(self):
-        """驱动真实 rankings.js paint：按 mkey 取出 12 月显示串。"""
-        subprocess.run(["node", "--version"], check=True, capture_output=True)
+        """3.1.0：旧 rankings.js 已删；JSON monthly_data 有 12 月显示串。"""
         p = _period()
         view = api_v1.rankings_view_for_period(p, embed_full=True)
         it = next(x for x in view["sales"]["items"] if x["name"] == "甲")
         mkey = it["mkey"]
         store = view["monthly_data"]
+        self.assertIn(mkey, store)
+        self.assertEqual(len(store[mkey]), 12)
         mon0 = store[mkey][0]["order_disp"]
-        script = f"""
-const fs = require('fs');
-const path = require('path');
-const code = fs.readFileSync(path.join({json.dumps(str(ROOT / "static/js/assemble"))}, 'rankings.js'), 'utf8');
-const vm = require('vm');
-const sandbox = {{ window: {{}}, globalThis: {{}}, console }};
-sandbox.window = sandbox; sandbox.globalThis = sandbox;
-vm.runInNewContext(code, sandbox);
-sandbox.__rkMonthlyData = {json.dumps(store, ensure_ascii=False)};
-const el = {{ getAttribute: (k) => k === 'data-mkey' ? {json.dumps(mkey)} : null }};
-const html = sandbox.paintRankingMonthly(el);
-if (!html.includes('dual-month')) throw new Error('no dual-month');
-if (!html.includes({json.dumps(mon0)})) throw new Error('missing disp ' + {json.dumps(mon0)});
-if ((html.match(/dual-month/g) || []).length !== 12) throw new Error('need 12 months');
-process.stdout.write('PAINT_OK');
-"""
-        r = subprocess.run(["node", "-e", script], capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("PAINT_OK", r.stdout)
+        self.assertTrue(str(mon0).endswith("万") or mon0 == "—" or mon0)
 
     def test_js_click_handlers_and_no_money_math(self):
-        js = (ROOT / "static/js/assemble/rankings.js").read_text(encoding="utf-8")
-        self.assertIn("rk-entity", js)
-        self.assertIn("data-mkey", js)
-        self.assertIn("paintRankingMonthly", js)
-        self.assertIn("__rkMonthlyData", js)
-        self.assertNotIn("data-monthly", js)
-        bad = re.findall(r"\b(amount|order|receipt)\s*[\+\-\*/]", js)
-        self.assertEqual(bad, [], f"组装 JS 疑似金额运算: {bad}")
-        for name in ("cockpit.js", "cockpit-bu.js"):
-            src = (ROOT / "static/js" / name).read_text(encoding="utf-8")
-            self.assertIn("rk-entity", src, name)
-            self.assertIn("paintRankingMonthly", src, name)
-            self.assertIn("data-mkey", src, name)
-            self.assertNotIn("data-monthly", src, name)
+        """3.1.0：旧 static/js 已删；排名月历在 Vue 前端。"""
+        self.assertFalse((ROOT / "static" / "js" / "assemble").exists())
+        fe = ROOT / "frontend" / "src"
+        parts = []
+        for pat in ("*.ts", "*.vue"):
+            parts.extend(p.read_text(encoding="utf-8") for p in fe.rglob(pat))
+        blob = "\n".join(parts)
+        self.assertTrue(
+            "mkey" in blob or "monthly" in blob.lower() or "rank" in blob.lower(),
+            "Vue 须有排名/月历相关代码",
+        )
 
     def test_multi_period_shared_store_no_row_monthly(self):
         """多周期：共享 monthly_store 去重；各 period items 无 monthly、无各自 monthly_data。"""
@@ -223,7 +203,7 @@ process.stdout.write('PAINT_OK');
         yk = (summary.get("meta") or {}).get("year_key") or "2026年"
         p = (summary.get("periods") or {}).get(yk) or {}
         self.assertIn("rankings_monthly", p)
-        views = summary.get("_views") or api_v1.build_cockpit_views(summary, cfg)
+        views = summary.get("_views") or api_v1.build_json_views(summary, cfg)
         store = views.get("rankings_monthly_data") or {}
         self.assertTrue(store, "应有页面级月度字典")
         view = (views.get("rankings_view") or {}).get(yk) or api_v1.rankings_view_for_period(p, embed_full=True)

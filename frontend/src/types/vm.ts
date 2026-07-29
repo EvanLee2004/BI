@@ -1,3 +1,4 @@
+/** 3.1.0：body_by_period / *_html 等 HTML 僵尸字段可为空；Vue 组件不得依赖。 */
 /**
  * 任务书51·B8：与后端 pydantic CockpitVM / BUPageVM 等逐字段对齐的 TypeScript 契约。
  * 金额/比率一律 *_disp 显示串；前端零金额运算。

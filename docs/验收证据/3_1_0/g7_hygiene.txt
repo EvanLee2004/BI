@@ -1,0 +1,14 @@
+test_api_v1_shells_gone (__main__.TestG7Hygiene310.test_api_v1_shells_gone) ... ok
+test_cockpit_fragments_routes_unregistered (__main__.TestG7Hygiene310.test_cockpit_fragments_routes_unregistered) ... ok
+test_core_refresh_no_build_cockpit_views (__main__.TestG7Hygiene310.test_core_refresh_no_build_cockpit_views) ... ok
+test_generate_state_shape (__main__.TestG7Hygiene310.test_generate_state_shape) ... ok
+test_live_templates_remain (__main__.TestG7Hygiene310.test_live_templates_remain) ... ok
+test_no_legacy_static_js (__main__.TestG7Hygiene310.test_no_legacy_static_js) ... ok
+test_no_render_modules_or_templates (__main__.TestG7Hygiene310.test_no_render_modules_or_templates) ... ok
+test_production_src_no_import_render (__main__.TestG7Hygiene310.test_production_src_no_import_render) ... ok
+test_reload_script_exists (__main__.TestG7Hygiene310.test_reload_script_exists) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 5.203s
+
+OK

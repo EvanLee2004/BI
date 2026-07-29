@@ -81,8 +81,7 @@ from audit_diff import (  # noqa: E402,F401
 # 任务书36·A：fragments JSON 等文本响应 gzip（Starlette 内置；minimum_size≈1KB）
 GZIP_MINIMUM_SIZE = 1000
 
-# B-P5：已登录整体/BU 页固定 static shell + fragments（无 SERVE_SHELL 化石开关）。
-# 测试断言 HTML 内容请用 _state["user_html"] / page["html"] / fragments 组装，勿依赖 / 直出 SSR。
+# 3.1.0：看端 Vue + /api/v1/vm/*；无 SERVE_SHELL / fragments 装运。
 
 # 会话态文档页禁止浏览器缓存：未登录时同一 URL 是登录页，登录后是 shell/控制台；
 # 若缺 no-store，登录成功 location.replace 同 URL 会直接吃缓存登录页（P0·2026-07-16）。

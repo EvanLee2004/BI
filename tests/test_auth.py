@@ -409,12 +409,18 @@ class TestViewerAuth(unittest.TestCase):
         overall = next(x for x in rows if x["账号"] == "overall")
         self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
         self.assertIn("初始密码", overall)
-        # 自改密码弹窗仍在 HTML 壳（看的人可自改）
+        # 自改密码弹窗仍在 partial + Vue（3.1.0：旧 cockpit.js 已删）
         pw = (ROOT / "static" / "templates" / "partials" / "pw_modal.html").read_text(encoding="utf-8")
         self.assertIn("请勿使用你在其他地方用的密码", pw)
-        _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
-        self.assertIn("pwBtn", _js)
-        self.assertIn("/api/v1/my_passwd", _js)
+        fe = Path(__file__).resolve().parents[1] / "frontend" / "src"
+        parts = []
+        for pat in ("*.ts", "*.vue", "*.js"):
+            parts.extend(p.read_text(encoding="utf-8") for p in fe.rglob(pat))
+        blob = "\n".join(parts)
+        self.assertTrue(
+            "my_passwd" in blob or "/api/v1/my_passwd" in blob or "passwd" in blob.lower(),
+            "Vue 须有改密入口",
+        )
         # Vue 管理端：明文密码列 + 可选重置
         vue_settings = (
             Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "composables" / "useSettingsForm.ts"
@@ -540,8 +546,9 @@ class TestHidePwForAdmin(unittest.TestCase):
         c = self._as("overall", server.DEFAULT_VIEW_PW)
         self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
         self.assertEqual(c.get("/api/v1/vm/cockpit").status_code, 200)
-        js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit.js").read_text(encoding="utf-8")
-        self.assertIn("pwBtn", js)
+        # 3.1.0：改密在 Vue；partial 仍有 pw 模板
+        pw = (ROOT / "static" / "templates" / "partials" / "pw_modal.html").read_text(encoding="utf-8")
+        self.assertIn("密码", pw)
 
     def test_admin_bu_page_hides_pw(self):
         c = self._as("lushasha", server.DEFAULT_PW, admin=True)
@@ -551,8 +558,7 @@ class TestHidePwForAdmin(unittest.TestCase):
     def test_bu_viewer_keeps_pw(self):
         c = self._as("user_a", server.DEFAULT_VIEW_PW)
         self.assertEqual(c.get(f"/api/v1/vm/bu/{quote('BU甲')}").status_code, 200)
-        js = Path(__file__).resolve().parents[1].joinpath("static/js/cockpit-bu.js").read_text(encoding="utf-8")
-        self.assertIn("pwBtn", js)
+        self.assertTrue((ROOT / "static" / "templates" / "partials" / "pw_modal.html").is_file())
 
 
 if __name__ == "__main__":

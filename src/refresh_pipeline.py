@@ -28,17 +28,16 @@ def set_admin_page_builder(fn: Callable) -> None:
 
 
 def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
-    """写入进程缓存（任务书65·L2：不预装整页；has_data 显式标志）。
+    """写入进程缓存（3.1.0：只发 summary/views/bu_pages；不预装整页/HTML 碎片）。
 
-    html 参数保留兼容（页面快照已在 generate 内落盘）；运行态不写入 user_html。
-    bu_pages 条目可含 summary/fragments/views；html 字段若有则忽略存盘（导出按需）。
+    html / fragments 参数吞掉（兼容旧调用），运行态不写入。
+    bu_pages 条目只保留 name/summary/views。
 
     2.6.3·C2：构造完整快照 dict 后 **一次引用替换** 发布字段，避免逐键 update
     导致读侧拿到「新 summary + 旧 views」撕裂窗口。
     """
-    _ = html  # 整页不进运行态
+    _ = html, fragments  # 整页/HTML 碎片不进运行态
     has = summary is not None
-    # 瘦身 bu_pages：去掉预装 html，省内存
     slim_bu = None
     if bu_pages is not None:
         slim_bu = {}
@@ -48,11 +47,9 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
             slim_bu[name] = {
                 "name": page.get("name") or name,
                 "summary": page.get("summary"),
-                "fragments": page.get("fragments"),
                 "views": page.get("views"),
             }
     built = time.strftime("%Y-%m-%d %H:%M:%S")
-    # 在旧 state 上叠完整发布字段，整包一次性写回
     prev = dict(_state)
     snap = {
         **prev,
@@ -63,16 +60,12 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
         "built_at": built,
         "export_html_cache": None,  # 失效
     }
-    # 2.7.7：刷新显式清空或写入 fragments；None 表示清空（禁长期残留 HTML 碎片）
-    if fragments is not None:
-        snap["fragments"] = fragments
-    else:
-        snap["fragments"] = {}
+    # 去掉历史 fragments 键（若旧进程态残留）
+    snap.pop("fragments", None)
     if views is not None:
         snap["views"] = views
     if slim_bu is not None:
-        snap["bu_pages"] = slim_bu
-    # 2.6.7 C-2：原子替换——先构造新 dict，再整体 swap，避免 clear→update 空窗
+        snap["bu_pages"] = slim_bu    # 2.6.7 C-2：原子替换——先构造新 dict，再整体 swap，避免 clear→update 空窗
     # _state 是模块级可变 dict：用 clear+update 但先在 snap 上凑齐后一次写入键集合
     # 真正无空窗：替换引用（若 _state 被其他模块 from-import 绑死则退化为 bulk update without clear）
     import app_state as _as
@@ -138,14 +131,13 @@ def do_full(cfg, root, trigger) -> dict:
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger, root=root)
     _state["records"] = ing.get("records")
     _state["source_fp"] = source_data_fingerprint(cfg, root)
-    # 2.7.7：不 publish HTML fragments；仅 views + summary
+    # 3.1.0：仅 views + summary（不 publish HTML fragments）
     summary.pop("_fragments", None)
     publish(
         cfg,
         summary,
         html,
         bu_pages,
-        fragments={},
         views=summary.pop("_views", None) or _state.get("views"),
     )
     return ing
@@ -179,15 +171,13 @@ def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    # 2.7.7 G2：重算不建 HTML fragments；只建 views 供兼容缓存（看端走 VM）
-    # 2.7.9 G4：生产 JSON views only（format）；禁 HTML 装运层
+    # 3.1.0 / G4：生产 JSON views only；禁 HTML 装运
     views = api_v1.build_json_views(summary, cfg)
     publish(
         cfg,
         summary,
         None,
         bu_pages,
-        fragments={},
         views=views,
     )
 
@@ -204,52 +194,5 @@ def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool
         do_recompute(cfg, root, rebuild_std=rebuild_std)
 
 
-def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:
-    """3.0.0：遗留名保留；装配 kanban_snapshot HTML（export_html），禁整页 HTML 装运。"""
-    built = _state.get("built_at")
-    cache = _state.get("export_html_cache") or {}
-    if cache.get("built_at") == built:
-        if bu_name and (cache.get("bu") or {}).get(bu_name):
-            return cache["bu"][bu_name]
-        if not bu_name and cache.get("main"):
-            return cache["main"]
-
-    # 测试注入捷径
-    if not bu_name:
-        injected = (_state.get("user_html") or "").strip()
-        if injected and ("<" in injected or len(injected) > 5):
-            return injected
-    if bu_name:
-        page = (_state.get("bu_pages") or {}).get(bu_name) or {}
-        if isinstance(page, dict) and page.get("html"):
-            return page["html"]
-
-    html = _snapshot_export_html(cfg, bu_name=bu_name, built_at=built)
-    if cache.get("built_at") != built:
-        cache = {"built_at": built, "main": None, "bu": {}}
-    if bu_name:
-        cache.setdefault("bu", {})[bu_name] = html
-    else:
-        cache["main"] = html
-    _state["export_html_cache"] = cache
-    return html
-
-
-def _snapshot_export_html(cfg, *, bu_name: str | None, built_at) -> str:
-    """kanban_snapshot pack → HTML（export_html）。"""
-    from export_html import assemble_export_pack, build_export_html
-    import version as product_version
-
-    try:
-        ver = product_version.read_version()
-    except Exception:
-        ver = ""
-    pack = assemble_export_pack(
-        scope="BU" if bu_name else "整体",
-        bu_name=bu_name or "",
-        version=ver,
-        built_at=built_at,
-        state=_state,
-        cfg=cfg or {},
-    )
-    return build_export_html(pack)
+# 3.1.0：导出走 export_html.assemble_export_pack + build_export_html（routes/export.py）；
+# 已删除误导名 assemble_export_html。
