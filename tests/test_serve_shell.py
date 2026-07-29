@@ -39,16 +39,17 @@ class TestServeShellProductionPath(unittest.TestCase):
                 {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = '<html><body><div class="wrap">USER-MAIN</div></body></html>'
         # 模拟 publish 预拼缓存
         server._state["fragments"] = fake_main_frags("USER-MAIN")
+        server._state["has_data"] = True
         server._state["summary"] = {
             "meta": {"year": 2026, "year_key": "2026年", "tab_groups": {"季度": [], "月": []}},
             "periods": {},
         }
         server._state["views"] = fake_views("USER-MAIN")
         server._state["bu_pages"] = {}
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):

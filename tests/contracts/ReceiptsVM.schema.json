@@ -1,11 +1,6 @@
 {
   "additionalProperties": true,
   "properties": {
-    "receipts_html": {
-      "default": "",
-      "title": "Receipts Html",
-      "type": "string"
-    },
     "receipts_budget": {
       "default": "",
       "title": "Receipts Budget",

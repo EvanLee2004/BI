@@ -36,7 +36,6 @@ class TestF02BatchAtomicity(unittest.TestCase):
         c.close()
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
-        server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
@@ -219,7 +218,6 @@ class TestH03RevokeAudit(unittest.TestCase):
         conn.close()
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
-        server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)

@@ -65,7 +65,7 @@ class TestGzipFragments(unittest.TestCase):
                 {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = "<html><body>MAIN</body></html>"
+        server._state["has_data"] = True
         server._state["summary"] = {"meta": {"year": 2026, "year_key": "2026年"}, "periods": {}}
         server._state["fragments"] = _big_fragments()
         server._state["views"] = {"year_key": "2026年", "period_keys": ["2026年"], "rankings_view": {}}

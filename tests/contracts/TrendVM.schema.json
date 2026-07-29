@@ -1,11 +1,6 @@
 {
   "additionalProperties": true,
   "properties": {
-    "svg_html": {
-      "default": "",
-      "title": "Svg Html",
-      "type": "string"
-    },
     "labels": {
       "items": {
         "type": "string"

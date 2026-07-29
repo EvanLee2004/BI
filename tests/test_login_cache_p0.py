@@ -65,14 +65,14 @@ class TestLoginCacheP0(unittest.TestCase):
             ],
         )
         _write_accts(self.cfg, self.tmp, _std_accts())
-        server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
         server._state["views"] = fake_views("USER-MAIN")
         server._state["bu_pages"] = {
             "BU甲": fake_bu_page("BU甲", "PAGE-A"),
             "BU乙": fake_bu_page("BU乙", "PAGE-B"),
         }
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):

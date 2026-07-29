@@ -263,23 +263,6 @@ def _period_keys(summary: dict) -> tuple[str, list[str]]:
     return yk, ordered
 
 
-def _empty_html_view_fields() -> dict:
-    """兼容缓存键：HTML 卡字段恒空（生产 JSON 路径不装 HTML）。"""
-    return {
-        "kpi_body": {},
-        "pl_body": {},
-        "donut_body": {},
-        "profit_rank_body": {},
-        "trend_html": "",
-        "receipts_budget": "",
-        "receipts_html": "",
-        "period_bar": "",
-        "daily_html": "",
-        "expense_trend_html": "",
-        "pl_tag": "",
-    }
-
-
 def build_json_views(
     summary: dict,
     cfg: dict | None = None,
@@ -287,12 +270,12 @@ def build_json_views(
     embed_full: bool = False,
     bu_name: str | None = None,
 ) -> dict:
-    """生产 JSON/VM 就绪 views（2.7.9 G4 真路径）。
+    """生产 JSON/VM 就绪 views（2.7.9 G4 真路径；3.2.0 零 HTML 僵尸字段）。
 
     仅 period_keys + rankings_view（format 显示串）；**零** HTML 装运层。
     recompute / generate / build_bu_pages 只许调本函数。
     """
-    _ = cfg  # 预留与 HTML 签名对齐；JSON 路径暂不消费
+    _ = cfg  # 预留；JSON 路径不消费
     meta = summary.get("meta") or {}
     P = summary.get("periods") or {}
     if not meta.get("year_key") and not P:
@@ -301,7 +284,6 @@ def build_json_views(
             "period_keys": [],
             "rankings_view": {},
             "rankings_monthly_data": {},
-            **_empty_html_view_fields(),
         }
         if bu_name is not None:
             out["scope"] = "BU"
@@ -319,7 +301,6 @@ def build_json_views(
         "period_keys": ordered,
         "rankings_view": rankings_view,
         "rankings_monthly_data": monthly_store,
-        **_empty_html_view_fields(),
     }
     if bu_name is not None:
         out["scope"] = "BU"

@@ -102,8 +102,8 @@ class TestVersionApi(unittest.TestCase):
                 {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):

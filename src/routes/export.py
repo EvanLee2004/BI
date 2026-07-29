@@ -77,7 +77,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             return ""
 
     def _ready_for_export() -> None:
-        if not _state.get("summary") and not (_state.get("user_html") or "").strip():
+        if not _state.get("summary") and not _state.get("has_data"):
             if not _state.get("has_data") and not _state.get("summary"):
                 raise HTTPException(status_code=503, detail="页面尚未构建，稍后再试")
 

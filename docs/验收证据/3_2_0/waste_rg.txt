@@ -1,0 +1,20 @@
+tests/support.py:5:3.2.0：生产固定 Vue SPA + /api/v1/vm/*；无 SERVE_SHELL / fragments 装运 / user_html。
+tests/test_task64_stage64.py:72:        # 预置（3.2.0：publish 只发 summary/views；无 user_html/fragments）
+tests/test_task64_stage64.py:97:        self.assertNotIn("user_html", _state)
+tests/test_g8_3_2_0_structure.py:3:"""G8 · 3.2.0 结构门禁：薄 server 门面、_state 身份、无 user_html/HTML 僵尸、frontend_mode 恒 vue。"""
+tests/test_g8_3_2_0_structure.py:51:        self.assertNotIn("user_html", params)
+tests/test_g8_3_2_0_structure.py:56:        # 默认态无 user_html
+tests/test_g8_3_2_0_structure.py:71:        self.assertNotIn("user_html", defaults)
+tests/test_g8_3_2_0_structure.py:72:        # 源码初始 dict 无 user_html
+tests/test_g8_3_2_0_structure.py:74:        self.assertNotIn('"user_html"', st_src)
+tests/test_g8_3_2_0_structure.py:77:    def test_src_no_user_html_assignment(self):
+tests/test_g8_3_2_0_structure.py:78:        """生产 src/ 无 user_html 运行时赋值；允许 pop 清理与注释。"""
+tests/test_g8_3_2_0_structure.py:80:        assign_pat = re.compile(r"""\[\s*['\"]user_html['\"]\s*\]\s*=""")
+tests/test_g8_3_2_0_structure.py:81:        kw_param = re.compile(r"""(?:^|[,(\s])user_html\s*=""")
+tests/test_g8_3_2_0_structure.py:88:                if "pop(" in line and "user_html" in line:
+tests/test_g8_3_2_0_structure.py:89:                    continue  # snap.pop("user_html", None) 清理残留
+tests/test_g8_3_2_0_structure.py:92:        self.assertEqual(hits, [], "src user_html assignment residue:\n" + "\n".join(hits[:30]))
+src/refresh_pipeline.py:69:    snap.pop("user_html", None)
+src/app_state.py:27:# 3.2.0：无 user_html；有 summary/has_data 即 ready。导出走 kanban_snapshot。
+src/viewmodels/packers.py:5:与 domain 同源口径；3.2.0 起无 HTML 僵尸字段（body_by_period / svg_html 等已删）。
+frontend/src/types/vm.ts:1:/** 3.2.0：无 body_by_period / *_html 等 HTML 僵尸字段；Vue 只消费结构化 *_disp。 */

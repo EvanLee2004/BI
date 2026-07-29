@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Callable
 
@@ -18,6 +19,15 @@ import ingest
 import loaders
 from app_state import _LOCK, _state
 
+
+def _resolve_do_full():
+    """完整管道入口：优先 server._do_full（测试可打桩），否则本模块 do_full。"""
+    try:
+        import server as _s
+
+        return getattr(_s, "_do_full", do_full)
+    except Exception:
+        return do_full
 # 由 server 在 import 后注入（兼容）；L2 起不再用于拼整页
 _admin_page_fn: Callable | None = None
 
@@ -27,16 +37,12 @@ def set_admin_page_builder(fn: Callable) -> None:
     _admin_page_fn = fn
 
 
-def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
-    """写入进程缓存（3.1.0：只发 summary/views/bu_pages；不预装整页/HTML 碎片）。
+def publish(cfg, summary, *, bu_pages=None, views=None):
+    """写入进程缓存（3.2.0：只发 summary/views/bu_pages；无 HTML 碎片参数）。
 
-    html / fragments 参数吞掉（兼容旧调用），运行态不写入。
     bu_pages 条目只保留 name/summary/views。
-
-    2.6.3·C2：构造完整快照 dict 后 **一次引用替换** 发布字段，避免逐键 update
-    导致读侧拿到「新 summary + 旧 views」撕裂窗口。
+    2.6.3·C2：构造完整快照 dict 后 **一次引用替换** 发布字段。
     """
-    _ = html, fragments  # 整页/HTML 碎片不进运行态
     has = summary is not None
     slim_bu = None
     if bu_pages is not None:
@@ -55,17 +61,17 @@ def publish(cfg, summary, html=None, bu_pages=None, fragments=None, views=None):
         **prev,
         "summary": summary,
         "has_data": has,
-        "admin_html": "ready" if has else "",  # 兼容旧引导页判断
-        "user_html": "",  # 不预装
+        "admin_html": "ready" if has else "",
         "built_at": built,
-        "export_html_cache": None,  # 失效
+        "export_html_cache": None,
     }
-    # 去掉历史 fragments 键（若旧进程态残留）
     snap.pop("fragments", None)
+    snap.pop("user_html", None)
     if views is not None:
         snap["views"] = views
     if slim_bu is not None:
-        snap["bu_pages"] = slim_bu    # 2.6.7 C-2：原子替换——先构造新 dict，再整体 swap，避免 clear→update 空窗
+        snap["bu_pages"] = slim_bu
+    # 2.6.7 C-2：原子替换——先构造新 dict，再整体 swap，避免 clear→update 空窗
     # _state 是模块级可变 dict：用 clear+update 但先在 snap 上凑齐后一次写入键集合
     # 真正无空窗：替换引用（若 _state 被其他模块 from-import 绑死则退化为 bulk update without clear）
     import app_state as _as
@@ -131,17 +137,15 @@ def do_full(cfg, root, trigger) -> dict:
     summary, html, ing, bu_pages = core.generate(cfg, today, trigger=trigger, root=root)
     _state["records"] = ing.get("records")
     _state["source_fp"] = source_data_fingerprint(cfg, root)
-    # 3.1.0：仅 views + summary（不 publish HTML fragments）
+    # 3.2.0：仅 views + summary
     summary.pop("_fragments", None)
     publish(
         cfg,
         summary,
-        html,
-        bu_pages,
+        bu_pages=bu_pages,
         views=summary.pop("_views", None) or _state.get("views"),
     )
     return ing
-
 
 def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
     """手填/配置后重算。
@@ -171,15 +175,9 @@ def do_recompute(cfg, root, *, rebuild_std: bool = False) -> None:
         core.attach_unassigned(cfg, conn, today, summary, root)
     finally:
         conn.close()
-    # 3.1.0 / G4：生产 JSON views only；禁 HTML 装运
+    # 3.2.0 / G4：生产 JSON views only
     views = api_v1.build_json_views(summary, cfg)
-    publish(
-        cfg,
-        summary,
-        None,
-        bu_pages,
-        views=views,
-    )
+    publish(cfg, summary, bu_pages=bu_pages, views=views)
 
 
 def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool = False) -> None:
@@ -194,5 +192,78 @@ def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool
         do_recompute(cfg, root, rebuild_std=rebuild_std)
 
 
-# 3.1.0：导出走 export_html.assemble_export_pack + build_export_html（routes/export.py）；
-# 已删除误导名 assemble_export_html。
+def refresh(cfg, root=None, trigger="manual") -> dict:
+    """完整更新；持锁调用 do_full（经 server._do_full 以便测试打桩）。"""
+    with _LOCK:
+        return _resolve_do_full()(cfg, root, trigger)
+
+
+def start_refresh_async(cfg, root=None, trigger="manual", on_complete=None) -> bool:  # noqa: C901
+    """后台完整更新。调用 server._do_full（可被测试打桩），便于 test_admin_edit。
+
+    on_complete(success: bool)：管道真结束回调（2.6.7 C-3：定时 success 只在真成功时登记）。
+    """
+    if not _LOCK.acquire(blocking=False):
+        return False
+    _state["refreshing"] = {"started_at": time.strftime("%Y-%m-%d %H:%M:%S"), "trigger": trigger}
+
+    def _job():
+        t0 = time.time()
+        ok = False
+        try:
+            ing = _resolve_do_full()(cfg, root, trigger)
+            elapsed_ms = int((time.time() - t0) * 1000)
+            sources = []
+            try:
+                meta = (_state.get("summary") or {}).get("meta") or {}
+                sources = (meta.get("health") or {}).get("sources") or []
+            except Exception:
+                sources = []
+            n = len(sources) if isinstance(sources, list) else 0
+            n_fail = 0
+            if n:
+                for s in sources:
+                    if isinstance(s, dict) and s.get("ok") is False:
+                        n_fail += 1
+                    elif isinstance(s, dict) and str(s.get("status") or "").lower() in (
+                        "fail",
+                        "error",
+                        "failed",
+                    ):
+                        n_fail += 1
+            fail_rate = (n_fail / n) if n else 0.0
+            _state["metrics"] = {
+                "update_ms": elapsed_ms,
+                "fetch_fail_rate": round(fail_rate, 4),
+            }
+            _state["last_refresh"] = {
+                "status": "ok",
+                "result": ing.get("result"),
+                "seconds": round(time.time() - t0, 1),
+                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            ok = True
+        except Exception as e:
+            elapsed_ms = int((time.time() - t0) * 1000)
+            _state["metrics"] = {
+                "update_ms": elapsed_ms,
+                "fetch_fail_rate": 1.0,
+            }
+            _state["last_refresh"] = {
+                "status": "error",
+                "detail": f"{type(e).__name__}: {e}",
+                "seconds": round(time.time() - t0, 1),
+                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            ok = False
+        finally:
+            _state["refreshing"] = None
+            _LOCK.release()
+            if on_complete is not None:
+                try:
+                    on_complete(ok)
+                except Exception:
+                    pass
+
+    threading.Thread(target=_job, daemon=True).start()
+    return True

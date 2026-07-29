@@ -59,8 +59,7 @@ def _boot_app():
             },
         ],
     )
-    server._state["user_html"] = "<html><body>main</body></html>"
-    server._state["fragments"] = support.fake_main_frags("M")
+        server._state["fragments"] = support.fake_main_frags("M")
     server._state["views"] = support.fake_views("M")
     server._state["bu_pages"] = {
         "BU甲": support.fake_bu_page("BU甲", "A"),

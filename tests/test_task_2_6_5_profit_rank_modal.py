@@ -151,7 +151,6 @@ class TestProfitRankingApiMainAndBu(unittest.TestCase):
                 {"账号": "user_b", "显示名": "乙负责人", "权限": "BU乙", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = "<html>USER</html>"
         server._state["has_data"] = True
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.TC = TestClient
@@ -268,7 +267,6 @@ class TestRedThenGreenDataSource(unittest.TestCase):
                 {"账号": "overall", "显示名": "整体甲", "权限": "整体", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = "<html>USER</html>"
         app = server.create_app(cfg, root=tmp)
         c = TestClient(app, follow_redirects=False)
         c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})

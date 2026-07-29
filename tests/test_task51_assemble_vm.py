@@ -48,9 +48,9 @@ class TestAssembleVm(unittest.TestCase):
             self.assertTrue(vm.kpi.cards_by_period)
             self.assertTrue(vm.pl.table_by_period)
             self.assertTrue(vm.trend.y_axis_ticks)
-            # vue 路径：HTML 字段空
-            self.assertEqual(vm.kpi.body_by_period, {})
-            self.assertEqual(vm.pl.body_by_period, {})
+            # 3.2.0：无 HTML 僵尸字段
+            self.assertFalse(hasattr(vm.kpi, "body_by_period"))
+            self.assertFalse(hasattr(vm.pl, "body_by_period"))
         finally:
             if old is None:
                 os.environ.pop("KANBAN_FRONTEND", None)

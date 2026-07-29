@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """任务书50·B：各板块结构化显示字段（*_disp + 条宽数值），前端零金额运算。
 
-与 domain 同源口径；body_by_period 等 HTML 字段 3.1.0 起不再填充（deprecated 空）。
+与 domain 同源口径；3.2.0 起无 HTML 僵尸字段（body_by_period / svg_html 等已删）。
 """
 
 from __future__ import annotations

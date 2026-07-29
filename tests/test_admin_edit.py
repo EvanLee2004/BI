@@ -51,7 +51,6 @@ class TestAdminWrite(unittest.TestCase):
         # 轻量桩：只翻 built_at，避免测试跑重渲染/重管道
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
-        server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
@@ -433,8 +432,8 @@ class TestAdminWrite(unittest.TestCase):
         orig = server._screenshot_png
         server._screenshot_png = lambda html, blk="", width=1440: b"\x89PNGFAKE"
         orig_sum = server._state.get("summary")
+        server._state["has_data"] = True
         server._state["summary"] = {"periods": {"2026年": {}, "2026年3月": {}}, "meta": {"year_key": "2026年"}}
-        server._state["user_html"] = "<html><body>export-test</body></html>"
         try:
             r = self.client.get("/api/v1/export.png")  # 需整体/管理员会话
             self.assertEqual(r.status_code, 200)
@@ -575,7 +574,6 @@ class TestExpiredBatch(unittest.TestCase):
         conn.close()
         cls._orig_recompute = server.recompute
         server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
-        server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)

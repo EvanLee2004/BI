@@ -57,7 +57,6 @@ class TestAllocPanelApi(unittest.TestCase):
             "periods": {},
         }
         server._state["has_data"] = True
-        server._state["user_html"] = "ready"
         server._state["built_at"] = "test"
         cls.app = server.create_app(cls.cfg, root=cls.tmp)
         cls._prev = os.environ.get("KANBAN_OFFLINE")

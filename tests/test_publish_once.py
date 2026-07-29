@@ -68,7 +68,6 @@ class TestPublishOnce(unittest.TestCase):
         )
         mark = "CACHED-VIEWS-MARK-XYZ"
         views = fake_views(mark)
-        server._state["user_html"] = ""
         server._state.pop("fragments", None)
         server._state["views"] = views
         server._state["summary"] = {
@@ -94,10 +93,15 @@ class TestPublishOnce(unittest.TestCase):
         r = c.post("/login", data={"account": "overall", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r.status_code, 303)
         self.assertEqual(c.get("/api/v1/cockpit/fragments").status_code, 404)
-        self.assertIn(
-            mark,
-            " ".join((server._state.get("views") or {}).get("kpi_body", {}).values()),
-        )
+        views = server._state.get("views") or {}
+        rk = (views.get("rankings_view") or {})
+        titles = []
+        for pv in rk.values():
+            if isinstance(pv, dict):
+                sales = pv.get("sales") or {}
+                if isinstance(sales, dict) and sales.get("title"):
+                    titles.append(str(sales["title"]))
+        self.assertIn(mark, " ".join(titles))
         c2 = TestClient(app, follow_redirects=False)
         r2 = c2.post("/login", data={"account": "user_a", "password": server.DEFAULT_VIEW_PW})
         self.assertEqual(r2.status_code, 303)

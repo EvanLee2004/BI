@@ -38,13 +38,18 @@ class TestP4LoginStatic(unittest.TestCase):
         self.assertNotIn('name="password"', t)
 
     def test_server_no_login_format_helpers(self):
-        src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
-        self.assertNotIn("def _login_page", src)
-        self.assertNotIn("def _view_login_page", src)
-        self.assertIn("view_login.html", src)
+        """3.2.0：登录皮装配在 app_factory；server 薄门面 re-export。"""
+        server_src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
+        factory_src = (ROOT / "src" / "app_factory.py").read_text(encoding="utf-8")
+        for src in (server_src, factory_src):
+            self.assertNotIn("def _login_page", src)
+            self.assertNotIn("def _view_login_page", src)
+        self.assertIn("view_login.html", factory_src)
         # 2.5.0：_admin_login_file 不再读 admin 独立皮当登录 UI
-        self.assertIn("def _admin_login_file", src)
-        self.assertIn("login_redirect", src)
+        self.assertIn("def _admin_login_file", factory_src)
+        self.assertIn("login_redirect", factory_src)
+        self.assertIn("_admin_login_file", server_src)
+        self.assertIn("_view_login_file", server_src)
 
 
 if __name__ == "__main__":

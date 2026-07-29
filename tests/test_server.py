@@ -23,8 +23,8 @@ class TestServerAuth(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         cls.cfg = loaders.load_config()
         # 用假页面，避免测试里跑整条重管道；用临时 root 让密钥/库落到临时目录
-        server._state["user_html"] = "<html><body>USER-DASH 基本情况 kpi-grid</body></html>"
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         cls.app = server.create_app(cls.cfg, root=Path(cls.tmp))
         cls.client = TestClient(cls.app, follow_redirects=False)
 

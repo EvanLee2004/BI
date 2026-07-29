@@ -70,11 +70,9 @@ class TestC2PublishAtomic(unittest.TestCase):
             {
                 "summary": {"v": "old"},
                 "views": {"v": "old"},
-                "fragments": None,
                 "has_data": True,
                 "built_at": "old",
                 "admin_html": "",
-                "user_html": "",
                 "bu_pages": {},
                 "export_html_cache": None,
             }
@@ -100,7 +98,6 @@ class TestC2PublishAtomic(unittest.TestCase):
             publish(
                 {},
                 {"v": "new"},
-                fragments={"f": i},
                 views={"v": "new"},
             )
         stop.set()

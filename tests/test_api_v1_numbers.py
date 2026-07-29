@@ -127,9 +127,9 @@ class TestCockpitHttp(unittest.TestCase):
             summary = core.summary_from_conn(cfg, conn, today)
         finally:
             conn.close()
+        server._state["has_data"] = True
         server._state["summary"] = summary
         server._state["built_at"] = "test"
-        server._state["user_html"] = "<html>x</html>"
         server._state["admin_html"] = "<html>a</html>"
         server._state["bu_pages"] = {
             "营销": {"name": "营销", "html": "<html>bu</html>", "summary": summary},

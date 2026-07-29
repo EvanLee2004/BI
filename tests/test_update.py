@@ -228,7 +228,6 @@ class TestUpdateApi(unittest.TestCase):
                 {"账号": "overall", "权限": "整体", "密码": server.DEFAULT_VIEW_PW, "显示名": "整"},
             ],
         )
-        server._state["user_html"] = "<html>U</html>"
         server._state["admin_html"] = "<html>A</html>"
         self.app = server.create_app(self.cfg, root=self.tmp)
         self.client = TestClient(self.app, follow_redirects=False)

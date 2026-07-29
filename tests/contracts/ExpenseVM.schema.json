@@ -1,18 +1,6 @@
 {
   "additionalProperties": true,
   "properties": {
-    "body_by_period": {
-      "additionalProperties": {
-        "type": "string"
-      },
-      "title": "Body By Period",
-      "type": "object"
-    },
-    "trend_html": {
-      "default": "",
-      "title": "Trend Html",
-      "type": "string"
-    },
     "area_categories": {
       "items": {
         "type": "string"

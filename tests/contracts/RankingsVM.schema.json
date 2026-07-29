@@ -11,13 +11,6 @@
       "title": "Rankings Monthly Data",
       "type": "object"
     },
-    "profit_rank_body": {
-      "additionalProperties": {
-        "type": "string"
-      },
-      "title": "Profit Rank Body",
-      "type": "object"
-    },
     "profit_rank_by_period": {
       "additionalProperties": {
         "additionalProperties": true,

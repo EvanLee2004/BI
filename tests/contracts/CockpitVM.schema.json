@@ -3,18 +3,6 @@
     "ExpenseVM": {
       "additionalProperties": true,
       "properties": {
-        "body_by_period": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Body By Period",
-          "type": "object"
-        },
-        "trend_html": {
-          "default": "",
-          "title": "Trend Html",
-          "type": "string"
-        },
         "area_categories": {
           "items": {
             "type": "string"
@@ -122,13 +110,6 @@
           "title": "Period Keys",
           "type": "array"
         },
-        "body_by_period": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Body By Period",
-          "type": "object"
-        },
         "cards_by_period": {
           "additionalProperties": {
             "items": {
@@ -184,13 +165,6 @@
     "PLTableVM": {
       "additionalProperties": true,
       "properties": {
-        "body_by_period": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Body By Period",
-          "type": "object"
-        },
         "pl_tag": {
           "default": "",
           "title": "Pl Tag",
@@ -221,13 +195,6 @@
           "title": "Rankings Monthly Data",
           "type": "object"
         },
-        "profit_rank_body": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "Profit Rank Body",
-          "type": "object"
-        },
         "profit_rank_by_period": {
           "additionalProperties": {
             "additionalProperties": true,
@@ -243,11 +210,6 @@
     "ReceiptsVM": {
       "additionalProperties": true,
       "properties": {
-        "receipts_html": {
-          "default": "",
-          "title": "Receipts Html",
-          "type": "string"
-        },
         "receipts_budget": {
           "default": "",
           "title": "Receipts Budget",
@@ -352,11 +314,6 @@
     "TrendVM": {
       "additionalProperties": true,
       "properties": {
-        "svg_html": {
-          "default": "",
-          "title": "Svg Html",
-          "type": "string"
-        },
         "labels": {
           "items": {
             "type": "string"
@@ -489,11 +446,6 @@
     "period_bar": {
       "default": "",
       "title": "Period Bar",
-      "type": "string"
-    },
-    "daily_html": {
-      "default": "",
-      "title": "Daily Html",
       "type": "string"
     },
     "daily": {

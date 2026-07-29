@@ -109,7 +109,7 @@ class TestAdminVueHttp(unittest.TestCase):
             ],
         )
         server._state["admin_html"] = server._admin_page("", {}, cls.cfg)
-        server._state["user_html"] = "<html>u</html>"
+        server._state["has_data"] = True
         server._state["summary"] = {"meta": {}, "periods": {}}
         # 强制 vue（有 dist 时）
         os.environ["KANBAN_FRONTEND"] = "vue"

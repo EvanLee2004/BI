@@ -111,13 +111,13 @@ class TestVmNumbersParity(unittest.TestCase):
             )
 
     def test_vm_display_strings_from_views(self):
-        """2.7.1：只 vue — HTML 字段空；结构化 KPI 有数。"""
+        """3.2.0：只 vue — 无 HTML 僵尸字段；结构化 KPI 有数。"""
         vm_vue = viewmodels.build_cockpit_vm(self.summary, self.cfg)
         self.assertEqual(viewmodels.frontend_mode(self.cfg), "vue")
         self.assertEqual(viewmodels.frontend_mode({"frontend": "legacy"}), "vue")
-        self.assertEqual(vm_vue.trend.svg_html, "")
-        self.assertEqual(vm_vue.kpi.body_by_period, {})
-        self.assertEqual(vm_vue.expense.trend_html, "")
+        self.assertFalse(hasattr(vm_vue.trend, "svg_html"))
+        self.assertFalse(hasattr(vm_vue.kpi, "body_by_period"))
+        self.assertFalse(hasattr(vm_vue.expense, "trend_html"))
         self.assertTrue(vm_vue.kpi.cards_by_period)
 
     def test_vm_numbers_align_golden_sample(self):

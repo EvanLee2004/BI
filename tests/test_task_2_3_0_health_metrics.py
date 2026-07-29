@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class TestHealthMetrics230(unittest.TestCase):
     def test_server_writes_metrics(self):
-        src = (ROOT / "src" / "server.py").read_text(encoding="utf-8")
+        """3.2.0：metrics 写入在 refresh_pipeline（非胖 server）。"""
+        src = (ROOT / "src" / "refresh_pipeline.py").read_text(encoding="utf-8")
         self.assertIn('_state["metrics"]', src)
         self.assertIn("update_ms", src)
         self.assertIn("fetch_fail_rate", src)

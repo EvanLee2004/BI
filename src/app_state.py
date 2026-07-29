@@ -24,10 +24,9 @@ VCOOKIE = "kanban_view"  # legacy name — delete only
 SESSION_TTL = 12 * 3600  # 任务书63·H-05/H-06 过渡：管理端会话 ≤12h
 
 # 服务内存态：summary + views + bu_pages；不预装整页 HTML。
-# user_html 默认空串（兼容测试注入 / export ready 检查）；导出走 kanban_snapshot 按需装配。
+# 3.2.0：无 user_html；有 summary/has_data 即 ready。导出走 kanban_snapshot。
 _state: dict = {
     "summary": None,
-    "user_html": "",  # 默认空；导出按需装配；测试可注入短串
     "admin_html": "",  # 兼容旧「有数据」标记；以 has_data 为准
     "has_data": False,
     "built_at": None,

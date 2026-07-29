@@ -88,7 +88,6 @@ class TestG3ExportSamePackHttp(unittest.TestCase):
             ],
         )
         _write_accts(cls.cfg, cls.tmp, _std_accts())
-        server._state["user_html"] = "ready"
         server._state["fragments"] = fake_main_frags("USER-MAIN")
         server._state["views"] = fake_views("USER-MAIN")
         server._state["summary"] = {

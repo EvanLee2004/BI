@@ -82,7 +82,6 @@ class TestWritePathsV1Only(unittest.TestCase):
                 },
             ],
         )
-        server._state["user_html"] = "<html></html>"
         server._state["fragments"] = fake_main_frags("M")
         server._state["views"] = fake_views("M")
         server._state["bu_pages"] = {"BU甲": fake_bu_page("BU甲", "A")}

@@ -125,7 +125,6 @@ class TestLoginSetsSidOnly(unittest.TestCase):
                 },
             ],
         )
-        server._state["user_html"] = "<html></html>"
         server._state["fragments"] = fake_main_frags("M")
         server._state["views"] = fake_views("M")
         server._state["bu_pages"] = {

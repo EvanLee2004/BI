@@ -1,3 +1,12 @@
+## 3.2.0 · 2026-07-29
+
+### server 薄门面 + 残余废物清零
+- `server.py` 薄 composition/re-export；实现落 `app_factory` / `middleware_stack` / `refresh_pipeline` / `app_state`
+- 稳定契约：`import server` / `_state` 身份 / 可打桩 `_do_full` / `publish` 关键字参数
+- 物理删除 `_empty_html_view_fields` 与 VM/API HTML 僵尸字段；进程态无 `user_html`
+- `frontend_mode` 恒 `"vue"`；G8 结构门禁进 SERIAL
+- SSOT 墓碑路由（fragments 404）与 3.2.0 状态描述；未改 profit 算账
+
 ## 3.1.0 · 2026-07-29
 
 ### 工程债清零（零行为）

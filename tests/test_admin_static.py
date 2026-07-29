@@ -40,7 +40,6 @@ class TestAdminVueOnly(unittest.TestCase):
         cfg = loaders.load_config()
         orig = server.recompute
         server.recompute = lambda *a, **k: None
-        server._state["user_html"] = "<html>u</html>"
         server._state["admin_html"] = "ready"
         server._state["has_data"] = True
         try:

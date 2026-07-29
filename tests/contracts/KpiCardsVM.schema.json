@@ -13,13 +13,6 @@
       "title": "Period Keys",
       "type": "array"
     },
-    "body_by_period": {
-      "additionalProperties": {
-        "type": "string"
-      },
-      "title": "Body By Period",
-      "type": "object"
-    },
     "cards_by_period": {
       "additionalProperties": {
         "items": {

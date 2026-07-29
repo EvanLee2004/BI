@@ -144,7 +144,6 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             ],
         )
         _write_accts(self.cfg, self.tmp, _std_accts())
-        server._state["user_html"] = '<html><div class="wrap">USER-MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("USER-MAIN")
         server._state["views"] = fake_views("USER-MAIN")
         server._state["summary"] = {

@@ -99,7 +99,6 @@ class TestSettingsApi(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         self.cfg = loaders.load_config()
         shutil.copy2(ROOT / "config.json", self.root / "config.json")
-        server._state["user_html"] = "<html>USER</html>"
         server._state["admin_html"] = "<html>ADMIN</html>"
         self.app = server.create_app(self.cfg, root=self.root)
         self.client = TestClient(self.app, follow_redirects=False)

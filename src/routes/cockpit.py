@@ -476,7 +476,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     # 2.6.9 S8-C：/api/v1/cockpit/bu/{name} 已删（前端走 /api/v1/vm/bu/{name}）
 
-    # B-P5：真删 /api/v1/cockpit/view 与 SERVE_SHELL 直出。user_html 仅缓存供导出 PNG。
+    # B-P5 / 3.2.0：无 /api/v1/cockpit/view、无 SERVE_SHELL；导出走 kanban_snapshot。
 
     def _main_chrome_prefix(hide_pw: bool = False) -> str:
         """整体页 chrome（BU 入口条 / 隐藏改密），注入点=wrap 前。"""

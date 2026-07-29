@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """任务书46·阶段2：版本化 ViewModel（语义键 + 后端算好的显示串）。
 
-字段一律 value_disp / pct_disp；*_html / body_by_period 为 3.1.0 起 deprecated 空占位（Vue 不读），前端零金额运算。
+字段一律 value_disp / pct_disp / 结构化 cards；3.2.0 起已删除 HTML 僵尸字段，前端零金额运算。
 """
 
 from __future__ import annotations
@@ -28,15 +28,12 @@ class KpiCardsVM(BaseModel):
     model_config = ConfigDict(extra="allow")
     year_key: str = ""
     period_keys: list[str] = Field(default_factory=list)
-    # 3.1.0：body_by_period deprecated 恒空；Vue 用 cards_by_period
-    body_by_period: dict[str, str] = Field(default_factory=dict)
     # 任务书50·B：结构化 KPI
     cards_by_period: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
 class TrendVM(BaseModel):
     model_config = ConfigDict(extra="allow")
-    svg_html: str = ""  # 后端 SVG（legacy/导出）
     # ECharts 用：标签与显示串均后端产；数值为后端已算好的数（前端只填 option，零运算）
     labels: list[str] = Field(default_factory=list)
     revenue: list[float] = Field(default_factory=list)
@@ -56,7 +53,6 @@ class TrendVM(BaseModel):
 
 class PLTableVM(BaseModel):
     model_config = ConfigDict(extra="allow")
-    body_by_period: dict[str, str] = Field(default_factory=dict)  # deprecated HTML
     pl_tag: str = ""
     # 任务书50·B：{period: {rows, details}}
     table_by_period: dict[str, dict[str, Any]] = Field(default_factory=dict)
@@ -64,8 +60,6 @@ class PLTableVM(BaseModel):
 
 class ExpenseVM(BaseModel):
     model_config = ConfigDict(extra="allow")
-    body_by_period: dict[str, str] = Field(default_factory=dict)  # deprecated HTML
-    trend_html: str = ""  # 费用面积图 SVG 卡
     # 堆叠面积：categories + 每月各层金额/显示串
     area_categories: list[str] = Field(default_factory=list)
     area_labels: list[str] = Field(default_factory=list)  # 1月..12月
@@ -89,14 +83,12 @@ class RankingsVM(BaseModel):
     model_config = ConfigDict(extra="allow")
     rankings_view: dict[str, Any] = Field(default_factory=dict)
     rankings_monthly_data: dict[str, Any] = Field(default_factory=dict)
-    profit_rank_body: dict[str, str] = Field(default_factory=dict)  # deprecated HTML
     # 任务书50·B：结构化利润结构
     profit_rank_by_period: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class ReceiptsVM(BaseModel):
     model_config = ConfigDict(extra="allow")
-    receipts_html: str = ""
     receipts_budget: str = ""
     # 回款柱线
     labels: list[str] = Field(default_factory=list)
@@ -141,9 +133,8 @@ class BUPageVM(BaseModel):
     receipts: ReceiptsVM = Field(default_factory=ReceiptsVM)
     ledger: LedgerVM = Field(default_factory=LedgerVM)
     period_bar: str = ""
-    daily_html: str = ""  # deprecated
     daily: dict[str, Any] = Field(default_factory=dict)
-    # 与 fragments 数字对齐用：extract_numbers 快照
+    # extract_numbers 快照
     numbers: dict[str, Any] = Field(default_factory=dict)
     # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
     chart_month_max: int = 12
@@ -163,7 +154,6 @@ class CockpitVM(BaseModel):
     receipts: ReceiptsVM = Field(default_factory=ReceiptsVM)
     ledger: LedgerVM = Field(default_factory=LedgerVM)
     period_bar: str = ""
-    daily_html: str = ""  # deprecated
     daily: dict[str, Any] = Field(default_factory=dict)
     numbers: dict[str, Any] = Field(default_factory=dict)
     # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
@@ -408,19 +398,16 @@ def _assemble_vm(
     scope: str,
     cfg: dict | None = None,
     bu_name: str | None = None,
-    html: dict | None = None,
 ) -> CockpitVM | BUPageVM:
-    """任务书51·B3：VM 组装单一主函数（趋势/回款/面积/刻度/环形/KPI/PL/费用/排名）。
+    """任务书51·B3 / 3.2.0：VM 组装（趋势/回款/面积/刻度/环形/KPI/PL/费用/排名）。
 
-    scope=整体 → CockpitVM；scope=BU → BUPageVM。
-    html 为 legacy 可选碎片（vue 路径传空 dict）。
+    scope=整体 → CockpitVM；scope=BU → BUPageVM。无 HTML 碎片参数。
     """
     import api_v1
     import db
     from viewmodels import packers
     from viewmodels.format import apply_expense_salary_hide, expense_monthly_from_period_ledgers
 
-    html = html or {}
     is_bu = scope == "BU"
     yk = views.get("year_key") or ""
     pkeys = list(views.get("period_keys") or [])
@@ -453,7 +440,6 @@ def _assemble_vm(
             summary.get("expense_monthly_by_cat"),
             True,  # 54.12 R-01 全端隐工资
         )
-    # 54.15 R-30：两图白名单（剔成本/非利润表），与环形同源常量
     from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
 
     area = _pack_expense_area(filter_expense_monthly_raw_for_charts(exp_raw, cfg))
@@ -471,18 +457,14 @@ def _assemble_vm(
     kpi = KpiCardsVM(
         year_key=yk,
         period_keys=pkeys,
-        body_by_period=dict(html.get("kpi_body") or {}),
         cards_by_period=packers.pack_kpi_cards_by_period(summary, cfg),
     )
-    trend = TrendVM(svg_html=html.get("trend_html") or "", **ts)
+    trend = TrendVM(**ts)
     pl = PLTableVM(
-        body_by_period=dict(html.get("pl_body") or {}),
-        pl_tag=html.get("pl_tag") or "",
+        pl_tag="",
         table_by_period=packers.pack_pl_by_period(summary, is_bu=is_bu),
     )
     expense = ExpenseVM(
-        body_by_period=dict(html.get("donut_body") or {}),
-        trend_html=html.get("expense_trend_html") or "",
         donut_by_period=donut,
         views_by_period=packers.pack_expense_views_by_period(summary),
         donut_center_by_period=_donut_center_by_period(summary),
@@ -491,15 +473,11 @@ def _assemble_vm(
     rankings = RankingsVM(
         rankings_view=dict(views.get("rankings_view") or {}),
         rankings_monthly_data=dict(views.get("rankings_monthly_data") or {}),
-        profit_rank_body=dict(html.get("profit_rank_body") or {}),
         profit_rank_by_period=packers.pack_profit_rank_by_period(summary, embed_full=False),
     )
     side_pack = _pack_receipts_side_and_budget(summary)
-    # vue 路径：用 packer 显示串填空字段；legacy html 若已有完整 HTML 优先保留给对照
-    rb_html = (html.get("receipts_budget") or "").strip()
     receipts = ReceiptsVM(
-        receipts_html=html.get("receipts_html") or "",
-        receipts_budget=rb_html or side_pack.get("receipts_budget") or "",
+        receipts_budget=side_pack.get("receipts_budget") or "",
         summary_by_period=side_pack.get("summary_by_period") or {},
         budget_month=side_pack.get("budget_month") or 0.0,
         budget_month_disp=side_pack.get("budget_month_disp") or "",
@@ -510,10 +488,7 @@ def _assemble_vm(
         forbidden_columns=list(db.VIEW_EXPENSE_HIDDEN),
         period_months=packers.pack_period_month_ranges(summary),
     )
-    period_bar = html.get("period_bar") or ""
-    daily_html = html.get("daily_html") or ""
     daily = packers.pack_daily_defaults(summary)
-
     chart_month_max = int(daily.get("chart_month_max") or 12)
     if is_bu:
         return BUPageVM(
@@ -527,8 +502,7 @@ def _assemble_vm(
             rankings=rankings,
             receipts=receipts,
             ledger=ledger,
-            period_bar=period_bar,
-            daily_html=daily_html,
+            period_bar="",
             daily=daily,
             numbers=numbers,
             chart_month_max=chart_month_max,
@@ -543,8 +517,7 @@ def _assemble_vm(
         rankings=rankings,
         receipts=receipts,
         ledger=ledger,
-        period_bar=period_bar,
-        daily_html=daily_html,
+        period_bar="",
         daily=daily,
         numbers=numbers,
         chart_month_max=chart_month_max,
@@ -552,18 +525,16 @@ def _assemble_vm(
 
 
 def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
-    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。2.7.1：只 vue 核视图。"""
+    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。"""
     views = _vue_core_views(summary)
-    html: dict = {}
-    return _assemble_vm(summary, views, scope="整体", cfg=cfg, html=html)  # type: ignore[return-value]
+    return _assemble_vm(summary, views, scope="整体", cfg=cfg)  # type: ignore[return-value]
 
 
 def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
-    """BU 页 VM 薄包装。2.7.1：只 vue 核视图。"""
+    """BU 页 VM 薄包装。"""
     views = _vue_core_views(summary)
     views["bu_name"] = bu_name or ""
-    html: dict = {}
-    return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name, html=html)  # type: ignore[return-value]
+    return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name)  # type: ignore[return-value]
 
 
 __all__ = [

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""内网双端服务（FastAPI + uvicorn）：用户端只读 + 管理员控制台（明细编辑/手填/年度预算/调整台账）。
+"""内网双端服务薄门面（3.2.0）。
 
-- 用户端 `/`：账号+密码登录，按 数据/看板账号.json 权限分流（管理员→/admin、整体→整体页、BU→本 BU 页）。
-- 管理员端 `/admin`：账号 lushasha（或任何权限=管理员的号）+ 密码；经手人=登录账号。
-- `/api/v1/admin/detail`：明细数据，**仅管理员会话内可用**（服务端挡，未登录 401；非前端藏）。
-- `/api/v1/health`：最近一次运行日志（体检状态条数据源）。
+实现见：
+- app_factory.build_app — FastAPI 组装
+- middleware_stack — 中间件
+- refresh_pipeline — 刷新/重算/异步刷新
+- app_state — 唯一 _state / _LOCK
 
-安全实现用标准库：会话 HMAC 签名 token；账号明文存 数据/看板账号.json（不进 git）。
-会话签名密钥存 数据/管理员密钥.json（只保留 cookie_key；旧 salt/pw_hash 字段读时忽略）。
+测试与 routes 仍 `import server`；本模块 re-export 稳定符号。
 """
 
 from __future__ import annotations
@@ -16,102 +16,71 @@ from __future__ import annotations
 import os
 import threading
 import time
-from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi import HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from starlette.middleware.gzip import GZipMiddleware
-
-import loaders
 import accounts
-import tpl
 import auth_session
+import loaders
 import refresh_pipeline
-from app_state import (  # noqa: F401  # 测试/外部可读 server._state
+import tpl
+from app_state import (  # noqa: F401
     COOKIE,
     SID_COOKIE,
     VCOOKIE,
     SESSION_TTL,
     STATIC_DIR,
-    _state,
-    _LOCK,
     _EXPORT_LOCK,
-)
-
-
-# 54.13 纯搬家 re-export
-from settings_io import (  # noqa: E402,F401
-    _TIME_RE,
-    EDITABLE_SETTINGS,
-    MAX_SCHEDULE_TIMES,
-    normalize_schedule_times,
-    get_schedule_times,
-    CRON_BEGIN,
-    CRON_END,
-    _cron_block_for_times,
-    _strip_cron_sentinel,
-    _linux_sync_schedule,
-    sync_schedule,
-    _zhiyun_cfg_file,
-    read_zhiyun_creds,
-    save_zhiyun_creds,
-    read_zhiyun_conn,
-    save_zhiyun_conn,
-    save_settings,
+    _LOCK,
+    _state,
 )
 from audit_diff import (  # noqa: E402,F401
-    _audit,
-    _join_summary,
-    _diff_bu_config,
-    _diff_accounts,
-    _manual_items_json,
-    _admin_page,
-    _bootstrap_page,
-    admin_ui_source,
-    _run_reasons,
-    apply_business_health_yellow,
     _ZY_BANNER_NAMES,
     _ZY_FILE_KEYS,
+    _admin_page,
+    _audit,
+    _bootstrap_page,
+    _diff_accounts,
+    _diff_bu_config,
     _file_as_of_label,
+    _join_summary,
+    _manual_items_json,
+    _run_reasons,
+    admin_ui_source,
+    apply_business_health_yellow,
     build_fetch_fallback_banners,
 )
+from settings_io import (  # noqa: E402,F401
+    CRON_BEGIN,
+    CRON_END,
+    EDITABLE_SETTINGS,
+    MAX_SCHEDULE_TIMES,
+    _TIME_RE,
+    _cron_block_for_times,
+    _linux_sync_schedule,
+    _strip_cron_sentinel,
+    _zhiyun_cfg_file,
+    get_schedule_times,
+    normalize_schedule_times,
+    read_zhiyun_conn,
+    read_zhiyun_creds,
+    save_settings,
+    save_zhiyun_conn,
+    save_zhiyun_creds,
+    sync_schedule,
+)
 
-# 任务书36·A：fragments JSON 等文本响应 gzip（Starlette 内置；minimum_size≈1KB）
+# 兼容旧引用
 GZIP_MINIMUM_SIZE = 1000
-
-# 3.1.0：看端 Vue + /api/v1/vm/*；无 SERVE_SHELL / fragments 装运。
-
-# 会话态文档页禁止浏览器缓存：未登录时同一 URL 是登录页，登录后是 shell/控制台；
-# 若缺 no-store，登录成功 location.replace 同 URL 会直接吃缓存登录页（P0·2026-07-16）。
-# 真正静态 css/js/图走 /static 不受影响；/admin/app.js 已有同类先例。
 _NO_STORE = {"Cache-Control": "no-store"}
-
-
-def _html_doc(content: str, status_code: int = 200) -> HTMLResponse:
-    """HTML 文档响应：带 no-store，防会话态页面被缓存。"""
-    return HTMLResponse(content, status_code=status_code, headers=_NO_STORE)
-
-
-def _file_html_doc(path: Path) -> FileResponse:
-    """HTML 文件文档响应：带 no-store。"""
-    return FileResponse(path, media_type="text/html; charset=utf-8", headers=_NO_STORE)
-
-
-# 管理员会话看内嵌看板时隐藏「🔑密码」自改入口（管理员改密走 /admin 设置页，避免误改）
-# 模板缓存于模块载入（tpl.load 一次）；内容与迁前逐字节一致
 _HIDE_PW_STYLE = tpl.load("partials/hide_pw_style.html")
 _WRAP_OPEN = tpl.load("partials/wrap_open.html")
 _EMPTY_DATA_HTML = tpl.load("partials/empty_data.html")
 _BU_NAV_TPL = tpl.load("partials/bu_nav.html")
 _BU_NAV_LINK_TPL = tpl.load("partials/bu_nav_link.html")
-# 兼容旧测试/文档引用（v8.0 起管理员口令在 看板账号.json，不再走密钥哈希）
 DEFAULT_PW = os.environ.get("KANBAN_ADMIN_PW", accounts.DEFAULT_ADMIN_PW)
 DEFAULT_VIEW_PW = accounts.DEFAULT_VIEW_PW
 DEFAULT_ADMIN_ACCOUNT = "lushasha"
 
-# ---------------- 会话（auth_session）兼容别名 ----------------
+# 会话别名
 _secret_path = auth_session.secret_path
 _load_or_init_secret = auth_session.load_or_init_secret
 _save_secret = auth_session.save_secret
@@ -120,543 +89,36 @@ _check_token_raw = auth_session.check_token_raw
 _check_token = auth_session.check_token
 _check_vsubject = auth_session.check_vsubject
 
-# ---------------- 刷新管道（refresh_pipeline）兼容别名 ----------------
-# 注意：_do_full / start_refresh_async 必须挂在 server 模块上，
-# 以便 tests 打桩 server._do_full（见 test_admin_edit 刷新异步）。
+# 刷新管道（_do_full 可被测试打桩；publish 稳定别名供 import server 使用）
+publish = refresh_pipeline.publish
 _publish = refresh_pipeline.publish
 _do_full = refresh_pipeline.do_full
 _do_recompute = refresh_pipeline.do_recompute
 recompute = refresh_pipeline.recompute
+refresh = refresh_pipeline.refresh
+start_refresh_async = refresh_pipeline.start_refresh_async
 
+# app factory helpers re-export（兼容旧 from server import …）
+from app_factory import (  # noqa: E402,F401
+    _admin_login_file,
+    _file_html_doc,
+    _html_doc,
+    _view_login_file,
+    resolve_serve_static,
+    resolve_server_host,
+)
 
-def refresh(cfg, root=None, trigger="manual") -> dict:
-    """完整更新；持锁调用本模块 _do_full（可被测试替换）。"""
-    with _LOCK:
-        return _do_full(cfg, root, trigger)
-
-
-def start_refresh_async(cfg, root=None, trigger="manual", on_complete=None) -> bool:  # noqa: C901
-    """后台完整更新。调用本模块 _do_full，便于测试打桩。
-
-    on_complete(success: bool)：管道真结束回调（2.6.7 C-3：定时 success 只在真成功时登记）。
-    """
-    if not _LOCK.acquire(blocking=False):
-        return False
-    _state["refreshing"] = {"started_at": time.strftime("%Y-%m-%d %H:%M:%S"), "trigger": trigger}
-
-    def _job():
-        t0 = time.time()
-        ok = False
-        try:
-            ing = _do_full(cfg, root, trigger)
-            elapsed_ms = int((time.time() - t0) * 1000)
-            # 2.3.0 S6.B：真实 metrics（禁永久 null）
-            sources = []
-            try:
-                meta = (_state.get("summary") or {}).get("meta") or {}
-                sources = (meta.get("health") or {}).get("sources") or []
-            except Exception:
-                sources = []
-            n = len(sources) if isinstance(sources, list) else 0
-            n_fail = 0
-            if n:
-                for s in sources:
-                    if isinstance(s, dict) and s.get("ok") is False:
-                        n_fail += 1
-                    elif isinstance(s, dict) and str(s.get("status") or "").lower() in (
-                        "fail",
-                        "error",
-                        "failed",
-                    ):
-                        n_fail += 1
-            fail_rate = (n_fail / n) if n else 0.0
-            _state["metrics"] = {
-                "update_ms": elapsed_ms,
-                "fetch_fail_rate": round(fail_rate, 4),
-            }
-            _state["last_refresh"] = {
-                "status": "ok",
-                "result": ing.get("result"),
-                "seconds": round(time.time() - t0, 1),
-                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            ok = True
-        except Exception as e:
-            elapsed_ms = int((time.time() - t0) * 1000)
-            _state["metrics"] = {
-                "update_ms": elapsed_ms,
-                "fetch_fail_rate": 1.0,
-            }
-            _state["last_refresh"] = {
-                "status": "error",
-                "detail": f"{type(e).__name__}: {e}",
-                "seconds": round(time.time() - t0, 1),
-                "finished_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            ok = False
-        finally:
-            _state["refreshing"] = None
-            _LOCK.release()
-            if on_complete is not None:
-                try:
-                    on_complete(ok)
-                except Exception:
-                    pass
-
-    threading.Thread(target=_job, daemon=True).start()
-    return True
-
-
-# ---------------- 设置（config.json 可改项：自动更新时间/备份保留天数/在线抓开关） ----------------
-# 任务书54·D：Windows 计划任务 / 启动脚本全线退役；定时同步仅 Linux crontab。
-
-
-
-
-
-
-
-# Linux crontab 哨兵（与 deploy/linux/register_schedule.sh 一致；绝不动段外行）
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# recompute 已由 refresh_pipeline 提供（秒级重算：缓存记录→重放→重算→重渲染）
-
-
-# ---------------- 配置变更留痕（C3）：写接口 diff → 人读摘要 → db.log_config_change ----------------
-
-
-
-
-
-
-
-
-
-
-
-
-# refresh_pipeline.publish 拼 admin_html 时调用（避免 pipeline↔server 环依赖）
 refresh_pipeline.set_admin_page_builder(_admin_page)
 
 
+def create_app(cfg, root=None):
+    """组装 FastAPI（实现见 app_factory.build_app）。"""
+    from app_factory import build_app
 
+    return build_app(cfg, root)
 
 
-
-
-
-
-
-# 智云源键 → 人读短名（任务书37·B9 黄横幅）
-
-
-
-
-
-
-def _view_login_file():
-    """看板登录：纯 static（B-P4 增补；错误由前端按 API 渲染）。会话态文档 → no-store。"""
-    p = STATIC_DIR / "view_login.html"
-    return _file_html_doc(p)
-
-
-def _admin_login_file():
-    """2.5.0：不再返回独立管理登录皮；统一 303 → /login?next=/admin。"""
-    import login_redirect
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(
-        login_redirect.login_url(next_path="/admin"),
-        status_code=303,
-    )
-
-
-# ---------------- FastAPI 应用 ----------------
-def resolve_serve_static(cfg: dict | None = None) -> bool:
-    """是否由 FastAPI 挂载 /static。nginx 模式 false（静态由 nginx 伺服）；直连 true。
-    环境变量 KANBAN_SERVE_STATIC=0/1/false/true 可覆盖 config。"""
-    import os
-
-    env = os.environ.get("KANBAN_SERVE_STATIC")
-    if env is not None and str(env).strip() != "":
-        return str(env).strip().lower() in ("1", "true", "yes", "on")
-    cfg = cfg or {}
-    if "serve_static" in cfg:
-        return bool(cfg.get("serve_static"))
-    # 未配置时：绑 127.0.0.1 默认不挂静态（倾向反代）；否则挂（直连兼容）
-    host = str(cfg.get("server_host") or "0.0.0.0")
-    return host not in ("127.0.0.1", "localhost", "::1")
-
-
-def resolve_server_host(cfg: dict | None = None) -> str:
-    """监听地址。KANBAN_SERVER_HOST 优先；默认 config server_host → 0.0.0.0。"""
-    import os
-
-    env = os.environ.get("KANBAN_SERVER_HOST")
-    if env is not None and str(env).strip() != "":
-        return str(env).strip()
-    return str((cfg or {}).get("server_host") or "0.0.0.0")
-
-
-def create_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
-    """组装 FastAPI：会话/中间件依赖 + 路由注册（路由体见 routes/）。"""
-    app = FastAPI(title="甲骨易经营看板", docs_url=None, redoc_url=None, openapi_url=None)
-    # 任务书36·A：内置 gzip，压 JSON/文本（≥1KB）；不自写压缩、不加依赖。
-    # 任务书43：nginx 模式也保留 GZipMiddleware（双模兼容；反代时可再由 nginx gzip）。
-    app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)
-
-    # 任务书46·6：请求 ID 中间件
-    import uuid as _uuid
-
-    from starlette.middleware.base import BaseHTTPMiddleware
-
-    class _RequestIdMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request, call_next):
-            rid = request.headers.get("X-Request-ID") or _uuid.uuid4().hex[:16]
-            request.state.request_id = rid
-            resp = await call_next(request)
-            resp.headers["X-Request-ID"] = rid
-            return resp
-
-    app.add_middleware(_RequestIdMiddleware)
-
-    # 2.7.3：维护模式中间件——HTML 导航出维护页；/api/* 永不换成 HTML
-    class _MaintenanceMiddleware(BaseHTTPMiddleware):
-        _expire_every = 32
-        _expire_n = 0
-
-        async def dispatch(self, request, call_next):
-            try:
-                import maintenance_mode as _mm
-
-                # 低频超时兜底（勿每秒狂扫：每 N 次请求检查一次）
-                _MaintenanceMiddleware._expire_n += 1
-                if _MaintenanceMiddleware._expire_n >= _MaintenanceMiddleware._expire_every:
-                    _MaintenanceMiddleware._expire_n = 0
-                    _mm.maybe_expire(max_minutes=10, cfg=cfg, root=root)
-                path = request.url.path or ""
-                if path.startswith("/api"):
-                    return await call_next(request)
-                if request.method in ("GET", "HEAD") and _mm.is_on(cfg, root):
-                    accept = (request.headers.get("accept") or "").lower()
-                    wants_html = (
-                        "text/html" in accept
-                        or accept in ("", "*/*")
-                        or "text/*" in accept
-                    )
-                    if "application/json" in accept and "text/html" not in accept:
-                        wants_html = False
-                    if wants_html and not path.startswith("/openapi"):
-                        body = _mm.load_maintenance_html(root)
-                        return HTMLResponse(
-                            body,
-                            status_code=503,
-                            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
-                        )
-            except Exception:
-                pass
-            return await call_next(request)
-
-    app.add_middleware(_MaintenanceMiddleware)
-    sec = _load_or_init_secret(cfg, root)
-    # 确保账号文件存在（部署零配置）
-    accounts.load_accounts(cfg, root, create=True)
-
-    # 2.7.1：不再从 legacy cookie 静默升级；仅 kanban_sid 可登录
-    # 静态：直连模式挂载；nginx 模式由 nginx 伺服 /static/（serve_static=false）
-    if resolve_serve_static(cfg) and STATIC_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-    # 任务书46·3：Vue dist 静态资源 /app/
-    _fe_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
-    if _fe_dist.is_dir():
-        app.mount("/app", StaticFiles(directory=str(_fe_dist), html=True), name="frontend")
-
-    # 54.12 R-13 favicon
-    _favicon = STATIC_DIR / "favicon.ico"
-    _favicon_svg = STATIC_DIR / "icons" / "favicon.svg"
-
-    @app.get("/favicon.ico", include_in_schema=False)
-    def favicon_ico():
-        if _favicon.is_file():
-            return FileResponse(_favicon, media_type="image/x-icon")
-        if _favicon_svg.is_file():
-            return FileResponse(_favicon_svg, media_type="image/svg+xml")
-        raise HTTPException(status_code=404, detail="favicon missing")
-
-    @app.get("/favicon.svg", include_in_schema=False)
-    def favicon_svg():
-        if _favicon_svg.is_file():
-            return FileResponse(_favicon_svg, media_type="image/svg+xml")
-        raise HTTPException(status_code=404, detail="favicon missing")
-
-    def _wants_html(request: Request) -> bool:
-        accept = (request.headers.get("accept") or "").lower()
-        if "text/html" in accept:
-            return True
-        # 浏览器地址栏直开常带 */* 或空；排除明确 JSON/API
-        if "application/json" in accept and "text/html" not in accept:
-            return False
-        path = request.url.path or ""
-        if path.startswith("/api") or path.startswith("/openapi") or path.endswith(".json"):
-            return False
-        return "text/html" in accept or accept in ("", "*/*") or "text/*" in accept
-
-    def _error_page(status: int, title: str, msg: str) -> HTMLResponse:
-        """54.12 R-14：友好错误页（模板在 static/templates/errors，禁 HTML-in-py）。"""
-        home = "/" if status != 401 else "/login"
-        tpl = STATIC_DIR / "templates" / "errors" / "http_error.html"
-        raw = tpl.read_text(encoding="utf-8") if tpl.is_file() else (
-            "__TITLE__ (__STATUS__) __MSG__ <a href=\"__HOME__\">home</a>"
-        )
-        # 简单占位替换，避免 HTML 字面量进 .py
-        html = (
-            raw.replace("__TITLE__", title)
-            .replace("__STATUS__", str(status))
-            .replace("__MSG__", msg)
-            .replace("__HOME__", home)
-        )
-        return HTMLResponse(html, status_code=status)
-
-    from starlette.exceptions import HTTPException as StarletteHTTPException
-
-    @app.exception_handler(StarletteHTTPException)
-    async def _http_exc_handler(request: Request, exc: StarletteHTTPException):
-        # 保留 API JSON 契约
-        if not _wants_html(request):
-            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
-        code = exc.status_code
-        if code == 404:
-            return _error_page(404, "页面不存在", "找不到这个地址。可能链接已变更，或路径输错了。")
-        if code >= 500:
-            return _error_page(500, "服务暂时出了点问题", "系统开小差了，请稍后重试；若持续出现请联系管理员。")
-        # 其它 4xx 仍给友好页
-        detail = exc.detail if isinstance(exc.detail, str) else "请求无法完成"
-        return _error_page(code, "无法打开", detail)
-
-    @app.exception_handler(Exception)
-    async def _unhandled_exc_handler(request: Request, exc: Exception):
-        import traceback
-        traceback.print_exc()
-        if not _wants_html(request):
-            return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
-        return _error_page(500, "服务暂时出了点问题", "系统开小差了，请稍后重试；若持续出现请联系管理员。")
-
-    import session_ctx as _session_ctx
-
-    def _session_subject(cookie_val: str) -> str | None:
-        """校验单枚 token：签名/过期 + 密码版本与账号表一致（改密踢会话）。"""
-        hit = _session_ctx._subject_from_token(sec, cookie_val or "", cfg, root)
-        return hit[0] if hit else None
-
-    def _resolve(request: Request):
-        """唯一身份解析（缓存于 request.state）。2.7.1：只认 kanban_sid。"""
-        cached = getattr(request.state, "kanban_ctx", None)
-        if cached is not None or getattr(request.state, "kanban_ctx_resolved", False):
-            return cached
-        ctx = _session_ctx.resolve_session(request.cookies, sec=sec, cfg=cfg, root=root)
-        request.state.kanban_ctx = ctx
-        request.state.kanban_ctx_resolved = True
-        return ctx
-
-    def _user(request: Request) -> str | None:
-        """管理员：resolve 后账号表权限=管理员。经手人=该账号。"""
-        ctx = _resolve(request)
-        if not ctx or not ctx.is_admin:
-            return None
-        return ctx.account
-
-    def _vacct(request: Request) -> str | None:
-        """看端账号名（非管理员会话主体）。管理员只走 _user。"""
-        ctx = _resolve(request)
-        if not ctx or ctx.is_admin:
-            return None
-        return ctx.account
-
-    def _vacc_row(request: Request) -> dict | None:
-        ctx = _resolve(request)
-        if not ctx or ctx.is_admin:
-            return None
-        return ctx.row
-
-    def _can_view_main(request: Request) -> bool:
-        """整体页/全公司口径：整体权限账号 或 管理员。BU 账号不行。"""
-        ctx = _resolve(request)
-        if not ctx:
-            return False
-        return ctx.can_main
-
-    def _can_view_bu(request: Request, bu_name: str) -> bool:
-        ctx = _resolve(request)
-        if not ctx:
-            return False
-        return ctx.can_see_bu(bu_name)
-
-    def _bu_switcher_html(my_names, current: str) -> str:
-        """多 BU 账号看 BU 页时顶部的「我的 BU」切换条：**只列该账号绑定且仍存在的 BU**
-        （绝不列他 BU，铁律12）。单个绑定不出条。"""
-        from urllib.parse import quote
-
-        def esc(s):
-            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-        existing = [n for n in my_names if n in _state.get("bu_pages", {})]
-        if len(existing) <= 1:
-            return ""
-        links = "".join(
-            _BU_NAV_LINK_TPL.format(
-                href=quote(n),
-                current_attrs=(' aria-current="page" style="border-color:var(--blue)"' if n == current else ""),
-                name=esc(n),
-            )
-            for n in existing
-        )
-        return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
-
-    def _set_sid_cookie(resp, account: str):
-        """2.6.0：唯一会话写入 kanban_sid，并清遗留名。"""
-        return _session_ctx.apply_sid_cookie(resp, sec=sec, cfg=cfg, root=root, account=account)
-
-    def _set_vcookie(resp, account: str):
-        """兼容旧调用名 → 写 sid。"""
-        return _set_sid_cookie(resp, account)
-
-    def _set_acookie(resp, account: str):
-        """兼容旧调用名 → 写 sid。"""
-        return _set_sid_cookie(resp, account)
-
-    def _frontend_mode() -> str:
-        """KANBAN_FRONTEND=vue|legacy（env > config.frontend > 默认 vue）。
-        任务书54.4·C：看端壳已删，/_bu 永远 Vue dist；
-        legacy 仅影响管理端 static 回退与 VM HTML 打包对照。
-        """
-        env = (os.environ.get("KANBAN_FRONTEND") or "").strip().lower()
-        if env in ("vue", "legacy"):
-            return env
-        cfg_fe = str(cfg.get("frontend") or "").strip().lower()
-        if cfg_fe in ("vue", "legacy"):
-            return cfg_fe
-        root_dir = Path(__file__).resolve().parents[1]
-        if (root_dir / "frontend" / "dist" / "index.html").is_file():
-            return "vue"
-        return "vue"
-
-    def _vue_index():
-        """Vue SPA 入口（frontend/dist/index.html）。"""
-        # 相对 create_app 所在包：ROOT/frontend/dist
-        root_dir = Path(__file__).resolve().parents[1]
-        p = root_dir / "frontend" / "dist" / "index.html"
-        if not p.is_file():
-            # 禁止在 py 内嵌 HTML 标签（test_no_html_in_py）；用纯文本 503
-            from fastapi.responses import PlainTextResponse
-
-            return PlainTextResponse(
-                "Vue frontend not built. Run scripts/build_frontend.sh",
-                status_code=503,
-            )
-        return _file_html_doc(p)
-
-    def _main_shell():
-        """整体页：仅 Vue dist（54.4·C 删看端 legacy 壳；与 frontend_mode 无关）。"""
-        return _vue_index()
-
-    def _bu_shell():
-        """BU 页：仅 Vue dist。"""
-        return _vue_index()
-
-    # 批次3：路由纯搬家到 routes.register_all（行为零变化）
-    from types import SimpleNamespace
-    from routes import register_all
-    import export_png as _export_png
-
-    register_all(
-        app,
-        SimpleNamespace(
-            cfg=cfg,
-            root=root,
-            user=_user,
-            vacct=_vacct,
-            vacc_row=_vacc_row,
-            can_view_main=_can_view_main,
-            can_view_bu=_can_view_bu,
-            bu_switcher_html=_bu_switcher_html,
-            set_vcookie=_set_vcookie,
-            set_acookie=_set_acookie,
-            main_shell=_main_shell,
-            bu_shell=_bu_shell,
-            view_login_file=_view_login_file,
-            admin_login_file=_admin_login_file,
-            bootstrap_page=_bootstrap_page,
-            manual_items_json=_manual_items_json,
-            html_doc=_html_doc,
-            file_html_doc=_file_html_doc,
-            audit=_audit,
-            diff_accounts=_diff_accounts,
-            diff_bu_config=_diff_bu_config,
-            run_reasons=_run_reasons,
-            start_refresh_async=start_refresh_async,
-            recompute=recompute,
-            get_schedule_times=get_schedule_times,
-            normalize_schedule_times=normalize_schedule_times,
-            save_settings=save_settings,
-            read_zhiyun_creds=read_zhiyun_creds,
-            save_zhiyun_creds=save_zhiyun_creds,
-            read_zhiyun_conn=read_zhiyun_conn,
-            save_zhiyun_conn=save_zhiyun_conn,
-            screenshot_png=_export_png.screenshot_png,
-            HIDE_PW_STYLE=_HIDE_PW_STYLE,
-            WRAP_OPEN=_WRAP_OPEN,
-            DEFAULT_PW=DEFAULT_PW,
-            BU_NAV_TPL=_BU_NAV_TPL,
-            BU_NAV_LINK_TPL=_BU_NAV_LINK_TPL,
-            EDITABLE_SETTINGS=EDITABLE_SETTINGS,
-            frontend_mode=_frontend_mode,
-            vue_index=_vue_index,
-        ),
-    )
-
-    # 任务书46·2：openapi 仅管理员会话可见
-    @app.get("/openapi.json", include_in_schema=False)
-    def openapi_admin_only(request: Request):
-        if not _user(request):
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=401, detail="仅管理员可查看 OpenAPI")
-        return app.openapi()
-
-    @app.get("/docs", include_in_schema=False)
-    def docs_admin_only(request: Request):
-        if not _user(request):
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=401, detail="仅管理员可查看 API 文档")
-        from fastapi.openapi.docs import get_swagger_ui_html
-
-        return get_swagger_ui_html(openapi_url="/openapi.json", title="看板 API")
-
-    return app
-
-
-import export_png as _export_png
+import export_png as _export_png  # noqa: E402
 
 _screenshot_png = _export_png.screenshot_png
 
@@ -675,9 +137,11 @@ def serve(cfg=None, root=None):
         refresh(cfg, root)
         boot_ok = True
         print(f"[server] 就绪 built_at={_state['built_at']}")
-    except Exception as e:  # 数据有问题也让服务起来、页面提示
-        print(f"[server] ⚠ 构建失败：{type(e).__name__}: {e}（服务仍启动，修数据后 /api/v1/admin/refresh 或重启）")
-        # 2.7.3：构建失败保持维护 on（看门狗启动前已 turn_on）；依赖超时兜底
+    except Exception as e:
+        print(
+            f"[server] ⚠ 构建失败：{type(e).__name__}: {e}"
+            "（服务仍启动，修数据后 /api/v1/admin/refresh 或重启）"
+        )
         try:
             import maintenance_mode as _mm
 
@@ -685,7 +149,6 @@ def serve(cfg=None, root=None):
                 _mm.turn_on("boot", cfg, root)
         except Exception:
             pass
-    # 2.7.3：首次 refresh/publish 成功且可服务 → uvicorn 监听前关闭维护
     if boot_ok:
         try:
             import maintenance_mode as _mm
@@ -697,15 +160,15 @@ def serve(cfg=None, root=None):
     import uvicorn
 
     host = resolve_server_host(cfg)
-    # 环境变量 KANBAN_PORT 可覆盖端口（本机多会话调试时避开 config 固定端口，不影响部署默认值）
     port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
     static_on = resolve_serve_static(cfg)
     mode = "直连(挂static)" if static_on else "反代后端(无static挂载)"
     print(f"[server] 内网服务 host={host} port={port} 模式={mode}")
-    print(f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/   管理员 /admin")
+    print(
+        f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/"
+        "   管理员 /admin"
+    )
 
-    # 看门狗回滚配套：正常起服务 N 秒后清掉「更新回滚点」标记 = 确认这版没崩、无需回滚。
-    # （若这版更新后启动即崩，进程活不到清标记，看门狗见标记仍在→自动回滚上一版本。）
     def _confirm_update_good():
         time.sleep(20)
         try:
@@ -713,12 +176,10 @@ def serve(cfg=None, root=None):
 
             updater.clear_rollback_marker(loaders.ROOT)
         except Exception as e:
-            # 看门狗标记清理失败不挡服务；下次更新仍可重试。记一行便于排障。
             print(f"[server] clear_rollback_marker 跳过：{type(e).__name__}: {e}")
 
     threading.Thread(target=_confirm_update_good, daemon=True).start()
 
-    # 任务书60：进程内定时刷新（只在 serve 启动；禁止挂 create_app）
     try:
         from schedule_loop import start_schedule_loop
 

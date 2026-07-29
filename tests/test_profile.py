@@ -44,9 +44,9 @@ class TestNoProfileResidue(unittest.TestCase):
                 {"账号": "user_a", "显示名": "甲负责人", "权限": "BU甲", "密码": server.DEFAULT_VIEW_PW},
             ],
         )
-        server._state["user_html"] = _SHELL.format("USER-MAIN")
         server._state["bu_pages"] = {"BU甲": {"name": "BU甲", "html": _SHELL.format("PAGE-A")}}
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _client(self):

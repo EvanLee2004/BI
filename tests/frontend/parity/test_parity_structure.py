@@ -182,27 +182,20 @@ class TestVmLegacyDisplayParity(unittest.TestCase):
         cls.summary, cls.cfg = _build_summary()
 
     def test_kpi_pl_expense_strings_equal(self):
-        """vue 默认：VM 不带 legacy HTML body；结构化 cards/table 仍有。
-        legacy env 下 body 与 views HTML 对齐。
-        """
-        import os
+        """3.2.0：frontend_mode 恒 vue；VM 无 HTML 僵尸；结构化 cards/table 仍有。"""
         import api_v1
         import viewmodels
 
         mode = viewmodels.frontend_mode(self.cfg)
+        self.assertEqual(mode, "vue")
         views = api_v1.build_json_views(self.summary, self.cfg)
         vm = viewmodels.build_cockpit_vm(self.summary, self.cfg)
-        if mode == "vue":
-            self.assertEqual(vm.kpi.body_by_period or {}, {})
-            self.assertEqual(vm.pl.body_by_period or {}, {})
-            self.assertTrue(vm.kpi.cards_by_period)
-            self.assertTrue(vm.pl.table_by_period)
-            return
-        self.assertEqual(vm.kpi.body_by_period, views.get("kpi_body") or {})
-        self.assertEqual(vm.pl.body_by_period, views.get("pl_body") or {})
-        self.assertEqual(vm.expense.body_by_period, views.get("donut_body") or {})
-        self.assertEqual(vm.rankings.profit_rank_body, views.get("profit_rank_body") or {})
-        self.assertEqual(vm.period_bar, views.get("period_bar") or "")
+        self.assertFalse(hasattr(vm.kpi, "body_by_period"))
+        self.assertFalse(hasattr(vm.pl, "body_by_period"))
+        self.assertTrue(vm.kpi.cards_by_period)
+        self.assertTrue(vm.pl.table_by_period)
+        for z in ("kpi_body", "pl_body", "donut_body", "body_by_period"):
+            self.assertNotIn(z, views)
 
     def test_numbers_equal_extract(self):
         import api_v1

@@ -189,9 +189,9 @@ class TestG4JsonViewsRenderBlocked(unittest.TestCase):
         self.assertTrue(views.get("year_key") or views.get("period_keys"))
         rk = views.get("rankings_view") or {}
         self.assertTrue(rk, "rankings_view 不得空")
-        # HTML 字段必须空（JSON 路径）
-        self.assertEqual(views.get("kpi_body") or {}, {})
-        self.assertEqual(views.get("trend_html") or "", "")
+        # 3.2.0：生产 views 无 HTML 僵尸字段
+        for z in ("kpi_body", "pl_body", "donut_body", "trend_html", "svg_html"):
+            self.assertNotIn(z, views)
         # 任取一周期有 order_disp
         sample = next(iter(rk.values()))
         sales = (sample.get("sales") or {})

@@ -345,7 +345,6 @@ class TestPlXlsxHttp(unittest.TestCase):
 
         server._state["summary"] = cls.summary
         server._state["has_data"] = True
-        server._state["user_html"] = "ready"
         # BU 页：summary 与整体同源（golden 无分 BU 时足够验权限+xlsx 路径）
         server._state["bu_pages"] = {
             "甲BU": {"summary": cls.summary, "name": "甲BU"},

@@ -98,7 +98,6 @@ class TestServerMultiBu(unittest.TestCase):
                 {"账号": "ghost", "权限": "BU", "可见BU": ["已删BU"], "密码": server.DEFAULT_VIEW_PW, "显示名": "全删"},
             ],
         )
-        server._state["user_html"] = '<html><div class="wrap">MAIN</div></html>'
         server._state["fragments"] = fake_main_frags("MAIN")
         server._state["views"] = fake_views("MAIN")
         server._state["bu_pages"] = {
@@ -106,7 +105,8 @@ class TestServerMultiBu(unittest.TestCase):
             "BU乙": fake_bu_page("BU乙", "PAGE-乙"),
             "BU丙": fake_bu_page("BU丙", "PAGE-丙"),
         }
-        server._state["admin_html"] = server._admin_page(server._state["user_html"], {})
+        server._state["admin_html"] = "ready"
+        server._state["has_data"] = True
         self.app = server.create_app(self.cfg, root=self.tmp)
 
     def _login(self, account, pw=None):
