@@ -1,0 +1,8 @@
+# 3.0.0 deploy SSH log (summary)
+host=lee@192.168.30.46 (company LAN; kanban-home jump failed BindAddress)
+before: VERSION=2.7.9 HEAD=dadcd28
+git pull --ff-only origin main → AFTER VERSION=3.0.0 HEAD=9e90fbc
+sudo systemctl restart: needs password → kill -9 serve PID; watchdog restart
+RENDER_GONE tip=9e90fbc VERSION=3.0.0
+health 200 built_at=2026-07-29 11:03:41 / 11:07:06
+login 200 nginx 200
