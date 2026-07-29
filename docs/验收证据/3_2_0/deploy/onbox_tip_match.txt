@@ -1,8 +1,9 @@
-# on-box tip match log (3.2.0)
+# 3.2.0 on-box tip match (verified after dual-push + ff-only pull)
 VERSION=3.2.0
-HEAD=f003b66
-LOCAL_TIP=f003b66
-HEAD_MATCH=pending_pull
+HEAD=d70d066
+LOCAL_TIP=d70d066
+ONBOX_HEAD=d70d066
+HEAD_MATCH=yes
 health=200
 built_at=2026-07-29 14:49:28
-deploy_live_v3: r1/r2 overall+2BU kpi_ok=True; export magic_png=True; legacy_hits=0
+deploy_live_v3: r1/r2 overall+bu_data+bu_game kpi_ok=True splash=False; export magic_png=True; legacy_hits=0
