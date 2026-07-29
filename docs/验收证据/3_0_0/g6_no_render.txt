@@ -1,0 +1,10 @@
+test_import_render_fails (__main__.TestG6RenderPhysicallyRemoved.test_import_render_fails) ... ok
+test_json_views_and_export_pack_without_render (__main__.TestG6RenderPhysicallyRemoved.test_json_views_and_export_pack_without_render) ... ok
+test_no_render_py_modules (__main__.TestG6RenderPhysicallyRemoved.test_no_render_py_modules) ... ok
+test_no_render_templates_dir (__main__.TestG6RenderPhysicallyRemoved.test_no_render_templates_dir) ... ok
+test_src_tests_no_render_load (__main__.TestG6RenderPhysicallyRemoved.test_src_tests_no_render_load) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.157s
+
+OK

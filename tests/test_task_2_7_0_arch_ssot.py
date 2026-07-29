@@ -67,10 +67,9 @@ class TestVersionAtLeast270(unittest.TestCase):
         ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
         # 2.7.0 起；2.8.x 等递增仍通过（G5+）
         parts = ver.split(".")
-        self.assertTrue(
-            len(parts) >= 2 and parts[0] == "2" and parts[1].isdigit() and int(parts[1]) >= 7,
-            ver,
-        )
+        major = int(parts[0]) if parts and parts[0].isdigit() else 0
+        minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+        self.assertTrue(major > 2 or (major == 2 and minor >= 7), ver)
 
 
 if __name__ == "__main__":

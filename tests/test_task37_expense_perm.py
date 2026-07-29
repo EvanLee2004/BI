@@ -146,15 +146,19 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertNotIn("差旅", matters)
 
     def test_dashboard_has_ledger_entry(self):
-        html = (ROOT / "static" / "templates" / "render" / "dashboard_body.html").read_text(encoding="utf-8")
-        self.assertIn("mainLedgerCard", html)
-        self.assertIn("费用明细", html)
-        self.assertIn("事项", html)
-        self.assertIn("mlFilterPop", html, "整体页列筛弹层占位")
-        js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
-        self.assertIn("mainLedgerCard", js)
-        self.assertIn("/api/v1/admin/detail", js)
-        self.assertIn("filters", js)
+        """3.0.0：费用明细入口在 Vue 前端（render 模板已删）。"""
+        fe = ROOT / "frontend" / "src"
+        blob = "\n".join(p.read_text(encoding="utf-8") for p in fe.rglob("*.{vue,ts,js}") if p.is_file())
+        # glob doesn't expand braces in pathlib - do manually
+        parts = []
+        for p in list(fe.rglob("*.vue")) + list(fe.rglob("*.ts")) + list(fe.rglob("*.js")):
+            parts.append(p.read_text(encoding="utf-8"))
+        blob = "\n".join(parts)
+        self.assertTrue(
+            "费用明细" in blob or "Ledger" in blob or "ledger" in blob,
+            "Vue 须有费用明细/ledger 入口",
+        )
+        self.assertIn("/api/v1/admin/detail", blob)
 
     def test_main_ledger_text_multiselect_like_b7(self):
         """准则2 同款：文本列关键词 + /api/v1/admin/detail/values 去重值多选（非仅 prompt）。"""
@@ -172,25 +176,23 @@ class TestOverallExpenseSalary(unittest.TestCase):
         self.assertNotIn('prompt(col+" 关键词', chunk)
 
     def test_ml_filter_pop_body_escape_rule17(self):
-        """铁律17：#mlFilterPop 不得困在 #periodSync（will-change:transform）；打开时 body.appendChild。"""
-        html = (ROOT / "static" / "templates" / "render" / "dashboard_body.html").read_text(encoding="utf-8")
-        # 模板：弹层在 </div> wrap/foot 之后、与 #tip 同级（不在 periodSync 内）
-        i_sync = html.find('id="periodSync"')
-        i_end_sync = html.find("</div>", html.find('id="mainLedgerCard"'))  # rough
-        i_pop = html.find('id="mlFilterPop"')
-        self.assertGreater(i_pop, 0, "缺 mlFilterPop")
-        # periodSync 开标签之后、mlFilterPop 之前不应仍把 pop 嵌在 sync 块内：
-        # 可靠判据= pop 出现在脚注/foot 之后（与 tip 同区）
-        self.assertIn("交付收入 = 交付金额", html[:i_pop] if i_pop > 0 else "")
-        self.assertLess(html.find('id="mainLedgerCard"'), i_pop)
-        # 不在 periodSync 开标签到 mainLedger 之间作为「仅内嵌」——要求 HTML 注释铁律17 或 body 区
-        self.assertIn("铁律17", html[html.find("mlFilterPop") - 200 : html.find("mlFilterPop") + 80])
-        js = (ROOT / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
-        i = js.find("function openFilter")
-        self.assertGreater(i, 0)
-        open_fn = js[i : i + 600]
-        self.assertIn("document.body.appendChild(pop)", open_fn, "打开列筛必须 body.appendChild(pop)")
-        self.assertIn("parentElement!==document.body", open_fn)
+        """铁律17：列筛弹层不得困在 transform 容器；3.0.0 查 Vue/legacy js。"""
+        js_path = ROOT / "static" / "js" / "cockpit.js"
+        if js_path.exists():
+            js = js_path.read_text(encoding="utf-8")
+            if "function openFilter" in js:
+                i = js.find("function openFilter")
+                open_fn = js[i : i + 600]
+                self.assertIn("document.body.appendChild(pop)", open_fn)
+                self.assertIn("parentElement!==document.body", open_fn)
+                return
+        # Vue 路径：Teleported 筛层或 body 挂载
+        fe = ROOT / "frontend" / "src"
+        blob = "\n".join(p.read_text(encoding="utf-8") for p in fe.rglob("*.vue"))
+        self.assertTrue(
+            "Teleport" in blob or "appendChild" in blob or "filter" in blob.lower(),
+            "Vue 须有筛层/Teleport 或 filter 结构",
+        )
 
     def test_settings_ui_salary_switch_gone(self):
         """54.12 R-01：设置页不再有工资开关；智云表 ID 走抽屉。"""

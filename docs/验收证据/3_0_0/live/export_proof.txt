@@ -1,0 +1,8 @@
+r1_export_html.html: bytes=9973762 sha16=861212e607767029
+  -> removed full body; head kept if html
+r1_export_png.png: bytes=6241579 sha16=88b78127210eaee3
+  -> removed full body; head kept if html
+r2_export_html.html: bytes=9973762 sha16=861212e607767029
+  -> removed full body; head kept if html
+r2_export_png.png: bytes=6241983 sha16=ab0df3fd21eeea75
+  -> removed full body; head kept if html

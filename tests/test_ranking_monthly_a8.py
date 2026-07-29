@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import api_v1  # noqa: E402
 import profit  # noqa: E402
-import render  # noqa: E402
+from viewmodels.format import _rank_amt  # noqa: E402
 
 S, E = datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)
 COLS = {
@@ -110,8 +110,8 @@ class TestRankingMonthlyA8(unittest.TestCase):
         self.assertEqual(raw["order"][2], 50_000.0)
         self.assertEqual(raw["order"][1], 0.0)
         # 显示串与后端预算一致（paint 只拼已有串）
-        self.assertEqual(mon[0]["order_disp"], render._rank_amt(100_000.0))
-        self.assertEqual(mon[2]["order_disp"], render._rank_amt(50_000.0))
+        self.assertEqual(mon[0]["order_disp"], _rank_amt(100_000.0))
+        self.assertEqual(mon[2]["order_disp"], _rank_amt(50_000.0))
 
     def test_only_ranked_entities_not_full_db(self):
         p = _period()
@@ -128,41 +128,23 @@ class TestRankingMonthlyA8(unittest.TestCase):
             self.assertRegex(k, r"^\d+\|(销售|客户)\|.+")
 
     def test_no_row_level_monthly_blob(self):
-        """任务书34：行 HTML/JSON 无 data-monthly 大数组。"""
+        """任务书34：行 JSON 无 monthly 大数组。"""
         p = _period()
-        py_html = render.render_rankings(p, embed_full=True)
-        self.assertNotIn("data-monthly=", py_html)
-        self.assertIn("data-mkey=", py_html)
-        self.assertIn('id="rkMonthlyData"', py_html)
-        self.assertIn("2026|销售|甲", py_html)
         view = api_v1.rankings_view_for_period(p, embed_full=True)
         for it in (view["sales"].get("items") or []) + (view["sales"].get("full_items") or []):
             self.assertNotIn("monthly", it)
             self.assertTrue(it.get("mkey"))
+        self.assertIn("2026|销售|甲", view.get("monthly_data") or {})
+
 
     def test_js_equals_python_with_monthly(self):
-        subprocess.run(["node", "--version"], check=True, capture_output=True)
+        """3.0.0：HTML 排名已删；JSON rankings_view 有显示串。"""
         p = _period()
-        py_html = render.render_rankings(p, embed_full=True)
         view = api_v1.rankings_view_for_period(p, embed_full=True)
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
-            json.dump(view, f, ensure_ascii=False)
-            vp = f.name
-        r = subprocess.run(
-            ["node", str(ROOT / "static/js/assemble/rankings_node_runner.js"), vp],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        items = (view.get("sales") or {}).get("items") or []
+        self.assertTrue(items)
+        self.assertTrue(str(items[0].get("order_disp") or "").endswith("万"))
 
-        def norm(s):
-            return re.sub(r">\s+<", "><", s.replace("\n", ""))
-
-        self.assertEqual(norm(py_html), norm(r.stdout))
-        self.assertIn("data-mkey=", py_html)
-        self.assertIn("rk-entity", py_html)
-        self.assertIn("1月", py_html)  # 页面级 JSON 内月份名
-        self.assertNotIn("data-monthly=", py_html)
 
     def test_paint_lookup_matches_store(self):
         """驱动真实 rankings.js paint：按 mkey 取出 12 月显示串。"""

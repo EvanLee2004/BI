@@ -54,7 +54,8 @@ class TestVersionModule(unittest.TestCase):
             or cur.startswith("2.5.")
             or cur.startswith("2.6.")
             or cur.startswith("2.7.")
-            or cur.startswith("2.8."),
+            or cur.startswith("2.8.")
+            or cur.startswith("3."),
             cur,
         )
         if "rc" in cur.lower():

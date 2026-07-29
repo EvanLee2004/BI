@@ -333,230 +333,13 @@ def build_json_bu_views(bu_name: str, summary: dict, cfg: dict | None = None) ->
 
 
 def build_cockpit_views(summary: dict, cfg: dict | None = None) -> dict:
-    """遗留：HTML 卡正文 + rankings（测试/parity/fragments 用）。
-
-    **生产 recompute/generate 禁止调用**——请用 build_json_views。
-    HTML 块经 importlib 装运层；JSON 排名仍走 format。
-    """
-    # 兼容缓存/测试仍要 HTML 块；装运经 importlib 避免业务字面依赖 HTML 层
-    import importlib
-
-    from viewmodels.format import _fine_to_rows, _period_months_map, apply_expense_salary_hide
-
-    _html = importlib.import_module("render")
-
-    cfg = cfg or {}
-    meta = summary.get("meta") or {}
-    P = summary.get("periods") or {}
-    FT = summary.get("expense_fine_type") or {}
-    # 测试/残缺 summary：不硬崩，返回空 views
-    if not meta.get("year_key") and not P:
-        return {
-            "year_key": "",
-            "period_keys": [],
-            "rankings_view": {},
-            "rankings_monthly_data": {},
-            "kpi_body": {},
-            "pl_body": {},
-            "donut_body": {},
-            "profit_rank_body": {},
-            "trend_html": "",
-            "receipts_budget": "",
-            "period_bar": "",
-            "daily_html": "",
-            "expense_trend_html": "",
-        }
-    yk, ordered = _period_keys(summary)
-    month_keys = (meta.get("tab_groups") or {}).get("月") or []
-    budget = meta.get("budget")
-    BUO = meta.get("bu_orders") or {}
-    show_ar = bool(cfg.get("show_delivered_unpaid", False))
-    BP = summary.get("expense_by_profit_center") or {}
-    BD = summary.get("expense_by_department") or {}
-    unc = (meta.get("unclassified") or {}).get("expense") or {}
-    unc_amt = float(unc.get("amount") or 0) if unc else 0.0
-
-    kpi_body, pl_body, donut_body, profit_rank_body = {}, {}, {}, {}
-    for k in ordered:
-        if k not in P:
-            continue
-        kpi_body[k] = _html.render_basic(
-            k, P, meta.get("year"), month_keys, budget, bu_orders=BUO.get(k), show_delivered_unpaid=show_ar
-        )
-        pl_body[k] = _html.render_pl_table(P[k], FT.get(k, {}), unclassified_amt=unc_amt if k == yk else None)
-        donut_body[k] = _html.render_expense_views(P[k], _fine_to_rows(FT.get(k) or {}), BP.get(k), BD.get(k))
-        profit_rank_body[k] = _html.render_profit_rankings(P[k])
-
-    hl = ""
-    try:
-        hl = (meta.get("current_month_label") or "").split("年")[1]
-    except Exception:
-        hl = ""
-    rm_map = _period_months_map(summary)
-    trend_html = _html.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
-    receipts_html = _html.render_receipts(
-        summary.get("receipt_order_monthly") or [],
-        budget,
-        period_months_map=rm_map,
-        year_key=yk,
-        periods=P,
-        default_key=yk,
-        show_delivered_unpaid=show_ar,
-    )
-    receipts_budget = _html.tpl.fill("render/period_receipts.html", html=receipts_html)
-    try:
-        period_bar = _html.render_period_bar(summary)
-    except Exception:
-        period_bar = ""
-
-    # 任务书34：全周期去重一份 rankings_monthly_data；各 period 行只带 mkey
-    monthly_store: dict = {}
-    rankings_view = {
-        pk: rankings_view_for_period(pv, embed_full=False, monthly_store=monthly_store)
-        for pk, pv in P.items()
-        if isinstance(pv, dict)
-    }
-    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
-
-    _exp_raw = filter_expense_monthly_raw_for_charts(
-        apply_expense_salary_hide(summary.get("expense_monthly_by_cat"), True),
-        cfg,
-    )
-    expense_trend_html = _html.render_expense_trend(_exp_raw, title="费用月度趋势 · 按报表大类")
-    return {
-        "year_key": yk,
-        "period_keys": ordered,
-        # 2.6.1 R2：默认 embed_full=False；完整名单 /api/v1/rankings/full
-        "rankings_view": rankings_view,
-        "rankings_monthly_data": monthly_store,
-        # 周期卡正文显示串（JS wrap .pv）
-        "kpi_body": kpi_body,
-        "pl_body": pl_body,
-        "donut_body": donut_body,
-        "profit_rank_body": profit_rank_body,
-        # 非 .pv 块显示串
-        "trend_html": trend_html,
-        "receipts_budget": receipts_budget,
-        "period_bar": period_bar,
-        "daily_html": _html.DAILY_HTML,
-        # 任务书39·E / 54.15
-        "expense_trend_html": expense_trend_html,
-    }
+    """3.0.0：HTML 装运已删；兼容别名 → build_json_views（format only）。"""
+    return build_json_views(summary, cfg)
 
 
 def build_bu_cockpit_views(bu_name: str, summary: dict, cfg: dict | None = None) -> dict:
-    """遗留：BU HTML 卡正文 + rankings（测试/parity 用）。
-
-    **生产 build_bu_pages 禁止调用**——请用 build_json_bu_views。
-    """
-    import importlib
-
-    from viewmodels.format import _esc, _period_months_map, expense_monthly_from_period_ledgers
-
-    _html = importlib.import_module("render")
-
-    cfg = cfg or {}
-    meta = summary.get("meta") or {}
-    P = summary.get("periods") or {}
-    FT = summary.get("expense_fine_type") or {}
-    if not meta.get("year_key") and not P:
-        return {
-            "year_key": "",
-            "period_keys": [],
-            "rankings_view": {},
-            "rankings_monthly_data": {},
-            "kpi_body": {},
-            "pl_body": {},
-            "donut_body": {},
-            "profit_rank_body": {},
-            "trend_html": "",
-            "receipts_html": "",
-            "pl_tag": "",
-            "period_bar": "",
-            "daily_html": "",
-            "expense_trend_html": "",
-            "scope": "BU",
-            "bu_name": bu_name or "",
-        }
-    yk, ordered = _period_keys(summary)
-    month_keys = (meta.get("tab_groups") or {}).get("月") or []
-    budget = meta.get("budget")
-    show_ar = bool(cfg.get("show_delivered_unpaid", False))
-    alloc = meta.get("public_allocation") or {"enabled": False}
-
-    kpi_body, pl_body, donut_body, profit_rank_body = {}, {}, {}, {}
-    tag_note = ""
-    for k in ordered:
-        if k not in P:
-            continue
-        # 与 build_bu_dashboard_fragments 一致：BU KPI 不传 bu_orders
-        kpi_body[k] = _html.render_basic(k, P, meta.get("year"), month_keys, budget, show_delivered_unpaid=show_ar)
-        pl_html, tag_note = _html.render_bu_pl_table(P[k], alloc, fine=FT.get(k))
-        pl_body[k] = pl_html
-        donut_body[k] = _html.render_bu_expense_views(P[k], FT.get(k))
-        # 铁律12：收入排名「其余」预渲染 .pr-full，不调全公司 API（BU 必须 embed）
-        profit_rank_body[k] = _html.render_profit_rankings(P[k], embed_full=True)
-
-    hl = ""
-    try:
-        hl = (meta.get("current_month_label") or "").split("年")[1]
-    except Exception:
-        hl = ""
-    rm_map = _period_months_map(summary)
-    trend_html = _html.render_trend(summary.get("trend") or [], hl, period_months_map=rm_map, year_key=yk)
-    # BU 模板用 receipts_html（非整体页 period_receipts 包壳）
-    receipts_html = _html.render_receipts(
-        summary.get("receipt_order_monthly") or [],
-        budget,
-        period_months_map=rm_map,
-        year_key=yk,
-        periods=P,
-        default_key=yk,
-        show_delivered_unpaid=show_ar,
-    )
-    try:
-        period_bar = _html.render_period_bar(summary)
-    except Exception:
-        period_bar = ""
-    pl_tag = _html.tpl.fill("render/bu_pl_tag.html", note=_esc(tag_note)) if tag_note else ""
-
-    monthly_store: dict = {}
-    # BU 页仍 embed_full=True（铁律12 本地展开，不调全公司排名 API）
-    rankings_view = {
-        pk: rankings_view_for_period(pv, embed_full=True, monthly_store=monthly_store)
-        for pk, pv in P.items()
-        if isinstance(pv, dict)
-    }
-    # 任务书39·B/E：与 build_bu_dashboard_fragments 同源（弹窗壳仍在 fragments.rk_modal）
-    daily_html = _html.tpl.load("partials/daily_panel.html")
-    bu_exp = expense_monthly_from_period_ledgers(summary)
-    if not any(m.get("total") for m in bu_exp.get("months") or []):
-        bu_exp = summary.get("expense_monthly_by_cat") or bu_exp
-    from domain.expense.chart_whitelist import filter_expense_monthly_raw_for_charts
-
-    bu_exp = filter_expense_monthly_raw_for_charts(bu_exp, cfg)
-    expense_trend_html = _html.render_expense_trend(
-        bu_exp, title=f"{bu_name} · 费用月度趋势 · 按报表大类"
-    )
-    return {
-        "year_key": yk,
-        "period_keys": ordered,
-        "scope": "BU",
-        "bu_name": bu_name or "",
-        # 2.6.1 R2：embed_full=False 减包体；其余走 rankings/full
-        "rankings_view": rankings_view,
-        "rankings_monthly_data": monthly_store,
-        "kpi_body": kpi_body,
-        "pl_body": pl_body,
-        "donut_body": donut_body,
-        "profit_rank_body": profit_rank_body,
-        "trend_html": trend_html,
-        "receipts_html": receipts_html,
-        "pl_tag": pl_tag,
-        "period_bar": period_bar,
-        "daily_html": daily_html,
-        "expense_trend_html": expense_trend_html,
-    }
+    """3.0.0：HTML 装运已删；兼容别名 → build_json_bu_views。"""
+    return build_json_bu_views(bu_name, summary, cfg)
 
 
 # 客户端路径须由 JS 组装的 fragments 字段（禁止服务端预拼后 fill）
@@ -604,16 +387,10 @@ def fragments_client_fields_empty(fr: dict) -> bool:
 
 
 def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None, *, client: bool = True) -> dict:
-    """整页碎片 + views。
-
-    client=True：清空须由 JS 组装的卡字段，强制 shipped 路径。
-    client=False：保留 Python 全量预渲染（导出/快照）。
-    """
-    import importlib
-
-    _html = importlib.import_module("render")
-    fr = _html.build_dashboard_fragments(summary, cfg, logo_b64 or "")
-    views = build_cockpit_views(summary, cfg)
+    """3.0.0：fragments HTML 装运已删；返回空碎片 + JSON views（看数走 VM）。"""
+    _ = logo_b64
+    views = build_json_views(summary, cfg)
+    fr: dict = {f: "" for f in _CLIENT_ASSEMBLE_FIELDS}
     if client:
         fr = client_strip_fragments(fr)
     return {
@@ -622,3 +399,6 @@ def cockpit_fragments(summary: dict, cfg: dict, logo_b64: str | None = None, *, 
         "fragments": fr,
         "views": views,
     }
+
+
+

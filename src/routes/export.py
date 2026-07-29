@@ -3,7 +3,7 @@
 2.2.7：历史 = vm JSON + Vue 只读；导出主路径 = HTML。
 2.2.9：导出 = 方案 A 自包含静态可交互快照（kanban_snapshot + Vue 播放器）；
        禁止 Playwright/残壳 fallback 假成功；PNG 与 /?archive= 保留。
-2.7.8 G3：PNG 与 HTML 共用同一 kanban_snapshot pack→HTML 串；禁 render 整页 PNG / assemble_export_html。
+2.7.8 G3：PNG 与 HTML 共用同一 kanban_snapshot pack→HTML 串；禁整页 HTML 装运 PNG / 旧 assemble 导出。
 """
 
 from __future__ import annotations

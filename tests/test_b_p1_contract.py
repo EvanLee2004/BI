@@ -19,22 +19,30 @@ TPL = ROOT / "static" / "templates"
 class TestTemplateContract(unittest.TestCase):
     def test_contract_lists_all_template_dirs(self):
         text = CONTRACT.read_text(encoding="utf-8")
-        # 顶层目录均应出现在合同
-        for d in ("render", "partials", "charts"):
+        # G6/3.0.0：render 目录物理删除；保留 partials/charts + login
+        self.assertFalse(
+            (TPL / "render").exists(),
+            "templates/render 应已物理删除 (G6)",
+        )
+        for d in ("partials", "charts"):
             self.assertTrue((TPL / d).is_dir(), d)
             self.assertIn(d, text, f"contract 未覆盖 templates/{d}")
         # login
         self.assertTrue((TPL / "login.html").is_file())
         self.assertIn("login.html", text)
 
-    def test_every_render_template_mentioned_or_family(self):
-        """每个 templates 下 html 文件名（或族前缀）应在合同表出现。"""
+    def test_every_remaining_template_mentioned_or_family(self):
+        """每个仍存在的 templates 下 html 文件名（或族前缀）应在合同表出现。"""
         text = CONTRACT.read_text(encoding="utf-8")
         missing = []
         for p in sorted(TPL.rglob("*.html")):
             rel = p.relative_to(TPL).as_posix()
+            # render/ 已退役，不应再出现
+            if rel.startswith("render/"):
+                missing.append(rel)
+                continue
             stem = p.stem
-            # 族：kpi_*, dual_*, rc_*, render/ 等
+            # 族：kpi_*, dual_*, rc_* 等
             fam = stem.split("_")[0]
             if rel in text or stem in text or fam in text or p.parent.name in text:
                 continue

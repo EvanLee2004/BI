@@ -103,14 +103,14 @@ class TestFetchFallbackBanners(unittest.TestCase):
         self.assertTrue(any("本次未抓到" in (x.get("text") or "") for x in d["fetch_banners"]))
 
     def test_ui_hooks_admin_only(self):
-        """任务书39·F：抓数黄横幅仅管理端；看端整体/BU 模板与 cockpit.js 一律不渲染。"""
-        dash = (ROOT / "static/templates/render/dashboard_body.html").read_text(encoding="utf-8")
-        bu = (ROOT / "static/templates/render/bu_body.html").read_text(encoding="utf-8")
-        js = (ROOT / "static/js/cockpit.js").read_text(encoding="utf-8")
-        self.assertNotIn("fetchBanner", dash)
-        self.assertNotIn("fetchBanner", bu)
-        self.assertNotIn("paintFetchBanners", js)
-        self.assertNotIn("fetch_banners", js)
+        """任务书39·F：抓数黄横幅仅管理端；看端 Vue 主路径不渲染抓数横幅。"""
+        # 3.0.0：render 模板已删；看端以 frontend/src 为准
+        for p in (ROOT / "frontend" / "src").rglob("*.vue"):
+            if "admin" in p.parts:
+                continue
+            t = p.read_text(encoding="utf-8")
+            self.assertNotIn("paintFetchBanners", t)
+            self.assertNotIn("admin-fetch-banner", t)
         vue_admin = (ROOT / "frontend" / "src" / "admin" / "layout" / "AdminLayout.vue").read_text(encoding="utf-8")
         self.assertIn("fetchBanners", vue_admin)
         self.assertIn("admin-fetch-banner", vue_admin)

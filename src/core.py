@@ -364,7 +364,7 @@ def build_bu_pages(cfg, conn, today, logo_b64, root=None) -> dict[str, dict]:
     """BU 分页（迭代 14·v7.9 账号制 · 迭代17 分摊 · 65·L2 按需）：读 BU 配置 → 每 BU 按销售名单
     过滤四源行 → 独立 summary（分摊开时注入全公司台账公共×比例）→ fragments + views（不装 html）。
     返回 {BU名: {name, summary, fragments, views}}；没配置/配置无效 → {}。
-    导出 PNG 在 export 路由按需 render_bu_page；严格保密：每页只吃本 BU 过滤后的行。"""
+    导出 PNG 在 export 路由按需 BU page HTML (removed 3.0.0)；严格保密：每页只吃本 BU 过滤后的行。"""
     bucfg = bu.load_bu_config(cfg, root)
     if not bucfg:
         return {}

@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 class TestRankOrderByOrders(unittest.TestCase):
     def test_merge_dual_rank_sorts_by_order_amount(self):
-        from render_receipts_rank import _merge_dual_rank
+        from viewmodels.format import _merge_dual_rank
 
         o = {
             "full_items": [

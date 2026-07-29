@@ -1,3 +1,11 @@
+## 3.0.0 · 2026-07-29
+
+### 物理删除 render 驾驶舱双轨
+- `git rm` 全部 `src/render*.py` 与 `static/templates/render/`
+- 生产装运仅 JSON/VM + 导出 `kanban_snapshot`；`assemble_export_html` 改走 export_html
+- 历史 HTML 组装测退役为「render 不可 import」守卫；契约测 `test_g6_3_0_0_no_render.py`
+- 未改 profit 算账
+
 ## 2.8.0 · 2026-07-29
 
 ### 测试迁出 HTML SHA 架构锁

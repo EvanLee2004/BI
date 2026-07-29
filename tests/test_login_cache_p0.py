@@ -191,17 +191,23 @@ class TestLoginCacheP0(unittest.TestCase):
         self.assertIn("401", admin_api)
 
     def test_viewer_pages_have_logout_button(self):
-        """深检①：看端整体/BU 须有退出入口，调 /api/v1/logout。"""
-        for name in (
-            "static/templates/render/dashboard_body.html",
-            "static/templates/render/bu_body.html",
-        ):
-            t = (ROOT / name).read_text(encoding="utf-8")
-            self.assertIn("logoutBtn", t, name)
-        for name in ("static/js/cockpit.js", "static/js/cockpit-bu.js"):
-            t = (ROOT / name).read_text(encoding="utf-8")
-            self.assertIn("logoutBtn", t, name)
-            self.assertIn("/api/v1/logout", t, name)
+        """深检①：看端 Vue 须有退出入口，调 /api/v1/logout（3.0.0 无 render 模板）。"""
+        vue_hits = []
+        for p in (ROOT / "frontend" / "src").rglob("*.vue"):
+            t = p.read_text(encoding="utf-8")
+            if "logout" in t.lower() or "/api/v1/logout" in t:
+                vue_hits.append(p.name)
+        self.assertTrue(vue_hits, "frontend Vue 须有 logout 相关入口")
+        # 客户端/顶栏源码须有 v1 logout
+        blob = ""
+        for name in ("frontend/src/components/TopBarActions.vue", "frontend/src/api/client.ts"):
+            fp = ROOT / name
+            if fp.exists():
+                blob += fp.read_text(encoding="utf-8")
+        self.assertTrue(
+            "/api/v1/logout" in blob or "logout" in blob.lower(),
+            "Vue 顶栏/客户端须引用 logout",
+        )
 
 
 if __name__ == "__main__":

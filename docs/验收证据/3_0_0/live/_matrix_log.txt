@@ -1,0 +1,14 @@
+BASE=http://127.0.0.1:8018 account=123 VERSION=3.0.0
+health result=黄 built_at=2026-07-29 11:48:48
+=== ROUND 1 ===
+r1_overall.png: kpi_wan=True version_badge=True
+r1_bu_data.png: bu=数据 clicked=True kpi_wan=True
+r1_bu_game.png: bu=游戏 clicked=True kpi_wan=True
+r1_export_html: /api/v1/export.html bytes=9973762 ok=True
+r1_export_png: /api/v1/export.png bytes=6241579 ok=True
+=== ROUND 2 ===
+r2_overall.png: kpi_wan=True version_badge=True
+r2_bu_data.png: bu=数据 clicked=True kpi_wan=True
+r2_bu_game.png: bu=游戏 clicked=True kpi_wan=True
+r2_export_html: /api/v1/export.html bytes=9973762 ok=True
+r2_export_png: /api/v1/export.png bytes=6241983 ok=True

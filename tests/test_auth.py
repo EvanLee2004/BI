@@ -410,9 +410,8 @@ class TestViewerAuth(unittest.TestCase):
         self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
         self.assertIn("初始密码", overall)
         # 自改密码弹窗仍在 HTML 壳（看的人可自改）
-        import render
-
-        self.assertIn("请勿使用你在其他地方用的密码", render.PW_MODAL_HTML)
+        pw = (ROOT / "static" / "templates" / "partials" / "pw_modal.html").read_text(encoding="utf-8")
+        self.assertIn("请勿使用你在其他地方用的密码", pw)
         _js = (Path(__file__).resolve().parents[1] / "static" / "js" / "cockpit.js").read_text(encoding="utf-8")
         self.assertIn("pwBtn", _js)
         self.assertIn("/api/v1/my_passwd", _js)

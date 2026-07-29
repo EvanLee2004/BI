@@ -204,53 +204,52 @@ def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool
         do_recompute(cfg, root, rebuild_std=rebuild_std)
 
 
-def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:  # noqa: C901
-    """按需装配导出用 HTML（任务书65·L2）。同 built_at 缓存。"""
+def assemble_export_html(cfg, *, bu_name: str | None = None) -> str:
+    """3.0.0：遗留名保留；装配 kanban_snapshot HTML（export_html），禁整页 HTML 装运。"""
     built = _state.get("built_at")
     cache = _state.get("export_html_cache") or {}
     if cache.get("built_at") == built:
-        if bu_name:
-            hit = (cache.get("bu") or {}).get(bu_name)
-            if hit:
-                return hit
-        elif cache.get("main"):
+        if bu_name and (cache.get("bu") or {}).get(bu_name):
+            return cache["bu"][bu_name]
+        if not bu_name and cache.get("main"):
             return cache["main"]
 
+    # 测试注入捷径
     if not bu_name:
-        # 测试注入的 user_html 优先（兼容旧测试）——先于 logo/IO
         injected = (_state.get("user_html") or "").strip()
-        # 避免字面量 <html 触发 test_no_html_in_py
-        if injected and (("html" in injected.lower() and "<" in injected) or len(injected) > 5):
+        if injected and ("<" in injected or len(injected) > 5):
             return injected
-
-    import importlib
-
-    _html = importlib.import_module("render")
-    logo = assets.load_logo_base64(cfg or {})
     if bu_name:
         page = (_state.get("bu_pages") or {}).get(bu_name) or {}
-        # 测试可注入 page.html
         if isinstance(page, dict) and page.get("html"):
             return page["html"]
-        summary = page.get("summary") if isinstance(page, dict) else None
-        if not summary:
-            raise ValueError("BU 无 summary")
-        html = _html.render_bu_page(bu_name, summary, cfg, logo)
-        if cache.get("built_at") != built:
-            cache = {"built_at": built, "main": None, "bu": {}}
-        cache.setdefault("bu", {})[bu_name] = html
-        _state["export_html_cache"] = cache
-        return html
 
-    summary = _state.get("summary")
-    if not summary:
-        raise ValueError("无 summary")
-    try:
-        html = _html.render_dashboard(summary, cfg, logo)
-    except Exception as e:
-        raise ValueError(f"装配导出 HTML 失败: {type(e).__name__}: {e}") from e
+    html = _snapshot_export_html(cfg, bu_name=bu_name, built_at=built)
     if cache.get("built_at") != built:
         cache = {"built_at": built, "main": None, "bu": {}}
-    cache["main"] = html
+    if bu_name:
+        cache.setdefault("bu", {})[bu_name] = html
+    else:
+        cache["main"] = html
     _state["export_html_cache"] = cache
     return html
+
+
+def _snapshot_export_html(cfg, *, bu_name: str | None, built_at) -> str:
+    """kanban_snapshot pack → HTML（export_html）。"""
+    from export_html import assemble_export_pack, build_export_html
+    import version as product_version
+
+    try:
+        ver = product_version.read_version()
+    except Exception:
+        ver = ""
+    pack = assemble_export_pack(
+        scope="BU" if bu_name else "整体",
+        bu_name=bu_name or "",
+        version=ver,
+        built_at=built_at,
+        state=_state,
+        cfg=cfg or {},
+    )
+    return build_export_html(pack)

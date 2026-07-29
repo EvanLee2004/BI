@@ -1,99 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B-P4：回款卡/双血条/drawer/日段 + BU 隔离回归 + data-assembled 契约。
+"""3.0.0：原 HTML render 驾驶舱测已退役（模块物理删除）。
 
-2.7.7 G2：generate 不再预装整页 HTML；本测对导出 assemble 链与 bu_pages 空 fragments 契约。
+本文件保留为「render 不可 import」守卫，避免旧测再挂 SERIAL。
 """
-
 from __future__ import annotations
 
-import json
-import re
-import subprocess
-import sys
-import tempfile
+import importlib
 import unittest
-from datetime import date
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-RUNNER = ROOT / "static" / "js" / "assemble" / "page_node_runner.js"
-
-P4_MARKERS = (
-    "下单与回款",
-    "dual-grid",
-    "dual-bar",
-    "回款",
-    "drawer",
-)
 
 
-class TestP4Remainder(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        subprocess.run(["node", "--version"], check=True, capture_output=True)
-        import loaders
-        import core
-        import render
-        import assets
-
-        cfg = dict(loaders.load_config(ROOT))
-        cfg["data_dir"] = "_golden_data"
-        cfg["db_path"] = "看板.db"
-        cfg["zhiyun_auto_fetch"] = False
-        cls.summary, gen_html, _, cls.bu_pages = core.generate(cfg, date(2026, 6, 30), trigger="b-p4")
-        cls.gen_html = gen_html
-        logo = assets.load_logo_base64(cfg) or ""
-        cls.frags = render.build_dashboard_fragments(cls.summary, cfg, logo)
-        # 导出链真源（非 generate 返回值）
-        cls.html = render.assemble_dashboard_html(cls.frags)
-        cls.cfg = cfg
-
-    def test_remainder_in_fragments_and_equal_page(self):
-        for k in ("receipts_budget", "rank_views", "daily_html", "drawer"):
-            self.assertIn(k, self.frags)
-            self.assertTrue(str(self.frags[k]).strip(), f"空: {k}")
-        pack = {
-            "fragments": self.frags,
-            "templates": {
-                "dashboard_body": (ROOT / "static/templates/render/dashboard_body.html").read_text(encoding="utf-8"),
-                "page_shell": (ROOT / "static/templates/render/page_shell.html").read_text(encoding="utf-8"),
-            },
-        }
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
-            json.dump(pack, f, ensure_ascii=False)
-            path = f.name
-        r = subprocess.run(["node", str(RUNNER), path], capture_output=True, text=True, check=True)
-        self.assertEqual(r.stdout, self.html)
-        for m in P4_MARKERS:
-            if m == "drawer":
-                # drawer 可能是 class/id
-                self.assertTrue("drawer" in self.html.lower() or "抽屉" in self.html or self.frags["drawer"])
-            else:
-                self.assertIn(m, self.html, m)
-
-    def test_body_data_assembled_mark(self):
-        """导出/快照 HTML 仍可带 assembled 标记；看端 shell 已删。"""
-        self.assertIn('data-assembled="1"', self.html)
-        self.assertFalse((ROOT / "static" / "shell.html").is_file())
-
-    def test_bu_pages_g2_no_html_fragments(self):
-        """2.7.7 G2：BU 页有 summary + views；fragments 为空 dict（不预装 HTML 碎片）。"""
-        self.assertEqual(self.gen_html, "")
-        self.assertIsInstance(self.bu_pages, dict)
-        for name, page in (self.bu_pages or {}).items():
-            self.assertNotIn("html", page, name)
-            self.assertIn("fragments", page)
-            self.assertIn("summary", page)
-            self.assertIn("views", page)
-            fr = page.get("fragments") or {}
-            self.assertFalse(fr.get("kpi_views"), f"BU {name} 不得预装 kpi_views")
-            self.assertTrue(
-                (page.get("views") or {}).get("period_keys") or (page.get("views") or {}).get("rankings_view"),
-                f"BU {name} 应有 views",
-            )
+class TestRenderRetired(unittest.TestCase):
+    def test_render_module_gone(self):
+        with self.assertRaises(ModuleNotFoundError):
+            importlib.import_module("render")
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()
