@@ -135,8 +135,9 @@ async function renderCharts() {
   const splitLine = { lineStyle: { color: pal.grid } }
 
   if (chartAccountEl.value) {
+    // 仅展示登录成功 ≥2 次的账号，避免 1 次噪音占条
     const top = byAccount.value
-      .filter((r) => (r.login_ok || 0) > 0)
+      .filter((r) => (r.login_ok || 0) > 1)
       .slice(0, 15)
       .reverse()
     const ch = echarts.init(chartAccountEl.value, undefined, { renderer: 'svg' })
@@ -144,7 +145,7 @@ async function renderCharts() {
     if (!top.length) {
       ch.setOption({
         title: {
-          text: '暂无登录成功数据',
+          text: '暂无登录成功≥2 次的账号',
           left: 'center',
           top: 'middle',
           textStyle: { color: pal.muted, fontSize: 13 },
@@ -439,7 +440,7 @@ onBeforeUnmount(() => {
 
     <div class="us-charts">
       <div class="us-chart-card">
-        <div class="us-chart-title">账号 Top 登录成功</div>
+        <div class="us-chart-title">账号 Top 登录成功 <span class="us-chart-hint">仅 ≥2 次</span></div>
         <div ref="chartAccountEl" class="us-chart" data-testid="user-stats-chart-account" />
       </div>
       <div class="us-chart-card">
@@ -618,6 +619,12 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--admin-us-title);
   margin-bottom: 4px;
+}
+.us-chart-hint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--admin-mut);
 }
 .us-chart {
   width: 100%;
