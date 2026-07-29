@@ -1,4 +1,4 @@
 status=200
-bytes=6126079
+bytes=6127373
 magic_png=True
 content_type=image/png

@@ -62,5 +62,7 @@ http://192.168.30.46/api/v1/version
 http://192.168.30.46/api/v1/vm/bu/%E6%B8%B8%E6%88%8F
 http://192.168.30.46/api/v1/vm/ledger?page=1&page_size=50&date_from=2026-01-01&date_to=2026-12-31&bu=%E6%B8%B8%E6%88%8F&show_all=0
 http://192.168.30.46/api/v1/session
+http://192.168.30.46/api/v1/session
+http://192.168.30.46/api/v1/version
 --- legacy ---
 (none)
