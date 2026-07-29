@@ -183,6 +183,7 @@ async function showGroup(g: string) {
   if (g === 'see') await confirmNav('/admin')
   else if (g === 'edit') await confirmNav('/admin/edit/detail?table=收入明细')
   else if (g === 'review') await confirmNav('/admin/review/overview')
+  else if (g === 'users') await confirmNav('/admin/users')
   else if (g === 'cfg') await confirmNav('/admin/settings')
 }
 
@@ -440,6 +441,7 @@ import './admin-layout.css'
       <div class="gtab" :class="{ on: group === 'see' }" @click="showGroup('see')">展示</div>
       <div class="gtab" :class="{ on: group === 'edit' }" @click="showGroup('edit')">数据调整</div>
       <div class="gtab" :class="{ on: group === 'review' }" @click="showGroup('review')">异常处理</div>
+      <div class="gtab" data-testid="nav-user-stats" :class="{ on: group === 'users' }" @click="showGroup('users')">用户统计</div>
       <div class="gtab" :class="{ on: group === 'cfg' }" @click="showGroup('cfg')">设置</div>
     </nav>
 

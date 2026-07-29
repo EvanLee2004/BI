@@ -30,6 +30,25 @@
   --admin-ico-bg: rgba(139, 92, 246, 0.2);
   --admin-radius: 10px;
   --admin-radius-sm: 6px;
+  /* 3.3.0 用户统计页 / 图表色板 */
+  --admin-us-card-bg: rgba(20, 28, 48, 0.72);
+  --admin-us-card-line: rgba(120, 140, 180, 0.16);
+  --admin-us-card-line-on: rgba(91, 157, 255, 0.45);
+  --admin-us-card-glow: rgba(91, 157, 255, 0.12);
+  --admin-us-kpi-sub: #a8b6cc;
+  --admin-us-kpi-num: #eef4ff;
+  --admin-us-title: #c8d4e8;
+  --admin-us-err-bg: rgba(240, 113, 120, 0.12);
+  --admin-us-err-fg: #f07178;
+  --admin-us-chart-text: #c8d4e8;
+  --admin-us-chart-muted: #8a9bb5;
+  --admin-us-chart-grid: rgba(120, 140, 180, 0.18);
+  --admin-us-chart-accent: #5b9dff;
+  --admin-us-chart-ok: #5ad4a0;
+  --admin-us-chart-warn: #f0b429;
+  --admin-us-chart-bad: #f07178;
+  --admin-us-chart-vio: #c792ea;
+  --admin-us-chart-sky: #89ddff;
   /* Element Plus 主题变量对齐 scifi */
   --el-color-primary: #22d3ee;
   --el-color-primary-light-3: #67e8f9;

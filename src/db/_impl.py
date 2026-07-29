@@ -40,6 +40,14 @@ from .meta_lists import (  # noqa: F401
     audit_duplicate_locators,
     pragma_quick_check,
 )
+from .access_stats import (  # noqa: F401
+    parse_action,
+    action_label,
+    resolve_bu_bucket,
+    aggregate_user_stats,
+    list_access_events,
+    ACTION_LABELS,
+)
 from .adjust import (  # noqa: F401
     _now,
     add_adjustment,

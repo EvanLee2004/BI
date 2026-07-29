@@ -105,6 +105,7 @@ tests/test_g5_2_8_0_pl_structure_contract.py
 tests/test_g6_3_0_0_no_render.py
 tests/test_g7_3_1_0_hygiene.py
 tests/test_g8_3_2_0_structure.py
+tests/test_user_stats_3_3_0.py
 tests/test_config_engine.py
 tests/test_backup_restore.py
 tests/test_domain_reexport.py

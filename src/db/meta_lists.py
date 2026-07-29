@@ -84,7 +84,11 @@ def log_config_change(conn: sqlite3.Connection, 操作账号: str, 类别: str, 
 
 
 def list_config_changes(conn: sqlite3.Connection, category: str | None = None, limit: int = 200) -> list[dict]:
-    """配置变更记录（倒序，最近 limit 条；可按类别筛）。管理端「操作记录」页数据源。"""
+    """配置变更记录（倒序，最近 limit 条；可按类别筛）。管理端「操作记录」页数据源。
+
+    3.3.0：无 category 时默认排除 类别=访问（访问流水改走用户统计页）；
+    显式 category=访问 仍可查。
+    """
     cols = ["id", "时间", "操作账号", "类别", "摘要"]
     limit = max(1, min(1000, int(limit)))
     if category:
@@ -93,7 +97,10 @@ def list_config_changes(conn: sqlite3.Connection, category: str | None = None, l
         ).fetchall()
     else:
         rows = conn.execute(
-            f"SELECT {','.join(cols)} FROM manual_配置变更 ORDER BY id DESC LIMIT ?", (limit,)
+            f"SELECT {','.join(cols)} FROM manual_配置变更 "
+            "WHERE 类别 IS NULL OR 类别 <> '访问' "
+            "ORDER BY id DESC LIMIT ?",
+            (limit,),
         ).fetchall()
     return [dict(zip(cols, r, strict=False)) for r in rows]
 

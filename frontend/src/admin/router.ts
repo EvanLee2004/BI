@@ -33,6 +33,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'review/unclassified', name: 'admin-unclassified', component: () => import('./views/UnclassifiedView.vue'), meta: { group: 'review', title: '费用未分类' } },
       { path: 'review/history', name: 'admin-history', component: () => import('./views/HistoryView.vue'), meta: { group: 'review', title: '历史快照' } },
       { path: 'review/audit', name: 'admin-audit', component: () => import('./views/AuditView.vue'), meta: { group: 'review', title: '配置变更记录' } },
+      { path: 'users', name: 'admin-users', component: () => import('./views/UserStatsView.vue'), meta: { group: 'users', title: '用户统计' } },
       { path: 'settings', name: 'admin-settings', component: () => import('./views/SettingsView.vue'), meta: { group: 'cfg', title: '设置' } },
     ],
   },

@@ -45,7 +45,10 @@ onMounted(load)
       <el-button size="small" :disabled="page <= 1 || loading" @click="prevPage">上一页</el-button>
       <el-button size="small" :disabled="page >= pages || loading" @click="nextPage">下一页</el-button>
     </div>
-    <div class="admin-note">谁在什么时候改了哪项配置都在这里，倒序、最近 200 条。只记变更摘要，不含密码明文。</div>
+    <div class="admin-note">
+      谁在什么时候改了哪项配置都在这里，倒序、最近 200 条。只记变更摘要，不含密码明文。
+      默认不含登录/访问流水；访问与登录频次请到顶栏「用户统计」查看。
+    </div>
     <el-table :data="pageRows" v-loading="loading" border height="calc(100vh - 260px)">
       <el-table-column prop="时间" label="时间" width="170" />
       <el-table-column prop="操作账号" label="操作账号" width="120" />

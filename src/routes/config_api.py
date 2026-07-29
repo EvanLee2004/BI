@@ -148,13 +148,17 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/admin/config_changes")
     def api_config_changes(request: Request, category: str | None = None, limit: int = 200):
-        """C3 操作记录（管理员）：配置变更留痕倒序，可按类别筛。仅摘要，无密码明文。"""
+        """C3 操作记录（管理员）：配置变更留痕倒序，可按类别筛。仅摘要，无密码明文。
+
+        3.3.0：无 category 时默认排除访问类（访问见用户统计）；?category=访问 仍可查。
+        """
         _require(request)
         conn = db.connect(cfg, root)
         try:
             return {
                 "changes": db.list_config_changes(conn, category or None, limit),
                 "categories": list(db.CONFIG_CHANGE_CATEGORIES),
+                "excluded_access_by_default": not bool(category),
             }
         finally:
             conn.close()
