@@ -1,18 +1,21 @@
-# domain 包 · 可导航门面（任务书 54.4·E）
+# domain 包 · 可导航门面（3.3.1）
 
-本目录是**业务域入口**，不是第二套算账实现。
+本目录是**业务域入口**，不是第二套算账实现。看数链路：**domain → viewmodels → Vue**；**无** `render_*` 驾驶舱双轨（3.0.0+ 已物理删除）。
 
 | 包 | 真实逻辑 | 说明 |
 |----|----------|------|
 | `config_engine` | 本包实现 | 配置引擎 |
-| `pl/structure` | 本包实现 | 利润表/KPI 共享结构 |
-| `kpi` / `trend` / `expense` / `receipts` / `rankings` / `ledger` / `export` | re-export → `profit` / `render` | 可导航别名；`test_domain_reexport` 保证 `is` 同一对象 |
+| `pl/` | 本包实现 | 利润表 / KPI 共享结构 |
+| `kpi` / `expense` / `receipts` / `rankings` / `ledger` | re-export → `profit` | 可导航别名；与 `profit` 同对象 |
+| `trend` | （空门面） | HTML 趋势卡已在装运层；本包不再 re-export |
+| `export` | re-export → `export_png.screenshot_png` | PNG 截图边界；HTML 快照走 `kanban_snapshot` / `export_html` |
 
-**巨石现状（可导航）**：
+**周边巨石（本包外，可导航）**：
 
-- `profit.py`：算账 summary（冻结口径）
-- `db.py`：SQLite 读写
-- `render.py`：HTML/导出拼装（看端壳已删，仍服务导出与历史快照）
-- `server.py` + `routes/*`：HTTP 入口（路由已拆模块）
+- `src/profit/`：算账 summary（冻结口径；库内/算账 **int 分**）
+- `src/db*` / `schema.py`：SQLite 读写
+- `src/viewmodels/`：API/页面用 VM 打包（`value` + `value_disp`）
+- `src/export_html.py` · `export_png.py` · `export_pl_xlsx.py`：导出（snapshot / 截图 / Excel）
+- `src/server.py` + `routes/*`：HTTP（业务/管理/运维均 `/api/v1/*`）
 
-拆分原则：只搬家、不改算法；拆后必跑 32 周期 + `run_verify`。
+拆分原则：只搬家、不改算法；拆后必跑 32 周期回归 + `KANBAN_OFFLINE=1 sh tests/run_verify.sh`。

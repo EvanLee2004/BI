@@ -1,6 +1,9 @@
-# deploy/linux · Ubuntu **26.04** 部署资产（任务书50·D.6）
+# deploy/linux · Ubuntu **26.04** 部署资产
 
-Linux 为**唯一**部署线（任务书54：Windows `.bat` / schtasks 已全线退役）。  
+> **产品现网**：根目录 `VERSION`（**3.3.1**）· 日常运维见根 `README.md#生产运维` 与 `docs/Runbook.md` §0。  
+> 热加载（无交互 sudo）：`bash deploy/linux/reload_kanban.sh`。维护模式：`maintenance_on.sh` / `maintenance_off.sh`。
+
+Linux 为**唯一**部署线（Windows `.bat` / schtasks 已全线退役）。  
 Python：系统 `python3`（≥3.12）建 venv，见 `docs/madr/0010_python_version_ubuntu26.md`。  
 **不**在脚本里写死 `python3.12` 或 deadsnakes 路径。
 
