@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { jget, jpost } from '../api'
+import { jget, jpost, AdminApiError } from '../api'
 import { syncThemeFromDom } from '../../utils/theme'
 
 const route = useRoute()
@@ -63,17 +63,13 @@ function toggleHealthPop() {
     detachHealthScrollTargets()
   }
 }
-/** 用户滚轮/触控滑动 = 在看数据，收起浮层（不依赖 scroll 冒泡；浮层自身也可滚，同样收起） */
+/** 3.3.2：页面外滚/触控收起浮层；浮层内部滚动不关（可读完多条告警） */
 function onHealthWheelOrTouch(ev?: Event) {
   if (!healthOpen.value) return
-  // 浮层内滚动也收起：避免「面板自己在滚、底下数据仍被挡」
+  const t = (ev?.target as Node | null) || null
+  // 浮层内部 → 不关闭，允许 max-height 内滚读完
+  if (t && healthPopEl.value?.contains(t)) return
   closeHealthPop()
-  // 阻止浮层内部继续吞滚轮（可选）
-  try {
-    ev?.preventDefault?.()
-  } catch {
-    /* passive 监听时 preventDefault 无效，忽略 */
-  }
 }
 function onHealthPointerDown(ev: MouseEvent) {
   if (!healthOpen.value) return
@@ -247,50 +243,133 @@ async function loadVersion() {
   }
 }
 
+type RefreshLast = {
+  status?: string
+  detail?: string
+  seconds?: number
+  finished_at?: string
+}
+type RefreshStatus = {
+  running?: boolean
+  last?: RefreshLast | null
+  zhiyun_auto_fetch?: boolean
+}
+
 let refT0 = 0
+/** 本次点击会话：POST 前 last.finished_at；未推进则禁止「更新完成（旧秒数）」 */
+let baselineFinishedAt: string | null = null
+/** 同一 finished_at 只 toast 一次，防连点堆叠 */
+let lastToastedFinishedAt: string | null = null
+
+function failBusyMsg() {
+  return '暂时无法启动更新（系统忙）。请稍后重试；若连续出现请运维 restart kanban'
+}
+
+async function captureBaselineFinishedAt(): Promise<string | null> {
+  try {
+    const pre = await jget<RefreshStatus>('/api/v1/admin/refresh_status')
+    return pre.last?.finished_at ?? null
+  } catch {
+    return null
+  }
+}
+
+/** finished_at 相对 baseline 已推进（或 baseline 空且 last 有 finished_at） */
+function finishedAtAdvanced(last: RefreshLast | null | undefined, baseline: string | null): boolean {
+  if (!last || !last.finished_at) return false
+  if (!baseline) return true
+  return last.finished_at !== baseline
+}
+
 async function doRefresh() {
+  // 连点：已在更新会话中则忽略
+  if (refreshing.value) return
+
+  baselineFinishedAt = await captureBaselineFinishedAt()
   refreshing.value = true
   refreshMsg.value = '更新数据中…'
   refT0 = Date.now()
+
   try {
     await jpost('/api/v1/admin/refresh', {})
-  } catch {
-    /* 409 已在更新 → 轮询 */
+    // 200 started → 轮询
+    pollRefresh()
+  } catch (e) {
+    if (e instanceof AdminApiError && e.status === 409) {
+      try {
+        const s = await jget<RefreshStatus>('/api/v1/admin/refresh_status')
+        if (s.running) {
+          refreshMsg.value = '更新进行中，已跟进进度'
+          ElMessage.info(refreshMsg.value)
+          pollRefresh()
+          return
+        }
+        // 409 且 running false：锁忙但无刷新会话 → 明确失败，禁止假完成
+        refreshing.value = false
+        refreshMsg.value = failBusyMsg()
+        ElMessage.error(refreshMsg.value)
+        return
+      } catch {
+        refreshing.value = false
+        refreshMsg.value = failBusyMsg()
+        ElMessage.error(refreshMsg.value)
+        return
+      }
+    }
+    // 其它 4xx/5xx/网络：真实错误，绝不 toast 完成
+    refreshing.value = false
+    const msg = e instanceof AdminApiError ? e.message : e instanceof Error ? e.message : String(e)
+    refreshMsg.value = '更新启动失败：' + msg
+    ElMessage.error(refreshMsg.value)
   }
-  pollRefresh()
 }
 
 async function pollRefresh() {
   try {
-    const s = await jget<{ running?: boolean; last?: { status?: string; detail?: string; seconds?: number }; zhiyun_auto_fetch?: boolean }>(
-      '/api/v1/admin/refresh_status',
-    )
+    const s = await jget<RefreshStatus>('/api/v1/admin/refresh_status')
     if (s.running) {
       const el = Math.round((Date.now() - refT0) / 1000)
-      refreshMsg.value = '更新数据中… ' + el + 's' + (s.zhiyun_auto_fetch ? '（含智云在线抓数，约1~2分钟）' : '')
+      refreshMsg.value =
+        '更新数据中… ' + el + 's' + (s.zhiyun_auto_fetch ? '（含智云在线抓数，约1~2分钟）' : '')
       setTimeout(pollRefresh, 2000)
       return
     }
     refreshing.value = false
     const L = s.last
+
+    // 未观察到新一次 finish → 禁止用旧 last.seconds 弹「更新完成」
+    if (!finishedAtAdvanced(L, baselineFinishedAt)) {
+      refreshMsg.value = '未能确认新一次更新已执行'
+      ElMessage.warning(refreshMsg.value)
+      return
+    }
+
+    // 同一 finished_at 只 toast 一次
+    const fin = L?.finished_at || null
+    if (fin && fin === lastToastedFinishedAt) {
+      return
+    }
+    lastToastedFinishedAt = fin
+
     if (L && L.status === 'error') {
       refreshMsg.value = '更新失败：' + (L.detail || '')
       ElMessage.error(refreshMsg.value)
-    } else {
-      await loadHealth()
-      await loadExceptions()
-      const h = health.value || {}
-      const probs = [...((h.run_reasons as string[]) || []), ...((h.warnings as string[]) || [])]
-      const secs = L?.seconds ? `（${L.seconds}s）` : ''
-      if (h.result === '绿' && !probs.length) {
-        refreshMsg.value = '更新成功' + secs
-        ElMessage.success('✓ ' + refreshMsg.value)
-      } else {
-        refreshMsg.value = '更新完成' + secs
-        ElMessage.warning(refreshMsg.value)
-      }
-      window.dispatchEvent(new CustomEvent('admin-reload-dash'))
+      return
     }
+
+    await loadHealth()
+    await loadExceptions()
+    const h = health.value || {}
+    const probs = [...((h.run_reasons as string[]) || []), ...((h.warnings as string[]) || [])]
+    const secs = L?.seconds != null && L.seconds !== undefined ? `（${L.seconds}s）` : ''
+    if (h.result === '绿' && !probs.length) {
+      refreshMsg.value = '更新成功' + secs
+      ElMessage.success('✓ ' + refreshMsg.value)
+    } else {
+      refreshMsg.value = '更新完成' + secs
+      ElMessage.warning(refreshMsg.value)
+    }
+    window.dispatchEvent(new CustomEvent('admin-reload-dash'))
   } catch (e) {
     refreshing.value = false
     refreshMsg.value = '查询更新状态失败:' + String(e)
@@ -319,8 +398,10 @@ onMounted(async () => {
   document.addEventListener('pointerdown', onHealthPointerDown, true)
   window.addEventListener('keydown', onHealthKey)
   try {
-    const s = await jget<{ running?: boolean }>('/api/v1/admin/refresh_status')
+    const s = await jget<RefreshStatus>('/api/v1/admin/refresh_status')
     if (s.running) {
+      // 恢复中途刷新：baseline=当前 last，等新 finished_at 推进后再诚实完成
+      baselineFinishedAt = s.last?.finished_at ?? null
       refreshing.value = true
       refT0 = Date.now()
       pollRefresh()
@@ -379,11 +460,9 @@ import './admin-layout.css'
       data-testid="admin-health-pop"
       role="dialog"
       aria-label="体检明细"
-      @wheel.passive="onHealthWheelOrTouch"
-      @touchmove.passive="onHealthWheelOrTouch"
     >
       <h4>体检明细 · 运行 {{ healthRunTime }}</h4>
-      <p class="health-pop-hint muted">滚动页面 / 点外部 / Esc 可收起</p>
+      <p class="health-pop-hint muted">页外滚动 / 点外部 / Esc 可收起；浮层内可滚读</p>
       <div class="grp" data-testid="health-gaps">
         <div class="k">⓪ 业务缺口（可展开）</div>
         <template v-if="businessGaps && hasBusinessGaps">

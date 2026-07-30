@@ -56,7 +56,8 @@ html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
 }
 .admin-main { padding: 16px 20px 28px; }
 .health-pop {
-  position: absolute;
+  /* 3.3.2：fixed 贴视口顶栏下，滚到页下半仍可见 */
+  position: fixed;
   top: 52px;
   left: 14px;
   right: 14px;

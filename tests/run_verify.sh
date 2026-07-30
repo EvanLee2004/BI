@@ -190,6 +190,7 @@ tests/test_task_2_6_4_bu_transition.py
 tests/test_task_2_2_4.py
 tests/test_stage_inventory_3_3_1_baseline.py
 tests/test_task_3_3_1_alloc_int_fen.py
+tests/test_task_3_3_2_refresh_honesty.py
 tests/test_domain_coverage_54p13.py
 tests/test_g0_2_7_5_tax_labels.py
 tests/test_task_2_3_3_manual_rename.py

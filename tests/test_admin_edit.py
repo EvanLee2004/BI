@@ -216,7 +216,11 @@ class TestAdminWrite(unittest.TestCase):
         try:
             r = self.client.post("/api/v1/admin/refresh", headers=self.hdr, json={})
             self.assertEqual(r.status_code, 409)
-            self.assertEqual(r.json().get("status"), "running")
+            body = r.json()
+            # 3.3.2：status=busy + running bool；兼容历史 running
+            self.assertIn(body.get("status"), ("busy", "running"))
+            if "running" in body:
+                self.assertIsInstance(body["running"], bool)
         finally:
             server._LOCK.release()
 

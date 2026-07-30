@@ -1,3 +1,13 @@
+## 3.3.2 · 2026-07-30
+
+### 更新诚实态 + 体检浮层可见/可滚
+- 管理端 `doRefresh`：完成判定看 `last.finished_at` 相对点击前 baseline 是否推进；禁止空 catch 后用旧秒数弹「更新完成」
+- 409：running true → 跟进轮询；running false → 明确「系统忙」失败；连点忽略；同 finished_at 只 toast 一次
+- 保留体检绿→「更新成功」/ 非绿→「更新完成」
+- 体检浮层 `.health-pop`：`position: fixed`；内滚不关；外滚/Esc/点外仍关
+- 409 body 补 `running` bool（`status=busy`）；测试 `test_task_3_3_2_refresh_honesty.py` + 2.6.6 守卫升级
+- **未改** profit 算账、定时 schedule success 语义、409 互斥锁、智云抓数
+
 ## 3.3.1 · 2026-07-29
 
 ### 工程债卫生收口（金额 SSOT + 测试假绿 + 文档对齐）

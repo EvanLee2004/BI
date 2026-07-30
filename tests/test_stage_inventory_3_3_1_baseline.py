@@ -2,7 +2,7 @@
 """3.3.1 阶段守卫：工程债卫生收口后的最小结构锁（非重实现业务）。
 
 证明：
-- VERSION == 3.3.1
+- VERSION >= 3.3.1（3.3.2+ 仍须保留本结构锁）
 - 无 render_*.py / static/templates/render 残留
 - frontend_mode 恒 vue
 - 分摊展示金额路径 int 分（A1 可复用 test_task_3_3_1）
@@ -18,10 +18,24 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 
+def _version_tuple(s: str) -> tuple:
+    parts = []
+    for p in s.strip().split("."):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
 class TestStageInventory331Baseline(unittest.TestCase):
-    def test_version_is_3_3_1(self):
+    def test_version_at_least_3_3_1(self):
         v = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(v, "3.3.1", f"VERSION={v}")
+        self.assertGreaterEqual(
+            _version_tuple(v),
+            (3, 3, 1),
+            f"VERSION={v} 须 >= 3.3.1（结构锁基线）",
+        )
 
     def test_no_render_module_residue(self):
         self.assertFalse((ROOT / "src" / "render.py").exists())

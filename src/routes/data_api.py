@@ -759,7 +759,15 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         运行中互斥，重复点返回进行中；进度轮询 /api/v1/admin/refresh_status。"""
         _require(request)
         if not start_refresh_async(cfg, root, "manual"):
-            return JSONResponse({"status": "running", "detail": "更新进行中，请稍候"}, status_code=409)
+            # 3.3.2：409 带 running，前端可区分「跟进中」vs「锁忙无会话」
+            return JSONResponse(
+                {
+                    "status": "busy",
+                    "detail": "更新进行中，请稍候",
+                    "running": bool(_state["refreshing"]),
+                },
+                status_code=409,
+            )
         return {"status": "started", "refreshing": _state["refreshing"]}
 
     @app.get("/api/v1/admin/refresh_status")

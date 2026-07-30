@@ -84,6 +84,23 @@ class TestAdminHealthCollapseSource(unittest.TestCase):
         self.assertIn("businessGaps", src)
         self.assertIn("Escape", src)
 
+    def test_health_pop_inner_scroll_stays_open(self):
+        """3.3.2：浮层内部 wheel/touch 不关闭；外滚/Esc/点外仍关（本测锁内部不关）。"""
+        src = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
+        css = (ROOT / "frontend/src/admin/layout/admin-layout.css").read_text(encoding="utf-8")
+        self.assertRegex(css, r"\.health-pop\s*\{[^}]*position\s*:\s*fixed")
+        # onHealthWheelOrTouch：内部 contains → return
+        self.assertIn("healthPopEl", src)
+        m = re.search(r"function onHealthWheelOrTouch\([\s\S]*?\n\}", src)
+        self.assertIsNotNone(m, "onHealthWheelOrTouch missing")
+        fn = m.group(0)
+        self.assertIn("contains", fn)
+        self.assertIn("return", fn)
+        # 外关路径仍在
+        self.assertIn("closeHealthPop", src)
+        self.assertIn("Escape", src)
+        self.assertIn("onHealthPointerDown", src)
+
     def test_bunav_unassigned_gap_testid(self):
         """2.6.10 V-1：看端不再渲染未归属橙色提示；管理端体检块仍保留。"""
         src = (ROOT / "frontend/src/components/BuNav.vue").read_text(encoding="utf-8")
