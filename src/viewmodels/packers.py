@@ -484,8 +484,80 @@ def _kc_pack_sales(it: dict) -> tuple[list[dict[str, Any]], str, str]:
     return sales_out, sales_disp, primary_sales
 
 
+def _kc_trend_disp(trend: dict | None) -> dict[str, Any]:
+    """domain trend → 最终显示串。"""
+    import charts
+
+    t = trend if isinstance(trend, dict) else {}
+    peak_m = int(t.get("peak_month") or 0)
+    peak_fen = float(t.get("peak_fen") or 0)
+    avg_fen = float(t.get("avg_fen") or 0)
+    n_complete = int(t.get("complete_month_count") or 0)
+    recent = str(t.get("recent_trend") or "none")
+    silent_n = int(t.get("consecutive_silent_complete") or 0)
+    incomplete = int(t.get("incomplete_month") or 0)
+
+    if peak_m and n_complete:
+        peak_disp = f"{peak_m}月 {charts.fmt_wan(peak_fen)}万"
+    else:
+        peak_disp = "—"
+
+    if n_complete:
+        avg_disp = charts.fmt_wan(avg_fen) + "万"
+    else:
+        avg_disp = "—"
+
+    trend_map = {
+        "up": "上升",
+        "down": "下降",
+        "flat": "持平",
+        "none": "无可比",
+    }
+    recent_label = trend_map.get(recent, "无可比")
+    if n_complete < 2:
+        recent_disp = "近两完整月：无可比"
+    else:
+        recent_disp = f"近两完整月：{recent_label}"
+
+    if n_complete == 0:
+        silent_disp = "连续完整静默月：—"
+    else:
+        silent_disp = f"连续完整静默月：{silent_n}"
+
+    incomplete_hint = ""
+    if 1 <= incomplete <= 12:
+        incomplete_hint = f"{incomplete}月未完结"
+
+    return {
+        "peak_month": peak_m,
+        "peak_disp": peak_disp,
+        "avg_disp": avg_disp,
+        "complete_month_count": n_complete,
+        "recent_trend": recent,
+        "recent_disp": recent_disp,
+        "consecutive_silent_complete": silent_n,
+        "silent_complete_disp": silent_disp,
+        "incomplete_month": incomplete,
+        "incomplete_hint": incomplete_hint,
+    }
+
+
+def _kc_status_disp(it: dict, *, gap_disp: str) -> str:
+    """行状态：静默优先，其次临界/差额。"""
+    if it.get("silent"):
+        return "静默"
+    if it.get("near_upgrade"):
+        nxt = it.get("next_tier") or ""
+        return "临界晋级" + (f"·距{nxt} {gap_disp}" if nxt and gap_disp else "")
+    gap = it.get("gap_fen")
+    nxt = it.get("next_tier")
+    if gap is not None and nxt and int(gap) > 0 and gap_disp:
+        return f"距{nxt}还差{gap_disp}"
+    return ""
+
+
 def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dict[str, Any]:
-    """单客户行显示串 + 写入 monthly[mkey]。3.4.2 含 sales[] 全量 disp。"""
+    """单客户行显示串 + 写入 monthly[mkey]。3.4.2 含 sales[]；3.4.3 含 gap/趋势。"""
     import charts
 
     name = str(it.get("name") or "")
@@ -509,6 +581,16 @@ def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dic
         )
     monthly[mkey] = month_rows
     wo = round(max(ytd / tier_max * 100, 0), 1) if ytd and tier_max else 0.0
+    tier_id = str(it.get("tier") or "").strip().upper()
+    gap_raw = it.get("gap_fen")
+    gap_fen = int(gap_raw) if gap_raw is not None else None
+    gap_disp = ""
+    if gap_fen is not None and gap_fen > 0:
+        gap_disp = charts.fmt_wan(float(gap_fen)) + "万"
+    near = bool(it.get("near_upgrade"))
+    trend = _kc_trend_disp(it.get("trend") if isinstance(it.get("trend"), dict) else None)
+    # spark：完整 12 月 wo 列表（轻量，非 ECharts）
+    spark = [float(r["wo"] or 0) for r in month_rows]
     return {
         "name": name,
         "ytd_disp": charts.fmt_wan(ytd) + "万",
@@ -518,23 +600,193 @@ def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dic
         "silent": bool(it.get("silent")),
         "mkey": mkey,
         "wo": wo,
+        "tier": tier_id,
+        "pool": str(it.get("pool") or ""),
+        "gap_fen": gap_fen,
+        "gap_disp": gap_disp,
+        "near_upgrade": near,
+        "next_tier": it.get("next_tier"),
+        "status_disp": _kc_status_disp(it, gap_disp=gap_disp),
+        "trend": trend,
+        "spark_wo": spark,
+        # 排序辅助（前端只比较这些整数，不算业务）
+        "ytd_fen": int(ytd),
+        "tier_rank": {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4, "E": 5}.get(tier_id, 9),
+    }
+
+
+def _kc_empty_shell() -> dict[str, Any]:
+    from domain.key_customers.compute import (
+        DEFAULT_POOL,
+        HELP_LINE_METRIC,
+        HELP_LINES,
+        NEAR_TIP,
+        PANEL_TITLE,
+        POOL_HINTS,
+        POOL_LABELS,
+        POOL_ORDER,
+        POOL_TIERS,
+        SALES_COL_LABEL,
+        SALES_COL_TIP,
+        SILENT_TIP,
+    )
+
+    help_lines = list(HELP_LINES)
+    return {
+        "year": 0,
+        "year_label": "",
+        "panel_title": PANEL_TITLE,
+        "caption": HELP_LINE_METRIC,
+        "help_lines": help_lines,
+        "sales_col_label": SALES_COL_LABEL,
+        "sales_col_tip": SALES_COL_TIP,
+        "silent_tip": SILENT_TIP,
+        "near_tip": NEAR_TIP,
+        "metric_label": "下单预估（本币）",
+        "default_pool": DEFAULT_POOL,
+        "pools": [
+            {
+                "id": pid,
+                "label": POOL_LABELS[pid],
+                "hint": POOL_HINTS[pid],
+                "tiers": list(POOL_TIERS[pid]),
+                "count": 0,
+                "amount_disp": "0万",
+            }
+            for pid in POOL_ORDER
+        ],
+        "summary_cards": {
+            "total": {
+                "label": "全部客户 / 年累计",
+                "count": 0,
+                "count_disp": "0户",
+                "amount_disp": "0万",
+                "value_disp": "0户 · 0万",
+            },
+            "focus_contrib": {
+                "label": "重点客户贡献",
+                "pct_disp": "0.0%",
+                "amount_disp": "0万",
+                "value_disp": "0.0%",
+                "tip": "S+A+B 年度金额占全体",
+            },
+            "silent_focus": {
+                "label": "需跟进重点客",
+                "count": 0,
+                "count_disp": "0户",
+                "value_disp": "0户",
+                "tip": "仅 S/A/B 中静默客户",
+            },
+            "near_upgrade": {
+                "label": "临界晋级客户",
+                "count": 0,
+                "count_disp": "0户",
+                "value_disp": "0户",
+                "tip": NEAR_TIP,
+            },
+        },
+        "structure_bars": {
+            "count": {"label": "客户数结构", "segments": []},
+            "amount": {"label": "金额结构", "segments": []},
+        },
+        "tiers": [],
+        "pie_count": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
+        "pie_amount": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
+        "monthly": {},
+        "empty": True,
+        "totals": {"count": 0, "amount_disp": "0万"},
+        "compare_max": 3,
+        "guide_text": "从左侧客户池选择客户，或点行动队列开始跟进",
+    }
+
+
+def _kc_resolve_war_desk(raw: dict, tiers_raw: dict) -> tuple[float, int, int]:
+    """→ focus_amount, silent_focus_count, near_upgrade_count。"""
+    from domain.key_customers.compute import TIER_ORDER
+
+    wd = raw.get("war_desk") if isinstance(raw.get("war_desk"), dict) else None
+    if wd:
+        focus_amount = float(wd.get("focus_amount") or 0)
+        return (
+            focus_amount,
+            int(wd.get("silent_focus_count") or 0),
+            int(wd.get("near_upgrade_count") or 0),
+        )
+    near_count = 0
+    silent_focus = 0
+    for tid in TIER_ORDER:
+        for it in (tiers_raw.get(tid) or {}).get("items") or []:
+            if it.get("near_upgrade"):
+                near_count += 1
+            if tid in ("S", "A", "B") and it.get("silent"):
+                silent_focus += 1
+    focus_amount = sum(
+        float((tiers_raw.get(t) or {}).get("amount") or 0) for t in ("S", "A", "B")
+    )
+    return focus_amount, silent_focus, near_count
+
+
+def _kc_action_queues(all_items: list[dict[str, Any]]) -> dict[str, list]:
+    def _tier_rank_key(x: dict) -> int:
+        tr = x.get("tier_rank")
+        return int(tr) if tr is not None else 9
+
+    def _ytd_key(x: dict) -> int:
+        y = x.get("ytd_fen")
+        return int(y) if y is not None else 0
+
+    def _q_row(it: dict) -> dict[str, Any]:
+        return {
+            "name": it.get("name"),
+            "mkey": it.get("mkey"),
+            "tier": it.get("tier"),
+            "ytd_disp": it.get("ytd_disp"),
+            "status_disp": it.get("status_disp"),
+            "silent": bool(it.get("silent")),
+            "near_upgrade": bool(it.get("near_upgrade")),
+            "gap_disp": it.get("gap_disp") or "",
+        }
+
+    silent_q = sorted(
+        [it for it in all_items if it.get("silent") and it.get("tier") in ("S", "A", "B")],
+        key=lambda x: (_tier_rank_key(x), -_ytd_key(x), str(x.get("name") or "")),
+    )
+    near_q = sorted(
+        [it for it in all_items if it.get("near_upgrade")],
+        key=lambda x: (
+            int(x.get("gap_fen") if x.get("gap_fen") is not None else 10**18),
+            -_ytd_key(x),
+            str(x.get("name") or ""),
+        ),
+    )
+    return {
+        "silent": [_q_row(it) for it in silent_q[:8]],
+        "near": [_q_row(it) for it in near_q[:8]],
     }
 
 
 def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[str, Any]:
-    """summary['key_customers'] → VM 显示串（六档 + 双饼 + monthly）。
+    """summary['key_customers'] → VM 显示串（六档 + 结构条 + 作战台 + monthly）。
 
     embed_full=True：导出/离线 snapshot 强制展开 C/D/E items。
     在线首包：S/A/B 全量 items；C/D/E lazy=true 且 items=[]。
-    3.4.2：help_lines 去主销售；default_open 六档全 true；item.sales[] 全量 disp。
+    3.4.2：help_lines 去主销售；item.sales[] 全量 disp。
+    3.4.3：summary_cards / structure_bars / pools；默认 default_open=S/A/B。
+    保留 pie_* 兼容旧消费者；主 UI 改用 structure_bars。
     """
     import charts
     from domain.key_customers.compute import (
         DEFAULT_OPEN_TIERS,
+        DEFAULT_POOL,
         HELP_LINE_METRIC,
         HELP_LINES,
         LAZY_TIERS,
+        NEAR_TIP,
         PANEL_TITLE,
+        POOL_HINTS,
+        POOL_LABELS,
+        POOL_ORDER,
+        POOL_TIERS,
         SALES_COL_LABEL,
         SALES_COL_TIP,
         SILENT_TIP,
@@ -542,24 +794,9 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         TIER_RANGE_DISP,
     )
 
-    help_lines = list(HELP_LINES)
     if not raw or not isinstance(raw, dict):
-        return {
-            "year": 0,
-            "year_label": "",
-            "panel_title": PANEL_TITLE,
-            "caption": HELP_LINE_METRIC,
-            "help_lines": help_lines,
-            "sales_col_label": SALES_COL_LABEL,
-            "sales_col_tip": SALES_COL_TIP,
-            "silent_tip": SILENT_TIP,
-            "metric_label": "下单预估（本币）",
-            "tiers": [],
-            "pie_count": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
-            "pie_amount": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
-            "monthly": {},
-            "empty": True,
-        }
+        return _kc_empty_shell()
+    help_lines = list(HELP_LINES)
 
     year = int(raw.get("year") or 0)
     totals = raw.get("totals") or {}
@@ -575,6 +812,9 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
     pie_amts: list[float] = []  # 万元
     pie_amts_disp: list[str] = []
     pie_amt_pct: list[str] = []
+    seg_count: list[dict[str, Any]] = []
+    seg_amount: list[dict[str, Any]] = []
+    all_items_for_action: list[dict[str, Any]] = []
 
     for tid in TIER_ORDER:
         blk = tiers_raw.get(tid) or {}
@@ -586,16 +826,24 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         if lazy:
             items_out: list[dict[str, Any]] = []
         else:
-            items_out = [_kc_pack_item(it, tier_max=tier_max, year=year, monthly=monthly) for it in items_src]
+            items_out = [
+                _kc_pack_item(it, tier_max=tier_max, year=year, monthly=monthly)
+                for it in items_src
+            ]
+            all_items_for_action.extend(items_out)
         amt_disp = charts.fmt_wan(amount) + "万"
         pct_c = _kc_pct_disp(float(count), float(total_count))
         pct_a = _kc_pct_disp(amount, total_amount)
+        # 布局百分比 wo：前端只渲染，不算比例
+        wo_c = round(float(count) / float(total_count) * 100, 2) if total_count else 0.0
+        wo_a = round(amount / total_amount * 100, 2) if total_amount else 0.0
         tiers_out.append(
             {
                 "id": tid,
                 "label": tid,
                 "range_disp": TIER_RANGE_DISP.get(tid, ""),
                 "count": count,
+                "count_disp": f"{count}户",
                 "amount_disp": amt_disp,
                 "pct_count_disp": pct_c,
                 "pct_amount_disp": pct_a,
@@ -612,6 +860,52 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         pie_amts.append(round(wan, 4))
         pie_amts_disp.append(charts.fmt_wan(amount) + "万")
         pie_amt_pct.append(pct_a)
+        seg_count.append(
+            {
+                "id": tid,
+                "label": tid,
+                "count": count,
+                "count_disp": f"{count}户",
+                "amount_disp": amt_disp,
+                "pct_disp": pct_c,
+                "wo": wo_c,
+            }
+        )
+        seg_amount.append(
+            {
+                "id": tid,
+                "label": tid,
+                "count": count,
+                "count_disp": f"{count}户",
+                "amount_disp": amt_disp,
+                "pct_disp": pct_a,
+                "wo": wo_a,
+            }
+        )
+
+    focus_amount, silent_focus, near_count = _kc_resolve_war_desk(raw, tiers_raw)
+    focus_pct = _kc_pct_disp(focus_amount, total_amount)
+    focus_amt_disp = charts.fmt_wan(focus_amount) + "万"
+    total_amt_disp = charts.fmt_wan(total_amount) + "万"
+
+    pools_out = []
+    for pid in POOL_ORDER:
+        tids = POOL_TIERS[pid]
+        p_count = sum(int((tiers_raw.get(t) or {}).get("count") or 0) for t in tids)
+        p_amt = sum(float((tiers_raw.get(t) or {}).get("amount") or 0) for t in tids)
+        pools_out.append(
+            {
+                "id": pid,
+                "label": POOL_LABELS[pid],
+                "hint": POOL_HINTS[pid],
+                "tiers": list(tids),
+                "count": p_count,
+                "count_disp": f"{p_count}户",
+                "amount_disp": charts.fmt_wan(p_amt) + "万",
+            }
+        )
+
+    action_queues = _kc_action_queues(all_items_for_action)
 
     return {
         "year": year,
@@ -622,7 +916,47 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         "sales_col_label": SALES_COL_LABEL,
         "sales_col_tip": SALES_COL_TIP,
         "silent_tip": SILENT_TIP,
+        "near_tip": NEAR_TIP,
         "metric_label": "下单预估（本币）",
+        "default_pool": DEFAULT_POOL,
+        "compare_max": 3,
+        "guide_text": "从左侧客户池选择客户，或点行动队列开始跟进",
+        "pools": pools_out,
+        "summary_cards": {
+            "total": {
+                "label": "全部客户 / 年累计",
+                "count": total_count,
+                "count_disp": f"{total_count}户",
+                "amount_disp": total_amt_disp,
+                "value_disp": f"{total_count}户 · {total_amt_disp}",
+            },
+            "focus_contrib": {
+                "label": "重点客户贡献",
+                "pct_disp": focus_pct,
+                "amount_disp": focus_amt_disp,
+                "value_disp": focus_pct,
+                "tip": "S+A+B 年度金额占全体",
+            },
+            "silent_focus": {
+                "label": "需跟进重点客",
+                "count": silent_focus,
+                "count_disp": f"{silent_focus}户",
+                "value_disp": f"{silent_focus}户",
+                "tip": "仅 S/A/B 中静默客户",
+            },
+            "near_upgrade": {
+                "label": "临界晋级客户",
+                "count": near_count,
+                "count_disp": f"{near_count}户",
+                "value_disp": f"{near_count}户",
+                "tip": NEAR_TIP,
+            },
+        },
+        "structure_bars": {
+            "count": {"label": "客户数结构", "segments": seg_count},
+            "amount": {"label": "金额结构", "segments": seg_amount},
+        },
+        "action_queues": action_queues,
         "tiers": tiers_out,
         "pie_count": {
             "labels": pie_labels,
@@ -640,7 +974,7 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         "empty": total_count == 0,
         "totals": {
             "count": total_count,
-            "amount_disp": charts.fmt_wan(total_amount) + "万",
+            "amount_disp": total_amt_disp,
         },
     }
 

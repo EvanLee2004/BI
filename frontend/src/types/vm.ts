@@ -217,11 +217,23 @@ export type DailyDefaults = {
   year_key: string
 }
 
-/** 3.4.2 重点客户下单分析（年粒度，非 period 键） */
+/** 3.4.3 重点客户经营作战台（年粒度，非 period 键） */
 export type KeyCustomersSales = {
   name: string
   amount_disp: string
   wo?: number
+}
+export type KeyCustomersTrend = {
+  peak_month?: number
+  peak_disp?: string
+  avg_disp?: string
+  complete_month_count?: number
+  recent_trend?: string
+  recent_disp?: string
+  consecutive_silent_complete?: number
+  silent_complete_disp?: string
+  incomplete_month?: number
+  incomplete_hint?: string
 }
 export type KeyCustomersItem = {
   name: string
@@ -231,6 +243,17 @@ export type KeyCustomersItem = {
   silent?: boolean
   mkey?: string
   wo?: number
+  tier?: string
+  pool?: string
+  gap_fen?: number | null
+  gap_disp?: string
+  near_upgrade?: boolean
+  next_tier?: string | null
+  status_disp?: string
+  trend?: KeyCustomersTrend
+  spark_wo?: number[]
+  ytd_fen?: number
+  tier_rank?: number
 }
 export type KeyCustomersTier = {
   id: string
@@ -250,6 +273,24 @@ export type KeyCustomersPie = {
   values_disp: string[]
   pct_disp: string[]
 }
+export type KeyCustomersSeg = {
+  id: string
+  label: string
+  count?: number
+  count_disp?: string
+  amount_disp?: string
+  pct_disp?: string
+  wo?: number
+}
+export type KeyCustomersCard = {
+  label?: string
+  count?: number
+  count_disp?: string
+  amount_disp?: string
+  value_disp?: string
+  pct_disp?: string
+  tip?: string
+}
 export type KeyCustomersVM = {
   year?: number
   year_label?: string
@@ -259,7 +300,52 @@ export type KeyCustomersVM = {
   sales_col_label?: string
   sales_col_tip?: string
   silent_tip?: string
+  near_tip?: string
   metric_label?: string
+  default_pool?: string
+  compare_max?: number
+  guide_text?: string
+  pools?: {
+    id: string
+    label: string
+    hint?: string
+    tiers?: string[]
+    count?: number
+    count_disp?: string
+    amount_disp?: string
+  }[]
+  summary_cards?: {
+    total?: KeyCustomersCard
+    focus_contrib?: KeyCustomersCard
+    silent_focus?: KeyCustomersCard
+    near_upgrade?: KeyCustomersCard
+  }
+  structure_bars?: {
+    count?: { label?: string; segments?: KeyCustomersSeg[] }
+    amount?: { label?: string; segments?: KeyCustomersSeg[] }
+  }
+  action_queues?: {
+    silent?: {
+      name?: string
+      mkey?: string
+      tier?: string
+      ytd_disp?: string
+      status_disp?: string
+      silent?: boolean
+      near_upgrade?: boolean
+      gap_disp?: string
+    }[]
+    near?: {
+      name?: string
+      mkey?: string
+      tier?: string
+      ytd_disp?: string
+      status_disp?: string
+      silent?: boolean
+      near_upgrade?: boolean
+      gap_disp?: string
+    }[]
+  }
   tiers?: KeyCustomersTier[]
   pie_count?: KeyCustomersPie
   pie_amount?: KeyCustomersPie

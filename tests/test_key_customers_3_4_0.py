@@ -183,13 +183,13 @@ class TestPackerAndVM(unittest.TestCase):
         self.assertEqual(vm.get("panel_title"), "重点客户下单分析")
         self.assertEqual(len(vm["tiers"]), 6)
         by_id = {t["id"]: t for t in vm["tiers"]}
-        # 3.4.2：六档默认全部展开（档内限高；lazy 由前端 ensureTier）
-        for tid in ("S", "A", "B", "C", "D", "E"):
-            self.assertTrue(by_id[tid]["default_open"], tid)
+        # 3.4.3：默认重点池 S/A/B open；C/D/E lazy 由前端 ensureTier
         for tid in ("S", "A", "B"):
+            self.assertTrue(by_id[tid]["default_open"], tid)
             self.assertFalse(by_id[tid]["lazy"])
             self.assertGreater(len(by_id[tid]["items"]), 0)
         for tid in ("C", "D", "E"):
+            self.assertFalse(by_id[tid]["default_open"], tid)
             self.assertTrue(by_id[tid]["lazy"])
             self.assertEqual(by_id[tid]["items"], [])
             self.assertGreater(by_id[tid]["count"], 0)

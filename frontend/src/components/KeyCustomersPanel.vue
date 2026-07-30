@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * 3.4.2 重点客户下单分析 · Layer3
- * L-A：上双饼 · 中名单满宽（默认全开限高）· 下连续月折线满宽
- * 默认不选中；多销售金额降序；去主销售；前端零金额/分级运算。
+ * 3.4.3 重点客户经营作战台 · Layer3
+ * 四摘要卡 + 双结构条 + 三经营池 + 客户洞察（行动队列 / 最多三客比较）
+ * 前端零金额求和、零档位判断、零业务占比；只渲染后端 VM。
  */
 import '../styles/components/KeyCustomersPanel.css'
 import { computed, reactive, ref, watch } from 'vue'
@@ -18,10 +18,7 @@ import {
   chartMutedColor,
   chartTextColor,
   lineGlowStyle,
-  pieEmphasis,
-  pieGlowItemStyle,
   pointGlowStyle,
-  SERIES_PALETTE,
 } from '../chart-fx'
 import { cssColor } from '../utils/cssColor'
 import { themeMode } from '../utils/theme'
@@ -32,6 +29,19 @@ export type KcSales = {
   wo?: number
 }
 
+export type KcTrend = {
+  peak_month?: number
+  peak_disp?: string
+  avg_disp?: string
+  complete_month_count?: number
+  recent_trend?: string
+  recent_disp?: string
+  consecutive_silent_complete?: number
+  silent_complete_disp?: string
+  incomplete_month?: number
+  incomplete_hint?: string
+}
+
 export type KcItem = {
   name: string
   ytd_disp: string
@@ -40,6 +50,17 @@ export type KcItem = {
   silent?: boolean
   mkey?: string
   wo?: number
+  tier?: string
+  pool?: string
+  gap_fen?: number | null
+  gap_disp?: string
+  near_upgrade?: boolean
+  next_tier?: string | null
+  status_disp?: string
+  trend?: KcTrend
+  spark_wo?: number[]
+  ytd_fen?: number
+  tier_rank?: number
 }
 
 export type KcTier = {
@@ -55,11 +76,45 @@ export type KcTier = {
   items: KcItem[]
 }
 
-export type KcPie = {
-  labels: string[]
-  values: number[]
-  values_disp: string[]
-  pct_disp: string[]
+export type KcSeg = {
+  id: string
+  label: string
+  count?: number
+  count_disp?: string
+  amount_disp?: string
+  pct_disp?: string
+  wo?: number
+}
+
+export type KcPool = {
+  id: string
+  label: string
+  hint?: string
+  tiers?: string[]
+  count?: number
+  count_disp?: string
+  amount_disp?: string
+}
+
+export type KcActionRow = {
+  name?: string
+  mkey?: string
+  tier?: string
+  ytd_disp?: string
+  status_disp?: string
+  silent?: boolean
+  near_upgrade?: boolean
+  gap_disp?: string
+}
+
+export type KcCard = {
+  label?: string
+  count?: number
+  count_disp?: string
+  amount_disp?: string
+  value_disp?: string
+  pct_disp?: string
+  tip?: string
 }
 
 export type KcMonthRow = { i?: number; name: string; order_disp: string; wo?: number }
@@ -73,14 +128,31 @@ export type KeyCustomersVM = {
   sales_col_label?: string
   sales_col_tip?: string
   silent_tip?: string
+  near_tip?: string
   metric_label?: string
+  default_pool?: string
+  compare_max?: number
+  guide_text?: string
+  pools?: KcPool[]
+  summary_cards?: {
+    total?: KcCard
+    focus_contrib?: KcCard
+    silent_focus?: KcCard
+    near_upgrade?: KcCard
+  }
+  structure_bars?: {
+    count?: { label?: string; segments?: KcSeg[] }
+    amount?: { label?: string; segments?: KcSeg[] }
+  }
+  action_queues?: { silent?: KcActionRow[]; near?: KcActionRow[] }
   tiers?: KcTier[]
-  pie_count?: KcPie
-  pie_amount?: KcPie
   monthly?: Record<string, KcMonthRow[]>
   empty?: boolean
   totals?: { count?: number; amount_disp?: string }
 }
+
+type FilterMode = 'all' | 'silent' | 'near'
+type PoolId = 'focus' | 'nurture' | 'longtail'
 
 const store = useCockpitStore()
 
@@ -96,33 +168,46 @@ const visible = computed(() => {
   return !!(d.tiers && d.tiers.length)
 })
 
-const openMap = reactive<Record<string, boolean>>({})
 const itemsCache = reactive<Record<string, KcItem[]>>({})
 const loadErr = reactive<Record<string, string>>({})
 const loadingTier = reactive<Record<string, boolean>>({})
 const monthlyExtra = reactive<Record<string, KcMonthRow[]>>({})
 const selectedKey = ref('')
 const selectedItem = ref<KcItem | null>(null)
+/** 对比集 mkey 列表，最多 compare_max（默认 3） */
+const compareKeys = ref<string[]>([])
+const compareHint = ref('')
+const activePool = ref<PoolId>('focus')
+const filterMode = ref<FilterMode>('all')
+const searchQ = ref('')
 const monthModal = ref(false)
 const monthTitle = ref('')
 const monthRows = ref<KcMonthRow[]>([])
-/** 防 BU/VM 切换中途串名单：ensure 写缓存前校验代数 */
 let seedGen = 0
 const inflightTier = new Set<string>()
 
-/** BU/整体 VM 切换时必须清空本地缓存，否则会泄漏上一 scope 客户名 */
+const COMPARE_MAX = computed(() => {
+  const n = Number(kc.value?.compare_max)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3
+})
+
 function clearLocalCaches() {
   for (const k of Object.keys(itemsCache)) delete itemsCache[k]
   for (const k of Object.keys(monthlyExtra)) delete monthlyExtra[k]
   for (const k of Object.keys(loadErr)) delete loadErr[k]
   for (const k of Object.keys(loadingTier)) delete loadingTier[k]
-  for (const k of Object.keys(openMap)) delete openMap[k]
   inflightTier.clear()
   selectedKey.value = ''
   selectedItem.value = null
+  compareKeys.value = []
+  compareHint.value = ''
+  filterMode.value = 'all'
+  searchQ.value = ''
+  activePool.value = (kc.value?.default_pool as PoolId) || 'focus'
 }
 
-function itemKey(it: KcItem): string {
+function itemKey(it: { mkey?: string; name?: string } | null): string {
+  if (!it) return ''
   return it.mkey || `name:${it.name || ''}`
 }
 
@@ -132,6 +217,7 @@ function monthRowsFor(it: KcItem | null): KcMonthRow[] {
 }
 
 function selectCustomer(it: KcItem | null) {
+  compareHint.value = ''
   if (!it) {
     selectedKey.value = ''
     selectedItem.value = null
@@ -141,29 +227,46 @@ function selectCustomer(it: KcItem | null) {
   selectedItem.value = it
 }
 
+function findItemByKey(key: string): KcItem | null {
+  if (!key) return null
+  for (const tid of Object.keys(itemsCache)) {
+    for (const it of itemsCache[tid] || []) {
+      if (itemKey(it) === key) return it
+    }
+  }
+  for (const t of kc.value?.tiers || []) {
+    for (const it of t.items || []) {
+      if (itemKey(it) === key) return it
+    }
+  }
+  return null
+}
+
+async function ensureTierForPool(pool: PoolId, gen?: number) {
+  const myGen = gen ?? seedGen
+  const poolMeta = (kc.value?.pools || []).find((p) => p.id === pool)
+  const tids = poolMeta?.tiers || (pool === 'focus' ? ['S', 'A', 'B'] : pool === 'nurture' ? ['C', 'D'] : ['E'])
+  const tiers = kc.value?.tiers || []
+  for (const tid of tids) {
+    const t = tiers.find((x) => x.id === tid)
+    if (t) await ensureTier(t, myGen)
+  }
+}
+
 function seedFromVm(d: KeyCustomersVM | null) {
   const gen = ++seedGen
   clearLocalCaches()
   if (!d?.tiers) return
+  activePool.value = (d.default_pool as PoolId) || 'focus'
   for (const t of d.tiers) {
-    // 3.4.2：default_open 全 true；仍尊重后端字段
-    openMap[t.id] = t.default_open !== false && !!t.default_open
-    // 若后端未下发 default_open（旧包），也默认开
-    if (t.default_open == null) openMap[t.id] = true
     if (!t.lazy) {
       itemsCache[t.id] = t.items || []
     }
   }
-  // 3.4.2：默认不选中任何客户；折线空态
-  // 默认全开时自动 ensureTier 拉 lazy 档（C/D/E），禁止假空
-  for (const t of d.tiers) {
-    if (openMap[t.id]) {
-      void ensureTier(t, gen)
-    }
-  }
+  // 默认重点池：拉齐 S/A/B（非 lazy 已有）；切培育/长尾时再 ensure
+  void ensureTierForPool(activePool.value, gen)
 }
 
-// scope + buName + year + VM 引用任一变 → 重置（防 BU→BU 脏缓存）
 watch(
   () =>
     [
@@ -179,11 +282,6 @@ watch(
   },
   { immediate: true },
 )
-
-function tierItems(t: KcTier): KcItem[] {
-  if (Object.prototype.hasOwnProperty.call(itemsCache, t.id)) return itemsCache[t.id]
-  return t.items || []
-}
 
 async function ensureTier(t: KcTier, gen?: number) {
   const myGen = gen ?? seedGen
@@ -244,14 +342,199 @@ async function ensureTier(t: KcTier, gen?: number) {
   }
 }
 
-async function toggleTier(t: KcTier) {
-  const next = !openMap[t.id]
-  openMap[t.id] = next
-  if (next) await ensureTier(t)
+async function setPool(pid: PoolId) {
+  activePool.value = pid
+  filterMode.value = 'all'
+  compareHint.value = ''
+  await ensureTierForPool(pid)
 }
+
+function setFilter(m: FilterMode) {
+  filterMode.value = m
+}
+
+const poolTiers = computed((): KcTier[] => {
+  const poolMeta = (kc.value?.pools || []).find((p) => p.id === activePool.value)
+  const tids = new Set(
+    poolMeta?.tiers ||
+      (activePool.value === 'focus'
+        ? ['S', 'A', 'B']
+        : activePool.value === 'nurture'
+          ? ['C', 'D']
+          : ['E']),
+  )
+  return (kc.value?.tiers || []).filter((t) => tids.has(t.id))
+})
+
+const poolLoading = computed(() => poolTiers.value.some((t) => loadingTier[t.id]))
+const poolError = computed(() => {
+  for (const t of poolTiers.value) {
+    if (loadErr[t.id]) return loadErr[t.id]
+  }
+  return ''
+})
+
+const poolItemsRaw = computed((): KcItem[] => {
+  const out: KcItem[] = []
+  for (const t of poolTiers.value) {
+    const items = Object.prototype.hasOwnProperty.call(itemsCache, t.id)
+      ? itemsCache[t.id]
+      : t.items || []
+    for (const it of items) {
+      out.push(it.tier ? it : { ...it, tier: t.id })
+    }
+  }
+  return out
+})
+
+/** 排序：前端只比较后端给的 tier_rank / ytd_fen / gap_fen，不算业务 */
+function sortItems(list: KcItem[], mode: FilterMode): KcItem[] {
+  const arr = list.slice()
+  if (mode === 'near') {
+    arr.sort((a, b) => {
+      const ga = a.gap_fen != null ? a.gap_fen : Number.MAX_SAFE_INTEGER
+      const gb = b.gap_fen != null ? b.gap_fen : Number.MAX_SAFE_INTEGER
+      if (ga !== gb) return ga - gb
+      const ya = Number(a.ytd_fen) || 0
+      const yb = Number(b.ytd_fen) || 0
+      if (yb !== ya) return yb - ya
+      return String(a.name || '').localeCompare(String(b.name || ''), 'zh')
+    })
+    return arr
+  }
+  // all / silent：等级 S→E，档内金额降序
+  arr.sort((a, b) => {
+    const ra = a.tier_rank != null ? a.tier_rank : 9
+    const rb = b.tier_rank != null ? b.tier_rank : 9
+    if (ra !== rb) return ra - rb
+    const ya = Number(a.ytd_fen) || 0
+    const yb = Number(b.ytd_fen) || 0
+    if (yb !== ya) return yb - ya
+    return String(a.name || '').localeCompare(String(b.name || ''), 'zh')
+  })
+  return arr
+}
+
+const filteredPoolItems = computed((): KcItem[] => {
+  let list = poolItemsRaw.value
+  if (filterMode.value === 'silent') {
+    list = list.filter((it) => !!it.silent)
+  } else if (filterMode.value === 'near') {
+    list = list.filter((it) => !!it.near_upgrade)
+  }
+  const q = searchQ.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter((it) => String(it.name || '').toLowerCase().includes(q))
+  }
+  return sortItems(list, filterMode.value)
+})
+
+const cards = computed(() => kc.value?.summary_cards || {})
+const structureCount = computed(() => kc.value?.structure_bars?.count)
+const structureAmount = computed(() => kc.value?.structure_bars?.amount)
+const nearTip = computed(
+  () =>
+    kc.value?.near_tip ||
+    '距上一级门槛不超过10%，仅作销售跟进提示，不改变客户等级',
+)
+const silentTip = computed(
+  () =>
+    kc.value?.silent_tip ||
+    '近 2 个已过去完整自然月下单预估为 0（当前月不计入）；当月有单仍可能静默',
+)
+const salesColTip = computed(
+  () => kc.value?.sales_col_tip || '本年各销售下单预估金额（降序）',
+)
+const guideText = computed(
+  () => kc.value?.guide_text || '从左侧客户池选择客户，或点行动队列开始跟进',
+)
+const dailyOn = computed(() => !!store.dailyActive)
+
+const actionSilent = computed(() => kc.value?.action_queues?.silent || [])
+const actionNear = computed(() => kc.value?.action_queues?.near || [])
+const hasAction = computed(
+  () => actionSilent.value.length > 0 || actionNear.value.length > 0,
+)
 
 function onItemClick(it: KcItem) {
   selectCustomer(it)
+}
+
+function onActionClick(row: KcActionRow) {
+  const key = itemKey(row)
+  const found = findItemByKey(key) || findItemByKey(`name:${row.name || ''}`)
+  if (found) {
+    selectCustomer(found)
+    return
+  }
+  // 行动队列项可能尚未在当前池缓存：构造最小选中
+  selectCustomer({
+    name: row.name || '',
+    ytd_disp: row.ytd_disp || '',
+    sales_disp: '',
+    mkey: row.mkey,
+    tier: row.tier,
+    silent: row.silent,
+    near_upgrade: row.near_upgrade,
+    status_disp: row.status_disp,
+    gap_disp: row.gap_disp,
+  })
+}
+
+function isSelected(it: KcItem): boolean {
+  return selectedKey.value === itemKey(it)
+}
+
+function isCompared(it: KcItem): boolean {
+  return compareKeys.value.includes(itemKey(it))
+}
+
+function toggleCompare(it: KcItem) {
+  const key = itemKey(it)
+  if (!key) return
+  const idx = compareKeys.value.indexOf(key)
+  if (idx >= 0) {
+    compareKeys.value = compareKeys.value.filter((k) => k !== key)
+    compareHint.value = ''
+    return
+  }
+  if (compareKeys.value.length >= COMPARE_MAX.value) {
+    compareHint.value = `最多同时比较 ${COMPARE_MAX.value} 个客户，请先移出一位再加入`
+    return
+  }
+  // 主客户优先在对比中
+  const next = compareKeys.value.slice()
+  if (selectedKey.value && !next.includes(selectedKey.value) && selectedKey.value !== key) {
+    // keep as is
+  }
+  next.push(key)
+  compareKeys.value = next
+  compareHint.value = ''
+  if (!selectedItem.value) selectCustomer(it)
+}
+
+function removeCompare(key: string) {
+  compareKeys.value = compareKeys.value.filter((k) => k !== key)
+  compareHint.value = ''
+}
+
+function salesLine(it: KcItem): { text: string; title: string } {
+  const sales = it.sales || []
+  if (sales.length) {
+    const parts = sales.map((s) => `${s.name} ${s.amount_disp}`)
+    const full = parts.join(' · ')
+    if (parts.length <= 3) return { text: full, title: full }
+    const head = parts.slice(0, 3).join(' · ')
+    return { text: `${head} · 另有 ${parts.length - 3} 人`, title: full }
+  }
+  const fallback = it.sales_disp || '—'
+  return { text: fallback, title: fallback }
+}
+
+function barWidth(wo: number | undefined): string {
+  const n = Number(wo) || 0
+  const clamped = Math.max(0, Math.min(100, n))
+  return `${clamped}%`
 }
 
 function openMonthModal() {
@@ -263,109 +546,12 @@ function openMonthModal() {
   monthModal.value = true
 }
 
-/** 行内销售文案：≤3 全写；>3 前三 + 另有 N 人；title 看全列表 */
-function salesLine(it: KcItem): { text: string; title: string } {
-  const sales = it.sales || []
-  if (sales.length) {
-    const parts = sales.map((s) => `${s.name} ${s.amount_disp}`)
-    const full = parts.join(' · ')
-    if (parts.length <= 3) return { text: full, title: full }
-    const head = parts.slice(0, 3).join(' · ')
-    return { text: `${head} · 另有 ${parts.length - 3} 人`, title: full }
-  }
-  // 旧 VM 兜底
-  const fallback = it.sales_disp || '—'
-  return { text: fallback, title: fallback }
-}
-
-function pieOption(pie: KcPie | undefined, centerTitle: string) {
-  void themeMode.value
-  const labels = pie?.labels || []
-  const values = pie?.values || []
-  const valuesDisp = pie?.values_disp || []
-  const pctDisp = pie?.pct_disp || []
-  const data = labels.map((name, i) => ({
-    name,
-    value: Number(values[i] || 0),
-    itemStyle: { color: SERIES_PALETTE[i % SERIES_PALETTE.length] },
-  }))
-  const ink = chartTextColor()
-  const mut = chartMutedColor()
-  return {
-    ...animBlock(),
-    tooltip: {
-      trigger: 'item',
-      confine: true,
-      formatter: (p: { dataIndex: number; name: string }) => {
-        const i = p.dataIndex
-        return `${p.name}<br/>${valuesDisp[i] || '—'}（${pctDisp[i] || '—'}）`
-      },
-    },
-    color: SERIES_PALETTE,
-    series: [
-      {
-        type: 'pie',
-        radius: ['42%', '68%'],
-        center: ['50%', '50%'],
-        avoidLabelOverlap: true,
-        data,
-        label: { show: false },
-        labelLine: { show: false },
-        itemStyle: {
-          borderColor: cssColor('--chart-label-stroke-dark') || cssColor('--panel-bg'),
-          borderWidth: 2,
-          ...pieGlowItemStyle(cssColor('--blue')),
-        },
-        emphasis: pieEmphasis(),
-      },
-    ],
-    graphic: [
-      {
-        type: 'group',
-        left: 'center',
-        top: 'middle',
-        children: [
-          {
-            type: 'text',
-            style: {
-              text: centerTitle,
-              fill: mut,
-              fontSize: 11,
-              textAlign: 'center',
-            },
-            top: -8,
-          },
-          {
-            type: 'text',
-            style: {
-              text: '',
-              fill: ink,
-              fontSize: 0,
-              textAlign: 'center',
-            },
-          },
-        ],
-      },
-    ],
-  }
-}
-
-const pieCountOption = computed(() => {
-  const t = kc.value?.totals?.count
-  return pieOption(kc.value?.pie_count, t != null ? `共${t}户` : '数量')
-})
-const pieAmountOption = computed(() => {
-  const a = kc.value?.totals?.amount_disp || ''
-  return pieOption(kc.value?.pie_amount, a ? a : '金额')
-})
-
 /**
  * 高亮月：顶栏 period 能解析出具体月则用该月；
  * 否则用系统当前月。禁止因切月重算等级。
  */
 const highlightMonth = computed((): number => {
   const p = String(store.period || '')
-  // 精确月：2026年6月（排除 1-3 月区间）
   const m = p.match(/年(\d{1,2})月$/)
   if (m) {
     const n = Number(m[1])
@@ -374,34 +560,29 @@ const highlightMonth = computed((): number => {
   return new Date().getMonth() + 1
 })
 
-/** 主区连续月折线：y 用后端 wo；tooltip 用 order_disp；月高亮 */
+const COMPARE_LINE_COLORS = [
+  'var(--blue)',
+  'var(--purple)',
+  'var(--orange)',
+]
+
+const trackSeriesItems = computed((): KcItem[] => {
+  // 比较集优先；否则单选主客户
+  if (compareKeys.value.length) {
+    return compareKeys.value
+      .map((k) => findItemByKey(k))
+      .filter((x): x is KcItem => !!x)
+  }
+  return selectedItem.value ? [selectedItem.value] : []
+})
+
+/** 主区连续月折线：y 用后端 wo；tooltip 用 order_disp；支持最多 3 客 */
 const trackOption = computed(() => {
   void themeMode.value
-  const it = selectedItem.value
-  const rows = monthRowsFor(it)
-  const byI = new Map<number, KcMonthRow>()
-  for (const r of rows) {
-    const m = Number(r.i) || 0
-    if (m >= 1 && m <= 12) byI.set(m, r)
-  }
-  const labels: string[] = []
-  const plot: number[] = []
-  const disps: string[] = []
-  for (let m = 1; m <= 12; m++) {
-    labels.push(`${m}月`)
-    const row = byI.get(m)
-    if (row) {
-      plot.push(Number(row.wo) || 0)
-      disps.push(String(row.order_disp || '—'))
-    } else {
-      plot.push(0)
-      disps.push('—')
-    }
-  }
+  const seriesItems = trackSeriesItems.value
+  const labels = Array.from({ length: 12 }, (_, i) => `${i + 1}月`)
   const ink = chartTextColor()
   const mut = chartMutedColor()
-  const lineC = cssColor('--blue')
-  const area = areaGradient(lineC)
   const hm = highlightMonth.value
   const soft = cssColor('--blue-soft-14')
   const markArea =
@@ -412,19 +593,79 @@ const trackOption = computed(() => {
           data: [[{ xAxis: `${hm}月` }, { xAxis: `${hm}月` }]],
         }
       : undefined
-  const symbolSizes = labels.map((_, i) => (i + 1 === hm ? 12 : 7))
+
+  const series = seriesItems.map((it, si) => {
+    const rows = monthRowsFor(it)
+    const byI = new Map<number, KcMonthRow>()
+    for (const r of rows) {
+      const m = Number(r.i) || 0
+      if (m >= 1 && m <= 12) byI.set(m, r)
+    }
+    const plot: number[] = []
+    const disps: string[] = []
+    for (let m = 1; m <= 12; m++) {
+      const row = byI.get(m)
+      if (row) {
+        plot.push(Number(row.wo) || 0)
+        disps.push(String(row.order_disp || '—'))
+      } else {
+        plot.push(0)
+        disps.push('—')
+      }
+    }
+    const token = COMPARE_LINE_COLORS[si % COMPARE_LINE_COLORS.length]
+    const lineC = cssColor(token.replace('var(', '').replace(')', '')) || cssColor('--blue')
+    const area = si === 0 ? areaGradient(lineC) : undefined
+    return {
+      name: it.name || `客户${si + 1}`,
+      type: 'line' as const,
+      data: plot,
+      disps,
+      smooth: 0.2,
+      symbol: 'circle',
+      symbolSize: (_v: number, params: { dataIndex: number }) =>
+        params.dataIndex + 1 === hm ? 11 : 6,
+      connectNulls: false,
+      itemStyle: pointGlowStyle(lineC),
+      lineStyle: {
+        ...lineGlowStyle(lineC, si === 0 ? 2.5 : 2),
+        type: si === 0 ? 'solid' : si === 1 ? 'dashed' : 'dotted',
+      },
+      ...(area ? { areaStyle: area } : {}),
+      ...(si === 0 && markArea ? { markArea } : {}),
+    }
+  })
+
   return {
     ...animBlock(),
     tooltip: {
       trigger: 'axis',
       confine: true,
-      formatter: (params: { dataIndex: number }[]) => {
-        const i = params?.[0]?.dataIndex ?? 0
-        const tag = i + 1 === hm ? '（当前高亮月）' : ''
-        return `${labels[i] || ''}${tag}<br/>下单预估 ${disps[i] || '—'}`
+      formatter: (params: { seriesName: string; dataIndex: number; seriesIndex: number }[]) => {
+        if (!params?.length) return ''
+        const i = params[0].dataIndex ?? 0
+        const tag = i + 1 === hm ? '（当月未完结/高亮）' : ''
+        const lines = [`${labels[i] || ''}${tag}`]
+        for (const p of params) {
+          const s = series[p.seriesIndex]
+          const disp = s?.disps?.[i] || '—'
+          lines.push(`${p.seriesName}：${disp}`)
+        }
+        return lines.join('<br/>')
       },
     },
-    grid: { left: 36, right: 16, top: 28, bottom: 28, containLabel: true },
+    legend: {
+      show: series.length > 1,
+      top: 0,
+      textStyle: { color: ink, fontSize: 11 },
+    },
+    grid: {
+      left: 36,
+      right: 16,
+      top: series.length > 1 ? 36 : 28,
+      bottom: 28,
+      containLabel: true,
+    },
     xAxis: {
       type: 'category',
       data: labels,
@@ -438,34 +679,16 @@ const trackOption = computed(() => {
       show: false,
       splitLine: { show: false },
     },
-    series: [
-      {
-        name: '各月下单',
-        type: 'line',
-        data: plot,
-        smooth: 0.2,
-        symbol: 'circle',
-        symbolSize: (_v: number, params: { dataIndex: number }) =>
-          symbolSizes[params.dataIndex] ?? 7,
-        connectNulls: false,
-        itemStyle: pointGlowStyle(lineC),
-        lineStyle: lineGlowStyle(lineC, 2.5),
-        ...(area ? { areaStyle: area } : {}),
-        ...(markArea ? { markArea } : {}),
-        label: {
-          show: false,
-          color: ink,
-        },
-      },
-    ],
+    series,
   }
 })
 
 const trackTitle = computed(() => {
-  const it = selectedItem.value
-  if (!it) return '连续月下单追踪'
+  const items = trackSeriesItems.value
+  if (!items.length) return '连续月下单追踪'
   const y = kc.value?.year_label || (kc.value?.year ? `${kc.value.year}年` : '')
-  return `${it.name} · ${y}各月下单`
+  if (items.length === 1) return `${items[0].name} · ${y}各月下单`
+  return `${items.length} 客比较 · ${y}`
 })
 
 const panelTitle = computed(() => {
@@ -481,31 +704,18 @@ const helpLines = computed(() => {
   return c ? [c] : []
 })
 
-const salesColTip = computed(
-  () => kc.value?.sales_col_tip || '本年各销售下单预估金额（降序）',
-)
-const silentTip = computed(
-  () =>
-    kc.value?.silent_tip ||
-    '近 2 个已过去完整自然月下单预估为 0（当前月不计入）；当月有单仍可能静默',
-)
-
-const dailyOn = computed(() => !!store.dailyActive)
-
 const selectedSales = computed((): KcSales[] => {
   const it = selectedItem.value
   if (!it?.sales?.length) return []
   return it.sales
 })
 
-function isSelected(it: KcItem): boolean {
-  return selectedKey.value === itemKey(it)
-}
+const selectedTrend = computed((): KcTrend | null => selectedItem.value?.trend || null)
 
-function barWidth(wo: number | undefined): string {
-  const n = Number(wo) || 0
-  const clamped = Math.max(0, Math.min(100, n))
-  return `${clamped}%`
+function sparkBars(it: KcItem): number[] {
+  const s = it.spark_wo
+  if (s && s.length) return s.slice(0, 12)
+  return []
 }
 </script>
 
@@ -522,7 +732,6 @@ function barWidth(wo: number | undefined): string {
         <span data-testid="kc-panel-title">{{ panelTitle }}</span>
       </template>
 
-      <!-- 顶区 help_lines：口径 · 静默（当前月不计入）· 点击提示 -->
       <div class="kc-help" data-testid="kc-help">
         <p
           v-for="(line, hi) in helpLines"
@@ -537,158 +746,376 @@ function barWidth(wo: number | undefined): string {
         </p>
       </div>
 
-      <!-- L-A：饼 → 名单 → 折线（纵向，禁止左名单|右折线主结构） -->
       <div class="kc-layout" data-testid="kc-layout">
-        <!-- 【上】级分布双饼 -->
-        <section class="kc-pies" data-testid="kc-pies" aria-label="级分布结构总览">
-          <div class="kc-section-label">级分布 · 结构总览</div>
-          <div class="kc-pies__row">
-            <div class="kc-pie-block">
-              <div class="kc-pie-title">数量环 · 共{{ kc?.totals?.count ?? '—' }}户</div>
-              <div class="kc-pie-chart">
-                <EchartsHost :option="pieCountOption" />
-              </div>
-              <ul class="kc-pie-legend">
-                <li v-for="(lab, i) in kc?.pie_count?.labels || []" :key="'pc' + lab">
-                  <span class="kc-pie-dot" :data-i="i" />
-                  <span>{{ lab }}</span>
-                  <span>{{ kc?.pie_count?.values_disp?.[i] }}户</span>
-                  <span>{{ kc?.pie_count?.pct_disp?.[i] }}</span>
-                </li>
-              </ul>
-            </div>
-            <div class="kc-pie-block">
-              <div class="kc-pie-title">金额环 · {{ kc?.totals?.amount_disp || '—' }}</div>
-              <div class="kc-pie-chart">
-                <EchartsHost :option="pieAmountOption" />
-              </div>
-              <ul class="kc-pie-legend">
-                <li v-for="(lab, i) in kc?.pie_amount?.labels || []" :key="'pa' + lab">
-                  <span class="kc-pie-dot" :data-i="i" />
-                  <span>{{ lab }}</span>
-                  <span>{{ kc?.pie_amount?.values_disp?.[i] }}</span>
-                  <span>{{ kc?.pie_amount?.pct_disp?.[i] }}</span>
-                </li>
-              </ul>
-            </div>
+        <!-- 四摘要卡 -->
+        <section
+          class="kc-summary-cards"
+          data-testid="kc-summary-cards"
+          aria-label="经营摘要"
+        >
+          <div class="kc-card" data-testid="kc-card-total">
+            <div class="kc-card__label">{{ cards.total?.label || '全部客户 / 年累计' }}</div>
+            <div class="kc-card__value">{{ cards.total?.value_disp || '—' }}</div>
+          </div>
+          <div class="kc-card" data-testid="kc-card-contrib" :title="cards.focus_contrib?.tip">
+            <div class="kc-card__label">{{ cards.focus_contrib?.label || '重点客户贡献' }}</div>
+            <div class="kc-card__value">{{ cards.focus_contrib?.value_disp || '—' }}</div>
+            <div class="kc-card__sub">{{ cards.focus_contrib?.amount_disp }}</div>
+          </div>
+          <div class="kc-card" data-testid="kc-card-silent" :title="cards.silent_focus?.tip || silentTip">
+            <div class="kc-card__label">{{ cards.silent_focus?.label || '需跟进重点客' }}</div>
+            <div class="kc-card__value">{{ cards.silent_focus?.value_disp || '—' }}</div>
+          </div>
+          <div
+            class="kc-card"
+            data-testid="kc-card-near"
+            :title="cards.near_upgrade?.tip || nearTip"
+          >
+            <div class="kc-card__label">{{ cards.near_upgrade?.label || '临界晋级客户' }}</div>
+            <div class="kc-card__value">{{ cards.near_upgrade?.value_disp || '—' }}</div>
           </div>
         </section>
 
-        <!-- 【中】六档名单满宽 -->
-        <section class="kc-list" data-testid="kc-list" aria-label="客户名单六档">
-          <div class="kc-section-label">客户名单 · 六档</div>
-          <div
-            v-for="t in kc?.tiers || []"
-            :key="t.id"
-            class="kc-tier"
-            :data-tier="t.id"
-            :data-open="openMap[t.id] ? '1' : '0'"
-          >
-            <button
-              type="button"
-              class="kc-tier__head"
-              :data-testid="'kc-tier-head-' + t.id"
-              :aria-expanded="openMap[t.id] ? 'true' : 'false'"
-              @click="toggleTier(t)"
+        <!-- 双结构条 -->
+        <section
+          class="kc-structure-bars"
+          data-testid="kc-structure-bars"
+          aria-label="六档结构"
+        >
+          <div class="kc-bar-row">
+            <div class="kc-bar-row__label">{{ structureCount?.label || '客户数结构' }}</div>
+            <div class="kc-bar-track" role="list">
+              <div
+                v-for="(seg, i) in structureCount?.segments || []"
+                :key="'sc' + seg.id"
+                class="kc-bar-seg"
+                role="listitem"
+                :data-tier="seg.id"
+                :data-i="i"
+                :style="{ width: barWidth(seg.wo) }"
+                :title="`${seg.label} · ${seg.count_disp || ''} · ${seg.pct_disp || ''}`"
+                tabindex="0"
+              />
+            </div>
+          </div>
+          <div class="kc-bar-row">
+            <div class="kc-bar-row__label">{{ structureAmount?.label || '金额结构' }}</div>
+            <div class="kc-bar-track" role="list">
+              <div
+                v-for="(seg, i) in structureAmount?.segments || []"
+                :key="'sa' + seg.id"
+                class="kc-bar-seg"
+                role="listitem"
+                :data-tier="seg.id"
+                :data-i="i"
+                :style="{ width: barWidth(seg.wo) }"
+                :title="`${seg.label} · ${seg.amount_disp || ''} · ${seg.pct_disp || ''}`"
+                tabindex="0"
+              />
+            </div>
+          </div>
+          <ul class="kc-bar-legend" aria-label="档位图例">
+            <li
+              v-for="(seg, i) in structureCount?.segments || []"
+              :key="'lg' + seg.id"
             >
-              <span class="kc-tier__id">{{ t.label }}</span>
-              <span class="kc-tier__range">{{ t.range_disp }}</span>
-              <span class="kc-tier__meta">
-                <span>{{ t.count }}户</span>
-                <span>{{ t.amount_disp }}</span>
-                <span>{{ t.pct_amount_disp }}</span>
-              </span>
-              <span class="kc-tier__chev">{{ openMap[t.id] ? '▾' : '▸' }}</span>
-            </button>
-            <div
-              v-if="openMap[t.id]"
-              class="kc-tier__body"
-              :data-testid="'kc-tier-body-' + t.id"
-            >
-              <div v-if="loadingTier[t.id]" class="kc-tier__loading">加载中…</div>
-              <div v-else-if="loadErr[t.id]" class="kc-tier__err">{{ loadErr[t.id] }}</div>
-              <div v-else-if="!tierItems(t).length" class="kc-tier__empty">
-                {{ t.count ? '暂无名单' : '该档暂无客户' }}
+              <span class="kc-pie-dot" :data-i="i" :data-tier="seg.id" />
+              <span>{{ seg.label }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 主工作区：左池右洞察 · 固定同高 -->
+        <div class="kc-workbench" data-testid="kc-workbench">
+          <section class="kc-pool" data-testid="kc-pool" aria-label="客户池">
+            <div class="kc-pool__tabs" role="tablist">
+              <button
+                v-for="p in kc?.pools || []"
+                :key="p.id"
+                type="button"
+                class="kc-chip"
+                role="tab"
+                :class="{ 'is-active': activePool === p.id }"
+                :data-testid="'kc-pool-tab-' + p.id"
+                :aria-selected="activePool === p.id ? 'true' : 'false'"
+                @click="setPool(p.id as PoolId)"
+              >
+                {{ p.label }}
+                <span class="kc-chip__hint">{{ p.hint }}</span>
+                <span class="kc-chip__meta">{{ p.count_disp }}</span>
+              </button>
+            </div>
+            <div class="kc-pool__filters">
+              <button
+                type="button"
+                class="kc-chip kc-chip--sm"
+                :class="{ 'is-active': filterMode === 'all' }"
+                data-testid="kc-filter-all"
+                @click="setFilter('all')"
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                class="kc-chip kc-chip--sm"
+                :class="{ 'is-active': filterMode === 'silent' }"
+                data-testid="kc-filter-silent"
+                @click="setFilter('silent')"
+              >
+                需跟进
+              </button>
+              <button
+                type="button"
+                class="kc-chip kc-chip--sm"
+                :class="{ 'is-active': filterMode === 'near' }"
+                data-testid="kc-filter-near"
+                :title="nearTip"
+                @click="setFilter('near')"
+              >
+                临界晋级
+              </button>
+              <input
+                v-model="searchQ"
+                type="search"
+                class="kc-search"
+                data-testid="kc-search"
+                placeholder="搜索客户名"
+                aria-label="搜索客户名"
+              />
+            </div>
+            <div class="kc-pool__list" data-testid="kc-pool-list">
+              <div v-if="poolLoading" class="kc-tier__loading">加载中…</div>
+              <div v-else-if="poolError" class="kc-tier__err">{{ poolError }}</div>
+              <div v-else-if="!filteredPoolItems.length" class="kc-tier__empty">
+                {{ poolItemsRaw.length ? '无匹配客户' : '该池暂无客户' }}
               </div>
               <template v-else>
-                <button
-                  v-for="(it, idx) in tierItems(t)"
-                  :key="t.id + '-' + idx + '-' + it.name"
-                  type="button"
+                <div
+                  v-for="(it, idx) in filteredPoolItems"
+                  :key="'row' + idx + itemKey(it)"
                   class="kc-row"
-                  :class="{ 'is-selected': isSelected(it) }"
+                  :class="{
+                    'is-selected': isSelected(it),
+                    'is-compare': isCompared(it),
+                  }"
                   data-testid="kc-customer-row"
-                  :aria-pressed="isSelected(it) ? 'true' : 'false'"
-                  @click="onItemClick(it)"
                 >
-                  <span class="kc-row__name">
-                    {{ it.name }}
-                    <span
-                      v-if="it.silent"
-                      class="kc-row__silent"
-                      :title="silentTip"
-                    >静默</span>
-                  </span>
-                  <span
-                    class="kc-row__sales"
-                    :title="salesLine(it).title || salesColTip"
+                  <button
+                    type="button"
+                    class="kc-row__main"
+                    :aria-pressed="isSelected(it) ? 'true' : 'false'"
+                    @click="onItemClick(it)"
                   >
-                    {{ salesLine(it).text }}
-                  </span>
-                  <span class="kc-row__ytd">{{ it.ytd_disp }}</span>
-                </button>
+                    <span class="kc-row__name" :title="it.name">
+                      <span class="kc-row__tier" :data-tier="it.tier">{{ it.tier }}</span>
+                      {{ it.name }}
+                      <span
+                        v-if="it.status_disp"
+                        class="kc-row__status"
+                        :class="{
+                          'is-silent': it.silent,
+                          'is-near': it.near_upgrade && !it.silent,
+                        }"
+                        :title="it.silent ? silentTip : nearTip"
+                      >{{ it.status_disp }}</span>
+                    </span>
+                    <span
+                      class="kc-row__sales"
+                      :title="salesLine(it).title || salesColTip"
+                    >{{ salesLine(it).text }}</span>
+                    <span class="kc-row__ytd">{{ it.ytd_disp }}</span>
+                    <span
+                      v-if="sparkBars(it).length"
+                      class="kc-spark"
+                      aria-hidden="true"
+                    >
+                      <i
+                        v-for="(w, si) in sparkBars(it)"
+                        :key="'sp' + si"
+                        class="kc-spark__bar"
+                        :style="{
+                          height: `${Math.max(0, Math.min(100, Number(w) || 0))}%`,
+                        }"
+                      />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="kc-row__cmp"
+                    data-testid="kc-compare-toggle"
+                    :aria-pressed="isCompared(it) ? 'true' : 'false'"
+                    :title="isCompared(it) ? '移出对比' : '加入对比'"
+                    @click.stop="toggleCompare(it)"
+                  >
+                    {{ isCompared(it) ? '移出' : '对比' }}
+                  </button>
+                </div>
               </template>
             </div>
-          </div>
-        </section>
+            <p v-if="compareHint" class="kc-compare-hint" data-testid="kc-compare-hint">
+              {{ compareHint }}
+            </p>
+          </section>
 
-        <!-- 【下】连续月折线满宽 -->
-        <section class="kc-track" data-testid="kc-track" aria-label="连续月下单追踪">
-          <div class="kc-track__head">
-            <div class="kc-section-label kc-track__title" data-testid="kc-track-title">
-              {{ trackTitle }}
-            </div>
-            <button
-              v-if="selectedItem"
-              type="button"
-              class="kc-track__zoom"
-              data-testid="kc-track-zoom"
-              title="放大查看"
-              @click="openMonthModal"
-            >
-              放大
-            </button>
-          </div>
-          <div v-if="!selectedItem" class="kc-track__empty" data-testid="kc-track-empty">
-            点击上方客户查看 1～12 月下单
-          </div>
-          <template v-else>
-            <div
-              v-if="selectedSales.length"
-              class="kc-sales-bars"
-              data-testid="kc-sales-bars"
-              aria-label="各销售下单构成"
-            >
-              <div
-                v-for="(s, si) in selectedSales"
-                :key="'sb' + si + s.name"
-                class="kc-sales-bars__row"
-              >
-                <span class="kc-sales-bars__name" :title="s.name">{{ s.name }}</span>
-                <div class="kc-sales-bars__track">
-                  <div
-                    class="kc-sales-bars__fill"
-                    :style="{ width: barWidth(s.wo) }"
-                  />
+          <section class="kc-insight" data-testid="kc-insight" aria-label="客户洞察">
+            <!-- 未选：行动队列 -->
+            <div v-if="!selectedItem" class="kc-insight__empty" data-testid="kc-insight-empty">
+              <p class="kc-guide" data-testid="kc-guide">{{ guideText }}</p>
+              <div v-if="hasAction" class="kc-action-queue" data-testid="kc-action-queue">
+                <div v-if="actionSilent.length" class="kc-action-block">
+                  <div class="kc-section-label">需跟进（静默重点）</div>
+                  <button
+                    v-for="(row, ri) in actionSilent"
+                    :key="'as' + ri + row.mkey"
+                    type="button"
+                    class="kc-action-row"
+                    data-testid="kc-action-row"
+                    @click="onActionClick(row)"
+                  >
+                    <span class="kc-row__tier" :data-tier="row.tier">{{ row.tier }}</span>
+                    <span class="kc-action-row__name" :title="row.name">{{ row.name }}</span>
+                    <span class="kc-action-row__meta">{{ row.ytd_disp }}</span>
+                    <span class="kc-row__status is-silent">{{ row.status_disp || '静默' }}</span>
+                  </button>
                 </div>
-                <span class="kc-sales-bars__amt">{{ s.amount_disp }}</span>
+                <div v-if="actionNear.length" class="kc-action-block">
+                  <div class="kc-section-label" :title="nearTip">临界晋级</div>
+                  <button
+                    v-for="(row, ri) in actionNear"
+                    :key="'an' + ri + row.mkey"
+                    type="button"
+                    class="kc-action-row"
+                    data-testid="kc-action-row"
+                    @click="onActionClick(row)"
+                  >
+                    <span class="kc-row__tier" :data-tier="row.tier">{{ row.tier }}</span>
+                    <span class="kc-action-row__name" :title="row.name">{{ row.name }}</span>
+                    <span class="kc-action-row__meta">{{ row.ytd_disp }}</span>
+                    <span class="kc-row__status is-near">{{ row.status_disp || '临界' }}</span>
+                  </button>
+                </div>
+              </div>
+              <div v-else class="kc-tier__empty" data-testid="kc-action-empty">
+                当前无需跟进或临界晋级提醒
               </div>
             </div>
-            <div class="kc-track-chart" data-testid="kc-track-chart">
-              <EchartsHost :option="trackOption" />
-            </div>
-          </template>
-        </section>
+
+            <!-- 已选：摘要 + 销售 + 趋势 -->
+            <template v-else>
+              <div class="kc-insight__head" data-testid="kc-insight-head">
+                <div class="kc-insight__title">
+                  <span class="kc-row__tier" :data-tier="selectedItem.tier">{{
+                    selectedItem.tier
+                  }}</span>
+                  <span class="kc-insight__name" :title="selectedItem.name">{{
+                    selectedItem.name
+                  }}</span>
+                  <span class="kc-insight__ytd">{{ selectedItem.ytd_disp }}</span>
+                </div>
+                <div class="kc-insight__status">
+                  <span
+                    v-if="selectedItem.status_disp"
+                    class="kc-row__status"
+                    :class="{
+                      'is-silent': selectedItem.silent,
+                      'is-near': selectedItem.near_upgrade && !selectedItem.silent,
+                    }"
+                    :title="selectedItem.silent ? silentTip : nearTip"
+                  >{{ selectedItem.status_disp }}</span>
+                  <span
+                    v-if="selectedItem.gap_disp && selectedItem.next_tier"
+                    class="kc-insight__gap"
+                    :title="nearTip"
+                  >距{{ selectedItem.next_tier }} {{ selectedItem.gap_disp }}</span>
+                </div>
+                <div class="kc-insight__actions">
+                  <button
+                    type="button"
+                    class="kc-track__zoom"
+                    data-testid="kc-compare-toggle-main"
+                    @click="toggleCompare(selectedItem)"
+                  >
+                    {{ isCompared(selectedItem) ? '移出对比' : '加入对比' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="kc-track__zoom"
+                    data-testid="kc-track-zoom"
+                    title="放大查看"
+                    @click="openMonthModal"
+                  >
+                    放大
+                  </button>
+                </div>
+              </div>
+
+              <div
+                v-if="compareKeys.length"
+                class="kc-compare-tags"
+                data-testid="kc-compare-tags"
+              >
+                <span
+                  v-for="ck in compareKeys"
+                  :key="'ct' + ck"
+                  class="kc-compare-tag"
+                >
+                  {{ findItemByKey(ck)?.name || ck }}
+                  <button type="button" class="kc-compare-tag__x" @click="removeCompare(ck)">
+                    ×
+                  </button>
+                </span>
+              </div>
+              <p v-if="compareHint" class="kc-compare-hint">{{ compareHint }}</p>
+
+              <div
+                v-if="selectedTrend"
+                class="kc-trend-summary"
+                data-testid="kc-trend-summary"
+              >
+                <span>峰值 {{ selectedTrend.peak_disp || '—' }}</span>
+                <span>月均 {{ selectedTrend.avg_disp || '—' }}</span>
+                <span>{{ selectedTrend.recent_disp || '—' }}</span>
+                <span>{{ selectedTrend.silent_complete_disp || '—' }}</span>
+                <span v-if="selectedTrend.incomplete_hint" class="kc-trend-summary__hint">{{
+                  selectedTrend.incomplete_hint
+                }}</span>
+              </div>
+
+              <div
+                v-if="selectedSales.length && trackSeriesItems.length <= 1"
+                class="kc-sales-bars"
+                data-testid="kc-sales-bars"
+                aria-label="各销售下单构成"
+              >
+                <div
+                  v-for="(s, si) in selectedSales"
+                  :key="'sb' + si + s.name"
+                  class="kc-sales-bars__row"
+                >
+                  <span class="kc-sales-bars__name" :title="s.name">{{ s.name }}</span>
+                  <div class="kc-sales-bars__track">
+                    <div class="kc-sales-bars__fill" :style="{ width: barWidth(s.wo) }" />
+                  </div>
+                  <span class="kc-sales-bars__amt">{{ s.amount_disp }}</span>
+                </div>
+              </div>
+
+              <div class="kc-track" data-testid="kc-track">
+                <div class="kc-track__head">
+                  <div
+                    class="kc-section-label kc-track__title"
+                    data-testid="kc-track-title"
+                  >
+                    {{ trackTitle }}
+                  </div>
+                </div>
+                <div class="kc-track-chart" data-testid="kc-track-chart">
+                  <EchartsHost :option="trackOption" />
+                </div>
+              </div>
+            </template>
+          </section>
+        </div>
       </div>
     </SciFiPanel>
 

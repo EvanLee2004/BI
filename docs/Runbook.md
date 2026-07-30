@@ -6,10 +6,10 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **3.4.2**（`VERSION`：重点客户下单分析 L-A 饼→名单→折线、多销售金额、默认不预选；其上 3.4.1/3.4.0 六档算账；维护页；业务/写/探活均 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止） |
+| 版本 | **3.4.3**（`VERSION`：重点客户经营作战台——结构条+三池+需跟进/临界晋级+最多三客比较；其上 3.4.2/3.4.1/3.4.0 六档算账；维护页；业务/写/探活均 `/api/v1/*`；只 vue；单会话 `kanban_sid`；统一 `/login`；飞书 webhook 已废止）。**本地待上机** → 上机成功后以机上 `git rev-parse HEAD` 为准 |
 | 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、Restart=always、StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
-| 用户入口口径 | **只发两个根链接**：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`（办公区内勿用外网；用自己账号登录即可；**无**单独管理员登录 URL） |
+| 用户入口口径 | **首选（2026-07-30 海鹏）**：`http://dash.besteasy.com:8001`（**内外网统一**；**必须带 `:8001`**）。过渡期旧链：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`。用自己账号登录即可；**无**单独管理员登录 URL；管理端路径 `/admin` |
 | 会话 | 浏览器 cookie **仅 `kanban_sid`**。**上机后须重登**。探活 `GET /api/v1/health`；刷新状态 `GET /api/v1/admin/refresh_status` |
 | 休眠 | `sleep`/`suspend`/`hibernate`/`hybrid-sleep` **target 已 mask** |
 | 每日更新 | **服务内 ScheduleLoop**（以机上 `schedule_times` 为准） |
