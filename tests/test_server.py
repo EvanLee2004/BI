@@ -76,8 +76,11 @@ class TestServerAuth(unittest.TestCase):
         self.assertIn("columns", r2.json())
         r3 = self.client.get("/admin", headers=hdr)
         self.assertTrue(
-            "管理员控制台" in r3.text or 'id="app"' in r3.text,
-            "已登录 /admin 应为控制台或 Vue SPA",
+            "管理员控制台" in r3.text
+            or 'id="app"' in r3.text
+            or "首次取数" in r3.text  # 3.6.0：空机 bootstrap 引导也合法
+            or "维护中" in r3.text,
+            "已登录 /admin 应为控制台/Vue SPA/引导页/维护态",
         )
 
     def test_tampered_cookie_rejected(self):

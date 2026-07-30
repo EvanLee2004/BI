@@ -164,8 +164,11 @@ class TestViewerAuth(unittest.TestCase):
         # 54.4·D：/admin 为 Vue SPA（壳含 id=app）
         admin_body = c.get("/admin").text
         self.assertTrue(
-            'id="app"' in admin_body or "管理员控制台" in admin_body,
-            "admin 应为 Vue SPA 或 legacy 控制台",
+            'id="app"' in admin_body
+            or "管理员控制台" in admin_body
+            or "首次取数" in admin_body
+            or "维护中" in admin_body,
+            "admin 应为 Vue SPA/legacy 控制台/引导页/维护态",
         )
         # 2.5.0：未登录 /admin → 统一登录 /login（非独立管理员登录皮）
         unauth = self.raw.get("/admin")

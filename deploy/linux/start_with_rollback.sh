@@ -44,7 +44,14 @@ while true; do
     continue
   fi
 
-  # 非 42：异常退出。有回滚标记 = 更新后启动即崩 → 回滚一次
+  # 3.6.0 G1：运维 TERM/INT/正常退出不计入 crash-storm（避免与 systemd 双重重启）
+  # 143=SIGTERM(128+15)，130=SIGINT；0=干净退出
+  if [ "${CODE}" -eq 0 ] || [ "${CODE}" -eq 143 ] || [ "${CODE}" -eq 130 ]; then
+    echo "[看门狗] 预期运维退出(码=${CODE})，不累计崩溃；交由 systemd 监督策略。"
+    exit "${CODE}"
+  fi
+
+  # 非 42 且非运维预期：异常退出。有回滚标记 = 更新后启动即崩 → 回滚一次
   if [ -f "${ROOT}/.update_rollback" ]; then
     PREV="$(tr -d '[:space:]' < "${ROOT}/.update_rollback" || true)"
     rm -f "${ROOT}/.update_rollback"
@@ -72,5 +79,6 @@ while true; do
     (cd "${ROOT}" && PYTHONPATH=src "${PY}" -c "from notify import alert_event; alert_event('boot_crash', 'fails=${FAILS} code=${CODE}')" ) 2>/dev/null || true
     exit 1
   fi
+  # 非 systemd 场景仍有限重试；有 systemd 时 Restart=on-failure 会再拉起
   sleep 3
 done

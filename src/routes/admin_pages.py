@@ -30,6 +30,23 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         # 兼容 2.0.x 预装 admin_html 标记
         return bool(_state.get("admin_html"))
 
+    def _admin_entry_mode() -> str:
+        """3.6.0：bootstrap 资格看持久 install_state + 磁盘事实，不单靠内存 has_data。"""
+        try:
+            import install_state as _inst
+            import loaders as _loaders
+
+            dd = _loaders.data_dir(cfg, root)
+            return _inst.resolve_admin_entry(
+                dd,
+                cfg=cfg,
+                memory_has_data=_has_data(),
+                last_build_ok=_state.get("last_build_ok"),
+            )
+        except Exception:
+            # 降级：仅内存（旧路径）
+            return "spa" if _has_data() else "bootstrap"
+
     def _spa():
         if not callable(_vue_index):
             raise HTTPException(status_code=503, detail="Vue 管理端未构建（缺 frontend/dist）")
@@ -109,8 +126,15 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def admin_page(request: Request):
         """管理员控制台：已登录管理员 → SPA；未登录 → 统一登录。"""
         if _user(request):
-            if not _has_data():
+            mode = _admin_entry_mode()
+            if mode == "bootstrap":
                 return _html_doc(_bootstrap_page())
+            if mode == "maintenance":
+                # 已安装但构建失败且无 LKG：维护态（勿进首次安装）
+                return _html_doc(
+                    "<h1>维护中</h1><p>数据构建异常，请查看管理端状态或稍后重试。"
+                    "本机已安装，不会进入首次安装引导。</p>"
+                )
             return _spa()
         return RedirectResponse(login_redirect.login_url(next_path="/admin"), status_code=303)
 
@@ -128,6 +152,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if not _user(request):
             nxt = "/admin/" + spa_path if spa_path else "/admin"
             return RedirectResponse(login_redirect.login_url(next_path=nxt), status_code=303)
-        if not _has_data():
+        mode = _admin_entry_mode()
+        if mode == "bootstrap":
             return _html_doc(_bootstrap_page())
+        if mode == "maintenance":
+            return _html_doc(
+                "<h1>维护中</h1><p>数据构建异常，请查看管理端状态或稍后重试。"
+                "本机已安装，不会进入首次安装引导。</p>"
+            )
         return _spa()

@@ -2,10 +2,10 @@
 # 安装见 docs/Ubuntu部署手册.md；模板内路径按实际部署目录改。
 # 生产：配合 nginx-kanban.conf，本服务仅绑 127.0.0.1:8018。
 #
-# 语义：
-#   - Restart=always + RestartSec=3：进程退出（含一键更新码 42）后自动再起
-#   - ExecStart 走 start_with_rollback.sh：坏版本 (.update_rollback) 自动 git reset 一次
-#   - StartLimitBurst=5 / StartLimitIntervalSec=120：短时反复崩则停下报警（对齐看门狗 5 次）
+# 语义（3.6.0）：
+#   - Restart=on-failure + RestartSec=3：仅异常退出再起；正常 stop / TERM(143) 不算崩溃
+#   - ExecStart 走 start_with_rollback.sh：码 42 更新重启；TERM/0 直接退出交 systemd
+#   - StartLimitBurst=5 / StartLimitIntervalSec=120：短时反复崩则停下
 #     注意：StartLimit* 必须在 [Unit]（Ubuntu 26 / systemd 新版放 [Service] 会被忽略）
 #
 # 安装示例（部署目录=/opt/kanban/看板正式程序）：
@@ -26,9 +26,9 @@ Type=simple
 User=lee
 Group=lee
 WorkingDirectory=/opt/kanban/看板正式程序
-# 包装脚本内自带 42 重启 / 回滚 / 5 次失败停下；systemd Restart 作双保险
+# 包装脚本：42 更新重启 / 回滚；TERM/0 不累计崩溃。systemd 为唯一失败监督者
 ExecStart=/bin/bash /opt/kanban/看板正式程序/deploy/linux/start_with_rollback.sh
-Restart=always
+Restart=on-failure
 RestartSec=3
 # 日志走 journald：journalctl -u kanban -n 200 --no-pager
 StandardOutput=journal

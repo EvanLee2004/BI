@@ -108,35 +108,44 @@ try:
 except Exception:
  print("")' 2>/dev/null || true)"
 
-  # 契约字段：3.5.0 起 health 带 version（本机）
-  if [ -z "${runtime_version}" ]; then
-    echo "[reload] try ${i}: health=200 but no runtime version yet"
+  # 3.6.0：纯函数判据（reload_verify）；禁止只凭 health=200
+  old_alive=0
+  if [ -n "${OLD_PID}" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+    old_alive=1
+  fi
+  PY_BIN="python3"
+  [ -x "$ROOT/.venv/bin/python" ] && PY_BIN="$ROOT/.venv/bin/python"
+  verify_out="$(
+    ROOT="$ROOT" OLD_PID="${OLD_PID}" NEW_PID="${new_pid}" \
+    RV="${runtime_version}" DV="${DISK_VERSION}" \
+    RC="${runtime_commit}" DC="${DISK_COMMIT}" OA="${old_alive}" \
+    "$PY_BIN" - <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(os.environ["ROOT"], "src"))
+from reload_verify import verify_process_switch
+ok, reason = verify_process_switch(
+    old_pid=os.environ.get("OLD_PID"),
+    new_pid=os.environ.get("NEW_PID"),
+    health_code=200,
+    runtime_version=os.environ.get("RV"),
+    disk_version=os.environ.get("DV"),
+    runtime_commit=os.environ.get("RC"),
+    disk_commit=os.environ.get("DC"),
+    old_pid_still_alive=os.environ.get("OA") == "1",
+)
+print("1" if ok else "0")
+print(reason)
+PY
+  )"
+  v_ok="$(printf '%s\n' "$verify_out" | sed -n '1p')"
+  v_reason="$(printf '%s\n' "$verify_out" | sed -n '2p')"
+  if [ "$v_ok" != "1" ]; then
+    echo "[reload] try ${i}: verify_fail reason=${v_reason} runtime_version=${runtime_version:-?} commit=${runtime_commit:-?}"
     sleep 2
     continue
-  fi
-  if [ -n "${DISK_VERSION}" ] && [ "${runtime_version}" != "${DISK_VERSION}" ]; then
-    echo "[reload] try ${i}: runtime version=${runtime_version} != disk ${DISK_VERSION}"
-    sleep 2
-    continue
-  fi
-  if [ -n "${DISK_COMMIT}" ] && [ -n "${runtime_commit}" ]; then
-    case "${DISK_COMMIT}" in
-      ${runtime_commit}*) ;;
-      *)
-        # 允许 short/full
-        case "${runtime_commit}" in
-          ${DISK_COMMIT_SHORT}*) ;;
-          *)
-            echo "[reload] try ${i}: runtime commit=${runtime_commit} != disk ${DISK_COMMIT_SHORT}"
-            sleep 2
-            continue
-            ;;
-        esac
-        ;;
-    esac
   fi
 
-  echo "[reload] health=200 after ${i} tries"
+  echo "[reload] health=200 after ${i} tries (verify ok)"
   echo "[reload] new_serve_pid=${new_pid} runtime_version=${runtime_version} runtime_commit=${runtime_commit:-?} runtime_pid=${runtime_pid:-?}"
   echo "[reload] disk_VERSION=${DISK_VERSION} disk_commit=${DISK_COMMIT_SHORT} mode=${RESTART_MODE}"
   ok=1

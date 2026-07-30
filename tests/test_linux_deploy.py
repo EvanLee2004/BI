@@ -43,7 +43,9 @@ class TestLinuxDeployAssets(unittest.TestCase):
 
     def test_service_unit_has_restart_and_exec(self):
         text = (LINUX / "kanban.service").read_text(encoding="utf-8")
-        self.assertIn("Restart=always", text)
+        # 3.6.0：on-failure 唯一监督；TERM/正常退出不算崩溃
+        self.assertIn("Restart=on-failure", text)
+        self.assertNotIn("Restart=always", text)
         self.assertIn("RestartSec=3", text)
         self.assertIn("start_with_rollback.sh", text)
         self.assertIn("StartLimitBurst=5", text)

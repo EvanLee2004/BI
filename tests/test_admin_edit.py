@@ -406,23 +406,55 @@ class TestAdminWrite(unittest.TestCase):
         self.assertEqual((self.root / "config.json").read_text(encoding="utf-8"), before_cfg)
 
     def test_bootstrap_page_when_no_data(self):
-        """F-02 鸡生蛋修复：admin_html 未生成（空机器首次部署）→ 管理员登录后出引导页
-        （可填智云账号+触发立即更新），而不是死板一句"数据尚未生成"；有 admin_html 则正常页。"""
+        """F-02 + 3.6.0：首次安装引导看持久磁盘事实，不单靠内存 admin_html。
+
+        - 本套件已 seed 库 → 即使 admin_html 清空也**不得** bootstrap（防 CRC 失败误进首次安装）
+        - 空 data_dir（无库无源）才出引导页锚点
+        """
         old = server._state["admin_html"]
+        old_has = server._state.get("has_data")
         try:
-            server._state["admin_html"] = ""  # 模拟首次部署：从未取数成功
+            server._state["admin_html"] = ""
+            server._state["has_data"] = False
             r = self.client.get("/admin", headers=self.hdr)
             self.assertEqual(r.status_code, 200)
-            for anchor in ("首次取数", 'id="go"', "/api/v1/admin/settings", "/api/v1/admin/refresh"):
-                self.assertIn(anchor, r.text, f"引导页缺锚点 {anchor}")
-            self.assertNotIn("数据尚未生成", r.text)
-            # 未登录仍是登录页，不给引导页（引导页会回显智云账号）
-            r = self.anon.get("/admin")
+            # 有库：应进 SPA 壳，而非首次取数引导
             self.assertNotIn("首次取数", r.text)
+            self.assertIn('id="app"', r.text)
         finally:
             server._state["admin_html"] = old
-        r = self.client.get("/admin", headers=self.hdr)  # 有数据 → 正常管理端，不出引导页
-        self.assertNotIn("首次取数", r.text)
+            if old_has is not None:
+                server._state["has_data"] = old_has
+
+        # 真·空机：独立 app 无库无源 → 引导页
+        import tempfile as _tf
+        from pathlib import Path as _P
+
+        empty = _P(_tf.mkdtemp())
+        cfg2 = dict(loaders.load_config())
+        cfg2["data_dir"] = str(empty / "数据")
+        (empty / "数据").mkdir()
+        app2 = server.create_app(cfg2, root=empty)
+        from fastapi.testclient import TestClient as _TC
+
+        c2 = _TC(app2, follow_redirects=False)
+        rlogin = c2.post(
+            "/admin/login",
+            data={"account": "lushasha", "password": server.DEFAULT_PW},
+        )
+        sid = rlogin.cookies.get(getattr(server, "SID_COOKIE", "kanban_sid")) or rlogin.cookies.get(
+            server.COOKIE
+        )
+        hdr2 = {"Cookie": f"{server.SID_COOKIE}={sid}"}
+        server._state["admin_html"] = ""
+        server._state["has_data"] = False
+        r = c2.get("/admin", headers=hdr2)
+        self.assertEqual(r.status_code, 200)
+        for anchor in ("首次取数", 'id="go"', "/api/v1/admin/settings", "/api/v1/admin/refresh"):
+            self.assertIn(anchor, r.text, f"引导页缺锚点 {anchor}")
+        # 未登录不给引导
+        anon2 = _TC(app2, follow_redirects=False)
+        self.assertNotIn("首次取数", anon2.get("/admin").text)
 
     def test_settings_requires_login(self):
         self.assertEqual(self.anon.get("/api/v1/admin/settings").status_code, 401)

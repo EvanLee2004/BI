@@ -156,24 +156,9 @@ def serve(cfg=None, root=None):
     except Exception:
         pass
     _write_boot_runtime_marker(root)
-    print("[server] 首次构建页面（跑管道+渲染）……")
-    boot_ok = False
-    try:
-        refresh(cfg, root)
-        boot_ok = True
-        print(f"[server] 就绪 built_at={_state['built_at']}")
-    except Exception as e:
-        print(
-            f"[server] ⚠ 构建失败：{type(e).__name__}: {e}"
-            "（服务仍启动，修数据后 /api/v1/admin/refresh 或重启）"
-        )
-        try:
-            import maintenance_mode as _mm
+    from boot_lifecycle import boot_first_refresh
 
-            if not _mm.is_on(cfg, root):
-                _mm.turn_on("boot", cfg, root)
-        except Exception:
-            pass
+    boot_ok = boot_first_refresh(cfg, root, refresh)
     if boot_ok:
         try:
             import maintenance_mode as _mm
