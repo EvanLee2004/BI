@@ -155,6 +155,47 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             }
         )
 
+    @app.get("/api/v1/key-customers/tier")
+    def api_v1_key_customers_tier(
+        request: Request,
+        tier: str = "",
+        bu: str = "",
+    ):
+        """3.4.0：重点客户单档名单懒加载（鉴权同 rankings/full）。
+
+        query: tier=S|A|B|C|D|E · bu=可选BU名
+        """
+        if not (_vacct(request) or _user(request)):
+            raise HTTPException(status_code=401, detail="未登录")
+        tier_u = (tier or "").strip().upper()
+        if tier_u not in ("S", "A", "B", "C", "D", "E"):
+            raise HTTPException(status_code=400, detail="tier 须为 S|A|B|C|D|E")
+        bu = (bu or "").strip()
+        summary = None
+        if bu:
+            if not _can_view_bu(request, bu):
+                raise HTTPException(status_code=403, detail="无权查看该 BU")
+            page = (_state.get("bu_pages") or {}).get(bu)
+            if not page:
+                raise HTTPException(status_code=404, detail="BU 不存在或未配置")
+            summary = page.get("summary")
+        else:
+            if not _can_view_main(request):
+                raise HTTPException(status_code=403, detail="无整体驾驶舱权限")
+            summary = _state.get("summary")
+        if not summary:
+            raise HTTPException(status_code=503, detail="暂无数据")
+        from viewmodels.packers import pack_key_customers_tier_items
+
+        raw = summary.get("key_customers")
+        if not raw:
+            raise HTTPException(status_code=404, detail="暂无重点客户数据")
+        try:
+            payload = pack_key_customers_tier_items(raw, tier_u)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        return JSONResponse(payload)
+
     @app.get("/api/v1/vm/bu/{name}")
     def api_v1_vm_bu(name: str, request: Request):
         """任务书46·2：BU 页 ViewModel。"""

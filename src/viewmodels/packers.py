@@ -429,3 +429,177 @@ def pack_daily_defaults(summary: dict) -> dict[str, Any]:
         "year_key": meta.get("year_key") or f"{y}年",
         "chart_month_max": int(m),
     }
+
+
+def _kc_pct_disp(part: float, total: float) -> str:
+    if not total:
+        return "0.0%"
+    return f"{part / total * 100:.1f}%"
+
+
+def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dict[str, Any]:
+    """单客户行显示串 + 写入 monthly[mkey]。"""
+    import charts
+
+    name = str(it.get("name") or "")
+    ytd = float(it.get("ytd") or 0)
+    months = list(it.get("months") or [0] * 12)
+    if len(months) < 12:
+        months = (months + [0] * 12)[:12]
+    primary = str(it.get("primary_sales") or "")
+    extra = int(it.get("sales_extra") or 0)
+    sales_disp = primary if not extra else f"{primary} +{extra}"
+    mkey = f"kc:{year}:{name}"
+    mx_m = max((float(v) for v in months), default=0) or 1.0
+    month_rows = []
+    for i, v in enumerate(months, 1):
+        fv = float(v or 0)
+        month_rows.append(
+            {
+                "i": i,
+                "name": f"{i}月",
+                "order_disp": charts.fmt_wan(fv) + "万",
+                "wo": round(max(fv / mx_m * 100, 0), 1) if fv else 0.0,
+            }
+        )
+    monthly[mkey] = month_rows
+    wo = round(max(ytd / tier_max * 100, 0), 1) if ytd and tier_max else 0.0
+    return {
+        "name": name,
+        "ytd_disp": charts.fmt_wan(ytd) + "万",
+        "sales_disp": sales_disp,
+        "silent": bool(it.get("silent")),
+        "mkey": mkey,
+        "wo": wo,
+    }
+
+
+def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[str, Any]:
+    """summary['key_customers'] → VM 显示串（六档 + 双饼 + monthly）。
+
+    embed_full=True：导出/离线 snapshot 强制展开 C/D/E items。
+    在线首包：S/A/B 全量 items；C/D/E lazy=true 且 items=[]。
+    """
+    import charts
+    from domain.key_customers.compute import (
+        DEFAULT_OPEN_TIERS,
+        LAZY_TIERS,
+        TIER_ORDER,
+        TIER_RANGE_DISP,
+    )
+
+    if not raw or not isinstance(raw, dict):
+        return {
+            "year": 0,
+            "year_label": "",
+            "caption": "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级",
+            "metric_label": "下单预估（本币）",
+            "tiers": [],
+            "pie_count": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
+            "pie_amount": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
+            "monthly": {},
+            "empty": True,
+        }
+
+    year = int(raw.get("year") or 0)
+    totals = raw.get("totals") or {}
+    total_count = int(totals.get("count") or 0)
+    total_amount = float(totals.get("amount") or 0)
+    tiers_raw = raw.get("tiers") or {}
+    monthly: dict[str, list] = {}
+    tiers_out: list[dict[str, Any]] = []
+    pie_labels: list[str] = []
+    pie_counts: list[int] = []
+    pie_counts_disp: list[str] = []
+    pie_count_pct: list[str] = []
+    pie_amts: list[float] = []  # 万元
+    pie_amts_disp: list[str] = []
+    pie_amt_pct: list[str] = []
+
+    for tid in TIER_ORDER:
+        blk = tiers_raw.get(tid) or {}
+        items_src = list(blk.get("items") or [])
+        count = int(blk.get("count") if blk.get("count") is not None else len(items_src))
+        amount = float(blk.get("amount") or 0)
+        lazy = (tid in LAZY_TIERS) and (not embed_full)
+        tier_max = max((float(it.get("ytd") or 0) for it in items_src), default=0) or 1.0
+        if lazy:
+            items_out: list[dict[str, Any]] = []
+        else:
+            items_out = [_kc_pack_item(it, tier_max=tier_max, year=year, monthly=monthly) for it in items_src]
+        amt_disp = charts.fmt_wan(amount) + "万"
+        pct_c = _kc_pct_disp(float(count), float(total_count))
+        pct_a = _kc_pct_disp(amount, total_amount)
+        tiers_out.append(
+            {
+                "id": tid,
+                "label": tid,
+                "range_disp": TIER_RANGE_DISP.get(tid, ""),
+                "count": count,
+                "amount_disp": amt_disp,
+                "pct_count_disp": pct_c,
+                "pct_amount_disp": pct_a,
+                "default_open": tid in DEFAULT_OPEN_TIERS,
+                "lazy": lazy,
+                "items": items_out,
+            }
+        )
+        pie_labels.append(tid)
+        pie_counts.append(count)
+        pie_counts_disp.append(str(count))
+        pie_count_pct.append(pct_c)
+        wan = amount / 1_000_000.0  # 分 → 万
+        pie_amts.append(round(wan, 4))
+        pie_amts_disp.append(charts.fmt_wan(amount) + "万")
+        pie_amt_pct.append(pct_a)
+
+    return {
+        "year": year,
+        "year_label": f"{year}年" if year else "",
+        "caption": "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级",
+        "metric_label": "下单预估（本币）",
+        "tiers": tiers_out,
+        "pie_count": {
+            "labels": pie_labels,
+            "values": pie_counts,
+            "values_disp": pie_counts_disp,
+            "pct_disp": pie_count_pct,
+        },
+        "pie_amount": {
+            "labels": pie_labels,
+            "values": pie_amts,
+            "values_disp": pie_amts_disp,
+            "pct_disp": pie_amt_pct,
+        },
+        "monthly": monthly,
+        "empty": total_count == 0,
+        "totals": {
+            "count": total_count,
+            "amount_disp": charts.fmt_wan(total_amount) + "万",
+        },
+    }
+
+
+def pack_key_customers_tier_items(
+    raw: dict | None, tier: str
+) -> dict[str, Any]:
+    """懒加载单档：items + monthly 显示串齐。"""
+    from domain.key_customers.compute import TIER_ORDER, TIER_RANGE_DISP
+
+    tier = (tier or "").strip().upper()
+    if tier not in TIER_ORDER:
+        raise ValueError("tier 须为 S|A|B|C|D|E")
+    packed = pack_key_customers(raw, embed_full=True)
+    by = {t["id"]: t for t in packed.get("tiers") or []}
+    blk = by.get(tier) or {}
+    items = list(blk.get("items") or [])
+    mkeys = {it.get("mkey") for it in items if it.get("mkey")}
+    monthly = {k: v for k, v in (packed.get("monthly") or {}).items() if k in mkeys}
+    return {
+        "tier": tier,
+        "year": packed.get("year") or 0,
+        "range_disp": TIER_RANGE_DISP.get(tier, ""),
+        "items": items,
+        "count": len(items),
+        "monthly": monthly,
+    }

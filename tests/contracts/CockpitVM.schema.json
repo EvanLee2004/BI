@@ -462,6 +462,11 @@
       "default": 12,
       "title": "Chart Month Max",
       "type": "integer"
+    },
+    "key_customers": {
+      "additionalProperties": true,
+      "title": "Key Customers",
+      "type": "object"
     }
   },
   "title": "CockpitVM",

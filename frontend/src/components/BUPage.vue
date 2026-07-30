@@ -14,6 +14,7 @@ import ExpenseSection from './ExpenseSection.vue'
 import ExpenseHeatmap from './ExpenseHeatmap.vue'
 import ProfitStructure from './ProfitStructure.vue'
 import RankingsDual from './RankingsDual.vue'
+import KeyCustomersPanel from './KeyCustomersPanel.vue'
 import ReceiptsCard from './ReceiptsCard.vue'
 import DailyQuery from './DailyQuery.vue'
 import LedgerTable from './LedgerTable.vue'
@@ -92,6 +93,7 @@ onMounted(async () => {
     <DailyQuery />
     <ReceiptsCard />
     <RankingsDual />
+    <KeyCustomersPanel />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
     <ExpenseHeatmap />
     <LedgerTable />

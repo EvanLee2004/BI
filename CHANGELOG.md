@@ -1,3 +1,15 @@
+## 3.4.0 · 2026-07-30
+
+### 重点客户分析（自然年下单预估六档 S–E + 双饼 + 四底列表/月钻）
+- 整体页 + 各 BU 页「四、下单与回款」最底部（RankingsDual 后）新增重点客户分析
+- 口径：自然年 · 下单预估本币 · 每年清零；档 S≥200 · A[80,200) · B[30,80) · C[10,30) · D[3,10) · E(0,3) 万（ytd>0 才进）
+- 左：六档列表，S/A/B 默认展开，C/D/E 懒加载可展开；点客户 → 1～12 月下单
+- 右：级分布双饼（个数+占比 / 金额到万+占比）；与列表同源守恒
+- 数据链：`domain/key_customers` 纯函数 → `summary["key_customers"]`（每年一次）→ packers/VM → `KeyCustomersPanel`
+- 懒加载 `GET /api/v1/key-customers/tier`（鉴权同 rankings/full）；导出 snapshot embed 全档
+- **未改**利润公式、`fetch_zhiyun`、rankings/full / orders_by_customer 语义；日查不带动本块；切月不重算等级
+- 测试：`tests/test_key_customers_3_4_0.py`；前端架构守卫仍绿
+
 ## 3.3.3 · 2026-07-30
 
 ### 去掉 KPI「目标待校准」展示文案

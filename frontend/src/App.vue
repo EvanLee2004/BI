@@ -21,6 +21,7 @@ import PLTable from './components/PLTable.vue'
 import ExpenseSection from './components/ExpenseSection.vue'
 import ProfitStructure from './components/ProfitStructure.vue'
 import RankingsDual from './components/RankingsDual.vue'
+import KeyCustomersPanel from './components/KeyCustomersPanel.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
 import BuNav from './components/BuNav.vue'
@@ -222,6 +223,7 @@ onMounted(async () => {
     <DailyQuery />
     <ReceiptsCard />
     <RankingsDual />
+    <KeyCustomersPanel />
     <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
     <ExpenseHeatmap />
     <LedgerTable />

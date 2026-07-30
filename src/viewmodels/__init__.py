@@ -138,6 +138,8 @@ class BUPageVM(BaseModel):
     numbers: dict[str, Any] = Field(default_factory=dict)
     # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
     chart_month_max: int = 12
+    # 3.4.0 重点客户分析（年粒度，非 period 键）
+    key_customers: dict[str, Any] = Field(default_factory=dict)
 
 
 class CockpitVM(BaseModel):
@@ -158,6 +160,8 @@ class CockpitVM(BaseModel):
     numbers: dict[str, Any] = Field(default_factory=dict)
     # 任务书61·C-2：图表 x 轴月上界（1–12，尊重 period_pin）
     chart_month_max: int = 12
+    # 3.4.0 重点客户分析（年粒度，非 period 键）
+    key_customers: dict[str, Any] = Field(default_factory=dict)
 
 
 def _pack_trend_series(trend_rows) -> dict[str, Any]:
@@ -395,10 +399,12 @@ def _assemble_vm(
     scope: str,
     cfg: dict | None = None,
     bu_name: str | None = None,
+    embed_key_customers_full: bool = False,
 ) -> CockpitVM | BUPageVM:
     """任务书51·B3 / 3.2.0：VM 组装（趋势/回款/面积/刻度/环形/KPI/PL/费用/排名）。
 
     scope=整体 → CockpitVM；scope=BU → BUPageVM。无 HTML 碎片参数。
+    embed_key_customers_full：导出 snapshot 时展开 C/D/E 全 items。
     """
     import api_v1
     import db
@@ -487,6 +493,11 @@ def _assemble_vm(
     )
     daily = packers.pack_daily_defaults(summary)
     chart_month_max = int(daily.get("chart_month_max") or 12)
+    # 3.4.0：重点客户（年粒度；导出 embed 全档）
+    key_customers = packers.pack_key_customers(
+        summary.get("key_customers"),
+        embed_full=bool(embed_key_customers_full),
+    )
     if is_bu:
         return BUPageVM(
             bu_name=bu_name or views.get("bu_name") or "",
@@ -503,6 +514,7 @@ def _assemble_vm(
             daily=daily,
             numbers=numbers,
             chart_month_max=chart_month_max,
+            key_customers=key_customers,
         )
     return CockpitVM(
         year_key=yk,
@@ -518,20 +530,30 @@ def _assemble_vm(
         daily=daily,
         numbers=numbers,
         chart_month_max=chart_month_max,
+        key_customers=key_customers,
     )
 
 
-def build_cockpit_vm(summary: dict, cfg: dict | None = None) -> CockpitVM:
+def build_cockpit_vm(
+    summary: dict, cfg: dict | None = None, *, embed_key_customers_full: bool = False
+) -> CockpitVM:
     """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。"""
     views = _vue_core_views(summary)
-    return _assemble_vm(summary, views, scope="整体", cfg=cfg)  # type: ignore[return-value]
+    # 单行关键字参数：tests/test_task51_assemble_vm 源码守卫匹配 scope="整体"
+    return _assemble_vm(summary, views, scope="整体", cfg=cfg, embed_key_customers_full=embed_key_customers_full)  # type: ignore[return-value]
 
 
-def build_bu_vm(bu_name: str, summary: dict, cfg: dict | None = None) -> BUPageVM:
+def build_bu_vm(
+    bu_name: str,
+    summary: dict,
+    cfg: dict | None = None,
+    *,
+    embed_key_customers_full: bool = False,
+) -> BUPageVM:
     """BU 页 VM 薄包装。"""
     views = _vue_core_views(summary)
     views["bu_name"] = bu_name or ""
-    return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name)  # type: ignore[return-value]
+    return _assemble_vm(summary, views, scope="BU", cfg=cfg, bu_name=bu_name, embed_key_customers_full=embed_key_customers_full)  # type: ignore[return-value]
 
 
 __all__ = [

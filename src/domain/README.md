@@ -6,6 +6,7 @@
 |----|----------|------|
 | `config_engine` | 本包实现 | 配置引擎 |
 | `pl/` | 本包实现 | 利润表 / KPI 共享结构 |
+| `key_customers/` | 本包实现 | 3.4.0 重点客户六档（自然年下单预估）；summary 顶层挂载 |
 | `kpi` / `expense` / `receipts` / `rankings` / `ledger` | re-export → `profit` | 可导航别名；与 `profit` 同对象 |
 | `trend` | （空门面） | HTML 趋势卡已在装运层；本包不再 re-export |
 | `export` | re-export → `export_png.screenshot_png` | PNG 截图边界；HTML 快照走 `kanban_snapshot` / `export_html` |

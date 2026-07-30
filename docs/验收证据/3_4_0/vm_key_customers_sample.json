@@ -1,0 +1,82 @@
+{
+  "year": 2026,
+  "caption": "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级",
+  "tiers": [
+    {
+      "id": "S",
+      "count": 1,
+      "default_open": true,
+      "lazy": false,
+      "n_items": 1
+    },
+    {
+      "id": "A",
+      "count": 1,
+      "default_open": true,
+      "lazy": false,
+      "n_items": 1
+    },
+    {
+      "id": "B",
+      "count": 0,
+      "default_open": true,
+      "lazy": false,
+      "n_items": 0
+    },
+    {
+      "id": "C",
+      "count": 1,
+      "default_open": false,
+      "lazy": true,
+      "n_items": 0
+    },
+    {
+      "id": "D",
+      "count": 0,
+      "default_open": false,
+      "lazy": true,
+      "n_items": 0
+    },
+    {
+      "id": "E",
+      "count": 0,
+      "default_open": false,
+      "lazy": true,
+      "n_items": 0
+    }
+  ],
+  "pie_count": {
+    "labels": [
+      "S",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "values": [
+      1,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    "values_disp": [
+      "1",
+      "1",
+      "0",
+      "1",
+      "0",
+      "0"
+    ],
+    "pct_disp": [
+      "33.3%",
+      "33.3%",
+      "0.0%",
+      "33.3%",
+      "0.0%",
+      "0.0%"
+    ]
+  }
+}

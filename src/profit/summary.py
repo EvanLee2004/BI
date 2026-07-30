@@ -173,6 +173,10 @@ def build_summary(
         hide_salary=False,
         filled_manual=filled_manual,
     )
+    # 3.4.0 重点客户：全年 order_rows 只算一次，挂 summary 顶层（勿写入每个 period）
+    from domain.key_customers import compute_key_customers
+
+    key_customers = compute_key_customers(order_rows, today.year, cols_cfg, today)
     return {
         "meta": {
             "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -195,6 +199,7 @@ def build_summary(
         "receipt_monthly": receipt_monthly,
         "receipt_order_monthly": receipt_order_monthly,
         "expense_monthly_by_cat": expense_monthly_by_cat,
+        "key_customers": key_customers,
     }
 
 

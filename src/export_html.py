@@ -41,9 +41,14 @@ def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: s
     import viewmodels
 
     try:
+        # 3.4.0：导出 snapshot 必须 embed 全档 key_customers（C/D/E 可离线展开）
         if bu_name:
-            return viewmodels.build_bu_vm(bu_name, summary, cfg or {}).model_dump()
-        return viewmodels.build_cockpit_vm(summary, cfg or {}).model_dump()
+            return viewmodels.build_bu_vm(
+                bu_name, summary, cfg or {}, embed_key_customers_full=True
+            ).model_dump()
+        return viewmodels.build_cockpit_vm(
+            summary, cfg or {}, embed_key_customers_full=True
+        ).model_dump()
     except Exception:
         # 真数据（周期里已有算账字段）才硬失败；测试壳只有空 periods 仍 stub
         periods = summary.get("periods") or {}
