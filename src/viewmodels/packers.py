@@ -437,8 +437,55 @@ def _kc_pct_disp(part: float, total: float) -> str:
     return f"{part / total * 100:.1f}%"
 
 
+def _kc_sales_pairs(it: dict) -> list[tuple[str, float]]:
+    """domain sales[{name,fen}] → (name, fen) 列表；缺省回退 primary_sales。"""
+    pairs: list[tuple[str, float]] = []
+    raw_sales = it.get("sales")
+    if isinstance(raw_sales, list):
+        for s in raw_sales:
+            if not isinstance(s, dict):
+                continue
+            n = str(s.get("name") or "").strip()
+            if not n:
+                continue
+            try:
+                fen = float(s.get("fen") or 0)
+            except (TypeError, ValueError):
+                fen = 0.0
+            pairs.append((n, fen))
+    if not pairs:
+        primary = str(it.get("primary_sales") or "").strip()
+        if primary:
+            pairs = [(primary, float(it.get("ytd") or 0))]
+    pairs.sort(key=lambda kv: (-kv[1], kv[0]))
+    return pairs
+
+
+def _kc_pack_sales(it: dict) -> tuple[list[dict[str, Any]], str, str]:
+    """销售全量 → disp 列表（金额降序）+ sales_disp 兼容串 + primary_sales 兼容。"""
+    import charts
+
+    pairs = _kc_sales_pairs(it)
+    mx = max((p[1] for p in pairs), default=0.0) or 1.0
+    sales_out: list[dict[str, Any]] = [
+        {
+            "name": n,
+            "amount_disp": charts.fmt_wan(fen) + "万",
+            "wo": round(max(fen / mx * 100, 0), 1) if fen else 0.0,
+        }
+        for n, fen in pairs
+    ]
+    primary_sales = sales_out[0]["name"] if sales_out else ""
+    parts = [f"{s['name']} {s['amount_disp']}" for s in sales_out]
+    if len(parts) <= 3:
+        sales_disp = " · ".join(parts)
+    else:
+        sales_disp = " · ".join(parts[:3]) + f" · 另有 {len(parts) - 3} 人"
+    return sales_out, sales_disp, primary_sales
+
+
 def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dict[str, Any]:
-    """单客户行显示串 + 写入 monthly[mkey]。"""
+    """单客户行显示串 + 写入 monthly[mkey]。3.4.2 含 sales[] 全量 disp。"""
     import charts
 
     name = str(it.get("name") or "")
@@ -446,9 +493,7 @@ def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dic
     months = list(it.get("months") or [0] * 12)
     if len(months) < 12:
         months = (months + [0] * 12)[:12]
-    primary = str(it.get("primary_sales") or "")
-    extra = int(it.get("sales_extra") or 0)
-    sales_disp = primary if not extra else f"{primary} +{extra}"
+    sales_out, sales_disp, primary_sales = _kc_pack_sales(it)
     mkey = f"kc:{year}:{name}"
     mx_m = max((float(v) for v in months), default=0) or 1.0
     month_rows = []
@@ -468,6 +513,8 @@ def _kc_pack_item(it: dict, *, tier_max: float, year: int, monthly: dict) -> dic
         "name": name,
         "ytd_disp": charts.fmt_wan(ytd) + "万",
         "sales_disp": sales_disp,
+        "sales": sales_out,
+        "primary_sales": primary_sales,  # 兼容；3.4.2 UI 不消费
         "silent": bool(it.get("silent")),
         "mkey": mkey,
         "wo": wo,
@@ -479,7 +526,7 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
 
     embed_full=True：导出/离线 snapshot 强制展开 C/D/E items。
     在线首包：S/A/B 全量 items；C/D/E lazy=true 且 items=[]。
-    3.4.1：help_lines / sales_col_* 仅显示字段；default_open 策略 A 全折叠。
+    3.4.2：help_lines 去主销售；default_open 六档全 true；item.sales[] 全量 disp。
     """
     import charts
     from domain.key_customers.compute import (
@@ -487,6 +534,7 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         HELP_LINE_METRIC,
         HELP_LINES,
         LAZY_TIERS,
+        PANEL_TITLE,
         SALES_COL_LABEL,
         SALES_COL_TIP,
         SILENT_TIP,
@@ -499,6 +547,7 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
         return {
             "year": 0,
             "year_label": "",
+            "panel_title": PANEL_TITLE,
             "caption": HELP_LINE_METRIC,
             "help_lines": help_lines,
             "sales_col_label": SALES_COL_LABEL,
@@ -567,6 +616,7 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
     return {
         "year": year,
         "year_label": f"{year}年" if year else "",
+        "panel_title": PANEL_TITLE,
         "caption": HELP_LINE_METRIC,
         "help_lines": help_lines,
         "sales_col_label": SALES_COL_LABEL,

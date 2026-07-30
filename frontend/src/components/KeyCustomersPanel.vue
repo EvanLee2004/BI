@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * 3.4.1 重点客户分析 · Layer3
- * 上：级分布双饼 · 下：客户名单 + 连续月追踪折线
- * 前端零金额/分级运算；日查不换本块；切月不重算等级。
+ * 3.4.2 重点客户下单分析 · Layer3
+ * L-A：上双饼 · 中名单满宽（默认全开限高）· 下连续月折线满宽
+ * 默认不选中；多销售金额降序；去主销售；前端零金额/分级运算。
  */
 import '../styles/components/KeyCustomersPanel.css'
 import { computed, reactive, ref, watch } from 'vue'
@@ -26,10 +26,17 @@ import {
 import { cssColor } from '../utils/cssColor'
 import { themeMode } from '../utils/theme'
 
+export type KcSales = {
+  name: string
+  amount_disp: string
+  wo?: number
+}
+
 export type KcItem = {
   name: string
   ytd_disp: string
   sales_disp: string
+  sales?: KcSales[]
   silent?: boolean
   mkey?: string
   wo?: number
@@ -60,6 +67,7 @@ export type KcMonthRow = { i?: number; name: string; order_disp: string; wo?: nu
 export type KeyCustomersVM = {
   year?: number
   year_label?: string
+  panel_title?: string
   caption?: string
   help_lines?: string[]
   sales_col_label?: string
@@ -98,6 +106,9 @@ const selectedItem = ref<KcItem | null>(null)
 const monthModal = ref(false)
 const monthTitle = ref('')
 const monthRows = ref<KcMonthRow[]>([])
+/** 防 BU/VM 切换中途串名单：ensure 写缓存前校验代数 */
+let seedGen = 0
+const inflightTier = new Set<string>()
 
 /** BU/整体 VM 切换时必须清空本地缓存，否则会泄漏上一 scope 客户名 */
 function clearLocalCaches() {
@@ -106,6 +117,7 @@ function clearLocalCaches() {
   for (const k of Object.keys(loadErr)) delete loadErr[k]
   for (const k of Object.keys(loadingTier)) delete loadingTier[k]
   for (const k of Object.keys(openMap)) delete openMap[k]
+  inflightTier.clear()
   selectedKey.value = ''
   selectedItem.value = null
 }
@@ -129,33 +141,26 @@ function selectCustomer(it: KcItem | null) {
   selectedItem.value = it
 }
 
-/** 最高非空档（S→E）第一客户；无可用 items 则空 */
-function selectDefaultCustomer(d: KeyCustomersVM | null) {
-  if (!d?.tiers?.length) {
-    selectCustomer(null)
-    return
-  }
-  for (const t of d.tiers) {
-    const items = tierItems(t)
-    if (items.length) {
-      selectCustomer(items[0])
-      return
-    }
-  }
-  selectCustomer(null)
-}
-
 function seedFromVm(d: KeyCustomersVM | null) {
+  const gen = ++seedGen
   clearLocalCaches()
   if (!d?.tiers) return
   for (const t of d.tiers) {
-    // 3.4.1 策略 A：default_open 全 false；仍尊重后端字段（若未来策略 B）
-    openMap[t.id] = !!t.default_open
+    // 3.4.2：default_open 全 true；仍尊重后端字段
+    openMap[t.id] = t.default_open !== false && !!t.default_open
+    // 若后端未下发 default_open（旧包），也默认开
+    if (t.default_open == null) openMap[t.id] = true
     if (!t.lazy) {
       itemsCache[t.id] = t.items || []
     }
   }
-  selectDefaultCustomer(d)
+  // 3.4.2：默认不选中任何客户；折线空态
+  // 默认全开时自动 ensureTier 拉 lazy 档（C/D/E），禁止假空
+  for (const t of d.tiers) {
+    if (openMap[t.id]) {
+      void ensureTier(t, gen)
+    }
+  }
 }
 
 // scope + buName + year + VM 引用任一变 → 重置（防 BU→BU 脏缓存）
@@ -180,19 +185,24 @@ function tierItems(t: KcTier): KcItem[] {
   return t.items || []
 }
 
-async function ensureTier(t: KcTier) {
+async function ensureTier(t: KcTier, gen?: number) {
+  const myGen = gen ?? seedGen
   if (!t.lazy) {
+    if (myGen !== seedGen) return
     itemsCache[t.id] = t.items || []
     return
   }
   if (Object.prototype.hasOwnProperty.call(itemsCache, t.id)) return
+  if (inflightTier.has(t.id)) return
   if (store.snapshotMode) {
+    if (myGen !== seedGen) return
     itemsCache[t.id] = t.items || []
     if (!itemsCache[t.id].length) {
       loadErr[t.id] = '快照中无该档名单'
     }
     return
   }
+  inflightTier.add(t.id)
   loadingTier[t.id] = true
   loadErr[t.id] = ''
   try {
@@ -204,6 +214,7 @@ async function ensureTier(t: KcTier) {
       `/api/v1/key-customers/tier?tier=${encodeURIComponent(t.id)}${buQ}`,
       { credentials: 'same-origin' },
     )
+    if (myGen !== seedGen) return
     if (!r.ok) {
       loadErr[t.id] =
         r.status === 403
@@ -217,14 +228,19 @@ async function ensureTier(t: KcTier) {
       items?: KcItem[]
       monthly?: Record<string, KcMonthRow[]>
     }
+    if (myGen !== seedGen) return
     itemsCache[t.id] = d.items || []
     for (const [k, rows] of Object.entries(d.monthly || {})) {
       monthlyExtra[k] = rows
     }
   } catch {
+    if (myGen !== seedGen) return
     loadErr[t.id] = '网络异常，请稍后重试'
   } finally {
-    loadingTier[t.id] = false
+    inflightTier.delete(t.id)
+    if (myGen === seedGen) {
+      loadingTier[t.id] = false
+    }
   }
 }
 
@@ -245,6 +261,21 @@ function openMonthModal() {
   monthTitle.value = `${it.name} · ${y}各月下单`
   monthRows.value = monthRowsFor(it)
   monthModal.value = true
+}
+
+/** 行内销售文案：≤3 全写；>3 前三 + 另有 N 人；title 看全列表 */
+function salesLine(it: KcItem): { text: string; title: string } {
+  const sales = it.sales || []
+  if (sales.length) {
+    const parts = sales.map((s) => `${s.name} ${s.amount_disp}`)
+    const full = parts.join(' · ')
+    if (parts.length <= 3) return { text: full, title: full }
+    const head = parts.slice(0, 3).join(' · ')
+    return { text: `${head} · 另有 ${parts.length - 3} 人`, title: full }
+  }
+  // 旧 VM 兜底
+  const fallback = it.sales_disp || '—'
+  return { text: fallback, title: fallback }
 }
 
 function pieOption(pie: KcPie | undefined, centerTitle: string) {
@@ -328,7 +359,22 @@ const pieAmountOption = computed(() => {
   return pieOption(kc.value?.pie_amount, a ? a : '金额')
 })
 
-/** 主区连续月折线：y 用后端 wo（相对强度），tooltip 用 order_disp；禁止前端算金额 */
+/**
+ * 高亮月：顶栏 period 能解析出具体月则用该月；
+ * 否则用系统当前月。禁止因切月重算等级。
+ */
+const highlightMonth = computed((): number => {
+  const p = String(store.period || '')
+  // 精确月：2026年6月（排除 1-3 月区间）
+  const m = p.match(/年(\d{1,2})月$/)
+  if (m) {
+    const n = Number(m[1])
+    if (n >= 1 && n <= 12) return n
+  }
+  return new Date().getMonth() + 1
+})
+
+/** 主区连续月折线：y 用后端 wo；tooltip 用 order_disp；月高亮 */
 const trackOption = computed(() => {
   void themeMode.value
   const it = selectedItem.value
@@ -339,7 +385,7 @@ const trackOption = computed(() => {
     if (m >= 1 && m <= 12) byI.set(m, r)
   }
   const labels: string[] = []
-  const plot: (number | null)[] = []
+  const plot: number[] = []
   const disps: string[] = []
   for (let m = 1; m <= 12; m++) {
     labels.push(`${m}月`)
@@ -356,6 +402,17 @@ const trackOption = computed(() => {
   const mut = chartMutedColor()
   const lineC = cssColor('--blue')
   const area = areaGradient(lineC)
+  const hm = highlightMonth.value
+  const soft = cssColor('--blue-soft-14')
+  const markArea =
+    hm >= 1 && hm <= 12 && soft
+      ? {
+          silent: true,
+          itemStyle: { color: soft },
+          data: [[{ xAxis: `${hm}月` }, { xAxis: `${hm}月` }]],
+        }
+      : undefined
+  const symbolSizes = labels.map((_, i) => (i + 1 === hm ? 12 : 7))
   return {
     ...animBlock(),
     tooltip: {
@@ -363,7 +420,8 @@ const trackOption = computed(() => {
       confine: true,
       formatter: (params: { dataIndex: number }[]) => {
         const i = params?.[0]?.dataIndex ?? 0
-        return `${labels[i] || ''}<br/>下单预估 ${disps[i] || '—'}`
+        const tag = i + 1 === hm ? '（当前高亮月）' : ''
+        return `${labels[i] || ''}${tag}<br/>下单预估 ${disps[i] || '—'}`
       },
     },
     grid: { left: 36, right: 16, top: 28, bottom: 28, containLabel: true },
@@ -387,11 +445,13 @@ const trackOption = computed(() => {
         data: plot,
         smooth: 0.2,
         symbol: 'circle',
-        symbolSize: 7,
+        symbolSize: (_v: number, params: { dataIndex: number }) =>
+          symbolSizes[params.dataIndex] ?? 7,
         connectNulls: false,
         itemStyle: pointGlowStyle(lineC),
         lineStyle: lineGlowStyle(lineC, 2.5),
         ...(area ? { areaStyle: area } : {}),
+        ...(markArea ? { markArea } : {}),
         label: {
           show: false,
           color: ink,
@@ -408,26 +468,44 @@ const trackTitle = computed(() => {
   return `${it.name} · ${y}各月下单`
 })
 
+const panelTitle = computed(() => {
+  const base = kc.value?.panel_title || '重点客户下单分析'
+  const y = kc.value?.year_label || ''
+  return y ? `${base} · ${y}` : base
+})
+
 const helpLines = computed(() => {
   const lines = kc.value?.help_lines
   if (lines && lines.length) return lines
-  // 兜底：旧 VM 无 help_lines 时仍展示口径 caption
   const c = kc.value?.caption
   return c ? [c] : []
 })
 
-const salesColLabel = computed(() => kc.value?.sales_col_label || '主销售')
 const salesColTip = computed(
-  () => kc.value?.sales_col_tip || '本年下单预估最多的销售，非唯一绑定',
+  () => kc.value?.sales_col_tip || '本年各销售下单预估金额（降序）',
 )
 const silentTip = computed(
-  () => kc.value?.silent_tip || '近 2 个已过去完整自然月下单预估为 0（当前月不计入）',
+  () =>
+    kc.value?.silent_tip ||
+    '近 2 个已过去完整自然月下单预估为 0（当前月不计入）；当月有单仍可能静默',
 )
 
 const dailyOn = computed(() => !!store.dailyActive)
 
+const selectedSales = computed((): KcSales[] => {
+  const it = selectedItem.value
+  if (!it?.sales?.length) return []
+  return it.sales
+})
+
 function isSelected(it: KcItem): boolean {
   return selectedKey.value === itemKey(it)
+}
+
+function barWidth(wo: number | undefined): string {
+  const n = Number(wo) || 0
+  const clamped = Math.max(0, Math.min(100, n))
+  return `${clamped}%`
 }
 </script>
 
@@ -441,10 +519,10 @@ function isSelected(it: KcItem): boolean {
   >
     <SciFiPanel panel-class="kc-panel">
       <template #header>
-        <span>重点客户分析 · {{ kc?.year_label || '' }}</span>
+        <span data-testid="kc-panel-title">{{ panelTitle }}</span>
       </template>
 
-      <!-- 顶区 help_lines：口径 · 静默 · 主销售（后端下发） -->
+      <!-- 顶区 help_lines：口径 · 静默（当前月不计入）· 点击提示 -->
       <div class="kc-help" data-testid="kc-help">
         <p
           v-for="(line, hi) in helpLines"
@@ -459,6 +537,7 @@ function isSelected(it: KcItem): boolean {
         </p>
       </div>
 
+      <!-- L-A：饼 → 名单 → 折线（纵向，禁止左名单|右折线主结构） -->
       <div class="kc-layout" data-testid="kc-layout">
         <!-- 【上】级分布双饼 -->
         <section class="kc-pies" data-testid="kc-pies" aria-label="级分布结构总览">
@@ -495,99 +574,120 @@ function isSelected(it: KcItem): boolean {
           </div>
         </section>
 
-        <!-- 【下】客户名单 + 连续月追踪 -->
-        <section class="kc-bottom" data-testid="kc-bottom" aria-label="客户与连续月追踪">
-          <div class="kc-list" data-testid="kc-list">
-            <div class="kc-section-label">客户名单 · 六档</div>
-            <div
-              v-for="t in kc?.tiers || []"
-              :key="t.id"
-              class="kc-tier"
-              :data-tier="t.id"
-              :data-open="openMap[t.id] ? '1' : '0'"
+        <!-- 【中】六档名单满宽 -->
+        <section class="kc-list" data-testid="kc-list" aria-label="客户名单六档">
+          <div class="kc-section-label">客户名单 · 六档</div>
+          <div
+            v-for="t in kc?.tiers || []"
+            :key="t.id"
+            class="kc-tier"
+            :data-tier="t.id"
+            :data-open="openMap[t.id] ? '1' : '0'"
+          >
+            <button
+              type="button"
+              class="kc-tier__head"
+              :data-testid="'kc-tier-head-' + t.id"
+              :aria-expanded="openMap[t.id] ? 'true' : 'false'"
+              @click="toggleTier(t)"
             >
-              <button
-                type="button"
-                class="kc-tier__head"
-                :data-testid="'kc-tier-head-' + t.id"
-                :aria-expanded="openMap[t.id] ? 'true' : 'false'"
-                @click="toggleTier(t)"
-              >
-                <span class="kc-tier__id">{{ t.label }}</span>
-                <span class="kc-tier__range">{{ t.range_disp }}</span>
-                <span class="kc-tier__meta">
-                  <span>{{ t.count }}户</span>
-                  <span>{{ t.amount_disp }}</span>
-                  <span>{{ t.pct_amount_disp }}</span>
-                </span>
-                <span class="kc-tier__chev">{{ openMap[t.id] ? '▾' : '▸' }}</span>
-              </button>
-              <div
-                v-if="openMap[t.id]"
-                class="kc-tier__body"
-                :data-testid="'kc-tier-body-' + t.id"
-              >
-                <div v-if="loadingTier[t.id]" class="kc-tier__loading">加载中…</div>
-                <div v-else-if="loadErr[t.id]" class="kc-tier__err">{{ loadErr[t.id] }}</div>
-                <div v-else-if="!tierItems(t).length" class="kc-tier__empty">
-                  {{ t.count ? '暂无名单' : '该档暂无客户' }}
-                </div>
-                <template v-else>
-                  <button
-                    v-for="(it, idx) in tierItems(t)"
-                    :key="t.id + '-' + idx + '-' + it.name"
-                    type="button"
-                    class="kc-row"
-                    :class="{ 'is-selected': isSelected(it) }"
-                    data-testid="kc-customer-row"
-                    :aria-pressed="isSelected(it) ? 'true' : 'false'"
-                    @click="onItemClick(it)"
-                  >
-                    <span class="kc-row__name">
-                      {{ it.name }}
-                      <span
-                        v-if="it.silent"
-                        class="kc-row__silent"
-                        :title="silentTip"
-                      >静默</span>
-                    </span>
-                    <span
-                      class="kc-row__sales"
-                      :title="salesColTip"
-                    >
-                      <span class="kc-row__sales-label">{{ salesColLabel }}</span>
-                      {{ it.sales_disp }}
-                    </span>
-                    <span class="kc-row__ytd">{{ it.ytd_disp }}</span>
-                  </button>
-                </template>
+              <span class="kc-tier__id">{{ t.label }}</span>
+              <span class="kc-tier__range">{{ t.range_disp }}</span>
+              <span class="kc-tier__meta">
+                <span>{{ t.count }}户</span>
+                <span>{{ t.amount_disp }}</span>
+                <span>{{ t.pct_amount_disp }}</span>
+              </span>
+              <span class="kc-tier__chev">{{ openMap[t.id] ? '▾' : '▸' }}</span>
+            </button>
+            <div
+              v-if="openMap[t.id]"
+              class="kc-tier__body"
+              :data-testid="'kc-tier-body-' + t.id"
+            >
+              <div v-if="loadingTier[t.id]" class="kc-tier__loading">加载中…</div>
+              <div v-else-if="loadErr[t.id]" class="kc-tier__err">{{ loadErr[t.id] }}</div>
+              <div v-else-if="!tierItems(t).length" class="kc-tier__empty">
+                {{ t.count ? '暂无名单' : '该档暂无客户' }}
               </div>
+              <template v-else>
+                <button
+                  v-for="(it, idx) in tierItems(t)"
+                  :key="t.id + '-' + idx + '-' + it.name"
+                  type="button"
+                  class="kc-row"
+                  :class="{ 'is-selected': isSelected(it) }"
+                  data-testid="kc-customer-row"
+                  :aria-pressed="isSelected(it) ? 'true' : 'false'"
+                  @click="onItemClick(it)"
+                >
+                  <span class="kc-row__name">
+                    {{ it.name }}
+                    <span
+                      v-if="it.silent"
+                      class="kc-row__silent"
+                      :title="silentTip"
+                    >静默</span>
+                  </span>
+                  <span
+                    class="kc-row__sales"
+                    :title="salesLine(it).title || salesColTip"
+                  >
+                    {{ salesLine(it).text }}
+                  </span>
+                  <span class="kc-row__ytd">{{ it.ytd_disp }}</span>
+                </button>
+              </template>
             </div>
           </div>
+        </section>
 
-          <div class="kc-track" data-testid="kc-track">
-            <div class="kc-track__head">
-              <div class="kc-section-label kc-track__title" data-testid="kc-track-title">
-                {{ trackTitle }}
-              </div>
-              <button
-                v-if="selectedItem"
-                type="button"
-                class="kc-track__zoom"
-                data-testid="kc-track-zoom"
-                title="放大查看"
-                @click="openMonthModal"
+        <!-- 【下】连续月折线满宽 -->
+        <section class="kc-track" data-testid="kc-track" aria-label="连续月下单追踪">
+          <div class="kc-track__head">
+            <div class="kc-section-label kc-track__title" data-testid="kc-track-title">
+              {{ trackTitle }}
+            </div>
+            <button
+              v-if="selectedItem"
+              type="button"
+              class="kc-track__zoom"
+              data-testid="kc-track-zoom"
+              title="放大查看"
+              @click="openMonthModal"
+            >
+              放大
+            </button>
+          </div>
+          <div v-if="!selectedItem" class="kc-track__empty" data-testid="kc-track-empty">
+            点击上方客户查看 1～12 月下单
+          </div>
+          <template v-else>
+            <div
+              v-if="selectedSales.length"
+              class="kc-sales-bars"
+              data-testid="kc-sales-bars"
+              aria-label="各销售下单构成"
+            >
+              <div
+                v-for="(s, si) in selectedSales"
+                :key="'sb' + si + s.name"
+                class="kc-sales-bars__row"
               >
-                放大
-              </button>
+                <span class="kc-sales-bars__name" :title="s.name">{{ s.name }}</span>
+                <div class="kc-sales-bars__track">
+                  <div
+                    class="kc-sales-bars__fill"
+                    :style="{ width: barWidth(s.wo) }"
+                  />
+                </div>
+                <span class="kc-sales-bars__amt">{{ s.amount_disp }}</span>
+              </div>
             </div>
-            <div v-if="!selectedItem" class="kc-track__empty" data-testid="kc-track-empty">
-              点击左侧客户查看 1～12 月下单
-            </div>
-            <div v-else class="kc-track-chart" data-testid="kc-track-chart">
+            <div class="kc-track-chart" data-testid="kc-track-chart">
               <EchartsHost :option="trackOption" />
             </div>
-          </div>
+          </template>
         </section>
       </div>
     </SciFiPanel>

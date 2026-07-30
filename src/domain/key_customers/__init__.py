@@ -1,11 +1,13 @@
-"""重点客户分析（3.4.0/3.4.1）· domain 纯函数入口。"""
+"""重点客户分析（3.4.0/3.4.2）· domain 纯函数入口。"""
 from domain.key_customers.compute import (
     DEFAULT_OPEN_TIERS,
-    HELP_LINES,
+    HELP_LINE_CLICK,
     HELP_LINE_METRIC,
     HELP_LINE_SALES,
     HELP_LINE_SILENT,
+    HELP_LINES,
     LAZY_TIERS,
+    PANEL_TITLE,
     SALES_COL_LABEL,
     SALES_COL_TIP,
     SILENT_TIP,
@@ -21,10 +23,12 @@ __all__ = [
     "TIER_RANGE_DISP",
     "DEFAULT_OPEN_TIERS",
     "LAZY_TIERS",
+    "PANEL_TITLE",
     "HELP_LINES",
     "HELP_LINE_METRIC",
     "HELP_LINE_SILENT",
     "HELP_LINE_SALES",
+    "HELP_LINE_CLICK",
     "SALES_COL_LABEL",
     "SALES_COL_TIP",
     "SILENT_TIP",

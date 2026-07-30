@@ -217,11 +217,17 @@ export type DailyDefaults = {
   year_key: string
 }
 
-/** 3.4.0 重点客户分析（年粒度，非 period 键） */
+/** 3.4.2 重点客户下单分析（年粒度，非 period 键） */
+export type KeyCustomersSales = {
+  name: string
+  amount_disp: string
+  wo?: number
+}
 export type KeyCustomersItem = {
   name: string
   ytd_disp: string
   sales_disp: string
+  sales?: KeyCustomersSales[]
   silent?: boolean
   mkey?: string
   wo?: number
@@ -247,7 +253,12 @@ export type KeyCustomersPie = {
 export type KeyCustomersVM = {
   year?: number
   year_label?: string
+  panel_title?: string
   caption?: string
+  help_lines?: string[]
+  sales_col_label?: string
+  sales_col_tip?: string
+  silent_tip?: string
   metric_label?: string
   tiers?: KeyCustomersTier[]
   pie_count?: KeyCustomersPie

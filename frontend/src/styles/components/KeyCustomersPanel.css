@@ -1,4 +1,4 @@
-/* 3.4.1 重点客户分析 — 上双饼 · 下客户+连续月追踪；色/间距只用 tokens */
+/* 3.4.2 重点客户下单分析 — L-A：上双饼 · 中名单满宽 · 下折线满宽；色/间距只用 tokens */
 
 .kc-host {
   margin-top: var(--space-4);
@@ -40,7 +40,7 @@
   letter-spacing: 0.02em;
 }
 
-/* —— 上区双饼 —— */
+/* —— 【上】级分布双饼 —— */
 .kc-pies {
   width: 100%;
   min-width: 0;
@@ -72,9 +72,9 @@
 
 .kc-pie-chart {
   width: 100%;
-  height: var(--kc-pie-h, 220px);
-  min-height: 180px;
-  max-height: 240px;
+  height: var(--kc-pie-h, 270px);
+  min-height: 240px;
+  max-height: 300px;
 }
 
 .kc-pie-legend {
@@ -83,6 +83,8 @@
   padding: 0;
   font-size: var(--fs-meta);
   color: var(--rank-name);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .kc-pie-legend li {
@@ -91,6 +93,7 @@
   gap: var(--space-2);
   margin-bottom: var(--space-1);
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .kc-pie-dot {
@@ -120,25 +123,11 @@
   background: var(--teal);
 }
 
-/* —— 下区：左名单 | 右追踪（宽屏）；窄屏纵向堆叠 —— */
-.kc-bottom {
-  display: grid;
-  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
-  gap: var(--space-4);
-  align-items: start;
-  width: 100%;
-  max-width: 100%;
-}
-
-@media (max-width: 900px) {
-  .kc-bottom {
-    grid-template-columns: 1fr;
-  }
-}
-
+/* —— 【中】客户名单满宽 · 默认全开 · 档内限高 —— */
 .kc-list {
   min-width: 0;
   width: 100%;
+  max-width: 100%;
 }
 
 .kc-tier {
@@ -195,7 +184,7 @@
   min-width: 1rem;
 }
 
-/* 限高内滚 · 见全名单 */
+/* 限高内滚 · 完整可及 ≠ 无限长墙 */
 .kc-tier__body {
   padding: 0 var(--space-3) var(--space-2);
   max-height: var(--kc-tier-body-max, 14rem);
@@ -218,7 +207,7 @@
 
 .kc-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) auto;
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-1) var(--space-1);
@@ -262,16 +251,10 @@
 .kc-row__sales {
   font-size: var(--fs-meta);
   color: var(--rank-meta);
-  max-width: 8.5rem;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.kc-row__sales-label {
-  display: inline-block;
-  margin-right: 2px;
-  opacity: 0.75;
 }
 
 .kc-row__ytd {
@@ -281,10 +264,11 @@
   white-space: nowrap;
 }
 
-/* —— 连续月追踪主图 —— */
+/* —— 【下】连续月折线满宽 · 大图 —— */
 .kc-track {
   min-width: 0;
   width: 100%;
+  max-width: 100%;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   background: var(--blue-soft-08);
@@ -326,16 +310,65 @@
   background: var(--blue-soft-14);
 }
 
+/* 选中客户后：各销售金额小条（后端 wo；不替代月折线） */
+.kc-sales-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  width: 100%;
+  max-width: 100%;
+}
+
+.kc-sales-bars__row {
+  display: grid;
+  grid-template-columns: minmax(0, 5.5rem) minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--fs-meta);
+  color: var(--rank-meta);
+  min-width: 0;
+}
+
+.kc-sales-bars__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.kc-sales-bars__track {
+  height: var(--kc-sales-bar-h, 6px);
+  background: var(--rank-track);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.kc-sales-bars__fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: var(--radius-xs);
+  max-width: 100%;
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.kc-sales-bars__amt {
+  white-space: nowrap;
+  color: var(--rank-name);
+  font-variant-numeric: tabular-nums;
+}
+
 .kc-track-chart {
   width: 100%;
-  height: var(--kc-track-h, 240px);
-  min-height: 200px;
+  height: var(--kc-track-h, 300px);
+  min-height: 280px;
 }
 
 .kc-track__empty {
   font-size: var(--fs-caption);
   color: var(--mut-label);
-  min-height: 200px;
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -349,11 +382,21 @@
   gap: var(--space-1);
 }
 
-/* 390 宽：禁止横溢 */
+/* 窄屏：同一纵向序，禁止横溢 */
+@media (max-width: 900px) {
+  .kc-host,
+  .kc-layout,
+  .kc-list,
+  .kc-track,
+  .kc-pies {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}
+
 @media (max-width: 420px) {
   .kc-host,
   .kc-layout,
-  .kc-bottom,
   .kc-list,
   .kc-track,
   .kc-pies {
@@ -380,5 +423,18 @@
   .kc-tier__meta {
     width: 100%;
     margin-left: 0;
+  }
+
+  .kc-sales-bars__row {
+    grid-template-columns: minmax(0, 4rem) minmax(0, 1fr) auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-tier__head,
+  .kc-row,
+  .kc-track__zoom,
+  .kc-sales-bars__fill {
+    transition: none;
   }
 }

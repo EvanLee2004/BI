@@ -47,10 +47,11 @@
   --radius-md: 8px;
   --radius-lg: var(--radius, 10px);
 
-  /* 3.4.1 重点客户分析布局尺寸（仅 KC 用） */
-  --kc-pie-h: 220px;
-  --kc-track-h: 240px;
+  /* 3.4.2 重点客户下单分析布局尺寸（仅 KC 用） */
+  --kc-pie-h: 270px;
+  --kc-track-h: 300px;
   --kc-tier-body-max: 14rem;
+  --kc-sales-bar-h: 6px;
 
   
   --fs-meta: 11px;

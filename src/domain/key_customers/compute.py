@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""重点客户分析 · 纯函数（3.4.0）。
+"""重点客户分析 · 纯函数（3.4.0 / 3.4.2）。
 
 自然年 · 下单预估本币 · 六档 S–E；无 HTTP / 无 fmt。
 金额全程 int 分；ytd>0 才进档；空名归 unfilled、不进饼分母。
+3.4.2：sales 全量列表暴露；默认六档全开；去主销售文案；静默口径不变。
 """
 from __future__ import annotations
 
@@ -34,19 +35,26 @@ TIER_RANGE_DISP: dict[str, str] = {
     "D": "[3,10)万",
     "E": "(0,3)万",
 }
-# 3.4.1 策略 A：六档默认全折叠（禁止 SAB 无限制同开撑成长列表墙）
-DEFAULT_OPEN_TIERS: frozenset[str] = frozenset()
+# 3.4.2：六档默认全部展开；档内限高内滚（前端 --kc-tier-body-max）
+DEFAULT_OPEN_TIERS: frozenset[str] = frozenset(TIER_ORDER)
 LAZY_TIERS: frozenset[str] = frozenset({"C", "D", "E"})
 EMPTY_LABEL = "（未填）"
 
 # 展示用帮助文案常量（VM packer 下发；禁止前端硬编码业务口径）
-HELP_LINE_METRIC = "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级"
-HELP_LINE_SILENT = "静默：近 2 个已过去完整自然月下单预估为 0（当前月不计入）；年累计仍可很大。"
-HELP_LINE_SALES = "主销售：该客户本年下单预估最多的销售（非唯一绑定；多人显示 +N）。"
-HELP_LINES: tuple[str, ...] = (HELP_LINE_METRIC, HELP_LINE_SILENT, HELP_LINE_SALES)
-SALES_COL_LABEL = "主销售"
-SALES_COL_TIP = "本年下单预估最多的销售，非唯一绑定"
-SILENT_TIP = "近 2 个已过去完整自然月下单预估为 0（当前月不计入）"
+# 3.4.2：去「主销售」；静默强调当前月不计入；可选点击提示
+PANEL_TITLE = "重点客户下单分析"
+HELP_LINE_METRIC = "自然年 · 下单预估本币 · 每年清零 · 不随月/季重算等级"
+HELP_LINE_SILENT = (
+    "静默：近 2 个已过去完整自然月下单预估为 0（当前月不计入）；"
+    "故当月有单仍可能静默；年累计仍可很大"
+)
+HELP_LINE_CLICK = "点击客户查看 1～12 月连续下单"
+# 兼容旧名：不再含「主销售」
+HELP_LINE_SALES = HELP_LINE_CLICK
+HELP_LINES: tuple[str, ...] = (HELP_LINE_METRIC, HELP_LINE_SILENT, HELP_LINE_CLICK)
+SALES_COL_LABEL = "销售"
+SALES_COL_TIP = "本年各销售下单预估金额（降序）"
+SILENT_TIP = "近 2 个已过去完整自然月下单预估为 0（当前月不计入）；当月有单仍可能静默"
 
 
 def grade_ytd_fen(ytd: int) -> str | None:
@@ -132,15 +140,18 @@ def _item_for_name(
 ) -> dict[str, Any]:
     mlist = months.get(name) or [0] * 12
     sa = sales_amt.get(name) or {}
-    ranked_sales = sorted(sa.items(), key=lambda kv: (-kv[1], kv[0]))
+    # 金额降序，同额按名稳定序
+    ranked_sales = sorted(sa.items(), key=lambda kv: (-int(kv[1]), str(kv[0])))
     primary = ranked_sales[0][0] if ranked_sales else ""
     extra = max(0, len(ranked_sales) - 1)
+    sales_list = [{"name": str(n), "fen": int(f)} for n, f in ranked_sales]
     return {
         "name": name,
         "ytd": int(amt),
         "months": [int(x) for x in mlist],
-        "primary_sales": primary,
+        "primary_sales": primary,  # 兼容字段；3.4.2 UI 不消费
         "sales_extra": int(extra),
+        "sales": sales_list,  # 3.4.2：全量销售（分）；packer 出 amount_disp/wo
         "silent": is_silent(mlist, year, today),
     }
 
@@ -216,10 +227,12 @@ __all__ = [
     "TIER_RANGE_DISP",
     "DEFAULT_OPEN_TIERS",
     "LAZY_TIERS",
+    "PANEL_TITLE",
     "HELP_LINES",
     "HELP_LINE_METRIC",
     "HELP_LINE_SILENT",
     "HELP_LINE_SALES",
+    "HELP_LINE_CLICK",
     "SALES_COL_LABEL",
     "SALES_COL_TIP",
     "SILENT_TIP",

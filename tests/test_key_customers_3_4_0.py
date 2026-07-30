@@ -107,14 +107,39 @@ class TestComputeCore(unittest.TestCase):
         items = out["tiers"]["A"]["items"]  # 100万 → A
         self.assertEqual(len(items), 1)
         it = items[0]
-        self.assertEqual(it["primary_sales"], "乙")  # 50 > 50? 甲=50 乙=50 — 甲=40+10=50, 乙=50
-        # tie: 甲 50 乙 50 → 名字序 乙 > 甲? sorted (-amt, name) → 甲 first if equal... 甲 comes before 乙
-        # Actually: 甲=50, 乙=50, sorted by (-amt, name) → 甲 first
-        self.assertIn(it["primary_sales"], ("甲", "乙"))
+        # 甲=50 乙=50 → 同额按名 Unicode 序（乙 < 甲）→ 乙 first；primary 兼容
+        self.assertEqual(it["primary_sales"], "乙")
         self.assertEqual(it["sales_extra"], 1)
         self.assertEqual(sum(it["months"]), it["ytd"])
         self.assertEqual(it["months"][0], _fen_wan(40))
         self.assertEqual(it["months"][1], _fen_wan(50))
+        # 3.4.2：sales 全量列表（name+fen），金额降序、同额按名
+        sales = it.get("sales") or []
+        self.assertEqual(len(sales), 2)
+        self.assertEqual(sales[0]["name"], "乙")
+        self.assertEqual(sales[0]["fen"], _fen_wan(50))
+        self.assertEqual(sales[1]["name"], "甲")
+        self.assertEqual(sales[1]["fen"], _fen_wan(50))
+
+    def test_multi_sales_amount_desc_order(self):
+        """多销售：金额严格降序；同额按名。"""
+        from domain.key_customers import compute_key_customers
+
+        rows = [
+            _row("大客", _fen_wan(30), 1, sales="丙"),
+            _row("大客", _fen_wan(80), 2, sales="甲"),
+            _row("大客", _fen_wan(20), 3, sales="乙"),
+            _row("大客", _fen_wan(10), 4, sales="丁"),
+            _row("大客", _fen_wan(5), 5, sales="戊"),
+        ]
+        out = compute_key_customers(rows, 2026, COLS, today=datetime.date(2026, 8, 1))
+        it = out["tiers"]["A"]["items"][0]  # 145万 → A
+        names = [s["name"] for s in it["sales"]]
+        fens = [s["fen"] for s in it["sales"]]
+        self.assertEqual(names, ["甲", "丙", "乙", "丁", "戊"])
+        self.assertEqual(fens, [_fen_wan(80), _fen_wan(30), _fen_wan(20), _fen_wan(10), _fen_wan(5)])
+        self.assertEqual(it["primary_sales"], "甲")
+        self.assertEqual(it["sales_extra"], 4)
 
     def test_silent_flag(self):
         from domain.key_customers import compute_key_customers, is_silent
@@ -155,11 +180,12 @@ class TestPackerAndVM(unittest.TestCase):
         vm = pack_key_customers(raw, embed_full=False)
         self.assertEqual(vm["year"], 2026)
         self.assertIn("自然年", vm["caption"])
+        self.assertEqual(vm.get("panel_title"), "重点客户下单分析")
         self.assertEqual(len(vm["tiers"]), 6)
         by_id = {t["id"]: t for t in vm["tiers"]}
-        # 3.4.1 策略 A：六档默认全折叠（禁止 SAB 默认撑墙）
+        # 3.4.2：六档默认全部展开（档内限高；lazy 由前端 ensureTier）
         for tid in ("S", "A", "B", "C", "D", "E"):
-            self.assertFalse(by_id[tid]["default_open"], tid)
+            self.assertTrue(by_id[tid]["default_open"], tid)
         for tid in ("S", "A", "B"):
             self.assertFalse(by_id[tid]["lazy"])
             self.assertGreater(len(by_id[tid]["items"]), 0)
@@ -167,15 +193,16 @@ class TestPackerAndVM(unittest.TestCase):
             self.assertTrue(by_id[tid]["lazy"])
             self.assertEqual(by_id[tid]["items"], [])
             self.assertGreater(by_id[tid]["count"], 0)
-        # 3.4.1 help_lines：静默 + 主销售 + 口径
+        # 3.4.2 help_lines：静默含当前月不计入；禁止再强制「主销售」
         help_lines = vm.get("help_lines") or []
         help_blob = "\n".join(help_lines)
         self.assertTrue(help_lines, "help_lines 须由 packer 下发")
         self.assertIn("静默", help_blob)
-        self.assertIn("主销售", help_blob)
+        self.assertIn("当前月", help_blob)
         self.assertIn("自然年", help_blob)
-        self.assertEqual(vm.get("sales_col_label"), "主销售")
-        self.assertIn("非唯一", vm.get("sales_col_tip") or "")
+        self.assertNotIn("主销售", help_blob)
+        self.assertNotEqual(vm.get("sales_col_label"), "主销售")
+        self.assertIn("销售", vm.get("sales_col_label") or "")
         # 饼图与档头守恒
         pie_c = sum(vm["pie_count"]["values"])
         pie_a = sum(vm["pie_amount"]["values"])  # 万元数值
@@ -183,12 +210,47 @@ class TestPackerAndVM(unittest.TestCase):
         # amount 到万：values 是万元 float，与 raw fen 一致
         total_wan = raw["totals"]["amount"] / 1_000_000
         self.assertAlmostEqual(pie_a, total_wan, places=4)
-        # embed_full 展开 C/D/E
+        # embed_full 展开 C/D/E + sales + monthly
         full = pack_key_customers(raw, embed_full=True)
         by_f = {t["id"]: t for t in full["tiers"]}
         for tid in ("C", "D", "E"):
             self.assertFalse(by_f[tid]["lazy"])
             self.assertEqual(len(by_f[tid]["items"]), by_f[tid]["count"])
+            for it in by_f[tid]["items"]:
+                self.assertIn("sales", it)
+                self.assertIsInstance(it["sales"], list)
+                if it["sales"]:
+                    self.assertIn("amount_disp", it["sales"][0])
+                    self.assertIn("wo", it["sales"][0])
+                self.assertTrue(it.get("mkey"))
+                self.assertIn(it["mkey"], full["monthly"])
+
+    def test_pack_sales_disp_order_and_collapse(self):
+        """packer sales[]：金额降序 disp；>3 人 sales_disp 含「另有 N 人」。"""
+        from domain.key_customers import compute_key_customers
+        from viewmodels.packers import pack_key_customers
+
+        rows = [
+            _row("多销客", _fen_wan(50), 1, sales="甲"),
+            _row("多销客", _fen_wan(40), 2, sales="乙"),
+            _row("多销客", _fen_wan(30), 3, sales="丙"),
+            _row("多销客", _fen_wan(20), 4, sales="丁"),
+            _row("多销客", _fen_wan(10), 5, sales="戊"),
+        ]
+        raw = compute_key_customers(rows, 2026, COLS, today=datetime.date(2026, 8, 1))
+        vm = pack_key_customers(raw, embed_full=True)
+        # 150万 → A
+        items = next(t["items"] for t in vm["tiers"] if t["id"] == "A")
+        it = items[0]
+        sales = it["sales"]
+        self.assertEqual(len(sales), 5)
+        self.assertEqual([s["name"] for s in sales], ["甲", "乙", "丙", "丁", "戊"])
+        # wo 相对最大销售：甲=100
+        self.assertEqual(sales[0]["wo"], 100.0)
+        self.assertLess(sales[1]["wo"], sales[0]["wo"])
+        self.assertIn("万", sales[0]["amount_disp"])
+        self.assertIn("另有 2 人", it["sales_disp"])
+        self.assertNotIn("主销售", it["sales_disp"])
 
     def test_summary_mount_once(self):
         """build_summary 顶层挂 key_customers，不进每个 period。"""
