@@ -607,20 +607,34 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 pass
             try:
                 import os
-                import subprocess
+                from pathlib import Path
 
                 m_out["pid"] = int(os.getpid())
-                gc = subprocess.run(
-                    ["git", "-C", str(root), "rev-parse", "HEAD"],
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                    check=False,
-                )
-                if gc.returncode == 0 and gc.stdout.strip():
-                    m_out["git_commit"] = gc.stdout.strip()
+                # 读 .git 不依赖 PATH 中的 git（systemd/sandbox 常缺）
+                git_dir = Path(root) / ".git"
+                head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
+                if head.startswith("ref:"):
+                    ref = head.split(" ", 1)[1].strip()
+                    commit = (git_dir / ref).read_text(encoding="utf-8").strip()
+                else:
+                    commit = head
+                if commit:
+                    m_out["git_commit"] = commit
             except Exception:
-                pass
+                try:
+                    import subprocess
+
+                    gc = subprocess.run(
+                        ["git", "-C", str(root), "rev-parse", "HEAD"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                        check=False,
+                    )
+                    if gc.returncode == 0 and gc.stdout.strip():
+                        m_out["git_commit"] = gc.stdout.strip()
+                except Exception:
+                    pass
         if "update_ms" not in m_out:
             m_out["update_ms"] = metrics.get("update_ms", 0)
         if "fetch_fail_rate" not in m_out:

@@ -63,7 +63,8 @@ ok=0
 new_pid=""
 runtime_version=""
 runtime_commit=""
-for i in $(seq 1 90); do
+# 冷启动可超过 3 分钟（全量算账）；给足等待
+for i in $(seq 1 150); do
   # old gone?
   if [ -n "${OLD_PID}" ] && kill -0 "$OLD_PID" 2>/dev/null; then
     sleep 2
