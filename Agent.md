@@ -2,6 +2,7 @@
 
 > 进这份代码干活前先读本文。**本文只记：架构 / 怎么跑 / 模块地图 / 铁律 / 当前终态 / 文档指针**。
 > 运行·打包·部署细节看 `README.md`；进度看项目根 `progress.md` / `工作日志.md`；需求口径看 `../../方案与文档/软件工程文档/1_需求/`。
+> **写/改代码前必读**：工作区 `AI开发规范/软件工程规范/代码架构与整洁度强制规范.md` + 本仓 `docs/softeng/10_代码架构与可视化诚实性规范.md`。
 > **重写前全文存档**：`docs/历史批次/CLAUDE_重写前存档_20260719.md`（永久可回查）。
 
 ## 这是什么
@@ -34,9 +35,9 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（3.3.3 · 2026-07-30）
+## 当前状态（3.4.3 · 2026-07-30）
 
-- **版本**：`VERSION` = **3.3.3**（KPI 超目标显示真实%/`>999%`，去掉占位提示语）。其上：3.3.2 更新诚实态 + 体检浮层；3.3.1 分摊 int 分；3.3.0 用户统计；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
+- **版本**：`VERSION` = **3.4.3**（重点客户经营作战台：结构条、三经营池、行动队列、三客比较）。其下：3.3.3 KPI 超目标诚实显示；3.3.2 更新诚实态；3.3.1 分摊 int 分；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
 - **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
 - **API 地图（业务/管理/运维均 `/api/v1/*`）**：
   - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号、user_stats…
@@ -50,6 +51,8 @@
 - **部署**：`docs/Runbook.md` §0；文档 SSOT 见 `docs/文档SSOT指针.md`。
 
 ### 前端三层铁律（2.6.5+ · 守卫 `tests/test_frontend_arch_guards.py`）
+
+> 三层的组件职责、VM 类型单源、图表共同尺度和拆分门闩，以 `docs/softeng/10_代码架构与可视化诚实性规范.md` 为项目补充正本。
 
 1. **Layer 1** `frontend/src/styles/tokens.css`：颜色/间距/圆角/字号/动效/阴影/z-index；三主题各一套；**硬编码色值只许出现在 tokens.css 与 admin/styles/admin.css**（F-2；扫 `components/**` `admin/**` `views/**`，vendor 除外）。
 2. **Layer 2** `frontend/src/components/base/`：`RankBar` / `RankList` / `DataModal` 等只认 props，样式只用 token。
@@ -177,6 +180,7 @@ sh tests/run_verify.sh; echo EXIT:$?   # 一键验证（禁 | tail 判绿）
 
 | 用途 | 路径 |
 |------|------|
+| 代码架构/图表诚实性 | `docs/softeng/10_代码架构与可视化诚实性规范.md` |
 | 断点续跑 | `docs/57_总控勾选.md` |
 | 任务书 57 | `docs/20260719_任务书57_无限打磨_托管总单.md` |
 | 交付/CHANGELOG | `docs/20260719_任务书56交付报告.md` · `docs/CHANGELOG_stage54系列补记.md` |
