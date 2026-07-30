@@ -1,0 +1,16 @@
+=== INTAKE 2026-07-31T01:15:59+08:00 ===
+pwd: /Users/evanlee/.grok/worktrees/repo/kanban-360-perfect
+toplevel: /Users/evanlee/.grok/worktrees/repo/kanban-360-perfect
+HEAD: ef90dc4d43a42656f99b3411112a5737014c460b
+status:
+branch: 
+git-dir: .git
+common-dir: .git
+superproject: 
+worktree list:
+worktree /Users/evanlee/.grok/worktrees/repo/kanban-360-perfect
+HEAD ef90dc4d43a42656f99b3411112a5737014c460b
+detached
+
+VERSION: 3.5.0
+tags checkpoint:

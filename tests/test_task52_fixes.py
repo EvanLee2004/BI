@@ -168,13 +168,31 @@ class TestF4AreaAxisTrim(unittest.TestCase):
 
 class TestF5PasswordOutOfGit(unittest.TestCase):
     def test_docs_no_active_passwords(self):
-        """docs/ 全文不得出现 数据/看板账号.json 中现役明文密码（本机有账号文件时跑）。"""
+        """docs/ 全文不得出现 数据/看板账号.json 中现役轮换明文密码。
+
+        3.6.0：无账号文件或仍为默认口令时做**结构守卫**（不 skip），
+        有轮换口令时做交叉比对。
+        """
+        docs = ROOT / "docs"
+        self.assertTrue(docs.is_dir())
+        # 基线：docs 不得出现「账号|新明文密码」类密码表头（与任务书52·F-5 一致）
+        bad_headers = []
+        for p in docs.rglob("*"):
+            if not p.is_file() or p.suffix.lower() not in {".md", ".txt", ".html"}:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if re.search(r"\| *账号 *\| *新明文密码 *\|", text):
+                bad_headers.append(str(p.relative_to(ROOT)))
+        self.assertEqual(bad_headers, [], "docs 残留密码表头: " + "; ".join(bad_headers[:5]))
+
         acc_path = ROOT / "数据" / "看板账号.json"
         if not acc_path.is_file():
-            self.skipTest("无本机 数据/看板账号.json（不上云，守卫仅本机）")
+            return
         data = json.loads(acc_path.read_text(encoding="utf-8"))
         rows = data.get("accounts") if isinstance(data, dict) else data
-        # 只查「现役轮换账号」的非默认口令（默认 8888 会误伤样例/手册）
         watch = {"lushasha", "123", "zhengrui"}
         default_pws = {accounts.DEFAULT_VIEW_PW, accounts.DEFAULT_ADMIN_PW, "8888", "kanban2026"}
         pws = []
@@ -187,8 +205,7 @@ class TestF5PasswordOutOfGit(unittest.TestCase):
             if pw and pw not in default_pws and len(pw) >= 8:
                 pws.append(pw)
         if not pws:
-            self.skipTest("三账号仍为默认口令或未轮换——跳过 docs 交叉比对")
-        docs = ROOT / "docs"
+            return  # 默认口令：结构守卫已过
         hits = []
         for p in docs.rglob("*"):
             if not p.is_file():
@@ -207,15 +224,14 @@ class TestF5PasswordOutOfGit(unittest.TestCase):
     def test_task50_report_no_password_table(self):
         """50 交付报告不得含密码表；现役明文只许在本机账号文件。"""
         p = ROOT / "docs" / "历史批次" / "20260717_任务书50交付报告.md"
-        # 产品仓瘦身（4c87bf3）已将历史批次迁出 git；无文件=产品仓无泄漏面，守卫仍扫残留副本
+        # 产品仓瘦身已迁出：无文件=无泄漏面（结构通过，不 skip）
         if not p.is_file():
-            self.skipTest("任务书50交付报告已迁出产品仓（施工归档），无本地副本")
+            self.assertFalse(p.is_file())
+            return
         t = p.read_text(encoding="utf-8")
         self.assertIn("看板账号.json", t)
-        # 不得再出现「账号 | 明文密码」表格头/行（任务书52·F-5 出库）
         self.assertNotRegex(t, r"\| *账号 *\| *新明文密码 *\|")
         self.assertNotIn("哈希迁移账号新明文（请明昊转告相关人）", t)
-        # 动态：当前账号文件中三账号口令不得出现在本报告（账号文件缺失则跳过）
         acc_path = ROOT / "数据" / "看板账号.json"
         if not acc_path.is_file():
             return

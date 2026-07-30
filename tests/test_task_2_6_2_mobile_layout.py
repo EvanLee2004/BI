@@ -105,11 +105,30 @@ class TestMobileLiveOverflow(unittest.TestCase):
                 break
             except Exception:
                 time.sleep(0.2)
-        rows = json.loads((ROOT / "数据" / "看板账号.json").read_text(encoding="utf-8"))
-        if isinstance(rows, dict):
-            rows = rows.get("accounts") or []
+        # 3.6.0 G0：账号从当前 cfg data_dir 读（offline=_golden_data），禁止写死 数据/
+        acc_path = None
+        try:
+            acc_path = loaders.data_dir(cls.cfg, ROOT) / "看板账号.json"
+        except Exception:
+            acc_path = None
+        candidates = [
+            p
+            for p in (
+                acc_path,
+                ROOT / "_golden_data" / "看板账号.json",
+                ROOT / "tests" / "fixtures" / "offline_seed" / "看板账号.json",
+                ROOT / "数据" / "看板账号.json",
+            )
+            if p is not None
+        ]
+        rows = []
+        for p in candidates:
+            if p.is_file():
+                raw = json.loads(p.read_text(encoding="utf-8"))
+                rows = raw.get("accounts") if isinstance(raw, dict) else raw
+                break
         cls.user = cls.pw = None
-        for a in rows:
+        for a in rows or []:
             if a.get("权限") == "整体":
                 cls.user, cls.pw = a.get("账号"), a.get("密码")
                 break

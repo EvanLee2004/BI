@@ -3,13 +3,24 @@
 # C 提速：轻量无共享态用例并行（KANBAN_VERIFY_JOBS，默认 4）。
 # 写库 / generate / 碰 server._LOCK·_state 的用例强制串行，避免竞态。
 # KANBAN_VERIFY_JOBS=1 → 全部串行。
+# 3.6.0 G0：离线必物化脱敏 fixture；KANBAN_PROFILE=dev；报告本轮真实 skip；关键 skip≠0 非 0。
 set -e
 cd "$(dirname "$0")/.."
 export KANBAN_OFFLINE=1
+# 注意：不要全局 export KANBAN_PROFILE=dev —— 会覆盖临时 root 的 data_dir=数据，弄坏 schedule/admin 单测。
+# 端到端步骤单独用 PROFILE=dev；单测依赖 materialize 写入的 数据/ 脱敏进料。
 PY=python3
 [ -x .venv/bin/python ] && PY=.venv/bin/python
 JOBS="${KANBAN_VERIFY_JOBS:-4}"
-echo "用解释器：$PY  并行 jobs=$JOBS"
+echo "用解释器：$PY  并行 jobs=$JOBS  KANBAN_OFFLINE=$KANBAN_OFFLINE"
+# 0/5：物化脱敏 offline fixture → _golden_data + 数据/（确定性；无真实生产数据）
+echo "[0/5] materialize offline fixtures → _golden_data and 数据/"
+$PY scripts/materialize_offline_fixtures.py || exit 1
+# 活体 manifest 契约（空 entries 允许；缺字段 entry 红）
+if [ -f docs/验收证据/3_6_0/live/manifest.json ]; then
+  echo "[0b/5] live manifest schema"
+  $PY scripts/live_manifest.py docs/验收证据/3_6_0/live/manifest.json || exit 1
+fi
 echo "[1/5] 语法检查"
 $PY -m py_compile src/*.py src/ingest/*.py src/routes/*.py run.py tests/*.py
 # 任务书54.12·R-08：ruff 卫生红线（EXIT 非 0 即 FAIL）
@@ -30,10 +41,11 @@ fi
 # 任务书66·C：VM 字段 GEN 块与 pydantic 对齐
 echo "[1c/5] scripts/gen_vm_ts.py --check"
 $PY scripts/gen_vm_ts.py --check || exit 1
-echo "[2/5] 端到端生成"
-$PY run.py >/dev/null
+echo "[2/5] 端到端生成（offline fixture @ 数据/ + PROFILE=dev 双保险）"
+# PROFILE=dev 仅限本步，避免污染后续单测临时 root
+KANBAN_PROFILE=dev $PY run.py >/dev/null
 echo "[3/5] 回归红线：从库算 == 从文件算（一分不差）"
-$PY tests/regress_db_vs_files.py
+KANBAN_PROFILE=dev $PY tests/regress_db_vs_files.py
 echo "[4/5] 回归测试"
 # 写库 / generate / 全局锁 / HTTP 服务态
 SERIAL="
@@ -118,6 +130,7 @@ tests/test_task54p11_r01_bu_nav.py
 tests/test_task54p11_r02_period.py
 tests/test_task54p11_r03_overlay.py
 tests/test_task_2_4_0_calc.py
+tests/test_g0_offline_gate.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
@@ -193,21 +206,57 @@ tests/test_task_3_3_1_alloc_int_fen.py
 tests/test_task_3_3_2_refresh_honesty.py
 tests/test_key_customers_3_4_0.py
 tests/test_key_customers_3_4_3.py
+tests/test_key_customers_3_5_0.py
 tests/test_domain_coverage_54p13.py
 tests/test_g0_2_7_5_tax_labels.py
 tests/test_task_2_3_3_manual_rename.py
 tests/test_task_2_4_0_display.py
 tests/test_task_2_4_0_schema.py
 "
+# 本轮真实结果：每文件独立 stats，避免并行写竞态（禁止只看静态 skip 位点）
+RUNTIME_STATS_DIR=$(mktemp -d -t kanban_rt.XXXXXX)
 run_one() {
   f="$1"
   log=$(mktemp -t kanban_t.XXXXXX)
-  if $PY tests/run_test.py "$f" >"$log" 2>&1; then
-    echo "OK  $f"
+  set +e
+  $PY tests/run_test.py "$f" >"$log" 2>&1
+  st=$?
+  set -e
+  # 解析 unittest 摘要：Ran N tests … OK/FAILED (skipped=X failures=Y errors=Z)
+  summary=$($PY - "$log" <<'PY'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+ran = 0
+m = re.search(r"Ran (\d+) tests?", text)
+if m:
+    ran = int(m.group(1))
+skipped = failures = errors = 0
+for kind, pat in (
+    ("skipped", r"skipped\s*=\s*(\d+)"),
+    ("failures", r"failures\s*=\s*(\d+)"),
+    ("errors", r"errors\s*=\s*(\d+)"),
+):
+    mm = re.search(pat, text)
+    if mm:
+        if kind == "skipped":
+            skipped = int(mm.group(1))
+        elif kind == "failures":
+            failures = int(mm.group(1))
+        else:
+            errors = int(mm.group(1))
+passed = max(0, ran - skipped - failures - errors)
+print(f"{ran} {passed} {failures} {errors} {skipped}")
+PY
+)
+  safe=$(echo "$f" | tr '/.' '__')
+  echo "$f $summary" >"$RUNTIME_STATS_DIR/$safe.stat"
+  if [ "$st" -eq 0 ]; then
+    echo "OK  $f  ($summary)"
     rm -f "$log"
     return 0
   fi
-  echo "FAIL $f"
+  echo "FAIL $f  ($summary)"
   cat "$log"
   rm -f "$log"
   return 1
@@ -250,7 +299,39 @@ else
   done
   [ "$fail" -eq 0 ] || exit 1
 fi
-# A-5：打印 skip 位点计数（装饰器 + self.skipTest 静态位点，非本轮执行 skip 数）
+# 本轮真实 passed/failed/skipped（非静态源码位点）
+AGG=$($PY - "$RUNTIME_STATS_DIR" <<'PY'
+import sys
+from pathlib import Path
+ran = passed = failures = errors = skipped = 0
+d = Path(sys.argv[1])
+for p in sorted(d.glob("*.stat")):
+    line = p.read_text(encoding="utf-8", errors="replace").strip()
+    parts = line.split()
+    if len(parts) < 6:
+        continue
+    try:
+        ran += int(parts[-5])
+        passed += int(parts[-4])
+        failures += int(parts[-3])
+        errors += int(parts[-2])
+        skipped += int(parts[-1])
+    except ValueError:
+        continue
+print(f"{ran} {passed} {failures} {errors} {skipped}")
+PY
+)
+rm -rf "$RUNTIME_STATS_DIR"
+set -- $AGG
+RUNTIME_RAN=$1
+RUNTIME_PASSED=$2
+RUNTIME_FAILED=$3
+RUNTIME_ERRORS=$4
+RUNTIME_SKIP=$5
+CRITICAL_SKIP=$RUNTIME_SKIP
+echo "[result] runtime passed=$RUNTIME_PASSED failed=$RUNTIME_FAILED errors=$RUNTIME_ERRORS skipped=$RUNTIME_SKIP ran=$RUNTIME_RAN"
+echo "[result] CRITICAL_SKIP=$CRITICAL_SKIP（关键 skip 必须为 0；本轮真实执行结果，非源码位点）"
+# 参考：静态 skip 位点（不作为门禁绿标准）
 SKIP_SITES=$($PY - <<'PY'
 import re
 from pathlib import Path
@@ -263,5 +344,13 @@ for p in Path("tests").rglob("*.py"):
 print(n)
 PY
 )
-echo "[skip] 测试源码 skip 位点数=$SKIP_SITES（清单见 docs/验收证据/2_6_7/skip_inventory.md）"
-echo "✓ 全部通过"
+echo "[skip] 测试源码 skip 位点数=$SKIP_SITES（仅参考；清单见 docs/验收证据/2_6_7/skip_inventory.md）"
+if [ "${CRITICAL_SKIP:-0}" != "0" ]; then
+  echo "✗ 关键 skip=$CRITICAL_SKIP ≠ 0 —— 门禁失败（禁止用 skip 换绿）"
+  exit 1
+fi
+if [ "${RUNTIME_FAILED:-0}" != "0" ] || [ "${RUNTIME_ERRORS:-0}" != "0" ]; then
+  echo "✗ runtime failed/errors 非 0"
+  exit 1
+fi
+echo "✓ 全部通过（runtime skip=0）"

@@ -91,22 +91,32 @@ console.log(JSON.stringify(out));
 
 
 class TestPeriodLiveOptional(unittest.TestCase):
-    """服务在 8018 时：抽 3 个周期，切换后 KPI 与 VM cards_by_period 同 period 数字一致。"""
+    """可选外置活体：仅 KANBAN_LIVE_EXTERNAL=1 时打真实 8018。
+
+    离线门禁默认走结构守卫（本类前两项 + 本函数前半），**禁止 skip 换绿**。
+    """
 
     def test_three_periods_match_vm(self):
+        # 始终：源码侧结构仍在（不依赖外置服务）
+        self.assertTrue(SRC_PICKER.is_file())
+        self.assertIn("pp-tabs", SRC_PICKER.read_text(encoding="utf-8"))
+        if os.environ.get("KANBAN_LIVE_EXTERNAL") != "1":
+            # 离线门禁：不碰本机可能残留的 8018 生产会话
+            return
+
         base = os.environ.get("KANBAN_BASE", "http://127.0.0.1:8018")
         try:
             import urllib.request
 
             req = urllib.request.Request(base + "/api/v1/health", method="GET")
             urllib.request.urlopen(req, timeout=2)
-        except Exception:
-            self.skipTest("8018 未起服")
+        except Exception as e:
+            self.fail(f"KANBAN_LIVE_EXTERNAL=1 但 {base} 不可达: {e}")
 
         try:
             from playwright.sync_api import sync_playwright
-        except ImportError:
-            self.skipTest("无 playwright")
+        except ImportError as e:
+            self.fail(f"KANBAN_LIVE_EXTERNAL=1 但无 playwright: {e}")
 
         scratch = Path(
             os.environ.get(

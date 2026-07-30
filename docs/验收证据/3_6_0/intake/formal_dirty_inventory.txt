@@ -1,0 +1,21 @@
+=== FORMAL MAIN DIRTY INVENTORY 2026-07-31T01:15:59+08:00 ===
+path: /Users/evanlee/Documents/甲骨易实习/项目/利润看板可视化项目（系统）/程序/看板正式程序
+ M CHANGELOG.md
+ M deploy/linux/reload_kanban.sh
+ M frontend/src/charts/keyCustomersChart.ts
+ M tests/run_verify.sh
+ M tests/test_key_customers_3_5_0.py
+ M tests/test_linux_deploy.py
+ M tests/test_task54p11_r02_period.py
+?? .scratch/
+?? frontend/src/charts/keyCustomersPlotCore.ts
+?? src/reload_verify.py
+--- diff --stat ---
+ CHANGELOG.md                             |   6 +
+ deploy/linux/reload_kanban.sh            |  51 ++++----
+ frontend/src/charts/keyCustomersChart.ts |  85 +++---------
+ tests/run_verify.sh                      |   1 +
+ tests/test_key_customers_3_5_0.py        | 216 +++++++++++++++++++++++++------
+ tests/test_linux_deploy.py               |  44 +++++--
+ tests/test_task54p11_r02_period.py       |  17 ++-
+ 7 files changed, 286 insertions(+), 134 deletions(-)

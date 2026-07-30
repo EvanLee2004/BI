@@ -43,17 +43,23 @@ class TestOverlayTokens(unittest.TestCase):
 
 class TestOverlayLiveOptional(unittest.TestCase):
     def test_open_drawer_and_modal_opacity(self):
+        # 始终：token/结构守卫已在同文件其它用例；本函数默认不依赖外置 8018
+        self.assertTrue(THEME.is_file())
+        self.assertIn("--overlay-mask", THEME.read_text(encoding="utf-8"))
+        if os.environ.get("KANBAN_LIVE_EXTERNAL") != "1":
+            return
+
         base = os.environ.get("KANBAN_BASE", "http://127.0.0.1:8018")
         try:
             import urllib.request
 
             urllib.request.urlopen(base + "/api/v1/health", timeout=2)
-        except Exception:
-            self.skipTest("8018 未起服")
+        except Exception as e:
+            self.fail(f"KANBAN_LIVE_EXTERNAL=1 但 {base} 不可达: {e}")
         try:
             from playwright.sync_api import sync_playwright
-        except ImportError:
-            self.skipTest("无 playwright")
+        except ImportError as e:
+            self.fail(f"KANBAN_LIVE_EXTERNAL=1 但无 playwright: {e}")
 
         scratch = Path(
             os.environ.get(

@@ -1,0 +1,17 @@
+=== RED PROOF G0 2026-07-31T01:19:05+08:00 commit=ef90dc4d43a42656f99b3411112a5737014c460b ===
+--- R1: 3.5 special not in run_verify SERIAL list ---
+CONFIRMED: test_key_customers_3_5_0.py NOT in run_verify.sh
+--- R2: skip report is static sites not runtime ---
+254:SKIP_SITES=$($PY - <<'PY'
+266:echo "[skip] 测试源码 skip 位点数=$SKIP_SITES（清单见 docs/验收证据/2_6_7/skip_inventory.md）"
+--- R3: empty 数据/ fails e2e without profile ---
+data_dir= 数据
+n_errors= 5
+ ERR 未找到项目明细：/Users/evanlee/.grok/worktrees/repo/kanban-360-perfect/数据/项目明细.xlsx 或 .csv（导出步骤见 docs/取数操作手册）。
+ ERR 文件不存在：下单.xlsx（应放在 数据/ 目录，来源见 数据/README.md）
+ ERR 文件不存在：回款记录.xlsx（应放在 数据/ 目录，来源见 数据/README.md）
+ ERR 文件不存在：内部译员.xlsx（应放在 数据/ 目录，来源见 数据/README.md）
+ ERR 文件不存在：收单台账.xlsx
+EXIT_R3:0
+--- R4: static skip sites exist ---
+static_skip_sites 36

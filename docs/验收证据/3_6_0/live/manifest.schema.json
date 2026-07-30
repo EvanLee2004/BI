@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kanban-3.6.0-live-manifest",
+  "title": "3.6.0 visual live screenshot manifest",
+  "type": "object",
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "type": "string" },
+    "baseline_commit": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "commit",
+          "route",
+          "viewport",
+          "theme",
+          "fixture",
+          "steps",
+          "expected",
+          "actual",
+          "image"
+        ],
+        "properties": {
+          "commit": { "type": "string", "minLength": 7 },
+          "route": { "type": "string" },
+          "viewport": { "type": "string", "description": "e.g. 1440x900 or 390x844" },
+          "theme": { "enum": ["neon", "dark", "light"] },
+          "fixture": { "type": "string" },
+          "steps": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "expected": { "type": "string" },
+          "actual": { "type": "string" },
+          "image": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

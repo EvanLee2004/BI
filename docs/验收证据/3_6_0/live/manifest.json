@@ -1,0 +1,6 @@
+{
+  "version": "3.6.0",
+  "baseline_commit": "ef90dc4d43a42656f99b3411112a5737014c460b",
+  "note": "G0 skeleton: entries filled in G5 with real screenshots. Incomplete entries fail live_manifest validate.",
+  "entries": []
+}
