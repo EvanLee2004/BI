@@ -197,14 +197,12 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
     }
   })
 
+  // 3.6.0 G4：金额轴 max 仅来自当前选中 seriesItems 的 localMax（共同零轴）；
+  // 禁止用全局 amount_axis.max（全客户）把小客压扁。
   const axisMax =
     mode === 'rhythm'
       ? 100
-      : Math.max(
-          Number(amountAxis?.max) || 0,
-          localMax,
-          0,
-        )
+      : Math.max(localMax, 0)
 
   const yAxis =
     mode === 'rhythm'

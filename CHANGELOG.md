@@ -260,6 +260,17 @@
 
 # Changelog
 
+## 3.6.0 — 2026-07-31
+
+### 完美收口
+- 可信离线门禁 + offline_seed；runtime skip=0
+- 启动安全：install_state、LKG、TERM 非崩溃、reload_verify、Excel 稳定复制、备份 manifest
+- 持久调度账本 + 四层健康
+- 密码 PBKDF2、禁明文回显、CSRF Origin、安全响应头
+- 重点客户选中系列共同零轴、最多五客
+- 老板看端中性新鲜度 + 利润主卡 KPI 布局
+
+
 ## 2.6.8 · 2026-07-27
 
 后端数据正确性与台账可信度（**数字口径零变化，回归红线守住；不改 DDL**）：

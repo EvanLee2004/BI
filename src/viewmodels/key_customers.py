@@ -377,7 +377,7 @@ def _kc_empty_shell() -> dict[str, Any]:
         "as_of": "",
         "empty": True,
         "totals": {"count": 0, "amount_disp": "0万"},
-        "compare_max": 3,
+        "compare_max": 5,
         "guide_text": "从左侧客户池选择客户，或点行动队列开始跟进",
     }
 
@@ -658,7 +658,7 @@ def pack_key_customers(
         "near_tip": NEAR_TIP,
         "metric_label": "下单预估（本币）",
         "default_pool": DEFAULT_POOL,
-        "compare_max": 3,
+        "compare_max": 5,
         "guide_text": "从左侧客户池选择客户，或点行动队列开始跟进",
         "pools": pools_out,
         "summary_cards": {

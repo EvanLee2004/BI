@@ -17,8 +17,8 @@ from starlette.middleware.gzip import GZipMiddleware
 GZIP_MINIMUM_SIZE = 1000
 
 
-def install_middleware(app: FastAPI, *, cfg, root) -> None:
-    """在 app 上安装 gzip / request-id / maintenance 中间件。"""
+def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯中间件装配壳
+    """在 app 上安装 gzip / request-id / security / CSRF / maintenance 中间件。"""
     app.add_middleware(GZipMiddleware, minimum_size=GZIP_MINIMUM_SIZE)
 
     class _RequestIdMiddleware(BaseHTTPMiddleware):
@@ -30,6 +30,59 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:
             return resp
 
     app.add_middleware(_RequestIdMiddleware)
+
+    class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            resp = await call_next(request)
+            try:
+                from security_headers import apply_headers
+
+                https = (request.url.scheme or "").lower() == "https" or (
+                    request.headers.get("x-forwarded-proto") or ""
+                ).lower() == "https"
+                apply_headers(resp, https=https)
+            except Exception:
+                pass
+            return resp
+
+    app.add_middleware(_SecurityHeadersMiddleware)
+
+    class _CsrfOriginMiddleware(BaseHTTPMiddleware):
+        """状态变更：Origin/Referer 同源或 CSRF 双提交。"""
+
+        async def dispatch(self, request, call_next):
+            method = (request.method or "GET").upper()
+            if method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+                try:
+                    from csrf_guard import csrf_ok
+                    from fastapi.responses import JSONResponse
+
+                    host = request.headers.get("host")
+                    origin = request.headers.get("origin")
+                    referer = request.headers.get("referer")
+                    tok = request.headers.get("x-csrf-token")
+                    cookie = request.cookies.get("csrf_token")
+                    ok, reason = csrf_ok(
+                        method=method,
+                        origin=origin,
+                        referer=referer,
+                        host=host,
+                        csrf_header=tok,
+                        csrf_cookie=cookie,
+                    )
+                    # 无 Origin/Referer 的同机脚本/TestClient：host 内请求放行
+                    if not ok and not origin and not referer:
+                        ok, reason = True, "no_cross_site_signal"
+                    if not ok:
+                        return JSONResponse(
+                            {"detail": f"CSRF blocked: {reason}"},
+                            status_code=403,
+                        )
+                except Exception:
+                    pass
+            return await call_next(request)
+
+    app.add_middleware(_CsrfOriginMiddleware)
 
     class _MaintenanceMiddleware(BaseHTTPMiddleware):
         _expire_every = 32

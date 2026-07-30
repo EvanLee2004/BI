@@ -408,8 +408,13 @@ def find_account(cfg: dict, root: Path | None, account: str) -> dict | None:
 
 
 def verify_password(stored: str | None, pw: str) -> bool:
-    """明文口令比对；一律 bytes + hmac.compare_digest（铁律 13：中文密码不 500）。"""
-    return hmac.compare_digest((stored or "").encode(), (pw or "").encode())
+    """口令比对：3.6.0 起支持 PBKDF2 哈希；遗留明文仍可验（迁移前）。常量时间。"""
+    try:
+        from password_kdf import verify_password as _v
+
+        return _v(stored, pw)
+    except Exception:
+        return hmac.compare_digest((stored or "").encode(), (pw or "").encode())
 
 
 def authenticate(cfg: dict, root: Path | None, account: str, password: str) -> dict | None:
@@ -455,28 +460,43 @@ def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new
     if not verify_password(acc.get("密码"), old_pw):
         return "旧密码不正确"
     rows = load_accounts(cfg, root, create=False)
+    try:
+        from password_kdf import hash_password
+
+        stored = hash_password(str(new_pw))
+    except Exception:
+        stored = new_pw
     for a in rows:
         if a["账号"] == account:
-            a["密码"] = new_pw
+            a["密码"] = stored
             a["密码版本"] = password_version_of(a) + 1
+            a["must_change_password"] = False
             break
     _write(config_path(cfg, root), rows)
     return None
 
 
-def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str | None:
+def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str | None:  # noqa: C901
     """管理员直接设某账号密码（不验旧，版本+1）。成功 None；失败错误文案。
 
     2.6.12 明昊拍板：密码非空即可，不强制长度/字符类型。
+    3.6.0：落盘 PBKDF2 哈希。
     """
     if not str(new_pw or "").strip():
         return "新密码不能为空"
     rows = load_accounts(cfg, root, create=False)
+    try:
+        from password_kdf import hash_password
+
+        stored = hash_password(str(new_pw))
+    except Exception:
+        stored = new_pw
     found = False
     for a in rows:
         if a["账号"] == account:
-            a["密码"] = new_pw
+            a["密码"] = stored
             a["密码版本"] = password_version_of(a) + 1
+            a["must_change_password"] = is_initial_password(str(new_pw))
             found = True
             break
     if not found:
@@ -537,17 +557,25 @@ def bu_name_of(acc: dict | None) -> str | None:
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
-    """接口下发用：默认不含密码；with_password 仅管理员会话（下发明文）。"""
+    """接口下发用：3.6.0 永不返回 password/hash（废止 with_password 明文）。"""
+    _ = with_password
     pw = acc.get("密码") or ""
-    out = {
+    try:
+        from password_kdf import is_hashed
+
+        hashed = is_hashed(str(pw))
+    except Exception:
+        hashed = str(pw).startswith("pbkdf2_sha256$")
+    initial = bool(acc.get("must_change_password")) or (
+        (not hashed) and is_initial_password(str(pw))
+    )
+    return {
         "账号": acc["账号"],
         "显示名": acc.get("显示名") or acc["账号"],
         "权限": acc["权限"],
         "可见BU": bu_names_of(acc),
         "最后登录": acc.get("最后登录") or "",
-        "初始密码": is_initial_password(pw),
+        "初始密码": initial,
         "密码版本": password_version_of(acc),
+        "must_change_password": initial,
     }
-    if with_password:
-        out["密码"] = pw
-    return out

@@ -64,7 +64,8 @@ export function useKeyCustomers() {
 
   const COMPARE_MAX = computed(() => {
     const n = Number(kc.value?.compare_max)
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3
+    // 3.6.0：桌面默认最多 5 客对比
+    return Number.isFinite(n) && n > 0 ? Math.min(5, Math.floor(n)) : 5
   })
 
   function clearLocalCaches() {

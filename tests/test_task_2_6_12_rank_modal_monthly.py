@@ -113,7 +113,11 @@ class TestPasswordFreeAndWriteNo8888(unittest.TestCase):
             err = accounts.set_password(cfg, tmp, rows[0]["账号"], "ab")
             self.assertIsNone(err)
             acc = accounts.find_account(cfg, tmp, rows[0]["账号"])
-            self.assertEqual(acc["密码"], "ab")
+            # 3.6.0：落盘哈希；短密仍可登录
+            self.assertTrue(
+                accounts.verify_password(acc.get("密码"), "ab"),
+                "hashed or plain must verify",
+            )
             self.assertNotEqual(acc["密码"], "8888")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

@@ -49,10 +49,30 @@ const emptyHint = computed(() => {
   if (!v?.empty) return ''
   return v.empty_message || '暂无数据'
 })
-/** 3.5.0：首屏数据完整性（只渲染后端 VM，不造金额） */
+/** 3.5.0 / 3.6.0：数据完整性 VM 只读；老板看端中性展示 */
 const dataIntegrity = computed(() => {
   const d = (store.vm as { data_integrity?: Record<string, unknown> } | null)?.data_integrity
   return d && (d.short_disp || d.headline || d.health_result) ? d : null
+})
+/** 中性「数据更新至」；不渲染英文 yellow / 橙色全宽条 */
+const freshnessLine = computed(() => {
+  const built = String(
+    (store.vm as { meta?: { built_at?: string }; built_at?: string } | null)?.meta?.built_at
+      || (store.vm as { built_at?: string } | null)?.built_at
+      || store.snapshotBuiltAt
+      || '',
+  )
+  const day = built.slice(0, 10)
+  if (day) return `数据更新至 ${day}`
+  return ''
+})
+const integrityHint = computed(() => {
+  const d = dataIntegrity.value
+  if (!d) return ''
+  // 仅业务语言；过滤 technical yellow 字样
+  const raw = String(d.headline || d.short_disp || '')
+  if (!raw || /yellow/i.test(raw)) return ''
+  return raw
 })
 
 /** 2.6.10 V-5：按状态码选错误块标题/出口（纯 BU 优先回自己的业务线） */
@@ -214,7 +234,21 @@ onMounted(async () => {
     <div v-if="emptyHint" class="muted" style="padding:16px 0;color:var(--mut)">
       {{ emptyHint }}
     </div>
-    <div v-if="dataIntegrity" class="archive-banner" data-testid="data-integrity-strip" role="status" :title="String(dataIntegrity.affected_scope||'')">{{ dataIntegrity.headline || dataIntegrity.short_disp }}</div>
+    <!-- 3.6.0 G5：老板看端中性新鲜度，禁止橙色 technical yellow 全宽条；详情留给管理端 -->
+    <div
+      v-if="freshnessLine"
+      class="data-freshness-strip"
+      data-testid="data-freshness-strip"
+      role="status"
+    >{{ freshnessLine }}</div>
+    <details
+      v-if="integrityHint"
+      class="data-integrity-details"
+      data-testid="data-integrity-strip"
+    >
+      <summary>业务完整性提示</summary>
+      <p class="data-integrity-details__body">{{ integrityHint }}</p>
+    </details>
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>

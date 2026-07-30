@@ -1,0 +1,210 @@
+用解释器：.venv/bin/python  并行 jobs=4  KANBAN_OFFLINE=1
+[0/5] materialize offline fixtures → _golden_data and 数据/
+materialized 20 file-slots → ['_golden_data', '数据']
+  _golden_data/BU配置.json: 3c603738371ac1b3…
+  _golden_data/下单.xlsx: 964000842ce2ac28…
+  _golden_data/内部译员.xlsx: 8edb8ca16278da53…
+  _golden_data/回款记录.xlsx: b079aa406c8a3188…
+  _golden_data/手填与调整.xlsx: b973c660a1d97e24…
+  _golden_data/收单台账.xlsx: 802b7ee4eecd9190…
+  _golden_data/智云配置.json: ca3d163bab055381…
+  _golden_data/本地配置.json: c3248f8a66e36e6a…
+  _golden_data/看板账号.json: 0f3d77c65bb8f363…
+  _golden_data/项目明细.xlsx: 1a639a255ff805ff…
+  数据/BU配置.json: 3c603738371ac1b3…
+  数据/下单.xlsx: 964000842ce2ac28…
+  数据/内部译员.xlsx: 8edb8ca16278da53…
+  数据/回款记录.xlsx: b079aa406c8a3188…
+  数据/手填与调整.xlsx: b973c660a1d97e24…
+  数据/收单台账.xlsx: 802b7ee4eecd9190…
+  数据/智云配置.json: ca3d163bab055381…
+  数据/本地配置.json: c3248f8a66e36e6a…
+  数据/看板账号.json: 0f3d77c65bb8f363…
+  数据/项目明细.xlsx: 1a639a255ff805ff…
+[0b/5] live manifest schema
+OK   docs/验收证据/3_6_0/live/manifest.json
+[1/5] 语法检查
+[1a/5] ruff check src/
+[1;32mAll checks passed![0m
+[1b/5] 前端 vue-tsc --noEmit
+
+> kanban-cockpit-frontend@2.0.3 typecheck
+> vue-tsc --noEmit
+
+[1c/5] scripts/gen_vm_ts.py --check
+vm.ts GEN block OK
+[2/5] 端到端生成（offline fixture @ 数据/ + PROFILE=dev 双保险）
+[3/5] 回归红线：从库算 == 从文件算（一分不差）
+✓ 回归红线通过：从库算与从文件算 逐数字一致（32 个周期 + 趋势/回款/体检/未分类 全部相同）
+[4/5] 回归测试
+  · 串行（写库/服务态）
+OK  tests/test_datalayer.py  (10 10 0 0 0)
+OK  tests/test_adjust.py  (14 14 0 0 0)
+OK  tests/test_server.py  (13 13 0 0 0)
+OK  tests/test_admin_edit.py  (32 32 0 0 0)
+OK  tests/test_expense_drawer.py  (6 6 0 0 0)
+OK  tests/test_auth.py  (32 32 0 0 0)
+OK  tests/test_multibu.py  (12 12 0 0 0)
+OK  tests/test_update.py  (21 21 0 0 0)
+OK  tests/test_alloc_monthly.py  (16 16 0 0 0)
+OK  tests/test_detax.py  (14 14 0 0 0)
+OK  tests/test_api_v1_numbers.py  (5 5 0 0 0)
+OK  tests/test_a2_inhouse_name.py  (3 3 0 0 0)
+OK  tests/test_a5_bu_ledger_isolation.py  (3 3 0 0 0)
+OK  tests/test_serve_shell.py  (2 2 0 0 0)
+OK  tests/test_b_p5_no_view.py  (3 3 0 0 0)
+OK  tests/test_b_p4_login_static.py  (3 3 0 0 0)
+OK  tests/test_login_cache_p0.py  (4 4 0 0 0)
+OK  tests/test_ranking_monthly_a8.py  (8 8 0 0 0)
+OK  tests/test_publish_once.py  (2 2 0 0 0)
+OK  tests/test_db_atomic_rebuild.py  (4 4 0 0 0)
+OK  tests/test_money_fen.py  (8 8 0 0 0)
+OK  tests/test_db_a4a7.py  (4 4 0 0 0)
+OK  tests/test_hygiene_b.py  (5 5 0 0 0)
+OK  tests/test_budget_rates_adj_migrate.py  (4 4 0 0 0)
+OK  tests/test_task37_filters.py  (14 14 0 0 0)
+OK  tests/test_task37_expense_perm.py  (8 8 0 0 0)
+OK  tests/test_task37_fetch_banner.py  (6 6 0 0 0)
+OK  tests/test_gzip_fragments.py  (3 3 0 0 0)
+OK  tests/test_task42_final.py  (5 5 0 0 0)
+OK  tests/test_task43_nginx_mode.py  (10 10 0 0 0)
+OK  tests/test_task_2_4_3_entry.py  (3 3 0 0 0)
+OK  tests/test_task_2_5_0_login.py  (11 11 0 0 0)
+OK  tests/test_task_2_6_0_session.py  (9 9 0 0 0)
+OK  tests/test_task_2_6_1_budget_pct_display.py  (2 2 0 0 0)
+OK  tests/test_task_2_6_1_rankings_full_and_scroll.py  (4 4 0 0 0)
+OK  tests/test_task_2_6_5_profit_rank_modal.py  (8 8 0 0 0)
+OK  tests/test_frontend_arch_guards.py  (7 7 0 0 0)
+OK  tests/test_css_no_dup_classes.py  (3 3 0 0 0)
+OK  tests/test_task_2_6_9_u2_budget_yuan.py  (2 2 0 0 0)
+OK  tests/test_task_2_6_9_s5_zero_row_no_unlink.py  (1 1 0 0 0)
+OK  tests/test_task_2_6_9_s8_dead_endpoints.py  (0 0 0 0 0)
+OK  tests/test_task_2_6_10_v2_bar_w.py  (3 3 0 0 0)
+OK  tests/test_task_2_6_10_v4_no_native_alert.py  (2 2 0 0 0)
+OK  tests/test_task_2_6_10_v5_friendly_error.py  (9 9 0 0 0)
+OK  tests/test_task_2_6_10_v5_error_state_source.py  (3 3 0 0 0)
+OK  tests/test_task_2_6_5_bu_nav_overall.py  (4 4 0 0 0)
+OK  tests/test_task_2_6_5_echarts_solid_colors.py  (2 2 0 0 0)
+OK  tests/test_task_2_6_6_health_gaps.py  (5 5 0 0 0)
+OK  tests/test_task_2_6_8_t1_fallback_alert.py  (7 7 0 0 0)
+OK  tests/test_task_2_6_8_t2_expense_locator.py  (4 4 0 0 0)
+OK  tests/test_task_2_6_8_t3_adjust_idempotent.py  (3 3 0 0 0)
+OK  tests/test_task_2_6_8_t4_share_retry.py  (2 2 0 0 0)
+OK  tests/test_task_2_6_8_t5_dual_api_contract.py  (11 11 0 0 0)
+OK  tests/test_task_2_6_8_t6_history_noop.py  (3 3 0 0 0)
+OK  tests/test_task_2_6_2_mobile_layout.py  (6 6 0 0 0)
+OK  tests/test_task_2_6_3_batch_a.py  (8 8 0 0 0)
+OK  tests/test_task_2_6_3_batch_c.py  (3 3 0 0 0)
+OK  tests/test_task43_arch.py  (15 15 0 0 0)
+OK  tests/test_authz.py  (3 3 0 0 0)
+OK  tests/test_vm_contract.py  (7 7 0 0 0)
+OK  tests/test_g1_2_7_6_vm_numbers_contract.py  (12 12 0 0 0)
+OK  tests/test_g2_2_7_7_no_html_fragments.py  (2 2 0 0 0)
+OK  tests/test_g3_2_7_8_export_same_pack.py  (3 3 0 0 0)
+OK  tests/test_g4_2_7_9_no_import_render.py  (8 8 0 0 0)
+OK  tests/test_g5_2_8_0_pl_structure_contract.py  (6 6 0 0 0)
+OK  tests/test_g6_3_0_0_no_render.py  (5 5 0 0 0)
+OK  tests/test_g7_3_1_0_hygiene.py  (9 9 0 0 0)
+OK  tests/test_g8_3_2_0_structure.py  (8 8 0 0 0)
+OK  tests/test_user_stats_3_3_0.py  (15 15 0 0 0)
+OK  tests/test_config_engine.py  (19 19 0 0 0)
+OK  tests/test_backup_restore.py  (2 2 0 0 0)
+OK  tests/test_domain_reexport.py  (4 4 0 0 0)
+OK  tests/test_echarts_vm_labels.py  (8 8 0 0 0)
+OK  tests/frontend/parity/test_parity_structure.py  (11 11 0 0 0)
+OK  tests/test_task66_stage66_batch_b.py  (4 4 0 0 0)
+OK  tests/test_task_2_3_6_pl_xlsx.py  (12 12 0 0 0)
+OK  tests/test_maintenance_mode.py  (14 14 0 0 0)
+OK  tests/test_task54p11_r01_bu_nav.py  (5 5 0 0 0)
+OK  tests/test_task54p11_r02_period.py  (3 3 0 0 0)
+OK  tests/test_task54p11_r03_overlay.py  (4 4 0 0 0)
+OK  tests/test_task_2_4_0_calc.py  (7 7 0 0 0)
+OK  tests/test_g0_offline_gate.py  (10 10 0 0 0)
+OK  tests/test_g1_lifecycle_3_6_0.py  (18 18 0 0 0)
+OK  tests/test_g2_schedule_health_3_6_0.py  (5 5 0 0 0)
+OK  tests/test_g3_security_3_6_0.py  (6 6 0 0 0)
+OK  tests/test_g4_key_customers_axis_3_6_0.py  (3 3 0 0 0)
+OK  tests/test_g5_boss_ui_3_6_0.py  (3 3 0 0 0)
+  · 并行（jobs=��
+OK  tests/test_fetch_zhiyun.py  (41 41 0 0 0)
+OK  tests/test_profile.py  (2 2 0 0 0)
+OK  tests/test_version.py  (9 9 0 0 0)
+OK  tests/test_schedule.py  (25 25 0 0 0)
+OK  tests/test_admin_static.py  (4 4 0 0 0)
+OK  tests/test_admin_vue_54d.py  (12 12 0 0 0)
+OK  tests/test_no_html_in_py.py  (1 1 0 0 0)
+OK  tests/test_b_p1_contract.py  (3 3 0 0 0)
+OK  tests/test_year2027.py  (3 3 0 0 0)
+OK  tests/test_task51_authz_access.py  (6 6 0 0 0)
+OK  tests/test_split_static.py  (2 2 0 0 0)
+OK  tests/test_task51_assemble_vm.py  (2 2 0 0 0)
+OK  tests/test_task51_batch5.py  (7 7 0 0 0)
+OK  tests/test_linux_deploy.py  (19 19 0 0 0)
+OK  tests/test_task54p1_visual.py  (20 20 0 0 0)
+OK  tests/test_task54_scifi.py  (7 7 0 0 0)
+OK  tests/test_task52_fixes.py  (11 11 0 0 0)
+OK  tests/test_task51_frontend_types.py  (5 5 0 0 0)
+OK  tests/test_task54p4_receipts_b4.py  (2 2 0 0 0)
+OK  tests/test_task54p12_export_consistency.py  (2 2 0 0 0)
+OK  tests/test_task54p15_chart_whitelist.py  (3 3 0 0 0)
+OK  tests/test_task54p14_r21_r26.py  (12 12 0 0 0)
+OK  tests/test_task54p14_r20_no_double_wan.py  (5 5 0 0 0)
+OK  tests/test_task55_friendly_error.py  (1 1 0 0 0)
+OK  tests/test_task56_r45_ledger_caliber.py  (4 4 0 0 0)
+OK  tests/test_task57_b5_frontend_errors.py  (2 2 0 0 0)
+OK  tests/test_task57_b5_admin_hook.py  (2 2 0 0 0)
+OK  tests/test_task57_b6_domain_coverage.py  (4 4 0 0 0)
+OK  tests/test_task57_c_export_cap.py  (2 2 0 0 0)
+OK  tests/test_ledger_excel_filter.py  (12 12 0 0 0)
+OK  tests/test_task58_ledger_date_range.py  (7 7 0 0 0)
+OK  tests/test_task61_stage61.py  (7 7 0 0 0)
+OK  tests/test_task63_stage63_batch_a.py  (10 10 0 0 0)
+OK  tests/test_task64_stage64.py  (7 7 0 0 0)
+OK  tests/test_task66_stage66_batch_a.py  (9 9 0 0 0)
+OK  tests/test_task66_stage66_batch_c.py  (3 3 0 0 0)
+OK  tests/test_task63_stage63_batch_b.py  (6 6 0 0 0)
+OK  tests/test_task66_stage66_batch_d.py  (3 3 0 0 0)
+OK  tests/test_expense_zhuangxiu_alloc.py  (4 4 0 0 0)
+OK  tests/test_task_2_2_5.py  (9 9 0 0 0)
+OK  tests/test_ui_sales_customer_order_and_ro_filter.py  (6 6 0 0 0)
+OK  tests/test_task_2_2_6.py  (10 10 0 0 0)
+OK  tests/test_task_2_2_8.py  (18 18 0 0 0)
+OK  tests/test_task_2_2_7.py  (11 11 0 0 0)
+OK  tests/test_task_2_3_0_theme_enum.py  (7 7 0 0 0)
+OK  tests/test_task_2_2_9.py  (14 14 0 0 0)
+OK  tests/test_task_2_3_0_fx_guard.py  (5 5 0 0 0)
+OK  tests/test_task_2_3_0_neon_tokens.py  (5 5 0 0 0)
+OK  tests/test_task_2_3_0_intro.py  (2 2 0 0 0)
+OK  tests/test_task_2_3_0_countup.py  (5 5 0 0 0)
+OK  tests/test_task_2_3_0_export_theme.py  (4 4 0 0 0)
+OK  tests/test_task_2_3_0_echarts_registry.py  (4 4 0 0 0)
+OK  tests/test_task_2_3_0_health_metrics.py  (3 3 0 0 0)
+OK  tests/test_task_2_3_1_motion.py  (3 3 0 0 0)
+OK  tests/test_task_2_3_1_neon_hud.py  (6 6 0 0 0)
+OK  tests/test_task_2_6_3_batch_b.py  (7 7 0 0 0)
+OK  tests/test_task_2_6_13_money_ssot.py  (5 5 0 0 0)
+OK  tests/test_task_2_7_0_arch_ssot.py  (8 8 0 0 0)
+OK  tests/test_task_2_6_12_rank_modal_monthly.py  (9 9 0 0 0)
+OK  tests/test_task_2_6_3_batch_d.py  (6 6 0 0 0)
+OK  tests/test_alert_store_2_6_4.py  (2 2 0 0 0)
+OK  tests/test_task_2_7_2_write_paths.py  (10 10 0 0 0)
+OK  tests/test_task_2_7_1_clean_target.py  (6 6 0 0 0)
+OK  tests/test_task_2_6_4_bu_transition.py  (5 5 0 0 0)
+OK  tests/test_task_2_2_4.py  (12 12 0 0 0)
+OK  tests/test_failure_mode_guards.py  (6 6 0 0 0)
+OK  tests/test_alert_health_ack_2_6_4.py  (1 1 0 0 0)
+OK  tests/test_stage_inventory_3_3_1_baseline.py  (5 5 0 0 0)
+OK  tests/test_task_3_3_1_alloc_int_fen.py  (5 5 0 0 0)
+OK  tests/test_task_3_3_2_refresh_honesty.py  (12 12 0 0 0)
+OK  tests/test_key_customers_3_4_0.py  (15 15 0 0 0)
+OK  tests/test_key_customers_3_4_3.py  (11 11 0 0 0)
+OK  tests/test_key_customers_3_5_0.py  (10 10 0 0 0)
+OK  tests/test_domain_coverage_54p13.py  (2 2 0 0 0)
+OK  tests/test_task_2_4_0_display.py  (6 6 0 0 0)
+OK  tests/test_task_2_3_3_manual_rename.py  (6 6 0 0 0)
+OK  tests/test_task_2_4_0_schema.py  (8 8 0 0 0)
+OK  tests/test_g0_2_7_5_tax_labels.py  (8 8 0 0 0)
+[result] runtime passed=1193 failed=0 errors=0 skipped=0 ran=1193
+[result] CRITICAL_SKIP=��关键 skip 必须为 0；本轮真实执行结果，非源码位点）
+[skip] 测试源码 skip 位点数=��仅参考；清单见 docs/验收证据/2_6_7/skip_inventory.md）
+✓ 全部通过（runtime skip=0）

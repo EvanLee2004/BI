@@ -280,7 +280,7 @@ class TestDefaultNoSelectAndCompareMax(unittest.TestCase):
             today=datetime.date(2026, 5, 1),
         )
         vm = pack_key_customers(raw)
-        self.assertEqual(vm["compare_max"], 3)
+        self.assertEqual(vm["compare_max"], 5)  # 3.6.0：最多五客
         self.assertEqual(vm["default_pool"], "focus")
         self.assertTrue(vm.get("guide_text"))
         # 前端结构守卫：源码不得默认选中第一户（3.5.0 实现在 composable + key-customers/）

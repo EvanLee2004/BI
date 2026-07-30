@@ -22,8 +22,12 @@ class TestV1SectionContrast(unittest.TestCase):
 class TestV2KpiFiveCols(unittest.TestCase):
     def test_kpi_cards_use_kpi5(self):
         src = (FE / "components" / "KpiCards.vue").read_text(encoding="utf-8")
-        self.assertIn("kpi-grid kpi-5", src)
-        self.assertIn("kpi-5", src)
+        # 3.6.0：利润主卡布局；仍须有 kpi 宿主
+        self.assertTrue(
+            "kpi-grid kpi-5" in src or "kpi-host--hero" in src or "kpi-secondary" in src,
+            "KPI 布局类须存在",
+        )
+        # 3.6.0 可不使用 kpi-5；theme/bridge 仍可保留该类供响应式
 
 
 class TestV3PlFill(unittest.TestCase):
@@ -166,7 +170,11 @@ class TestTask54p2DeepSpace(unittest.TestCase):
 
     def test_kpi_five_and_bridge_kpi(self):
         kpi = (FE / "components" / "KpiCards.vue").read_text(encoding="utf-8")
-        self.assertIn("kpi-grid kpi-5", kpi)
+        # 3.6.0：hero + secondary；兼容旧五卡类名若仍残留
+        self.assertTrue(
+            "kpi-grid kpi-5" in kpi or "kpi-host--hero" in kpi,
+            "KPI 组件须有布局宿主",
+        )
         css = (FE / "vendor" / "scifi-kit" / "scifi-bridge.css").read_text(encoding="utf-8")
         self.assertIn("scifi-panel.kpi-card", css)
         self.assertIn("54.2", css)

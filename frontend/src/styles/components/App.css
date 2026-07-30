@@ -63,7 +63,30 @@
   }
 }
 
-/* 3.5.0 首屏数据完整性条 */
+/* 3.6.0：老板看端中性新鲜度（非橙色 technical yellow 全宽条） */
+.data-freshness-strip {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  font-size: var(--fs-caption);
+  color: var(--mut-label);
+  border: none;
+  background: transparent;
+}
+.data-integrity-details {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-caption);
+  color: var(--mut-label);
+}
+.data-integrity-details summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+}
+.data-integrity-details__body {
+  margin: var(--space-1) 0 0;
+  color: var(--mut-label);
+}
+/* 遗留 data-integrity-strip 类：保留中性样式，去掉 warn 全宽橙条 */
 .data-integrity-strip {
   display: flex;
   flex-wrap: wrap;
@@ -78,7 +101,8 @@
   color: var(--mut-label);
 }
 .data-integrity-strip[data-lamp="yellow"] {
-  border-color: var(--warn);
+  /* 3.6.0：不再用 warn 橙边 */
+  border-color: var(--line);
 }
 .data-integrity-strip[data-lamp="red"] {
   border-color: var(--danger);
@@ -92,7 +116,7 @@
   align-self: center;
 }
 .data-integrity-strip[data-lamp="yellow"] .data-integrity-strip__lamp {
-  background: var(--warn);
+  background: var(--mut-label);
 }
 .data-integrity-strip[data-lamp="red"] .data-integrity-strip__lamp {
   background: var(--danger);
@@ -105,6 +129,36 @@
   flex: 1 1 100%;
   font-size: var(--fs-meta);
   color: var(--mut-label);
+}
+
+/* 3.6.0 KPI 布局钩子（不重复定义 theme 中的 .kpi-grid / .kpi-v） */
+.kpi-host--hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.kpi-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2);
+  align-items: start;
+}
+.kpi-card--compact {
+  min-height: 0 !important;
+  height: auto !important;
+}
+.kpi-bu-strip {
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 8px);
+  background: var(--panel-soft, transparent);
+}
+.kpi-bu-strip__title {
+  font-size: var(--fs-caption);
+  color: var(--mut-label);
+  margin-bottom: var(--space-2);
+  font-weight: 600;
 }
 
 
