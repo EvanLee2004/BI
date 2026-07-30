@@ -1,0 +1,8 @@
+kpi None: pct_disp='—' bar_w=0
+kpi margin 83.3: pct_disp='83%' bar_w=83.3
+kpi amount 150: pct_disp='150.0%' bar_w=100
+kpi margin 150: pct_disp='150%' bar_w=100
+kpi amount 5000: pct_disp='>999%' bar_w=100
+attach order 125: pct_disp='125.0%' bar_w=100.0
+attach receipt 5000: pct_disp='>999%' bar_w=100.0
+ALL_OK

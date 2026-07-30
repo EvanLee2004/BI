@@ -1,0 +1,63 @@
+date=2026-07-30T11:22:17+08:00
+VERSION=3.3.3
+run_verify: EXIT:0 (see run_verify.log)
+4:[1;32mAll checks passed![0m
+11:vm.ts GEN block OK
+13:[3/5] 回归红线：从库算 == 从文件算（一分不差）
+14:✓ 回归红线通过：从库算与从文件算 逐数字一致（32 个周期 + 趋势/回款/体检/未分类 全部相同）
+17:OK  tests/test_datalayer.py
+18:OK  tests/test_adjust.py
+19:OK  tests/test_server.py
+20:OK  tests/test_admin_edit.py
+21:OK  tests/test_expense_drawer.py
+22:OK  tests/test_auth.py
+23:OK  tests/test_multibu.py
+24:OK  tests/test_update.py
+25:OK  tests/test_alloc_monthly.py
+26:OK  tests/test_detax.py
+27:OK  tests/test_api_v1_numbers.py
+28:OK  tests/test_a2_inhouse_name.py
+29:OK  tests/test_a5_bu_ledger_isolation.py
+30:OK  tests/test_serve_shell.py
+31:OK  tests/test_b_p5_no_view.py
+32:OK  tests/test_b_p4_login_static.py
+33:OK  tests/test_login_cache_p0.py
+34:OK  tests/test_ranking_monthly_a8.py
+35:OK  tests/test_publish_once.py
+36:OK  tests/test_db_atomic_rebuild.py
+37:OK  tests/test_money_fen.py
+38:OK  tests/test_db_a4a7.py
+39:OK  tests/test_hygiene_b.py
+40:OK  tests/test_budget_rates_adj_migrate.py
+41:OK  tests/test_task37_filters.py
+42:OK  tests/test_task37_expense_perm.py
+43:OK  tests/test_task37_fetch_banner.py
+44:OK  tests/test_gzip_fragments.py
+45:OK  tests/test_task42_final.py
+46:OK  tests/test_task43_nginx_mode.py
+47:OK  tests/test_task_2_4_3_entry.py
+48:OK  tests/test_task_2_5_0_login.py
+49:OK  tests/test_task_2_6_0_session.py
+50:OK  tests/test_task_2_6_1_budget_pct_display.py
+51:OK  tests/test_task_2_6_1_rankings_full_and_scroll.py
+52:OK  tests/test_task_2_6_5_profit_rank_modal.py
+OK  tests/test_task_2_7_0_arch_ssot.py
+OK  tests/test_task_2_6_3_batch_d.py
+OK  tests/test_alert_store_2_6_4.py
+OK  tests/test_task_2_7_2_write_paths.py
+OK  tests/test_task_2_7_1_clean_target.py
+OK  tests/test_task_2_6_4_bu_transition.py
+OK  tests/test_task_2_2_4.py
+OK  tests/test_failure_mode_guards.py
+OK  tests/test_alert_health_ack_2_6_4.py
+OK  tests/test_domain_coverage_54p13.py
+OK  tests/test_stage_inventory_3_3_1_baseline.py
+OK  tests/test_task_3_3_1_alloc_int_fen.py
+OK  tests/test_task_3_3_2_refresh_honesty.py
+OK  tests/test_task_2_3_3_manual_rename.py
+OK  tests/test_task_2_4_0_display.py
+OK  tests/test_task_2_4_0_schema.py
+OK  tests/test_g0_2_7_5_tax_labels.py
+[skip] 测试源码 skip 位点数=��清单见 docs/验收证据/2_6_7/skip_inventory.md）
+✓ 全部通过
+EXIT:0

@@ -1,0 +1,176 @@
+用解释器：.venv/bin/python  并行 jobs=4
+[1/5] 语法检查
+[1a/5] ruff check src/
+[1;32mAll checks passed![0m
+[1b/5] 前端 vue-tsc --noEmit
+
+> kanban-cockpit-frontend@2.0.3 typecheck
+> vue-tsc --noEmit
+
+[1c/5] scripts/gen_vm_ts.py --check
+vm.ts GEN block OK
+[2/5] 端到端生成
+[3/5] 回归红线：从库算 == 从文件算（一分不差）
+✓ 回归红线通过：从库算与从文件算 逐数字一致（32 个周期 + 趋势/回款/体检/未分类 全部相同）
+[4/5] 回归测试
+  · 串行（写库/服务态）
+OK  tests/test_datalayer.py
+OK  tests/test_adjust.py
+OK  tests/test_server.py
+OK  tests/test_admin_edit.py
+OK  tests/test_expense_drawer.py
+OK  tests/test_auth.py
+OK  tests/test_multibu.py
+OK  tests/test_update.py
+OK  tests/test_alloc_monthly.py
+OK  tests/test_detax.py
+OK  tests/test_api_v1_numbers.py
+OK  tests/test_a2_inhouse_name.py
+OK  tests/test_a5_bu_ledger_isolation.py
+OK  tests/test_serve_shell.py
+OK  tests/test_b_p5_no_view.py
+OK  tests/test_b_p4_login_static.py
+OK  tests/test_login_cache_p0.py
+OK  tests/test_ranking_monthly_a8.py
+OK  tests/test_publish_once.py
+OK  tests/test_db_atomic_rebuild.py
+OK  tests/test_money_fen.py
+OK  tests/test_db_a4a7.py
+OK  tests/test_hygiene_b.py
+OK  tests/test_budget_rates_adj_migrate.py
+OK  tests/test_task37_filters.py
+OK  tests/test_task37_expense_perm.py
+OK  tests/test_task37_fetch_banner.py
+OK  tests/test_gzip_fragments.py
+OK  tests/test_task42_final.py
+OK  tests/test_task43_nginx_mode.py
+OK  tests/test_task_2_4_3_entry.py
+OK  tests/test_task_2_5_0_login.py
+OK  tests/test_task_2_6_0_session.py
+OK  tests/test_task_2_6_1_budget_pct_display.py
+OK  tests/test_task_2_6_1_rankings_full_and_scroll.py
+OK  tests/test_task_2_6_5_profit_rank_modal.py
+OK  tests/test_frontend_arch_guards.py
+OK  tests/test_css_no_dup_classes.py
+OK  tests/test_task_2_6_9_u2_budget_yuan.py
+OK  tests/test_task_2_6_9_s5_zero_row_no_unlink.py
+OK  tests/test_task_2_6_9_s8_dead_endpoints.py
+OK  tests/test_task_2_6_10_v2_bar_w.py
+OK  tests/test_task_2_6_10_v4_no_native_alert.py
+OK  tests/test_task_2_6_10_v5_friendly_error.py
+OK  tests/test_task_2_6_10_v5_error_state_source.py
+OK  tests/test_task_2_6_5_bu_nav_overall.py
+OK  tests/test_task_2_6_5_echarts_solid_colors.py
+OK  tests/test_task_2_6_6_health_gaps.py
+OK  tests/test_task_2_6_8_t1_fallback_alert.py
+OK  tests/test_task_2_6_8_t2_expense_locator.py
+OK  tests/test_task_2_6_8_t3_adjust_idempotent.py
+OK  tests/test_task_2_6_8_t4_share_retry.py
+OK  tests/test_task_2_6_8_t5_dual_api_contract.py
+OK  tests/test_task_2_6_8_t6_history_noop.py
+OK  tests/test_task_2_6_2_mobile_layout.py
+OK  tests/test_task_2_6_3_batch_a.py
+OK  tests/test_task_2_6_3_batch_c.py
+OK  tests/test_task43_arch.py
+OK  tests/test_authz.py
+OK  tests/test_vm_contract.py
+OK  tests/test_g1_2_7_6_vm_numbers_contract.py
+OK  tests/test_g2_2_7_7_no_html_fragments.py
+OK  tests/test_g3_2_7_8_export_same_pack.py
+OK  tests/test_g4_2_7_9_no_import_render.py
+OK  tests/test_g5_2_8_0_pl_structure_contract.py
+OK  tests/test_g6_3_0_0_no_render.py
+OK  tests/test_g7_3_1_0_hygiene.py
+OK  tests/test_g8_3_2_0_structure.py
+OK  tests/test_user_stats_3_3_0.py
+OK  tests/test_config_engine.py
+OK  tests/test_backup_restore.py
+OK  tests/test_domain_reexport.py
+OK  tests/test_echarts_vm_labels.py
+OK  tests/frontend/parity/test_parity_structure.py
+OK  tests/test_task66_stage66_batch_b.py
+OK  tests/test_task_2_3_6_pl_xlsx.py
+OK  tests/test_maintenance_mode.py
+OK  tests/test_task54p11_r01_bu_nav.py
+OK  tests/test_task54p11_r02_period.py
+OK  tests/test_task54p11_r03_overlay.py
+OK  tests/test_task_2_4_0_calc.py
+  · 并行（jobs=��
+OK  tests/test_fetch_zhiyun.py
+OK  tests/test_profile.py
+OK  tests/test_version.py
+OK  tests/test_schedule.py
+OK  tests/test_admin_static.py
+OK  tests/test_admin_vue_54d.py
+OK  tests/test_no_html_in_py.py
+OK  tests/test_b_p1_contract.py
+OK  tests/test_year2027.py
+OK  tests/test_task51_authz_access.py
+OK  tests/test_split_static.py
+OK  tests/test_task51_assemble_vm.py
+OK  tests/test_task51_batch5.py
+OK  tests/test_linux_deploy.py
+OK  tests/test_task54p1_visual.py
+OK  tests/test_task54_scifi.py
+OK  tests/test_task52_fixes.py
+OK  tests/test_task51_frontend_types.py
+OK  tests/test_task54p4_receipts_b4.py
+OK  tests/test_task54p12_export_consistency.py
+OK  tests/test_task54p15_chart_whitelist.py
+OK  tests/test_task54p14_r21_r26.py
+OK  tests/test_task54p14_r20_no_double_wan.py
+OK  tests/test_task55_friendly_error.py
+OK  tests/test_task56_r45_ledger_caliber.py
+OK  tests/test_task57_b5_frontend_errors.py
+OK  tests/test_task57_b5_admin_hook.py
+OK  tests/test_task57_b6_domain_coverage.py
+OK  tests/test_task57_c_export_cap.py
+OK  tests/test_ledger_excel_filter.py
+OK  tests/test_task58_ledger_date_range.py
+OK  tests/test_task61_stage61.py
+OK  tests/test_task63_stage63_batch_a.py
+OK  tests/test_task64_stage64.py
+OK  tests/test_task66_stage66_batch_a.py
+OK  tests/test_task63_stage63_batch_b.py
+OK  tests/test_task66_stage66_batch_c.py
+OK  tests/test_task66_stage66_batch_d.py
+OK  tests/test_expense_zhuangxiu_alloc.py
+OK  tests/test_task_2_2_5.py
+OK  tests/test_ui_sales_customer_order_and_ro_filter.py
+OK  tests/test_task_2_2_6.py
+OK  tests/test_task_2_2_8.py
+OK  tests/test_task_2_2_7.py
+OK  tests/test_task_2_3_0_theme_enum.py
+OK  tests/test_task_2_2_9.py
+OK  tests/test_task_2_3_0_fx_guard.py
+OK  tests/test_task_2_3_0_neon_tokens.py
+OK  tests/test_task_2_3_0_intro.py
+OK  tests/test_task_2_3_0_countup.py
+OK  tests/test_task_2_3_0_export_theme.py
+OK  tests/test_task_2_3_0_echarts_registry.py
+OK  tests/test_task_2_3_0_health_metrics.py
+OK  tests/test_task_2_3_1_motion.py
+OK  tests/test_task_2_3_1_neon_hud.py
+OK  tests/test_task_2_6_3_batch_b.py
+OK  tests/test_task_2_6_12_rank_modal_monthly.py
+OK  tests/test_task_2_6_13_money_ssot.py
+OK  tests/test_task_2_7_0_arch_ssot.py
+OK  tests/test_task_2_6_3_batch_d.py
+OK  tests/test_alert_store_2_6_4.py
+OK  tests/test_task_2_7_2_write_paths.py
+OK  tests/test_task_2_7_1_clean_target.py
+OK  tests/test_task_2_6_4_bu_transition.py
+OK  tests/test_task_2_2_4.py
+OK  tests/test_failure_mode_guards.py
+OK  tests/test_alert_health_ack_2_6_4.py
+OK  tests/test_domain_coverage_54p13.py
+OK  tests/test_stage_inventory_3_3_1_baseline.py
+OK  tests/test_task_3_3_1_alloc_int_fen.py
+OK  tests/test_task_3_3_2_refresh_honesty.py
+OK  tests/test_task_2_3_3_manual_rename.py
+OK  tests/test_task_2_4_0_display.py
+OK  tests/test_task_2_4_0_schema.py
+OK  tests/test_g0_2_7_5_tax_labels.py
+[skip] 测试源码 skip 位点数=��清单见 docs/验收证据/2_6_7/skip_inventory.md）
+✓ 全部通过
+EXIT:0

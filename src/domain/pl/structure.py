@@ -502,6 +502,15 @@ def kpi_peak_for(summary: dict, key: str) -> dict[str, str] | None:
     return {"label": lab, "value_wan": wan, "value_disp": wan + "万"}
 
 
+def format_target_pct_disp(pct, *, decimals: int = 1) -> str:
+    """目标完成率展示串（3.3.3）：None→—；≥1000→>999%；否则按 decimals 格式化真实%。"""
+    if pct is None:
+        return "—"
+    if float(pct) >= 1000:
+        return ">999%"
+    return f"{float(pct):.{int(decimals)}f}%"
+
+
 def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
     """结构化目标条（VM + legacy HTML 共用）；无 tkey → None；无 budget 项 → empty 态。
 
@@ -530,10 +539,7 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
         else:
             cur = p.get("gross_margin_pct" if tkey == "margin" else "pretax_margin_pct")
         cur_s = f"{cur:.1f}%" if cur is not None else "—"
-        if pct is not None and pct > 100:
-            pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
-        else:
-            pct_s = f"{pct:.0f}%" if pct is not None else "—"
+        pct_s = format_target_pct_disp(pct, decimals=0)
         w = min(max(pct or 0, 0), 100)
         cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
         return {
@@ -550,10 +556,7 @@ def kpi_target_bar(tkey, pkey, p, budget) -> dict[str, Any] | None:
     if done is None:
         done = _kpi_val(p, {"order": "orders", "receipt": "receipts"}.get(tkey, "orders"))
         pct = (done / tgt * 100.0) if tgt else None
-    if pct is not None and pct > 100:
-        pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
-    else:
-        pct_s = f"{pct:.1f}%" if pct is not None else "—"
+    pct_s = format_target_pct_disp(pct, decimals=1)
     w = min(max(pct or 0, 0), 100)
     cls = "ok" if (pct or 0) >= 100 else ("warn" if (pct or 0) >= 80 else "low")
     tgt_wan = charts.fmt_wan(tgt)

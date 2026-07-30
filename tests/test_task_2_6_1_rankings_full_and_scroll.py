@@ -48,8 +48,9 @@ class TestBudgetPctNo999(unittest.TestCase):
             {"orders": 1e10},
             {"order": {"target": 1.0, "done": 1e10, "pct": 99999.0}},
         )
-        self.assertEqual(bar["pct_disp"], "目标待校准")
-        self.assertNotIn("999%", bar["pct_disp"])
+        # 3.3.3：pct≥1000 → 软顶 >999%（不再「目标待校准」）
+        self.assertEqual(bar["pct_disp"], ">999%")
+        self.assertNotIn("待校准", bar["pct_disp"])
 
 
 class TestRankingsScrollMount(unittest.TestCase):

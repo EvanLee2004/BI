@@ -225,13 +225,10 @@ def _attach_year_budget_bars(row: dict, budget: dict, charts) -> None:
         if not (b and b.get("target") is not None):
             continue
         pct = b.get("pct")
-        if pct is None:
-            pct_txt = "—"
-        elif float(pct) > 100:
-            # 2.6.1：超目标只显示待校准文案，禁止吓人 >999% 主标签（条宽仍 cap 100%）
-            pct_txt = "目标待校准"
-        else:
-            pct_txt = f"{float(pct):.1f}%"
+        # 3.3.3：超目标显示真实%；≥1000 软顶 >999%；条宽仍 cap 100%
+        from domain.pl.structure import format_target_pct_disp
+
+        pct_txt = format_target_pct_disp(pct, decimals=1)
         bw = max(0.0, min(float(pct or 0), 100.0))
         row[key] = charts.fmt_wan(float(b["target"]))
         row[f"{bkey}_pct_disp"] = pct_txt

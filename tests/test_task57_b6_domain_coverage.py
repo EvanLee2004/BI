@@ -48,9 +48,9 @@ class TestDomainCoverageB6(unittest.TestCase):
         b_m = kpi_target_bar("margin", "2026年", {"gross_margin_pct": 30.0}, budget)
         self.assertEqual(b_m["kind"], "margin")
         b_pt = kpi_target_bar("pretax_margin", "2026年", {"pretax_margin_pct": 12.0}, budget)
-        # 2.6.1：pct>100 → 目标待校准，无 >999
-        self.assertEqual(b_pt["pct_disp"], "目标待校准")
-        self.assertNotIn("999", b_pt["pct_disp"])
+        # 3.3.3：pct≥1000 → 软顶 >999%（不再「目标待校准」）
+        self.assertEqual(b_pt["pct_disp"], ">999%")
+        self.assertNotIn("待校准", b_pt["pct_disp"])
 
     def test_kpi_peak_for(self):
         summary = {

@@ -1,0 +1,3 @@
+src/domain/pl/structure.py:534:            pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
+src/domain/pl/structure.py:554:        pct_s = "目标待校准"  # 2.6.1：禁止 >999% 主文案
+src/viewmodels/__init__.py:232:            pct_txt = "目标待校准"

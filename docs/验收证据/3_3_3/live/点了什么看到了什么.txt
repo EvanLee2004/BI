@@ -1,0 +1,14 @@
+活体核验记录 · 3.3.3
+date=2026-07-30T11:22:17+08:00
+点了什么：调用真实 kpi_target_bar / _attach_year_budget_bars（非 re-impl）
+看到了什么：pct=150 → 150%/150.0%；pct=5000 → >999%；无「目标待校准」；bar_w≤100
+源码守卫：rg 目标待校准 src → 0 命中
+前端：KpiCards.vue 只渲染 c.target.pct_disp，无硬编码该五字（frontend src/dist 无命中）
+上机后：整体页 KPI 目标条应显示真实% 或 >999%
+probe http://127.0.0.1:8018/api/v1/health -> 000fail
+probe http://127.0.0.1:8000/api/v1/health -> 000fail
+live_fn order pct=None -> '—' (expect '—') bar_w=0
+live_fn order pct=50.0 -> '50.0%' (expect '50.0%') bar_w=50.0
+live_fn order pct=150.0 -> '150.0%' (expect '150.0%') bar_w=100
+live_fn order pct=5000.0 -> '>999%' (expect '>999%') bar_w=100
+LIVE_FN_OK
