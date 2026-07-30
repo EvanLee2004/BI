@@ -809,3 +809,29 @@
     transition: none;
   }
 }
+
+/* 3.5.0 金额/节奏切换 + 摘要数字层级 + 对比模式头 */
+.kc-mode-switch {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  flex-wrap: wrap;
+}
+.kc-rhythm-disclaimer {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--mut-label);
+  line-height: 1.4;
+}
+.kc-insight__mode {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--rank-name);
+}
+.kc-summary-cards .kc-card__value {
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+}
+.kc-summary-cards .kc-card {
+  border-width: 1px;
+}

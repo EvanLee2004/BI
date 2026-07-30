@@ -112,3 +112,17 @@ cat VERSION
 
 脚本优先 `sudo -n systemctl restart kanban`；失败则结束 `run.py --serve`，由看门狗/systemd 拉起。
 
+
+## 3.5.0 reload 成功判据（2026-07-30）
+
+**禁止**只凭 `health=200` + 磁盘 `VERSION` 宣布成功（3.4.3 曾假绿：旧 serve 仍 200、摘要空）。
+
+成功必须同时：
+
+1. 重载前记录 serve PID；重载后旧 PID 消失、新 PID 出现  
+2. `http://127.0.0.1:8018/api/v1/health` = 200  
+3. health.metrics 含 `version`（=磁盘 VERSION）、`git_commit`（=目标 HEAD）、`pid`  
+4. （上线后）重点客户 VM 含 `amount_axis` / 月点 `value_wan`  
+
+脚本：`deploy/linux/reload_kanban.sh`。失败保持/恢复维护态，按本 Runbook 回滚，禁止生产现场改码。
+

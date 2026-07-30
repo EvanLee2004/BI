@@ -467,6 +467,11 @@
       "additionalProperties": true,
       "title": "Key Customers",
       "type": "object"
+    },
+    "data_integrity": {
+      "additionalProperties": true,
+      "title": "Data Integrity",
+      "type": "object"
     }
   },
   "title": "CockpitVM",

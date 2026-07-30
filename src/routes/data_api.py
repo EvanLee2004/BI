@@ -589,7 +589,13 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if _state.get("built_at"):
             m_out["built_at"] = _state.get("built_at")
         authed = bool(_user(request) or _vacct(request))
-        if authed:
+        # 3.5.0：本机 loopback 也下发 runtime marker，供 reload 真生效核验（不含客户/金额）
+        try:
+            client_host = (request.client.host if request.client else "") or ""
+        except Exception:
+            client_host = ""
+        local_probe = client_host in ("127.0.0.1", "::1", "localhost")
+        if authed or local_probe:
             try:
                 import version as product_version
 
@@ -597,6 +603,22 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                     getattr(product_version, "PRODUCT_VERSION", None)
                     or product_version.read_version()
                 )
+            except Exception:
+                pass
+            try:
+                import os
+                import subprocess
+
+                m_out["pid"] = int(os.getpid())
+                gc = subprocess.run(
+                    ["git", "-C", str(root), "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    check=False,
+                )
+                if gc.returncode == 0 and gc.stdout.strip():
+                    m_out["git_commit"] = gc.stdout.strip()
             except Exception:
                 pass
         if "update_ms" not in m_out:

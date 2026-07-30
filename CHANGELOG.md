@@ -1,3 +1,14 @@
+## 3.5.0 · 2026-07-30
+
+### 金额诚实 · 架构收束 · 完整性可见 · reload 真生效
+- **重点客户金额折线**：默认共同金额轴（`value_wan` + `amount_axis`），2万与200万不再同高；直接标签读数；可选「节奏指数」非默认且固定说明峰值=100
+- 月点语义 `actual|incomplete|missing`；未来月 null 不与实际 0 混画
+- 后端 packer 迁 `src/viewmodels/key_customers.py`；`packers.py` 薄门面
+- 前端拆 `key-customers/*` + `useKeyCustomers` + `keyCustomersChart`；VM 类型单源 `types/vm.ts`；选择/对比 SSOT
+- 首屏 `data_integrity` 条：体检灯/缺月/未来记录/受影响说明；**不造金额、不改手填**
+- `reload_kanban.sh`：旧 PID 消失 + 新 PID + health 200 + runtime version/commit；磁盘 VERSION 不算成功
+- 证据：`docs/验收证据/3_5_0/` · 测试 `tests/test_key_customers_3_5_0.py`
+
 ## 3.4.3 · 2026-07-30
 
 ### 重点客户经营作战台（结构条 · 三池 · 临界晋级 · 三客比较）

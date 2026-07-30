@@ -4,12 +4,12 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v3.3.1**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-07-29） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v3.5.0**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-07-30） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **现网终态（3.3.1）**：看数 **Domain→VM→Vue**；导出走 **kanban_snapshot**（HTML/PNG 同源）；**无** `render_*` 驾驶舱双轨。业务/管理/运维 API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**（升级后须重登）。飞书 webhook **已废止**。  
-> **3.3.1 要点**：分摊展示金额全程 int 分；测试假绿/孤儿测清零；文档 SSOT 对齐。  
-> **3.3.0**：管理端一级导航「用户统计」。**3.2 / 3.1 / 3.0**：薄门面、工程债清零、物理删 render。**2.7.x**：全量 v1、维护页、设置四中卡布局。  
+> **现网终态（3.5.0）**：看数 **Domain→VM→Vue**；重点客户金额共同尺度 + 完整性首屏；导出走 **kanban_snapshot**；**无** `render_*` 驾驶舱双轨。业务/管理/运维 API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
+> **3.5.0 要点**：金额折线诚实可比；KC packer/前端拆分单源；reload 须 PID+runtime；手填缺月只提示不造数。  
+> **3.4.x**：作战台/结构条/三池。**3.3.x**：KPI 超目标诚实、分摊 int 分。**3.2 / 3.1 / 3.0**：薄门面、去 render。**2.7.x**：全量 v1、维护页。  
 > **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)

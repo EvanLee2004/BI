@@ -140,6 +140,7 @@ class BUPageVM(BaseModel):
     chart_month_max: int = 12
     # 3.4.0 重点客户分析（年粒度，非 period 键）
     key_customers: dict[str, Any] = Field(default_factory=dict)
+    data_integrity: dict[str, Any] = Field(default_factory=dict)
 
 
 class CockpitVM(BaseModel):
@@ -162,6 +163,8 @@ class CockpitVM(BaseModel):
     chart_month_max: int = 12
     # 3.4.0 重点客户分析（年粒度，非 period 键）
     key_customers: dict[str, Any] = Field(default_factory=dict)
+    # 3.5.0 数据完整性（不造金额）
+    data_integrity: dict[str, Any] = Field(default_factory=dict)
 
 
 def _pack_trend_series(trend_rows) -> dict[str, Any]:
@@ -498,6 +501,7 @@ def _assemble_vm(
         summary.get("key_customers"),
         embed_full=bool(embed_key_customers_full),
     )
+    data_integrity = packers.pack_data_integrity(summary)
     if is_bu:
         return BUPageVM(
             bu_name=bu_name or views.get("bu_name") or "",
@@ -515,6 +519,7 @@ def _assemble_vm(
             numbers=numbers,
             chart_month_max=chart_month_max,
             key_customers=key_customers,
+            data_integrity=data_integrity,
         )
     return CockpitVM(
         year_key=yk,
@@ -531,6 +536,7 @@ def _assemble_vm(
         numbers=numbers,
         chart_month_max=chart_month_max,
         key_customers=key_customers,
+        data_integrity=data_integrity,
     )
 
 

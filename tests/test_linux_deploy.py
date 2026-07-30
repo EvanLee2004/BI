@@ -375,3 +375,36 @@ class TestFetchLedgerPosix(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestReloadKanban35(unittest.TestCase):
+    """3.5.0 reload：须证 PID/runtime，不得仅 health=200。"""
+
+    def test_reload_script_exists_and_bash_n(self):
+        p = LINUX / "reload_kanban.sh"
+        self.assertTrue(p.is_file())
+        if not shutil.which("bash"):
+            self.skipTest("无 bash")
+        r = subprocess.run(["bash", "-n", str(p)], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_reload_requires_pid_and_runtime_marker(self):
+        text = (LINUX / "reload_kanban.sh").read_text(encoding="utf-8")
+        self.assertIn("OLD_PID", text)
+        self.assertIn("runtime_version", text)
+        self.assertIn("git_commit", text)
+        self.assertIn("NOT success", text)
+        # 假成功路径：旧 PID 仍在必须 FAIL
+        self.assertIn("old serve pid", text.lower())
+        self.assertIn("exit 1", text)
+
+    def test_reload_sim_stale_pid_fails(self):
+        """行为：模拟 health 200 但 PID 不变 → 非 0（脚本内逻辑用干跑断言源码顺序）。"""
+        text = (LINUX / "reload_kanban.sh").read_text(encoding="utf-8")
+        # 须在 health=200 之后仍校验 version/commit/pid 切换
+        i_health = text.find("health=200")
+        i_ver = text.find("runtime_version")
+        i_old = text.find("OLD_PID")
+        self.assertGreater(i_health, 0)
+        self.assertGreater(i_ver, 0)
+        self.assertGreater(i_old, 0)

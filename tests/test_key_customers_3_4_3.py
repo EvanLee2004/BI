@@ -283,10 +283,13 @@ class TestDefaultNoSelectAndCompareMax(unittest.TestCase):
         self.assertEqual(vm["compare_max"], 3)
         self.assertEqual(vm["default_pool"], "focus")
         self.assertTrue(vm.get("guide_text"))
-        # 前端结构守卫：源码不得默认选中第一户
-        src = (ROOT / "frontend/src/components/KeyCustomersPanel.vue").read_text(
-            encoding="utf-8"
-        )
+        # 前端结构守卫：源码不得默认选中第一户（3.5.0 实现在 composable + key-customers/）
+        parts = [
+            ROOT / "frontend/src/components/KeyCustomersPanel.vue",
+            ROOT / "frontend/src/components/key-customers/KeyCustomersPanel.vue",
+            ROOT / "frontend/src/composables/useKeyCustomers.ts",
+        ]
+        src = "\n".join(p.read_text(encoding="utf-8") for p in parts if p.is_file())
         self.assertIn("selectedKey", src)
         self.assertNotRegex(
             src,
@@ -303,9 +306,11 @@ class TestDefaultNoSelectAndCompareMax(unittest.TestCase):
 
 class TestFrontendWarDeskStructure(unittest.TestCase):
     def test_panel_has_war_desk_dom_hooks(self):
-        src = (ROOT / "frontend/src/components/KeyCustomersPanel.vue").read_text(
-            encoding="utf-8"
-        )
+        kc_dir = ROOT / "frontend/src/components/key-customers"
+        parts = [ROOT / "frontend/src/components/KeyCustomersPanel.vue"]
+        if kc_dir.is_dir():
+            parts.extend(sorted(kc_dir.glob("*.vue")))
+        src = "\n".join(p.read_text(encoding="utf-8") for p in parts if p.is_file())
         css = (
             ROOT / "frontend/src/styles/components/KeyCustomersPanel.css"
         ).read_text(encoding="utf-8")

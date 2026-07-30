@@ -49,6 +49,11 @@ const emptyHint = computed(() => {
   if (!v?.empty) return ''
   return v.empty_message || '暂无数据'
 })
+/** 3.5.0：首屏数据完整性（只渲染后端 VM，不造金额） */
+const dataIntegrity = computed(() => {
+  const d = (store.vm as { data_integrity?: Record<string, unknown> } | null)?.data_integrity
+  return d && (d.short_disp || d.headline || d.health_result) ? d : null
+})
 
 /** 2.6.10 V-5：按状态码选错误块标题/出口（纯 BU 优先回自己的业务线） */
 const errorPrimaryLabel = computed(() => {
@@ -209,6 +214,7 @@ onMounted(async () => {
     <div v-if="emptyHint" class="muted" style="padding:16px 0;color:var(--mut)">
       {{ emptyHint }}
     </div>
+    <div v-if="dataIntegrity" class="archive-banner" data-testid="data-integrity-strip" role="status" :title="String(dataIntegrity.affected_scope||'')">{{ dataIntegrity.headline || dataIntegrity.short_disp }}</div>
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>
