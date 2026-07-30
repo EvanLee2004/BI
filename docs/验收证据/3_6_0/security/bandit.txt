@@ -1,0 +1,42 @@
+=== bandit 2026-07-31T02:44:09+08:00 ===
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html
+   Location: src/schema.py:635:12
+634	        cur.execute(
+635	            "DELETE FROM sqlite_sequence WHERE name IN (%s)" % ",".join("?" * len(STD_TABLE_NAMES)), STD_TABLE_NAMES
+636	        )
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: src/server.py:178:58
+177	    print(
+178	        f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/"
+179	        "   管理员 /admin"
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 21929
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 1
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 62
+		Medium: 38
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 2
+		Medium: 38
+		High: 60
+Files skipped (0):
+EXIT_BANDIT:0

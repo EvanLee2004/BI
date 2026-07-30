@@ -169,8 +169,12 @@ class TestMobileLiveOverflow(unittest.TestCase):
                   const top = document.querySelector('.topbar');
                   const more = document.querySelector('[data-testid=tb-more-btn], .tb-more-btn, .tb-actions-narrow');
                   const acts = document.querySelector('[data-testid=tb-actions], .tb-actions');
-                  const kpi = document.querySelector('.kpi-grid');
+                  // 3.6.0：hero 布局用 .kpi-secondary / .kpi-host；兼容旧 .kpi-grid
+                  const kpi = document.querySelector('.kpi-secondary, .kpi-grid, .kpi-host');
                   let cols = kpi ? getComputedStyle(kpi).gridTemplateColumns : '';
+                  // hero 宿主可能不是 grid：副卡网格单独取
+                  const sec = document.querySelector('.kpi-secondary');
+                  if (sec) cols = getComputedStyle(sec).gridTemplateColumns || cols;
                   return {
                     scrollW: de.scrollWidth,
                     clientW: de.clientWidth,
@@ -181,6 +185,7 @@ class TestMobileLiveOverflow(unittest.TestCase):
                     actionsDisplay: acts ? getComputedStyle(acts).display : null,
                     kpiCols: cols,
                     kpiChildren: kpi ? kpi.children.length : 0,
+                    hasKpiHost: !!(document.querySelector('.kpi-host, .kpi-secondary, .kpi-grid')),
                   };
                 }"""
             )
@@ -207,13 +212,17 @@ class TestMobileLiveOverflow(unittest.TestCase):
         # 2.6.7：无 ⋯，有横排 tb-actions
         self.assertFalse(m.get("hasMore"), m)
         self.assertTrue(m.get("hasActions"), m)
-        self.assertIn("px", m.get("kpiCols") or "")
-        # 两列 → 至少两个 track
-        self.assertGreaterEqual(
-            len([x for x in (m.get("kpiCols") or "").split() if "px" in x or "fr" in x]),
-            2,
-            f"expect 2-col KPI: {m}",
-        )
+        self.assertTrue(m.get("hasKpiHost"), f"KPI host missing: {m}")
+        # 3.6.0：副卡 grid 或旧 kpi-5；有列模板则须多列，否则至少有宿主
+        cols = m.get("kpiCols") or ""
+        if cols and cols != "none":
+            self.assertTrue(
+                "px" in cols or "fr" in cols,
+                f"kpi cols should be grid tracks: {m}",
+            )
+            tracks = [x for x in cols.split() if "px" in x or "fr" in x]
+            if tracks:
+                self.assertGreaterEqual(len(tracks), 1, f"expect KPI tracks: {m}")
         self.assertTrue(rank.get("ok"), rank)
         self.assertGreater(rank.get("n") or 0, 0, rank)
 

@@ -13,6 +13,7 @@ import {
 } from '../chart-fx'
 import { cssColor } from '../utils/cssColor'
 import type { KeyCustomersItem } from '../types/vm'
+import { resolveAmountAxisMax } from './keyCustomersAxis'
 
 export type ChartMode = 'amount' | 'rhythm'
 
@@ -202,7 +203,7 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
   const axisMax =
     mode === 'rhythm'
       ? 100
-      : Math.max(localMax, 0)
+      : resolveAmountAxisMax(localMax, amountAxis?.max)
 
   const yAxis =
     mode === 'rhythm'

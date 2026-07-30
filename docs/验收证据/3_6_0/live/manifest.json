@@ -1,6 +1,79 @@
 {
   "version": "3.6.0",
   "baseline_commit": "ef90dc4d43a42656f99b3411112a5737014c460b",
-  "note": "G0 skeleton: entries filled in G5 with real screenshots. Incomplete entries fail live_manifest validate.",
-  "entries": []
+  "candidate_commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+  "updated": "2026-07-31T02:46:02",
+  "note": "G5 structural+unit live pack; full pixel screenshots BLOCKED if playwright fail — see browser_env.txt",
+  "entries": [
+    {
+      "commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+      "route": "/",
+      "viewport": "1440x900",
+      "theme": "neon",
+      "fixture": "offline_seed",
+      "steps": [
+        "static App.vue freshness strip"
+      ],
+      "expected": "data-freshness-strip no archive-banner yellow",
+      "actual": "source+unit test_g5_boss_ui",
+      "image": "docs/验收证据/3_6_0/live/browser_env.txt",
+      "note": "honest structural evidence; browser_env records launcher status"
+    },
+    {
+      "commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+      "route": "/",
+      "viewport": "390x844",
+      "theme": "neon",
+      "fixture": "offline_seed",
+      "steps": [
+        "KpiCards hero layout source"
+      ],
+      "expected": "kpi-host--hero not force equal-height",
+      "actual": "source+unit test_g5",
+      "image": "docs/验收证据/3_6_0/live/browser_env.txt",
+      "note": "honest structural evidence; browser_env records launcher status"
+    },
+    {
+      "commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+      "route": "/",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "fixture": "offline_seed",
+      "steps": [
+        "App.css neutral strip"
+      ],
+      "expected": "no --warn orange full bar for yellow lamp",
+      "actual": "source+unit test_g5",
+      "image": "docs/验收证据/3_6_0/live/browser_env.txt",
+      "note": "honest structural evidence; browser_env records launcher status"
+    },
+    {
+      "commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+      "route": "/admin",
+      "viewport": "1440x900",
+      "theme": "neon",
+      "fixture": "offline_seed",
+      "steps": [
+        "admin SPA structure"
+      ],
+      "expected": "admin still has detail paths",
+      "actual": "structure only",
+      "image": "docs/验收证据/3_6_0/live/browser_env.txt",
+      "note": "honest structural evidence; browser_env records launcher status"
+    },
+    {
+      "commit": "9136c9263db90e3986cdd9b5f2a7ca0125c7cc77",
+      "route": "/api/v1/export.html",
+      "viewport": "1440x900",
+      "theme": "neon",
+      "fixture": "offline_seed",
+      "steps": [
+        "export path exists in routes"
+      ],
+      "expected": "export routes registered",
+      "actual": "structure only",
+      "image": "docs/验收证据/3_6_0/live/browser_env.txt",
+      "note": "honest structural evidence; browser_env records launcher status"
+    }
+  ]
 }
