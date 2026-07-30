@@ -140,12 +140,15 @@ def _write_boot_runtime_marker(root=None) -> None:
         print(f"[server] runtime_marker 写入跳过：{type(e).__name__}: {e}")
 
 
+def _default_program_root():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parent.parent
+
+
 def serve(cfg=None, root=None):
     cfg = cfg or loaders.load_config()
-    if root is None:
-        from pathlib import Path
-
-        root = Path(__file__).resolve().parent.parent
+    root = root or _default_program_root()
     try:
         from app_logging import setup_logging
 
