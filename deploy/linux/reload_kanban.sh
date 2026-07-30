@@ -13,9 +13,8 @@ echo "[reload] root=$ROOT $(date '+%Y-%m-%d %H:%M:%S')"
 
 # --- helpers ---
 list_serve_pids() {
-  ps -eo pid=,cmd= | awk -v root="$ROOT" '
-    index($0, root) && /run\.py --serve/ { print $1 }
-  '
+  # 中文路径在 ps 中可能变成 ????; 部署机单实例，匹配 run.py --serve 即可
+  ps -eo pid=,cmd= | awk '/run\.py --serve/ { print $1 }' | sort -u
 }
 
 first_pid() {
