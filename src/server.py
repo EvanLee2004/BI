@@ -142,6 +142,10 @@ def _write_boot_runtime_marker(root=None) -> None:
 
 def serve(cfg=None, root=None):
     cfg = cfg or loaders.load_config()
+    if root is None:
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
     try:
         from app_logging import setup_logging
 

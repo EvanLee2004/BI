@@ -18,8 +18,15 @@ from typing import Any
 MARKER_NAME = "runtime_marker.json"
 
 
-def marker_path(root: Path | str) -> Path:
-    root = Path(root)
+def program_root(root: Path | str | None = None) -> Path:
+    """程序根（VERSION/.git 所在）；root 缺省时回退 src 的上一层。"""
+    if root is not None and str(root).strip():
+        return Path(root)
+    return Path(__file__).resolve().parent.parent
+
+
+def marker_path(root: Path | str | None = None) -> Path:
+    root = program_root(root)
     data = root / "数据"
     # 与 loaders 默认 data_dir 一致；若无「数据」夹则落程序根（仅兜底）
     if data.is_dir() or not (root / "VERSION").exists():
@@ -94,13 +101,13 @@ def _read_git_commit(root: Path) -> str:
 
 
 def write_runtime_marker(
-    root: Path | str,
+    root: Path | str | None = None,
     *,
     pid: int | None = None,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """写入/刷新 marker；返回写入内容。"""
-    root = Path(root)
+    root = program_root(root)
     payload: dict[str, Any] = {
         "version": _read_version(root),
         "git_commit": _read_git_commit(root),
@@ -118,7 +125,7 @@ def write_runtime_marker(
     return payload
 
 
-def read_runtime_marker(root: Path | str) -> dict[str, Any]:
+def read_runtime_marker(root: Path | str | None = None) -> dict[str, Any]:
     """读 marker；缺文件或坏 JSON → {}。"""
     path = marker_path(root)
     try:
@@ -129,10 +136,10 @@ def read_runtime_marker(root: Path | str) -> dict[str, Any]:
         return {}
 
 
-def runtime_identity(root: Path | str) -> dict[str, Any]:
+def runtime_identity(root: Path | str | None = None) -> dict[str, Any]:
     """供 health：marker 优先，否则即时探测。"""
-    m = read_runtime_marker(root)
-    root_p = Path(root)
+    root_p = program_root(root)
+    m = read_runtime_marker(root_p)
     out = {
         "version": str(m.get("version") or _read_version(root_p) or ""),
         "git_commit": str(m.get("git_commit") or _read_git_commit(root_p) or ""),
