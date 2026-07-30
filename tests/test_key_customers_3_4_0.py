@@ -258,29 +258,140 @@ class TestPackerAndVM(unittest.TestCase):
 
 
 class TestTierApiAuth(unittest.TestCase):
-    def test_tier_api_401_and_403(self):
+    """鉴权同 rankings/full：未登录 401；已登录无权 BU / 无整体 → 403。"""
+
+    def setUp(self):
+        import json
+        import tempfile
+
+        import accounts
+        import bu
+        import loaders
+        import server
+        from support import fake_bu_page, fake_main_frags, fake_views
+
+        self.tmp = Path(tempfile.mkdtemp())
+        self.cfg = loaders.load_config()
+        bucfg = bu.config_path(self.cfg, self.tmp)
+        bucfg.parent.mkdir(parents=True, exist_ok=True)
+        bucfg.write_text(
+            json.dumps(
+                {
+                    "bus": [
+                        {"name": "BU甲", "销售": ["销甲"]},
+                        {"name": "BU乙", "销售": ["销乙"]},
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        accounts.save_accounts(
+            self.cfg,
+            self.tmp,
+            [
+                {
+                    "账号": "lushasha",
+                    "权限": "管理员",
+                    "密码": server.DEFAULT_PW,
+                    "显示名": "管",
+                },
+                {
+                    "账号": "overall",
+                    "权限": "整体",
+                    "密码": server.DEFAULT_VIEW_PW,
+                    "显示名": "整",
+                },
+                {
+                    "账号": "user_a",
+                    "权限": "BU甲",
+                    "密码": server.DEFAULT_VIEW_PW,
+                    "显示名": "甲",
+                },
+            ],
+        )
+        # tier 路由要 summary；空 key_customers 会 404，先挂最小 raw
+        from domain.key_customers import compute_key_customers
+
+        raw = compute_key_customers(
+            [_row("甲客", _fen_wan(15), 3, sales="销甲")],
+            2026,
+            COLS,
+            today=datetime.date(2026, 6, 1),
+        )
+        page_a = fake_bu_page("BU甲", "PAGE-A")
+        page_a["summary"] = {"key_customers": raw, "meta": {"year": 2026, "year_key": "2026年"}, "periods": {}}
+        page_b = fake_bu_page("BU乙", "PAGE-B")
+        page_b["summary"] = {"key_customers": raw, "meta": {"year": 2026, "year_key": "2026年"}, "periods": {}}
+        server._state["fragments"] = fake_main_frags("MAIN")
+        server._state["views"] = fake_views("MAIN")
+        server._state["summary"] = {
+            "key_customers": raw,
+            "meta": {"year": 2026, "year_key": "2026年"},
+            "periods": {},
+        }
+        server._state["bu_pages"] = {"BU甲": page_a, "BU乙": page_b}
+        server._state["has_data"] = True
+        self.app = server.create_app(self.cfg, root=self.tmp)
+        self.server = server
+
+    def _client(self):
         from fastapi.testclient import TestClient
 
-        import server
+        return TestClient(self.app, follow_redirects=False)
 
-        app = server.create_app(
-            {
-                "data_dir": str(ROOT / "数据"),
-                "db_path": str(ROOT / "数据" / "看板.db"),
-                "serve_static": True,
-                "zhiyun_auto_fetch": False,
-            },
-            root=ROOT,
-        )
-        c = TestClient(app)
+    def test_tier_api_401_unauthenticated(self):
+        c = self._client()
         r = c.get("/api/v1/key-customers/tier", params={"tier": "C"})
-        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.status_code, 401, r.text[:200])
 
-        # 登录 viewer 后无 main → 整体 403；无该 BU → 403
-        # 无 cookie 已 401；再测非法 tier
-        # 用 admin 账号若存在；否则只断言 401 与 400
+    def test_tier_api_400_bad_tier(self):
+        c = self._client()
+        r = c.post(
+            "/login",
+            data={"account": "overall", "password": self.server.DEFAULT_VIEW_PW},
+        )
+        self.assertIn(r.status_code, (200, 303, 302))
         r2 = c.get("/api/v1/key-customers/tier", params={"tier": "Z"})
-        self.assertIn(r2.status_code, (400, 401))
+        self.assertEqual(r2.status_code, 400, r2.text[:200])
+
+    def test_tier_api_403_unauthorized_bu(self):
+        """已登录 BU 账号访问未绑定 BU → 403（非 401）。"""
+        c = self._client()
+        r = c.post(
+            "/login",
+            data={"account": "user_a", "password": self.server.DEFAULT_VIEW_PW},
+        )
+        self.assertIn(r.status_code, (200, 303, 302), r.text[:200])
+        # user_a 仅 BU甲，访问 BU乙
+        r403 = c.get(
+            "/api/v1/key-customers/tier",
+            params={"tier": "C", "bu": "BU乙"},
+        )
+        self.assertEqual(r403.status_code, 403, r403.text[:300])
+        body = (r403.text or "").lower()
+        self.assertTrue(
+            "权" in r403.text or "forbidden" in body or "403" in body or r403.json().get("detail"),
+            r403.text[:300],
+        )
+        # 同账号访问整体（无 bu）→ 无 main 权限也 403
+        r_main = c.get("/api/v1/key-customers/tier", params={"tier": "C"})
+        self.assertEqual(r_main.status_code, 403, r_main.text[:300])
+
+    def test_tier_api_200_bound_bu(self):
+        c = self._client()
+        c.post(
+            "/login",
+            data={"account": "user_a", "password": self.server.DEFAULT_VIEW_PW},
+        )
+        r = c.get(
+            "/api/v1/key-customers/tier",
+            params={"tier": "C", "bu": "BU甲"},
+        )
+        self.assertEqual(r.status_code, 200, r.text[:300])
+        d = r.json()
+        self.assertEqual(d.get("tier"), "C")
+        self.assertIn("items", d)
 
 
 class TestBuIsolation(unittest.TestCase):

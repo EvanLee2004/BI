@@ -84,33 +84,57 @@ const loadErr = reactive<Record<string, string>>({})
 const loadingTier = reactive<Record<string, boolean>>({})
 const monthlyExtra = reactive<Record<string, { i?: number; name: string; order_disp: string; wo?: number }[]>>({})
 
-watch(
-  () => kc.value,
-  (d) => {
-    if (!d?.tiers) return
-    for (const t of d.tiers) {
-      if (openMap[t.id] === undefined) {
-        openMap[t.id] = !!t.default_open
-      }
-      if (!t.lazy && t.items?.length) {
-        itemsCache[t.id] = t.items
-      }
+/** BU/整体 VM 切换时必须清空本地缓存，否则会泄漏上一 scope 客户名 */
+function clearLocalCaches() {
+  for (const k of Object.keys(itemsCache)) delete itemsCache[k]
+  for (const k of Object.keys(monthlyExtra)) delete monthlyExtra[k]
+  for (const k of Object.keys(loadErr)) delete loadErr[k]
+  for (const k of Object.keys(loadingTier)) delete loadingTier[k]
+  for (const k of Object.keys(openMap)) delete openMap[k]
+}
+
+function seedFromVm(d: KeyCustomersVM | null) {
+  clearLocalCaches()
+  if (!d?.tiers) return
+  for (const t of d.tiers) {
+    openMap[t.id] = !!t.default_open
+    // 非懒加载：始终以当前 VM 为准（含空数组，禁止沿用旧 BU 名单）
+    if (!t.lazy) {
+      itemsCache[t.id] = t.items || []
     }
+  }
+}
+
+// scope + buName + year + VM 引用任一变 → 重置（防 BU→BU 脏缓存）
+watch(
+  () =>
+    [
+      store.scope,
+      store.buName,
+      kc.value?.year ?? 0,
+      // 用 totals/count 指纹避免无深比较时丢更新
+      kc.value?.totals?.count ?? 0,
+      kc.value?.totals?.amount_disp ?? '',
+      store.vm,
+    ] as const,
+  () => {
+    seedFromVm(kc.value)
   },
   { immediate: true },
 )
 
 function tierItems(t: KcTier): KcItem[] {
-  if (itemsCache[t.id]?.length) return itemsCache[t.id]
+  if (Object.prototype.hasOwnProperty.call(itemsCache, t.id)) return itemsCache[t.id]
   return t.items || []
 }
 
 async function ensureTier(t: KcTier) {
   if (!t.lazy) {
-    if (t.items?.length) itemsCache[t.id] = t.items
+    itemsCache[t.id] = t.items || []
     return
   }
-  if (itemsCache[t.id]?.length) return
+  // 已为本 scope 拉过（含空结果）则不再请求；clearLocalCaches 后会重拉
+  if (Object.prototype.hasOwnProperty.call(itemsCache, t.id)) return
   if (store.snapshotMode) {
     // 导出 embed 应已有 items；若无则人话空态
     itemsCache[t.id] = t.items || []

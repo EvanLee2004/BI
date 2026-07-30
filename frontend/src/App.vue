@@ -161,7 +161,8 @@ onMounted(async () => {
     class="view-transition-host"
     :class="{ 'is-transitioning': store.viewTransitioning }"
   >
-    <BUPage />
+    <!-- :key 强制 BU→BU 重挂载，避免 KeyCustomersPanel 本地 itemsCache 串线 -->
+    <BUPage :key="store.buName || 'bu'" />
   </div>
   <div
     v-else-if="store.vm"

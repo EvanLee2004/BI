@@ -1,0 +1,4 @@
+login=user_a (BU甲 only)
+GET /api/v1/key-customers/tier?tier=C&bu=BU乙
+status=403
+body={"detail":"无权查看该 BU"}
