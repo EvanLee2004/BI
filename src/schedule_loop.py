@@ -40,10 +40,13 @@ _SCHEDULE_LEDGER: dict = {
 }
 
 
-def schedule_ledger() -> dict:
-    """只读副本：当天计划/成功/待补/漏跑。"""
+def schedule_ledger(cfg=None, root=None) -> dict:
+    """只读副本：当天计划/成功/待补/漏跑。
+
+    3.6.0：若 data_dir 有持久 schedule_ledger.json，合并 success 集合（重启后仍可见）。
+    """
     with _LEDGER_LOCK:
-        return {
+        mem = {
             "date": _SCHEDULE_LEDGER.get("date") or "",
             "planned": list(_SCHEDULE_LEDGER.get("planned") or []),
             "success": list(_SCHEDULE_LEDGER.get("success") or []),
@@ -53,6 +56,23 @@ def schedule_ledger() -> dict:
             "last_fire": _SCHEDULE_LEDGER.get("last_fire") or "",
             "last_busy": _SCHEDULE_LEDGER.get("last_busy") or "",
         }
+    if cfg is None:
+        return mem
+    try:
+        import schedule_ledger as _sl
+
+        dd = loaders.data_dir(cfg, root)
+        d = mem.get("date") or ""
+        if not d:
+            return mem
+        summ = _sl.day_summary(dd, d, mem.get("planned") or [])
+        # 并集 success（持久优先补内存空白）
+        succ = list(dict.fromkeys(list(mem.get("success") or []) + list(summ.get("success") or [])))
+        mem["success"] = succ
+        mem["durable"] = True
+    except Exception:
+        pass
+    return mem
 
 
 def _hhmm_to_minutes(hhmm: str) -> int:
@@ -197,6 +217,20 @@ class ScheduleLoop:
                     pending=list(self._queue),
                     last_fire=f"{_d} {_hhmm}→{_slot}",
                 )
+                try:
+                    import schedule_ledger as _sl
+
+                    dd = loaders.data_dir(self.cfg, self.root)
+                    _sl.upsert_slot(
+                        dd,
+                        business_date=_d,
+                        slot=_slot,
+                        status="success",
+                        trigger="schedule",
+                        build_id=f"{_d}T{_hhmm}",
+                    )
+                except Exception as e:
+                    log.warning("schedule_ledger success write failed: %s", e)
             else:
                 if _slot not in self._queue:
                     self._queue.append(_slot)
@@ -211,6 +245,20 @@ class ScheduleLoop:
                     pending=list(self._queue),
                     last_busy=f"{_d} {_hhmm} pipeline_fail {_slot}",
                 )
+                try:
+                    import schedule_ledger as _sl
+
+                    dd = loaders.data_dir(self.cfg, self.root)
+                    _sl.upsert_slot(
+                        dd,
+                        business_date=_d,
+                        slot=_slot,
+                        status="failed",
+                        trigger="schedule",
+                        error="pipeline_fail",
+                    )
+                except Exception as e:
+                    log.warning("schedule_ledger fail write failed: %s", e)
 
         try:
             ok = self.start_refresh_async_fn(

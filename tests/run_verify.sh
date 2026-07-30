@@ -132,6 +132,7 @@ tests/test_task54p11_r03_overlay.py
 tests/test_task_2_4_0_calc.py
 tests/test_g0_offline_gate.py
 tests/test_g1_lifecycle_3_6_0.py
+tests/test_g2_schedule_health_3_6_0.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
