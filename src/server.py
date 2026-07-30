@@ -123,6 +123,23 @@ import export_png as _export_png  # noqa: E402
 _screenshot_png = _export_png.screenshot_png
 
 
+def _write_boot_runtime_marker(root=None) -> None:
+    """3.5.0：启动写 runtime marker，供 reload 真生效核验。"""
+    try:
+        from pathlib import Path
+
+        import runtime_marker as _rm
+
+        _root = Path(root) if root else Path(__file__).resolve().parent.parent
+        m = _rm.write_runtime_marker(_root)
+        print(
+            f"[server] runtime_marker version={m.get('version')} "
+            f"commit={(m.get('git_commit') or '')[:12]} pid={m.get('pid')}"
+        )
+    except Exception as e:
+        print(f"[server] runtime_marker 写入跳过：{type(e).__name__}: {e}")
+
+
 def serve(cfg=None, root=None):
     cfg = cfg or loaders.load_config()
     try:
@@ -131,6 +148,7 @@ def serve(cfg=None, root=None):
         setup_logging(cfg, root)
     except Exception:
         pass
+    _write_boot_runtime_marker(root)
     print("[server] 首次构建页面（跑管道+渲染）……")
     boot_ok = False
     try:

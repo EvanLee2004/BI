@@ -372,11 +372,6 @@ class TestFetchLedgerPosix(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
 class TestReloadKanban35(unittest.TestCase):
     """3.5.0 reload：须证 PID/runtime，不得仅 health=200。"""
 
@@ -408,3 +403,36 @@ class TestReloadKanban35(unittest.TestCase):
         self.assertGreater(i_health, 0)
         self.assertGreater(i_ver, 0)
         self.assertGreater(i_old, 0)
+
+
+class TestRuntimeMarker35(unittest.TestCase):
+    def test_write_read_marker_roundtrip(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "src"))
+        import runtime_marker as rm
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "VERSION").write_text("3.5.0\n", encoding="utf-8")
+            (root / "数据").mkdir()
+            g = root / ".git"
+            g.mkdir()
+            (g / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+            (g / "refs" / "heads").mkdir(parents=True)
+            (g / "refs" / "heads" / "main").write_text(
+                "d6422fed01475ccd0004d7e2f2f260b33574ea14\n", encoding="utf-8"
+            )
+            w = rm.write_runtime_marker(root, pid=99)
+            self.assertEqual(w.get("version"), "3.5.0")
+            self.assertTrue(str(w.get("git_commit", "")).startswith("d6422fe"))
+            ident = rm.runtime_identity(root)
+            self.assertTrue(ident.get("git_commit", "").startswith("d6422fe"))
+            self.assertEqual(ident.get("pid"), 99)
+
+    def test_reload_checks_git_commit_field(self):
+        text = (LINUX / "reload_kanban.sh").read_text(encoding="utf-8")
+        self.assertIn("git_commit", text)
+        self.assertIn("runtime_version", text)
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

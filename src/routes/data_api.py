@@ -597,42 +597,31 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         local_probe = client_host in ("127.0.0.1", "::1", "localhost")
         if authed or local_probe:
             try:
-                import version as product_version
+                import runtime_marker as _rm
 
-                m_out["version"] = str(
-                    getattr(product_version, "PRODUCT_VERSION", None)
-                    or product_version.read_version()
-                )
-            except Exception:
-                pass
-            try:
-                import os
-                from pathlib import Path
-
-                m_out["pid"] = int(os.getpid())
-                # 读 .git 不依赖 PATH 中的 git（systemd/sandbox 常缺）
-                git_dir = Path(root) / ".git"
-                head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
-                if head.startswith("ref:"):
-                    ref = head.split(" ", 1)[1].strip()
-                    commit = (git_dir / ref).read_text(encoding="utf-8").strip()
-                else:
-                    commit = head
-                if commit:
-                    m_out["git_commit"] = commit
+                ident = _rm.runtime_identity(root)
+                if ident.get("version"):
+                    m_out["version"] = str(ident["version"])
+                if ident.get("git_commit"):
+                    m_out["git_commit"] = str(ident["git_commit"])
+                if ident.get("pid") is not None:
+                    m_out["pid"] = int(ident["pid"])
+                if ident.get("written_at"):
+                    m_out["marker_at"] = str(ident["written_at"])
             except Exception:
                 try:
-                    import subprocess
+                    import version as product_version
 
-                    gc = subprocess.run(
-                        ["git", "-C", str(root), "rev-parse", "HEAD"],
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                        check=False,
+                    m_out["version"] = str(
+                        getattr(product_version, "PRODUCT_VERSION", None)
+                        or product_version.read_version()
                     )
-                    if gc.returncode == 0 and gc.stdout.strip():
-                        m_out["git_commit"] = gc.stdout.strip()
+                except Exception:
+                    pass
+                try:
+                    import os
+
+                    m_out["pid"] = int(os.getpid())
                 except Exception:
                     pass
         if "update_ms" not in m_out:
