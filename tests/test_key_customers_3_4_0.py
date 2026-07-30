@@ -157,15 +157,25 @@ class TestPackerAndVM(unittest.TestCase):
         self.assertIn("自然年", vm["caption"])
         self.assertEqual(len(vm["tiers"]), 6)
         by_id = {t["id"]: t for t in vm["tiers"]}
+        # 3.4.1 策略 A：六档默认全折叠（禁止 SAB 默认撑墙）
+        for tid in ("S", "A", "B", "C", "D", "E"):
+            self.assertFalse(by_id[tid]["default_open"], tid)
         for tid in ("S", "A", "B"):
-            self.assertTrue(by_id[tid]["default_open"])
             self.assertFalse(by_id[tid]["lazy"])
             self.assertGreater(len(by_id[tid]["items"]), 0)
         for tid in ("C", "D", "E"):
-            self.assertFalse(by_id[tid]["default_open"])
             self.assertTrue(by_id[tid]["lazy"])
             self.assertEqual(by_id[tid]["items"], [])
             self.assertGreater(by_id[tid]["count"], 0)
+        # 3.4.1 help_lines：静默 + 主销售 + 口径
+        help_lines = vm.get("help_lines") or []
+        help_blob = "\n".join(help_lines)
+        self.assertTrue(help_lines, "help_lines 须由 packer 下发")
+        self.assertIn("静默", help_blob)
+        self.assertIn("主销售", help_blob)
+        self.assertIn("自然年", help_blob)
+        self.assertEqual(vm.get("sales_col_label"), "主销售")
+        self.assertIn("非唯一", vm.get("sales_col_tip") or "")
         # 饼图与档头守恒
         pie_c = sum(vm["pie_count"]["values"])
         pie_a = sum(vm["pie_amount"]["values"])  # 万元数值

@@ -21,7 +21,6 @@ import PLTable from './components/PLTable.vue'
 import ExpenseSection from './components/ExpenseSection.vue'
 import ProfitStructure from './components/ProfitStructure.vue'
 import RankingsDual from './components/RankingsDual.vue'
-import KeyCustomersPanel from './components/KeyCustomersPanel.vue'
 import ReceiptsCard from './components/ReceiptsCard.vue'
 import DailyQuery from './components/DailyQuery.vue'
 import BuNav from './components/BuNav.vue'
@@ -30,8 +29,10 @@ import BuTransitionOverlay from './components/BuTransitionOverlay.vue'
 import Toast from './components/base/Toast.vue'
 import ErrorState from './components/base/ErrorState.vue'
 /* 2.6.5：板块五台账/热力懒加载，压首屏 gz ≤90.8KB */
+/* 3.4.1：重点客户在四底，async 分包不进首屏 boot gz */
 const ExpenseHeatmap = defineAsyncComponent(() => import('./components/ExpenseHeatmap.vue'))
 const LedgerTable = defineAsyncComponent(() => import('./components/LedgerTable.vue'))
+const KeyCustomersPanel = defineAsyncComponent(() => import('./components/KeyCustomersPanel.vue'))
 const BUPage = defineAsyncComponent(() => import('./components/BUPage.vue'))
 
 const store = useCockpitStore()

@@ -479,20 +479,31 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
 
     embed_full=True：导出/离线 snapshot 强制展开 C/D/E items。
     在线首包：S/A/B 全量 items；C/D/E lazy=true 且 items=[]。
+    3.4.1：help_lines / sales_col_* 仅显示字段；default_open 策略 A 全折叠。
     """
     import charts
     from domain.key_customers.compute import (
         DEFAULT_OPEN_TIERS,
+        HELP_LINE_METRIC,
+        HELP_LINES,
         LAZY_TIERS,
+        SALES_COL_LABEL,
+        SALES_COL_TIP,
+        SILENT_TIP,
         TIER_ORDER,
         TIER_RANGE_DISP,
     )
 
+    help_lines = list(HELP_LINES)
     if not raw or not isinstance(raw, dict):
         return {
             "year": 0,
             "year_label": "",
-            "caption": "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级",
+            "caption": HELP_LINE_METRIC,
+            "help_lines": help_lines,
+            "sales_col_label": SALES_COL_LABEL,
+            "sales_col_tip": SALES_COL_TIP,
+            "silent_tip": SILENT_TIP,
             "metric_label": "下单预估（本币）",
             "tiers": [],
             "pie_count": {"labels": [], "values": [], "values_disp": [], "pct_disp": []},
@@ -556,7 +567,11 @@ def pack_key_customers(raw: dict | None, *, embed_full: bool = False) -> dict[st
     return {
         "year": year,
         "year_label": f"{year}年" if year else "",
-        "caption": "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级",
+        "caption": HELP_LINE_METRIC,
+        "help_lines": help_lines,
+        "sales_col_label": SALES_COL_LABEL,
+        "sales_col_tip": SALES_COL_TIP,
+        "silent_tip": SILENT_TIP,
         "metric_label": "下单预估（本币）",
         "tiers": tiers_out,
         "pie_count": {

@@ -34,9 +34,19 @@ TIER_RANGE_DISP: dict[str, str] = {
     "D": "[3,10)万",
     "E": "(0,3)万",
 }
-DEFAULT_OPEN_TIERS: frozenset[str] = frozenset({"S", "A", "B"})
+# 3.4.1 策略 A：六档默认全折叠（禁止 SAB 无限制同开撑成长列表墙）
+DEFAULT_OPEN_TIERS: frozenset[str] = frozenset()
 LAZY_TIERS: frozenset[str] = frozenset({"C", "D", "E"})
 EMPTY_LABEL = "（未填）"
+
+# 展示用帮助文案常量（VM packer 下发；禁止前端硬编码业务口径）
+HELP_LINE_METRIC = "按自然年下单预估本币分级 · 每年清零 · 不随月/季标签重算等级"
+HELP_LINE_SILENT = "静默：近 2 个已过去完整自然月下单预估为 0（当前月不计入）；年累计仍可很大。"
+HELP_LINE_SALES = "主销售：该客户本年下单预估最多的销售（非唯一绑定；多人显示 +N）。"
+HELP_LINES: tuple[str, ...] = (HELP_LINE_METRIC, HELP_LINE_SILENT, HELP_LINE_SALES)
+SALES_COL_LABEL = "主销售"
+SALES_COL_TIP = "本年下单预估最多的销售，非唯一绑定"
+SILENT_TIP = "近 2 个已过去完整自然月下单预估为 0（当前月不计入）"
 
 
 def grade_ytd_fen(ytd: int) -> str | None:
@@ -206,6 +216,13 @@ __all__ = [
     "TIER_RANGE_DISP",
     "DEFAULT_OPEN_TIERS",
     "LAZY_TIERS",
+    "HELP_LINES",
+    "HELP_LINE_METRIC",
+    "HELP_LINE_SILENT",
+    "HELP_LINE_SALES",
+    "SALES_COL_LABEL",
+    "SALES_COL_TIP",
+    "SILENT_TIP",
     "grade_ytd_fen",
     "is_silent",
     "compute_key_customers",
