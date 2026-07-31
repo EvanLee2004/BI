@@ -27,6 +27,7 @@ import {
   rowIndex1Based,
   slicePage,
 } from './keyCustomersPager'
+import { structureTierClickIntent } from './keyCustomersTierPool'
 import type {
   KeyCustomersItem,
   KeyCustomersMonthPoint,
@@ -64,6 +65,8 @@ export function useKeyCustomers() {
   const activePool = ref<PoolId>('focus')
   const filterMode = ref<FilterMode>('all')
   const searchQ = ref('')
+  /** 3.6.2：点饼高亮当前档（图例/扇区）；切池时保留直至下次点饼或 seed */
+  const activeStructureTier = ref('')
   /** 3.6.1：池列表前端分页（pageSize=20）；池/滤/搜变化重置 */
   const listPage = ref(1)
   const chartMode = ref<ChartMode>('amount')
@@ -92,6 +95,7 @@ export function useKeyCustomers() {
     filterMode.value = 'all'
     searchQ.value = ''
     listPage.value = 1
+    activeStructureTier.value = ''
     chartMode.value = (kc.value?.chart?.default_mode as ChartMode) || 'amount'
     activePool.value = (kc.value?.default_pool as PoolId) || 'focus'
   }
@@ -236,6 +240,21 @@ export function useKeyCustomers() {
     listPage.value = 1
     compareHint.value = ''
     await ensureTierForPool(pid)
+  }
+
+  /**
+   * 3.6.2：点结构饼扇区 → 切对应经营池 + filter=all + ensure 该池 lazy 档。
+   * 映射纯函数：structureTierClickIntent / poolForTier。
+   */
+  async function onStructureTierClick(tierId: string) {
+    const intent = structureTierClickIntent(tierId)
+    if (!intent) return
+    activeStructureTier.value = intent.tier
+    filterMode.value = intent.filterMode
+    listPage.value = 1
+    compareHint.value = ''
+    activePool.value = intent.pool
+    await ensureTierForPool(intent.pool)
   }
 
   function setFilter(m: FilterMode) {
@@ -570,6 +589,7 @@ export function useKeyCustomers() {
     compareKeys,
     compareHint,
     activePool,
+    activeStructureTier,
     filterMode,
     searchQ,
     chartMode,
@@ -617,6 +637,7 @@ export function useKeyCustomers() {
     setFilter,
     setChartMode,
     setSearchQ,
+    onStructureTierClick,
     onItemClick,
     onActionClick,
     isSelected,

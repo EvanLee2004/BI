@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * 3.5.0 重点客户编排容器 · Layer3
+ * 3.6.2：说明收纳标题旁 ?；结构双饼点扇区联动名单。
  * fetch/筛选/对比 → useKeyCustomers；图 → keyCustomersChart；子块 props/emits。
  */
+import { ref } from 'vue'
 import '../../styles/components/KeyCustomersPanel.css'
 import SciFiPanel from '../SciFiPanel.vue'
 import DataModal from '../base/DataModal.vue'
@@ -21,6 +23,7 @@ const {
   compareKeys,
   compareHint,
   activePool,
+  activeStructureTier,
   filterMode,
   searchQ,
   chartMode,
@@ -63,6 +66,7 @@ const {
   setFilter,
   setChartMode,
   setSearchQ,
+  onStructureTierClick,
   onItemClick,
   onActionClick,
   isSelected,
@@ -77,6 +81,21 @@ const {
   customerRowKey,
   findItemByKey,
 } = kcApi
+
+/** 标题旁 ?：hover 或 click 展开；默认首屏无大段 help */
+const helpOpen = ref(false)
+
+function toggleHelp() {
+  helpOpen.value = !helpOpen.value
+}
+
+function openHelp() {
+  helpOpen.value = true
+}
+
+function closeHelp() {
+  helpOpen.value = false
+}
 </script>
 
 <template>
@@ -89,29 +108,55 @@ const {
   >
     <SciFiPanel panel-class="kc-panel">
       <template #header>
-        <span data-testid="kc-panel-title">{{ panelTitle }}</span>
+        <span class="kc-panel-title-row">
+          <span data-testid="kc-panel-title">{{ panelTitle }}</span>
+          <span
+            class="kc-help-wrap"
+            @mouseenter="openHelp"
+            @mouseleave="closeHelp"
+          >
+            <button
+              type="button"
+              class="kc-help-btn"
+              data-testid="kc-help-btn"
+              aria-label="分级与口径说明"
+              :aria-expanded="helpOpen ? 'true' : 'false'"
+              aria-controls="kc-help-popover"
+              @click.stop="toggleHelp"
+              @focus="openHelp"
+            >
+              ?
+            </button>
+            <div
+              v-if="helpOpen"
+              id="kc-help-popover"
+              class="kc-help-popover"
+              data-testid="kc-help-popover"
+              role="tooltip"
+            >
+              <p
+                v-for="(line, hi) in helpLines"
+                :key="'hl' + hi"
+                class="kc-help__line"
+                :data-testid="hi === 0 ? 'kc-caption' : undefined"
+              >
+                {{ line }}
+              </p>
+              <p v-if="dailyOn" class="kc-daily-hint" data-testid="kc-daily-hint">
+                日查仅作用于上方排名；本块仍按自然年分级，不随日区间重算。
+              </p>
+            </div>
+          </span>
+        </span>
       </template>
-
-      <div class="kc-help" data-testid="kc-help">
-        <p
-          v-for="(line, hi) in helpLines"
-          :key="'hl' + hi"
-          class="kc-help__line"
-          :data-testid="hi === 0 ? 'kc-caption' : undefined"
-        >
-          {{ line }}
-        </p>
-        <p v-if="dailyOn" class="kc-daily-hint" data-testid="kc-daily-hint">
-          日查仅作用于上方排名；本块仍按自然年分级，不随日区间重算。
-        </p>
-      </div>
 
       <div class="kc-layout" data-testid="kc-layout">
         <KeyCustomersSummary :cards="cards" :silent-tip="silentTip" :near-tip="nearTip" />
         <KeyCustomersStructure
           :structure-count="structureCount"
           :structure-amount="structureAmount"
-          :bar-width="barWidth"
+          :active-tier="activeStructureTier"
+          @tier-click="onStructureTierClick"
         />
 
         <div class="kc-workbench" data-testid="kc-workbench">

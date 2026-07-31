@@ -316,19 +316,22 @@ class TestFrontendWarDeskStructure(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for needle in (
             "kc-summary-cards",
-            "kc-structure-bars",
+            "kc-structure-pies",
             "kc-pool",
             "kc-insight",
             "kc-action-queue",
             "data-testid=\"kc-summary-cards\"",
-            "data-testid=\"kc-structure-bars\"",
+            "data-testid=\"kc-structure-pies\"",
+            "data-testid=\"kc-pie-count\"",
+            "data-testid=\"kc-pie-amount\"",
             "需跟进",
             "临界晋级",
         ):
             self.assertIn(needle, src, f"missing in vue: {needle}")
-        # 禁止双饼主区
-        self.assertNotIn('data-testid="kc-pies"', src)
+        # 3.6.2：结构主区为双饼，不再用结构条主路径
+        self.assertNotIn('data-testid="kc-structure-bars"', src)
         self.assertIn("kc-workbench", css)
+        self.assertIn("kc-structure-pies", css)
         # 无业务 vue style
         self.assertNotRegex(src, r"<style\b")
 

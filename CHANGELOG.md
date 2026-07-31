@@ -1,3 +1,13 @@
+## 3.6.2 · 2026-07-31
+
+### 重点客户双饼 + 说明问号 + 点饼联动
+- **结构呈现**：条形改为 **客户数结构 / 金额结构双饼**，S～E 六档全显、分色与图例一致；标签用 VM `count_disp` / `amount_disp` / `pct_disp`，前端零金额运算；空数据诚实空态
+- **说明收纳**：去掉默认整段 `kc-help` 长文；面板标题旁 **「?」** hover/click 展示 `help_lines`（domain SSOT）
+- **点饼联动**：扇区/图例 → `poolForTier`：S/A/B→focus、C/D→nurture、E→longtail；ensure lazy 档 + filter=all；高亮当前档
+- **导出/snapshot**：与看端同一 Vue 结构（双饼+?），无旧 structure-bars 主路径
+- **未改**六档金额门槛、静默/需跟进算法、利润公式、智云抓数
+- 测试：`tests/test_key_customers_3_6_2_dual_pie.py`；门禁 `run_verify.sh`
+
 ## 3.6.1 · 2026-07-31
 
 ### 首屏板块顺序与重点客户体验
