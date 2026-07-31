@@ -35,9 +35,9 @@
 - **契约**：换抓取方式只动上游与 readers；进料口以下不动。
 - **浏览器只经 HTTP**；库是后端私有资产。
 
-## 当前状态（3.5.0 · 2026-07-30）
+## 当前状态（以根 `VERSION` + 项目 `progress.md` 顶部为准 · 勿钉死下文旧号）
 
-- **版本**：`VERSION` = **3.5.0**（重点客户金额共同尺度 + 架构收束 + 首屏完整性 + reload 真生效）。其下：3.4.3 作战台结构条/三池；3.3.3 KPI 超目标诚实；3.3.2 更新诚实态；3.3.1 分摊 int 分；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
+- **版本**：读根目录 **`VERSION`**（文档收口时 **3.6.1**：首屏六段 + 重点客户独立章 + 日查「昨天」）。历史要点：3.6.0 CSRF/:8001；3.5.0 金额共同尺度/架构收束/reload；3.4.x 作战台与六档；3.3.x 分摊 int 分 / KPI 诚实；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
 - **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
 - **API 地图（业务/管理/运维均 `/api/v1/*`）**：
   - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号、user_stats…
