@@ -886,6 +886,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   }
   .tb-left{flex-wrap:nowrap !important;flex:1;min-width:0;gap:6px}
   .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
+  /* P2-03 390：标题再收一点，避免与工具钮抢宽导致横溢 */
+  .tb-title{max-width:min(42vw,11rem)}
   .tb-ver{display:none !important}
   .tb-right{flex-shrink:0;gap:6px;margin-left:4px}
   /* 2.6.7 B：窄屏仍横排一行图标，无 ⋯ 折叠 */

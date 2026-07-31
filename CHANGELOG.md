@@ -1,3 +1,11 @@
+## 3.7.1 · 2026-07-31
+
+### npm 安全升级 + 390 看数横溢（P2-02 / P2-03）
+- **npm**：vite 6.4.3、element-plus 2.11.1、vue-tsc 2.2.12；**禁止** audit fix --force；echarts 5 残留 XSS 记入对照表待独立迁移
+- 重建 frontend/dist；对照 `docs/softeng/20260731_npm_audit_P2-02_前后对照.md`
+- **390**：KC 说明气泡贴视口、结构饼 min-width:0、顶栏标题 ellipsis；契约测 `tests/test_mobile_390_p2_03.py`
+- **未改**利润公式、业务算账、P0
+
 ## 3.7.0 · 2026-07-31
 
 ### 发布链加固（P1-02 半原子 + P1-03 强制备份）

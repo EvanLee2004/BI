@@ -845,6 +845,7 @@
   }
 }
 
+/* 390 手机（含 iPhone 14 逻辑宽）：只收「看数」横溢/截断，不改桌面密度 */
 @media (max-width: 420px) {
   .kc-host,
   .kc-layout {
@@ -854,6 +855,34 @@
 
   .kc-summary-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .kc-panel-title-row {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  /* ? 说明气泡：贴视口，避免 390 右溢裁切 */
+  .kc-help-popover {
+    left: 0;
+    right: auto;
+    min-width: 0;
+    width: min(18rem, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+    box-sizing: border-box;
+  }
+
+  .kc-structure-pies,
+  .kc-structure-pies__grid,
+  .kc-pie-wrap {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .kc-bar-legend {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .kc-row__main {
@@ -877,6 +906,7 @@
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 }
 
