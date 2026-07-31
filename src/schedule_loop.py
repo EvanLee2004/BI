@@ -74,11 +74,19 @@ def schedule_ledger(cfg=None, root=None) -> dict:
                 mem["planned"] = planned
             except Exception:
                 planned = []
-        summ = _sl.day_summary(dd, d, planned)
+        # 用 last_tick 时分或当前时刻，避免未来槽被算进 pending 抬黄
+        now_hhmm = ""
+        lt = mem.get("last_tick") or ""
+        if " " in lt:
+            now_hhmm = lt.split()[-1][:5]
+        if not now_hhmm or ":" not in now_hhmm:
+            now_hhmm = time.strftime("%H:%M")
+        summ = _sl.day_summary(dd, d, planned, now_hhmm=now_hhmm)
         # 并集 success（持久优先补内存空白）
         succ = list(dict.fromkeys(list(mem.get("success") or []) + list(summ.get("success") or [])))
         mem["success"] = succ
-        mem["pending"] = list(summ.get("pending") or mem.get("pending") or [])
+        # pending 以磁盘日汇总为准（已过点未完成）；勿并入旧内存里的未来槽
+        mem["pending"] = list(summ.get("pending") or [])
         mem["failed"] = list(summ.get("failed") or [])
         mem["coalesced"] = list(summ.get("coalesced") or [])
         mem["durable"] = True

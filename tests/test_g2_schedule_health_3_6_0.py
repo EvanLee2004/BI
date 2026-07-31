@@ -47,13 +47,45 @@ class TestScheduleLedgerDurable(unittest.TestCase):
         )
         self.assertIsNone(run2)
 
+    def test_any_success_coalesces_all_due_including_latest(self):
+        """早槽已 success 后，晚间 due 的未跑槽（含最新）全部 coalesced，不重复补跑。"""
+        from schedule_ledger import plan_catchup, slot_key
+
+        planned = ["09:30", "12:00", "17:00"]
+        slots = {slot_key("2026-07-31", "09:30"): {"status": "success"}}
+        run, coal = plan_catchup(
+            business_date="2026-07-31",
+            planned_slots=planned,
+            now_hhmm="23:00",
+            ledger_slots=slots,
+        )
+        self.assertIsNone(run)
+        self.assertEqual(set(coal), {"12:00", "17:00"})
+
+    def test_day_summary_future_not_pending(self):
+        """已过点才 pending；未来 12:00/17:00 在 10:01 不算待补跑。"""
+        from schedule_ledger import day_summary, upsert_slot
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        upsert_slot(tmp, business_date="2026-07-31", slot="09:30", status="success")
+        planned = ["09:30", "12:00", "17:00"]
+        summ = day_summary(tmp, "2026-07-31", planned, now_hhmm="10:01")
+        self.assertEqual(summ["success"], ["09:30"])
+        self.assertEqual(summ["pending"], [])
+        self.assertNotIn("12:00", summ["pending"])
+        self.assertNotIn("17:00", summ["pending"])
+        # 无 now → 兼容：全部未完成仍可进 pending（旧调用）
+        summ2 = day_summary(tmp, "2026-07-31", planned)
+        self.assertIn("12:00", summ2["pending"])
+
     def test_cross_day_isolation(self):
         from schedule_ledger import day_summary, upsert_slot
 
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
         upsert_slot(tmp, business_date="2026-07-30", slot="09:30", status="success")
-        summ = day_summary(tmp, "2026-07-31", ["09:30", "17:00"])
+        summ = day_summary(tmp, "2026-07-31", ["09:30", "17:00"], now_hhmm="18:00")
         self.assertEqual(summ["success"], [])
         self.assertIn("09:30", summ["pending"])
 
@@ -178,6 +210,27 @@ class TestScheduleLoopWiresLedger(unittest.TestCase):
         merged = schedule_ledger(cfg, tmp)
         self.assertTrue(merged.get("durable"))
         self.assertIn("09:30", merged.get("success") or [])
+
+    def test_schedule_ledger_future_slots_not_pending_after_morning_ok(self):
+        """生产误黄复现：09:30 已成功 + last_tick=10:01 → 未来 12/17 不得进 pending。"""
+        from schedule_ledger import upsert_slot
+        from schedule_loop import schedule_ledger
+        import schedule_loop as sl
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        cfg = {"data_dir": str(tmp), "db_path": "看板.db"}
+        upsert_slot(tmp, business_date="2026-07-31", slot="09:30", status="success")
+        with sl._LEDGER_LOCK:
+            sl._SCHEDULE_LEDGER["date"] = "2026-07-31"
+            sl._SCHEDULE_LEDGER["planned"] = ["09:30", "12:00", "17:00"]
+            sl._SCHEDULE_LEDGER["success"] = ["09:30"]
+            sl._SCHEDULE_LEDGER["pending"] = ["12:00", "17:00"]  # 旧内存脏
+            sl._SCHEDULE_LEDGER["last_tick"] = "2026-07-31 10:01"
+        out = schedule_ledger(cfg, tmp)
+        self.assertTrue(out.get("durable"))
+        self.assertIn("09:30", out.get("success") or [])
+        self.assertEqual(out.get("pending") or [], [])
 
 
 class TestHealthApiLayeredContract(unittest.TestCase):

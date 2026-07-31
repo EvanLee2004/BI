@@ -1,3 +1,8 @@
+## 2026-07-31 · 3.6.0 小修补洞（pending/coalesce + 门禁）
+
+tip 在 bbf5e03 之上：day_summary 未来槽不计 pending；any_success 合并全部 due（含最新）；
+test_g4_key_customers_ui 入 run_verify 串行闸；run_verify EXIT:0
+
 ## 2026-07-31 · 3.6.0 小修（S-01~S-08 接线 + 重点客户 UI）
 
 基线 tip=`426bebc` 增量施工 · 版本仍 3.6.0

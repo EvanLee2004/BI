@@ -159,38 +159,90 @@ def plan_catchup(
             any_success = True
             break
 
-    # 最新 due 若已 success → 不跑
+    # 最新 due 若已 success → 不跑（更早未 success 仍可 coalesced 记盘）
     latest = due[-1]
     st_latest = (ledger_slots.get(slot_key(business_date, latest)) or {}).get("status")
     if st_latest == "success":
-        return None, []
+        coal = [
+            s
+            for s in due
+            if s != latest
+            and (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
+            not in ("success", "skipped_coalesced")
+        ]
+        return None, coal
 
     if any_success and st_latest != "failed":
-        # 已有一次成功全量，其它 due 可 coalesced
-        coalesced = [s for s in due[:-1] if (ledger_slots.get(slot_key(business_date, s)) or {}).get("status") != "success"]
+        # 当日已有一次全量成功：全部未 success 的 due（含最新）写 coalesced，不再补跑
+        coalesced = [
+            s
+            for s in due
+            if (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
+            not in ("success", "skipped_coalesced")
+        ]
         return None, coalesced
 
     coalesced = []
     for s in due[:-1]:
         st = (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
-        if st != "success":
+        if st not in ("success", "skipped_coalesced"):
             coalesced.append(s)
     return latest, coalesced
 
 
-def day_summary(data_dir: Path | str, business_date: str, planned: list[str]) -> dict[str, Any]:
+def _hhmm_mins(hhmm: str) -> int:
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _slot_is_past_due(slot: str, now_m: int | None) -> bool:
+    """now_m 为 None 时视为全已过点（兼容旧调用）。"""
+    if now_m is None:
+        return True
+    try:
+        return _hhmm_mins(slot) <= now_m
+    except Exception:
+        return True
+
+
+def _classify_slot_status(st: str | None) -> str:
+    """success|failed|coalesced|open（pending/running/None）。"""
+    if st == "success":
+        return "success"
+    if st == "failed":
+        return "failed"
+    if st == "skipped_coalesced":
+        return "coalesced"
+    return "open"
+
+
+def day_summary(
+    data_dir: Path | str,
+    business_date: str,
+    planned: list[str],
+    *,
+    now_hhmm: str | None = None,
+) -> dict[str, Any]:
+    """日汇总。pending = 已过点且未 success/failed/coalesced；未来槽不算待补跑。"""
     led = load_ledger(data_dir)
     slots = led.get("slots") or {}
     success, pending, failed, coalesced = [], [], [], []
+    now_m: int | None = None
+    if now_hhmm:
+        try:
+            now_m = _hhmm_mins(now_hhmm)
+        except Exception:
+            now_m = None
     for s in planned:
         st = (slots.get(slot_key(business_date, s)) or {}).get("status")
-        if st == "success":
+        kind = _classify_slot_status(st if isinstance(st, str) else None)
+        if kind == "success":
             success.append(s)
-        elif st == "failed":
+        elif kind == "failed":
             failed.append(s)
-        elif st == "skipped_coalesced":
+        elif kind == "coalesced":
             coalesced.append(s)
-        elif st in ("pending", "running", None):
+        elif _slot_is_past_due(s, now_m):
             pending.append(s)
     return {
         "date": business_date,

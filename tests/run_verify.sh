@@ -135,6 +135,7 @@ tests/test_g1_lifecycle_3_6_0.py
 tests/test_g2_schedule_health_3_6_0.py
 tests/test_g3_security_3_6_0.py
 tests/test_g4_key_customers_axis_3_6_0.py
+tests/test_g4_key_customers_ui_3_6_0.py
 tests/test_g5_boss_ui_3_6_0.py
 "
 # 无共享进程态（或只读静态文件）
