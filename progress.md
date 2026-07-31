@@ -1,3 +1,8 @@
+## 2026-07-31 · S-13 CSRF/:8001 Host 端口
+
+仓库：nginx $http_host + XFH；csrf scheme/host/port 规范化；仅 loopback 信转发头；
+tests/test_s13_csrf_proxy_host_port.py 入 run_verify。**只 commit 不 push/部署**；生产 nginx-t/reload 待 RELEASER。
+
 ## 2026-07-31 · 3.6.0 小修补洞（pending/coalesce + 门禁）
 
 tip 在 bbf5e03 之上：day_summary 未来槽不计 pending；any_success 合并全部 due（含最新）；

@@ -49,6 +49,31 @@ systemctl is-active kanban
 
 **禁止**只 pull 就勾「已上机」。
 
+### 0.1.1 S-13 · CSRF 与 `:8001` Host 端口（仓库已改；上机须 RELEASER）
+
+**现象**：`http://dash.besteasy.com:8001/admin` 点「更新数据」→ `403 CSRF blocked: origin_mismatch`；刷新未启动。
+
+**根因**：nginx `proxy_set_header Host $host` **丢弃非默认端口**；浏览器 Origin 含 `:8001`，后端 Host 无端口 → 误判跨站。
+
+**仓库侧**（代码/模板已具备，**不等于生产已装载**）：
+- 全部反代 location：`Host $http_host` + `X-Forwarded-Host $http_host`
+- 后端 CSRF：scheme + hostname + effective port；**仅 loopback 客户端**信任 `X-Forwarded-*`
+- 契约测：`tests/test_s13_csrf_proxy_host_port.py`
+
+**RELEASER 上机 checklist**（须 fresh 证据，本文不宣称生产已修复）：
+```bash
+# 1) 装载 conf 并校验
+sudo cp /opt/kanban/看板正式程序/deploy/linux/nginx-kanban.conf /etc/nginx/sites-available/kanban
+sudo nginx -t && sudo systemctl reload nginx
+# 2) 确认无残留 $host
+sudo grep -n 'proxy_set_header Host' /etc/nginx/sites-available/kanban
+# 期望每行均为 $http_host，且有 X-Forwarded-Host
+# 3) smoke（正式入口，登录后管理端）
+#    - http://dash.besteasy.com:8001/admin/settings →「更新数据」应非 403
+#    - 内网 http://192.168.30.46 写路径仍可用
+# 4) 应用 reload 后 loopback health 仍 200（匿名不要求暴露 commit）
+```
+
 ## 0.2 维护模式开关（2.7.3）
 
 | 操作 | 命令 |

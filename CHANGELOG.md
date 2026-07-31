@@ -1,3 +1,13 @@
+## 3.6.0 小修续 · S-13 CSRF/:8001 Host 端口（2026-07-31）
+
+### 代理同源与 CSRF（仓库；生产 nginx 装载由 RELEASER）
+- **S-13**：`dash.besteasy.com:8001` 合法同源写请求曾被 `origin_mismatch` 误拦（nginx `$host` 丢非默认端口）
+- nginx 模板全部反代：`Host $http_host` + `X-Forwarded-Host $http_host`（禁止 `$host`）
+- CSRF 规范化：scheme + hostname + effective port（http 默认 80 / https 默认 443）；**仅 loopback** 信任 `X-Forwarded-*`
+- 未关闭 CSRF；无通配 Origin / 后缀匹配 / 缺头放行
+- 测试：`tests/test_s13_csrf_proxy_host_port.py`（入 `run_verify`）；Runbook §0.1.1 上机 checklist
+- **未改**公网域名、:8001、利润算法、BU、密码产品决定、业务数据
+
 ## 3.5.0 · 2026-07-30
 
 ### 金额诚实 · 架构收束 · 完整性可见 · reload 真生效

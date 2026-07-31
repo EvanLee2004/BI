@@ -59,7 +59,7 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯
                 from fastapi.responses import JSONResponse
 
                 try:
-                    from csrf_guard import OPS_HEADER, csrf_ok
+                    from csrf_guard import OPS_HEADER, csrf_ok, is_loopback_client
 
                     host = request.headers.get("host")
                     origin = request.headers.get("origin")
@@ -72,6 +72,12 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯
                         ) or ""
                     except Exception:
                         client_host = ""
+                    # S-13：仅 loopback（本机 nginx）可读 X-Forwarded-*；外部伪造忽略
+                    fwd_host = None
+                    fwd_proto = None
+                    if is_loopback_client(client_host):
+                        fwd_host = request.headers.get("x-forwarded-host")
+                        fwd_proto = request.headers.get("x-forwarded-proto")
                     ok, reason = csrf_ok(
                         method=method,
                         origin=origin,
@@ -82,6 +88,8 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯
                         client_host=client_host,
                         user_agent=request.headers.get("user-agent"),
                         ops_header=request.headers.get(OPS_HEADER),
+                        forwarded_host=fwd_host,
+                        forwarded_proto=fwd_proto,
                     )
                     if not ok:
                         return JSONResponse(
