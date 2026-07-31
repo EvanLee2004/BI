@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "product_version": "3.7.1",
+  "captured_at": "2026-07-31",
+  "source": "offline_golden_fixture",
+  "note": "KANBAN_OFFLINE + materialize 脱敏样例；禁止生产真客户名/金额。登录用 offline seed admin。",
+  "entries": [
+    {
+      "id": "desktop_dark_full",
+      "path": "desktop_dark_full.png",
+      "viewport": "1440x900",
+      "theme": "dark_default",
+      "subject": "桌面看端首屏"
+    },
+    {
+      "id": "desktop_dark_kc_dual_pie",
+      "path": "desktop_dark_kc_dual_pie.png",
+      "viewport": "1440x900",
+      "theme": "dark_default",
+      "subject": "重点客户双饼"
+    },
+    {
+      "id": "desktop_dark_kc_help",
+      "path": "desktop_dark_kc_help.png",
+      "viewport": "1440x900",
+      "theme": "dark_default",
+      "subject": "重点客户说明问号"
+    },
+    {
+      "id": "desktop_theme_toggle",
+      "path": "desktop_theme_toggle.png",
+      "viewport": "1440x900",
+      "theme": "after_toolbar_toggle",
+      "subject": "主题切换后桌面（尽力）"
+    },
+    {
+      "id": "mobile_390_home",
+      "path": "mobile_390_home.png",
+      "viewport": "390x844",
+      "theme": "dark_default",
+      "subject": "390 首屏"
+    },
+    {
+      "id": "mobile_390_kc",
+      "path": "mobile_390_kc.png",
+      "viewport": "390x844",
+      "theme": "dark_default",
+      "subject": "390 重点客户区"
+    }
+  ],
+  "overflow_390": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "overflow": false,
+    "path": "mobile_390_overflow.json"
+  }
+}
