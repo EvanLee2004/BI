@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""3.6.0 G5：老板首屏无橙色 yellow 条；KPI 利润主卡布局。"""
+"""3.6.0 G5：老板首屏无橙色 yellow 条；KPI 保持五卡并排（撤回利润主卡实验）。"""
 
 from __future__ import annotations
 
@@ -28,15 +28,17 @@ class TestBossNoYellowBanner(unittest.TestCase):
         self.assertIn("var(--line)", block)
 
 
-class TestKpiHeroLayout(unittest.TestCase):
-    def test_kpi_cards_hero_structure(self):
+class TestKpiFiveCardLayout(unittest.TestCase):
+    """产品拍板：恢复 3.5 五卡并排，禁止 3.6.0 利润通栏主卡。"""
+
+    def test_kpi_cards_five_grid(self):
         src = (FE / "components/KpiCards.vue").read_text(encoding="utf-8")
-        self.assertIn("kpi-host--hero", src)
-        self.assertIn("kpi-card--hero", src)
-        self.assertIn("kpi-secondary", src)
-        self.assertIn("kpi-bu-strip", src)
-        # 不再强制 kpi-5 五卡等高网格作为唯一布局
-        self.assertNotIn('class="kpi-grid kpi-5"', src)
+        self.assertIn('class="kpi-grid kpi-5"', src)
+        self.assertIn("kpi-bus", src)
+        self.assertNotIn("kpi-host--hero", src)
+        self.assertNotIn("kpi-card--hero", src)
+        self.assertNotIn("kpi-secondary", src)
+        self.assertNotIn("kpi-bu-strip", src)
 
 
 if __name__ == "__main__":
