@@ -128,11 +128,11 @@ class TestFrontendScaffold(unittest.TestCase):
         ]
         self.assertEqual(titles, expected, f"App.vue sec 顺序不符 3.6.1: {titles}")
         tmpl = app.split("<template>")[-1] if "<template>" in app else app
-        # 模板内组件：日查/柱图/双榜 → KC → 利润图 → 结构 → 费用
+        # 模板内组件：日查/双榜/柱图 → KC → 利润图 → 结构 → 费用
         for a, b in (
-            ("<DailyQuery", "<ReceiptsCard"),
-            ("<ReceiptsCard", "<RankingsDual"),
-            ("<RankingsDual", "<KeyCustomersPanel"),
+            ("<DailyQuery", "<RankingsDual"),
+            ("<RankingsDual", "<ReceiptsCard"),
+            ("<ReceiptsCard", "<KeyCustomersPanel"),
             ("<KeyCustomersPanel", "<TrendChart"),
             ("<ProfitStructure", "<ExpenseHeatmap"),
         ):

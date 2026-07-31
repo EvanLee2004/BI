@@ -141,6 +141,7 @@ tests/test_s13_csrf_proxy_host_port.py
 tests/test_section_kc_ux_3_6_1.py
 tests/test_publish_preflight_3_7_0.py
 tests/test_mobile_390_p2_03.py
+tests/test_lu_ui_three_20260731.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="

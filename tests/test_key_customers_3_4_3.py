@@ -324,14 +324,20 @@ class TestFrontendWarDeskStructure(unittest.TestCase):
             "data-testid=\"kc-structure-pies\"",
             "data-testid=\"kc-pie-count\"",
             "data-testid=\"kc-pie-amount\"",
+            "data-testid=\"kc-card-total\"",
+            "data-testid=\"kc-card-contrib\"",
+            "data-testid=\"kc-card-near\"",
             "需跟进",
             "临界晋级",
         ):
             self.assertIn(needle, src, f"missing in vue: {needle}")
+        # 摘要区不再展示「需跟进重点客」卡；池筛选仍可有需跟进
+        self.assertNotIn('data-testid="kc-card-silent"', src)
         # 3.6.2：结构主区为双饼，不再用结构条主路径
         self.assertNotIn('data-testid="kc-structure-bars"', src)
         self.assertIn("kc-workbench", css)
         self.assertIn("kc-structure-pies", css)
+        self.assertIn("repeat(3,", css.replace(" ", ""))
         # 无业务 vue style
         self.assertNotRegex(src, r"<style\b")
 

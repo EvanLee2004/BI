@@ -1,9 +1,12 @@
 <script setup lang="ts">
+/**
+ * 经营摘要三卡：全部客户/年累计、重点客户贡献、临界晋级。
+ * 不展示「需跟进重点客」摘要卡（池筛选/行动队列仍保留需跟进）。
+ */
 import type { KeyCustomersVM } from '../../types/vm'
 
 defineProps<{
   cards: NonNullable<KeyCustomersVM['summary_cards']>
-  silentTip: string
   nearTip: string
 }>()
 </script>
@@ -18,10 +21,6 @@ defineProps<{
       <div class="kc-card__label">{{ cards.focus_contrib?.label || '重点客户贡献' }}</div>
       <div class="kc-card__value">{{ cards.focus_contrib?.value_disp || '—' }}</div>
       <div class="kc-card__sub">{{ cards.focus_contrib?.amount_disp }}</div>
-    </div>
-    <div class="kc-card" data-testid="kc-card-silent" :title="cards.silent_focus?.tip || silentTip">
-      <div class="kc-card__label">{{ cards.silent_focus?.label || '需跟进重点客' }}</div>
-      <div class="kc-card__value">{{ cards.silent_focus?.value_disp || '—' }}</div>
     </div>
     <div class="kc-card" data-testid="kc-card-near" :title="cards.near_upgrade?.tip || nearTip">
       <div class="kc-card__label">{{ cards.near_upgrade?.label || '临界晋级客户' }}</div>

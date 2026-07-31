@@ -99,11 +99,11 @@
   letter-spacing: 0.02em;
 }
 
-/* —— 四摘要卡 —— */
+/* —— 三摘要卡（全部/贡献/临界；无「需跟进重点客」卡） —— */
 .kc-summary-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
   width: 100%;
 }
 
@@ -831,7 +831,11 @@
   }
 
   .kc-summary-cards {
+    /* 窄屏两行：两卡 + 第三卡占满宽，避免三列细长 */
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kc-summary-cards .kc-card:last-child {
+    grid-column: 1 / -1;
   }
 
   .kc-structure-pies__grid {
@@ -854,8 +858,11 @@
   }
 
   .kc-summary-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: var(--space-2);
+  }
+  .kc-summary-cards .kc-card:last-child {
+    grid-column: auto;
   }
 
   .kc-panel-title-row {

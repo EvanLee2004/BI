@@ -151,7 +151,7 @@ function closeHelp() {
       </template>
 
       <div class="kc-layout" data-testid="kc-layout">
-        <KeyCustomersSummary :cards="cards" :silent-tip="silentTip" :near-tip="nearTip" />
+        <KeyCustomersSummary :cards="cards" :near-tip="nearTip" />
         <KeyCustomersStructure
           :structure-count="structureCount"
           :structure-amount="structureAmount"

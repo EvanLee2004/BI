@@ -370,20 +370,13 @@ def pl_structure(
         rows.extend(exp_rows)
         details.update(exp_det)
 
-    _sur = 0.12
-    try:
-        import loaders as _ld2
-
-        _sur = float((_ld2.load_config(strict=False).get("tax") or {}).get("surtax_rate") or 0.12)
-    except Exception:
-        _sur = 0.12
-    _sur_pct = f"{int(round(_sur * 100))}"
     rows.append(
         _row(
             "附加税费",
             -float(p.get("surtax") or 0),
             kind="system",
-            formula=f"净收入×{_vat_pct}%×{_sur_pct}%",
+            # 展示不写公式文案（陆总 2026-07）；计算仍用 VAT×附加率，未改金额
+            formula="",
         )
     )
     other_pl = float(p.get("other_pl") or 0)

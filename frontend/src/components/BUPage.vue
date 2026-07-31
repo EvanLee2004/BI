@@ -77,13 +77,13 @@ onMounted(async () => {
     </header>
     <BuNav :current="store.buName" :label="store.buNavLabel" :names="store.buNames" />
     <div class="wrap">
-    <!-- 3.6.1：与整体页同序 · 三=重点客户下单情况追踪 -->
+    <!-- 与整体页同序：二=筛选→双榜→柱图；三=重点客户下单情况追踪 -->
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
     <section class="sec"><span class="sec-n">二</span><span class="sec-t">下单与回款</span></section>
     <DailyQuery />
-    <ReceiptsCard />
     <RankingsDual />
+    <ReceiptsCard />
     <section class="sec"><span class="sec-n">三</span><span class="sec-t">重点客户下单情况追踪</span></section>
     <KeyCustomersPanel />
     <section class="sec"><span class="sec-n">四</span><span class="sec-t">经营利润</span></section>
