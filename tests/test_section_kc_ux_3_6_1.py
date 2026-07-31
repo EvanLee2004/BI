@@ -15,6 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FE = ROOT / "frontend" / "src"
+DIST = ROOT / "frontend" / "dist"
+DIST_ASSETS = DIST / "assets"
 PAGER_TS = FE / "composables" / "keyCustomersPager.ts"
 DAILY_TS = FE / "utils" / "dailyDates.ts"
 APP = FE / "App.vue"
@@ -23,6 +25,25 @@ DQ = FE / "components" / "DailyQuery.vue"
 POOL = FE / "components" / "key-customers" / "KeyCustomersPool.vue"
 CSS = FE / "styles" / "components" / "KeyCustomersPanel.css"
 COMPUTE = ROOT / "src" / "domain" / "key_customers" / "compute.py"
+
+# vite minify: class:"sec-t"},"基本情况"
+_DIST_SEC_T = re.compile(r'"sec-t"\},"([^"]+)"')
+
+
+def _dist_js_blobs(*globs: str) -> str:
+    paths: list[Path] = []
+    for g in globs:
+        paths.extend(sorted(DIST_ASSETS.glob(g)))
+    if not paths and DIST_ASSETS.is_dir():
+        paths = sorted(DIST_ASSETS.glob("*.js"))
+    return "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in paths)
+
+
+def _dist_css_blobs(*globs: str) -> str:
+    paths: list[Path] = []
+    for g in globs:
+        paths.extend(sorted(DIST_ASSETS.glob(g)))
+    return "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in paths)
 
 
 def _run_tsx_import(module_path: Path, expr_js: str, named: list[str]) -> dict:
@@ -246,6 +267,58 @@ class TestReceiptsCardPolishContract(unittest.TestCase):
         self.assertIn("borderRadius", rc)
         self.assertIn("peakIndex", rc)
         self.assertNotIn("from 'echarts'", rc)
+
+
+class TestDistShipArtifact361(unittest.TestCase):
+    """装运产物 frontend/dist 必须含 3.6.1 顺序/昨天/分页（serve 只读 dist）。
+
+    绿门禁 ⇒ ship artifact 与 App.vue 同序；禁止只改 src 过关。
+    """
+
+    EXPECTED = TestSectionOrder361.EXPECTED
+
+    def test_dist_assets_exist(self):
+        self.assertTrue(DIST_ASSETS.is_dir(), "frontend/dist/assets missing — npm run build")
+        boots = list(DIST_ASSETS.glob("boot-cockpit-*.js"))
+        bus = list(DIST_ASSETS.glob("BUPage-*.js"))
+        self.assertTrue(boots, "dist missing boot-cockpit-*.js")
+        self.assertTrue(bus, "dist missing BUPage-*.js")
+
+    def test_dist_section_order_matches_app_source(self):
+        app_titles = re.findall(r'class="sec-t">([^<]+)', APP.read_text(encoding="utf-8"))
+        self.assertEqual(app_titles, self.EXPECTED, "source App.vue sec 已偏；先修源")
+        for label, pattern in (
+            ("boot-cockpit", "boot-cockpit-*.js"),
+            ("BUPage", "BUPage-*.js"),
+        ):
+            blob = _dist_js_blobs(pattern)
+            self.assertTrue(blob.strip(), f"dist {label} empty")
+            titles = _DIST_SEC_T.findall(blob)
+            self.assertEqual(
+                titles,
+                self.EXPECTED,
+                f"dist {label} sec 落后于 App.vue（须 npm run build 并提交 dist）: {titles}",
+            )
+            # 旧 3.6.0 五段：二=经营利润 且无「重点客户下单情况追踪」
+            self.assertNotEqual(
+                titles[:3],
+                ["基本情况", "经营利润", "收入与毛利结构"],
+                f"dist {label} still pre-3.6.1 order",
+            )
+
+    def test_dist_yesterday_and_kc_ship_markers(self):
+        boot = _dist_js_blobs("boot-cockpit-*.js", "BUPage-*.js")
+        self.assertIn("daily-yesterday", boot)
+        self.assertIn("昨天", boot)
+        self.assertIn("重点客户下单情况追踪", boot)
+        kc = _dist_js_blobs("*KeyCustomers*", "*keyCustomers*")
+        self.assertTrue(kc.strip(), "dist KeyCustomers chunk missing")
+        for marker in ("kc-pager", "kc-page-prev", "kc-page-next", "kc-row-idx"):
+            self.assertIn(marker, kc, f"dist KC missing {marker}")
+        css = _dist_css_blobs("*KeyCustomers*.css")
+        self.assertIn("kc-pager", css)
+        self.assertIn("kc-row__idx", css)
+        self.assertIn("--ink", css)
 
 
 if __name__ == "__main__":
