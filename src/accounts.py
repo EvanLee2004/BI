@@ -451,6 +451,7 @@ def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new
     """自改密码：验旧设新，密码版本+1（旧会话失效）。成功返回 None；失败返回错误文案。
 
     2.6.12 明昊拍板：密码非空即可，不强制长度/字符类型。
+    3.6.0 小修：落盘明文（产品 SSOT：管理员可查看可改）；verify 仍可读遗留 PBKDF2 行。
     """
     if not str(new_pw or "").strip():
         return "新密码不能为空"
@@ -460,12 +461,7 @@ def change_password(cfg: dict, root: Path | None, account: str, old_pw: str, new
     if not verify_password(acc.get("密码"), old_pw):
         return "旧密码不正确"
     rows = load_accounts(cfg, root, create=False)
-    try:
-        from password_kdf import hash_password
-
-        stored = hash_password(str(new_pw))
-    except Exception:
-        stored = new_pw
+    stored = str(new_pw)
     for a in rows:
         if a["账号"] == account:
             a["密码"] = stored
@@ -480,17 +476,12 @@ def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str
     """管理员直接设某账号密码（不验旧，版本+1）。成功 None；失败错误文案。
 
     2.6.12 明昊拍板：密码非空即可，不强制长度/字符类型。
-    3.6.0：落盘 PBKDF2 哈希。
+    3.6.0 小修：落盘明文（与文件头 / MADR-0020 一致；禁止写路径再产 PBKDF2）。
     """
     if not str(new_pw or "").strip():
         return "新密码不能为空"
     rows = load_accounts(cfg, root, create=False)
-    try:
-        from password_kdf import hash_password
-
-        stored = hash_password(str(new_pw))
-    except Exception:
-        stored = new_pw
+    stored = str(new_pw)
     found = False
     for a in rows:
         if a["账号"] == account:
@@ -557,8 +548,10 @@ def bu_name_of(acc: dict | None) -> str | None:
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
-    """接口下发用：3.6.0 永不返回 password/hash（废止 with_password 明文）。"""
-    _ = with_password
+    """接口下发用：管理端 with_password=True 时返回明文密码（产品决定）；看端勿传。
+
+    遗留 PBKDF2 行：不回显哈希串（防误当明文），密码字段为空并标 hashed。
+    """
     pw = acc.get("密码") or ""
     try:
         from password_kdf import is_hashed
@@ -569,7 +562,7 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
     initial = bool(acc.get("must_change_password")) or (
         (not hashed) and is_initial_password(str(pw))
     )
-    return {
+    row = {
         "账号": acc["账号"],
         "显示名": acc.get("显示名") or acc["账号"],
         "权限": acc["权限"],
@@ -579,3 +572,9 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
         "密码版本": password_version_of(acc),
         "must_change_password": initial,
     }
+    if with_password:
+        # 明文 SSOT：管理员可查看；哈希行不回显密文
+        row["密码"] = "" if hashed else str(pw)
+        if hashed:
+            row["password_hashed"] = True
+    return row

@@ -1,3 +1,14 @@
+## 2026-07-31 · 3.6.0 小修（S-01~S-08 接线 + 重点客户 UI）
+
+基线 tip=`426bebc` 增量施工 · 版本仍 3.6.0
+- 调度：ScheduleLoop 读磁盘账本 + plan_catchup；health 传 cfg/root + build_layered_health
+- reload：disk commit 非空而 runtime 空 → no_runtime_commit
+- 密码：明文 SSOT（set/change/public_row）；verify 可读遗留 PBKDF2
+- CSRF：fail-closed；TestClient/ops 白名单；异常 403
+- LKG：checksum 校验；save 写 SCHEMA_VERSION；None schema 不兼容
+- 重点客户：5 系列样式；无 fen 换算；明细查看/清空筛选；删「年累计仍可很大」；区/图略放大
+- `KANBAN_OFFLINE=1 sh tests/run_verify.sh` → EXIT:0
+
 ## 2026-07-30 · 3.4.2 重点客户下单分析体验定稿
 
 VERSION=3.4.2 · tip=`f2ec6e1` · tag stage_3_4_2（不推）· 只 commit 不 push

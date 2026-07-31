@@ -62,6 +62,21 @@ class TestReloadVerify(unittest.TestCase):
         self.assertTrue(ok, reason)
         self.assertEqual(reason, "ok")
 
+    def test_disk_commit_without_runtime_fails(self):
+        from reload_verify import verify_process_switch
+
+        ok, reason = verify_process_switch(
+            old_pid="1",
+            new_pid="2",
+            health_code=200,
+            runtime_version="3.6.0",
+            disk_version="3.6.0",
+            runtime_commit="",
+            disk_commit="426bebc87b40e7cd",
+        )
+        self.assertFalse(ok)
+        self.assertIn("no_runtime_commit", reason)
+
     def test_term_is_expected_ops_exit(self):
         from reload_verify import is_expected_ops_exit
 
@@ -232,12 +247,37 @@ class TestLkgSnapshot(unittest.TestCase):
 
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
-        save_lkg(tmp, {"meta": {"year": 2026}}, version="3.5.0", commit="c0ffee")
-        data = load_lkg(tmp)
+        save_lkg(
+            tmp,
+            {"meta": {"year": 2026}},
+            version="3.6.0",
+            commit="c0ffee",
+            schema_version=3,
+        )
+        data = load_lkg(tmp, require_schema=3)
         self.assertIsNotNone(data)
         assert data is not None
         self.assertEqual(data["summary"]["meta"]["year"], 2026)
-        self.assertTrue(is_compatible(data))
+        self.assertTrue(is_compatible(data, schema_version=3))
+
+    def test_checksum_tamper_fails(self):
+        from lkg_snapshot import load_lkg, lkg_path, save_lkg
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        save_lkg(tmp, {"meta": {"year": 2026}}, version="3.6.0", schema_version=3)
+        p = lkg_path(tmp)
+        text = p.read_text(encoding="utf-8")
+        p.write_text(text.replace('"year": 2026', '"year": 2099'), encoding="utf-8")
+        self.assertIsNone(load_lkg(tmp))
+
+    def test_schema_none_not_compatible(self):
+        from lkg_snapshot import is_compatible
+
+        self.assertFalse(
+            is_compatible({"summary": {}, "schema_version": None})
+        )
+        self.assertFalse(is_compatible({"summary": {}}))
 
     def test_corrupt_returns_none(self):
         from lkg_snapshot import load_lkg, lkg_path

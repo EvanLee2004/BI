@@ -88,18 +88,20 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
             self.assertTrue(mode, f"期望 0o600，path={path}")
 
     def test_accounts_api_returns_plaintext_password(self):
-        """3.6.0：管理员 /api/v1/admin/accounts 不下发明文/哈希。"""
+        """3.6.0 小修：管理员 /api/v1/admin/accounts 下发明文（MADR-0020），不下发哈希字段。"""
         r = self.client.get("/api/v1/admin/accounts", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         for row in r.json()["accounts"]:
-            self.assertNotIn("密码", row)
+            self.assertIn("密码", row)
             self.assertNotIn("密码哈希", row)
             self.assertIn("初始密码", row)
+            self.assertFalse(str(row.get("密码") or "").startswith("pbkdf2_sha256$"))
         v1 = next(x for x in r.json()["accounts"] if x["账号"] == "v1")
         self.assertEqual(v1["账号"], "v1")
+        self.assertEqual(v1.get("密码"), "plain777")
 
     def test_full_chain_seed_login_see_change_kick(self):
-        """全新 seed→登录→改密 API→旧会话失效（不下发明文）。"""
+        """全新 seed→登录→可见明文→改密 API→旧会话失效。"""
         from fastapi.testclient import TestClient
 
         tmp2 = Path(tempfile.mkdtemp())
@@ -114,7 +116,7 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         rows = c.get("/api/v1/admin/accounts", headers=hdr).json()["accounts"]
         overall = next(x for x in rows if x["账号"] == "overall")
-        self.assertNotIn("密码", overall)
+        self.assertEqual(overall.get("密码"), accounts.DEFAULT_VIEW_PW)
         # 看端登录
         viewer = TestClient(app2, follow_redirects=False)
         r0 = viewer.post("/api/v1/login", json={"account": "overall", "password": accounts.DEFAULT_VIEW_PW})
@@ -164,9 +166,9 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         self.assertEqual(r_bad.status_code, 401)
         r_ok = self.client.post("/api/v1/login", json={"account": "v1", "password": "reset9999"})
         self.assertEqual(r_ok.status_code, 200)
-        # 3.6.0：列表不下发明文；重置一次返回明文，后端可 authenticate
+        # 3.6.0 小修：列表下发明文；重置一次返回明文，后端可 authenticate
         rows = self.client.get("/api/v1/admin/accounts", headers=self.hdr).json()["accounts"]
-        self.assertNotIn("密码", next(x for x in rows if x["账号"] == "v1"))
+        self.assertEqual(next(x for x in rows if x["账号"] == "v1").get("密码"), "reset9999")
         r2 = self.client.post("/api/v1/admin/accounts/v1/reset_passwd", headers=self.hdr, json={})
         self.assertEqual(r2.status_code, 200)
         plain = r2.json().get("password") or ""

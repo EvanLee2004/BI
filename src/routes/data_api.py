@@ -628,12 +628,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             m_out["update_ms"] = metrics.get("update_ms", 0)
         if "fetch_fail_rate" not in m_out:
             m_out["fetch_fail_rate"] = metrics.get("fetch_fail_rate", 0.0)
-        # 2.6.3·B2：跑批台账；漏跑抬黄
+        # 2.6.3·B2 / 3.6.0 小修：跑批台账须传 cfg/root 合并持久账本
         sched = {}
         try:
             from schedule_loop import schedule_ledger
 
-            sched = schedule_ledger()
+            sched = schedule_ledger(cfg, root)
             if sched.get("missed") or sched.get("pending"):
                 miss = list(sched.get("missed") or [])
                 pend = list(sched.get("pending") or [])
@@ -767,6 +767,57 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         # 2.6.3·D5：内部 info 仅登录后
         if authed:
             body_out["info"] = info
+        # 3.6.0 小修：四层健康唯一组装；旧 result/warnings/schedule 保留作兼容字段
+        # （兼容期限：至 3.7 起看端只认 viewer_state；契约测见 test_g2）
+        try:
+            from health_layers import build_layered_health
+
+            _biz_gaps = body_out.get("business_gaps") or {}
+            _miss_n = int(_biz_gaps.get("manual_missing_count") or 0) if isinstance(
+                _biz_gaps, dict
+            ) else 0
+            _sys_level = "ok"
+            if result == "红":
+                _sys_level = "critical"
+            elif result == "黄":
+                _sys_level = "yellow"
+            _biz_level = "yellow" if _miss_n or n_un else "ok"
+            _viewer_level = "critical" if result == "红" else "ok"
+            layered = build_layered_health(
+                system={
+                    "level": _sys_level,
+                    "result_legacy": result,
+                    "items": list(reasons or [])[:12],
+                },
+                source_quality={
+                    "level": "yellow" if banners else "ok",
+                    "banners_n": len(banners or []),
+                },
+                business_completeness={
+                    "level": _biz_level,
+                    "manual_missing_count": _miss_n,
+                    "unassigned_count": int(n_un or 0),
+                },
+                viewer={
+                    "level": _viewer_level,
+                    "numbers_safe": result != "红",
+                    "blocking": result == "红",
+                    "freshness_at": str(_state.get("built_at") or ""),
+                    "integrity_hint": (
+                        f"业务待补 {_miss_n} 月" if _miss_n else ""
+                    ),
+                },
+            )
+            body_out["system_health"] = layered["system_health"]
+            body_out["source_quality"] = layered["source_quality"]
+            body_out["business_completeness"] = layered["business_completeness"]
+            body_out["viewer_state"] = layered["viewer_state"]
+            body_out["health_layers_compat"] = {
+                "legacy_fields": ["result", "warnings", "run_reasons", "schedule"],
+                "note": "legacy fields retained until 3.7; prefer layered keys",
+            }
+        except Exception:
+            pass
         return body_out
 
     def _require(request: Request) -> str:

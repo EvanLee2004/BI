@@ -48,20 +48,30 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯
     app.add_middleware(_SecurityHeadersMiddleware)
 
     class _CsrfOriginMiddleware(BaseHTTPMiddleware):
-        """状态变更：Origin/Referer 同源或 CSRF 双提交。"""
+        """状态变更：Origin/Referer 同源、CSRF 双提交，或显式运维/测试白名单。
+
+        3.6.0 小修：缺 Origin/Referer 不再通用放行；校验异常记日志并 403（fail-closed）。
+        """
 
         async def dispatch(self, request, call_next):
             method = (request.method or "GET").upper()
             if method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+                from fastapi.responses import JSONResponse
+
                 try:
-                    from csrf_guard import csrf_ok
-                    from fastapi.responses import JSONResponse
+                    from csrf_guard import OPS_HEADER, csrf_ok
 
                     host = request.headers.get("host")
                     origin = request.headers.get("origin")
                     referer = request.headers.get("referer")
                     tok = request.headers.get("x-csrf-token")
                     cookie = request.cookies.get("csrf_token")
+                    try:
+                        client_host = (
+                            request.client.host if request.client else ""
+                        ) or ""
+                    except Exception:
+                        client_host = ""
                     ok, reason = csrf_ok(
                         method=method,
                         origin=origin,
@@ -69,17 +79,28 @@ def install_middleware(app: FastAPI, *, cfg, root) -> None:  # noqa: C901  # 纯
                         host=host,
                         csrf_header=tok,
                         csrf_cookie=cookie,
+                        client_host=client_host,
+                        user_agent=request.headers.get("user-agent"),
+                        ops_header=request.headers.get(OPS_HEADER),
                     )
-                    # 无 Origin/Referer 的同机脚本/TestClient：host 内请求放行
-                    if not ok and not origin and not referer:
-                        ok, reason = True, "no_cross_site_signal"
                     if not ok:
                         return JSONResponse(
                             {"detail": f"CSRF blocked: {reason}"},
                             status_code=403,
                         )
-                except Exception:
-                    pass
+                except Exception as e:
+                    try:
+                        import logging
+
+                        logging.getLogger("kanban.csrf").warning(
+                            "csrf check error → 403: %s", e
+                        )
+                    except Exception:
+                        pass
+                    return JSONResponse(
+                        {"detail": "CSRF blocked: check_error"},
+                        status_code=403,
+                    )
             return await call_next(request)
 
     app.add_middleware(_CsrfOriginMiddleware)

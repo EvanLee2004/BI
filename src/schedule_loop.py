@@ -64,11 +64,23 @@ def schedule_ledger(cfg=None, root=None) -> dict:
         dd = loaders.data_dir(cfg, root)
         d = mem.get("date") or ""
         if not d:
-            return mem
-        summ = _sl.day_summary(dd, d, mem.get("planned") or [])
+            # 无内存日：用本地今日，仍可读磁盘
+            d = time.strftime("%Y-%m-%d")
+            mem["date"] = d
+        planned = list(mem.get("planned") or [])
+        if not planned:
+            try:
+                planned = list(get_schedule_times(loaders.load_config()) or [])
+                mem["planned"] = planned
+            except Exception:
+                planned = []
+        summ = _sl.day_summary(dd, d, planned)
         # 并集 success（持久优先补内存空白）
         succ = list(dict.fromkeys(list(mem.get("success") or []) + list(summ.get("success") or [])))
         mem["success"] = succ
+        mem["pending"] = list(summ.get("pending") or mem.get("pending") or [])
+        mem["failed"] = list(summ.get("failed") or [])
+        mem["coalesced"] = list(summ.get("coalesced") or [])
         mem["durable"] = True
     except Exception:
         pass
@@ -125,7 +137,11 @@ def _update_ledger(*, date_iso: str, planned: list[str], success_add: str | None
 
 
 class ScheduleLoop:
-    """可单测的定时逻辑：假时钟 + mock start_refresh_async。"""
+    """可单测的定时逻辑：假时钟 + mock start_refresh_async。
+
+    3.6.0 小修：磁盘 schedule_ledger 为 SSOT；内存 fired 仅缓存今日 success。
+    tick 经 plan_catchup 只补最新应跑槽，更早未满足写 skipped_coalesced。
+    """
 
     def __init__(
         self,
@@ -141,15 +157,49 @@ class ScheduleLoop:
         self.start_refresh_async_fn = start_refresh_async_fn
         self.clock = clock or time.localtime
         self.load_times_fn = load_times_fn or (lambda: get_schedule_times(loaders.load_config()))
-        # 成功触发去重键 (date_iso, hhmm)
+        # 成功触发去重键 (date_iso, hhmm) — 缓存；启动时从磁盘 hydrate
         self.fired: set[tuple[str, str]] = set()
         # 排队：start 返回 False 时保留，下 tick 重试（仅 hhmm 列表）
         self._queue: list[str] = []
+        self._hydrate_fired_from_disk()
+
+    def _data_dir(self):
+        """解析 data_dir；cfg 缺键（旧单测 mock）→ None，调用方跳过磁盘。"""
+        try:
+            if not isinstance(self.cfg, dict) or "data_dir" not in self.cfg:
+                return None
+            return loaders.data_dir(self.cfg, self.root)
+        except Exception:
+            return None
+
+    def _hydrate_fired_from_disk(self, date_iso: str | None = None) -> None:
+        """从持久账本恢复今日 success → self.fired（重启后不重复补跑）。"""
+        try:
+            import schedule_ledger as _sl
+
+            dd = self._data_dir()
+            if dd is None:
+                return
+            now = self.clock()
+            d = date_iso or time.strftime("%Y-%m-%d", now)
+            led = _sl.load_ledger(dd)
+            for _k, row in (led.get("slots") or {}).items():
+                if not isinstance(row, dict):
+                    continue
+                if row.get("business_date") != d:
+                    continue
+                if row.get("status") != "success":
+                    continue
+                slot = str(row.get("slot") or "")
+                if slot:
+                    self.fired.add((d, slot))
+        except Exception as e:
+            log.warning("schedule_loop: hydrate fired from disk failed: %s", e)
 
     def tick(self) -> bool:  # noqa: C901  # 2.6.3·B2 补跑/排队/台账分支
         """执行一次检查。返回是否成功启动了刷新。
 
-        2.6.3·B2：凡「计划点已过且今日未成功」一律尝试补跑（含精确分钟与之后）。
+        3.6.0：磁盘账本 + plan_catchup —— 只补最新应跑槽；更早槽 coalesced。
         """
         try:
             times = list(self.load_times_fn() or [])
@@ -160,38 +210,91 @@ class ScheduleLoop:
         try:
             date_iso = time.strftime("%Y-%m-%d", now)
             hhmm = f"{int(now.tm_hour):02d}:{int(now.tm_min):02d}"
-            now_mins = int(now.tm_hour) * 60 + int(now.tm_min)
         except Exception:
             return False
 
+        # 跨日：清空内存缓存后从磁盘重载（仅今日）
+        self.fired = {(d, s) for (d, s) in self.fired if d == date_iso}
+        self._hydrate_fired_from_disk(date_iso)
+
         _update_ledger(date_iso=date_iso, planned=times, last_tick=f"{date_iso} {hhmm}")
 
-        # 今天已过点且未成功的计划点
-        due: list[str] = []
-        for t in times:
-            try:
-                if _hhmm_to_minutes(t) <= now_mins and (date_iso, t) not in self.fired:
-                    due.append(t)
-            except Exception:
-                continue
+        import schedule_ledger as _sl
 
-        # 合并队列（保序去重）
+        dd = self._data_dir()
+        slots_map: dict = {}
+        if dd is not None:
+            try:
+                led = _sl.load_ledger(dd)
+                slots_map = dict(led.get("slots") or {})
+            except Exception as e:
+                log.warning("schedule_loop: load ledger failed: %s", e)
+        # 内存 fired 也合成 success 行，供 plan_catchup（无盘时）
+        for _d, _s in self.fired:
+            if _d == date_iso:
+                k = _sl.slot_key(date_iso, _s)
+                slots_map.setdefault(k, {"status": "success", "slot": _s, "business_date": date_iso})
+        # plan_catchup：只补最新 due；更早未成功 → coalesced
+        target, coalesced = _sl.plan_catchup(
+            business_date=date_iso,
+            planned_slots=times,
+            now_hhmm=hhmm,
+            ledger_slots=slots_map,
+        )
+        for cslot in coalesced:
+            if (date_iso, cslot) in self.fired:
+                continue
+            st = (slots_map.get(_sl.slot_key(date_iso, cslot)) or {}).get("status")
+            if st == "success":
+                continue
+            if dd is None:
+                continue
+            try:
+                _sl.upsert_slot(
+                    dd,
+                    business_date=date_iso,
+                    slot=cslot,
+                    status="skipped_coalesced",
+                    trigger="schedule",
+                )
+            except Exception as e:
+                log.warning("schedule_ledger coalesced write failed: %s", e)
+
+        # 失败重试：队列中的槽优先（且未 success）
         want: list[str] = []
-        for t in list(self._queue) + due:
+        for t in list(self._queue):
             if t not in want and (date_iso, t) not in self.fired:
                 want.append(t)
+        if target and (date_iso, target) not in self.fired and target not in want:
+            want.append(target)
+        # 若 plan 无 target 但队列空 → 无事
         self._queue = list(want)
         _update_ledger(date_iso=date_iso, planned=times, pending=list(want))
 
         if not want:
             return False
 
-        # 一次 tick 只尝试一个点（最早的），避免连打
-        target = sorted(want, key=_hhmm_to_minutes)[0]
-        slot = target
+        # 优先跑 plan_catchup 的最新槽；否则队列最早
+        if target and target in want:
+            run_slot = target
+        else:
+            run_slot = sorted(want, key=_hhmm_to_minutes)[0]
+        slot = run_slot
         d_iso = date_iso
         planned_times = times
         now_hhmm = hhmm
+
+        if dd is not None:
+            try:
+                _sl.upsert_slot(
+                    dd,
+                    business_date=d_iso,
+                    slot=slot,
+                    status="running",
+                    trigger="schedule",
+                )
+            except Exception as e:
+                log.warning("schedule_ledger running write failed: %s", e)
 
         def _on_complete(
             success: bool,
@@ -218,17 +321,18 @@ class ScheduleLoop:
                     last_fire=f"{_d} {_hhmm}→{_slot}",
                 )
                 try:
-                    import schedule_ledger as _sl
+                    import schedule_ledger as _sl2
 
-                    dd = loaders.data_dir(self.cfg, self.root)
-                    _sl.upsert_slot(
-                        dd,
-                        business_date=_d,
-                        slot=_slot,
-                        status="success",
-                        trigger="schedule",
-                        build_id=f"{_d}T{_hhmm}",
-                    )
+                    dd2 = self._data_dir()
+                    if dd2 is not None:
+                        _sl2.upsert_slot(
+                            dd2,
+                            business_date=_d,
+                            slot=_slot,
+                            status="success",
+                            trigger="schedule",
+                            build_id=f"{_d}T{_hhmm}",
+                        )
                 except Exception as e:
                     log.warning("schedule_ledger success write failed: %s", e)
             else:
@@ -246,17 +350,18 @@ class ScheduleLoop:
                     last_busy=f"{_d} {_hhmm} pipeline_fail {_slot}",
                 )
                 try:
-                    import schedule_ledger as _sl
+                    import schedule_ledger as _sl2
 
-                    dd = loaders.data_dir(self.cfg, self.root)
-                    _sl.upsert_slot(
-                        dd,
-                        business_date=_d,
-                        slot=_slot,
-                        status="failed",
-                        trigger="schedule",
-                        error="pipeline_fail",
-                    )
+                    dd2 = self._data_dir()
+                    if dd2 is not None:
+                        _sl2.upsert_slot(
+                            dd2,
+                            business_date=_d,
+                            slot=_slot,
+                            status="failed",
+                            trigger="schedule",
+                            error="pipeline_fail",
+                        )
                 except Exception as e:
                     log.warning("schedule_ledger fail write failed: %s", e)
 
@@ -286,18 +391,18 @@ class ScheduleLoop:
 
         if ok:
             # 线程已启动：先移出队列防连发；success/fired 等 on_complete
-            self._queue = [t for t in self._queue if t != target]
+            self._queue = [t for t in self._queue if t != run_slot]
             log.info(
                 "schedule_loop: started trigger=schedule at %s %s (slot %s)",
                 date_iso,
                 hhmm,
-                target,
+                run_slot,
             )
             _update_ledger(
                 date_iso=date_iso,
                 planned=times,
                 pending=list(self._queue),
-                last_fire=f"{date_iso} {hhmm} started→{target}",
+                last_fire=f"{date_iso} {hhmm} started→{run_slot}",
             )
             return True
 
@@ -305,14 +410,14 @@ class ScheduleLoop:
         log.info(
             "schedule_loop: refresh busy, queued retry for %s %s (now %s)",
             date_iso,
-            target,
+            run_slot,
             hhmm,
         )
         _update_ledger(
             date_iso=date_iso,
             planned=times,
             pending=list(self._queue),
-            last_busy=f"{date_iso} {hhmm} busy for {target}",
+            last_busy=f"{date_iso} {hhmm} busy for {run_slot}",
         )
         return False
 

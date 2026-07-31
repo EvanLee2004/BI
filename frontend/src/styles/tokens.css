@@ -47,14 +47,18 @@
   --radius-md: 8px;
   --radius-lg: var(--radius, 10px);
 
-  /* 3.4.3 重点客户经营作战台布局尺寸（仅 KC 用） */
-  --kc-pie-h: 270px;
-  --kc-track-h: 240px;
+  /* 3.4.3 / 3.6.0 小修：重点客户区与图略放大 */
+  --kc-pie-h: 290px;
+  --kc-track-h: 280px;
   --kc-tier-body-max: 14rem;
-  --kc-sales-bar-h: 6px;
-  --kc-workbench-h: 600px;
-  --kc-bar-h: 14px;
-  --kc-pool-mobile-h: 320px;
+  --kc-sales-bar-h: 7px;
+  --kc-workbench-h: 660px;
+  --kc-bar-h: 16px;
+  --kc-pool-mobile-h: 340px;
+  --kc-fs-help: 13px;
+  --kc-fs-body: 15px;
+  --kc-fs-caption: 13px;
+  --kc-fs-meta: 12px;
 
   
   --fs-meta: 11px;

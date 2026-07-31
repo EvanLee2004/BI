@@ -61,6 +61,7 @@ const {
   isCompared,
   toggleCompare,
   removeCompare,
+  clearCompare,
   salesLine,
   barWidth,
   openMonthModal,
@@ -155,6 +156,7 @@ const {
             @toggle-compare="toggleCompare"
             @open-month="openMonthModal"
             @remove-compare="removeCompare"
+            @clear-compare="clearCompare"
             @set-chart-mode="setChartMode"
           />
         </div>

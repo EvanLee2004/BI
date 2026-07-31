@@ -31,6 +31,7 @@ const emit = defineEmits<{
   'toggle-compare': [it: KeyCustomersItem]
   'open-month': []
   'remove-compare': [key: string]
+  'clear-compare': []
   'set-chart-mode': [m: ChartMode]
 }>()
 </script>
@@ -116,13 +117,23 @@ const emit = defineEmits<{
             {{ isCompared(selectedItem) ? '移出对比' : '加入对比' }}
           </button>
           <button
+            v-if="compareKeys.length"
+            type="button"
+            class="kc-track__zoom"
+            data-testid="kc-clear-compare"
+            title="清空多家公司对比"
+            @click="emit('clear-compare')"
+          >
+            清空筛选
+          </button>
+          <button
             type="button"
             class="kc-track__zoom"
             data-testid="kc-track-zoom"
-            title="放大查看"
+            title="明细查看"
             @click="emit('open-month')"
           >
-            放大
+            明细查看
           </button>
         </div>
       </div>

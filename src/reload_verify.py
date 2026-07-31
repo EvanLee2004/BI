@@ -9,6 +9,30 @@ from __future__ import annotations
 from typing import Any
 
 
+def _commits_compatible(runtime_commit: str, disk_commit: str) -> bool:
+    """short/full 前缀互包视为同一提交。"""
+    rc, dc = runtime_commit, disk_commit
+    return bool(
+        dc.startswith(rc)
+        or rc.startswith(dc)
+        or rc.startswith(dc[:7])
+        or dc.startswith(rc[:7])
+    )
+
+
+def _check_commit_pair(
+    runtime_commit: str | None, disk_commit: str | None
+) -> tuple[bool, str]:
+    """磁盘 commit 非空时 runtime 必须有值且可互包；否则 ok。"""
+    rc = (runtime_commit or "").strip()
+    dc = (disk_commit or "").strip()
+    if dc and not rc:
+        return False, "no_runtime_commit"
+    if dc and rc and not _commits_compatible(rc, dc):
+        return False, f"commit_mismatch:{rc[:12]}!={dc[:12]}"
+    return True, "ok"
+
+
 def verify_process_switch(
     *,
     old_pid: str | int | None,
@@ -29,6 +53,7 @@ def verify_process_switch(
     - 旧 PID 仍存活（若显式传入）
     - 无 runtime version
     - runtime version ≠ disk version（两边都非空时）
+    - 磁盘 commit 非空而 runtime 空（no_runtime_commit）
     - commit 不一致（两边都非空时；允许 short/full 前缀互包）
     """
     try:
@@ -57,16 +82,9 @@ def verify_process_switch(
     if dv and rv != dv:
         return False, f"version_mismatch:{rv}!={dv}"
 
-    rc = (runtime_commit or "").strip()
-    dc = (disk_commit or "").strip()
-    if dc and rc:
-        if not (
-            dc.startswith(rc)
-            or rc.startswith(dc)
-            or rc.startswith(dc[:7])
-            or dc.startswith(rc[:7])
-        ):
-            return False, f"commit_mismatch:{rc[:12]}!={dc[:12]}"
+    ok_c, reason_c = _check_commit_pair(runtime_commit, disk_commit)
+    if not ok_c:
+        return False, reason_c
 
     return True, "ok"
 

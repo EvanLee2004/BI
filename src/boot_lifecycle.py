@@ -17,11 +17,16 @@ def boot_save_lkg_and_ready(cfg, root) -> None:
 
         dd = loaders.data_dir(cfg, root)
         ident = _rm.runtime_identity(root)
+        try:
+            from schema import SCHEMA_VERSION as _sv
+        except Exception:
+            _sv = None
         _lkg.save_lkg(
             dd,
             _state.get("summary") or {},
             version=str(_ver.read_version()),
             commit=str(ident.get("git_commit") or ""),
+            schema_version=_sv,
         )
         _inst.mark_ready(
             dd,
@@ -45,14 +50,20 @@ def boot_fail_closed(cfg, root, exc: BaseException) -> None:
 
         dd = loaders.data_dir(cfg, root)
         _inst.mark_degraded(dd, reason=type(exc).__name__)
-        lkg = _lkg.load_lkg(dd)
-        if _lkg.is_compatible(lkg) and isinstance(lkg.get("summary"), dict):
-            _state["summary"] = lkg["summary"]
-            _state["has_data"] = True
-            _state["admin_html"] = "ready"
-            _state["built_at"] = lkg.get("saved_at") or _state.get("built_at")
-            _state["from_lkg"] = True
-            print("[server] 已加载 Last-Known-Good 快照（构建失败 fail-closed）")
+        try:
+            from schema import SCHEMA_VERSION as _sv
+        except Exception:
+            _sv = None
+        lkg = _lkg.load_lkg(dd, require_schema=_sv)
+        if lkg is not None and _lkg.is_compatible(lkg, schema_version=_sv):
+            summary = lkg.get("summary")
+            if isinstance(summary, dict):
+                _state["summary"] = summary
+                _state["has_data"] = True
+                _state["admin_html"] = "ready"
+                _state["built_at"] = lkg.get("saved_at") or _state.get("built_at")
+                _state["from_lkg"] = True
+                print("[server] 已加载 Last-Known-Good 快照（构建失败 fail-closed）")
     except Exception as _e2:
         print(f"[server] LKG 加载跳过：{type(_e2).__name__}")
     try:

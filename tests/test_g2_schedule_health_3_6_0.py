@@ -83,5 +83,113 @@ class TestHealthLayers(unittest.TestCase):
         self.assertTrue(h["viewer_state"]["blocking"])
 
 
+class TestScheduleLoopWiresLedger(unittest.TestCase):
+    """生产 ScheduleLoop 路径：磁盘 success 后重启不重复补；多槽只补一次。"""
+
+    def test_multi_due_runs_only_latest_and_coalesces(self):
+        import time as _time
+        from schedule_ledger import get_slot
+        from schedule_loop import ScheduleLoop
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        cfg = {"data_dir": str(tmp), "db_path": "看板.db"}
+        calls: list = []
+
+        def start_fn(*_a, **kw):
+            calls.append(kw.get("on_complete") or _a)
+            # 立即回调成功（同步）— 旧签名路径会 TypeError 后走 trigger 签名
+            on_c = kw.get("on_complete")
+            if on_c:
+                on_c(True)
+            return True
+
+        def clock():
+            return _time.strptime("2026-07-31 23:00", "%Y-%m-%d %H:%M")
+
+        loop = ScheduleLoop(
+            cfg,
+            tmp,
+            start_fn,
+            clock=clock,
+            load_times_fn=lambda: ["09:30", "12:00", "17:00"],
+        )
+        self.assertTrue(loop.tick())
+        self.assertEqual(len(calls), 1)
+        # 最新 17:00 success；更早 coalesced
+        self.assertIn(("2026-07-31", "17:00"), loop.fired)
+        c0930 = get_slot(tmp, "2026-07-31", "09:30")
+        c1200 = get_slot(tmp, "2026-07-31", "12:00")
+        self.assertEqual((c0930 or {}).get("status"), "skipped_coalesced")
+        self.assertEqual((c1200 or {}).get("status"), "skipped_coalesced")
+        # 再次 tick 不重复
+        n0 = len(calls)
+        self.assertFalse(loop.tick())
+        self.assertEqual(len(calls), n0)
+
+    def test_restart_hydrates_success_no_re_run(self):
+        import time as _time
+        from schedule_ledger import upsert_slot
+        from schedule_loop import ScheduleLoop
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        cfg = {"data_dir": str(tmp), "db_path": "看板.db"}
+        # 任一时槽成功 = 当日全量已覆盖（plan_catchup any_success）
+        upsert_slot(tmp, business_date="2026-07-31", slot="09:30", status="success")
+
+        calls: list = []
+
+        def start_fn(*_a, **_k):
+            calls.append(1)
+            return True
+
+        def clock():
+            return _time.strptime("2026-07-31 23:00", "%Y-%m-%d %H:%M")
+
+        loop = ScheduleLoop(
+            cfg,
+            tmp,
+            start_fn,
+            clock=clock,
+            load_times_fn=lambda: ["09:30", "12:00", "17:00"],
+        )
+        self.assertIn(("2026-07-31", "09:30"), loop.fired)
+        self.assertFalse(loop.tick())
+        self.assertEqual(len(calls), 0)
+
+    def test_schedule_ledger_requires_cfg_for_durable(self):
+        from schedule_ledger import upsert_slot
+        from schedule_loop import schedule_ledger
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
+        cfg = {"data_dir": str(tmp), "db_path": "看板.db"}
+        upsert_slot(tmp, business_date="2026-07-31", slot="09:30", status="success")
+        mem_only = schedule_ledger()
+        self.assertNotIn("durable", mem_only)
+        # 有 cfg 才合并磁盘
+        import schedule_loop as sl
+
+        with sl._LEDGER_LOCK:
+            sl._SCHEDULE_LEDGER["date"] = "2026-07-31"
+            sl._SCHEDULE_LEDGER["planned"] = ["09:30"]
+            sl._SCHEDULE_LEDGER["success"] = []
+        merged = schedule_ledger(cfg, tmp)
+        self.assertTrue(merged.get("durable"))
+        self.assertIn("09:30", merged.get("success") or [])
+
+
+class TestHealthApiLayeredContract(unittest.TestCase):
+    """health 路由源码接线 + build_layered_health 契约（非 re-implement）。"""
+
+    def test_data_api_calls_build_layered_and_schedule_with_cfg(self):
+        src = Path(__file__).resolve().parents[1] / "src" / "routes" / "data_api.py"
+        text = src.read_text(encoding="utf-8")
+        self.assertIn("build_layered_health", text)
+        self.assertIn("schedule_ledger(cfg, root)", text)
+        self.assertIn("viewer_state", text)
+
+
 if __name__ == "__main__":
     unittest.main()

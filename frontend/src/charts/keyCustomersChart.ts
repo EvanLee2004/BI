@@ -50,7 +50,21 @@ export type BuildKcChartInput = {
   yAxisNameAmount?: string
 }
 
-const COMPARE_LINE_COLORS = ['var(--blue)', 'var(--purple)', 'var(--orange)']
+/** 最多 5 客：颜色 + 线型 + symbol 组合保证唯一（token 驱动，三主题可读） */
+export const COMPARE_SERIES_STYLES: {
+  color: string
+  lineType: 'solid' | 'dashed' | 'dotted'
+  symbol: 'circle' | 'rect' | 'triangle' | 'diamond' | 'roundRect'
+}[] = [
+  { color: 'var(--blue)', lineType: 'solid', symbol: 'circle' },
+  { color: 'var(--purple)', lineType: 'dashed', symbol: 'diamond' },
+  { color: 'var(--orange)', lineType: 'dotted', symbol: 'triangle' },
+  { color: 'var(--pos)', lineType: 'solid', symbol: 'rect' },
+  { color: 'var(--teal)', lineType: 'dashed', symbol: 'roundRect' },
+]
+
+/** @deprecated 兼容旧引用；请用 COMPARE_SERIES_STYLES */
+const COMPARE_LINE_COLORS = COMPARE_SERIES_STYLES.map((s) => s.color)
 
 function labelIndexes(plot: (number | null)[]): Set<number> {
   /** 峰值 + 最新非空；单系列数据少时标全部非零 */
@@ -125,22 +139,17 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
       }
       const st = String(row.status || 'actual')
       statuses.push(st)
-      if (st === 'missing' || row.value_wan == null && mode === 'amount') {
-        if (mode === 'amount') {
+      if (mode === 'amount') {
+        // VM 单源：只认 value_wan；禁止浏览器 value_fen/1e6 换算兜底
+        if (st === 'missing' || row.value_wan == null) {
           plot.push(null)
           disps.push(String(row.value_disp || row.order_disp || '—'))
           continue
         }
-      }
-      if (mode === 'amount') {
-        const v =
-          row.value_wan != null
-            ? Number(row.value_wan)
-            : row.value_fen != null
-              ? Number(row.value_fen) / 1_000_000
-              : null
-        plot.push(v)
-        if (v != null && v > localMax) localMax = v
+        const v = Number(row.value_wan)
+        const num = Number.isFinite(v) ? v : null
+        plot.push(num)
+        if (num != null && num > localMax) localMax = num
         disps.push(String(row.value_disp || row.order_disp || '—'))
       } else {
         const r =
@@ -158,7 +167,10 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
       }
     }
     const labelIdx = labelIndexes(plot)
-    const token = COMPARE_LINE_COLORS[si % COMPARE_LINE_COLORS.length]
+    const style =
+      COMPARE_SERIES_STYLES[si % COMPARE_SERIES_STYLES.length] ||
+      COMPARE_SERIES_STYLES[0]
+    const token = style.color
     const lineC =
       cssColor(token.replace('var(', '').replace(')', '')) || cssColor('--blue')
     const area = si === 0 && mode === 'amount' ? areaGradient(lineC) : undefined
@@ -169,14 +181,14 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
       disps,
       statuses,
       smooth: 0.2,
-      symbol: 'circle',
+      symbol: style.symbol,
       symbolSize: (_v: number | null, params: { dataIndex: number }) =>
-        params.dataIndex + 1 === hm ? 11 : 6,
+        params.dataIndex + 1 === hm ? 12 : 7,
       connectNulls: false,
       itemStyle: pointGlowStyle(lineC),
       lineStyle: {
-        ...lineGlowStyle(lineC, si === 0 ? 2.5 : 2),
-        type: si === 0 ? 'solid' : si === 1 ? 'dashed' : 'dotted',
+        ...lineGlowStyle(lineC, si === 0 ? 2.8 : 2.2),
+        type: style.lineType,
       },
       label: {
         show: true,
@@ -189,7 +201,7 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
           }
           return String(p.value)
         },
-        fontSize: 10,
+        fontSize: 11,
         color: ink,
       },
       labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
@@ -212,22 +224,22 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
           min: 0,
           max: 100,
           name: '节奏指数',
-          nameTextStyle: { color: mut, fontSize: 11 },
+          nameTextStyle: { color: mut, fontSize: 12 },
           show: true,
           splitLine: { show: true, lineStyle: { opacity: 0.15 } },
-          axisLabel: { color: mut, fontSize: 10 },
+          axisLabel: { color: mut, fontSize: 11 },
         }
       : {
           type: 'value' as const,
           min: 0,
           max: axisMax > 0 ? axisMax : undefined,
           name: amountAxis?.name || yAxisNameAmount || '月下单金额（万）',
-          nameTextStyle: { color: mut, fontSize: 11 },
+          nameTextStyle: { color: mut, fontSize: 12 },
           show: true,
           splitLine: { show: true, lineStyle: { opacity: 0.15 } },
           axisLabel: {
             color: mut,
-            fontSize: 10,
+            fontSize: 11,
             formatter: (v: number) => {
               const ticks = amountAxis?.ticks || []
               const hit = ticks.find((t) => Math.abs(Number(t.value) - v) < 1e-6)
@@ -267,19 +279,19 @@ export function buildKeyCustomersTrackOption(input: BuildKcChartInput) {
     legend: {
       show: series.length > 1,
       top: 0,
-      textStyle: { color: ink, fontSize: 11 },
+      textStyle: { color: ink, fontSize: 12 },
     },
     grid: {
-      left: 48,
+      left: 52,
       right: 16,
-      top: series.length > 1 ? 40 : 32,
-      bottom: 28,
+      top: series.length > 1 ? 44 : 34,
+      bottom: 30,
       containLabel: true,
     },
     xAxis: {
       type: 'category' as const,
       data: labels,
-      axisLabel: axisLabelStyle({ fontSize: 11, interval: 0, hideOverlap: true }),
+      axisLabel: axisLabelStyle({ fontSize: 12, interval: 0, hideOverlap: true }),
       axisLine: { lineStyle: { color: mut } },
     },
     yAxis,

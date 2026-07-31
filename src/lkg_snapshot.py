@@ -63,31 +63,63 @@ def save_lkg(
     return path
 
 
+def _payload_for_checksum(data: dict[str, Any]) -> dict[str, Any]:
+    """checksum 覆盖字段：不含自指 checksum。"""
+    return {k: v for k, v in data.items() if k != "checksum"}
+
+
+def verify_checksum(data: dict[str, Any]) -> bool:
+    stored = str(data.get("checksum") or "").strip()
+    if not stored:
+        return False
+    raw = json.dumps(
+        _payload_for_checksum(data), ensure_ascii=False, separators=(",", ":")
+    )
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return digest == stored
+
+
+def _quarantine_corrupt(path: Path) -> None:
+    bak = path.with_suffix(path.suffix + f".corrupt.{int(time.time())}")
+    try:
+        path.rename(bak)
+    except OSError:
+        pass
+
+
 def load_lkg(
     data_dir: Path | str,
     *,
     require_schema: int | str | None = None,
 ) -> dict[str, Any] | None:
-    """加载 LKG；损坏或不兼容返回 None（调用方走 maintenance，不 bootstrap）。"""
+    """加载 LKG；损坏/checksum 失败/不兼容返回 None（调用方走 maintenance，不 bootstrap）。"""
     path = lkg_path(data_dir)
     if not path.is_file():
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        _quarantine_corrupt(path)
         return None
     if not isinstance(data, dict) or "summary" not in data:
+        _quarantine_corrupt(path)
         return None
-    if require_schema is not None and data.get("schema_version") not in (None, require_schema):
-        # 显式 schema 不匹配 → 不兼容
-        if data.get("schema_version") != require_schema:
-            return None
+    if not verify_checksum(data):
+        _quarantine_corrupt(path)
+        return None
+    if require_schema is not None and data.get("schema_version") != require_schema:
+        return None
     return data
 
 
 def is_compatible(lkg: dict[str, Any] | None, *, schema_version: int | str | None = None) -> bool:
+    """结构兼容：必须有 summary；schema_version=None 不再视为永久兼容。"""
     if not lkg or not isinstance(lkg.get("summary"), dict):
         return False
-    if schema_version is not None and lkg.get("schema_version") not in (None, schema_version):
+    sv = lkg.get("schema_version")
+    if sv is None:
+        # 缺 schema 的旧/残缺快照：仅当调用方未要求 schema 时仍拒绝（须显式版本）
+        return False
+    if schema_version is not None and sv != schema_version:
         return False
     return True

@@ -406,6 +406,12 @@ export function useKeyCustomers() {
     compareHint.value = ''
   }
 
+  /** 清空多家公司对比（保留当前选中客户） */
+  function clearCompare() {
+    compareKeys.value = []
+    compareHint.value = ''
+  }
+
   function salesLine(it: KeyCustomersItem): { text: string; title: string } {
     const sales = it.sales || []
     if (sales.length) {
@@ -555,6 +561,7 @@ export function useKeyCustomers() {
     isCompared,
     toggleCompare,
     removeCompare,
+    clearCompare,
     salesLine,
     barWidth,
     openMonthModal,
