@@ -347,7 +347,13 @@ export type KeyCustomersVM = {
     silent_focus?: KeyCustomersCard
     near_upgrade?: KeyCustomersCard
   }
+  /** 双饼数据（历史键名 structure_bars；与 structure_pies 同载荷） */
   structure_bars?: {
+    count?: { label?: string; segments?: KeyCustomersSeg[] }
+    amount?: { label?: string; segments?: KeyCustomersSeg[] }
+  }
+  /** 只读别名：与 structure_bars 同结构，语义=双饼（3.6.3+） */
+  structure_pies?: {
     count?: { label?: string; segments?: KeyCustomersSeg[] }
     amount?: { label?: string; segments?: KeyCustomersSeg[] }
   }

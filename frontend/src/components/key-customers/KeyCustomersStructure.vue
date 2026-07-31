@@ -75,10 +75,10 @@ const legendSegs = computed(() => countSegs.value.length ? countSegs.value : amo
     </div>
     <div v-else class="kc-structure-pies__grid">
       <div class="kc-pie-wrap" data-testid="kc-pie-count">
-        <EchartsHost class="kc-pie-chart" :option="countOption as any" @click="onPieClick" />
+        <EchartsHost class="kc-pie-chart" :option="countOption" @click="onPieClick" />
       </div>
       <div class="kc-pie-wrap" data-testid="kc-pie-amount">
-        <EchartsHost class="kc-pie-chart" :option="amountOption as any" @click="onPieClick" />
+        <EchartsHost class="kc-pie-chart" :option="amountOption" @click="onPieClick" />
       </div>
     </div>
     <ul v-if="hasData" class="kc-bar-legend" aria-label="档位图例">

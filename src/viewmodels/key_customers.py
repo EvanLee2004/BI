@@ -351,7 +351,12 @@ def _kc_empty_shell() -> dict[str, Any]:
                 "tip": NEAR_TIP,
             },
         },
+        # structure_bars：历史键名；语义=双饼数据（count/amount segments）。structure_pies 只读别名。
         "structure_bars": {
+            "count": {"label": "客户数结构", "segments": []},
+            "amount": {"label": "金额结构", "segments": []},
+        },
+        "structure_pies": {
             "count": {"label": "客户数结构", "segments": []},
             "amount": {"label": "金额结构", "segments": []},
         },
@@ -501,7 +506,9 @@ def pack_key_customers(
     3.4.2：help_lines 去主销售；item.sales[] 全量 disp。
     3.4.3：summary_cards / structure_bars / pools；默认 default_open=S/A/B。
     3.5.0：月点 value_fen/value_wan/status + 共享 amount_axis；默认金额模式。
-    保留 pie_* 兼容旧消费者；主 UI 改用 structure_bars。
+    3.6.2+：structure_bars 载荷为「双饼数据」（count/amount 各 segments），非旧 100% 条形；
+    只读别名 structure_pies 与 structure_bars 同对象（不破坏旧键）。
+    保留 pie_* 兼容旧消费者；主 UI 读 structure_bars（或 structure_pies）。
     """
     import charts
     from domain.key_customers.compute import (
@@ -691,7 +698,12 @@ def pack_key_customers(
                 "tip": NEAR_TIP,
             },
         },
+        # structure_bars 兼容键；载荷为双饼数据。structure_pies 同引用只读别名（P3-01）。
         "structure_bars": {
+            "count": {"label": "客户数结构", "segments": seg_count},
+            "amount": {"label": "金额结构", "segments": seg_amount},
+        },
+        "structure_pies": {
             "count": {"label": "客户数结构", "segments": seg_count},
             "amount": {"label": "金额结构", "segments": seg_amount},
         },

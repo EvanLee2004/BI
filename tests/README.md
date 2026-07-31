@@ -1,21 +1,29 @@
 # 测试怎么跑
 
-> **产品版本**：以仓库根 `VERSION` 为准（现网 **3.3.1**）。门禁与契约测跟着代码走，不单独钉死次要版本号。
+> **产品版本**：以仓库根 `VERSION` 为准。门禁与契约测跟着代码走，不单独钉死次要版本号。
 
-## 依赖
+## 依赖与环境（P2-04 · 3.6.3）
 
-```bash
-# 运行依赖 + 测试依赖（TestClient 需 httpx）
-pip install -r requirements.txt -r requirements-dev.txt
-```
-
-## 日常全量（每个代码批次收口）
+**门禁必须在项目根、用本仓虚拟环境**，不要用系统全局 `python3` 冒充：
 
 ```bash
+# 首次
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+
+# 日常全量：脚本会自动选用 .venv/bin/python，并先 materialize 脱敏 offline fixture
 KANBAN_OFFLINE=1 sh tests/run_verify.sh
 echo EXIT:$?
 # 必须 EXIT:0；禁止 | tail / | head
 ```
+
+`run_verify.sh` 启动步骤：
+
+1. `scripts/materialize_offline_fixtures.py` → `_golden_data` + `数据/`（确定性脱敏，无真实生产金额）
+2. 语法 / ruff / 前端 typecheck / gen_vm 等
+3. `KANBAN_PROFILE=dev` 端到端 `run.py` + 回归红线 + 全量单测
+
+缺 `.venv` 时脚本回退 `python3`，但**不推荐**；CI 与本机验收均应以项目 venv 为准。
 
 单文件：
 

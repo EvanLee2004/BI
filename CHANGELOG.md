@@ -1,3 +1,13 @@
+## 3.6.3 · 2026-07-31
+
+### 小清扫：金额轴留白 · 双饼类型 · 门禁文档
+- **P2-01**：重点客户金额模式 Y 轴上限 = 当前选中系列峰值 × **1.08**（`AMOUNT_AXIS_HEADROOM`）；仍忽略全局 `amount_axis.max`，前端不重算金额业务值
+- **P3-02**：`KeyCustomersStructure` 去掉 `as any`；`buildKeyCustomersStructurePieOption` 返回 `Record<string, unknown>` 对齐 `EchartsHost`
+- **P3-01**：`structure_bars` 注释标明「双饼数据」；只读别名 **`structure_pies`**（同载荷，不破坏旧键）
+- **P2-04**：README / `tests/README` 写清 `run_verify` 须项目 **`.venv`** + 启动时 **materialize offline fixtures**
+- **未改**利润公式、六档阈值、静默算法、抓数、P0 安全面
+- 测试：`tests/test_g4_key_customers_axis_3_6_0.py`（headroom）；门禁 `run_verify.sh`
+
 ## 3.6.2 · 2026-07-31
 
 ### 重点客户双饼 + 说明问号 + 点饼联动

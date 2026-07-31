@@ -178,7 +178,7 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 | 默认账号（仅初次种子） | 管理员 `lushasha` / `kanban2026`；查看类账号初始密码见种子逻辑，**上线务必改掉** |
 | 账号文件 | `数据/看板账号.json`（不进 git；缺失时会自动生成种子） |
 | 智云账号 | 管理端 → 设置 中配置 |
-| 全量自检 | `KANBAN_OFFLINE=1 sh tests/run_verify.sh` |
+| 全量自检 | **必须用项目 `.venv`** + `KANBAN_OFFLINE=1 sh tests/run_verify.sh`（脚本会先 `materialize_offline_fixtures` 物化脱敏进料；判绿看真实退出码，勿 `| tail`） |
 | 本地冒烟 | `KANBAN_OFFLINE=1 sh scripts/smoke_cockpit_local.sh`（结构守卫；若 :8028 已起服则 login→主题钮 探活。**非** CI Playwright 全路径） |
 
 ### 开发时前后端分开
@@ -426,7 +426,7 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 - 前端展示串由后端给出，避免浏览器自行做金额运算导致口径漂移  
 - 发布只走 `main`；推远端前会检查是否误带真实金额、客户名、账号口令等敏感内容  
 - 公开仓库**不推送** git tag / GitHub Release（版本以 `VERSION` + `CHANGELOG` 为准）  
-- 全量自检：`KANBAN_OFFLINE=1 sh tests/run_verify.sh`（判绿看真实退出码，勿用 `| tail` 假绿）
+- 全量自检：在项目根、**优先 `.venv/bin/python`**（`run_verify.sh` 自动选用），`KANBAN_OFFLINE=1 sh tests/run_verify.sh`；启动时会跑 `scripts/materialize_offline_fixtures.py` 写入脱敏 `_golden_data`/`数据/`。判绿看真实退出码，勿用 `| tail` 假绿
 
 ---
 

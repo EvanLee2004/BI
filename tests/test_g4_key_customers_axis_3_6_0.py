@@ -29,6 +29,7 @@ import {{
   resolveAmountAxisMax,
   peakOfSeries,
   selectedVsGlobalAxisProbe,
+  AMOUNT_AXIS_HEADROOM,
 }} from '{axis_url}';
 const out = ({expr_js});
 console.log(JSON.stringify(out));
@@ -67,17 +68,17 @@ class TestResolveAmountAxisMaxShipped(unittest.TestCase):
     """驱动 frontend/src/charts/keyCustomersAxis.ts 真函数。"""
 
     def test_two_vs_two_hundred_selected_only(self):
-        """选中 2 万客户时轴=2；即使 global amount_axis.max=200 也不得抬轴。"""
+        """选中 2 万客户时轴=2×1.08；即使 global amount_axis.max=200 也不得抬轴。"""
         out = _run_axis_node(
             "selectedVsGlobalAxisProbe({ selectedPeaksWan: [2], globalAxisMaxWan: 200 })"
         )
-        self.assertEqual(out["axisMax"], 2)
+        self.assertAlmostEqual(out["axisMax"], 2 * 1.08, places=6)
         self.assertEqual(out["selectedPeak"], 2)
-        # 若错误使用 global，小客高度比会变成 2/200=0.01；正确为轴=2
+        # 若错误使用 global，小客高度比会变成 2/200=0.01；正确为选中峰值/200
         self.assertLess(out["ratioIfUsedGlobal"], 0.02)
 
     def test_combo_peaks_2_20_50_100_200(self):
-        """多组合：轴=当前选中峰值 max，与全局 200 无关。"""
+        """多组合：轴=当前选中峰值 max ×1.08，与全局 200 无关。"""
         combos = [
             ([2], 2),
             ([2, 20], 20),
@@ -87,23 +88,31 @@ class TestResolveAmountAxisMaxShipped(unittest.TestCase):
             ([2, 200], 200),
             ([2, 20, 50, 100, 200], 200),
         ]
-        for peaks, expect in combos:
+        for peaks, expect_peak in combos:
             out = _run_axis_node(
                 f"selectedVsGlobalAxisProbe({{ selectedPeaksWan: {peaks}, globalAxisMaxWan: 999 }})"
             )
-            self.assertEqual(
+            self.assertAlmostEqual(
                 out["axisMax"],
-                expect,
-                f"peaks={peaks} global=999 → axisMax should be {expect}, got {out}",
+                expect_peak * 1.08,
+                places=6,
+                msg=f"peaks={peaks} global=999 → axisMax should be {expect_peak * 1.08}, got {out}",
             )
 
     def test_resolve_ignores_global_explicit(self):
         out = _run_axis_node(
-            "{ a: resolveAmountAxisMax(2, 200), b: resolveAmountAxisMax(200, 2), c: resolveAmountAxisMax(0, 100) }"
+            "{ a: resolveAmountAxisMax(2, 200), b: resolveAmountAxisMax(200, 2), c: resolveAmountAxisMax(0, 100), h: AMOUNT_AXIS_HEADROOM }"
         )
-        self.assertEqual(out["a"], 2)
-        self.assertEqual(out["b"], 200)
+        self.assertAlmostEqual(out["a"], 2 * 1.08, places=6)
+        self.assertAlmostEqual(out["b"], 200 * 1.08, places=6)
         self.assertEqual(out["c"], 0)
+        self.assertEqual(out["h"], 1.08)
+
+    def test_headroom_constant_is_1_08(self):
+        """P2-01：固定 headroom 常量 = 1.08。"""
+        out = _run_axis_node("{ h: AMOUNT_AXIS_HEADROOM, m: resolveAmountAxisMax(100, null) }")
+        self.assertEqual(out["h"], 1.08)
+        self.assertAlmostEqual(out["m"], 108.0, places=6)
 
     def test_peak_of_series(self):
         out2 = _run_axis_node("{ peak: peakOfSeries([null, 2, 20, null, 5]) }")

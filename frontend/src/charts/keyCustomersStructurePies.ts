@@ -54,7 +54,12 @@ export function structureHasData(segments?: KeyCustomersSeg[] | null): boolean {
   return segments.some((s) => segmentPieValue('count', s) > 0 || Number(s.wo) > 0)
 }
 
-export function buildKeyCustomersStructurePieOption(input: BuildStructurePieInput) {
+/** EChartsHost 契约：option 为 Record，禁止模板 `as any`。 */
+export type StructurePieOption = Record<string, unknown>
+
+export function buildKeyCustomersStructurePieOption(
+  input: BuildStructurePieInput,
+): StructurePieOption {
   const segs = input.segments || []
   const kind = input.kind
   const ink = chartTextColor()
@@ -86,7 +91,7 @@ export function buildKeyCustomersStructurePieOption(input: BuildStructurePieInpu
 
   const totalLabel = input.label || (kind === 'count' ? '客户数结构' : '金额结构')
 
-  return {
+  const option: StructurePieOption = {
     ...animBlock(0),
     tooltip: {
       trigger: 'item',
@@ -154,4 +159,5 @@ export function buildKeyCustomersStructurePieOption(input: BuildStructurePieInpu
       },
     ],
   }
+  return option
 }
