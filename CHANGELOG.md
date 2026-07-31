@@ -1,3 +1,13 @@
+## 3.7.0 · 2026-07-31
+
+### 发布链加固（P1-02 半原子 + P1-03 强制备份）
+- **标准入口** `deploy/linux/publish_kanban.sh`：上机前 `db_backup.backup_sqlite` 强制业务库快照（路径+sha256+manifest）；无备份禁止继续
+- **成功门闸** `src/publish_preflight.py`：backup + health 200 + runtime version/commit/pid 与磁盘对齐；磁盘 VERSION 单独不算成功
+- **reload** 仍走 `reload_kanban.sh` + `reload_verify`；本版**诚实半原子**（单机 kill/restart，无旁路端口蓝绿）
+- 设计：`docs/madr/MADR-0030_发布链半原子加固_3_7_0.md`；Runbook 发版清单对齐
+- **未改**利润公式、CSRF、P0 安全面、业务算账
+- 测试：`tests/test_publish_preflight_3_7_0.py`
+
 ## 3.6.3 · 2026-07-31
 
 ### 小清扫：金额轴留白 · 双饼类型 · 门禁文档

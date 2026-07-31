@@ -36,7 +36,27 @@
    ```
    **禁止**只 `git pull` 不 reload nginx。发版后管理端 chunk 404：用户强制刷新浏览器（Ctrl/Cmd+Shift+R）。
 
-## 0.1 发版上机铁律（3.3.3 · 必做三步）
+## 0.1 发版上机铁律（3.7.0 · 备份 + 门闸）
+
+**推荐标准入口**（3.7.0+，P1-02/P1-03）：
+
+```bash
+cd /opt/kanban/看板正式程序
+# 备份业务库 → ff-only pull → reload → 校验 version/commit/pid/health 才 SUCCESS
+bash deploy/linux/publish_kanban.sh --pull
+# 仅已 pull 时：
+# bash deploy/linux/publish_kanban.sh
+```
+
+| 门闸 | 要求 |
+|------|------|
+| 备份 | `数据/备份/看板_pre_publish_*.db` + `.manifest.json`（sha256 / 表行数指纹）；**无备份退出非 0** |
+| reload | 旧 PID 消失 + 新 PID + health 200 + runtime 对齐磁盘 |
+| 成功 | `publish_preflight.declare_publish_success`：backup + version + commit + pid + health |
+
+**诚实（半原子）**：单机单端口；`reload_kanban.sh` 为 systemctl restart 或 kill+systemd 拉起，**不是**旁路端口预热后的 nginx 原子切换。切换窗口可能短暂断连。完整蓝绿另开任务。
+
+设计：`docs/madr/MADR-0030_发布链半原子加固_3_7_0.md`。
 
 代码 `git pull` **不会**自动装载 nginx conf。每次 conf 或维护页相关发版：
 
@@ -47,7 +67,7 @@ sudo nginx -t && sudo systemctl reload nginx
 systemctl is-active kanban
 ```
 
-**禁止**只 pull 就勾「已上机」。
+**禁止**只 pull 就勾「已上机」。**禁止**无业务库备份就 reload 宣称发版成功。
 
 ### 0.1.1 S-13 · CSRF 与 `:8001` Host 端口（仓库已改；上机须 RELEASER）
 

@@ -139,6 +139,7 @@ tests/test_g4_key_customers_ui_3_6_0.py
 tests/test_g5_boss_ui_3_6_0.py
 tests/test_s13_csrf_proxy_host_port.py
 tests/test_section_kc_ux_3_6_1.py
+tests/test_publish_preflight_3_7_0.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
