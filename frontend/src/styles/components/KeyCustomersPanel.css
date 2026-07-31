@@ -292,6 +292,29 @@
   color: var(--rank-meta);
 }
 
+/* 3.6.1：搜索框右侧分页 */
+.kc-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.kc-pager__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.kc-pager__info {
+  font-size: var(--fs-meta);
+  color: var(--mut-label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 5.5rem;
+  text-align: center;
+}
+
 .kc-pool__list {
   flex: 1 1 auto;
   min-height: 0;
@@ -360,8 +383,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--rank-name);
+  /* 3.6.1：主名用 ink 级 token，明显高于 muted/meta */
+  color: var(--ink, var(--rank-name));
   font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.kc-row__idx {
+  display: inline-block;
+  min-width: 1.4rem;
+  margin-right: 4px;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--mut-label);
+  text-align: right;
 }
 
 .kc-row__tier {

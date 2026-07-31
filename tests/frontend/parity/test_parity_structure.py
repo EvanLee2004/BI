@@ -115,26 +115,45 @@ class TestFrontendScaffold(unittest.TestCase):
         self.assertEqual(hits, [], "疑似金额运算（未登记白名单）:\n" + "\n".join(hits[:30]))
 
     def test_app_section_order(self):
+        """3.6.1：六段顺序与整体/BU 一致（比 sec 标题；模板标签勿与 import 混淆）。"""
         app = (FE / "App.vue").read_text(encoding="utf-8")
-        i1 = app.index("基本情况")
-        i2 = app.index("经营利润")
-        i3 = app.index("收入与毛利结构")
-        i4 = app.index("下单与回款")
-        i5 = app.index("费用明细")
-        self.assertLess(i1, i2)
-        self.assertLess(i2, i3)
-        self.assertLess(i3, i4)
-        self.assertLess(i4, i5)
+        titles = re.findall(r'class="sec-t">([^<]+)', app)
+        expected = [
+            "基本情况",
+            "下单与回款",
+            "重点客户下单情况追踪",
+            "经营利润",
+            "收入与毛利结构",
+            "费用明细",
+        ]
+        self.assertEqual(titles, expected, f"App.vue sec 顺序不符 3.6.1: {titles}")
+        tmpl = app.split("<template>")[-1] if "<template>" in app else app
+        # 模板内组件：日查/柱图/双榜 → KC → 利润图 → 结构 → 费用
+        for a, b in (
+            ("<DailyQuery", "<ReceiptsCard"),
+            ("<ReceiptsCard", "<RankingsDual"),
+            ("<RankingsDual", "<KeyCustomersPanel"),
+            ("<KeyCustomersPanel", "<TrendChart"),
+            ("<ProfitStructure", "<ExpenseHeatmap"),
+        ):
+            self.assertLess(
+                tmpl.index(a),
+                tmpl.index(b),
+                f"模板顺序应 {a} 先于 {b}",
+            )
         self.assertIn("ProfitStructure", app)
         self.assertIn("BuNav", app)
         self.assertTrue((FE / "components" / "BuNav.vue").is_file())
+        bu = (FE / "components" / "BUPage.vue").read_text(encoding="utf-8")
+        bu_titles = re.findall(r'class="sec-t">([^<]+)', bu)
+        self.assertEqual(bu_titles, titles, "BU 页 sec 须与整体页一致")
 
     def test_client_uses_vm_api(self):
         client = (FE / "api" / "client.ts").read_text(encoding="utf-8")
         self.assertIn("/api/v1/vm/cockpit", client)
 
     def test_rankings_dual_binds_rankings_view_not_profit(self):
-        """板块四必须绑 rankings_view；禁止再误绑 profit_rank_body（板块三）。"""
+        """下单/回款双榜必须绑 rankings_view；禁止再误绑 profit_rank_body。"""
         src = (FE / "components" / "RankingsDual.vue").read_text(encoding="utf-8")
         # 去掉注释再断言，避免文档字面量误伤
         code = re.sub(r"/\*[\s\S]*?\*/", "", src)

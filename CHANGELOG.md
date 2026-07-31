@@ -1,3 +1,14 @@
+## 3.6.1 · 2026-07-31
+
+### 首屏板块顺序与重点客户体验
+- **板块顺序（整体=BU）**：一基本情况 → 二下单与回款（日查/柱图/双榜）→ **三重点客户下单情况追踪**（独立 sec）→ 四经营利润 → 五收入与毛利结构 → 六费用明细；KC/费用仍 async 不入首屏 boot
+- **重点客户**：domain HELP_LINE_TIERS 分级一行（阈值 SSOT=TIER_RANGE_DISP）；PANEL_TITLE 对齐 sec；客户名 ink 对比度；行前跨页连续序号；池列表 pageSize=20 分页（搜/滤/池重置 page=1）
+- **昨天快捷**：DailyQuery「昨天」在「本月」左侧（data-testid=daily-yesterday），start=end=本地昨天并立即查询，不改全局 period
+- **下单/回款柱图**：圆角/间距/峰值顶标/减弱网格噪音；空月仍 null；主题色仍走 cssColor
+- **未改**六档金额阈值、静默定义、利润公式、抓数、金额运算
+- 证据：docs/验收证据/3_6_1/ · 测试 tests/test_section_kc_ux_3_6_1.py
+
+
 ## 3.6.0 小修续 · S-13 CSRF/:8001 Host 端口（2026-07-31）
 
 ### 代理同源与 CSRF（仓库；生产 nginx 装载由 RELEASER）

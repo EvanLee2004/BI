@@ -7,6 +7,7 @@
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { ApiError } from '../api/client'
+import { thisMonthRangeYmd, yesterdayYmd } from '../utils/dailyDates'
 import { friendlyError } from '../utils/friendlyError'
 import SciFiPanel from './SciFiPanel.vue'
 import type { RankViewBlk } from '../types/vm'
@@ -94,13 +95,19 @@ function restoreYear() {
 
 /** 任务书58·R-51：本月 = 当月 1 日～今天，并触发查询（只影响本板块） */
 function setThisMonth() {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = d.getMonth() + 1
-  const pad = (n: number) => (n < 10 ? `0${n}` : String(n))
+  const se = thisMonthRangeYmd(new Date())
   handEdit.value = true
-  start.value = `${y}-${pad(m)}-01`
-  end.value = `${y}-${pad(m)}-${pad(d.getDate())}`
+  start.value = se.start
+  end.value = se.end
+  runQuery()
+}
+
+/** 3.6.1：昨天 = 本地日历昨天（start=end），并立即查询；不改全局 period */
+function setYesterday() {
+  const y = yesterdayYmd(new Date())
+  handEdit.value = true
+  start.value = y
+  end.value = y
   runQuery()
 }
 </script>
@@ -111,6 +118,9 @@ function setThisMonth() {
       <label>止 <input type="date" v-model="end" @change="onDateEdit" id="dailyE" /></label>
       <button type="button" class="mini" id="dailyGo" :disabled="loading" @click="runQuery">
         {{ loading ? '查询中…' : '查询' }}
+      </button>
+      <button type="button" class="ghost mini" id="dailyYesterday" data-testid="daily-yesterday" @click="setYesterday">
+        昨天
       </button>
       <button type="button" class="ghost mini" id="dailyThisMonth" data-testid="daily-this-month" @click="setThisMonth">
         本月

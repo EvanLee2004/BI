@@ -33,6 +33,22 @@ function tickLabel(ticks: AxisTick[], val: number): string {
   return ''
 }
 
+/** 3.6.1：系列峰值下标（null/NaN 忽略）；并列取最后一个 */
+function peakIndex(vals: (number | null)[]): number {
+  let best = -1
+  let bestV = -Infinity
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]
+    if (v == null || Number.isNaN(Number(v))) continue
+    const n = Number(v)
+    if (n >= bestV) {
+      bestV = n
+      best = i
+    }
+  }
+  return best
+}
+
 const side = computed(() => {
   const map = r.value.summary_by_period || {}
   const pk = store.period || ''
@@ -88,29 +104,42 @@ const option = computed(() => {
   const budLabel = budRaw
     ? `月均预算 ${withWanUnit(budRaw)}`
     : budFallback || '月均预算'
+  // 3.6.1：顶标仅峰值 + 非空月，避免过密遮挡；空月仍 null 不画假 0
+  const peakOrdIdx = peakIndex(ordPlot)
+  const peakRecIdx = peakIndex(recPlot)
   const series: Record<string, unknown>[] = [
     {
       name: '下单',
       type: 'bar',
       data: ordPlot,
-      barMaxWidth: 28,
-      itemStyle: barGlowStyle(cOrd),
+      barMaxWidth: 22,
+      barGap: '28%',
+      barCategoryGap: '42%',
+      itemStyle: {
+        ...barGlowStyle(cOrd),
+        borderRadius: [6, 6, 0, 0],
+      },
       label: dataLabelStyle({
         position: 'top',
-        formatter: (p: { dataIndex: number }) => od[p.dataIndex] || '',
-        fontSize: 12,
+        formatter: (p: { dataIndex: number }) =>
+          p.dataIndex === peakOrdIdx && od[p.dataIndex] ? od[p.dataIndex] : '',
+        fontSize: 11,
       }),
     },
     {
       name: '回款',
       type: 'bar',
       data: recPlot,
-      barMaxWidth: 28,
-      itemStyle: barGlowStyle(cRec),
+      barMaxWidth: 22,
+      itemStyle: {
+        ...barGlowStyle(cRec),
+        borderRadius: [6, 6, 0, 0],
+      },
       label: dataLabelStyle({
         position: 'top',
-        formatter: (p: { dataIndex: number }) => rd[p.dataIndex] || '',
-        fontSize: 12,
+        formatter: (p: { dataIndex: number }) =>
+          p.dataIndex === peakRecIdx && rd[p.dataIndex] ? rd[p.dataIndex] : '',
+        fontSize: 11,
       }),
     },
   ]
@@ -123,8 +152,9 @@ const option = computed(() => {
       symbol: 'none',
       lineStyle: {
         type: 'dashed',
-        width: 1.5,
+        width: 1.25,
         color: cTeal,
+        opacity: 0.85,
       },
       itemStyle: { color: cTeal },
       label: {
@@ -132,12 +162,15 @@ const option = computed(() => {
         position: 'end',
         formatter: () => budLabel,
         color: cTeal,
-        fontSize: 12,
+        fontSize: 11,
+        opacity: 0.9,
       },
       tooltip: { show: true },
       z: 3,
     })
   }
+  // 3.6.1：减弱网格噪音（色走 token/cssColor，禁硬编码 rgba）
+  const gridLine = cssColor('--line-soft') || cssColor('--line') || cssColor('--mut2')
   return {
     tooltip: {
       trigger: 'axis',
@@ -152,13 +185,19 @@ const option = computed(() => {
     legend: {
       data: bud > 0 ? ['下单', '回款', '月均预算'] : ['下单', '回款'],
       bottom: 0,
-      textStyle: legendTextStyle(),
+      itemGap: 16,
+      textStyle: legendTextStyle({ fontSize: 12 }),
     },
-    grid: { left: 56, right: 28, top: 48, bottom: 56, containLabel: true },
+    grid: { left: 52, right: 24, top: 44, bottom: 52, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLabel: axisLabelStyle({ interval: 0 }),
+      axisTick: { alignWithLabel: true, length: 3 },
+      axisLine: { lineStyle: { color: gridLine, width: 1 } },
+      axisLabel: axisLabelStyle({
+        interval: labels.length > 8 ? 1 : 0,
+        margin: 10,
+      }),
     },
     yAxis: [
       {
@@ -166,6 +205,15 @@ const option = computed(() => {
         min: minV,
         max: maxV,
         interval,
+        splitLine: {
+          show: true,
+          lineStyle: {
+            color: gridLine,
+            type: 'dashed',
+            width: 1,
+            opacity: 0.45,
+          },
+        },
         axisLabel: {
           formatter: (val: number) => {
             const lab = tickLabel(ticks, val)

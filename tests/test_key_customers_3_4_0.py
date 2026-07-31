@@ -180,7 +180,7 @@ class TestPackerAndVM(unittest.TestCase):
         vm = pack_key_customers(raw, embed_full=False)
         self.assertEqual(vm["year"], 2026)
         self.assertIn("自然年", vm["caption"])
-        self.assertEqual(vm.get("panel_title"), "重点客户下单分析")
+        self.assertEqual(vm.get("panel_title"), "重点客户下单情况追踪")
         self.assertEqual(len(vm["tiers"]), 6)
         by_id = {t["id"]: t for t in vm["tiers"]}
         # 3.4.3：默认重点池 S/A/B open；C/D/E lazy 由前端 ensureTier

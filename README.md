@@ -4,12 +4,12 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v3.5.0**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-07-30） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v3.6.1**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-07-31） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **现网终态（3.5.0）**：看数 **Domain→VM→Vue**；重点客户金额共同尺度 + 完整性首屏；导出走 **kanban_snapshot**；**无** `render_*` 驾驶舱双轨。业务/管理/运维 API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
-> **3.5.0 要点**：金额折线诚实可比；KC packer/前端拆分单源；reload 须 PID+runtime；手填缺月只提示不造数。  
-> **3.4.x**：作战台/结构条/三池。**3.3.x**：KPI 超目标诚实、分摊 int 分。**3.2 / 3.1 / 3.0**：薄门面、去 render。**2.7.x**：全量 v1、维护页。  
+> **现网终态（3.6.1）**：看数 **Domain→VM→Vue**；首屏六段（下单回款与重点客户提前）；导出走 **kanban_snapshot**；**无** `render_*` 驾驶舱双轨。业务/管理/运维 API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
+> **3.6.1 要点**：板块顺序一～六；重点客户独立 sec + 分级说明/序号/分页；日查「昨天」；柱图观感。  
+> **3.6.0**：CSRF/:8001 Host 端口。**3.5.0**：金额折线诚实；KC 拆分；reload PID+runtime。**3.4.x**：结构条/三池。**3.3.x** 分摊 int 分。  
 > **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)

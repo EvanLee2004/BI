@@ -18,6 +18,15 @@ import {
   selectCustomerState,
   toggleCompareState,
 } from './keyCustomersSelection'
+import {
+  KC_POOL_PAGE_SIZE,
+  clampPage,
+  pageCount,
+  pageInfoDisp,
+  pageRangeDisp,
+  rowIndex1Based,
+  slicePage,
+} from './keyCustomersPager'
 import type {
   KeyCustomersItem,
   KeyCustomersMonthPoint,
@@ -55,6 +64,8 @@ export function useKeyCustomers() {
   const activePool = ref<PoolId>('focus')
   const filterMode = ref<FilterMode>('all')
   const searchQ = ref('')
+  /** 3.6.1：池列表前端分页（pageSize=20）；池/滤/搜变化重置 */
+  const listPage = ref(1)
   const chartMode = ref<ChartMode>('amount')
   const monthModal = ref(false)
   const monthTitle = ref('')
@@ -80,6 +91,7 @@ export function useKeyCustomers() {
     compareHint.value = ''
     filterMode.value = 'all'
     searchQ.value = ''
+    listPage.value = 1
     chartMode.value = (kc.value?.chart?.default_mode as ChartMode) || 'amount'
     activePool.value = (kc.value?.default_pool as PoolId) || 'focus'
   }
@@ -221,12 +233,14 @@ export function useKeyCustomers() {
   async function setPool(pid: PoolId) {
     activePool.value = pid
     filterMode.value = 'all'
+    listPage.value = 1
     compareHint.value = ''
     await ensureTierForPool(pid)
   }
 
   function setFilter(m: FilterMode) {
     filterMode.value = m
+    listPage.value = 1
   }
 
   function setChartMode(m: ChartMode) {
@@ -235,6 +249,7 @@ export function useKeyCustomers() {
 
   function setSearchQ(v: string) {
     searchQ.value = v
+    listPage.value = 1
   }
 
   const poolTiers = computed((): KeyCustomersTier[] => {
@@ -305,6 +320,41 @@ export function useKeyCustomers() {
     if (q) list = list.filter((it) => String(it.name || '').toLowerCase().includes(q))
     return sortItems(list, filterMode.value)
   })
+
+  const listTotal = computed(() => filteredPoolItems.value.length)
+  const listPages = computed(() => pageCount(listTotal.value, KC_POOL_PAGE_SIZE))
+  const safeListPage = computed(() =>
+    clampPage(listPage.value, listTotal.value, KC_POOL_PAGE_SIZE),
+  )
+  const pagedPoolItems = computed((): KeyCustomersItem[] =>
+    slicePage(filteredPoolItems.value, safeListPage.value, KC_POOL_PAGE_SIZE),
+  )
+  const listPageInfo = computed(() =>
+    pageInfoDisp(safeListPage.value, listTotal.value, KC_POOL_PAGE_SIZE),
+  )
+  const listPageRange = computed(() =>
+    pageRangeDisp(safeListPage.value, listTotal.value, KC_POOL_PAGE_SIZE),
+  )
+  const canPrevListPage = computed(() => safeListPage.value > 1)
+  const canNextListPage = computed(() => safeListPage.value < listPages.value)
+
+  watch(listTotal, () => {
+    const next = clampPage(listPage.value, listTotal.value, KC_POOL_PAGE_SIZE)
+    if (next !== listPage.value) listPage.value = next
+  })
+
+  function prevListPage() {
+    if (listPage.value > 1) listPage.value -= 1
+  }
+
+  function nextListPage() {
+    if (listPage.value < listPages.value) listPage.value += 1
+  }
+
+  /** 当前页 localIndex → 跨页连续 1-based 序号 */
+  function rowDisplayIndex(localIndex: number): number {
+    return rowIndex1Based(safeListPage.value, localIndex, KC_POOL_PAGE_SIZE)
+  }
 
   const cards = computed(() => kc.value?.summary_cards || {})
   const structureCount = computed(() => kc.value?.structure_bars?.count)
@@ -487,7 +537,7 @@ export function useKeyCustomers() {
   )
 
   const panelTitle = computed(() => {
-    const base = kc.value?.panel_title || '重点客户下单分析'
+    const base = kc.value?.panel_title || '重点客户下单情况追踪'
     const y = kc.value?.year_label || ''
     return y ? `${base} · ${y}` : base
   })
@@ -543,6 +593,18 @@ export function useKeyCustomers() {
     poolError,
     poolItemsRaw,
     filteredPoolItems,
+    pagedPoolItems,
+    listPage,
+    listPages,
+    listTotal,
+    listPageInfo,
+    listPageRange,
+    canPrevListPage,
+    canNextListPage,
+    KC_POOL_PAGE_SIZE,
+    prevListPage,
+    nextListPage,
+    rowDisplayIndex,
     trackSeriesItems,
     trackOption,
     trackTitle,

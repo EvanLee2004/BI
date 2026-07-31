@@ -10,7 +10,15 @@ defineProps<{
   poolLoading: boolean
   poolError: string
   poolItemsRawLen: number
+  /** 过滤后全量（空态判断） */
   filteredItems: KeyCustomersItem[]
+  /** 当前页切片 */
+  pagedItems: KeyCustomersItem[]
+  listPageInfo: string
+  listPageRange: string
+  canPrevPage: boolean
+  canNextPage: boolean
+  rowDisplayIndex: (localIndex: number) => number
   silentTip: string
   nearTip: string
   salesColTip: string
@@ -26,6 +34,8 @@ const emit = defineEmits<{
   'set-pool': [pid: PoolId]
   'set-filter': [m: FilterMode]
   'update:searchQ': [v: string]
+  'prev-page': []
+  'next-page': []
   'item-click': [it: KeyCustomersItem]
   'toggle-compare': [it: KeyCustomersItem]
 }>()
@@ -88,6 +98,36 @@ const emit = defineEmits<{
         aria-label="搜索客户名"
         @input="emit('update:searchQ', ($event.target as HTMLInputElement).value)"
       />
+      <!-- 3.6.1：搜索框右侧分页 -->
+      <div
+        v-if="filteredItems.length > 0"
+        class="kc-pager"
+        data-testid="kc-pager"
+        role="navigation"
+        :aria-label="listPageInfo"
+      >
+        <button
+          type="button"
+          class="kc-chip kc-chip--sm kc-pager__btn"
+          data-testid="kc-page-prev"
+          :disabled="!canPrevPage"
+          aria-label="上一页"
+          @click="emit('prev-page')"
+        >
+          上一页
+        </button>
+        <span class="kc-pager__info" data-testid="kc-page-info">{{ listPageRange }}</span>
+        <button
+          type="button"
+          class="kc-chip kc-chip--sm kc-pager__btn"
+          data-testid="kc-page-next"
+          :disabled="!canNextPage"
+          aria-label="下一页"
+          @click="emit('next-page')"
+        >
+          下一页
+        </button>
+      </div>
     </div>
     <div class="kc-pool__list" data-testid="kc-pool-list">
       <div v-if="poolLoading" class="kc-tier__loading">加载中…</div>
@@ -97,7 +137,7 @@ const emit = defineEmits<{
       </div>
       <template v-else>
         <div
-          v-for="it in filteredItems"
+          v-for="(it, idx) in pagedItems"
           :key="customerRowKey(it)"
           class="kc-row"
           :class="{
@@ -113,6 +153,11 @@ const emit = defineEmits<{
             @click="emit('item-click', it)"
           >
             <span class="kc-row__name" :title="it.name">
+              <span
+                class="kc-row__idx"
+                data-testid="kc-row-idx"
+                :aria-label="'第' + rowDisplayIndex(idx) + '名'"
+              >{{ rowDisplayIndex(idx) }}</span>
               <span class="kc-row__tier" :data-tier="it.tier">{{ it.tier }}</span>
               {{ it.name }}
               <span

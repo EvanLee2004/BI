@@ -288,7 +288,10 @@ class TestLedgerApiDateRange(unittest.TestCase):
         dq = (ROOT / "frontend" / "src" / "components" / "DailyQuery.vue").read_text(encoding="utf-8")
         self.assertIn("dailyThisMonth", dq)
         self.assertIn("setThisMonth", dq)
-        # 本月在返回默认左边：源码顺序
+        # 3.6.1：昨天在本月左侧；本月在返回默认左边
+        self.assertIn("daily-yesterday", dq)
+        self.assertIn("setYesterday", dq)
+        self.assertLess(dq.find("daily-yesterday"), dq.find("daily-this-month"))
         self.assertLess(dq.find("dailyThisMonth"), dq.find("dailyClose"))
 
 

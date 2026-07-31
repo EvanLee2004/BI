@@ -43,6 +43,14 @@ const {
   poolError,
   poolItemsRaw,
   filteredPoolItems,
+  pagedPoolItems,
+  listPageInfo,
+  listPageRange,
+  canPrevListPage,
+  canNextListPage,
+  prevListPage,
+  nextListPage,
+  rowDisplayIndex,
   trackSeriesItems,
   trackOption,
   trackTitle,
@@ -116,6 +124,12 @@ const {
             :pool-error="poolError"
             :pool-items-raw-len="poolItemsRaw.length"
             :filtered-items="filteredPoolItems"
+            :paged-items="pagedPoolItems"
+            :list-page-info="listPageInfo"
+            :list-page-range="listPageRange"
+            :can-prev-page="canPrevListPage"
+            :can-next-page="canNextListPage"
+            :row-display-index="rowDisplayIndex"
             :silent-tip="silentTip"
             :near-tip="nearTip"
             :sales-col-tip="salesColTip"
@@ -128,6 +142,8 @@ const {
             @set-pool="setPool"
             @set-filter="setFilter"
             @update:search-q="setSearchQ"
+            @prev-page="prevListPage"
+            @next-page="nextListPage"
             @item-click="onItemClick"
             @toggle-compare="toggleCompare"
           />

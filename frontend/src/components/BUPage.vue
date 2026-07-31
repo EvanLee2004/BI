@@ -77,9 +77,16 @@ onMounted(async () => {
     </header>
     <BuNav :current="store.buName" :label="store.buNavLabel" :names="store.buNames" />
     <div class="wrap">
+    <!-- 3.6.1：与整体页同序 · 三=重点客户下单情况追踪 -->
     <section class="sec"><span class="sec-n">一</span><span class="sec-t">基本情况</span></section>
     <KpiCards />
-    <section class="sec"><span class="sec-n">二</span><span class="sec-t">经营利润</span></section>
+    <section class="sec"><span class="sec-n">二</span><span class="sec-t">下单与回款</span></section>
+    <DailyQuery />
+    <ReceiptsCard />
+    <RankingsDual />
+    <section class="sec"><span class="sec-n">三</span><span class="sec-t">重点客户下单情况追踪</span></section>
+    <KeyCustomersPanel />
+    <section class="sec"><span class="sec-n">四</span><span class="sec-t">经营利润</span></section>
     <div class="grid-2">
       <div class="grid-2-main">
         <TrendChart />
@@ -87,14 +94,9 @@ onMounted(async () => {
       </div>
       <PLTable />
     </div>
-    <section class="sec"><span class="sec-n">三</span><span class="sec-t">收入与毛利结构</span></section>
+    <section class="sec"><span class="sec-n">五</span><span class="sec-t">收入与毛利结构</span></section>
     <ProfitStructure />
-    <section class="sec"><span class="sec-n">四</span><span class="sec-t">下单与回款</span></section>
-    <DailyQuery />
-    <ReceiptsCard />
-    <RankingsDual />
-    <KeyCustomersPanel />
-    <section class="sec"><span class="sec-n">五</span><span class="sec-t">费用明细</span></section>
+    <section class="sec"><span class="sec-n">六</span><span class="sec-t">费用明细</span></section>
     <ExpenseHeatmap />
     <LedgerTable />
     </div>

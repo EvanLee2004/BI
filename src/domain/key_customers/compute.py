@@ -75,8 +75,17 @@ DEFAULT_POOL = "focus"
 EMPTY_LABEL = "（未填）"
 
 # 展示用帮助文案常量（VM packer 下发；禁止前端硬编码业务口径）
-PANEL_TITLE = "重点客户下单分析"
+# 3.6.1：sec 标题「重点客户下单情况追踪」；panel 同文，禁止与 sec 矛盾
+PANEL_TITLE = "重点客户下单情况追踪"
 HELP_LINE_METRIC = "自然年 · 下单预估本币 · 每年清零 · 不随月/季重算等级"
+# 分级行：阈值只改 TIER_RANGE_DISP 即变（SSOT）；Vue 只渲染 VM 串
+HELP_LINE_TIERS = (
+    "分级（自然年下单预估本币）："
+    + " · ".join(
+        f"{tid}{TIER_RANGE_DISP[tid].removesuffix('万')}" for tid in TIER_ORDER
+    )
+    + "万"
+)
 HELP_LINE_SILENT = (
     "静默：近 2 个已过去完整自然月下单预估为 0（当前月不计入）；"
     "故当月有单仍可能静默"
@@ -89,6 +98,7 @@ HELP_LINE_NEAR = (
 HELP_LINE_SALES = HELP_LINE_CLICK
 HELP_LINES: tuple[str, ...] = (
     HELP_LINE_METRIC,
+    HELP_LINE_TIERS,
     HELP_LINE_SILENT,
     HELP_LINE_NEAR,
     HELP_LINE_CLICK,
@@ -455,6 +465,7 @@ __all__ = [
     "PANEL_TITLE",
     "HELP_LINES",
     "HELP_LINE_METRIC",
+    "HELP_LINE_TIERS",
     "HELP_LINE_SILENT",
     "HELP_LINE_SALES",
     "HELP_LINE_CLICK",
