@@ -155,7 +155,7 @@ const editTables = [
 const reviewTabs = [
   { t: 'overview', label: '总览', path: '/admin/review/overview' },
   { t: 'ledger', label: '数据修正', path: '/admin/review/ledger' },
-  { t: 'orderdept', label: '下单未填部门', path: '/admin/review/orderdept', badge: 'order_unfilled_dept' },
+  /* 3.7.2：下单未填部门已下线；保留费用未分类 */
   { t: 'unclassified', label: '费用未分类（台账）', path: '/admin/review/unclassified', badge: 'expense_unclassified' },
   { t: 'history', label: '历史快照', path: '/admin/review/history' },
   { t: 'audit', label: '配置变更记录', path: '/admin/review/audit' },

@@ -16,7 +16,7 @@ import sqlite3
 
 import schema
 
-from .constants import UNCLASSIFIED_WHERE, UNFILLED_DEPT_WHERE
+from .constants import UNCLASSIFIED_WHERE
 from .adjust import _now
 from .misc import latest_run
 
@@ -24,7 +24,11 @@ from .misc import latest_run
 # pure-move funcs from _impl.py
 
 def list_order_depts(conn: sqlite3.Connection) -> list[str]:
-    """下单表里实际出现过的部门（非空去重，异常处理「下单未填部门」归类下拉用，不硬编码）。"""
+    """下单表里实际出现过的部门（非空去重）。
+
+    3.7.2：管理端「下单未填部门」产品线已下线，HTTP 不再暴露；
+    本函数保留供内部/历史脚本，勿恢复为对外产品入口。
+    """
     return sorted(
         r[0]
         for r in conn.execute(
@@ -107,14 +111,14 @@ def list_config_changes(conn: sqlite3.Connection, category: str | None = None, l
 
 def exceptions_summary(conn: sqlite3.Connection) -> dict:
     """异常处理中心「总览」计数（新增一类异常=这里加一个键+前端注册一张卡）。
-    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/v1/health）。"""
-    n_dept = conn.execute(f"SELECT COUNT(*) FROM std_下单 WHERE 已删除=0 AND {UNFILLED_DEPT_WHERE}").fetchone()[0]
+    体检黄红/警不在此（运行信号留在顶栏体检条，总览只引用 /api/v1/health）。
+    3.7.2：下单未填部门产品线下线，不再返回 order_unfilled_dept。
+    """
     n_uc = conn.execute(f"SELECT COUNT(*) FROM std_费用明细 WHERE 已删除=0 AND {UNCLASSIFIED_WHERE}").fetchone()[0]
     n_exp = conn.execute("SELECT COUNT(*) FROM adj_调整记录 WHERE 状态='过期疑似'").fetchone()[0]
     run = latest_run(conn) or {}
     n_missing = int(((run.get("体检") or {}).get("adjust") or {}).get("missing", 0) or 0)
     return {
-        "order_unfilled_dept": n_dept,
         "expense_unclassified": n_uc,
         "adjust_expired": n_exp,
         "adjust_missing": n_missing,

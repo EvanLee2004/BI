@@ -161,32 +161,20 @@ def main() -> int:
         page.screenshot(path=str(EVID / "visual" / "admin_settings.png"), full_page=True)
         report["visual"]["admin_settings"] = str(EVID / "visual" / "admin_settings.png")
 
-        # orderdept
-        for path in (
-            f"{BASE}/admin#/exceptions/orderdept",
-            f"{BASE}/admin#/orderdept",
-            f"{BASE}/admin",
-        ):
-            page.goto(path, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(600)
-            if "下单" in page.inner_text("body") or page.locator("table").count():
-                break
-        # try click nav
-        for t in ("下单未填部门", "异常处理", "异常"):
+        # 3.7.2：异常总览（orderdept 已下线）
+        page.goto(f"{BASE}/admin/review/overview", wait_until="networkidle", timeout=60000)
+        page.wait_for_timeout(600)
+        for t in ("异常处理", "总览", "异常"):
             if page.locator(f"text={t}").count():
                 try:
                     page.locator(f"text={t}").first.click(timeout=2000)
-                    page.wait_for_timeout(1000)
-                    if t == "异常处理" or t == "异常":
-                        if page.locator("text=下单未填部门").count():
-                            page.locator("text=下单未填部门").first.click(timeout=2000)
-                            page.wait_for_timeout(1000)
+                    page.wait_for_timeout(800)
                 except Exception:
                     pass
-        page.screenshot(path=str(EVID / "visual" / "admin_orderdept.png"), full_page=True)
-        page.screenshot(path=str(EVID / "interactive" / "orderdept.png"), full_page=True)
-        report["visual"]["admin_orderdept"] = str(EVID / "visual" / "admin_orderdept.png")
-        report["interactive"]["orderdept"] = "ok"
+        page.screenshot(path=str(EVID / "visual" / "admin_review_overview.png"), full_page=True)
+        page.screenshot(path=str(EVID / "interactive" / "review_overview.png"), full_page=True)
+        report["visual"]["admin_review_overview"] = str(EVID / "visual" / "admin_review_overview.png")
+        report["interactive"]["review_overview"] = "ok"
         report["interactive"]["admin_header_pill"] = pill or (
             "发布候选" if badge_ok else "MISSING"
         )

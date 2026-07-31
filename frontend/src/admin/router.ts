@@ -29,7 +29,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'edit/budget', name: 'admin-budget', component: () => import('./views/BudgetView.vue'), meta: { group: 'edit', title: '业绩目标' } },
       { path: 'review/overview', name: 'admin-overview', component: () => import('./views/ExceptionOverview.vue'), meta: { group: 'review', title: '异常总览' } },
       { path: 'review/ledger', name: 'admin-ledger', component: () => import('./views/LedgerView.vue'), meta: { group: 'review', title: '数据修正' } },
-      { path: 'review/orderdept', name: 'admin-orderdept', component: () => import('./views/OrderDeptView.vue'), meta: { group: 'review', title: '下单未填部门' } },
+      /* 3.7.2：下单未填部门整线下线；深链不白屏 → 异常总览 */
+      { path: 'review/orderdept', name: 'admin-orderdept-retired', redirect: { name: 'admin-overview' } },
       { path: 'review/unclassified', name: 'admin-unclassified', component: () => import('./views/UnclassifiedView.vue'), meta: { group: 'review', title: '费用未分类' } },
       { path: 'review/history', name: 'admin-history', component: () => import('./views/HistoryView.vue'), meta: { group: 'review', title: '历史快照' } },
       { path: 'review/audit', name: 'admin-audit', component: () => import('./views/AuditView.vue'), meta: { group: 'review', title: '配置变更记录' } },

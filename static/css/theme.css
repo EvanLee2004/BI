@@ -41,7 +41,8 @@
   --overlay-panel:rgba(4,10,24,.98); --overlay-panel-solid:#060d1c;
   --overlay-mask:rgba(0,0,0,.55);
   --line:rgba(47,243,255,.22); --line-2:rgba(47,243,255,.42);
-  --ink:#eef4ff; --mut:#a8b8d8; --mut2:#7a8bb0; --note:#c5d2ec;
+  /* 3.7.2：霓虹次级字提高对比（不眯眼）；主数字 --ink 保持高亮不刺眼 */
+  --ink:#f2f6ff; --mut:#c8d4ee; --mut2:#a8b8d4; --note:#dce6f8;
   --blue:#2ff3ff; --cost:#6b7fa0; --pos:#3dffb0; --neg:#ff5c85; --orange:#ffd23f;
   --purple:#d16bff; --teal:#2ee6c8; --track:rgba(47,243,255,.16);
   --kind-system:#2ff3ff; --kind-ledger:#d16bff; --kind-manual:#ffd23f;

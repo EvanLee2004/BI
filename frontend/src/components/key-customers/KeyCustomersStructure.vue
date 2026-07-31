@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'tier-click': [tierId: string]
+  'clear-structure': []
 }>()
 
 const countSegs = computed(() => props.structureCount?.segments || [])
@@ -81,26 +82,38 @@ const legendSegs = computed(() => countSegs.value.length ? countSegs.value : amo
         <EchartsHost class="kc-pie-chart" :option="amountOption" @click="onPieClick" />
       </div>
     </div>
-    <ul v-if="hasData" class="kc-bar-legend" aria-label="档位图例">
-      <li
-        v-for="(seg, i) in legendSegs"
-        :key="'lg' + seg.id"
-        class="kc-legend-item"
-        :class="{ 'is-active': activeTier && String(seg.id).toUpperCase() === String(activeTier).toUpperCase() }"
-        :data-tier="seg.id"
-        role="button"
-        tabindex="0"
-        @click="emit('tier-click', String(seg.id || ''))"
-        @keydown.enter.prevent="emit('tier-click', String(seg.id || ''))"
-      >
-        <span
-          class="kc-pie-dot"
-          :data-i="i"
+    <div v-if="hasData" class="kc-structure-legend-row">
+      <ul class="kc-bar-legend" aria-label="档位图例">
+        <li
+          v-for="(seg, i) in legendSegs"
+          :key="'lg' + seg.id"
+          class="kc-legend-item"
+          :class="{ 'is-active': activeTier && String(seg.id).toUpperCase() === String(activeTier).toUpperCase() }"
           :data-tier="seg.id"
-          :style="{ background: tierColorAt(i) }"
-        />
-        <span>{{ seg.label }}</span>
-      </li>
-    </ul>
+          role="button"
+          tabindex="0"
+          @click="emit('tier-click', String(seg.id || ''))"
+          @keydown.enter.prevent="emit('tier-click', String(seg.id || ''))"
+        >
+          <span
+            class="kc-pie-dot"
+            :data-i="i"
+            :data-tier="seg.id"
+            :style="{ background: tierColorAt(i) }"
+          />
+          <span>{{ seg.label }}</span>
+        </li>
+      </ul>
+      <button
+        type="button"
+        class="kc-chip kc-chip--sm kc-clear-structure"
+        data-testid="kc-clear-structure"
+        :class="{ 'is-active': !activeTier }"
+        aria-label="清除结构筛选"
+        @click="emit('clear-structure')"
+      >
+        全部
+      </button>
+    </div>
   </section>
 </template>

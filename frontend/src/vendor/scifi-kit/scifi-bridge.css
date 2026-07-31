@@ -39,9 +39,10 @@
   --dsdk-accent-color-secondary: var(--blue, #2ff3ff);
   --dsdk-rgb-accent-secondary: 47, 243, 255;
 
-  --dsdk-text-color: var(--ink, #eef4ff);
-  --dsdk-text-color-darker: var(--mut, #a8b8d8);
-  --dsdk-text-color-dim: var(--mut2, #7a8bb0);
+  /* 3.7.2：霓虹次级字对比度提升 */
+  --dsdk-text-color: var(--ink, #f2f6ff);
+  --dsdk-text-color-darker: var(--mut, #c8d4ee);
+  --dsdk-text-color-dim: var(--mut2, #a8b8d4);
 
   --dsdk-warning-color: var(--orange, #ffd23f);
   --dsdk-danger-color: var(--neg, #ff5c85);

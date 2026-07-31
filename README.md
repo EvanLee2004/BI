@@ -94,7 +94,7 @@
 
 | 场景 | 截图 |
 |------|------|
-| 下单未填部门 · 归类 | ![下单未填部门](docs/images/ui/09_admin_order_dept.png) |
+| 异常总览 · 费用未分类等 | ![异常总览](docs/images/ui/09_admin_order_dept.png)（3.7.2 起「下单未填部门」已下线；截图文件名历史保留） |
 | 人工填写 · 人力/分摊/去税 | ![人工填写](docs/images/ui/10_admin_manual.png) |
 | 数据调整 · 明细改数 | ![数据调整](docs/images/ui/11_admin_detail.png) |
 

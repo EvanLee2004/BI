@@ -58,7 +58,7 @@
 | POST | `/api/v1/admin/settings` | 管理员：写本地配置覆盖层（**不接受**飞书 webhook） |
 | GET | `/api/v1/admin/archive_export?year=YYYY` | 管理员：审计流水年度 xlsx 归档（历史表不删） |
 | GET | `/api/v1/admin/exceptions` | 异常总览计数 |
-| GET | `/api/v1/admin/order_depts` | 下单部门清单 |
+| GET | `/api/v1/admin/order_depts` | **3.7.2 已下线**（404；原下单未填部门归类下拉） |
 | POST | `/api/v1/admin/refresh` | 立即更新（异步） |
 | GET | `/api/v1/admin/refresh_status` | 更新进度 |
 | GET | `/api/v1/history` | 历史 VM 存档列表（`vm_YYYYMMDD.json`） |

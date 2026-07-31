@@ -24,7 +24,7 @@ OLD_TO_V1 = [
     ("/api/daily", "/api/v1/daily"),
     ("/api/bu_daily", "/api/v1/bu_daily"),
     ("/api/exceptions", "/api/v1/admin/exceptions"),
-    ("/api/order_depts", "/api/v1/admin/order_depts"),
+    # 3.7.2：order_depts 产品线下线，v1 亦 404（见 test_order_depts_both_offline）
     ("/api/history", "/api/v1/history"),
     ("/api/version", "/api/v1/version"),
     ("/api/bu_config", "/api/v1/admin/bu_config"),
@@ -124,6 +124,13 @@ class TestOldGet404V1Present(unittest.TestCase):
         self.assertEqual(c.get("/api/v1/health").status_code, 200)
         # refresh_status may 200 even without login
         self.assertIn(c.get("/api/v1/admin/refresh_status").status_code, (200, 401, 403))
+
+    def test_order_depts_both_offline(self):
+        """3.7.2：旧路径与 v1 order_depts 均 404。"""
+        c = self._client()
+        c.post("/api/v1/login", json={"account": "lushasha", "password": self.server.DEFAULT_PW})
+        self.assertEqual(c.get("/api/order_depts").status_code, 404)
+        self.assertEqual(c.get("/api/v1/admin/order_depts").status_code, 404)
 
 
 class TestFrontendSrcNoOldReads(unittest.TestCase):

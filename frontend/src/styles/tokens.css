@@ -133,9 +133,11 @@
   --rank-others-border: rgba(47, 243, 255, 0.22);
   --rank-others-border-hover: rgba(47, 243, 255, 0.5);
   --rank-open: var(--blue, #2ff3ff);
-  --rank-name: var(--ink, #eef4ff);
-  --rank-no: var(--mut, #a8b8d8);
-  --rank-meta: var(--mut2, #7a8bb0);
+  --rank-name: var(--ink, #f2f6ff);
+  /* 3.7.2：与 theme.css neon 次级字对齐，提高对比 */
+  --rank-no: var(--mut, #c8d4ee);
+  --rank-meta: var(--mut2, #a8b8d4);
+  --mut-label: #c8d4ee;
   --orange: #ffd23f;
 }
 

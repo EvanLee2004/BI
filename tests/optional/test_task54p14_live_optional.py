@@ -565,7 +565,8 @@ class Test54p14LiveOptional(unittest.TestCase):
                 ("/admin/edit/detail?table=收入明细", "admin_detail"),
                 ("/admin/edit/manual", "admin_manual"),
                 ("/admin/edit/budget", "admin_budget"),
-                ("/admin/review/orderdept", "admin_orderdept"),
+                ("/admin/review/overview", "admin_review_overview"),
+                ("/admin/review/unclassified", "admin_unclassified"),
                 ("/admin/settings", "admin_settings"),
             ]
             admin_theme = []

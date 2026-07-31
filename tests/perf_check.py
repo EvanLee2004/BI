@@ -134,24 +134,22 @@ def main() -> int:
             }
         )
 
-        # orderdept 打开（Vue SPA：等 hash/history 路由 + 工具条）
+        # 3.7.2：异常总览打开（下单未填部门已下线）
         t0 = time.perf_counter()
-        page.goto(f"{BASE}/admin/review/orderdept", wait_until="networkidle", timeout=90000)
+        page.goto(f"{BASE}/admin/review/overview", wait_until="networkidle", timeout=90000)
         page.wait_for_load_state("networkidle")
-        # 兼容：.toolbar（OrderDeptView）或 el-table / admin 布局
-        page.wait_for_selector(".toolbar, .el-table, .admin-layout, #app", timeout=30000)
-        # 若仍在登录页则再填一次
-        if page.locator("input[type=password]").count() and page.locator(".toolbar").count() == 0:
+        page.wait_for_selector(".toolbar, .el-table, .ov-grid, .admin-layout, #app", timeout=30000)
+        if page.locator("input[type=password]").count() and page.locator(".ov-grid, .toolbar").count() == 0:
             fill_login(page, aacc, apw, enter=True)
             page.wait_for_load_state("networkidle")
-            page.goto(f"{BASE}/admin/review/orderdept", wait_until="networkidle", timeout=90000)
-            page.wait_for_selector(".toolbar, .el-table", timeout=30000)
+            page.goto(f"{BASE}/admin/review/overview", wait_until="networkidle", timeout=90000)
+            page.wait_for_selector(".toolbar, .el-table, .ov-grid", timeout=30000)
         ms = (time.perf_counter() - t0) * 1000
         ok = ms < 2000
         hard_fail = hard_fail or not ok
         rows.append(
             {
-                "指标": "下单未填部门打开",
+                "指标": "异常总览打开",
                 "阈值": "<2000ms",
                 "实测": f"{ms:.0f}ms",
                 "结论": "达标" if ok else "超标",

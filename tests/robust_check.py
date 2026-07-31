@@ -6,7 +6,7 @@
   KANBAN_BASE=http://127.0.0.1:8018 .venv/bin/python tests/robust_check.py
 
 检查：
-  - 深链 F5：管理端 orderdept 刷新仍可达
+  - 深链 F5：管理端异常总览刷新仍可达（3.7.2 orderdept 已下线）
   - 坏输入：手填页数字框填文字后页面不崩（无 pageerror）
   - 双击：刷新按钮连点两次不抛 pageerror
 
@@ -75,19 +75,32 @@ def main() -> int:
         acc, pw = pick_admin()
         fill_admin(page, acc, pw)
 
-        # 深链 + F5
-        page.goto(f"{BASE}/admin/review/orderdept", wait_until="domcontentloaded", timeout=90000)
+        # 深链 + F5（3.7.2：异常总览；orderdept 深链应 redirect 到总览不白屏）
+        page.goto(f"{BASE}/admin/review/overview", wait_until="domcontentloaded", timeout=90000)
         try:
-            page.wait_for_selector(".toolbar, .el-table", timeout=15000)
+            page.wait_for_selector(".toolbar, .el-table, .ov-grid", timeout=15000)
             page.reload(wait_until="domcontentloaded")
-            page.wait_for_selector(".toolbar, .el-table", timeout=15000)
+            page.wait_for_selector(".toolbar, .el-table, .ov-grid", timeout=15000)
             ok = True
-            note = "orderdept 深链+F5 后表格/工具条仍在"
+            note = "异常总览 深链+F5 后表格/卡片仍在"
         except Exception as e:
             ok = False
             note = str(e)[:120]
             hard_fail = True
-        rows.append({"指标": "深链F5 orderdept", "阈值": "不白屏", "实测": note, "结论": "达标" if ok else "失败"})
+        rows.append({"指标": "深链F5 overview", "阈值": "不白屏", "实测": note, "结论": "达标" if ok else "失败"})
+
+        # 已下线深链：redirect 后不白屏
+        page.goto(f"{BASE}/admin/review/orderdept", wait_until="domcontentloaded", timeout=90000)
+        try:
+            page.wait_for_selector(".toolbar, .el-table, .ov-grid, #app", timeout=15000)
+            body = page.inner_text("body")[:200]
+            ok = "Exception" not in body and len(body.strip()) > 0
+            note = f"orderdept 深链→redirect 可达 len={len(body)}"
+        except Exception as e:
+            ok = False
+            note = str(e)[:120]
+            hard_fail = True
+        rows.append({"指标": "深链 orderdept 下线", "阈值": "不白屏", "实测": note, "结论": "达标" if ok else "失败"})
 
         # 坏输入：人工填写（点 .el-input__inner，避开 el-select 的不可 fill 框）
         page.goto(f"{BASE}/admin/edit/manual", wait_until="networkidle", timeout=90000)
@@ -127,7 +140,7 @@ def main() -> int:
         rows.append({"指标": "坏输入不崩", "阈值": "无 pageerror", "实测": note, "结论": "达标" if ok else "失败"})
 
         # 双击刷新
-        page.goto(f"{BASE}/admin/review/orderdept", wait_until="domcontentloaded")
+        page.goto(f"{BASE}/admin/review/overview", wait_until="domcontentloaded")
         page.wait_for_timeout(400)
         n_before = len(page_errors)
         btn = page.locator("button:has-text('刷新')")

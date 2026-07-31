@@ -27,7 +27,10 @@ import {
   rowIndex1Based,
   slicePage,
 } from './keyCustomersPager'
-import { structureTierClickIntent } from './keyCustomersTierPool'
+import {
+  applyStructureTierToggle,
+  clearStructureFilterState,
+} from './keyCustomersTierPool'
 import type {
   KeyCustomersItem,
   KeyCustomersMonthPoint,
@@ -134,7 +137,12 @@ export function useKeyCustomers() {
     )
     selectedKey.value = next.selectedKey
     compareKeys.value = next.compareKeys
-    selectedItem.value = it
+    if (!next.selectedKey) {
+      selectedItem.value = null
+      return
+    }
+    selectedItem.value =
+      findItemByKey(next.selectedKey) || (next.selectedKey === key ? it : null)
   }
 
   async function ensureTierForPool(pool: PoolId, gen?: number) {
@@ -239,16 +247,35 @@ export function useKeyCustomers() {
     filterMode.value = 'all'
     listPage.value = 1
     compareHint.value = ''
+    /** 3.7.2：切池 Tab 清除结构高亮 */
+    activeStructureTier.value = ''
     await ensureTierForPool(pid)
   }
 
   /**
-   * 3.6.2：点结构饼扇区 → 切对应经营池 + filter=all + ensure 该池 lazy 档。
-   * 映射纯函数：structureTierClickIntent / poolForTier。
+   * 3.7.2：点结构饼/图例 — 同档再点取消；异档切换。
+   * 纯函数 applyStructureTierToggle。
    */
   async function onStructureTierClick(tierId: string) {
-    const intent = structureTierClickIntent(tierId)
+    const def = (kc.value?.default_pool as PoolId) || 'focus'
+    const intent = applyStructureTierToggle(
+      tierId,
+      activeStructureTier.value,
+      def,
+    )
     if (!intent) return
+    activeStructureTier.value = intent.tier
+    filterMode.value = intent.filterMode
+    listPage.value = 1
+    compareHint.value = ''
+    activePool.value = intent.pool
+    await ensureTierForPool(intent.pool)
+  }
+
+  /** 3.7.2：「全部/清除筛选」— 与再点同档取消一致 */
+  async function clearStructureFilter() {
+    const def = (kc.value?.default_pool as PoolId) || 'focus'
+    const intent = clearStructureFilterState(def)
     activeStructureTier.value = intent.tier
     filterMode.value = intent.filterMode
     listPage.value = 1
@@ -638,6 +665,7 @@ export function useKeyCustomers() {
     setChartMode,
     setSearchQ,
     onStructureTierClick,
+    clearStructureFilter,
     onItemClick,
     onActionClick,
     isSelected,

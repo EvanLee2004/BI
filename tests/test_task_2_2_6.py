@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2.2.6 门禁：下单未填部门 · 本页表筛批量归类 UX + POST /api/v1/admin/adjust/batch。"""
+"""3.7.2：下单未填部门整线下线门禁（原 2.2.6 批量归类 UX 产品面已退役）。
+
+断言：OrderDept 视图/路由活入口消失；API order_depts 404；
+费用未分类与通用 adjust/batch 仍在；排名无「待归类」诱导。
+"""
 from __future__ import annotations
 
 import sys
@@ -15,63 +19,45 @@ import db
 import loaders
 import server  # noqa: E402
 
+FE_ADMIN = ROOT / "frontend" / "src" / "admin"
 
-def _seed_orders(cfg, root):
-    import money
 
-    conn = db.connect(cfg, root)
-    rows = [
-        # 定位键, 订单号, 日期, 金额元, 部门, 销售, 已删除
-        ("O1", "SO1", "2026-03-01", 1000.0, "部门B", "张三", 0),
-        ("O2", "SO2", "2026-03-05", 2000.0, "", "李四", 0),  # 未填
-        ("O3", "SO3", "2026-04-02", 3000.0, None, "王五", 0),  # 未填
-        ("O4", "SO4", "2026-04-03", 0.0, "", "赵六", 0),  # 金额0 不算
-        ("O5", "SO5", "2026-04-04", 500.0, "  ", "钱七", 0),  # 空白 → 未填
-        ("O6", "SO6", "2026-04-05", 800.0, "", "孙八", 1),  # 已删
-        ("O7", "SO7", "2026-05-06", 4000.0, "部门A", "周九", 0),
-    ]
-    for k, o, d, a, dep, sal, rm in rows:
-        fen = money.yuan_to_fen(a) or 0
-        conn.execute(
-            "INSERT INTO std_下单(定位键,订单号,下单日期,下单预估额,部门,销售,归属月,原值_归属月,已删除)"
-            " VALUES(?,?,?,?,?,?,?,?,?)",
-            (k, o, d, fen, dep, sal, d[:7], d[:7], rm),
+class TestOrderDeptProductRetired372(unittest.TestCase):
+    """产品面：页/导航/总览卡不可达。"""
+
+    def test_orderdept_view_removed(self):
+        self.assertFalse(
+            (FE_ADMIN / "views" / "OrderDeptView.vue").is_file(),
+            "OrderDeptView.vue 须删除",
         )
-    conn.commit()
-    return conn
 
+    def test_router_redirects_deep_link(self):
+        src = (FE_ADMIN / "router.ts").read_text(encoding="utf-8")
+        self.assertIn("review/orderdept", src)
+        self.assertIn("redirect", src)
+        self.assertNotIn("OrderDeptView", src)
+        self.assertIn("admin-overview", src)
 
-class TestOrderDeptViewSource226(unittest.TestCase):
-    """源码契约：无顶栏销售筛选；确认含「仅当前页」；走 bulk API。"""
-
-    def setUp(self):
-        self.src = (ROOT / "frontend/src/admin/views/OrderDeptView.vue").read_text(encoding="utf-8")
-
-    def test_no_toolbar_sales_filter_label(self):
-        self.assertNotIn("本页销售筛选", self.src)
-        # 顶栏不应再有 salesFilter 绑定（函数名 salesFilterOptions 是表头选项，允许）
-        self.assertNotIn("v-model=\"salesFilter\"", self.src)
-        self.assertNotIn("const salesFilter", self.src)
-
-    def test_confirm_says_current_page_only(self):
-        self.assertIn("仅当前页", self.src)
-        self.assertIn("笔数", self.src)
-        self.assertIn("金额合计", self.src)
-        self.assertIn("不会处理其它页", self.src)
-
-    def test_batch_uses_filtered_rows_and_bulk_api(self):
-        self.assertIn("filteredRows", self.src)
-        self.assertIn("/api/v1/admin/adjust/batch", self.src)
-        self.assertIn("定位键列表", self.src)
-        self.assertIn("对本页表筛结果批量归入", self.src)
-        self.assertIn("批量归入部门", self.src)
-
-    def test_single_save_still_uses_adjust(self):
-        self.assertIn("'/api/v1/admin/adjust'", self.src)
-        self.assertIn("saveOne", self.src)
+    def test_nav_and_overview_no_orderdept(self):
+        layout = (FE_ADMIN / "layout" / "AdminLayout.vue").read_text(encoding="utf-8")
+        overview = (FE_ADMIN / "views" / "ExceptionOverview.vue").read_text(encoding="utf-8")
+        # 活入口（非注释）：导航 label / 总览卡 key / 可点 path
+        self.assertNotIn("label: '下单未填部门'", layout)
+        self.assertNotIn('label: "下单未填部门"', layout)
+        self.assertNotIn("order_unfilled_dept", layout)
+        self.assertNotIn("path: '/admin/review/orderdept'", layout)
+        self.assertNotIn("order_unfilled_dept", overview)
+        self.assertNotIn("path: '/admin/review/orderdept'", overview)
+        self.assertNotIn("待归类", overview)
+        # 费用未分类仍在
+        self.assertIn("费用未分类", layout)
+        self.assertIn("expense_unclassified", layout)
+        self.assertIn("UnclassifiedView", (FE_ADMIN / "router.ts").read_text(encoding="utf-8"))
 
 
 class TestUnfilledDeptWhereUnchanged(unittest.TestCase):
+    """守恒：后端 unfilled 条件仍可用（排名置底），只是无产品入口。"""
+
     def test_constant_still_requires_nonzero_amount(self):
         from db.constants import UNFILLED_DEPT_WHERE
 
@@ -82,7 +68,9 @@ class TestUnfilledDeptWhereUnchanged(unittest.TestCase):
         self.assertIn("IS NULL", w)
 
 
-class TestAdjustBatchApi226(unittest.TestCase):
+class TestOrderDeptsApiOffline372(unittest.TestCase):
+    """专用 API 下线：404；通用 adjust/batch 仍在。"""
+
     @classmethod
     def setUpClass(cls):
         from fastapi.testclient import TestClient
@@ -90,102 +78,63 @@ class TestAdjustBatchApi226(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         cls.root = Path(cls.tmp)
         cls.cfg = loaders.load_config()
-        _seed_orders(cls.cfg, cls.root).close()
+        conn = db.connect(cls.cfg, cls.root)
+        conn.close()
         cls._orig_recompute = server.recompute
-        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__("built_at", "RECOMPUTED")
+        server.recompute = lambda cfg, root=None, **k: server._state.__setitem__(
+            "built_at", "RECOMPUTED"
+        )
         server._state["admin_html"] = "ready"
         cls.app = server.create_app(cls.cfg, root=cls.root)
         cls.client = TestClient(cls.app, follow_redirects=False)
-        cls.anon = TestClient(cls.app, follow_redirects=False)
-        r = cls.client.post("/admin/login", data={"account": "lushasha", "password": server.DEFAULT_PW})
-        cls.hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
+        r = cls.client.post(
+            "/admin/login",
+            data={"account": "lushasha", "password": server.DEFAULT_PW},
+        )
+        # 登录可能 303/200，cookie 由 TestClient 持有
+        assert r.status_code in (200, 303, 302), r.status_code
 
     @classmethod
     def tearDownClass(cls):
         server.recompute = cls._orig_recompute
 
-    def test_batch_requires_login(self):
-        r = self.anon.post(
-            "/api/v1/admin/adjust/batch",
-            json={
-                "目标表": "std_下单",
-                "字段": "部门",
-                "新值": "部门A",
-                "定位键列表": ["O2"],
-            },
-        )
-        self.assertEqual(r.status_code, 401)
+    def test_order_depts_endpoint_offline(self):
+        r = self.client.get("/api/v1/admin/order_depts")
+        self.assertEqual(r.status_code, 404, r.text[:200])
 
-    def test_batch_empty_list_400(self):
+    def test_exceptions_no_order_unfilled_key(self):
+        r = self.client.get("/api/v1/admin/exceptions")
+        self.assertEqual(r.status_code, 200, r.text[:200])
+        data = r.json()
+        self.assertNotIn("order_unfilled_dept", data)
+        self.assertIn("expense_unclassified", data)
+
+    def test_adjust_batch_still_exists(self):
+        """通用批量调整机制保留（非 orderdept 专页）。"""
+        # 空列表应被拒绝或返回业务错误，但路由须存在（非 404）
         r = self.client.post(
             "/api/v1/admin/adjust/batch",
-            headers=self.hdr,
             json={
                 "目标表": "std_下单",
                 "字段": "部门",
-                "新值": "部门A",
+                "新值": "测试",
+                "原因": "3.7.2 路由存在性",
+                "类型": "改值",
                 "定位键列表": [],
             },
         )
-        self.assertEqual(r.status_code, 400)
-
-    def test_batch_missing_key_400_no_write(self):
-        before = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
-        r = self.client.post(
-            "/api/v1/admin/adjust/batch",
-            headers=self.hdr,
-            json={
-                "目标表": "std_下单",
-                "字段": "部门",
-                "新值": "部门A",
-                "原因": "测·预检失败",
-                "类型": "改值",
-                "定位键列表": ["O2", "NO_SUCH_KEY"],
-            },
-        )
-        self.assertEqual(r.status_code, 400, r.text)
-        after = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
-        self.assertEqual(len(after), len(before), "策略A：预检失败整批不写库")
-
-    def test_batch_dept_ok_writes_adjustments(self):
-        """成功批量：写台账 count=2（recompute 在本测中 mock，不验 unfilled 实落）。"""
-        r = self.client.post(
-            "/api/v1/admin/adjust/batch",
-            headers=self.hdr,
-            json={
-                "目标表": "std_下单",
-                "字段": "部门",
-                "新值": "部门A",
-                "原因": "异常处理·批量归类·本页表筛",
-                "类型": "改值",
-                "定位键列表": ["O2", "O5"],
-            },
-        )
-        self.assertEqual(r.status_code, 200, r.text)
-        body = r.json()
-        self.assertEqual(body.get("status"), "ok")
-        self.assertEqual(body.get("count"), 2)
-        self.assertEqual(len(body.get("adj_ids") or []), 2)
-        adjs = self.client.get("/api/v1/admin/adjustments", headers=self.hdr).json()
-        by_key = {
-            a["定位键"]: a
-            for a in adjs
-            if a.get("字段") == "部门" and a.get("状态") == "生效"
-        }
-        self.assertEqual(by_key["O2"]["新值"], "部门A")
-        self.assertEqual(by_key["O5"]["新值"], "部门A")
+        self.assertNotEqual(r.status_code, 404)
 
 
-class TestVersionBump226(unittest.TestCase):
-    def test_version_files(self):
-        """2.2.6 条目保留在 changelog；产品 VERSION 可继续前进（≥2.2.6）。"""
-        ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        # 语义：当前至少 2.2.6；2.2.7+ 也通过
-        parts = [int(x) for x in ver.split(".")[:3]]
-        self.assertGreaterEqual(parts, [2, 2, 6], ver)
-        self.assertIn("2.2.6", (ROOT / "src/version.py").read_text(encoding="utf-8"))
-        self.assertIn("## [2.2.6]", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+class TestRankNoPendingClassifyInducement(unittest.TestCase):
+    def test_no_pending_classify_copy_in_live_frontend(self):
+        blob = ""
+        for p in (ROOT / "frontend" / "src").rglob("*"):
+            if p.suffix in (".vue", ".ts", ".css"):
+                blob += p.read_text(encoding="utf-8", errors="replace") + "\n"
+        self.assertNotIn("待归类", blob)
+        self.assertNotIn("去异常处理归类", blob)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

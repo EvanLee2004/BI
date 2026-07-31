@@ -67,6 +67,7 @@ const {
   setChartMode,
   setSearchQ,
   onStructureTierClick,
+  clearStructureFilter,
   onItemClick,
   onActionClick,
   isSelected,
@@ -157,6 +158,7 @@ function closeHelp() {
           :structure-amount="structureAmount"
           :active-tier="activeStructureTier"
           @tier-click="onStructureTierClick"
+          @clear-structure="clearStructureFilter"
         />
 
         <div class="kc-workbench" data-testid="kc-workbench">

@@ -37,10 +37,16 @@ ADMIN_SHOT_SPEC: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("/admin", "07_admin_console.png", "/admin", ("控制台", "更新数据", "体检")),
     ("/admin/settings", "08_admin_settings.png", "/admin/settings", ("设置", "BU", "账号")),
     (
-        "/admin/review/orderdept",
-        "09_admin_order_dept.png",
-        "/admin/review/orderdept",
-        ("下单", "部门", "未填"),
+        "/admin/review/overview",
+        "09_admin_review_overview.png",
+        "/admin/review/overview",
+        ("异常", "总览", "费用未分类"),
+    ),
+    (
+        "/admin/review/unclassified",
+        "09b_admin_unclassified.png",
+        "/admin/review/unclassified",
+        ("费用", "未分类", "台账"),
     ),
     (
         "/admin/edit/manual",

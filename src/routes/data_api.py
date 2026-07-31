@@ -493,15 +493,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         finally:
             conn.close()
 
-    @app.get("/api/v1/admin/order_depts")
-    def api_order_depts(request: Request):
-        """下单表已出现过的部门清单（「下单未填部门」归类下拉用）。"""
-        _require(request)
-        conn = db.connect(cfg, root)
-        try:
-            return db.list_order_depts(conn)
-        finally:
-            conn.close()
+    # 3.7.2：/api/v1/admin/order_depts 已下线（下单未填部门产品线退役）
+    # 故意不注册路由 → 404；勿半残可写。
 
 
     @app.post("/api/v1/client-error")

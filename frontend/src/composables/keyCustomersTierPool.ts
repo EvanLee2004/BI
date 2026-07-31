@@ -57,3 +57,56 @@ export function structureTierClickIntent(
     ensureTiers: [...new Set(ensureTiers)],
   }
 }
+
+/** 3.7.2：结构档点击结果（set 或 clear 再点同档） */
+export type StructureTierApply = {
+  kind: 'set' | 'clear'
+  /** clear 时为空串 */
+  tier: string
+  pool: KcPoolId
+  filterMode: 'all'
+  ensureTiers: string[]
+}
+
+/** 清除结构筛选：回 default_pool（通常 focus）+ filter=all，无高亮 */
+export function clearStructureFilterState(
+  defaultPool: KcPoolId = 'focus',
+): StructureTierApply {
+  const pool = defaultPool || 'focus'
+  return {
+    kind: 'clear',
+    tier: '',
+    pool,
+    filterMode: 'all',
+    ensureTiers: tiersForPool(pool),
+  }
+}
+
+/**
+ * 3.7.2：点饼/图例档 — 同档再点=取消；异档=切换。
+ * tier 空 → null；defaultPool 用于取消后回默认池。
+ */
+export function applyStructureTierToggle(
+  tierId: string | null | undefined,
+  activeStructureTier: string | null | undefined,
+  defaultPool: KcPoolId = 'focus',
+): StructureTierApply | null {
+  const raw = String(tierId || '').trim()
+  if (!raw) return null
+  const tier = raw.toUpperCase()
+  const active = String(activeStructureTier || '')
+    .trim()
+    .toUpperCase()
+  if (active && tier === active) {
+    return clearStructureFilterState(defaultPool)
+  }
+  const intent = structureTierClickIntent(tier)
+  if (!intent) return null
+  return {
+    kind: 'set',
+    tier: intent.tier,
+    pool: intent.pool,
+    filterMode: intent.filterMode,
+    ensureTiers: intent.ensureTiers,
+  }
+}

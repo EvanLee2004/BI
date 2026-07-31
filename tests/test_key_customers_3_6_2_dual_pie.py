@@ -116,6 +116,74 @@ class TestTierPoolMappingShipped(unittest.TestCase):
         self.assertEqual(out["e"]["pool"], "longtail")
         self.assertEqual(out["e"]["ensureTiers"], ["E"])
 
+    def test_structure_tier_toggle_clear_and_set(self):
+        """3.7.2：同档再点 clear；异档 set；clearStructureFilterState 回 default pool。"""
+        out = _run_tsx_import(
+            TIER_POOL_TS,
+            """({
+              setC: applyStructureTierToggle('C', '', 'focus'),
+              clearC: applyStructureTierToggle('C', 'C', 'focus'),
+              clearCcase: applyStructureTierToggle('c', 'C', 'nurture'),
+              switchA: applyStructureTierToggle('A', 'C', 'focus'),
+              empty: applyStructureTierToggle('', 'S', 'focus'),
+              clearBtn: clearStructureFilterState('focus'),
+              clearNurture: clearStructureFilterState('nurture'),
+            })""",
+            ["applyStructureTierToggle", "clearStructureFilterState"],
+        )
+        self.assertEqual(out["setC"]["kind"], "set")
+        self.assertEqual(out["setC"]["tier"], "C")
+        self.assertEqual(out["setC"]["pool"], "nurture")
+        self.assertEqual(out["clearC"]["kind"], "clear")
+        self.assertEqual(out["clearC"]["tier"], "")
+        self.assertEqual(out["clearC"]["pool"], "focus")
+        self.assertEqual(out["clearC"]["filterMode"], "all")
+        self.assertEqual(out["clearCcase"]["kind"], "clear")
+        self.assertEqual(out["clearCcase"]["pool"], "nurture")
+        self.assertEqual(out["switchA"]["kind"], "set")
+        self.assertEqual(out["switchA"]["tier"], "A")
+        self.assertEqual(out["switchA"]["pool"], "focus")
+        self.assertIsNone(out["empty"])
+        self.assertEqual(out["clearBtn"]["kind"], "clear")
+        self.assertEqual(out["clearBtn"]["tier"], "")
+        self.assertEqual(out["clearBtn"]["pool"], "focus")
+        self.assertIn("S", out["clearBtn"]["ensureTiers"])
+        self.assertEqual(out["clearNurture"]["pool"], "nurture")
+
+
+SEL_TS = FE / "composables" / "keyCustomersSelection.ts"
+
+
+class TestSelectCustomerReselectClear372(unittest.TestCase):
+    """3.7.2：无对比时再点同一客户 → 取消选中；有对比不拆 compareKeys。"""
+
+    def test_reselect_clears_when_no_compare(self):
+        out = _run_tsx_import(
+            SEL_TS,
+            """({
+              first: selectCustomerState({ selectedKey: '', compareKeys: [] }, 'k1'),
+              again: selectCustomerState({ selectedKey: 'k1', compareKeys: [] }, 'k1'),
+              other: selectCustomerState({ selectedKey: 'k1', compareKeys: [] }, 'k2'),
+              inCompare: selectCustomerState(
+                { selectedKey: 'k1', compareKeys: ['k1', 'k2'] },
+                'k1',
+              ),
+              outsideCompare: selectCustomerState(
+                { selectedKey: 'k1', compareKeys: ['k1'] },
+                'k9',
+              ),
+            })""",
+            ["selectCustomerState"],
+        )
+        self.assertEqual(out["first"]["selectedKey"], "k1")
+        self.assertEqual(out["again"]["selectedKey"], "")
+        self.assertEqual(out["again"]["compareKeys"], [])
+        self.assertEqual(out["other"]["selectedKey"], "k2")
+        self.assertEqual(out["inCompare"]["selectedKey"], "k1")
+        self.assertEqual(out["inCompare"]["compareKeys"], ["k1", "k2"])
+        self.assertEqual(out["outsideCompare"]["selectedKey"], "k9")
+        self.assertEqual(out["outsideCompare"]["compareKeys"], [])
+
 
 class TestStructurePieValueShipped(unittest.TestCase):
     def test_segment_pie_value_uses_count_or_wo(self):
@@ -166,9 +234,11 @@ class TestDualPieAndHelpDomContract(unittest.TestCase):
         self.assertIn('data-testid="kc-help-btn"', panel)
         self.assertIn('data-testid="kc-help-popover"', panel)
         self.assertIn("helpLines", panel)
-        # 联动：composable 调用 pure intent + ensure
+        # 联动：composable 调用 pure toggle/clear + ensure（3.7.2）
         self.assertIn("onStructureTierClick", use)
-        self.assertIn("structureTierClickIntent", use)
+        self.assertIn("applyStructureTierToggle", use)
+        self.assertIn("clearStructureFilter", use)
+        self.assertIn('data-testid="kc-clear-structure"', src)
         self.assertIn("kc-structure-pies", css)
         self.assertIn("kc-help-btn", css)
         # 禁止组件内 style 块

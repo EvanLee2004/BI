@@ -60,17 +60,18 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--line-soft);
-  background: var(--overlay-panel);
+  background: var(--overlay-panel-solid, var(--overlay-panel));
   box-shadow: var(--shadow-modal);
   text-align: left;
   white-space: normal;
 }
 
 .kc-help__line {
-  font-size: var(--kc-fs-help, var(--fs-caption));
-  color: var(--mut-label);
+  font-size: max(12px, var(--kc-fs-help, var(--fs-caption)));
+  color: var(--note, var(--mut-label));
+  font-weight: 500;
   margin: 0 0 var(--space-1);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .kc-help__line:last-child {
@@ -78,9 +79,24 @@
 }
 
 .kc-daily-hint {
-  font-size: var(--kc-fs-meta, var(--fs-meta));
-  color: var(--mut-label);
+  font-size: max(12px, var(--kc-fs-meta, var(--fs-meta)));
+  color: var(--note, var(--mut-label));
+  font-weight: 500;
   margin: var(--space-1) 0 0;
+}
+
+/* 3.7.2：霓虹主题 — 浮层近主色、实底，次级说明不眯眼（色值只走 token，禁硬编码 hex） */
+:root[data-theme='neon'] .kc-help-popover {
+  background: var(--overlay-panel-solid);
+  border-color: var(--line-2);
+  box-shadow: var(--shadow-modal), var(--shadow-cyan);
+}
+
+:root[data-theme='neon'] .kc-help__line,
+:root[data-theme='neon'] .kc-daily-hint {
+  color: var(--ink);
+  font-weight: 500;
+  font-size: max(12px, var(--kc-fs-help));
 }
 
 .kc-layout {
@@ -170,15 +186,29 @@
   text-align: center;
 }
 
+.kc-structure-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
+}
+
 .kc-bar-legend {
   list-style: none;
-  margin: var(--space-1) 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
   font-size: var(--fs-meta);
   color: var(--rank-name);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kc-clear-structure {
+  flex-shrink: 0;
 }
 
 .kc-bar-legend li,

@@ -11,9 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+# 3.7.2：OrderDeptView 已下线
 ADMIN_LIST_VIEWS = [
     "LedgerView.vue",
-    "OrderDeptView.vue",
     "UnclassifiedView.vue",
     "HistoryView.vue",
     "AuditView.vue",

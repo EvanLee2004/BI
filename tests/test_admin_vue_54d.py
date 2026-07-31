@@ -35,7 +35,7 @@ class TestAdminVueStructure(unittest.TestCase):
             "views/BudgetView.vue",
             "views/ExceptionOverview.vue",
             "views/LedgerView.vue",
-            "views/OrderDeptView.vue",
+            # 3.7.2：OrderDeptView 已下线
             "views/UnclassifiedView.vue",
             "views/HistoryView.vue",
             "views/AuditView.vue",

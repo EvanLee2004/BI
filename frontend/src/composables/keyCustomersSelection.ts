@@ -35,7 +35,10 @@ export type SelectState = {
 }
 
 /**
- * 点击客户行：非比较成员则清比较回单客；比较成员仅切换头部选中。
+ * 点击客户行：
+ * - 无对比时再点当前选中 → 取消选中（3.7.2）
+ * - 非比较成员则清比较回单客
+ * - 比较成员仅切换头部选中（再点同头且仍在对比集 → 保持，不拆对比）
  */
 export function selectCustomerState(
   state: SelectState,
@@ -43,6 +46,12 @@ export function selectCustomerState(
 ): SelectState {
   if (!key) {
     return { selectedKey: '', compareKeys: [...state.compareKeys] }
+  }
+  if (
+    key === state.selectedKey &&
+    !state.compareKeys.length
+  ) {
+    return { selectedKey: '', compareKeys: [] }
   }
   if (state.compareKeys.length && !state.compareKeys.includes(key)) {
     return { selectedKey: key, compareKeys: [] }

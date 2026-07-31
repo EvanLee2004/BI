@@ -6,8 +6,8 @@ import { useClientPager } from '../composables/useClientPager'
 
 const router = useRouter()
 
+/* 3.7.2：下单未填部门产品线下线；费用未分类（台账）保留 */
 const cards = [
-  { key: 'order_unfilled_dept', label: '下单未填部门', desc: '智云源头没填部门，排名灰显待归类', path: '/admin/review/orderdept' },
   { key: 'expense_unclassified', label: '费用未分类（台账）', desc: '收单台账没填对应报表大类，暂未计入费用', path: '/admin/review/unclassified' },
   { key: 'adjust_expired', label: '过期疑似调整', desc: '源头已改、我的调整未套用，需拍板听谁的', path: '/admin/review/ledger' },
   { key: 'adjust_missing', label: '调整失配', desc: '调整定位键在源头找不到了（行删了/键变了）', path: '/admin/review/ledger' },
@@ -100,7 +100,7 @@ onMounted(load)
       </el-table-column>
     </el-table>
     <div class="admin-note" style="margin-top: 14px">
-      闭环：在「下单未填部门」归类后，若销售在智云补了部门，会变「过期疑似」——去「数据修正」选听源头或坚持我的数。
+      闭环：若调整与智云源头不一致，会变「过期疑似」——去「数据修正」选听源头或坚持我的数。
     </div>
   </div>
 </template>
