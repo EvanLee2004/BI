@@ -15,30 +15,17 @@ from publish_bluegreen import (
 
 
 class TestCandidateHealth(unittest.TestCase):
-    def test_ok(self):
-        ok, reason = candidate_health_ok(
-            health_code=200,
-            runtime_version="3.7.3",
-            disk_version="3.7.3",
-            runtime_commit="abcdef123",
-            disk_commit="abcdef123456",
-            runtime_pid=42,
-        )
+    def test_ok_http_only(self):
+        ok, reason = candidate_health_ok(health_code=200)
         self.assertTrue(ok, reason)
+        self.assertEqual(reason, "ok_http_200")
 
     def test_bad_health(self):
-        ok, reason = candidate_health_ok(
-            health_code=503,
-            runtime_version="3.7.3",
-            disk_version="3.7.3",
-            runtime_commit="abc",
-            disk_commit="abc",
-            runtime_pid=1,
-        )
+        ok, reason = candidate_health_ok(health_code=503)
         self.assertFalse(ok)
         self.assertIn("health_not_200", reason)
 
-    def test_version_mismatch(self):
+    def test_strict_version_mismatch(self):
         ok, reason = candidate_health_ok(
             health_code=200,
             runtime_version="3.7.2",
@@ -46,6 +33,7 @@ class TestCandidateHealth(unittest.TestCase):
             runtime_commit="abc",
             disk_commit="abc",
             runtime_pid=1,
+            require_runtime_align=True,
         )
         self.assertFalse(ok)
         self.assertIn("version_mismatch", reason)

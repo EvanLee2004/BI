@@ -103,13 +103,14 @@ nginx_reload_safe() {
 }
 
 probe_health() {
-  # args: url → sets _H_CODE _H_BODY and prints via python runtime fields to stdout as lines
+  # url → 4 lines: code, version, commit, pid（body 走环境变量，避免 heredoc 吞 stdin）
   local url="$1"
-  _H_BODY="$(curl -sS -m 5 "$url" 2>/dev/null || true)"
-  _H_CODE="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo 000)"
-  printf '%s' "$_H_BODY" | ROOT="$ROOT" CODE="$_H_CODE" "$PY_BIN" - <<'PY'
-import json, os, sys
-body = sys.stdin.read()
+  local body code
+  body="$(curl -sS -m 5 "$url" 2>/dev/null || true)"
+  code="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo 000)"
+  BODY="$body" CODE="$code" "$PY_BIN" - <<'PY'
+import json, os
+body = os.environ.get("BODY") or ""
 code = os.environ.get("CODE") or "000"
 try:
     d = json.loads(body) if body else {}
@@ -125,31 +126,20 @@ PY
 
 candidate_ok_check() {
   local url="$1"
-  local out
+  local out code
   out="$(probe_health "$url")"
-  local code ver commit pid
   code="$(printf '%s\n' "$out" | sed -n '1p')"
-  ver="$(printf '%s\n' "$out" | sed -n '2p')"
-  commit="$(printf '%s\n' "$out" | sed -n '3p')"
-  pid="$(printf '%s\n' "$out" | sed -n '4p')"
-  ROOT="$ROOT" PY="$PY_BIN" CODE="$code" VER="$ver" CM="$commit" PID="$pid" \
-  DV="$DISK_VERSION" DC="$DISK_COMMIT" "$PY_BIN" - <<'PY'
+  # 候选默认只要求 HTTP 200（不写共享 marker，不强制 metrics 对齐）
+  ROOT="$ROOT" CODE="$code" "$PY_BIN" - <<'PY'
 import os, sys
 sys.path.insert(0, os.path.join(os.environ["ROOT"], "src"))
 from publish_bluegreen import candidate_health_ok
 ok, reason = candidate_health_ok(
     health_code=os.environ.get("CODE") or "000",
-    runtime_version=os.environ.get("VER"),
-    disk_version=os.environ.get("DV"),
-    runtime_commit=os.environ.get("CM"),
-    disk_commit=os.environ.get("DC"),
-    runtime_pid=os.environ.get("PID"),
+    require_runtime_align=False,
 )
 print("1" if ok else "0")
 print(reason)
-print(os.environ.get("VER") or "")
-print(os.environ.get("CM") or "")
-print(os.environ.get("PID") or "")
 PY
 }
 

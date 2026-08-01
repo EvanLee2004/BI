@@ -155,8 +155,7 @@ def serve(cfg=None, root=None):
         setup_logging(cfg, root)
     except Exception:
         pass
-    _write_boot_runtime_marker(root)
-    # 3.7.3：候选预热进程（KANBAN_CANDIDATE=1）不跑 boot 刷新/调度，避免与主进程争用 SQLite
+    # 3.7.3：候选预热进程（KANBAN_CANDIDATE=1）不写共享 runtime_marker、不跑 boot/调度
     is_candidate = str(os.environ.get("KANBAN_CANDIDATE") or "").strip() in (
         "1",
         "true",
@@ -166,8 +165,12 @@ def serve(cfg=None, root=None):
     )
     if is_candidate:
         boot_ok = False
-        print("[server] candidate warm-up mode: skip boot_first_refresh + schedule_loop")
+        print(
+            "[server] candidate warm-up mode: skip runtime_marker write + "
+            "boot_first_refresh + schedule_loop"
+        )
     else:
+        _write_boot_runtime_marker(root)
         from boot_lifecycle import boot_first_refresh
 
         boot_ok = boot_first_refresh(cfg, root, refresh)

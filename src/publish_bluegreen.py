@@ -22,19 +22,27 @@ from reload_verify import _commits_compatible
 def candidate_health_ok(
     *,
     health_code: int | str,
-    runtime_version: str | None,
-    disk_version: str | None,
-    runtime_commit: str | None,
-    disk_commit: str | None,
-    runtime_pid: str | int | None,
+    runtime_version: str | None = None,
+    disk_version: str | None = None,
+    runtime_commit: str | None = None,
+    disk_commit: str | None = None,
+    runtime_pid: str | int | None = None,
+    require_runtime_align: bool = False,
 ) -> tuple[bool, str]:
-    """旁路候选进程预热成功：health 200 + version/commit/pid 与磁盘对齐。"""
+    """旁路候选预热成功判据。
+
+    默认（require_runtime_align=False）：health 200 即通过。
+    候选不写共享 runtime_marker，避免盖住主进程标记；故默认不强制 metrics 对齐。
+    严格模式才校验 version/commit/pid（主进程切流后用 publish_preflight）。
+    """
     try:
         code = int(health_code)
     except (TypeError, ValueError):
         return False, "health_code_invalid"
     if code != 200:
         return False, f"health_not_200:{code}"
+    if not require_runtime_align:
+        return True, "ok_http_200"
     return _runtime_align(
         runtime_version=runtime_version,
         disk_version=disk_version,
