@@ -111,29 +111,28 @@ def load_login_cooldown(cfg: dict, root: Path | None = None) -> dict:
 
 
 def clear_login_cooldown(cfg: dict, root: Path | None = None) -> None:
-    """登录成功：清失败计数，保留 last_success_ts 供 48h 新鲜度。"""
-    import time
-
+    """登录成功：清失败计数/短退避；保留既有 last_success_ts（登录≠数据成功）。"""
     p = _login_cooldown_path(cfg, root)
     prev = load_login_cooldown(cfg, root)
-    last_ok = float(prev.get("last_success_ts") or 0) or time.time()
+    out: dict = {
+        "fails": 0,
+        "temp_fails": 0,
+        "cred_fails": 0,
+        "until_ts": 0,
+        "active": False,
+        "needs_credential_check": False,
+        "error_kind": "",
+        "last_error": "",
+    }
+    # 仅保留历史成功时间；无则不伪造（由 record_fetch_success 在四源成功时写入）
+    if prev.get("last_success_ts"):
+        out["last_success_ts"] = prev["last_success_ts"]
+    if prev.get("last_success_at"):
+        out["last_success_at"] = prev["last_success_at"]
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(
-            json.dumps(
-                {
-                    "fails": 0,
-                    "temp_fails": 0,
-                    "cred_fails": 0,
-                    "until_ts": 0,
-                    "active": False,
-                    "needs_credential_check": False,
-                    "last_success_ts": last_ok if last_ok else time.time(),
-                    "last_success_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
+            json.dumps(out, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
     except OSError:
@@ -142,6 +141,37 @@ def clear_login_cooldown(cfg: dict, root: Path | None = None) -> None:
                 p.unlink()
         except OSError:
             pass
+
+
+def record_fetch_success(
+    cfg: dict, root: Path | None = None, *, now_ts: float | None = None
+) -> dict:
+    """四源抓取成功且完整性通过：刷新最近成功时间，并清短退避/错态。
+
+    与 clear_login_cooldown 区分：后者仅登录成功；本函数才是 48h 新鲜度的权威写入点。
+    """
+    import time
+
+    now = float(now_ts if now_ts is not None else time.time())
+    p = _login_cooldown_path(cfg, root)
+    out = {
+        "fails": 0,
+        "temp_fails": 0,
+        "cred_fails": 0,
+        "until_ts": 0,
+        "active": False,
+        "needs_credential_check": False,
+        "error_kind": "",
+        "last_error": "",
+        "last_success_ts": now,
+        "last_success_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
+    }
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+    return out
 
 
 def register_login_failure(cfg: dict, root: Path | None, err: str) -> dict:
@@ -520,75 +550,179 @@ def _server_reachable(base_url: str, timeout: int = 5, *, worksheet_probe: dict 
         return False
 
 
+def _source_entries(results: dict) -> list[tuple[str, dict]]:
+    return [(k, v) for k, v in results.items() if not str(k).startswith("_") and isinstance(v, dict)]
+
+
+def _integrity_flags_from_results(results: dict) -> dict[str, bool]:
+    """从各源 status/detail 推断完整性问题（缺列 / min_rows / 阻断性 0 行）。"""
+    zero_rows = False
+    missing_columns = False
+    below_min_rows = False
+    for _s, r in _source_entries(results):
+        st = str(r.get("status") or "")
+        det = str(r.get("detail") or "")
+        if st == "empty_fetch":
+            zero_rows = True
+        if "缺必需列" in det:
+            missing_columns = True
+        if "门槛" in det or "行级权限" in det:
+            below_min_rows = True
+    return {
+        "zero_rows_blocking": zero_rows,
+        "missing_columns": missing_columns,
+        "below_min_rows": below_min_rows,
+    }
+
+
+def _all_sources_fetched_ok(results: dict) -> bool:
+    """四源均为 fetched 且无完整性降级文案。"""
+    flags = _integrity_flags_from_results(results)
+    if any(flags.values()):
+        return False
+    entries = _source_entries(results)
+    if len(entries) < len(SOURCES):
+        return False
+    return all(str(r.get("status") or "") == "fetched" for _s, r in entries)
+
+
+def assemble_fetch_freshness(
+    cfg: dict,
+    root: Path | None,
+    results: dict,
+    *,
+    fetch_ok: bool | None = None,
+    now_ts: float | None = None,
+) -> dict:
+    """统一组装 data_freshness（失败/成功路径共用，供 fetch_all 与测试）。"""
+    import time
+
+    from ingest.fetch_policy import classify_source_data_state
+
+    flags = _integrity_flags_from_results(results)
+    if fetch_ok is None:
+        fetch_ok = _all_sources_fetched_ok(results)
+    has_any_local = any(_dest_path(cfg, s, root).exists() for s in SOURCES)
+    last_ok = last_fetch_success_ts(cfg, root)
+    integrity_bad = (
+        flags["zero_rows_blocking"]
+        or flags["missing_columns"]
+        or flags["below_min_rows"]
+    )
+    return classify_source_data_state(
+        fetch_ok=bool(fetch_ok) and not integrity_bad,
+        last_success_ts=last_ok,
+        now_ts=float(now_ts if now_ts is not None else time.time()),
+        has_local_copy=has_any_local,
+        integrity_ok=not integrity_bad,
+        zero_rows_blocking=flags["zero_rows_blocking"],
+        missing_columns=flags["missing_columns"],
+        below_min_rows=flags["below_min_rows"],
+    )
+
+
+def _fallback_all_sources(cfg: dict, root: Path | None, detail: str) -> dict[str, dict]:
+    return {
+        s: {
+            "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+            "detail": detail,
+        }
+        for s in SOURCES
+    }
+
+
+def _attach_freshness(
+    cfg: dict, root: Path | None, out: dict, *, fetch_ok: bool
+) -> dict[str, dict]:
+    out["_meta_freshness"] = assemble_fetch_freshness(  # type: ignore[assignment]
+        cfg, root, out, fetch_ok=fetch_ok
+    )
+    return out
+
+
+def _cooldown_skip_all(cfg: dict, root: Path | None, cd: dict) -> dict[str, dict]:
+    """短退避窗口内：四源降级 + freshness（不真登）。"""
+    needs_cred = bool(cd.get("needs_credential_check") or cd.get("error_kind") == "credential")
+    if needs_cred:
+        det = "智云凭据疑似错误（短退避中，请人工检查账号密码；稍后定时槽会再试，非 24h 停抓）"
+    else:
+        det = "智云临时不可用（短退避中，网络/上游波动；稍后定时槽自动恢复）"
+    kind = cd.get("error_kind") or ("credential" if needs_cred else "temporary")
+    out = {
+        s: {
+            "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
+            "detail": det,
+            "login_cooldown": True,
+            "error_kind": kind,
+        }
+        for s in SOURCES
+    }
+    out["_meta_cooldown"] = cd  # type: ignore[assignment]
+    return _attach_freshness(cfg, root, out, fetch_ok=False)
+
+
+def _login_fail_all(cfg: dict, root: Path | None, err: BaseException) -> dict[str, dict]:
+    """首次自动登录失败：四源整体降级（不逐源重试）。"""
+    det = f"智云自动登录失败（{type(err).__name__}: {err}），用数据目录现有文件（体检黄）"
+    out = _fallback_all_sources(cfg, root, det)
+    cool = load_login_cooldown(cfg, root)
+    if cool:
+        out["_meta_cooldown"] = cool  # type: ignore[assignment]
+    return _attach_freshness(cfg, root, out, fetch_ok=False)
+
+
+def _finalize_source_results(
+    cfg: dict, root: Path | None, results: dict[str, dict]
+) -> dict[str, dict]:
+    """成功则写 last_success；无论成败均挂 _meta_freshness。"""
+    ok = _all_sources_fetched_ok(results)
+    if ok:
+        record_fetch_success(cfg, root)
+    return _attach_freshness(cfg, root, results, fetch_ok=ok)
+
+
+def _worksheet_probe(zy: dict) -> dict | None:
+    tbl0 = next(iter((zy.get("tables") or {}).values()), None) or {}
+    if tbl0.get("worksheetId"):
+        return {"worksheetId": tbl0["worksheetId"], "app_id": zy.get("app_id")}
+    return None
+
+
+def _make_shared_post_or_login_fail(
+    zy: dict, cfg: dict, root: Path | None
+) -> tuple[object | None, dict[str, dict] | None]:
+    """有账号密码时构造共享 post；空 token 先登录，失败返回 (None, fallback_dict)。"""
+    if not (zy.get("base_url") and zy.get("username") and zy.get("password")):
+        return None, None
+    if not zy.get("md_pss_id"):
+        try:
+            _auto_login(zy, cfg, root)
+        except Exception as e:  # noqa: BLE001
+            return None, _login_fail_all(cfg, root, e)
+    return _make_post(zy, cfg, root), None
+
+
 def fetch_all(cfg: dict, root: Path | None = None, today=None) -> dict[str, dict]:
     """抓全部四源，返回 {source: {status, detail}}。供 pipeline/体检使用。
 
     token 为空时先自动登录一次；四源共享同一个带自动重登的 post（不重复登录）。
     内网不可达/登录失败则各源自然降级为 local_fallback（体检黄），不中断管道。
+    每次成功且完整性通过写入 last_success_ts；所有失败路径统一产出 _meta_freshness。
     任务书64·E：写盘前若跨年会截断旧年 xlsx，先做年度归档（只一次）。
     """
     # 跨年归档由管道入口 ingest.build_std_db 在抓取前单独调用（不污染本 dict 的源键）
     zy = _load_zhiyun_cfg(cfg, root)
-    # 短退避窗口内：不真登，四源降级；文案区分临时 vs 凭据（非 24h 停抓）
     cd = login_cooldown_active(cfg, root) if zy else None
     if cd:
-        from ingest.fetch_policy import classify_source_data_state
-        import time as _time
-
-        needs_cred = bool(cd.get("needs_credential_check") or cd.get("error_kind") == "credential")
-        if needs_cred:
-            det = "智云凭据疑似错误（短退避中，请人工检查账号密码；稍后定时槽会再试，非 24h 停抓）"
-        else:
-            det = "智云临时不可用（短退避中，网络/上游波动；稍后定时槽自动恢复）"
-        has_any_local = any(_dest_path(cfg, s, root).exists() for s in SOURCES)
-        last_ok = last_fetch_success_ts(cfg, root)
-        freshness = classify_source_data_state(
-            fetch_ok=False,
-            last_success_ts=last_ok,
-            now_ts=_time.time(),
-            has_local_copy=has_any_local,
-        )
-        out = {
-            s: {
-                "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
-                "detail": det,
-                "login_cooldown": True,
-                "error_kind": cd.get("error_kind") or ("credential" if needs_cred else "temporary"),
-            }
-            for s in SOURCES
-        }
-        out["_meta_cooldown"] = cd  # type: ignore[assignment]
-        out["_meta_freshness"] = freshness  # type: ignore[assignment]
-        return out
-    probe = None
-    if zy:
-        tbl0 = next(iter((zy.get("tables") or {}).values()), None) or {}
-        if tbl0.get("worksheetId"):
-            probe = {"worksheetId": tbl0["worksheetId"], "app_id": zy.get("app_id")}
+        return _cooldown_skip_all(cfg, root, cd)
+    probe = _worksheet_probe(zy) if zy else None
     if zy and zy.get("base_url") and not _server_reachable(zy["base_url"], worksheet_probe=probe):
         det = "智云服务器不可达（不在公司内网？），用数据目录现有文件（体检黄）"
-        return {
-            s: {
-                "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
-                "detail": det,
-            }
-            for s in SOURCES
-        }
-    post = None
-    if zy and zy.get("base_url") and zy.get("username") and zy.get("password"):
-        if not zy.get("md_pss_id"):
-            try:
-                _auto_login(zy, cfg, root)  # 首次/空 token：先登录
-            except Exception as e:  # noqa: BLE001 登录失败→四源整体快速降级
-                # ⚠不能把 zy 置 None 后继续调 fetch_source——那样它会自己重读配置再建 post，
-                # 四个源各重试一次登录（慢+密码错时反复试有锁号风险）。直接全部降级。
-                det = f"智云自动登录失败（{type(e).__name__}: {e}），用数据目录现有文件（体检黄）"
-                return {
-                    s: {
-                        "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
-                        "detail": det,
-                    }
-                    for s in SOURCES
-                }
-        post = _make_post(zy, cfg, root)
-    return {s: fetch_source(cfg, s, root, post=post, zy=zy) for s in SOURCES}
+        return _attach_freshness(
+            cfg, root, _fallback_all_sources(cfg, root, det), fetch_ok=False
+        )
+    post, login_fail = _make_shared_post_or_login_fail(zy, cfg, root) if zy else (None, None)
+    if login_fail is not None:
+        return login_fail
+    results = {s: fetch_source(cfg, s, root, post=post, zy=zy) for s in SOURCES}
+    return _finalize_source_results(cfg, root, results)

@@ -7,6 +7,7 @@
 ### 抓数恢复
 - 取消「连败 3 次 → 24h 停抓」；`ingest/fetch_policy.py` 纯逻辑：临时 vs 凭据分流、短退避（默认 5min、上限 15min）
 - ≤48h 最近成功副本 → 非阻断轻提示「使用仍新鲜的最后成功数据」；过时/无副本/缺列/min_rows/完整性失败 → 红
+- **P1 收口**：`record_fetch_success` 在每次四源成功且完整性通过后写入 `last_success_ts`（不依赖重登）；服务器不可达 / 首次登录失败 / 单源·多源降级路径统一产出 `_meta_freshness`→`data_freshness`；恢复成功清错态
 
 ### 看端体验
 - 统一 `HelpPopover`（Teleport + 键盘 + 手机 DataModal）

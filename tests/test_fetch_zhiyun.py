@@ -515,7 +515,9 @@ class TestFetchSourceStates(unittest.TestCase):
                     encoding="utf-8",
                 )
                 res = fz.fetch_all(cfg, root=Path(td))
-                self.assertEqual(set(res), set(fz.SOURCES))
+                # 源键齐全；_meta_freshness 为 3.7.4 统一新鲜度元信息（非源）
+                self.assertTrue(set(fz.SOURCES).issubset(set(res)))
+                self.assertIn("_meta_freshness", res)
                 self.assertEqual(res["orders"]["status"], "local_fallback")  # 有本地文件
                 self.assertEqual(res["receipts"]["status"], "no_source")  # 无本地文件
                 self.assertIn("不可达", res["orders"]["detail"])
