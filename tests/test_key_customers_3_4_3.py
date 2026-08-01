@@ -331,8 +331,9 @@ class TestFrontendWarDeskStructure(unittest.TestCase):
             "临界晋级",
         ):
             self.assertIn(needle, src, f"missing in vue: {needle}")
-        # 摘要区不再展示「需跟进重点客」卡；池筛选仍可有需跟进
-        self.assertNotIn('data-testid="kc-card-silent"', src)
+        # 3.7.4：摘要可有条件「需跟进」行动入口（silentCount>0）；非常驻默认第四卡
+        if 'data-testid="kc-card-silent"' in src:
+            self.assertIn("silentCount", src)
         # 3.6.2：结构主区为双饼，不再用结构条主路径
         self.assertNotIn('data-testid="kc-structure-bars"', src)
         self.assertIn("kc-workbench", css)

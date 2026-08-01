@@ -225,14 +225,17 @@ class TestDualPieAndHelpDomContract(unittest.TestCase):
         # 不再默认渲染结构条主区
         self.assertNotIn('data-testid="kc-structure-bars"', src)
         self.assertNotIn('data-testid="kc-structure-bars"', panel)
-        # 说明?：无默认大段 kc-help 块；有 help-btn + popover
+        # 说明?：无默认大段 kc-help 块；统一 HelpPopover（3.7.4）
         self.assertNotRegex(
             panel,
             r'data-testid="kc-help"(?![-\w])',
             "禁止默认整块 kc-help 长文",
         )
-        self.assertIn('data-testid="kc-help-btn"', panel)
-        self.assertIn('data-testid="kc-help-popover"', panel)
+        self.assertIn("HelpPopover", panel)
+        self.assertIn('test-id="kc-help"', panel)
+        help = (FE / "components" / "base" / "HelpPopover.vue").read_text(encoding="utf-8")
+        self.assertIn("testId + '-btn'", help)
+        self.assertIn("testId + '-popover'", help)
         self.assertIn("helpLines", panel)
         # 联动：composable 调用 pure toggle/clear + ensure（3.7.2）
         self.assertIn("onStructureTierClick", use)
@@ -240,7 +243,7 @@ class TestDualPieAndHelpDomContract(unittest.TestCase):
         self.assertIn("clearStructureFilter", use)
         self.assertIn('data-testid="kc-clear-structure"', src)
         self.assertIn("kc-structure-pies", css)
-        self.assertIn("kc-help-btn", css)
+        self.assertIn("kc-help-btn", help)
         # 禁止组件内 style 块
         self.assertNotRegex(src, r"<style\b")
         self.assertNotRegex(panel, r"<style\b")

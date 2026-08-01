@@ -54,18 +54,32 @@ const dataIntegrity = computed(() => {
   const d = (store.vm as { data_integrity?: Record<string, unknown> } | null)?.data_integrity
   return d && (d.short_disp || d.headline || d.health_result) ? d : null
 })
-/** 中性「数据更新至」；不渲染英文 yellow / 橙色全宽条 */
-const freshnessLine = computed(() => {
+/** 中性「数据更新至/最近成功抓取」；不渲染英文 yellow / 橙色全宽条 */
+const dataUpdatedAt = computed(() => {
   const built = String(
     (store.vm as { meta?: { built_at?: string }; built_at?: string } | null)?.meta?.built_at
       || (store.vm as { built_at?: string } | null)?.built_at
       || store.snapshotBuiltAt
       || '',
   )
-  const day = built.slice(0, 10)
+  return built.slice(0, 10)
+})
+const freshnessLine = computed(() => {
+  const day = dataUpdatedAt.value
   if (day) return `数据更新至 ${day}`
   return ''
 })
+/** 顶栏日期：真实业务新鲜度，非本机日历日 */
+const topbarDataDate = computed(() => {
+  const day = dataUpdatedAt.value
+  if (day) return day
+  return todayStr.value
+})
+const topbarDataDateTitle = computed(() =>
+  dataUpdatedAt.value
+    ? `数据更新至 / 最近成功抓取 ${dataUpdatedAt.value}`
+    : '数据更新至（尚无业务时间戳时显示本机今日）',
+)
 const integrityHint = computed(() => {
   const d = dataIntegrity.value
   if (!d) return ''
@@ -223,7 +237,12 @@ onMounted(async () => {
         <PeriodPicker />
       </div>
       <div class="tb-right">
-        <span v-if="todayStr" class="tb-today" title="本机今日日期" data-testid="tb-today">{{ todayStr }}</span>
+        <span
+          v-if="topbarDataDate"
+          class="tb-today"
+          :title="topbarDataDateTitle"
+          data-testid="tb-today"
+        >数据更新至 {{ topbarDataDate }}</span>
         <span v-if="productVer" class="tb-ver" :title="productVer">{{ productVer }}</span>
         <ThemeToggle />
         <TopBarActions />

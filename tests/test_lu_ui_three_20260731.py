@@ -48,17 +48,20 @@ class TestSurtaxFormulaHidden(unittest.TestCase):
 
 
 class TestKcThreeSummaryCards(unittest.TestCase):
-    def test_summary_no_silent_card(self):
+    def test_summary_core_three_cards(self):
+        """3.7.1 起默认三卡；3.7.4 允许 silentCount>0 时条件渲染行动入口（非常驻第四卡）。"""
         vue = (FE / "components/key-customers/KeyCustomersSummary.vue").read_text(
             encoding="utf-8"
         )
         self.assertIn('data-testid="kc-card-total"', vue)
         self.assertIn('data-testid="kc-card-contrib"', vue)
         self.assertIn('data-testid="kc-card-near"', vue)
-        self.assertNotIn("kc-card-silent", vue)
-        tmpl = vue.split("<template>")[-1] if "<template>" in vue else vue
-        self.assertNotIn("需跟进重点客", tmpl)
-        self.assertNotIn("silent_focus", tmpl)
+        # 禁止 summary_cards 后端 silent_focus 常驻字段驱动
+        self.assertNotIn("silent_focus", vue)
+        # 3.7.4：需跟进仅 v-if silentCount>0 的行动入口，非常驻默认卡
+        if "kc-card-silent" in vue:
+            self.assertIn("silentCount", vue)
+            self.assertIn("v-if", vue)
 
     def test_css_three_columns(self):
         css = (FE / "styles/components/KeyCustomersPanel.css").read_text(encoding="utf-8")

@@ -16,16 +16,27 @@ sys.path.insert(0, str(ROOT / "src"))
 
 class TestLoginCooldown(unittest.TestCase):
     def test_register_and_active(self):
+        """3.7.4：达阈仅短退避，绝无 24h 停抓。"""
         from ingest import fetch_zhiyun as fz
 
         tmp = Path(tempfile.mkdtemp())
-        cfg = {"data_dir": ".", "zhiyun_login_max_failures": 3, "zhiyun_login_cooldown_hours": 24}
+        cfg = {
+            "data_dir": ".",
+            "zhiyun_login_max_failures": 3,
+            "zhiyun_login_short_backoff_seconds": 300,
+            # 旧键即使写 24h 也必须被压成短退避
+            "zhiyun_login_cooldown_hours": 24,
+        }
         for i in range(3):
-            st = fz.register_login_failure(cfg, tmp, f"err{i}")
-        self.assertTrue(st.get("until_ts", 0) > time.time())
+            st = fz.register_login_failure(cfg, tmp, f"Timeout: network {i}")
+        until = float(st.get("until_ts", 0) or 0)
+        self.assertTrue(until > time.time())
+        # 必须 < 1h（短退避），不得接近 24h
+        self.assertLess(until - time.time(), 3600)
         act = fz.login_cooldown_active(cfg, tmp)
         self.assertIsNotNone(act)
         self.assertTrue(act.get("active"))
+        self.assertEqual(act.get("backoff_kind") or "short", "short")
         fz.clear_login_cooldown(cfg, tmp)
         self.assertIsNone(fz.login_cooldown_active(cfg, tmp))
 

@@ -126,6 +126,12 @@ function setYesterday() {
         本月
       </button>
       <button type="button" class="ghost mini" id="dailyClose" @click="restoreYear">返回默认（年）</button>
+      <span
+        class="muted"
+        data-testid="daily-scope-hint"
+        style="font-size: 12px"
+        title="日期筛选只改下方下单/回款排行，不影响上方年度 KPI"
+      >仅影响下方排行</span>
       <span id="dailySum" class="muted" style="font-size: 12px">{{ sumText }}</span>
       <span v-if="err" style="color: var(--neg); font-size: 12px">{{ err }}</span>
     </div>

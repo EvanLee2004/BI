@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import '../styles/components/BUPage.css'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { fetchProductVersion } from '../api/client'
 /** Vite base=/app/：import 进 assets，nginx 只长缓存 /app/assets/ */
@@ -23,7 +23,7 @@ import TopBarActions from './TopBarActions.vue'
 
 const store = useCockpitStore()
 const productVer = ref('')
-/** 2.2.9：本机日历日，版本号左侧 */
+/** 2.2.9：本机日历日回落；3.7.4 顶栏优先业务「数据更新至」 */
 const todayStr = ref('')
 function localTodayYmd(): string {
   const d = new Date()
@@ -32,6 +32,21 @@ function localTodayYmd(): string {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+const dataUpdatedAt = computed(() => {
+  const built = String(
+    (store.vm as { meta?: { built_at?: string }; built_at?: string } | null)?.meta?.built_at
+      || (store.vm as { built_at?: string } | null)?.built_at
+      || store.snapshotBuiltAt
+      || '',
+  )
+  return built.slice(0, 10)
+})
+const topbarDataDate = computed(() => dataUpdatedAt.value || todayStr.value)
+const topbarDataDateTitle = computed(() =>
+  dataUpdatedAt.value
+    ? `数据更新至 / 最近成功抓取 ${dataUpdatedAt.value}`
+    : '数据更新至（尚无业务时间戳时显示本机今日）',
+)
 
 onMounted(async () => {
   todayStr.value = localTodayYmd()
@@ -69,7 +84,12 @@ onMounted(async () => {
         <PeriodPicker />
       </div>
       <div class="tb-right">
-        <span v-if="todayStr" class="tb-today" title="本机今日日期" data-testid="tb-today">{{ todayStr }}</span>
+        <span
+          v-if="topbarDataDate"
+          class="tb-today"
+          :title="topbarDataDateTitle"
+          data-testid="tb-today"
+        >数据更新至 {{ topbarDataDate }}</span>
         <span v-if="productVer" class="tb-ver" :title="productVer">{{ productVer }}</span>
         <ThemeToggle />
         <TopBarActions />

@@ -44,12 +44,15 @@ def _std_accts():
 
 class TestSourceGuards229(unittest.TestCase):
     def test_topbar_today_date(self):
+        """3.7.4：顶栏优先「数据更新至/最近成功抓取」；无业务时间戳时回落本机今日。"""
         app = (ROOT / "frontend/src/App.vue").read_text(encoding="utf-8")
         bu = (ROOT / "frontend/src/components/BUPage.vue").read_text(encoding="utf-8")
-        for src, label in ((app, "App"), (bu, "BUPage")):
-            self.assertIn("tb-today", src, label)
-            self.assertIn("localTodayYmd", src, label)
-            self.assertIn("本机今日日期", src, label)
+        self.assertIn("tb-today", app)
+        self.assertIn("localTodayYmd", app)
+        self.assertIn("数据更新至", app)
+        self.assertIn("topbarDataDate", app)
+        # BU 页仍保留顶栏日期控件（文案可随 3.7.4 同源）
+        self.assertIn("tb-today", bu)
 
     def test_snapshot_mode_in_store(self):
         store = (ROOT / "frontend/src/stores/cockpit.ts").read_text(encoding="utf-8")

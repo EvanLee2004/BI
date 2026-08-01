@@ -538,9 +538,21 @@ body.theme-light .pp-panel {
   }
 }
 @media (max-width: 520px) {
-  /* 2.6.2 B4：与 theme.css 一致 — 两列紧凑（勿改宽屏默认 5 列） */
+  /* 3.7.4：窄屏 KPI 单列，避免标题被压成单字纵排 */
   .kpi-grid.kpi-5 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .kpi-grid.kpi-5 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .scifi-panel.kpi-card .dsdk-panel-header .kpi-title-row,
+  .scifi-panel.kpi-card .dsdk-panel-header .kpi-title-row > span {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
   }
 }
 
@@ -712,6 +724,11 @@ html.theme-light .scifi-panel .dsdk-panel-header > span:first-child::before {
   align-items: baseline;
   gap: 6px;
   min-width: 0;
+  /* 禁止窄列把中文标题拆成单字纵排 */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.3;
 }
 .scifi-panel.kpi-card .dsdk-panel-header .kpi-hint {
   font-size: 11px;

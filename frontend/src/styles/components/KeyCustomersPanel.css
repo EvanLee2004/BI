@@ -879,6 +879,21 @@
   }
 }
 
+/* 摘要可点行动卡 */
+.kc-card--action {
+  cursor: pointer;
+}
+.kc-card--action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kc-card__action {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* 390 手机（含 iPhone 14 逻辑宽）：只收「看数」横溢/截断，不改桌面密度 */
 @media (max-width: 420px) {
   .kc-host,
@@ -900,7 +915,8 @@
     max-width: 100%;
   }
 
-  /* ? 说明气泡：贴视口，避免 390 右溢裁切 */
+  /* ? 说明：统一 HelpPopover 贴视口 */
+  .help-pop__panel,
   .kc-help-popover {
     left: 0;
     right: auto;

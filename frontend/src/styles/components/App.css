@@ -42,10 +42,14 @@
   margin-right: 2px;
   white-space: nowrap;
 }
-/* was theme @media 520 .tb-today{display:none} — SPA sole source (S7) */
+/* 3.7.4：顶栏「数据更新至」窄屏仍可见（可缩小字号，不整段隐藏） */
 @media (max-width: 520px) {
   .tb-today {
-    display: none !important;
+    display: inline !important;
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
   }
 }
 

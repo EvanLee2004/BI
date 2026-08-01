@@ -16,6 +16,8 @@ const versionLabel = ref('v…')
 const refreshing = ref(false)
 const refreshMsg = ref('')
 const exceptions = ref<Record<string, number>>({})
+/** 3.7.4：异常接口失败不得静默清零徽标 */
+const exceptionsLoadError = ref(false)
 const formDirty = ref(0)
 const budgetDirty = ref(0)
 
@@ -227,8 +229,10 @@ async function loadHealth() {
 async function loadExceptions() {
   try {
     exceptions.value = await jget('/api/v1/admin/exceptions')
+    exceptionsLoadError.value = false
   } catch {
-    /* ignore */
+    exceptionsLoadError.value = true
+    // 不把 exceptions 清成 {}，避免徽标静默消失；保留上次成功计数
   }
 }
 
@@ -425,6 +429,14 @@ function badgeN(key?: string) {
   return exceptions.value[key] || 0
 }
 
+/** 异常分组徽标：加载失败显示 !，真实 0 才隐藏 success 绿点 */
+const reviewBadgeText = computed(() => {
+  if (exceptionsLoadError.value) return '!'
+  const keys = ['expense_unclassified', 'adjust_expired', 'adjust_missing']
+  const n = keys.reduce((s, k) => s + (exceptions.value[k] || 0), 0)
+  return n > 0 ? String(n) : ''
+})
+
 const curTable = computed(() => {
   if (!route.path.includes('/edit/detail')) return ''
   return (route.query.table as string) || '收入明细'
@@ -516,12 +528,50 @@ import './admin-layout.css'
       <div v-for="(b, i) in fetchBanners" :key="i" class="fb-line">{{ b.text }}</div>
     </div>
 
-    <nav class="admin-groups">
-      <div class="gtab" :class="{ on: group === 'see' }" @click="showGroup('see')">展示</div>
-      <div class="gtab" :class="{ on: group === 'edit' }" @click="showGroup('edit')">数据调整</div>
-      <div class="gtab" :class="{ on: group === 'review' }" @click="showGroup('review')">异常处理</div>
-      <div class="gtab" data-testid="nav-user-stats" :class="{ on: group === 'users' }" @click="showGroup('users')">用户统计</div>
-      <div class="gtab" :class="{ on: group === 'cfg' }" @click="showGroup('cfg')">设置</div>
+    <nav class="admin-groups" aria-label="管理端分组">
+      <button
+        type="button"
+        class="gtab"
+        :class="{ on: group === 'see' }"
+        data-testid="nav-group-see"
+        @click="showGroup('see')"
+      >展示</button>
+      <button
+        type="button"
+        class="gtab"
+        :class="{ on: group === 'edit' }"
+        data-testid="nav-group-edit"
+        @click="showGroup('edit')"
+      >数据调整</button>
+      <button
+        type="button"
+        class="gtab"
+        :class="{ on: group === 'review' }"
+        data-testid="nav-group-review"
+        @click="showGroup('review')"
+      >
+        异常处理
+        <span
+          v-if="reviewBadgeText"
+          class="gtab-badge"
+          data-testid="nav-exceptions-badge"
+          :title="exceptionsLoadError ? '异常汇总加载失败' : '待处理异常'"
+        >{{ reviewBadgeText }}</span>
+      </button>
+      <button
+        type="button"
+        class="gtab"
+        data-testid="nav-user-stats"
+        :class="{ on: group === 'users' }"
+        @click="showGroup('users')"
+      >用户统计</button>
+      <button
+        type="button"
+        class="gtab"
+        :class="{ on: group === 'cfg' }"
+        data-testid="nav-group-cfg"
+        @click="showGroup('cfg')"
+      >设置</button>
     </nav>
 
     <div v-if="group === 'edit'" class="admin-subnav">
@@ -560,7 +610,20 @@ import './admin-layout.css'
         @click="confirmNav(it.path)"
       >
         {{ it.label }}
-        <el-badge v-if="it.badge" :value="badgeN(it.badge)" :hidden="!badgeN(it.badge)" :type="badgeN(it.badge) ? 'danger' : 'success'" class="nav-badge" />
+        <el-badge
+          v-if="it.badge && exceptionsLoadError"
+          value="!"
+          type="warning"
+          class="nav-badge"
+          data-testid="subnav-exceptions-fail"
+        />
+        <el-badge
+          v-else-if="it.badge"
+          :value="badgeN(it.badge)"
+          :hidden="!badgeN(it.badge)"
+          :type="badgeN(it.badge) ? 'danger' : 'success'"
+          class="nav-badge"
+        />
       </el-button>
     </div>
 

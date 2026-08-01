@@ -854,7 +854,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .kpi-grid.kpi-5{grid-template-columns:repeat(3,1fr)}
 }
 @media(max-width:900px){
-  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:repeat(2,1fr)}
+  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-2{grid-template-columns:1fr}
   .grid-2e{grid-template-columns:1fr}
   .grid-3{grid-template-columns:1fr}
@@ -876,8 +876,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .pl-card, .pl-table, table.pl-table{max-width:100%}
   .pl-card .pl-body, .pl-scroll{overflow-x:auto;max-width:100%}
 
-  /* 2.6.2 B4：首屏 KPI 两列紧凑（桌面仍 5 列，不受本段影响） */
-  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* 3.7.4：窄屏 KPI 单列，标题 keep-all 可读（桌面仍 5 列） */
+  .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:minmax(0,1fr)}
   .kpi-grid > .scifi-panel.kpi-card:last-child:nth-child(odd){grid-column:1 / -1}
 
   /* 2.6.2 B2：顶栏单行主工具，次要信息隐藏 */
@@ -949,7 +949,7 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
 .theme-light{--mut2:#4a5a6e}
 @media (max-width:720px){
   .dual-grid{grid-template-columns:minmax(0,1fr) !important}
-  .kpi-grid.kpi-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-grid.kpi-5{grid-template-columns:minmax(0,1fr)}
 }
 @media (min-width:1200px){
   /* 1440 宽五卡一行不换行 */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 顶栏工具：主题外的 导出｜密码｜退出。2.6.7：去掉 ⋯ 折叠；退出二次确认（DataModal）；管理员无密码/无退出。 */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
 import { showToast } from '../utils/toast'
@@ -15,6 +15,13 @@ const newPw = ref('')
 const msg = ref('')
 const msgCls = ref('')
 const exporting = ref(false)
+
+/** 3.7.4：导出按钮标明当前导出范围 */
+const exportScopeLabel = computed(() => {
+  if (store.scope === 'bu' && store.buName) return `导出本 BU（${store.buName}）`
+  return '导出当前整体视图'
+})
+const exportAria = computed(() => exportScopeLabel.value)
 
 onMounted(async () => {
   if (store.snapshotMode) {
@@ -140,13 +147,14 @@ async function savePw() {
         type="button"
         class="toggle export-html-btn"
         id="exportBtn"
+        data-testid="export-btn"
         :disabled="exporting"
-        aria-label="导出"
-        title="导出"
+        :aria-label="exportAria"
+        :title="exportScopeLabel"
         @click="exportHtml"
       >
         <span class="tb-ico" aria-hidden="true">⬇</span>
-        <span class="tb-lab">{{ exporting ? '生成中…' : '导出' }}</span>
+        <span class="tb-lab">{{ exporting ? '生成中…' : exportScopeLabel }}</span>
       </button>
       <button
         v-if="!isAdmin && !store.archiveMode"

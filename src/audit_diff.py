@@ -194,6 +194,28 @@ def _run_reasons_fetch(report: dict, reasons: list[str]) -> None:
             reasons.append(f"智云·{src}：{w}")
 
 
+def _run_reasons_login_cooldown(report: dict, reasons: list[str]) -> None:
+    """3.7.4：短退避文案；新鲜副本非阻断，凭据错误提示人工检查。"""
+    cd = report.get("zhiyun_login_cooldown") or {}
+    if not cd.get("active"):
+        return
+    fr = report.get("data_freshness") or {}
+    using_fresh = fr.get("state") == "fetch_failed_using_fresh"
+    cred = bool(cd.get("needs_credential_check") or cd.get("error_kind") == "credential")
+    if cred and using_fresh:
+        reasons.append(
+            "智云凭据疑似错误（请人工检查账号密码）；正在使用仍新鲜的最后成功数据（非阻断）"
+        )
+    elif cred:
+        reasons.append("智云凭据疑似错误（短退避中，请人工检查账号密码）→ 判红")
+    elif using_fresh:
+        reasons.append(
+            "本次智云抓取失败（临时波动，短退避）；正在使用仍新鲜的最后成功数据（非阻断）"
+        )
+    else:
+        reasons.append("智云登录短退避中（临时失败且无新鲜副本）→ 判红")
+
+
 def _run_reasons_adjust_db_disk(report: dict, reasons: list[str]) -> None:
     adj = report.get("adjust", {}) or {}
     if adj.get("expired", 0):
@@ -216,8 +238,7 @@ def _run_reasons_adjust_db_disk(report: dict, reasons: list[str]) -> None:
     bak = report.get("backup") or {}
     if bak.get("status") == "error" or bak.get("ok") is False:
         reasons.append(f"每日备份失败：{bak.get('detail') or bak.get('status')}")
-    if (report.get("zhiyun_login_cooldown") or {}).get("active"):
-        reasons.append("智云登录冷却中（凭据疑似失效，需人工检查）→ 判红")
+    _run_reasons_login_cooldown(report, reasons)
 
 
 def _run_reasons(report: dict) -> list[str]:

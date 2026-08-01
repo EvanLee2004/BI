@@ -340,18 +340,20 @@ class TestUserStatsHttp(unittest.TestCase):
 class TestFrontendStructure(unittest.TestCase):
     def test_nav_and_route_and_page(self):
         layout = (ROOT / "frontend/src/admin/layout/AdminLayout.vue").read_text(encoding="utf-8")
-        # 顺序：展示 → 数据调整 → 异常处理 → 用户统计 → 设置
-        i_see = layout.index(">展示</div>")
-        i_edit = layout.index(">数据调整</div>")
-        i_rev = layout.index(">异常处理</div>")
-        i_users = layout.index(">用户统计</div>")
-        i_cfg = layout.index(">设置</div>")
+        # 顺序：展示 → 数据调整 → 异常处理 → 用户统计 → 设置（3.7.4：原生 button）
+        i_see = layout.index(">展示</button>")
+        i_edit = layout.index(">数据调整</button>")
+        i_rev = layout.index("nav-group-review")
+        i_users = layout.index("nav-user-stats")
+        i_cfg = layout.index("nav-group-cfg")
         self.assertLess(i_see, i_edit)
         self.assertLess(i_edit, i_rev)
         self.assertLess(i_rev, i_users)
         self.assertLess(i_users, i_cfg)
         self.assertIn("showGroup('users')", layout)
         self.assertIn("group === 'users'", layout)
+        self.assertIn(">用户统计</button>", layout)
+        self.assertIn(">设置</button>", layout)
 
         router = (ROOT / "frontend/src/admin/router.ts").read_text(encoding="utf-8")
         self.assertIn("path: 'users'", router)

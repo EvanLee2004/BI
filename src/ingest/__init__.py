@@ -146,9 +146,15 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
             try:
                 from notify import alert_event
 
-                alert_event("zhiyun_login_cooldown", "智云凭据疑似失效需人工检查")
+                meta = report["zhiyun_login_cooldown"] or {}
+                if meta.get("needs_credential_check") or meta.get("error_kind") == "credential":
+                    alert_event("zhiyun_login_cooldown", "智云凭据疑似错误需人工检查")
+                else:
+                    alert_event("zhiyun_login_cooldown", "智云登录短退避（临时失败，稍后自动恢复）")
             except Exception:
                 pass
+        if isinstance(report.get("fetch_zhiyun"), dict) and report["fetch_zhiyun"].get("_meta_freshness"):
+            report["data_freshness"] = report["fetch_zhiyun"].pop("_meta_freshness")
 
     # 2) 读原始 + 规范化（缺台账 sheet 不抛死整管，见 loaders.load_ledger）
     records = _normalize_all_sources(cfg, ledger_year, root)
@@ -301,7 +307,8 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
 
     db_bad = not (report.get("db_check") or {}).get("ok", True)
     disk_red = bool((report.get("disk") or {}).get("red"))
-    login_cd = bool((report.get("zhiyun_login_cooldown") or {}).get("active"))
+    login_meta = report.get("zhiyun_login_cooldown") or {}
+    login_cd = bool(login_meta.get("active"))
     if not login_cd:
         login_cd = any(bool(v.get("login_cooldown")) for v in zy_src.values())
     year_arch_red = bool((report.get("year_archive") or {}).get("red")) or (
@@ -309,17 +316,35 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
     )
     ledger_sheet_miss = bool(report.get("ledger_sheet_missing"))
 
-    # 硬红：台账无源 / 库坏 / 盘满 / 登录冷却 / 跨年归档失败 / 缺当年台账页
+    # 3.7.4：数据新鲜度三态（可选；有则用于软化「临时失败+仍新鲜副本」）
+    freshness = report.get("data_freshness") or {}
+    using_fresh = freshness.get("state") == "fetch_failed_using_fresh"
+    data_unsafe = freshness.get("state") in ("unsafe", "stale_or_missing")
+    # 短退避临时错误 + 仍新鲜副本 → 不硬红（管理端 info 轻提示）
+    login_hard = login_cd and not (
+        using_fresh
+        and (
+            login_meta.get("error_kind") == "temporary"
+            or login_meta.get("backoff_kind") == "short"
+            and not login_meta.get("needs_credential_check")
+        )
+    )
+    # 凭据明确错误且无新鲜副本 → 仍红；有新鲜副本则非阻断（needs 人工检查文案在 reasons）
+    if login_cd and login_meta.get("needs_credential_check") and using_fresh:
+        login_hard = False
+
+    # 硬红：台账无源 / 库坏 / 盘满 / 登录硬失败 / 跨年归档失败 / 缺当年台账页 / 数据不安全
     hard_red = (
         (fetch_st == "no_source")
         or db_bad
         or disk_red
-        or login_cd
+        or login_hard
         or year_arch_red
         or ledger_sheet_miss
+        or data_unsafe
     )
 
-    # 抓数失败红：应抓源 status 非 fetched/skipped*
+    # 抓数失败红：应抓源 status 非 fetched/skipped*；若仅临时失败且用新鲜副本 → 不红
     fetch_fail = False
     if fetch_st and not _status_is_ok_fetch(fetch_st) and fetch_st != "no_source":
         # local_fallback 等 = 本次未抓到
@@ -328,6 +353,12 @@ def _log_run(conn, now: str, trigger: str, report: dict) -> str:
         if not _status_is_ok_fetch(v.get("status")):
             fetch_fail = True
             break
+    if fetch_fail and using_fresh and not data_unsafe:
+        fetch_fail = False
+        report.setdefault("info", []).append(
+            freshness.get("message")
+            or "本次抓取失败，正在使用仍新鲜的最后成功数据（非阻断）"
+        )
 
     # 业务黄：调整过期/失配、智云 warnings（骤降等）；同名控件只在 info 不进 warnings
     # 2.6.3·B3：缺月快照补做 → 黄

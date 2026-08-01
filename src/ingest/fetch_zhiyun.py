@@ -99,7 +99,7 @@ def _login_cooldown_path(cfg: dict, root: Path | None) -> Path:
 
 
 def load_login_cooldown(cfg: dict, root: Path | None = None) -> dict:
-    """{fails, until_ts, last_error}；until_ts 为 epoch 秒。"""
+    """短退避状态：fails/temp_fails/cred_fails/until_ts/error_kind/needs_credential_check/last_success_ts。"""
     p = _login_cooldown_path(cfg, root)
     if not p.is_file():
         return {}
@@ -111,26 +111,54 @@ def load_login_cooldown(cfg: dict, root: Path | None = None) -> dict:
 
 
 def clear_login_cooldown(cfg: dict, root: Path | None = None) -> None:
+    """登录成功：清失败计数，保留 last_success_ts 供 48h 新鲜度。"""
+    import time
+
     p = _login_cooldown_path(cfg, root)
+    prev = load_login_cooldown(cfg, root)
+    last_ok = float(prev.get("last_success_ts") or 0) or time.time()
     try:
-        if p.is_file():
-            p.unlink()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            json.dumps(
+                {
+                    "fails": 0,
+                    "temp_fails": 0,
+                    "cred_fails": 0,
+                    "until_ts": 0,
+                    "active": False,
+                    "needs_credential_check": False,
+                    "last_success_ts": last_ok if last_ok else time.time(),
+                    "last_success_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
     except OSError:
-        pass
+        try:
+            if p.is_file():
+                p.unlink()
+        except OSError:
+            pass
 
 
 def register_login_failure(cfg: dict, root: Path | None, err: str) -> dict:
-    """连败累计；达阈（默认 3）→ 冷却 24h。返回冷却状态 dict。"""
-    import time
+    """连败累计；达阈 → **仅短退避**（默认 5min，上限 15min），绝不 24h 停抓。
 
-    max_f = int(cfg.get("zhiyun_login_max_failures", 3) or 3)
-    cool_h = float(cfg.get("zhiyun_login_cooldown_hours", 24) or 24)
+    网络/超时/5xx/token 临时失效 → temporary，不累计为凭据失败。
+    明确账号/密码/权限错误 → credential，提示人工检查，仍短退避。
+    """
+    from ingest.fetch_policy import next_backoff_state
+
     st = load_login_cooldown(cfg, root)
-    fails = int(st.get("fails") or 0) + 1
-    out = {"fails": fails, "last_error": str(err)[:200], "until_ts": st.get("until_ts") or 0}
-    if fails >= max_f:
-        out["until_ts"] = time.time() + cool_h * 3600
-        out["active"] = True
+    out = next_backoff_state(st, err, cfg=cfg)
+    # 保留上次成功时间戳（供 48h 新鲜度）
+    if st.get("last_success_ts"):
+        out["last_success_ts"] = st.get("last_success_ts")
+    if st.get("last_success_at"):
+        out["last_success_at"] = st.get("last_success_at")
     p = _login_cooldown_path(cfg, root)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -138,23 +166,40 @@ def register_login_failure(cfg: dict, root: Path | None, err: str) -> dict:
 
 
 def login_cooldown_active(cfg: dict, root: Path | None = None) -> dict | None:
-    import time
+    """短退避窗口内 active；过期返回 None（下一定时槽可再试）。"""
+    from ingest.fetch_policy import is_backoff_active
 
     st = load_login_cooldown(cfg, root)
-    until = float(st.get("until_ts") or 0)
-    if until and time.time() < until:
+    if is_backoff_active(st):
         st = dict(st)
         st["active"] = True
+        st["backoff_kind"] = st.get("backoff_kind") or "short"
         return st
     return None
+
+
+def last_fetch_success_ts(cfg: dict, root: Path | None = None) -> float | None:
+    st = load_login_cooldown(cfg, root)
+    try:
+        v = float(st.get("last_success_ts") or 0)
+    except (TypeError, ValueError):
+        return None
+    return v if v > 0 else None
 
 
 def _auto_login(zy: dict, cfg: dict, root: Path | None) -> str:
     """账号密码登录换新 token（顺带取 account_id→换账号零配置），回写配置 + 更新内存 zy。返回 token。"""
     from ingest import login_zhiyun
 
-    if login_cooldown_active(cfg, root):
-        raise RuntimeError("智云登录冷却中（连续失败达阈，24h 内不再真实登录；请人工检查凭据）")
+    cd = login_cooldown_active(cfg, root)
+    if cd:
+        if cd.get("needs_credential_check") or cd.get("error_kind") == "credential":
+            raise RuntimeError(
+                "智云登录短退避中（凭据疑似错误，请人工检查账号密码；稍后定时槽会再试）"
+            )
+        raise RuntimeError(
+            "智云登录短退避中（临时网络/上游波动，稍后定时槽自动恢复，非 24h 停抓）"
+        )
     try:
         token, account_id = login_zhiyun.login(zy)
     except Exception as e:
@@ -484,19 +529,36 @@ def fetch_all(cfg: dict, root: Path | None = None, today=None) -> dict[str, dict
     """
     # 跨年归档由管道入口 ingest.build_std_db 在抓取前单独调用（不污染本 dict 的源键）
     zy = _load_zhiyun_cfg(cfg, root)
-    # 冷却中：不真登，四源降级 + 标记红
+    # 短退避窗口内：不真登，四源降级；文案区分临时 vs 凭据（非 24h 停抓）
     cd = login_cooldown_active(cfg, root) if zy else None
     if cd:
-        det = "智云凭据疑似失效（登录冷却中，需人工检查账号密码）"
+        from ingest.fetch_policy import classify_source_data_state
+        import time as _time
+
+        needs_cred = bool(cd.get("needs_credential_check") or cd.get("error_kind") == "credential")
+        if needs_cred:
+            det = "智云凭据疑似错误（短退避中，请人工检查账号密码；稍后定时槽会再试，非 24h 停抓）"
+        else:
+            det = "智云临时不可用（短退避中，网络/上游波动；稍后定时槽自动恢复）"
+        has_any_local = any(_dest_path(cfg, s, root).exists() for s in SOURCES)
+        last_ok = last_fetch_success_ts(cfg, root)
+        freshness = classify_source_data_state(
+            fetch_ok=False,
+            last_success_ts=last_ok,
+            now_ts=_time.time(),
+            has_local_copy=has_any_local,
+        )
         out = {
             s: {
                 "status": "local_fallback" if _dest_path(cfg, s, root).exists() else "no_source",
                 "detail": det,
                 "login_cooldown": True,
+                "error_kind": cd.get("error_kind") or ("credential" if needs_cred else "temporary"),
             }
             for s in SOURCES
         }
         out["_meta_cooldown"] = cd  # type: ignore[assignment]
+        out["_meta_freshness"] = freshness  # type: ignore[assignment]
         return out
     probe = None
     if zy:
