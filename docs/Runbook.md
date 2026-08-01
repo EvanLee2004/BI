@@ -38,25 +38,36 @@
 
 ## 0.1 发版上机铁律（3.7.0 · 备份 + 门闸）
 
-**推荐标准入口**（3.7.0+，P1-02/P1-03）：
+**推荐标准入口**（3.7.3+，候选预热；承接 3.7.0 备份门闸）：
 
 ```bash
 cd /opt/kanban/看板正式程序
-# 备份业务库 → ff-only pull → reload → 校验 version/commit/pid/health 才 SUCCESS
+# 备份 → pull → 旁路 :8019 预热 → 通过后 reload 主 :8018 → 门闸 SUCCESS
 bash deploy/linux/publish_kanban.sh --pull
-# 仅已 pull 时：
-# bash deploy/linux/publish_kanban.sh
+# 近零断流（须 conf 已 include kanban_upstream.inc，且 sudo nginx）：
+# bash deploy/linux/publish_kanban.sh --pull --nginx-cutover
+# 退回旧半原子（无候选）：
+# bash deploy/linux/publish_kanban.sh --pull --no-candidate
 ```
 
 | 门闸 | 要求 |
 |------|------|
-| 备份 | `数据/备份/看板_pre_publish_*.db` + `.manifest.json`（sha256 / 表行数指纹）；**无备份退出非 0** |
+| 备份 | `数据/备份/看板_pre_publish_*.db` + manifest；**无备份退出非 0** |
+| 候选预热 | :8019 health 200 + runtime version/commit/pid 对齐磁盘；失败则主进程不动并 reset pull |
 | reload | 旧 PID 消失 + 新 PID + health 200 + runtime 对齐磁盘 |
-| 成功 | `publish_preflight.declare_publish_success`：backup + version + commit + pid + health |
+| 成功 | `declare_publish_success`：backup + version + commit + pid + health |
 
-**诚实（半原子）**：单机单端口；`reload_kanban.sh` 为 systemctl restart 或 kill+systemd 拉起，**不是**旁路端口预热后的 nginx 原子切换。切换窗口可能短暂断连。完整蓝绿另开任务。
+**诚实**：单机 SQLite，非双机蓝绿；默认仍有主进程 restart 短窗口。`--nginx-cutover` 用 upstream 短暂指候选，缩短用户可见断流。
 
-设计：`docs/madr/MADR-0030_发布链半原子加固_3_7_0.md`。
+设计：`docs/madr/MADR-0030_…` · `docs/madr/MADR-0031_候选预热与nginx切流_3_7_3.md`。
+
+**systemd 对齐**（若 `Restart` 不是 on-failure）：
+
+```bash
+bash deploy/linux/install_systemd_unit.sh   # 需 sudo
+systemctl show kanban -p Restart            # 期望 on-failure
+```
+
 
 代码 `git pull` **不会**自动装载 nginx conf。每次 conf 或维护页相关发版：
 

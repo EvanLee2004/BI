@@ -1,3 +1,15 @@
+## 3.7.3 · 2026-08-01（候选预热切流 · systemd 对齐复核）
+
+### 发布链（相对 3.7.0 半原子升级）
+- **候选预热**：`publish_kanban.sh` 默认在 `KANBAN_PORT=8019` 起旁路进程（`KANBAN_CANDIDATE=1` 跳过 boot 刷新/调度），health 对齐 version/commit/pid 后才切主进程
+- **失败回退**：候选不过 → 杀旁路；若已 pull 则 `git reset --hard` 回 prev；主 :8018 不重载
+- **nginx 切流（可选）**：`--nginx-cutover` 写 `kanban_upstream.inc` → nginx reload 到 8019 → reload 主 → 切回 8018
+- **纯函数**：`src/publish_bluegreen.py` + `tests/test_publish_bluegreen_3_7_3.py`
+- **systemd**：`deploy/linux/install_systemd_unit.sh`；生产已核实 `Restart=on-failure` 时仅复核
+
+### 非目标
+- 不改利润口径 / P0 安全 / 手填补数
+
 ## 3.7.2 · 2026-07-31（体验可读 · 下单未填部门下线）
 
 ### 重点客户

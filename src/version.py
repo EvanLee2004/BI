@@ -60,6 +60,16 @@ PRODUCT_STAGE = product_stage(PRODUCT_VERSION)
 # 加新版时在最前面插一条；措辞站管理层角度、别写代码/文件名。
 PRODUCT_CHANGELOG: list[dict] = [
     {
+        "version": "3.7.3",
+        "date": "2026-08-01",
+        "title": "经营看板 3.7.3：发版候选预热切流、systemd 对齐核对",
+        "items": [
+            "发版：先在旁路端口预热新代码，健康检查对齐版本与提交后，再切换主进程；可选 nginx 上游短暂切到候选再切回（近零断流）。",
+            "预热失败：主进程不动，并回退刚 pull 的代码，避免坏版本顶上现网。",
+            "运维：systemd 单元安装脚本核对 Restart=on-failure；生产已对齐则仅复核。",
+        ],
+    },
+    {
         "version": "3.7.2",
         "date": "2026-07-31",
         "title": "经营看板 3.7.2：重点客户可取消筛选、霓虹更易读、下单未填部门下线",

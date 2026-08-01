@@ -156,16 +156,28 @@ def serve(cfg=None, root=None):
     except Exception:
         pass
     _write_boot_runtime_marker(root)
-    from boot_lifecycle import boot_first_refresh
+    # 3.7.3：候选预热进程（KANBAN_CANDIDATE=1）不跑 boot 刷新/调度，避免与主进程争用 SQLite
+    is_candidate = str(os.environ.get("KANBAN_CANDIDATE") or "").strip() in (
+        "1",
+        "true",
+        "TRUE",
+        "yes",
+        "YES",
+    )
+    if is_candidate:
+        boot_ok = False
+        print("[server] candidate warm-up mode: skip boot_first_refresh + schedule_loop")
+    else:
+        from boot_lifecycle import boot_first_refresh
 
-    boot_ok = boot_first_refresh(cfg, root, refresh)
-    if boot_ok:
-        try:
-            import maintenance_mode as _mm
+        boot_ok = boot_first_refresh(cfg, root, refresh)
+        if boot_ok:
+            try:
+                import maintenance_mode as _mm
 
-            _mm.turn_off(cfg, root)
-        except Exception as e:
-            print(f"[server] maintenance turn_off 跳过：{type(e).__name__}: {e}")
+                _mm.turn_off(cfg, root)
+            except Exception as e:
+                print(f"[server] maintenance turn_off 跳过：{type(e).__name__}: {e}")
     app = create_app(cfg, root)
     import uvicorn
 
@@ -188,15 +200,16 @@ def serve(cfg=None, root=None):
         except Exception as e:
             print(f"[server] clear_rollback_marker 跳过：{type(e).__name__}: {e}")
 
-    threading.Thread(target=_confirm_update_good, daemon=True).start()
+    if not is_candidate:
+        threading.Thread(target=_confirm_update_good, daemon=True).start()
 
-    try:
-        from schedule_loop import start_schedule_loop
+    if not is_candidate:
+        try:
+            from schedule_loop import start_schedule_loop
 
-        start_schedule_loop(cfg, root, start_refresh_async)
-    except Exception as e:
-        print(f"[server] schedule_loop 启动失败：{type(e).__name__}: {e}")
-
+            start_schedule_loop(cfg, root, start_refresh_async)
+        except Exception as e:
+            print(f"[server] schedule_loop 启动失败：{type(e).__name__}: {e}")
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
