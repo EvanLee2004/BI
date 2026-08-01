@@ -17,7 +17,8 @@
 | 远程运维 | `ssh kanban-home`（家）/ `kanban-lan`（公司内网） |
 | 人侧残留 | BIOS「来电自启」需进固件菜单 |
 
-> 连机：`ssh kanban-home`。sudo：交互 `ssh -t … sudo …`，或非交互管道 `sudo -S`（密码**不进仓库/文档**）。
+> 连机（在家）：`ssh kanban-home`。若 `Permission denied` 但跳板 `ping` 通 → **先钥匙不是穿透坏了**：见 `公司电脑（部署机）/Agent.md`「连前必先解锁钥匙」与 **「双跳都用 hostup」（2026-08-01）**；总手册 `…/20260717_家中远程通路实测与复用手册.md` §0.0.1。  
+> sudo：交互 `ssh -t … sudo …`，或非交互管道 `sudo -S`（密码**不进仓库/git**）。
 
 ## 1. 服务挂了
 
