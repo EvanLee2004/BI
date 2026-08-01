@@ -78,6 +78,17 @@ class TestTask42Final(unittest.TestCase):
         self.assertIn(r.status_code, (302, 303), r.text[:200])
         return c
 
+    def _assert_latest_changelog_contract(self, latest, product_version):
+        self.assertEqual(latest.get("version"), product_version)
+        for field in ("date", "title"):
+            self.assertIsInstance(latest.get(field), str)
+            self.assertTrue(latest[field].strip(), field)
+        self.assertIsInstance(latest.get("items"), list)
+        self.assertTrue(latest["items"])
+        for item in latest["items"]:
+            self.assertIsInstance(item, str)
+            self.assertTrue(item.strip())
+
     def test_version_is_product(self):
         # 任务书46·7 / 54.10 / 61：VERSION 为产品号；changelog 最新条非空
         v = version.read_version()
@@ -102,27 +113,17 @@ class TestTask42Final(unittest.TestCase):
         )
         self.assertTrue(ok, v)
         self.assertTrue(version.PRODUCT_CHANGELOG)
-        self.assertTrue(version.PRODUCT_CHANGELOG[0].get("items"))
-        blob = " ".join(str(it) for it in version.PRODUCT_CHANGELOG[0]["items"])
-        self.assertTrue(
-            any(
-                k in blob
-                for k in (
-                    "Ubuntu",
-                    "业务员",
-                    "Vue",
-                    "哈希",
-                    "口径",
-                    "手册",
-                    "人审",
-                    "发布候选",
-                    "科技风",
-                    "回款",
-                    "分摊",
-                    "目标",
-                )
-            ),
-            blob[:200],
+        self._assert_latest_changelog_contract(version.PRODUCT_CHANGELOG[0], v)
+
+    def test_latest_changelog_contract_accepts_new_release_without_legacy_keywords(self):
+        self._assert_latest_changelog_contract(
+            {
+                "version": version.read_version(),
+                "date": "2026-08-01",
+                "title": "经营看板新版本说明",
+                "items": ["本次发布说明不依赖过往业务功能关键词。"],
+            },
+            version.read_version(),
         )
 
     def test_admin_flow(self):

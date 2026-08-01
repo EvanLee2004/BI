@@ -47,6 +47,8 @@ KANBAN_PROFILE=dev $PY run.py >/dev/null
 echo "[3/5] 回归红线：从库算 == 从文件算（一分不差）"
 KANBAN_PROFILE=dev $PY tests/regress_db_vs_files.py
 echo "[4/5] 回归测试"
+echo "[4a/5] 测试清单完整性"
+$PY scripts/verify_test_inventory.py || exit 1
 # 写库 / generate / 全局锁 / HTTP 服务态
 SERIAL="
 tests/test_datalayer.py
@@ -78,6 +80,7 @@ tests/test_task37_expense_perm.py
 tests/test_task37_fetch_banner.py
 tests/test_gzip_fragments.py
 tests/test_task42_final.py
+tests/test_verify_test_inventory.py
 tests/test_task43_nginx_mode.py
 tests/test_task_2_4_3_entry.py
 tests/test_task_2_5_0_login.py
@@ -142,6 +145,9 @@ tests/test_section_kc_ux_3_6_1.py
 tests/test_publish_preflight_3_7_0.py
 tests/test_mobile_390_p2_03.py
 tests/test_lu_ui_three_20260731.py
+tests/test_key_customers_3_6_2_dual_pie.py
+tests/test_publish_bluegreen_3_7_3.py
+tests/test_task_3_3_3_no_target_calibration_label.py
 "
 # 无共享进程态（或只读静态文件）
 PARALLEL="
