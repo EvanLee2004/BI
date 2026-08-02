@@ -4,7 +4,7 @@
 
 - branch: `task/20260802-ui-trust-polish`
 - base: `9ca4d456443ec3716da0f26426c1da768b592a87`
-- candidate: （填入最终 HEAD 全哈希）
+- candidate: 805f9e9db0d8fdd9f5a6a9171602a233461ea89e
 
 ## 门禁（须 EXIT:0）
 
