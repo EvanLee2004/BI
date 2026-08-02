@@ -25,7 +25,8 @@ class TestPasswordKdf(unittest.TestCase):
 
 
 class TestPublicRowPlaintextSsot(unittest.TestCase):
-    def test_with_password_returns_plain(self):
+    def test_with_password_returns_plain_compat_only(self):
+        """with_password=True 仅内部兼容；HTTP 管理 API 不得使用。"""
         import accounts
 
         row = accounts.public_row(
@@ -35,7 +36,8 @@ class TestPublicRowPlaintextSsot(unittest.TestCase):
         self.assertEqual(row.get("密码"), "kanban2026")
         self.assertTrue(row.get("初始密码") or row.get("must_change_password"))
 
-    def test_without_password_omits_field(self):
+    def test_default_public_row_omits_password(self):
+        """3.7.5：默认 public_row 不下发明文。"""
         import accounts
 
         row = accounts.public_row(
@@ -43,6 +45,7 @@ class TestPublicRowPlaintextSsot(unittest.TestCase):
             with_password=False,
         )
         self.assertNotIn("密码", row)
+        self.assertTrue(row.get("password_set"))
 
     def test_set_password_writes_plain_not_hash(self):
         import accounts
@@ -60,8 +63,9 @@ class TestPublicRowPlaintextSsot(unittest.TestCase):
         assert acc is not None
         self.assertEqual(acc["密码"], "new-plain-9")
         self.assertFalse(str(acc["密码"]).startswith("pbkdf2_sha256$"))
-        row = accounts.public_row(acc, with_password=True)
-        self.assertEqual(row["密码"], "new-plain-9")
+        row = accounts.public_row(acc, with_password=False)
+        self.assertNotIn("密码", row)
+        self.assertTrue(row.get("password_set"))
 
 
 class TestCsrfAndHeaders(unittest.TestCase):

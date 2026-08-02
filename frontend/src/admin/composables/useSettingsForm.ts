@@ -11,9 +11,11 @@ export type Acct = {
   账号?: string
   显示名?: string
   权限?: string
+  /** 仅编辑态：用户新填密码；GET 永不下发旧密 */
   密码?: string
   可见BU?: string[]
   初始密码?: boolean
+  password_set?: boolean
 }
 
 export type BuItem = {
@@ -81,14 +83,18 @@ export function useSettingsForm() {
     账号: string
     显示名?: string
     权限?: string
+    /** 仅编辑态新密；API 不回显 */
     密码?: string
     初始密码?: boolean
     最后登录?: string
     可见BU?: string[]
+    password_set?: boolean
   }
   const acctList = ref<Acct[]>([])
   const acctPwShow = ref<Record<number, boolean>>({})
   const masterAccount = ref('lushasha')
+  /** 智云密码是否已在服务端设置（GET 不回显明文） */
+  const sZyPwdSet = ref(false)
 
   // —— BU ——
   type BuItem = { name: string; 负责人: string[] | string; 销售: string[]; 分摊比例: number | null }
@@ -182,7 +188,7 @@ export function useSettingsForm() {
         schedule_time?: string
         backup_keep_days?: number
         zhiyun_username?: string
-        zhiyun_password?: string
+        zhiyun_password_set?: boolean
         ledger_share_path?: string
         run_log_keep_days?: number
         disk_free_min_ratio?: number
@@ -193,7 +199,9 @@ export function useSettingsForm() {
         s.schedule_times && s.schedule_times.length ? s.schedule_times.slice() : [s.schedule_time || '09:30']
       sKeep.value = s.backup_keep_days || 30
       sZyUser.value = s.zhiyun_username || ''
-      sZyPwd.value = s.zhiyun_password || ''
+      // 3.7.5：永不预填已存密码；仅状态
+      sZyPwd.value = ''
+      sZyPwdSet.value = !!s.zhiyun_password_set
       sLedgerPath.value = s.ledger_share_path || ''
       sLogKeep.value = s.run_log_keep_days != null ? s.run_log_keep_days : 365
       sDiskMin.value =
@@ -264,8 +272,16 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    // 新账号默认初始口令 8888；管理端明文可见可改（任务书64·P）
-    acctList.value.push({ 账号: '', 显示名: '', 权限: '整体', 密码: '8888', 初始密码: true, 最后登录: '' })
+    // 新账号须显式设密；不预填默认口令（3.7.5 不下发/不回显）
+    acctList.value.push({
+      账号: '',
+      显示名: '',
+      权限: '整体',
+      密码: '',
+      初始密码: true,
+      password_set: false,
+      最后登录: '',
+    })
     mark('acct')
   }
 
@@ -277,33 +293,33 @@ export function useSettingsForm() {
     }
     try {
       const { value } = await ElMessageBox.prompt(
-        '输入新密码，或留空由系统随机生成 10 位。重置后列表会显示新明文。',
-        '重置密码 · ' + acct,
+        '请输入新密码（必填）。响应不回显明文；请自行告知用户后用新密码登录。',
+        '设置新密码 · ' + acct,
         {
-          inputPlaceholder: '新密码（可选，留空=随机）',
+          inputPlaceholder: '新密码（必填）',
           inputValue: '',
-          confirmButtonText: '重置',
+          confirmButtonText: '设置',
           cancelButtonText: '取消',
           inputType: 'password',
+          inputValidator: (v: string) => {
+            if (!String(v || '').trim()) return '新密码不能为空'
+            return true
+          },
         },
       )
-      const body: { new?: string } = {}
       const typed = String(value || '').trim()
-      if (typed) body.new = typed
-      const d = await jpost<{ password?: string; note?: string }>(
-        `/api/v1/admin/accounts/${encodeURIComponent(acct)}/reset_passwd`,
-        body,
-      )
-      const plain = d.password || ''
-      row.密码 = plain
-      row.初始密码 = false
-      mark('acct')
-      ElMessage.success('已重置；密码列已更新为新明文')
-      try {
-        await navigator.clipboard.writeText(plain)
-      } catch {
-        /* 浏览器可能禁剪贴板 */
+      if (!typed) {
+        ElMessage.warning('新密码不能为空')
+        return
       }
+      await jpost<{ note?: string; status?: string }>(
+        `/api/v1/admin/accounts/${encodeURIComponent(acct)}/reset_passwd`,
+        { new: typed },
+      )
+      row.密码 = ''
+      row.初始密码 = false
+      row.password_set = true
+      ElMessage.success('已设置新密码（不回显明文）')
       await loadAccts()
     } catch {
       /* 取消 */
@@ -327,7 +343,8 @@ export function useSettingsForm() {
   async function loadAccts() {
     try {
       const d = await jget<{ accounts?: Acct[]; master_account?: string }>('/api/v1/admin/accounts')
-      acctList.value = d.accounts || []
+      // 3.7.5：API 不回显密码；编辑列保持空（留空=不改）
+      acctList.value = (d.accounts || []).map((a) => ({ ...a, 密码: '' }))
       if (d.master_account) masterAccount.value = d.master_account
       acctPwShow.value = {}
     } catch (e) {
@@ -496,7 +513,9 @@ export function useSettingsForm() {
     const p: Record<string, unknown> = { ledger_share_path: sLedgerPath.value }
     if (sZyUser.value || sZyPwd.value) {
       p.zhiyun_username = sZyUser.value
-      p.zhiyun_password = sZyPwd.value
+      // 留空不改：仅当用户明确填入新密码时才传
+      if (sZyPwd.value) p.zhiyun_password = sZyPwd.value
+      else if (sZyUser.value) p.zhiyun_username = sZyUser.value
     }
     if (sZyUrl.value) {
       p.zhiyun_base_url = sZyUrl.value
@@ -510,6 +529,13 @@ export function useSettingsForm() {
     try {
       const d = await jpost<{ note?: string }>('/api/v1/admin/settings', p)
       setMsgs.zy = d.note || '已保存'
+      sZyPwd.value = ''
+      try {
+        const s = await jget<{ zhiyun_password_set?: boolean }>('/api/v1/admin/settings')
+        sZyPwdSet.value = !!s.zhiyun_password_set
+      } catch {
+        /* ignore */
+      }
       return true
     } catch (e) {
       setMsgs.zy = '失败：' + friendlyError(e)
@@ -527,10 +553,23 @@ export function useSettingsForm() {
       return false
     }
     try {
-      const d = await jpost<{ accounts?: Acct[]; master_account?: string; note?: string; count?: number }>('/api/v1/admin/accounts', {
-        accounts: acctList.value,
+      // 空密码字段不提交（留空不改）；仅新填非空密码才带上
+      const payload = acctList.value.map((a) => {
+        const row: Record<string, unknown> = {
+          账号: a.账号,
+          显示名: a.显示名,
+          权限: a.权限,
+          可见BU: a.可见BU,
+        }
+        const pw = String(a.密码 || '').trim()
+        if (pw) row['密码'] = pw
+        return row
       })
-      acctList.value = d.accounts || []
+      const d = await jpost<{ accounts?: Acct[]; master_account?: string; note?: string; count?: number }>(
+        '/api/v1/admin/accounts',
+        { accounts: payload },
+      )
+      acctList.value = (d.accounts || []).map((a) => ({ ...a, 密码: '' }))
       if (d.master_account) masterAccount.value = d.master_account
       setMsgs.acct = (d.note || '已保存') + '（共 ' + d.count + ' 个）'
       return true
@@ -647,6 +686,7 @@ export function useSettingsForm() {
     sBakInfo,
     sZyUser,
     sZyPwd,
+    sZyPwdSet,
     sLedgerPath,
     sZyUrl,
     sTblOrders,

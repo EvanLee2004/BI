@@ -324,7 +324,11 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
 
 
 def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
-    """单条账号规范化；无效返回 None。空密码显式传入 → ValueError（2.6.3·A4）。"""
+    """单条账号规范化；无效返回 None。
+
+    3.7.5：密码「留空不改」——字段缺省、None 或空串时，已有账号沿用已存值；
+    新账号无已存值时须明确填入非空密码（禁止静默 8888）。
+    """
     acct = str(raw.get("账号") or "").strip()
     if not acct:
         return None
@@ -333,16 +337,15 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
         return None
     display = str(raw.get("显示名") or acct).strip() or acct
     old = existing.get(acct, {})
-    old_pw = str(old.get("密码") or DEFAULT_VIEW_PW)
-    if "密码" in raw and raw["密码"] is not None:
+    old_pw = str(old.get("密码") or "")
+    explicit = "密码" in raw and raw["密码"] is not None and str(raw["密码"]).strip() != ""
+    if explicit:
         pw = str(raw["密码"])
-        # 2.6.3·A4：密码字段清空不再补 8888
-        if not pw.strip():
-            raise ValueError("密码不能为空（要停用请删除该账号）")
+    elif acct in existing and old_pw:
+        pw = old_pw  # 留空不改
     else:
-        pw = old_pw
-    if not pw:
-        raise ValueError("密码不能为空（要停用请删除该账号）")
+        # 新账号或无旧密：须显式设密
+        raise ValueError(f"账号「{acct}」须设置密码（留空表示不改，新账号不可留空）")
     if is_master_account(acct):
         perm = PERM_ADMIN
     pw_ver = password_version_of(old)
@@ -366,8 +369,8 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
 def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     """管理端保存：校验 → 规范化 → 落盘。
     - 账号名必填且唯一；权限必填；
-    - 密码：条目带「密码」字段（含空串）则以之为准；空串 → ValueError；
-      不带则沿用已存（新账号无旧值→初始 8888）；
+    - 密码：明确非空则以之为准；缺省/空串=留空不改（沿用已存）；
+      新账号无已存值须显式设密（禁止静默 8888）；
     - 密码变更时「密码版本」+1（改密踢会话）；
     - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）；
     - 总账号 MASTER_ACCOUNT：若库中已有则不可删、不可改登录名；至少保留一个「管理员」。
@@ -499,16 +502,17 @@ def set_password(cfg: dict, root: Path | None, account: str, new_pw: str) -> str
 def reset_password(
     cfg: dict, root: Path | None, account: str, new_pw: str | None = None
 ) -> tuple[str | None, str | None]:
-    """管理员重置：new 有则用之，无则随机 10 位。返回 (明文一次, 错误文案)。成功错误=None。
+    """管理员显式设新密码。3.7.5：new 必填非空；禁止随机生成后由 API 回显。
 
-    任务书64·P：明文已可在管理端列表查看；重置仍保留为快捷入口。
+    返回 (明文占位或 None, 错误文案)。成功时明文恒为 None（调用方不得回显）。
     """
-    plain = str(new_pw).strip() if new_pw is not None and str(new_pw).strip() else generate_random_password(10)
-    # 2.6.12：与 set_password 对齐，仅禁空（空时上面已走随机 10 位）
+    plain = str(new_pw).strip() if new_pw is not None else ""
+    if not plain:
+        return None, "请输入新密码（禁止随机生成后回显）"
     err = set_password(cfg, root, account, plain)
     if err:
         return None, err
-    return plain, None
+    return None, None
 
 
 def role_of(acc: dict | None) -> str | None:
@@ -548,9 +552,10 @@ def bu_name_of(acc: dict | None) -> str | None:
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
-    """接口下发用：管理端 with_password=True 时返回明文密码（产品决定）；看端勿传。
+    """接口下发用：默认不下发明文密码（3.7.5 P0）。
 
-    遗留 PBKDF2 行：不回显哈希串（防误当明文），密码字段为空并标 hashed。
+    with_password=True 仅供极少数内部/测试兼容路径；HTTP 管理 API 禁止使用。
+    遗留 PBKDF2 行：password_hashed=True，不回显哈希串。
     """
     pw = acc.get("密码") or ""
     try:
@@ -560,7 +565,7 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
     except Exception:
         hashed = str(pw).startswith("pbkdf2_sha256$")
     initial = bool(acc.get("must_change_password")) or (
-        (not hashed) and is_initial_password(str(pw))
+        (not hashed) and bool(pw) and is_initial_password(str(pw))
     )
     row = {
         "账号": acc["账号"],
@@ -571,10 +576,11 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
         "初始密码": initial,
         "密码版本": password_version_of(acc),
         "must_change_password": initial,
+        "password_set": bool(str(pw).strip()),
     }
+    if hashed:
+        row["password_hashed"] = True
     if with_password:
-        # 明文 SSOT：管理员可查看；哈希行不回显密文
+        # 兼容旧调用：仍不推荐；哈希行不回显密文
         row["密码"] = "" if hashed else str(pw)
-        if hashed:
-            row["password_hashed"] = True
     return row

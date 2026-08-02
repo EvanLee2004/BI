@@ -253,13 +253,14 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn(old.status_code, (401, 303))
         _, new = self._login("overall", "newpw1xx")
         self.assertEqual(new.status_code, 303)
-        # 3.6.0 小修：管理员 accounts 明文 SSOT（MADR-0020）；新密码可登录、初始标清除
+        # 3.7.5：管理员 accounts 不下发明文；新密码可登录、初始标清除
         a = self._admin()
         rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
-        self.assertEqual(row.get("密码"), "newpw1xx")
-        self.assertNotIn("密码哈希", row)
+        self.assertNotIn("密码", row)
+        self.assertTrue(row.get("password_set") is True)
         self.assertFalse(row["初始密码"])
+        self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "overall", "newpw1xx"))
 
     def test_change_password_kicks_old_session(self):
         """任务书46·1：改密后旧会话 401。"""
@@ -349,15 +350,20 @@ class TestViewerAuth(unittest.TestCase):
         self.assertFalse(baks)
 
     def test_no_legacy_reset_password_path(self):
-        """旧路径 /api/v1/admin/accounts/reset_password 仍 404；新路径 reset_passwd 可用。"""
+        """旧路径 /api/v1/admin/accounts/reset_password 仍 404；新路径须显式 new 且不回显。"""
         a = self._admin()
         r = a.post("/api/v1/admin/accounts/reset_password", json={"账号": "overall"})
         self.assertEqual(r.status_code, 404)
-        r2 = a.post("/api/v1/admin/accounts/overall/reset_passwd", json={})
+        r_empty = a.post("/api/v1/admin/accounts/overall/reset_passwd", json={})
+        self.assertEqual(r_empty.status_code, 400, r_empty.text)
+        r2 = a.post(
+            "/api/v1/admin/accounts/overall/reset_passwd",
+            json={"new": "reset-once-9x"},
+        )
         self.assertEqual(r2.status_code, 200, r2.text)
-        plain = r2.json().get("password") or ""
-        self.assertEqual(len(plain), 10)
-        _, ok = self._login("overall", plain)
+        self.assertNotIn("password", r2.json())
+        self.assertNotIn("密码", r2.json())
+        _, ok = self._login("overall", "reset-once-9x")
         self.assertEqual(ok.status_code, 303)
 
     def test_rebind_permission_takes_effect(self):
@@ -403,16 +409,17 @@ class TestViewerAuth(unittest.TestCase):
         for b in a.get("/api/v1/admin/bu_config").json()["bus"]:
             self.assertNotIn("密码", b)
             self.assertNotIn("密码hash", b)
-        # 3.6.0 小修：管理员 accounts 下发明文（MADR-0020 产品决定）；不下发哈希字段
+        # 3.7.5：管理员 accounts 不下发明文；仅非秘密状态
         rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         self.assertTrue(rows)
         for r in rows:
-            self.assertIn("密码", r)
+            self.assertNotIn("密码", r)
+            self.assertNotIn("password", r)
             self.assertNotIn("密码哈希", r)
-            self.assertFalse(str(r.get("密码") or "").startswith("pbkdf2_sha256$"))
+            self.assertIn("password_set", r)
         overall = next(x for x in rows if x["账号"] == "overall")
         self.assertIn("初始密码", overall)
-        self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
+        self.assertTrue(overall.get("password_set") is True)
         # 自改密码弹窗仍在 partial + Vue（3.1.0：旧 cockpit.js 已删）
         pw = (ROOT / "static" / "templates" / "partials" / "pw_modal.html").read_text(encoding="utf-8")
         self.assertIn("请勿使用你在其他地方用的密码", pw)

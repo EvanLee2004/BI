@@ -228,14 +228,15 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/admin/accounts")
     def api_accounts_get(request: Request):
-        """账号表（管理员会话）：下发明文密码（管理端 👁 可见可改；任务书64·P 产品口径）。"""
+        """账号表（管理员会话）。3.7.5：绝不回传明文密码；仅非秘密状态字段。"""
         _require(request)
-        rows = [accounts.public_row(a, with_password=True) for a in accounts.load_accounts(cfg, root)]
+        rows = [accounts.public_row(a, with_password=False) for a in accounts.load_accounts(cfg, root)]
         return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
 
     @app.post("/api/v1/admin/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
-        """保存账号表（管理员）。至少保留一个管理员；总账号不可删。C3：变更留痕（密码只记「改密码」）。"""
+        """保存账号表（管理员）。至少保留一个管理员；总账号不可删。
+        3.7.5：响应不下发明文；条目密码留空/缺省=保留已存值。"""
         user = _require(request)
         raw = payload.get("accounts")
         if not isinstance(raw, list):
@@ -248,21 +249,20 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         _audit(cfg, root, user, _diff_accounts(old_accs, saved))
-        rows = [accounts.public_row(a, with_password=True) for a in saved]
+        rows = [accounts.public_row(a, with_password=False) for a in saved]
         return {"accounts": rows, "count": len(rows), "note": "已保存", "master_account": accounts.MASTER_ACCOUNT}
 
     @app.post("/api/v1/admin/accounts/{acct}/reset_passwd")
     def api_accounts_reset_passwd(request: Request, acct: str, payload: dict = Body(default={})):
-        """管理员重置密码（快捷入口；列表亦可直接编辑明文）。body.new 可选。"""
+        """管理员显式设置新密码。3.7.5：body.new 必填非空；响应不回显明文。"""
         user = _require(request)
         new = payload.get("new") if isinstance(payload, dict) else None
-        plain, err = accounts.reset_password(cfg, root, acct, new if new is not None else None)
+        _plain, err = accounts.reset_password(cfg, root, acct, new if new is not None else None)
         if err:
             raise HTTPException(status_code=400, detail=err)
         _audit(cfg, root, user, ("密码", f"管理员重置账号 {acct} 密码"))  # 不记明文
         return {
             "status": "ok",
             "账号": acct,
-            "password": plain,
-            "note": "已重置；管理端账号表亦可直接查看/编辑明文",
+            "note": "已设置新密码；请用新密码登录（响应不回显明文）",
         }

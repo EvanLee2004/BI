@@ -329,7 +329,11 @@ class TestAdminWrite(unittest.TestCase):
             encoding="utf-8",
         )
         r = self.client.get("/api/v1/admin/settings", headers=self.hdr)
-        self.assertEqual(r.json()["zhiyun_username"], "old.user")
+        body = r.json()
+        self.assertEqual(body["zhiyun_username"], "old.user")
+        # 3.7.5：不下发密码，仅状态
+        self.assertNotIn("zhiyun_password", body)
+        self.assertTrue(body.get("zhiyun_password_set") is True)
         # 改账号 → 写入 + 清 md_pss_id/account_id（下次更新强制新账号重登、自动取新GUID）
         r = self.client.post(
             "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
@@ -345,11 +349,13 @@ class TestAdminWrite(unittest.TestCase):
             "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": "newpw"}
         )
         self.assertNotIn("智云账号已更新", r.json()["note"])
-        # 空密码 → 400
+        # 空密码 → 留空不改（200，存储仍为 newpw）
         r = self.client.post(
             "/api/v1/admin/settings", headers=self.hdr, json={"zhiyun_username": "new.user", "zhiyun_password": ""}
         )
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.status_code, 200, r.text)
+        d2 = _json.loads(zp.read_text(encoding="utf-8"))
+        self.assertEqual(d2["password"], "newpw")
 
     def test_settings_zhiyun_conn(self):
         """智云连接配置（服务器/四表ID）：GET 返回生效默认值；改了写覆盖层+清会话；

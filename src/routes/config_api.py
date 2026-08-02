@@ -208,11 +208,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/admin/settings")
     def api_settings_get(request: Request):
+        """3.7.5：智云密码绝不下发；仅 zhiyun_password_set 非秘密状态。"""
         _require(request)
         out = {k: cfg.get(k) for k in EDITABLE_SETTINGS}
         out["schedule_times"] = get_schedule_times(cfg)  # ②多次更新：列表（缺失从旧单值推导）
         creds = read_zhiyun_creds(cfg, root)
-        out["zhiyun_username"], out["zhiyun_password"] = creds["username"], creds["password"]
+        out["zhiyun_username"] = creds.get("username") or ""
+        # 3.7.5 P0：不下发 zhiyun_password / 任何可逆等价值
+        out["zhiyun_password_set"] = bool(str(creds.get("password") or "").strip())
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
         out["overall_see_salary"] = False  # 54.12 R-01 已废止开关
