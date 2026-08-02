@@ -79,7 +79,7 @@ onMounted(async () => {
     </div>
     <header class="topbar">
       <div class="tb-left">
-        <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="28" height="28" />
+        <img class="tb-logo" :src="logoUrl" alt="甲骨易" width="42" height="42" />
         <div class="tb-title"><b>{{ store.buName }}</b> 经营看板</div>
         <PeriodPicker />
       </div>

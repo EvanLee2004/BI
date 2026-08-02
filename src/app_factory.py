@@ -255,6 +255,7 @@ def build_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯装配分发壳（
         return "vue"
 
     def _vue_index():
+        """Serve SPA shell; inject theme.css ?v=VERSION for static cache-bust (3.7.7)."""
         root_dir = Path(__file__).resolve().parents[1]
         p = root_dir / "frontend" / "dist" / "index.html"
         if not p.is_file():
@@ -264,7 +265,22 @@ def build_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯装配分发壳（
                 "Vue frontend not built. Run scripts/build_frontend.sh",
                 status_code=503,
             )
-        return _file_html_doc(p)
+        import re
+
+        from version import PRODUCT_VERSION
+
+        html = p.read_text(encoding="utf-8")
+        ver = str(PRODUCT_VERSION or "").strip() or "0"
+        html, n = re.subn(
+            r'href="/static/css/theme\.css(?:\?[^"]*)?"',
+            f'href="/static/css/theme.css?v={ver}"',
+            html,
+            count=1,
+        )
+        if n == 0 and "theme.css" not in html:
+            # defensive: missing link should not break shell
+            pass
+        return HTMLResponse(html, headers=_NO_STORE)
 
     def _main_shell():
         return _vue_index()

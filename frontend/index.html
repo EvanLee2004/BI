@@ -22,7 +22,8 @@
         else document.documentElement.classList.remove('theme-light')
       } catch (e) {}
     </script>
-    <link rel="stylesheet" href="/static/css/theme.css" />
+    <!-- 3.7.7：static theme cache-bust（?v= 由 serve 注入 VERSION；源/dist 亦带占位） -->
+    <link rel="stylesheet" href="/static/css/theme.css?v=3.7.7" />
   </head>
   <body>
     <div id="app"></div>

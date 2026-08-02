@@ -599,7 +599,8 @@ onBeforeUnmount(() => {
 }
 .us-kpi-card .s {
   margin-top: 6px;
-  font-size: 11px;
+  /* 3.7.7 P1：副文 ≥12 */
+  font-size: 12px;
   color: var(--admin-mut);
 }
 .us-charts {
@@ -622,7 +623,8 @@ onBeforeUnmount(() => {
 }
 .us-chart-hint {
   margin-left: 6px;
-  font-size: 11px;
+  /* 3.7.7 P1：图表 hint ≥12 */
+  font-size: 12px;
   font-weight: 400;
   color: var(--admin-mut);
 }

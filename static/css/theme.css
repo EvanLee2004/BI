@@ -151,7 +151,8 @@ html[data-theme="neon"] body > *:not(.drawer):not(.data-modal-mask):not(.kb-toas
 .topbar{position:sticky;top:0;z-index:var(--z-topbar,40);display:flex;align-items:center;gap:16px;
   padding:12px 24px;margin:0 0 8px;background:var(--tb);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line)}
-.tb-logo{height:40px;width:auto;border-radius:6px}
+/* 3.7.7：桌面 logo ~42（取消 max-width:40 瓶颈）；单一真相，勿再叠 28/40 */
+.tb-logo{height:42px;width:auto;max-width:56px;object-fit:contain;border-radius:6px;flex-shrink:0;display:block}
 .tb-title{font-size:16px;font-weight:600;letter-spacing:.5px}
 .tb-title b{color:var(--accent)}
 .tb-ver{margin-left:8px;font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.2px;
@@ -161,8 +162,6 @@ html[data-theme="neon"] body > *:not(.drawer):not(.data-modal-mask):not(.kb-toas
 .tb-sub{font-size:12px;color:var(--mut2);margin-left:4px}
 .tb-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0}
-/* 2.2.5：顶栏公司 logo（与标题同行，不拉伸） */
-.tb-logo{height:28px;width:auto;max-width:40px;object-fit:contain;border-radius:4px;flex-shrink:0;display:block}
 .tb-time{font-size:12px;color:var(--mut2)}
 /* 3.7.6 B3/B8/B11：顶栏与工具钮字号 +1～2、主钮高 ≥34 */
 .toggle{cursor:pointer;border:1px solid var(--line-2);background:var(--panel);color:var(--mut);
@@ -234,7 +233,8 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
 .kpi-cum{font-size:var(--fs-kpi);font-weight:700;line-height:1.05;letter-spacing:.5px}
 .kpi-cum .u{font-size:13px;font-weight:500;color:var(--mut);margin-left:4px}
 .kpi-cum-l{font-size:12px;color:var(--mut2);margin-bottom:8px}
-.kpi-sub{font-size:12.5px;color:var(--note);margin-top:4px}
+/* 3.7.7 P1：KPI 副文 ~13（caption 档） */
+.kpi-sub{font-size:13px;color:var(--note);margin-top:4px}
 .kpi-sub b{color:var(--ink);font-weight:700}
 .kpi-note{font-size:12px;color:var(--mut2);margin-top:4px;line-height:1.35}
 .kpi-delta{font-size:12px;margin-top:4px;font-variant-numeric:tabular-nums;font-weight:600}
@@ -890,7 +890,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(48vw,12rem)}
   .tb-ver{display:none !important}
   .tb-right{flex:1 1 100%;flex-wrap:wrap;justify-content:flex-start;gap:6px 8px;margin-left:0;width:100%}
-  .tb-logo{flex-shrink:0}
+  /* 3.7.7：窄屏 logo 32–36，勿撑破顶栏；桌面仍 42 */
+  .tb-logo{height:34px;max-width:48px;flex-shrink:0}
   /* 2.6.7 B：窄屏仍横排一行图标，无 ⋯ 折叠 */
   .tb-actions{display:inline-flex !important;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
   .tb-actions .tb-lab{display:none !important}
@@ -907,7 +908,8 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
     padding-top:8px !important; padding-bottom:8px !important;
   }
   .kpi-grid{gap:10px}
-  .kpi-v b, .kpi-host .kpi-v b{font-size:22px !important}
+  /* 3.7.7 P2：窄屏 KPI 大数 22→26（仅 media；桌面仍 --fs-kpi ~38） */
+  .kpi-v b, .kpi-host .kpi-v b{font-size:26px !important}
   .wrap{padding:0 12px 32px}
 }
 /* 2.6.7 B：全站唯一横排工具条（无 narrow/more） */

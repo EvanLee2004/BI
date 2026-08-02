@@ -189,9 +189,10 @@ html.theme-light {
   color: var(--rank-open);
   font-weight: 800;
 }
+/* 3.7.7 P2：排名名左对齐更易扫读 */
 .rank-bar__name {
   flex: 0 0 var(--rank-name-w);
-  text-align: right;
+  text-align: left;
   font-size: var(--fs-caption);
   color: var(--rank-name);
   overflow: hidden;
@@ -278,10 +279,11 @@ html.theme-light {
   white-space: nowrap;
   cursor: help;
 }
+/* 3.7.7 P1：系统成本率等 meta 表头 ≥12 */
 .rank-bar__meta-head {
   flex: 0 0 var(--rank-meta-w);
   text-align: right;
-  font-size: 10px;
+  font-size: var(--fs-meta, 12px);
   color: var(--rank-meta);
   font-weight: 500;
   line-height: 1.2;
@@ -561,6 +563,7 @@ body > .data-modal-mask,
   .rank-bar__meta,
   .rank-bar__meta-head {
     flex-basis: 4.5rem;
-    font-size: 10px;
+    /* 3.7.7：窄屏 meta 亦 ≥12，勿回落 10 */
+    font-size: var(--fs-meta, 12px);
   }
 }

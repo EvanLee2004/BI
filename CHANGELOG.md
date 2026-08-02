@@ -1,3 +1,29 @@
+## 3.7.7 · 2026-08-02（桌面优先 Logo 放大 · cache-bust · P1 可读）
+
+### P0 · Logo
+- 桌面 `.tb-logo` height **42px**、`max-width` **56**（取消 40 硬帽）；theme + scifi-bridge 合并历史 40/28 双规则
+- 窄屏 `@media (max-width:520px)` height **34**（32–36 档）
+- App / BU 顶栏 `<img>` width/height 与 CSS 对齐 42
+
+### P0 · 静态缓存
+- `frontend/index.html`：`theme.css?v=3.7.7`
+- `app_factory._vue_index` 注入 `?v=` + `PRODUCT_VERSION`，发布硬刷不再吃旧 12px toggle
+
+### P1 · 可读清扫
+- `.rank-bar__meta-head` ≥12（`--fs-meta`）；`.ld-funnel` 12；`.kpi-sub` 13
+- admin 密表头/体 ~13；input wrapper min-height 32 + 13px；us chart hint / kpi sub 12
+- **桌面 KPI 大数仍 `--fs-kpi` 38**；禁止整页 zoom / 桌面手机化
+
+### P2（可选已做）
+- 窄屏 KPI 大数 22→**26**（仅 media）
+- 排名名 `text-align: left`
+
+### 非目标
+- 不换色板；不改利润/分摊/六档；不写业务数据；禁 force/tags
+
+### 守卫
+- `tests/test_377_desktop_logo_tokens.py`
+
 ## 3.7.6 · 2026-08-02（导出展开其他项 · 全站可读性）
 
 ### A · 管理利润表导出

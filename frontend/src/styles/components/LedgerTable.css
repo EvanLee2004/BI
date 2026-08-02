@@ -6,7 +6,8 @@
   cursor:pointer;padding:2px 0;text-align:left;
 }
 .ld-th-btn.on{color:var(--blue)}
-.ld-funnel{opacity:.65;font-size:10px}
+/* 3.7.7 P1：漏斗筛选标 ≥12 */
+.ld-funnel{opacity:.65;font-size:12px}
 .ld-col-filter{
   position:absolute;z-index:var(--z-popover, 40);left:0;top:100%;
   min-width:200px;max-width:280px;padding:8px;border-radius:8px;

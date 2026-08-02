@@ -129,6 +129,7 @@ tests/frontend/parity/test_parity_structure.py
 tests/test_task66_stage66_batch_b.py
 tests/test_task_2_3_6_pl_xlsx.py
 tests/test_376_readability_tokens.py
+tests/test_377_desktop_logo_tokens.py
 tests/test_maintenance_mode.py
 tests/test_task54p11_r01_bu_nav.py
 tests/test_task54p11_r02_period.py
