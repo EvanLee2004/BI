@@ -4,24 +4,29 @@
 
 - branch: `task/20260802-ui-trust-polish`
 - base: `9ca4d456443ec3716da0f26426c1da768b592a87`
-- candidate: 805f9e9db0d8fdd9f5a6a9171602a233461ea89e
+- candidate tip: `7b89d462be43e2fe747705815d62ca11340a7908`（docs 钉钉；功能主体 `be790e4`；以 worktree `git rev-parse HEAD` 为准）
+- worktree: `/Users/evanlee/.grok/worktrees/repo/kanban-375-ui-trust`
 
-## 门禁（须 EXIT:0）
+## 门禁（已绿 · EXECUTOR 实测）
 
 ```bash
-KANBAN_OFFLINE=1 sh tests/run_verify.sh; echo EXIT:$?
-cd frontend && npm run typecheck; echo EXIT:$?
-cd frontend && npm run build; echo EXIT:$?
-git diff --check; echo EXIT:$?
+KANBAN_OFFLINE=1 sh tests/run_verify.sh; echo EXIT:$?   # EXIT:0 · 1334 tests
+cd frontend && npm run typecheck; echo EXIT:$?          # EXIT:0
+cd frontend && npm run build; echo EXIT:$?              # EXIT:0
+git diff --check; echo EXIT:$?                         # EXIT:0
 ```
+
+证据日志在 implementer scratch：`run_verify.log` / `typecheck.log` / `build.log` / `cred_*.log` / `schedule_health_green.log`。
 
 ## 红→绿
 
-| 主题 | 红 | 绿 |
-|------|----|----|
-| 凭据 | `cred_red.log` | `cred_green.log` + `test_375_credentials_no_leak.py` |
-| 调度 | 旧实现未来槽入 pending/漏跑 | `test_375_schedule_slot_states.py` |
-| UI | 组件守卫 | `test_375_ui_components.py` / `test_375_responsive_admin.py` |
+| 主题 | 测试 |
+|------|------|
+| 凭据不下发 | `tests/test_375_credentials_no_leak.py` |
+| 调度槽状态 | `tests/test_375_schedule_slot_states.py` |
+| 管理端 loading | `tests/test_375_admin_page_loading.py` |
+| 看端三组件 | `tests/test_375_ui_components.py` |
+| 390/设置 | `tests/test_375_responsive_admin.py` |
 
 ## 禁止
 
@@ -29,4 +34,4 @@ git diff --check; echo EXIT:$?
 
 ## 状态
 
-`REVIEW_READY`（门禁全绿后）
+`REVIEW_READY`
