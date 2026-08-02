@@ -4,7 +4,7 @@
 
 - branch: `task/20260802-ui-trust-polish`
 - base: `9ca4d456443ec3716da0f26426c1da768b592a87`
-- candidate tip: `e2eb1ec4a7dac8be17582466640fbb18451c880f`（docs 钉钉；功能主体 `be790e4`；以 worktree `git rev-parse HEAD` 为准）
+- candidate tip: `5011091e7087abd1d54fb42e66d04992efde1a06`（docs 钉钉；功能主体 `be790e4`；以 worktree `git rev-parse HEAD` 为准）
 - worktree: `/Users/evanlee/.grok/worktrees/repo/kanban-375-ui-trust`
 
 ## 门禁（已绿 · EXECUTOR 实测）
