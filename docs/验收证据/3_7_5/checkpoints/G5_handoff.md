@@ -4,7 +4,7 @@
 
 - branch: `task/20260802-ui-trust-polish`
 - base: `9ca4d456443ec3716da0f26426c1da768b592a87`
-- candidate tip: `7b89d462be43e2fe747705815d62ca11340a7908`（docs 钉钉；功能主体 `be790e4`；以 worktree `git rev-parse HEAD` 为准）
+- candidate tip: `9b97eb4648854ba97b0bd1075075513a2179e9c0`（docs 钉钉；功能主体 `be790e4`；以 worktree `git rev-parse HEAD` 为准）
 - worktree: `/Users/evanlee/.grok/worktrees/repo/kanban-375-ui-trust`
 
 ## 门禁（已绿 · EXECUTOR 实测）
@@ -35,3 +35,8 @@ git diff --check; echo EXIT:$?                         # EXIT:0
 ## 状态
 
 `REVIEW_READY`
+
+
+## Skeptic rework
+- Heat legend: vmin/vmid/vmax_disp from data_disp (not fen).
+- Schedule: health_messages_from_schedule + start_refresh_async(manual) tests.
