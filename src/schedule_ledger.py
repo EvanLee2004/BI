@@ -223,10 +223,16 @@ def day_summary(
     *,
     now_hhmm: str | None = None,
 ) -> dict[str, Any]:
-    """日汇总。pending = 已过点且未 success/failed/coalesced；未来槽不算待补跑。"""
+    """日汇总。
+
+    - success / failed / coalesced：磁盘态
+    - pending（待补）：**已过点**且未终态
+    - upcoming（待执行）：**未到点**且未终态——永不进漏跑/待补
+    - now_hhmm 缺省时兼容旧调用：未过点亦可能进 pending（调用方应传当前时刻）
+    """
     led = load_ledger(data_dir)
     slots = led.get("slots") or {}
-    success, pending, failed, coalesced = [], [], [], []
+    success, pending, failed, coalesced, upcoming = [], [], [], [], []
     now_m: int | None = None
     if now_hhmm:
         try:
@@ -244,6 +250,9 @@ def day_summary(
             coalesced.append(s)
         elif _slot_is_past_due(s, now_m):
             pending.append(s)
+        else:
+            # 明确 now 且未过点 → 待执行（非漏跑、非待补）
+            upcoming.append(s)
     return {
         "date": business_date,
         "planned": list(planned),
@@ -251,5 +260,6 @@ def day_summary(
         "pending": pending,
         "failed": failed,
         "coalesced": coalesced,
+        "upcoming": upcoming,
         "meta": led.get("meta") or {},
     }

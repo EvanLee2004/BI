@@ -41,9 +41,10 @@ _SCHEDULE_LEDGER: dict = {
 
 
 def schedule_ledger(cfg=None, root=None) -> dict:
-    """只读副本：当天计划/成功/待补/漏跑。
+    """只读副本：当天计划/成功/待补/待执行/漏跑。
 
     3.6.0：若 data_dir 有持久 schedule_ledger.json，合并 success 集合（重启后仍可见）。
+    3.7.5：upcoming=未到点待执行，永不进 pending/missed；missed 仅跨日归入。
     """
     with _LEDGER_LOCK:
         mem = {
@@ -52,11 +53,40 @@ def schedule_ledger(cfg=None, root=None) -> dict:
             "success": list(_SCHEDULE_LEDGER.get("success") or []),
             "pending": list(_SCHEDULE_LEDGER.get("pending") or []),
             "missed": list(_SCHEDULE_LEDGER.get("missed") or []),
+            "upcoming": list(_SCHEDULE_LEDGER.get("upcoming") or []),
             "last_tick": _SCHEDULE_LEDGER.get("last_tick") or "",
             "last_fire": _SCHEDULE_LEDGER.get("last_fire") or "",
             "last_busy": _SCHEDULE_LEDGER.get("last_busy") or "",
+            "missed_date": _SCHEDULE_LEDGER.get("missed_date") or "",
         }
     if cfg is None:
+        # 无 cfg 时仍过滤：内存 pending 里若混有未来槽，按 last_tick/墙钟剔除
+        now_hhmm = ""
+        lt = mem.get("last_tick") or ""
+        if " " in lt:
+            now_hhmm = lt.split()[-1][:5]
+        if not now_hhmm or ":" not in now_hhmm:
+            now_hhmm = time.strftime("%H:%M")
+        try:
+            h, m = now_hhmm.split(":")
+            now_m = int(h) * 60 + int(m)
+        except Exception:
+            now_m = None
+        if now_m is not None:
+            pend, up = [], []
+            for t in mem.get("pending") or []:
+                try:
+                    th, tm = str(t).split(":")
+                    tmins = int(th) * 60 + int(tm)
+                except Exception:
+                    pend.append(t)
+                    continue
+                if tmins <= now_m:
+                    pend.append(t)
+                else:
+                    up.append(t)
+            mem["pending"] = pend
+            mem["upcoming"] = list(dict.fromkeys(list(mem.get("upcoming") or []) + up))
         return mem
     try:
         import schedule_ledger as _sl
@@ -87,9 +117,15 @@ def schedule_ledger(cfg=None, root=None) -> dict:
         mem["success"] = succ
         # pending 以磁盘日汇总为准（已过点未完成）；勿并入旧内存里的未来槽
         mem["pending"] = list(summ.get("pending") or [])
+        mem["upcoming"] = list(summ.get("upcoming") or [])
         mem["failed"] = list(summ.get("failed") or [])
         mem["coalesced"] = list(summ.get("coalesced") or [])
+        # 漏跑仅跨日写入；今日 upcoming 绝不可混入 missed
+        miss = list(mem.get("missed") or [])
+        up_set = set(mem["upcoming"])
+        mem["missed"] = [t for t in miss if t not in up_set]
         mem["durable"] = True
+        mem["now_hhmm"] = now_hhmm
     except Exception:
         pass
     return mem
@@ -106,13 +142,14 @@ def _update_ledger(*, date_iso: str, planned: list[str], success_add: str | None
                    last_tick: str | None = None) -> None:
     with _LEDGER_LOCK:
         if _SCHEDULE_LEDGER.get("date") != date_iso:
-            # 跨日：把昨日未成功且已过点的记入 missed 并告警
+            # 跨日：把昨日未成功的定时槽记入 missed 并告警（仅跨日才称漏跑）
             old_date = _SCHEDULE_LEDGER.get("date") or ""
             old_planned = list(_SCHEDULE_LEDGER.get("planned") or [])
             old_success = set(_SCHEDULE_LEDGER.get("success") or [])
             old_miss = [t for t in old_planned if t not in old_success]
             if old_date and old_miss:
                 _SCHEDULE_LEDGER["missed"] = old_miss
+                _SCHEDULE_LEDGER["missed_date"] = old_date
                 log.warning("schedule_loop: missed runs on %s: %s", old_date, old_miss)
                 try:
                     from notify import maybe_alert_text
@@ -127,13 +164,45 @@ def _update_ledger(*, date_iso: str, planned: list[str], success_add: str | None
             _SCHEDULE_LEDGER["planned"] = list(planned or [])
             _SCHEDULE_LEDGER["success"] = []
             _SCHEDULE_LEDGER["pending"] = []
+            _SCHEDULE_LEDGER["upcoming"] = []
             # missed 保留昨日记录供 health 展示至新日有成功前
         else:
             _SCHEDULE_LEDGER["planned"] = list(planned or _SCHEDULE_LEDGER.get("planned") or [])
         if success_add and success_add not in _SCHEDULE_LEDGER["success"]:
             _SCHEDULE_LEDGER["success"] = list(_SCHEDULE_LEDGER["success"]) + [success_add]
         if pending is not None:
-            _SCHEDULE_LEDGER["pending"] = list(pending)
+            # 调用方可能混入未来槽：写入前按 last_tick/墙钟剔除到 upcoming
+            now_hhmm = ""
+            lt = last_tick or _SCHEDULE_LEDGER.get("last_tick") or ""
+            if " " in str(lt):
+                now_hhmm = str(lt).split()[-1][:5]
+            if not now_hhmm or ":" not in now_hhmm:
+                now_hhmm = time.strftime("%H:%M")
+            try:
+                nh, nm = now_hhmm.split(":")
+                now_m = int(nh) * 60 + int(nm)
+            except Exception:
+                now_m = None
+            pend_clean, up_clean = [], []
+            for t in list(pending or []):
+                if now_m is None:
+                    pend_clean.append(t)
+                    continue
+                try:
+                    th, tm = str(t).split(":")
+                    tmins = int(th) * 60 + int(tm)
+                except Exception:
+                    pend_clean.append(t)
+                    continue
+                if tmins <= now_m:
+                    pend_clean.append(t)
+                else:
+                    up_clean.append(t)
+            _SCHEDULE_LEDGER["pending"] = pend_clean
+            if up_clean:
+                _SCHEDULE_LEDGER["upcoming"] = list(
+                    dict.fromkeys(list(_SCHEDULE_LEDGER.get("upcoming") or []) + up_clean)
+                )
         if missed is not None:
             _SCHEDULE_LEDGER["missed"] = list(missed)
         if last_fire is not None:

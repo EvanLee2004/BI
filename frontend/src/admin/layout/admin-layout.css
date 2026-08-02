@@ -77,7 +77,62 @@ html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
   background: var(--admin-subnav-bg);
   border-bottom: 1px solid var(--admin-line);
 }
-.admin-main { padding: 16px 20px 28px; }
+.admin-main { padding: 16px 20px 28px; position: relative; min-height: 240px; }
+/* 3.7.5：切页 skeleton / 失败重试 */
+.admin-page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 24px;
+  max-width: 720px;
+}
+.admin-page-skeleton .sk-block {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--admin-panel, #1a2233) 0%,
+    var(--admin-subnav-bg, #243049) 50%,
+    var(--admin-panel, #1a2233) 100%
+  );
+  background-size: 200% 100%;
+  animation: admin-sk-shimmer 1.2s ease-in-out infinite;
+}
+.admin-page-skeleton .sk-title { height: 28px; width: 40%; }
+.admin-page-skeleton .sk-line { height: 14px; width: 88%; }
+.admin-page-skeleton .sk-line.short { width: 55%; }
+.admin-page-skeleton .sk-card { height: 120px; width: 100%; margin-top: 8px; }
+.admin-page-skeleton .sk-label {
+  font-size: 12px;
+  color: var(--admin-mut, #8b9bb4);
+  margin-top: 4px;
+}
+@keyframes admin-sk-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.admin-page-error {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--admin-warn, #e6a23c);
+}
+.admin-page-error .retry-btn {
+  margin-top: 12px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-line, #334);
+  background: var(--admin-panel, #1a2233);
+  color: inherit;
+  cursor: pointer;
+  min-height: 40px;
+}
+.admin-page-error .retry-btn:focus-visible {
+  outline: 2px solid var(--admin-accent, #409eff);
+  outline-offset: 2px;
+}
+.admin-main.is-page-loading .admin-page-body {
+  pointer-events: none;
+  user-select: none;
+}
 .health-pop {
   /* 3.3.2：fixed 贴视口顶栏下，滚到页下半仍可见 */
   position: fixed;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, provide } from 'vue'
+import { computed, onMounted, onUnmounted, ref, provide, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, AdminApiError } from '../api'
@@ -7,6 +7,12 @@ import { syncThemeFromDom } from '../../utils/theme'
 
 const route = useRoute()
 const router = useRouter()
+
+/** 3.7.5：一级组/页切换时 skeleton + 禁止误操作旧页；失败可重试 */
+const pageLoading = ref(false)
+const pageError = ref('')
+const pageRetryPath = ref('')
+let removeNavGuards: (() => void) | null = null
 
 const health = ref<Record<string, unknown> | null>(null)
 const healthOpen = ref(false)
@@ -183,6 +189,30 @@ async function showGroup(g: string) {
   else if (g === 'review') await confirmNav('/admin/review/overview')
   else if (g === 'users') await confirmNav('/admin/users')
   else if (g === 'cfg') await confirmNav('/admin/settings')
+}
+
+function beginPageLoad(toPath: string) {
+  pageLoading.value = true
+  pageError.value = ''
+  pageRetryPath.value = toPath
+}
+
+function endPageLoad() {
+  pageLoading.value = false
+}
+
+async function retryPageLoad() {
+  const p = pageRetryPath.value || route.fullPath
+  pageError.value = ''
+  beginPageLoad(p)
+  try {
+    await router.replace(p)
+    await nextTick()
+    endPageLoad()
+  } catch (e) {
+    pageError.value = '页面加载失败，请重试'
+    pageLoading.value = false
+  }
 }
 
 function pillClass(result: unknown) {
@@ -391,6 +421,29 @@ let healthTimer: number | undefined
 onMounted(async () => {
   // 2.2.7：管理壳固定深色（去掉顶栏浅色开关）；展示 iframe 内 ThemeToggle 仍可用
   syncThemeFromDom()
+  // 3.7.5：切组/切页 loading；失败可重试
+  const unBefore = router.beforeEach((to, from) => {
+    if (!to.path.startsWith('/admin')) return true
+    if (to.fullPath === from.fullPath) return true
+    beginPageLoad(to.fullPath)
+    return true
+  })
+  const unAfter = router.afterEach((to) => {
+    if (!to.path.startsWith('/admin')) return
+    // 下一帧结束 loading，确保异步组件有时间挂起
+    nextTick(() => {
+      endPageLoad()
+    })
+  })
+  const unErr = router.onError(() => {
+    pageError.value = '页面加载失败，请重试'
+    pageLoading.value = false
+  })
+  removeNavGuards = () => {
+    unBefore()
+    unAfter()
+    unErr()
+  }
   await loadHealth()
   await loadExceptions()
   await loadVersion()
@@ -416,6 +469,8 @@ onMounted(async () => {
 })
 onUnmounted(() => {
   if (healthTimer) clearInterval(healthTimer)
+  removeNavGuards?.()
+  removeNavGuards = null
   window.removeEventListener('beforeunload', onBeforeUnload)
   window.removeEventListener('wheel', onHealthWheelOrTouch, true)
   window.removeEventListener('touchmove', onHealthWheelOrTouch, true)
@@ -627,8 +682,45 @@ import './admin-layout.css'
       </el-button>
     </div>
 
-    <main class="admin-main">
-      <RouterView />
+    <main
+      class="admin-main"
+      :class="{ 'is-page-loading': pageLoading }"
+      :aria-busy="pageLoading ? 'true' : 'false'"
+      data-testid="admin-main"
+    >
+      <div
+        v-if="pageLoading"
+        class="admin-page-skeleton"
+        data-testid="admin-page-loading"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="sk-block sk-title" />
+        <div class="sk-block sk-line" />
+        <div class="sk-block sk-line short" />
+        <div class="sk-block sk-card" />
+        <span class="sk-label">加载中…</span>
+      </div>
+      <div
+        v-else-if="pageError"
+        class="admin-page-error"
+        data-testid="admin-page-error"
+        role="alert"
+      >
+        <p>{{ pageError }}</p>
+        <button type="button" class="retry-btn" data-testid="admin-page-retry" @click="retryPageLoad">
+          重试
+        </button>
+      </div>
+      <div
+        v-show="!pageLoading && !pageError"
+        class="admin-page-body"
+        data-testid="admin-page-body"
+      >
+        <RouterView v-slot="{ Component, route: r }">
+          <component :is="Component" :key="r.fullPath" />
+        </RouterView>
+      </div>
     </main>
   </div>
 </template>

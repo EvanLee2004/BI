@@ -138,6 +138,8 @@ tests/test_g1_lifecycle_3_6_0.py
 tests/test_g2_schedule_health_3_6_0.py
 tests/test_g3_security_3_6_0.py
 tests/test_375_credentials_no_leak.py
+tests/test_375_schedule_slot_states.py
+tests/test_375_admin_page_loading.py
 tests/test_g4_key_customers_axis_3_6_0.py
 tests/test_g4_key_customers_ui_3_6_0.py
 tests/test_g5_boss_ui_3_6_0.py
