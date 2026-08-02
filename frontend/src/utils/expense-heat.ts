@@ -1,6 +1,9 @@
 /**
  * 54.14 R-26：费用热力格子数据打包（纯函数，组件与测试共用）。
  * 仅映射 VM expense.area_*；零金额运算。
+ *
+ * 3.7.5：图例范围用 data_disp（万级显示串），禁止把库内分值当「万」展示。
+ * visualMap 的 min/max 仍用 data 数值（与格子 value 同尺，仅着色）。
  */
 export type AreaSeriesIn = {
   name?: string
@@ -15,11 +18,20 @@ export type HeatPack = {
   /** 平行：是否确认为 0（有 disp 且数值 0）；缺失则不进 data 或 value 为特殊 */
   missingMap: Record<string, boolean>
   dispMap: Record<string, string>
+  /** 与 data 同尺（库内分），仅供 visualMap 着色 */
   vmax: number
   vmin: number
   vmid: number
+  /** 权威显示串：取自 data_disp（万级裸数字，如 "123.5"），非分值 */
+  vmin_disp: string
+  vmid_disp: string
+  vmax_disp: string
   unit: string
+  /** 图例整句（不含二次「万」拼接；组件用 withWanUnit 拼单位） */
+  legend_range: string
 }
+
+type Sample = { n: number; disp: string }
 
 /** 从 VM area_* 构建 heatmap 格子（与 ExpenseHeatmap 渲染同源）。
  *  monthCap：任务书61·C-2，只保留 1..cap 月（未来空月不画）；只裁显示索引，不改 VM。 */
@@ -52,9 +64,7 @@ export function buildExpenseHeatPack(
   const data: [number, number, number][] = []
   const dispMap: Record<string, string> = {}
   const missingMap: Record<string, boolean> = {}
-  const positives: number[] = []
-  let vmax = 0
-  let vmin = Infinity
+  const samples: Sample[] = []
   seriesIn.forEach((s, yi) => {
     const row = s.data || []
     const disps = s.data_disp || []
@@ -62,7 +72,6 @@ export function buildExpenseHeatPack(
       const raw = row[srcXi]
       const disp = disps[srcXi]
       const key = `${xi},${yi}`
-      // 缺失：无 data 且无 disp → 不画实心 0（用极小占位区分 visualMap）
       const hasDisp = disp != null && String(disp).trim() !== ''
       const hasNum = raw != null && !Number.isNaN(Number(raw))
       if (!hasNum && !hasDisp) {
@@ -72,27 +81,71 @@ export function buildExpenseHeatPack(
         return
       }
       const n = Number(raw) || 0
+      // 显示串只认 data_disp；无 disp 时不伪造 fen→万换算（前端零金额运算）
+      const dStr = hasDisp ? String(disp).trim() : '—'
       data.push([xi, yi, n])
-      dispMap[key] = hasDisp ? String(disp) : String(n)
+      dispMap[key] = dStr
       missingMap[key] = false
-      if (n > vmax) vmax = n
-      if (n < vmin) vmin = n
-      if (n > 0) positives.push(n)
+      samples.push({ n, disp: dStr })
     })
   })
-  if (vmin === Infinity) vmin = 0
-  const sorted = [...positives].sort((a, b) => a - b)
-  const vmid = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0
+  const range = _rangeFromSamples(samples)
   return {
     labels,
     cats,
     data,
     dispMap,
     missingMap,
-    vmax,
-    vmin,
-    vmid,
+    vmax: range.vmax,
+    vmin: range.vmin,
+    vmid: range.vmid,
+    vmin_disp: range.vmin_disp,
+    vmid_disp: range.vmid_disp,
+    vmax_disp: range.vmax_disp,
     unit: '万',
+    legend_range: range.legend_range,
+  }
+}
+
+/** 从样本取 min/mid/max 数值 + 对应 data_disp（不换算分）。 */
+export function _rangeFromSamples(samples: Sample[]): {
+  vmin: number
+  vmid: number
+  vmax: number
+  vmin_disp: string
+  vmid_disp: string
+  vmax_disp: string
+  legend_range: string
+} {
+  if (!samples.length) {
+    return {
+      vmin: 0,
+      vmid: 0,
+      vmax: 0,
+      vmin_disp: '0.0',
+      vmid_disp: '0.0',
+      vmax_disp: '0.0',
+      legend_range: '最小 0.0 / 中位 0.0 / 最大 0.0',
+    }
+  }
+  const byN = [...samples].sort((a, b) => a.n - b.n)
+  const lo = byN[0]
+  const hi = byN[byN.length - 1]
+  const positives = byN.filter((s) => s.n > 0)
+  const mid = positives.length
+    ? positives[Math.floor(positives.length / 2)]
+    : lo
+  const vmin_disp = lo.disp !== '—' ? lo.disp : '0.0'
+  const vmax_disp = hi.disp !== '—' ? hi.disp : '0.0'
+  const vmid_disp = mid.disp !== '—' ? mid.disp : '0.0'
+  return {
+    vmin: lo.n,
+    vmid: mid.n,
+    vmax: hi.n,
+    vmin_disp,
+    vmid_disp,
+    vmax_disp,
+    legend_range: `最小 ${vmin_disp} / 中位 ${vmid_disp} / 最大 ${vmax_disp}`,
   }
 }
 

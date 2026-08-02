@@ -45,6 +45,35 @@ def _hhmm_to_minutes(hhmm: str) -> int:
     return int(h) * 60 + int(m)
 
 
+def health_messages_from_schedule(sched: dict | None) -> tuple[list[str], bool]:
+    """从 schedule_ledger 快照生成 health run_reasons 片段。
+
+    3.7.5 准则：upcoming（待执行）永不进 reasons、不称漏跑、不抬黄。
+    返回 (messages, yellow_nudge)。data_api.api_health 唯一调用入口，便于假时钟单测。
+    """
+    sched = sched or {}
+    miss = list(sched.get("missed") or [])
+    pend = list(sched.get("pending") or [])
+    up = list(sched.get("upcoming") or [])
+    failed = list(sched.get("failed") or [])
+    up_set = set(up)
+    miss = [t for t in miss if t not in up_set]
+    pend = [t for t in pend if t not in up_set]
+    msgs: list[str] = []
+    yellow = False
+    if miss:
+        md = sched.get("missed_date") or ""
+        msgs.append(f"定时刷新漏跑{(' ' + md) if md else ''}：{', '.join(miss)}")
+        yellow = True
+    if failed:
+        msgs.append(f"定时刷新本次失败：{', '.join(failed)}")
+        yellow = True
+    if pend:
+        msgs.append(f"定时刷新待补：{', '.join(pend)}")
+    # upcoming 仅信息态，不入 reasons
+    return msgs, yellow
+
+
 def _resolve_now_hhmm(last_tick: str = "") -> str:
     """从 last_tick 或墙钟取 HH:MM。"""
     now_hhmm = ""

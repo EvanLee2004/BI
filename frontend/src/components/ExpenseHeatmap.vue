@@ -31,7 +31,19 @@ const heatPack = computed(() => {
 
 const option = computed(() => {
   void themeMode.value
-  const { labels, cats, data, dispMap, missingMap, vmax, vmin, vmid, unit } = heatPack.value
+  const {
+    labels,
+    cats,
+    data,
+    dispMap,
+    missingMap,
+    vmax,
+    vmin_disp,
+    vmid_disp,
+    vmax_disp,
+    unit,
+    legend_range,
+  } = heatPack.value
   const light = themeMode.value === 'light'
   const ink = chartTextColor()
   const mut = chartMutedColor()
@@ -50,7 +62,10 @@ const option = computed(() => {
         [0.8, cssColor('--orange')],
         [1, cssColor('--heat-d4')],
       ]
+  // visualMap 与格子 value 同尺（库内分）；展示文案只用 *_disp / legend_range
   const maxV = vmax > 0 ? vmax : 1
+  const hiLabel = withWanUnit(vmax_disp || '0.0')
+  const loLabel = withWanUnit(vmin_disp || '0.0')
   // 缺失哨兵 -1 → 画为 0 但不进 visualMap 主色：映射到 0 并用 itemStyle 区分
   const plotData = data.map(([xi, yi, v]) => {
     const key = `${xi},${yi}`
@@ -77,7 +92,8 @@ const option = computed(() => {
       },
     }
   })
-  const rangeHint = `单位 ${unit} · 最小 ${vmin === Infinity ? 0 : vmin.toFixed?.(0) ?? vmin} / 中位 ${vmid} / 最大 ${maxV}`
+  // 图例：单位 + 万级范围（data_disp），禁止把分值当万展示
+  const rangeHint = `单位 ${unit} · ${legend_range}`
   return {
     /* R-31：confine 防卡片裁切；顶行留白 + visMap 底边距 */
     tooltip: {
@@ -134,10 +150,11 @@ const option = computed(() => {
       bottom: 4,
       itemWidth: 12,
       itemHeight: 120,
-      text: [`高 ${maxV}`, `低 0`],
+      text: [`高 ${hiLabel}`, `低 ${loLabel}`],
       textStyle: { color: mut, fontSize: 11 },
       inRange: { color: colors.map((c) => c[1] as string) },
-      formatter: (v: number) => (v === 0 || v === maxV ? String(v) : ''),
+      // 着色轴用分值；刻度文案不回显分（避免与「单位 万」矛盾）
+      formatter: () => '',
     },
     series: [
       {
@@ -176,9 +193,13 @@ const option = computed(() => {
 })
 
 const hasData = computed(() => (heatPack.value.data || []).some((d) => d[2] > 0))
+/** 图例：单位 + data_disp 万级范围（withWanUnit 幂等，不二次运算金额） */
 const heatLegend = computed(() => {
   const p = heatPack.value
-  return `单位 ${p.unit} · 最小 ${p.vmin} / 中位 ${p.vmid} / 最大 ${p.vmax}`
+  const lo = withWanUnit(p.vmin_disp || '0.0')
+  const mid = withWanUnit(p.vmid_disp || '0.0')
+  const hi = withWanUnit(p.vmax_disp || '0.0')
+  return `单位 ${p.unit} · 最小 ${lo} / 中位 ${mid} / 最大 ${hi}`
 })
 </script>
 

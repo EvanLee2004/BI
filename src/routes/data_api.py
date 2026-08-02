@@ -624,35 +624,16 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         # 2.6.3·B2 / 3.6.0 小修：跑批台账须传 cfg/root 合并持久账本
         sched = {}
         try:
-            from schedule_loop import schedule_ledger
+            from schedule_loop import health_messages_from_schedule, schedule_ledger
 
             sched = schedule_ledger(cfg, root)
-            # 3.7.5：upcoming=待执行（不黄/不称漏跑）；pending=待补；missed=跨日漏跑
-            miss = list(sched.get("missed") or [])
-            pend = list(sched.get("pending") or [])
-            up = list(sched.get("upcoming") or [])
-            failed = list(sched.get("failed") or [])
-            up_set = set(up)
-            miss = [t for t in miss if t not in up_set]
-            pend = [t for t in pend if t not in up_set]
-            if miss:
-                md = sched.get("missed_date") or ""
-                msg = f"定时刷新漏跑{(' ' + md) if md else ''}：{', '.join(miss)}"
+            # 3.7.5：消息组装 SSOT = health_messages_from_schedule（upcoming 不入 reasons）
+            sched_msgs, yellow_nudge = health_messages_from_schedule(sched)
+            for msg in reversed(sched_msgs):
                 if msg not in reasons:
                     reasons = [msg] + list(reasons)
-                if result in ("绿", None):
-                    result = "黄"
-            if failed:
-                msg = f"定时刷新本次失败：{', '.join(failed)}"
-                if msg not in reasons:
-                    reasons = [msg] + list(reasons)
-                if result in ("绿", None):
-                    result = "黄"
-            if pend:
-                msg = f"定时刷新待补：{', '.join(pend)}"
-                if msg not in reasons:
-                    reasons = [msg] + list(reasons)
-            # upcoming 仅信息态，不入 reasons、不抬黄
+            if yellow_nudge and result in ("绿", None):
+                result = "黄"
         except Exception:
             pass
         # 2.6.3·B6：缺台账年页横幅
