@@ -13,10 +13,11 @@
   z-index: 40;
 }
 html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
-.admin-bar b { font-size: 15px; }
+/* 3.7.6 B12：壳顶栏/版本 pill 略放大 */
+.admin-bar b { font-size: 16px; }
 .ver-pill {
-  font-size: 12px;
-  padding: 2px 8px;
+  font-size: 13px;
+  padding: 3px 10px;
   border-radius: 8px;
   border: 1px solid var(--admin-line);
   color: var(--admin-mut);
@@ -38,10 +39,11 @@ html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 18px;
+  /* 3.7.6 B12：分组 Tab 略放大 */
+  padding: 10px 18px;
   border-radius: 10px 10px 0 0;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--admin-mut);
   border: 1px solid transparent;
@@ -51,7 +53,7 @@ html.theme-light .admin-bar { background: var(--admin-bar-bg-light); }
   white-space: nowrap;
   flex-shrink: 0;
   writing-mode: horizontal-tb;
-  min-height: 40px;
+  min-height: 42px;
 }
 .gtab.on {
   background: var(--admin-panel);

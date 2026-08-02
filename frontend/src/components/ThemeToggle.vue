@@ -9,7 +9,7 @@ function onToggle() {
 const label = computed(() => themeToggleLabel(themeMode.value))
 </script>
 <template>
-  <button type="button" class="toggle dsdk-button" style="width: auto; padding: 6px 13px" @click="onToggle">
+  <button type="button" class="toggle dsdk-button" style="width: auto; min-height: 34px; padding: 6px 14px; font-size: 13px" @click="onToggle">
     {{ label }}
   </button>
 </template>

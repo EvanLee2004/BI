@@ -60,10 +60,12 @@
   --kc-fs-caption: 13px;
   --kc-fs-meta: 12px;
 
-  
-  --fs-meta: 11px;
-  --fs-caption: 12px;
-  --fs-body: 14px;
+  /* 3.7.6：全站字号阶梯略抬（B5）；KPI 大数默认 38 不动 */
+  --fs-meta: 12px;
+  --fs-caption: 13px;
+  --fs-body: 15px;
+  --fs-card-h: 15px;
+  --fs-kpi: 38px;
 
   
   --warn-soft-bg: #422006;
@@ -246,7 +248,8 @@ html.theme-light {
   transform: none;
   text-shadow: none;
   align-self: flex-end;
-  font-size: 11px;
+  /* 3.7.6 B7：排名金额 ≥12～13 */
+  font-size: var(--fs-caption, 13px);
   color: var(--note, var(--mut));
 }
 .rank-bar__dual-row {
@@ -264,7 +267,7 @@ html.theme-light {
   min-width: 3.2rem;
   text-align: right;
   text-shadow: none;
-  font-size: 11px;
+  font-size: var(--fs-caption, 13px);
   color: var(--note, var(--mut));
 }
 .rank-bar__meta {

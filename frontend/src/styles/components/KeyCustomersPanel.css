@@ -307,8 +307,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px var(--space-2);
-  font-size: var(--fs-caption);
+  /* 3.7.6 B9：池筛选/分页芯片 ≥12～13、触控高合理 */
+  padding: 5px 10px;
+  min-height: 32px;
+  font-size: var(--fs-caption, 13px);
   color: var(--rank-name);
   background: transparent;
   border: 1px solid var(--line-soft);

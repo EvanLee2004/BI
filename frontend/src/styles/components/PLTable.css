@@ -13,11 +13,15 @@
   min-width: 0;
 }
 /* SPA sole source for .pl-export-btn (S7); accent border/color absorbed from theme */
+/* 3.7.6 B11：与顶栏/查询工具钮同档略放大 */
 .pl-export-btn {
   flex-shrink: 0;
   white-space: nowrap;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-2));
+  font-size: 13px;
+  min-height: 34px;
+  padding: 6px 14px;
 }
 .pl-export-btn:hover {
   color: var(--ink);

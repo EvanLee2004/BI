@@ -179,6 +179,31 @@ class TestBuildPlXlsxPure(unittest.TestCase):
                 self.assertIsInstance(d_amt.value, (int, float), f"detail {ln.get('name')} number")
                 self.assertAlmostEqual(float(d_amt.value), float(expect_ln), places=2)
                 r += 1
+                # 3.7.6：expandable 行后跟全部 children（更深缩进）
+                if ln.get("expandable"):
+                    for ch in ln.get("children") or []:
+                        if not isinstance(ch, dict):
+                            continue
+                        ccell = ws.cell(row=r, column=1)
+                        self.assertEqual(
+                            ccell.value, ch.get("name") or "", f"child name @row {r}"
+                        )
+                        cal = ccell.alignment
+                        c_indent = int(getattr(cal, "indent", 0) or 0) if cal else 0
+                        self.assertEqual(
+                            c_indent,
+                            expect_indent + 1,
+                            f"child indent @row {r} for {ccell.value}",
+                        )
+                        c_amt = ws.cell(row=r, column=2)
+                        expect_ch = money.fen_to_yuan(ch.get("impact"))
+                        self.assertIsInstance(
+                            c_amt.value, (int, float), f"child {ch.get('name')} number"
+                        )
+                        self.assertAlmostEqual(
+                            float(c_amt.value), float(expect_ch), places=2
+                        )
+                        r += 1
 
     def test_amounts_yuan_no_wan_and_match_impact(self):
         """金额列无「万」；≥3 个大类行 abs(cell_yuan - impact_fen/100) < 0.005；百分比含 %。"""
@@ -228,6 +253,10 @@ class TestBuildPlXlsxPure(unittest.TestCase):
             for ln in block.get("lines") or []:
                 if isinstance(ln, dict):
                     r += 1  # 跳过内嵌明细行
+                    if ln.get("expandable"):
+                        for ch in ln.get("children") or []:
+                            if isinstance(ch, dict):
+                                r += 1  # 跳过展开的 children
         self.assertGreaterEqual(samples, 3, "need ≥3 non-pct category amount checks")
         self.assertGreaterEqual(pct_checked, 1, "need ≥1 percent row")
 
@@ -442,6 +471,146 @@ class TestPlXlsxHttp(unittest.TestCase):
         # 顶栏仍是 HTML 快照，不得被换成 pl.xlsx 唯一导出
         self.assertIn("export.html", top)
         self.assertNotIn("export/pl.xlsx", top)
+
+
+class TestPlXlsxExpandOtherChildren(unittest.TestCase):
+    """3.7.6 A：导出展开「其他 N 项」全部 children；不改 structure limit=8。"""
+
+    def test_fine_pairs_limit_still_eight(self):
+        """红线：structure._fine_pairs 默认 limit 仍为 8（不靠改 limit 冒充导出）。"""
+        from domain.pl.structure import _fine_pairs  # noqa: E402
+        import inspect
+
+        sig = inspect.signature(_fine_pairs)
+        self.assertEqual(sig.parameters["limit"].default, 8)
+        pairs = [(f"项{i}", float(100 - i)) for i in range(12)]
+        lines = _fine_pairs(pairs)  # 默认 limit
+        tops = [ln for ln in lines if not str(ln.get("name", "")).startswith("其他")]
+        others = [ln for ln in lines if str(ln.get("name", "")).startswith("其他")]
+        self.assertEqual(len(tops), 8)
+        self.assertEqual(len(others), 1)
+        self.assertEqual(len(others[0].get("children") or []), 4)
+
+    def test_write_sheet_expands_all_other_children(self):
+        """A：每个「其他N项」后写出全部 children（名+元）；子项 impact 之和=该行 ±0.01 元。"""
+        from domain.pl.structure import _fine_pairs  # noqa: E402
+        from export_pl_xlsx import _write_single_sheet  # noqa: E402
+
+        # impact 用分（与 pl_structure 一致）；12 项 → 前 8 + 其他4项 + 4 children
+        pairs = [(f"项{i}", float((100 - i) * 100)) for i in range(12)]
+        lines = _fine_pairs(pairs, limit=8)
+        other = [ln for ln in lines if str(ln.get("name", "")).startswith("其他")]
+        self.assertEqual(len(other), 1)
+        children = other[0].get("children") or []
+        self.assertEqual(len(children), 4)
+
+        rows = [
+            {
+                "name": "交付成本（生产成本）",
+                "impact": 100000,
+                "is_pct": False,
+                "formula": "",
+                "open_key": "cost",
+            }
+        ]
+        details = {"cost": {"title": "交付成本构成", "lines": lines}}
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        _write_single_sheet(
+            ws,
+            rows,
+            details,
+            scope_label="整体",
+            period_key="2026年",
+            version="3.7.6",
+            is_bu=False,
+            export_time="2026-08-02 12:00:00",
+        )
+        hdr = _data_start_row(ws)
+        # 收集科目列（数据区）
+        names = []
+        amts = []
+        indents = []
+        for r in range(hdr + 1, (ws.max_row or hdr) + 1):
+            names.append(ws.cell(row=r, column=1).value)
+            amts.append(ws.cell(row=r, column=2).value)
+            al = ws.cell(row=r, column=1).alignment
+            indents.append(int(getattr(al, "indent", 0) or 0) if al else 0)
+
+        other_name = other[0]["name"]
+        self.assertIn(other_name, names, f"须保留合计行 {other_name}；got {names}")
+        oi = names.index(other_name)
+        # 合计行后紧跟全部 children
+        child_names = [ch["name"] for ch in children]
+        got_kids = names[oi + 1 : oi + 1 + len(children)]
+        self.assertEqual(got_kids, child_names, "children 须全量写出且顺序一致")
+        # 更深缩进（sub 行 indent=2，children 更深 → 3）
+        self.assertGreaterEqual(indents[oi], 1)
+        for j in range(len(children)):
+            self.assertGreater(
+                indents[oi + 1 + j],
+                indents[oi],
+                f"child indent must be deeper than 其他N项 @ {child_names[j]}",
+            )
+            expect_yuan = money.fen_to_yuan(children[j].get("impact"))
+            self.assertIsInstance(amts[oi + 1 + j], (int, float))
+            self.assertAlmostEqual(float(amts[oi + 1 + j]), float(expect_yuan), places=2)
+
+        # 子项 impact 之和 = 该行 ±0.01 元
+        other_yuan = float(amts[oi])
+        kids_sum = sum(float(amts[oi + 1 + j]) for j in range(len(children)))
+        self.assertLess(abs(kids_sum - other_yuan), 0.01 + 1e-9)
+
+    def test_build_pl_xlsx_expands_children_on_real_path(self):
+        """驱动真实 build_pl_xlsx_bytes：若 structure 含 expandable，xlsx 必含其 children 名。"""
+        from domain.pl.structure import _fine_pairs  # noqa: E402
+        from export_pl_xlsx import build_pl_xlsx_bytes  # noqa: E402
+        from unittest.mock import patch
+
+        pairs = [(f"子目{i}", float((50 - i) * 100)) for i in range(11)]
+        lines = _fine_pairs(pairs, limit=8)
+        other = next(ln for ln in lines if ln.get("expandable"))
+        child_names = [ch["name"] for ch in (other.get("children") or [])]
+        self.assertGreaterEqual(len(child_names), 1)
+
+        fake_struct = {
+            "rows": [
+                {
+                    "name": "营销费用",
+                    "impact": 99900,
+                    "is_pct": False,
+                    "formula": "",
+                    "open_key": "sales",
+                }
+            ],
+            "details": {"sales": {"title": "营销费用构成", "lines": lines}},
+        }
+        # 最小 summary 仅满足 period 校验；struct 由 mock 注入
+        summary = {
+            "meta": {"year_key": "2026年", "unclassified": {}, "public_allocation": {}},
+            "periods": {"2026年": {"range": ["2026-01-01", "2026-12-31"]}},
+            "expense_fine_type": {},
+        }
+        with patch("export_pl_xlsx._struct_for_period", return_value=fake_struct):
+            raw = build_pl_xlsx_bytes(
+                summary,
+                period_key="2026年",
+                is_bu=False,
+                scope_label="整体",
+                version="3.7.6",
+                export_time="2026-08-02 12:00:00",
+            )
+        wb = openpyxl.load_workbook(io.BytesIO(raw))
+        self.assertEqual(len(wb.worksheets), 1)
+        ws = wb.active
+        blob = " ".join(
+            str(ws.cell(row=r, column=1).value or "")
+            for r in range(1, (ws.max_row or 1) + 1)
+        )
+        self.assertIn(other["name"], blob)
+        for cn in child_names:
+            self.assertIn(cn, blob, f"child {cn!r} must appear in export")
 
 
 if __name__ == "__main__":

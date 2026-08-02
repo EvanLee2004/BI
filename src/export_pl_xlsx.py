@@ -104,6 +104,26 @@ def _write_amount_cell(cell, item: dict[str, Any], *, font: Font, fill: PatternF
         cell.number_format = _YUAN_NUM_FMT
 
 
+def _write_detail_line(
+    ws: Worksheet,
+    row_idx: int,
+    ln: dict[str, Any],
+    *,
+    indent: int,
+) -> int:
+    """写一行明细（名 + 元金额 + 空说明）；返回下一行号。indent 由调用方决定。"""
+    ln_name = ln.get("name") or ""
+    c1 = ws.cell(row=row_idx, column=1, value=ln_name)
+    c1.font = _DETAIL
+    c1.alignment = Alignment(indent=indent)
+    c1.fill = _DETAIL_FILL
+    _write_amount_cell(ws.cell(row=row_idx, column=2), ln, font=_DETAIL, fill=_DETAIL_FILL)
+    c3 = ws.cell(row=row_idx, column=3, value="")
+    c3.font = _DETAIL
+    c3.fill = _DETAIL_FILL
+    return row_idx + 1
+
+
 def _write_single_sheet(
     ws: Worksheet,
     rows: list[dict[str, Any]],
@@ -147,19 +167,17 @@ def _write_single_sheet(
         for ln in block.get("lines") or []:
             if not isinstance(ln, dict):
                 continue
-            ln_name = ln.get("name") or ""
-            # sub 行更深缩进（二级明细）
-            indent = 2 if ln.get("sub") else 1
-            c1 = ws.cell(row=row_idx, column=1, value=ln_name)
-            c1.font = _DETAIL
-            c1.alignment = Alignment(indent=indent)
-            c1.fill = _DETAIL_FILL
-            # 明细行无 is_pct；用 impact 写元
-            _write_amount_cell(ws.cell(row=row_idx, column=2), ln, font=_DETAIL, fill=_DETAIL_FILL)
-            c3 = ws.cell(row=row_idx, column=3, value="")
-            c3.font = _DETAIL
-            c3.fill = _DETAIL_FILL
-            row_idx += 1
+            # sub 行更深缩进（二级明细）；与历史口径一致
+            ln_indent = 2 if ln.get("sub") else 1
+            row_idx = _write_detail_line(ws, row_idx, ln, indent=ln_indent)
+            # 3.7.6：展开「其他 N 项」全部 children（更深 indent；保留合计行）
+            kids = ln.get("children") or []
+            if ln.get("expandable") and kids:
+                child_indent = ln_indent + 1
+                for ch in kids:
+                    if not isinstance(ch, dict):
+                        continue
+                    row_idx = _write_detail_line(ws, row_idx, ch, indent=child_indent)
 
     _set_col_widths(ws, headers, extra=12, cap=40)
     ws.column_dimensions["A"].width = 28

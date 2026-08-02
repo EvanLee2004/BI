@@ -6,14 +6,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* 3.7.6 B3：周期钮略放大 */
   min-height: 36px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--panel, var(--surface-soft));
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   max-width: min(220px, 70vw);
   white-space: nowrap;

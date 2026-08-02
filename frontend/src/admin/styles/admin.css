@@ -60,8 +60,9 @@
   --el-border-radius-base: 6px;
   --el-border-radius-small: 6px;
   --el-border-radius-round: 10px;
+  /* 3.7.6 B13：small→13；base 维持 14 防密表横爆 */
   --el-font-size-base: 14px;
-  --el-font-size-small: 12px;
+  --el-font-size-small: 13px;
   --el-text-color-primary: var(--admin-fg);
   --el-text-color-regular: var(--admin-fg);
   --el-text-color-secondary: var(--admin-mut);
@@ -164,6 +165,12 @@ html.theme-light .admin-root .el-card {
 .admin-root .el-button {
   border-radius: var(--admin-radius-sm);
   min-height: 36px;
+}
+/* 3.7.6 B13：small 钮略增触控高 */
+.admin-root .el-button--small {
+  min-height: 32px;
+  font-size: var(--el-font-size-small, 13px);
+  padding: 6px 12px;
 }
 .admin-root .el-button--primary {
   --el-button-bg-color: var(--admin-cyan);
@@ -387,9 +394,10 @@ html.theme-light .admin-root .b-matrix tbody tr:nth-child(even) td {
 }
 
 .admin-pill {
-  padding: 4px 12px;
+  /* 3.7.6 B12：体检 pill 略放大 */
+  padding: 5px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   user-select: none;
