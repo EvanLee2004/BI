@@ -208,7 +208,8 @@ class TestMobileLiveOverflow(unittest.TestCase):
         )
         self.assertLessEqual(m["scrollW"], m["clientW"] + 2, m)
         self.assertIsNotNone(m.get("topH"))
-        self.assertLessEqual(m["topH"], 88, f"topbar too tall: {m}")
+        # 3.7.5：390 允许两行分层（更新时间+操作不重叠），上限放宽到 180
+        self.assertLessEqual(m["topH"], 180, f"topbar too tall: {m}")
         # 2.6.7：无 ⋯，有横排 tb-actions
         self.assertFalse(m.get("hasMore"), m)
         self.assertTrue(m.get("hasActions"), m)

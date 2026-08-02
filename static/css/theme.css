@@ -314,7 +314,7 @@ button.ghost:disabled:hover, button.mini:disabled:hover{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.18);
   display:flex;flex-direction:column;min-height:0;width:100%;box-sizing:border-box}
 .theme-light .rc-summary{background:var(--panel);box-shadow:0 1px 4px rgba(8,145,178,.08)}
-.rc-summary-title, .rc-side-title{font-size:12.5px;font-weight:700;color:var(--accent);letter-spacing:.04em;
+.rc-summary-title, .rc-side-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.02em;margin:0 0 2px;
   padding:0 4px 8px;border-bottom:1px solid var(--line);flex:0 0 auto}
 .rc-summary-list, .rc-side-list{flex:1 1 auto;padding:12px 0 0;display:flex;flex-direction:row;flex-wrap:wrap;
   gap:12px 16px;align-items:stretch}
@@ -880,17 +880,16 @@ svg path.donut-seg{stroke:var(--bg);stroke-width:2;paint-order:stroke fill}
   .kpi-grid, .kpi-grid.kpi-5{grid-template-columns:minmax(0,1fr)}
   .kpi-grid > .scifi-panel.kpi-card:last-child:nth-child(odd){grid-column:1 / -1}
 
-  /* 2.6.2 B2：顶栏单行主工具，次要信息隐藏 */
+  /* 3.7.5：390 顶栏两行分层——避免 logo/年份/更新时间/主题导出重叠；更新时间与关键操作仍可见 */
   .topbar{
-    flex-wrap:nowrap !important;align-items:center;gap:8px;
-    padding:8px 10px;min-height:52px;max-height:72px;box-sizing:border-box;
+    flex-wrap:wrap !important;align-items:flex-start;gap:6px 8px;
+    padding:8px 10px 10px;min-height:0;max-height:none;box-sizing:border-box;
   }
-  .tb-left{flex-wrap:nowrap !important;flex:1;min-width:0;gap:6px}
-  .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
-  /* P2-03 390：标题再收一点，避免与工具钮抢宽导致横溢 */
-  .tb-title{max-width:min(42vw,11rem)}
+  .tb-left{flex-wrap:wrap !important;flex:1 1 auto;min-width:0;gap:6px}
+  .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(48vw,12rem)}
   .tb-ver{display:none !important}
-  .tb-right{flex-shrink:0;gap:6px;margin-left:4px}
+  .tb-right{flex:1 1 100%;flex-wrap:wrap;justify-content:flex-start;gap:6px 8px;margin-left:0;width:100%}
+  .tb-logo{flex-shrink:0}
   /* 2.6.7 B：窄屏仍横排一行图标，无 ⋯ 折叠 */
   .tb-actions{display:inline-flex !important;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
   .tb-actions .tb-lab{display:none !important}

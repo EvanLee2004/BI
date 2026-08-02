@@ -5,7 +5,7 @@
  * - 手机：click 打开 Teleport 抽屉/对话框，可滚动可关闭
  * - 禁止承载黄/红状态、抓数异常、确认操作或空态（仅解释性文案）
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import DataModal from './DataModal.vue'
 
 const props = withDefaults(
@@ -27,7 +27,9 @@ const pinned = ref(false)
 const hover = ref(false)
 const mobileOpen = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
+const panelEl = ref<HTMLElement | null>(null)
 const isNarrow = ref(false)
+const panelStyle = ref<Record<string, string>>({})
 
 const open = computed(() => pinned.value || hover.value)
 
@@ -36,6 +38,30 @@ function mqCheck() {
     isNarrow.value = window.matchMedia('(max-width: 520px)').matches
   } catch {
     isNarrow.value = false
+  }
+}
+
+/** 锚定触发器下方；不遮挡按钮；视口内可滚 */
+function placePanel() {
+  const btn = rootEl.value?.querySelector('button') as HTMLElement | null
+  if (!btn) return
+  const r = btn.getBoundingClientRect()
+  const gap = 8
+  const maxW = Math.min(22 * 16, window.innerWidth - 24)
+  let left = r.left + r.width / 2 - maxW / 2
+  left = Math.max(12, Math.min(left, window.innerWidth - maxW - 12))
+  let top = r.bottom + gap
+  const maxH = Math.min(window.innerHeight * 0.6, 24 * 16)
+  if (top + Math.min(200, maxH) > window.innerHeight - 12) {
+    // 上方放
+    top = Math.max(12, r.top - gap - Math.min(200, maxH))
+  }
+  panelStyle.value = {
+    top: `${Math.round(top)}px`,
+    left: `${Math.round(left)}px`,
+    width: `${Math.round(maxW)}px`,
+    maxHeight: `${Math.round(maxH)}px`,
+    transform: 'none',
   }
 }
 
@@ -55,11 +81,13 @@ function onKey(e: KeyboardEvent) {
 }
 
 function onDocPointer(e: MouseEvent) {
-  if (!pinned.value) return
+  if (!pinned.value && !hover.value) return
   const t = e.target as Node | null
-  if (!t || !rootEl.value) return
-  if (rootEl.value.contains(t)) return
+  if (!t) return
+  if (rootEl.value?.contains(t)) return
+  if (panelEl.value?.contains(t)) return
   pinned.value = false
+  hover.value = false
 }
 
 function togglePin() {
@@ -70,7 +98,10 @@ function togglePin() {
     return
   }
   pinned.value = !pinned.value
-  if (pinned.value) hover.value = false
+  if (pinned.value) {
+    hover.value = false
+    nextTick(() => placePanel())
+  }
 }
 
 function onBtnKey(e: KeyboardEvent) {
@@ -80,22 +111,38 @@ function onBtnKey(e: KeyboardEvent) {
   }
 }
 
+function onHoverIn() {
+  if (isNarrow.value) return
+  hover.value = true
+  nextTick(() => placePanel())
+}
+
+function onHoverOut() {
+  if (!pinned.value) hover.value = false
+}
+
 onMounted(() => {
   mqCheck()
   window.addEventListener('resize', mqCheck, { passive: true })
+  window.addEventListener('scroll', placePanel, { passive: true, capture: true })
   document.addEventListener('keydown', onKey)
   document.addEventListener('pointerdown', onDocPointer, true)
 })
 onUnmounted(() => {
   window.removeEventListener('resize', mqCheck)
+  window.removeEventListener('scroll', placePanel, true)
   document.removeEventListener('keydown', onKey)
   document.removeEventListener('pointerdown', onDocPointer, true)
+})
+
+watch(open, (v) => {
+  if (v) nextTick(() => placePanel())
 })
 
 watch(
   () => props.lines,
   () => {
-    /* content-only */
+    if (open.value) nextTick(() => placePanel())
   },
 )
 </script>
@@ -109,23 +156,25 @@ watch(
       :aria-label="label"
       :aria-expanded="(open || mobileOpen) ? 'true' : 'false'"
       :aria-controls="testId + '-popover'"
-      @mouseenter="!isNarrow && (hover = true)"
-      @mouseleave="!pinned && (hover = false)"
+      @mouseenter="onHoverIn"
+      @mouseleave="onHoverOut"
       @click.stop="togglePin"
       @keydown="onBtnKey"
-      @focus="!isNarrow && (hover = true)"
-      @blur="!pinned && (hover = false)"
+      @focus="onHoverIn"
+      @blur="onHoverOut"
     >
       ?
     </button>
-    <!-- 桌面浮层：Teleport body，避免裁切 -->
+    <!-- 桌面浮层：Teleport body + 锚定触发器，避免裁切 -->
     <Teleport to="body">
       <div
         v-if="open && !isNarrow"
+        ref="panelEl"
         :id="testId + '-popover'"
         class="help-pop__panel kc-help-popover"
         :data-testid="testId + '-popover'"
         role="tooltip"
+        :style="panelStyle"
       >
         <p v-if="title" class="help-pop__title">{{ title }}</p>
         <p

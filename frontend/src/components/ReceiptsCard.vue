@@ -112,9 +112,9 @@ const option = computed(() => {
       name: '下单',
       type: 'bar',
       data: ordPlot,
-      barMaxWidth: 22,
-      barGap: '28%',
-      barCategoryGap: '42%',
+      barMaxWidth: 28,
+      barGap: '12%',
+      barCategoryGap: '28%',
       itemStyle: {
         ...barGlowStyle(cOrd),
         borderRadius: [6, 6, 0, 0],
@@ -123,14 +123,14 @@ const option = computed(() => {
         position: 'top',
         formatter: (p: { dataIndex: number }) =>
           p.dataIndex === peakOrdIdx && od[p.dataIndex] ? od[p.dataIndex] : '',
-        fontSize: 11,
+        fontSize: 12,
       }),
     },
     {
       name: '回款',
       type: 'bar',
       data: recPlot,
-      barMaxWidth: 22,
+      barMaxWidth: 28,
       itemStyle: {
         ...barGlowStyle(cRec),
         borderRadius: [6, 6, 0, 0],
@@ -139,7 +139,7 @@ const option = computed(() => {
         position: 'top',
         formatter: (p: { dataIndex: number }) =>
           p.dataIndex === peakRecIdx && rd[p.dataIndex] ? rd[p.dataIndex] : '',
-        fontSize: 11,
+        fontSize: 12,
       }),
     },
   ]
@@ -188,7 +188,7 @@ const option = computed(() => {
       itemGap: 16,
       textStyle: legendTextStyle({ fontSize: 12 }),
     },
-    grid: { left: 52, right: 24, top: 44, bottom: 52, containLabel: true },
+    grid: { left: 52, right: 28, top: 40, bottom: 52, containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -237,32 +237,45 @@ const hasSeries = computed(() => (r.value.labels || []).length > 0)
       <div class="rc-body" data-chart="receipts">
         <EchartsHost :option="option" />
       </div>
-      <aside v-if="sideVisible && side" class="rc-side" aria-label="下单/回款摘要">
-        <div class="rc-hero">
-          <div class="rc-hero-row">
-            <span class="rc-k">本年下单</span>
-            <span class="rc-v">{{ withWanUnit(side.orders_disp) }}</span>
-          </div>
-          <div class="rc-hero-row">
-            <span class="rc-k">本年回款</span>
-            <span class="rc-v rc-v-rec">{{ withWanUnit(side.receipts_disp) }}</span>
-          </div>
+      <aside v-if="sideVisible && side" class="rc-side" aria-label="下单/回款摘要" data-testid="rc-year-progress">
+        <div class="rc-side-title">年度进度</div>
+        <div class="rc-metric" data-testid="rc-metric-order">
+          <div class="rc-metric-label">本年下单</div>
+          <div class="rc-metric-value">{{ withWanUnit(side.orders_disp) }}</div>
+          <template v-if="side.order_target_disp">
+            <div class="rc-bud-h">
+              <span>完成率</span>
+              <strong data-testid="rc-order-pct">{{ side.order_pct_disp }}</strong>
+            </div>
+            <div class="rc-bud-sub">
+              目标 {{ withWanUnit(side.order_target_disp) }}
+              <span v-if="side.order_remain_disp" class="rc-remain">
+                · {{ side.order_remain_hint || '尚差' }} {{ withWanUnit(side.order_remain_disp) }}
+              </span>
+            </div>
+            <div class="rc-bud-bar" data-testid="rc-bud-order">
+              <i :style="{ width: (side.order_bar_w || '0') + '%' }" />
+            </div>
+          </template>
         </div>
-        <div v-if="side.receipt_target_disp" class="rc-bud" data-testid="rc-bud-receipt">
-          <div class="rc-bud-h">
-            <span>{{ side.receipt_title || '回款年目标' }}</span>
-            <strong>{{ side.receipt_pct_disp }}</strong>
-          </div>
-          <div class="rc-bud-sub">目标 {{ withWanUnit(side.receipt_target_disp) }}</div>
-          <div class="rc-bud-bar"><i :style="{ width: (side.receipt_bar_w || '0') + '%' }" /></div>
-        </div>
-        <div v-if="side.order_target_disp" class="rc-bud" data-testid="rc-bud-order">
-          <div class="rc-bud-h">
-            <span>{{ side.order_title || '下单年目标' }}</span>
-            <strong>{{ side.order_pct_disp }}</strong>
-          </div>
-          <div class="rc-bud-sub">目标 {{ withWanUnit(side.order_target_disp) }}</div>
-          <div class="rc-bud-bar"><i :style="{ width: (side.order_bar_w || '0') + '%' }" /></div>
+        <div class="rc-metric" data-testid="rc-metric-receipt">
+          <div class="rc-metric-label">本年回款</div>
+          <div class="rc-metric-value rc-v-rec">{{ withWanUnit(side.receipts_disp) }}</div>
+          <template v-if="side.receipt_target_disp">
+            <div class="rc-bud-h">
+              <span>完成率</span>
+              <strong data-testid="rc-receipt-pct">{{ side.receipt_pct_disp }}</strong>
+            </div>
+            <div class="rc-bud-sub">
+              目标 {{ withWanUnit(side.receipt_target_disp) }}
+              <span v-if="side.receipt_remain_disp" class="rc-remain">
+                · {{ side.receipt_remain_hint || '尚差' }} {{ withWanUnit(side.receipt_remain_disp) }}
+              </span>
+            </div>
+            <div class="rc-bud-bar" data-testid="rc-bud-receipt">
+              <i :style="{ width: (side.receipt_bar_w || '0') + '%' }" />
+            </div>
+          </template>
         </div>
       </aside>
     </div>

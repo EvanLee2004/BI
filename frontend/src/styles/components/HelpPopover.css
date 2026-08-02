@@ -39,6 +39,7 @@
   max-width: min(22rem, calc(100vw - 1.5rem));
   max-height: min(60vh, 24rem);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0.65rem 0.75rem;
   border-radius: var(--radius-md, 10px);
   border: 1px solid var(--line);
@@ -47,9 +48,10 @@
   box-shadow: var(--shadow-pop);
   font-size: var(--fs-caption);
   line-height: 1.55;
+  /* top/left 由 JS 锚定触发器；fallback 避免未 place 时全屏居中误挡 */
   top: 4.5rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 1rem;
+  box-sizing: border-box;
 }
 .help-pop__title {
   margin: 0 0 0.35rem;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 经营摘要三卡：重点客户贡献、临界晋级（可进名单）、需跟进数量与入口。
- * 3.7.4：行动信息 + 入口；临界无名单时明确说明原因。
+ * 经营摘要三等宽卡：全部客户、重点客户贡献、临界晋级。
+ * 3.7.5：删除顶栏第二排「需跟进重点客户」卡；行动队列/筛选入口仍在下方工作台。
  */
 import type { KeyCustomersVM } from '../../types/vm'
 
@@ -9,6 +9,7 @@ const props = defineProps<{
   cards: NonNullable<KeyCustomersVM['summary_cards']>
   nearTip: string
   nearCount?: number
+  /** @deprecated 3.7.5 摘要区不再展示需跟进卡；保留 prop 兼容调用方 */
   silentCount?: number
   hasNearList?: boolean
 }>()
@@ -22,21 +23,16 @@ function onNearActivate() {
   if (props.hasNearList) emit('openNear')
 }
 
-function onSilentActivate() {
-  if ((props.silentCount || 0) > 0) emit('openSilent')
-}
-
-function onKey(e: KeyboardEvent, kind: 'near' | 'silent') {
+function onKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
-    if (kind === 'near') onNearActivate()
-    else onSilentActivate()
+    onNearActivate()
   }
 }
 </script>
 
 <template>
-  <section class="kc-summary-cards" data-testid="kc-summary-cards" aria-label="经营摘要">
+  <section class="kc-summary-cards kc-summary-cards--triple" data-testid="kc-summary-cards" aria-label="经营摘要">
     <div class="kc-card" data-testid="kc-card-total">
       <div class="kc-card__label">{{ cards.total?.label || '全部客户 / 年累计' }}</div>
       <div class="kc-card__value">{{ cards.total?.value_disp || '—' }}</div>
@@ -54,7 +50,7 @@ function onKey(e: KeyboardEvent, kind: 'near' | 'silent') {
       :role="hasNearList ? 'button' : undefined"
       :tabindex="hasNearList ? 0 : undefined"
       @click="onNearActivate"
-      @keydown="onKey($event, 'near')"
+      @keydown="onKey"
     >
       <div class="kc-card__label">{{ cards.near_upgrade?.label || '临界晋级客户' }}</div>
       <div class="kc-card__value">{{ cards.near_upgrade?.value_disp || '—' }}</div>
@@ -64,19 +60,6 @@ function onKey(e: KeyboardEvent, kind: 'near' | 'silent') {
       <div v-else class="kc-card__sub" data-testid="kc-near-empty-reason">
         当前无临界晋级名单可进入
       </div>
-    </div>
-    <div
-      v-if="(silentCount || 0) > 0"
-      class="kc-card kc-card--action"
-      data-testid="kc-card-silent"
-      role="button"
-      tabindex="0"
-      @click="onSilentActivate"
-      @keydown="onKey($event, 'silent')"
-    >
-      <div class="kc-card__label">需跟进重点客</div>
-      <div class="kc-card__value">{{ silentCount }}</div>
-      <div class="kc-card__action" data-testid="kc-silent-entry">查看需跟进 →</div>
     </div>
   </section>
 </template>

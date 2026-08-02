@@ -247,7 +247,9 @@ onMounted(async () => {
         :filter-method="(val: string, row: Record<string, unknown>) => colFilterMethod(val, row, c)"
         filter-placement="bottom-end"
       >
-        <template #default="{ row }">{{ cellText(row[c]) }}</template>
+        <template #default="{ row }">
+          <span class="cell-clip" :title="cellText(row[c])">{{ cellText(row[c]) }}</span>
+        </template>
       </el-table-column>
       <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">

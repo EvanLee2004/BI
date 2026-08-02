@@ -392,9 +392,9 @@ onBeforeUnmount(() => {
     <div class="us-head">
       <h2 class="us-title">用户统计</h2>
       <p class="us-desc" data-testid="user-stats-note">
-        基于登录与关键操作留痕（表 manual_配置变更·访问类）。
-        <strong>次数主指标=登录成功</strong>；打开看板首页多数不单独记；
-        <strong>看端明细不计入登录次数</strong>。不含密码与业务金额。历史自系统开始写审计日起有效。
+        <strong>主指标=登录成功</strong>。
+        看端明细不计登录；不含密码与业务金额。
+        口径：审计访问类留痕，自系统开始写日起有效。
       </p>
     </div>
 

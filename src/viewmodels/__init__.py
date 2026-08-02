@@ -237,10 +237,16 @@ def _attach_year_budget_bars(row: dict, budget: dict, charts) -> None:
 
         pct_txt = format_target_pct_disp(pct, decimals=1)
         bw = max(0.0, min(float(pct or 0), 100.0))
-        row[key] = charts.fmt_wan(float(b["target"]))
+        tgt = float(b["target"])
+        done = float(b.get("done") or 0)
+        remain = max(0.0, tgt - done)
+        row[key] = charts.fmt_wan(tgt)
         row[f"{bkey}_pct_disp"] = pct_txt
         row[f"{bkey}_bar_w"] = f"{bw:.1f}"
         row[f"{bkey}_title"] = title
+        # 3.7.5：右侧年度进度「尚差」显示串（后端算，前端零运算）
+        row[f"{bkey}_remain_disp"] = charts.fmt_wan(remain)
+        row[f"{bkey}_remain_hint"] = "尚差" if remain > 0.005 else "已达成"
 
 
 def _pack_one_period_receipt_row(pk, p, yk, budget, charts) -> dict[str, str] | None:

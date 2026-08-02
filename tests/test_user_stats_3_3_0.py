@@ -363,7 +363,11 @@ class TestFrontendStructure(unittest.TestCase):
         page = (ROOT / "frontend/src/admin/views/UserStatsView.vue").read_text(encoding="utf-8")
         self.assertIn("user-stats-page", page)
         self.assertIn("login_ok", page)
-        self.assertIn("看端明细不计入登录次数", page)
+        # 3.7.5：说明压成可扫读；仍须点明明细不计登录
+        self.assertTrue(
+            "看端明细不计入登录次数" in page or "看端明细不计登录" in page,
+            "用户统计说明须写明明细不计登录",
+        )
         self.assertIn("loadEcharts", page)
         self.assertNotIn("from 'echarts'", page)
         self.assertNotIn('from "echarts"', page)

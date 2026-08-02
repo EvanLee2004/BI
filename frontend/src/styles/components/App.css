@@ -42,14 +42,16 @@
   margin-right: 2px;
   white-space: nowrap;
 }
-/* 3.7.4：顶栏「数据更新至」窄屏仍可见（可缩小字号，不整段隐藏） */
+/* 3.7.4：顶栏「数据更新至」窄屏仍可见（可缩小字号，不整段隐藏）
+ * 390 两行分层见 theme.css @media(max-width:520px)（S7 禁 components 与 theme 同名 class） */
 @media (max-width: 520px) {
   .tb-today {
     display: inline !important;
-    max-width: 9.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    overflow: visible;
+    text-overflow: unset;
     font-size: 11px;
+    white-space: nowrap;
   }
 }
 

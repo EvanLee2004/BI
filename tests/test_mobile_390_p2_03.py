@@ -24,8 +24,12 @@ class TestMobile390LookAffectingCss(unittest.TestCase):
         compact = css.replace(" ", "")
         self.assertIn("overflow-x:hidden", compact)
         self.assertIn("max-width:520px", compact)
-        # 390 标题宽度上限
-        self.assertIn("max-width:min(42vw,11rem)", compact.replace("\n", ""))
+        # 390 标题宽度上限（3.7.5：略放宽到 48vw/12rem 以便两行分层）
+        c = compact.replace("\n", "")
+        self.assertTrue(
+            "max-width:min(42vw,11rem)" in c or "max-width:min(48vw,12rem)" in c,
+            "390 标题须有 max-width 上限",
+        )
 
 
 if __name__ == "__main__":

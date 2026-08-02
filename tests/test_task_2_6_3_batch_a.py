@@ -183,7 +183,8 @@ class TestA4LocalConfigCorruptAndEmptyPassword(unittest.TestCase):
         self.assertIsNotNone(st)
         self.assertIn("JSON", st.get("reason") or st.get("reason", "") or str(st))
 
-    def test_empty_password_raises(self):
+    def test_empty_password_keeps_stored_or_new_requires(self):
+        """3.7.5：已有账号密码留空=不改；新账号无密码才拒。"""
         accounts.save_accounts(
             self.cfg,
             None,
@@ -192,19 +193,29 @@ class TestA4LocalConfigCorruptAndEmptyPassword(unittest.TestCase):
                 {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": "StrongPw_C3d4"},
             ],
         )
+        # 已有账号空密码 → 保留
+        accounts.save_accounts(
+            self.cfg,
+            None,
+            [
+                {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": ""},
+                {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": "StrongPw_C3d4"},
+            ],
+        )
+        acc = accounts.find_account(self.cfg, None, "lushasha")
+        self.assertEqual(acc["密码"], "StrongPw_A1b2")
+        # 新账号无密码 → 拒
         with self.assertRaises(ValueError) as cm:
             accounts.save_accounts(
                 self.cfg,
                 None,
                 [
-                    {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": ""},
+                    {"账号": "lushasha", "显示名": "管理员", "权限": "管理员", "密码": "StrongPw_A1b2"},
                     {"账号": "overall", "显示名": "整体", "权限": "整体", "密码": "StrongPw_C3d4"},
+                    {"账号": "newbie", "显示名": "新人", "权限": "整体"},
                 ],
             )
-        self.assertIn("密码不能为空", str(cm.exception))
-        # 库内仍是原密码，未变成 8888
-        acc = accounts.find_account(self.cfg, None, "lushasha")
-        self.assertEqual(acc["密码"], "StrongPw_A1b2")
+        self.assertIn("须设置密码", str(cm.exception))
 
 
 if __name__ == "__main__":

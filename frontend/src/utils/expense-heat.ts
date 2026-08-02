@@ -12,8 +12,13 @@ export type HeatPack = {
   labels: string[]
   cats: string[]
   data: [number, number, number][]
+  /** 平行：是否确认为 0（有 disp 且数值 0）；缺失则不进 data 或 value 为特殊 */
+  missingMap: Record<string, boolean>
   dispMap: Record<string, string>
   vmax: number
+  vmin: number
+  vmid: number
+  unit: string
 }
 
 /** 从 VM area_* 构建 heatmap 格子（与 ExpenseHeatmap 渲染同源）。
@@ -46,18 +51,49 @@ export function buildExpenseHeatPack(
   const labels = keepIdx.map((i) => rawLabels[i])
   const data: [number, number, number][] = []
   const dispMap: Record<string, string> = {}
+  const missingMap: Record<string, boolean> = {}
+  const positives: number[] = []
   let vmax = 0
+  let vmin = Infinity
   seriesIn.forEach((s, yi) => {
     const row = s.data || []
     const disps = s.data_disp || []
     keepIdx.forEach((srcXi, xi) => {
-      const n = Number(row[srcXi]) || 0
+      const raw = row[srcXi]
+      const disp = disps[srcXi]
+      const key = `${xi},${yi}`
+      // 缺失：无 data 且无 disp → 不画实心 0（用极小占位区分 visualMap）
+      const hasDisp = disp != null && String(disp).trim() !== ''
+      const hasNum = raw != null && !Number.isNaN(Number(raw))
+      if (!hasNum && !hasDisp) {
+        missingMap[key] = true
+        data.push([xi, yi, -1]) // 哨兵：缺失，不参与 vmax
+        dispMap[key] = '—'
+        return
+      }
+      const n = Number(raw) || 0
       data.push([xi, yi, n])
-      dispMap[`${xi},${yi}`] = String(disps[srcXi] ?? '')
+      dispMap[key] = hasDisp ? String(disp) : String(n)
+      missingMap[key] = false
       if (n > vmax) vmax = n
+      if (n < vmin) vmin = n
+      if (n > 0) positives.push(n)
     })
   })
-  return { labels, cats, data, dispMap, vmax }
+  if (vmin === Infinity) vmin = 0
+  const sorted = [...positives].sort((a, b) => a - b)
+  const vmid = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0
+  return {
+    labels,
+    cats,
+    data,
+    dispMap,
+    missingMap,
+    vmax,
+    vmin,
+    vmid,
+    unit: '万',
+  }
 }
 
 /** 抽最多 n 个非零格（按金额降序），用于对账。 */

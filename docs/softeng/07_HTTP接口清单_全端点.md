@@ -47,8 +47,10 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET/POST | `/api/v1/admin/accounts` | 账号表管理（管理员会话**下发明文密码**；任务书64·P / MADR-0020） |
-| POST | `/api/v1/admin/accounts/{账号}/reset_passwd` | 管理员重置密码（可选快捷入口）；body `{new?}`；列表亦可直接编辑明文 |
+| GET/POST | `/api/v1/admin/accounts` | 账号表管理（3.7.5：**不下发明文密码**；仅 `password_set`/`初始密码` 等状态；保存时密码留空=不改） |
+| POST | `/api/v1/admin/accounts/{账号}/reset_passwd` | 管理员**显式**设新密码；body `{new}` 必填非空；**响应不回显明文** |
+| GET | `/api/v1/admin/settings` | 设置只读视图；3.7.5：智云密码不下发，仅 `zhiyun_password_set` |
+| POST | `/api/v1/admin/settings` | 设置保存；智云密码留空=保留已存值 |
 | POST | `/api/v1/my_passwd` | 看的人自改密码（非管理员看端） |
 | GET | `/api/v1/admin/detail` | 明细分页；看端费用明细列=白名单（audience）；`month` 或 `month_from`+`month_to` 归属月区间；可 unfilled_dept / unclassified |
 | GET | `/api/v1/admin/detail/export` | 明细导出 xlsx（列与当前会话明细一致：看端白名单/管理端全列） |

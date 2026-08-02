@@ -1,3 +1,8 @@
+/* 3.7.5：宽屏收紧留白；数字控件跟 admin token，避免默认亮白块 */
+.settings {
+  max-width: 1200px;
+  margin: 0 auto;
+}
 .scard { margin-bottom: 16px; }
 .scard-h { display: flex; gap: 12px; align-items: flex-start; }
 .ico { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--admin-ico-bg); }
@@ -10,6 +15,25 @@
 .sched-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
 .field-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .foot { margin-top: 8px; }
+.settings .el-input-number,
+.settings .el-input__wrapper,
+.settings .el-textarea__inner,
+.settings .el-select__wrapper {
+  background-color: var(--admin-panel2, var(--admin-panel)) !important;
+  box-shadow: 0 0 0 1px var(--admin-line) inset !important;
+}
+.settings .el-input__inner,
+.settings .el-input-number__decrease,
+.settings .el-input-number__increase {
+  color: var(--admin-fg, inherit);
+  background: transparent;
+}
+@media (min-width: 1200px) {
+  .settings .el-row {
+    --el-row-gutter: 20px;
+  }
+  .scard { margin-bottom: 14px; }
+}
 .bu-checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .bu-batch { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .bu-pool { margin-bottom: 14px; }

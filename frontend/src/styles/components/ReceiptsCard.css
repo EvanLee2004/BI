@@ -1,6 +1,6 @@
 .rc-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
   gap: 12px;
   align-items: stretch;
   min-height: 320px;
@@ -28,8 +28,8 @@
 .rc-side {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 2px 4px 8px;
+  gap: 14px;
+  padding: 12px 12px 14px;
   border: 1px solid var(--line);
   border-left: 1px solid var(--line-12);
   border-radius: 12px;
@@ -44,26 +44,36 @@
   min-height: 0;
   width: 100%;
   box-sizing: border-box;
+  justify-content: flex-start;
 }
 html[data-theme="light"] .rc-side {
   background: var(--panel);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--blue) 8%, transparent);
 }
-.rc-hero-row {
+/* 标题 .rc-side-title 在 theme.css（S7 禁双源同名） */
+.rc-metric {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--line-12);
 }
-.rc-k {
-  color: var(--note, var(--note));
+.rc-metric:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.rc-metric-label {
+  color: var(--note);
   font-weight: 500;
+  font-size: 12px;
 }
-.rc-v {
+.rc-metric-value {
   font-family: var(--num-font, ui-monospace, monospace);
-  font-weight: 700;
-  color: var(--ink, var(--ink));
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink);
+  letter-spacing: -0.02em;
 }
 .rc-v-rec {
   color: var(--blue);
@@ -73,33 +83,42 @@ html[data-theme="light"] .rc-side {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 4px;
+  margin: 6px 0 2px;
   font-weight: 600;
   font-size: 12px;
   color: var(--note);
   gap: 8px;
 }
-.rc-bud-h b {
+.rc-bud-h strong {
   color: var(--ink);
   font-family: var(--num-font);
-  font-size: 12.5px;
+  font-size: 14px;
+  font-weight: 700;
 }
 .rc-bud-bar {
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--line-12);
   overflow: hidden;
+  width: 100%;
+  margin-top: 4px;
 }
 .rc-bud-bar i {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--blue), var(--rank-primary-alt));
-  border-radius: 3px;
+  border-radius: 4px;
+  min-width: 0;
 }
 .rc-bud-sub {
   font-size: 12px;
-  color: var(--note, var(--note));
-  margin-bottom: 4px;
+  color: var(--note);
+  line-height: 1.4;
+}
+.rc-remain {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
 }
 @media (max-width: 900px) {
   .rc-layout {

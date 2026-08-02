@@ -274,41 +274,48 @@ def _apply_optional_local_settings(cfg, payload: dict, updates: dict) -> None:
         updates["disk_free_min_ratio"] = dfr
 
 
+def _resolve_zhiyun_creds_update(cfg, root, zu_in, zp_in) -> str:
+    """解析智云账号/密码更新意图；返回 cred_note 或抛 ValueError。"""
+    cur = read_zhiyun_creds(cfg, root)
+    new_user = str(zu_in).strip() if zu_in is not None else str(cur.get("username") or "")
+    # 留空不改：None 或 "" → 保留已存密码
+    new_pw = str(cur.get("password") or "") if zp_in is None or str(zp_in) == "" else str(zp_in)
+    if not new_user and not new_pw:
+        raise ValueError("智云账号和密码不能都为空")
+    if not new_pw:
+        raise ValueError("请先设置智云密码（留空表示不改；当前尚未设置）")
+    if not new_user:
+        raise ValueError("智云账号不能为空")
+    if save_zhiyun_creds(cfg, root, new_user, new_pw):
+        return "；智云账号已更新（下次更新自动用新账号登录）"
+    return ""
+
+
+def _resolve_zhiyun_conn_update(cfg, root, payload: dict) -> str:
+    """智云连接（base_url/表 ID）更新；返回 conn_note。"""
+    if "zhiyun_base_url" not in payload and "zhiyun_tables" not in payload:
+        return ""
+    cur = read_zhiyun_conn(cfg, root)
+    bu = payload.get("zhiyun_base_url", cur["base_url"])
+    tb = dict(cur["tables"])
+    for k, v in (payload.get("zhiyun_tables") or {}).items():
+        if k in tb:
+            tb[k] = v
+    if save_zhiyun_conn(cfg, root, bu, tb):
+        return "；智云连接配置已更新（下次更新生效）"
+    return ""
+
+
 def _apply_zhiyun_payload(cfg, root, payload: dict) -> tuple[str, str]:
     """智云账号+连接配置；返回 (cred_note, conn_note)。
 
     3.7.5：密码留空=不改已存值；仅当用户明确填入新密码时才更新。
-    用户名可单独更新（配合已存密码）；二者皆空且无改密意图 → 不写凭据。
     """
     zu_in, zp_in = payload.get("zhiyun_username"), payload.get("zhiyun_password")
     cred_note = ""
     if zu_in is not None or zp_in is not None:
-        cur = read_zhiyun_creds(cfg, root)
-        new_user = str(zu_in).strip() if zu_in is not None else str(cur.get("username") or "")
-        # 留空不改：None 或 "" → 保留已存密码
-        if zp_in is None or str(zp_in) == "":
-            new_pw = str(cur.get("password") or "")
-        else:
-            new_pw = str(zp_in)
-        if not new_user and not new_pw:
-            raise ValueError("智云账号和密码不能都为空")
-        if not new_pw:
-            raise ValueError("请先设置智云密码（留空表示不改；当前尚未设置）")
-        if not new_user:
-            raise ValueError("智云账号不能为空")
-        if save_zhiyun_creds(cfg, root, new_user, new_pw):
-            cred_note = "；智云账号已更新（下次更新自动用新账号登录）"
-    conn_note = ""
-    if "zhiyun_base_url" in payload or "zhiyun_tables" in payload:
-        cur = read_zhiyun_conn(cfg, root)
-        bu = payload.get("zhiyun_base_url", cur["base_url"])
-        tb = dict(cur["tables"])
-        for k, v in (payload.get("zhiyun_tables") or {}).items():
-            if k in tb:
-                tb[k] = v
-        if save_zhiyun_conn(cfg, root, bu, tb):
-            conn_note = "；智云连接配置已更新（下次更新生效）"
-    return cred_note, conn_note
+        cred_note = _resolve_zhiyun_creds_update(cfg, root, zu_in, zp_in)
+    return cred_note, _resolve_zhiyun_conn_update(cfg, root, payload)
 
 
 def save_settings(cfg, root, payload: dict) -> dict:
