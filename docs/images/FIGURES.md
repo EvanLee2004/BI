@@ -5,14 +5,17 @@
 
 | 文件 | 内容 | 图龄 |
 |------|------|------|
-| architecture.png | 系统逻辑架构 | **2026-08-03 · 3.7.7** 重渲 |
-| deploy.png | 部署与运行拓扑（含 :8019） | **2026-08-03 · 3.7.7** 重渲 |
-| modules.png | 模块与组件 | **2026-08-03 · 3.7.7** 重渲 |
-| auth.png | 账号登录与权限分流（kanban_sid · 凭据不下发） | **2026-08-03 · 3.7.7** 重渲 |
-| howto-run.png | 每天怎么跑（白话） | **2026-08-03 · 3.7.7** 重渲 |
-| sequence.png | 关键流程时序（`/api/v1/*`） | **2026-08-03 · 3.7.7** 重渲 |
-| er.png | 数据库模型（金额 INTEGER 分） | **2026-08-03 · 3.7.7** 重渲 |
+| architecture.png | 系统逻辑架构 | **2026-08-03 · 3.7.7**（mermaid-cli 直出 PNG，带字） |
+| deploy.png | 部署与运行拓扑（含 :8019） | 同上 |
+| modules.png | 模块与组件 | 同上 |
+| auth.png | 账号登录与权限分流（kanban_sid · 凭据不下发） | 同上 |
+| howto-run.png | 每天怎么跑（白话） | 同上 |
+| sequence.png | 关键流程时序（`/api/v1/*`） | 同上 |
+| er.png | 数据库模型（金额 INTEGER 分） | 同上 |
 
-矢量编辑源：`docs/设计图/*.mmd` → `*.svg`（mermaid-cli 渲染）。  
+矢量源：`docs/设计图/*.mmd`。  
+**导出铁律**：工程 PNG **必须** `npx @mermaid-js/mermaid-cli -i xxx.mmd -o docs/images/xxx.png -b white`（Chromium 画节点字）。  
+**禁止** `mmd→svg→rsvg-convert`——librsvg 不渲染 foreignObject，Gitee/GitHub 会显示白框无字。
 
-界面实拍：`docs/images/ui/`（`_golden_data` 离线脱敏，非生产客户数据）。**2026-08-03 按 v3.7.7 全量重采**（含登录/霓虹/深空/晨光/重点客户/费用/手机/管理端）。
+界面实拍：`docs/images/ui/`（`_golden_data` 脱敏）。  
+`05_key_customers.png` = **完整作战台**（双饼 + 三池名单 + 行动队列，约 1440×1240）。
