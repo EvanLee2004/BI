@@ -120,25 +120,29 @@ def cockpit_payload(summary: dict, *, scope: str = "整体", bu_name: str | None
 
 def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
     import accounts
+    import authz
 
-    if is_admin_session and acc:
+    if not acc:
+        return {}
+    caps = authz.caps_public(acc)
+    if is_admin_session:
         return {
             "account": acc.get("账号"),
             "display": acc.get("显示名") or acc.get("账号"),
             "perm": accounts.PERM_ADMIN,
             "bus": [],
             "is_admin": True,
-            "can_main": True,
+            "can_main": bool(caps.get(authz.CAP_VIEW_MAIN, True)),
+            "caps": caps,
         }
-    if not acc:
-        return {}
     return {
         "account": acc.get("账号"),
         "display": acc.get("显示名") or acc.get("账号"),
         "perm": acc.get("权限"),
         "bus": accounts.bu_names_of(acc),
-        "is_admin": __import__("authz").is_admin(acc),
-        "can_main": __import__("authz").can_main(acc),
+        "is_admin": authz.is_admin(acc),
+        "can_main": authz.can_main(acc),
+        "caps": caps,
     }
 
 

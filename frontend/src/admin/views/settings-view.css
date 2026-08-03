@@ -61,3 +61,16 @@
   color: var(--admin-ink);
   text-decoration: none;
 }
+
+/* 3.7.8 账号能力勾选矩阵 */
+.cap-matrix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  max-width: 520px;
+}
+.cap-matrix .el-checkbox {
+  margin-right: 0;
+  height: auto;
+}

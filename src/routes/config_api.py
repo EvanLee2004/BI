@@ -108,6 +108,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         2.6.7 C-5：与铁律 8 对齐——刷新进行中返回 409 非阻塞等待。
         """
         user = _require(request)
+        import accounts as _acc_mod
+        import authz as _az
+
+        _az.require_cap(_acc_mod.find_account(cfg, root, user), _az.CAP_DATA_WRITE)
         bus = payload.get("bus")
         if not isinstance(bus, list):
             raise HTTPException(status_code=400, detail="bus 须为列表")
@@ -265,7 +269,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.get("/api/v1/admin/archive_export")
     def api_archive_export(request: Request, year: str = Query("")):
         """审计流水年度导出归档（手填历史/预算历史/配置变更）→ xlsx；不删库内数据。管理员。"""
-        _require(request)
+        user = _require(request)
+        import accounts as _acc_mod
+        import authz as _az
+
+        _az.require_cap(_acc_mod.find_account(cfg, root, user), _az.CAP_EXPORT_ARCHIVE)
         y = (year or "").strip() or str(__import__("datetime").date.today().year)
         import db_write
         from urllib.parse import quote

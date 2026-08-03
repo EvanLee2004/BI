@@ -168,11 +168,15 @@ def _norm_one(raw: dict) -> dict | None:
         out["可见BU"] = _clean_bu_list(raw.get("可见BU"))
     if last:
         out["最后登录"] = last
+    # 3.7.8：能力矩阵（可选 object）
+    caps = raw.get("能力")
+    if isinstance(caps, dict) and caps:
+        out["能力"] = dict(caps)
     return out
 
 
 def _write(path: Path, accounts: list[dict]) -> None:
-    """落盘：明文密码 + 密码版本；chmod 0o600。不写密码哈希。
+    """落盘：明文密码 + 密码版本 + 能力；chmod 0o600。不写密码哈希。
 
     2.6.12：空密码禁止静默回落 DEFAULT_VIEW_PW（8888）；seed_defaults 须显式写默认串。
     """
@@ -195,6 +199,14 @@ def _write(path: Path, accounts: list[dict]) -> None:
             row["可见BU"] = _clean_bu_list(a.get("可见BU"))
         if a.get("最后登录"):
             row["最后登录"] = a["最后登录"]
+        caps = a.get("能力")
+        if isinstance(caps, dict) and caps:
+            # 只保留已知 key；布尔化
+            import authz as _authz
+
+            cleaned = _authz.normalize_caps_field(caps)
+            if cleaned:
+                row["能力"] = cleaned
         rows.append(row)
     write_private_text(path, json.dumps({"accounts": rows}, ensure_ascii=False, indent=2) + "\n")
 
@@ -323,11 +335,37 @@ def load_accounts(cfg: dict, root: Path | None = None, *, create: bool = True) -
     return out
 
 
+def _resolve_password_for_save(raw: dict, old: dict, acct: str, *, is_existing: bool) -> str:
+    """密码留空不改；新账号须显式非空。"""
+    old_pw = str(old.get("密码") or "")
+    explicit = "密码" in raw and raw["密码"] is not None and str(raw["密码"]).strip() != ""
+    if explicit:
+        return str(raw["密码"])
+    if is_existing and old_pw:
+        return old_pw
+    raise ValueError(f"账号「{acct}」须设置密码（留空表示不改，新账号不可留空）")
+
+
+def _attach_caps_for_save(row: dict, raw: dict, old: dict) -> None:
+    """3.7.8：能力字段覆盖 / 沿用 / 物化角色默认。"""
+    import authz as _authz
+
+    if "能力" in raw and isinstance(raw.get("能力"), dict):
+        cleaned = _authz.normalize_caps_field(raw.get("能力"))
+        if cleaned is not None:
+            row["能力"] = cleaned
+            return
+    if isinstance(old.get("能力"), dict):
+        row["能力"] = dict(old["能力"])
+        return
+    row["能力"] = _authz.materialize_caps(row)
+
+
 def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
     """单条账号规范化；无效返回 None。
 
-    3.7.5：密码「留空不改」——字段缺省、None 或空串时，已有账号沿用已存值；
-    新账号无已存值时须明确填入非空密码（禁止静默 8888）。
+    3.7.5：密码「留空不改」；新账号须明确非空密码。
+    3.7.8：附带能力矩阵（覆盖/沿用/物化）。
     """
     acct = str(raw.get("账号") or "").strip()
     if not acct:
@@ -336,20 +374,13 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
     if not perm:
         return None
     display = str(raw.get("显示名") or acct).strip() or acct
-    old = existing.get(acct, {})
-    old_pw = str(old.get("密码") or "")
-    explicit = "密码" in raw and raw["密码"] is not None and str(raw["密码"]).strip() != ""
-    if explicit:
-        pw = str(raw["密码"])
-    elif acct in existing and old_pw:
-        pw = old_pw  # 留空不改
-    else:
-        # 新账号或无旧密：须显式设密
-        raise ValueError(f"账号「{acct}」须设置密码（留空表示不改，新账号不可留空）")
+    is_existing = acct in existing
+    old = existing.get(acct, {}) if is_existing else {}
+    pw = _resolve_password_for_save(raw, old, acct, is_existing=is_existing)
     if is_master_account(acct):
         perm = PERM_ADMIN
     pw_ver = password_version_of(old)
-    if acct in existing and pw != old_pw:
+    if is_existing and pw != str(old.get("密码") or ""):
         pw_ver = pw_ver + 1
     row = {
         "账号": acct,
@@ -360,9 +391,9 @@ def _normalize_account_row(raw: dict, existing: dict) -> dict | None:
     }
     if perm == PERM_BU:
         row["可见BU"] = _clean_bu_list(raw.get("可见BU"))
-    last = old.get("最后登录")
-    if last:
-        row["最后登录"] = last
+    if old.get("最后登录"):
+        row["最后登录"] = old["最后登录"]
+    _attach_caps_for_save(row, raw, old)
     return row
 
 
@@ -374,8 +405,11 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
     - 密码变更时「密码版本」+1（改密踢会话）；
     - 最后登录：客户端传来的忽略，沿用已存（只由 mark_login 写）；
     - 总账号 MASTER_ACCOUNT：若库中已有则不可删、不可改登录名；至少保留一个「管理员」。
+    - 3.7.8：至少一账号 admin_access+manage_accounts；总账号不可无管理能力。
     返回落盘后的列表；校验失败抛 ValueError。"""
     global _ACCOUNTS_CORRUPT
+    import authz as _authz
+
     existing = {a["账号"]: a for a in load_accounts(cfg, root, create=False)}
     out, seen = [], set()
     for raw in accounts if isinstance(accounts, list) else []:
@@ -390,6 +424,7 @@ def save_accounts(cfg: dict, root: Path | None, accounts: list) -> list[dict]:
         raise ValueError("至少保留一个「管理员」权限账号")
     if MASTER_ACCOUNT in existing and MASTER_ACCOUNT not in {a["账号"] for a in out}:
         raise ValueError(f"总账号「{MASTER_ACCOUNT}」不可删除（否则部署后可能无人能进管理端）")
+    _authz.validate_accounts_caps(out)
     p = config_path(cfg, root)
     _write(p, out)
     _ACCOUNTS_CORRUPT = None
@@ -552,11 +587,14 @@ def bu_name_of(acc: dict | None) -> str | None:
 
 
 def public_row(acc: dict, *, with_password: bool = False) -> dict:
-    """接口下发用：默认不下发明文密码（3.7.5 P0）。
+    """接口下发用。
 
-    with_password=True 仅供极少数内部/测试兼容路径；HTTP 管理 API 禁止使用。
-    遗留 PBKDF2 行：password_hashed=True，不回显哈希串。
+    3.7.8：管理端 with_password=True 回显看板账号明文（MADR-0020）；
+    默认 with_password=False 不下发明文。遗留 PBKDF2 行：password_hashed=True。
+    始终下发 materialize 后的 caps（能力矩阵）。
     """
+    import authz as _authz
+
     pw = acc.get("密码") or ""
     try:
         from password_kdf import is_hashed
@@ -567,6 +605,7 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
     initial = bool(acc.get("must_change_password")) or (
         (not hashed) and bool(pw) and is_initial_password(str(pw))
     )
+    caps = _authz.materialize_caps(acc)
     row = {
         "账号": acc["账号"],
         "显示名": acc.get("显示名") or acc["账号"],
@@ -577,10 +616,12 @@ def public_row(acc: dict, *, with_password: bool = False) -> dict:
         "密码版本": password_version_of(acc),
         "must_change_password": initial,
         "password_set": bool(str(pw).strip()),
+        "能力": caps,
+        "caps": caps,
     }
     if hashed:
         row["password_hashed"] = True
     if with_password:
-        # 兼容旧调用：仍不推荐；哈希行不回显密文
+        # 3.7.8：管理员会话可见看板明文；哈希行不回显密文
         row["密码"] = "" if hashed else str(pw)
     return row

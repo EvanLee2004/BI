@@ -8,12 +8,14 @@ import '../styles/components/LedgerTable.css'
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
-import { ApiError } from '../api/client'
+import { ApiError, fetchSession } from '../api/client'
 import { friendlyError } from '../utils/friendlyError'
 import { showToast } from '../utils/toast'
 import SciFiPanel from './SciFiPanel.vue'
 
 const store = useCockpitStore()
+/** 3.7.8：session.caps.export_ledger_xlsx；缺省 true */
+const canExportLedger = ref(true)
 
 const columns = ref<string[]>([])
 /** name → kind：text=Excel 多选；number|date=关键词 q（防金额分串误导） */
@@ -361,7 +363,21 @@ function onDocClick(e: MouseEvent) {
   openCol.value = null
 }
 
-onMounted(() => document.addEventListener('click', onDocClick))
+onMounted(async () => {
+  document.addEventListener('click', onDocClick)
+  if (store.snapshotMode) {
+    canExportLedger.value = false
+    return
+  }
+  try {
+    const s = (await fetchSession()) as { caps?: Record<string, boolean> }
+    if (s.caps && typeof s.caps.export_ledger_xlsx === 'boolean') {
+      canExportLedger.value = s.caps.export_ledger_xlsx
+    }
+  } catch {
+    canExportLedger.value = true
+  }
+})
 onUnmounted(() => document.removeEventListener('click', onDocClick))
 
 async function exportXlsx() {
@@ -441,7 +457,13 @@ function hasColFilter(c: string): boolean {
       </button>
       <input v-model="filterQ" placeholder="全列关键词" style="width: 120px" @keyup.enter="applyFilter" />
       <button type="button" class="mini" @click="applyFilter">筛选</button>
-      <button type="button" class="ghost mini" data-testid="ledger-export" @click="exportXlsx">
+      <button
+        v-if="canExportLedger"
+        type="button"
+        class="ghost mini"
+        data-testid="ledger-export"
+        @click="exportXlsx"
+      >
         导出 Excel
       </button>
       <button type="button" class="ghost mini" :disabled="page <= 1" @click="prev">上一页</button>

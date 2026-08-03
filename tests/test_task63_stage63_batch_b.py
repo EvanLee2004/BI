@@ -87,18 +87,20 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         if mode is not None:
             self.assertTrue(mode, f"期望 0o600，path={path}")
 
-    def test_accounts_api_does_not_return_plaintext_password(self):
-        """3.7.5：管理员 /api/v1/admin/accounts 不下发明文；仅非秘密状态。"""
+    def test_accounts_api_returns_board_plaintext_password(self):
+        """3.7.8：管理员 accounts 回显看板明文（MADR-0020）；无英文字段 password/哈希。"""
         r = self.client.get("/api/v1/admin/accounts", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         for row in r.json()["accounts"]:
-            self.assertNotIn("密码", row)
+            self.assertIn("密码", row)
             self.assertNotIn("password", row)
             self.assertNotIn("密码哈希", row)
             self.assertIn("初始密码", row)
             self.assertIn("password_set", row)
+            self.assertIn("caps", row)
         v1 = next(x for x in r.json()["accounts"] if x["账号"] == "v1")
         self.assertEqual(v1["账号"], "v1")
+        self.assertEqual(v1.get("密码"), "plain777")
         self.assertTrue(v1.get("password_set") is True)
         # 存储层仍可 authenticate
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "v1", "plain777"))
@@ -119,8 +121,8 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         hdr = {"Cookie": f"{server.SID_COOKIE}={(r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE))}"}
         rows = c.get("/api/v1/admin/accounts", headers=hdr).json()["accounts"]
         overall = next(x for x in rows if x["账号"] == "overall")
-        # 3.7.5：列表不下发明文；用默认口令仍可登录（存储层仍有）
-        self.assertNotIn("密码", overall)
+        # 3.7.8：列表回显看板明文；用默认口令仍可登录
+        self.assertEqual(overall.get("密码"), accounts.DEFAULT_VIEW_PW)
         self.assertTrue(overall.get("password_set") is True or overall.get("初始密码") is not None)
         # 看端登录
         viewer = TestClient(app2, follow_redirects=False)
@@ -172,9 +174,9 @@ class TestPlaintextApiAndPerms(unittest.TestCase):
         self.assertEqual(r_bad.status_code, 401)
         r_ok = self.client.post("/api/v1/login", json={"account": "v1", "password": "reset9999"})
         self.assertEqual(r_ok.status_code, 200)
-        # 3.7.5：列表不下发明文；空 new 拒绝；显式再设密后可 authenticate
+        # 3.7.8：列表可见新明文；空 new 拒绝；显式再设密后可 authenticate
         rows = self.client.get("/api/v1/admin/accounts", headers=self.hdr).json()["accounts"]
-        self.assertNotIn("密码", next(x for x in rows if x["账号"] == "v1"))
+        self.assertEqual(next(x for x in rows if x["账号"] == "v1").get("密码"), "reset9999")
         r2 = self.client.post("/api/v1/admin/accounts/v1/reset_passwd", headers=self.hdr, json={})
         self.assertEqual(r2.status_code, 400)
         r3 = self.client.post(

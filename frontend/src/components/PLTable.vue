@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import '../styles/components/PLTable.css'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { fetchSession } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
 import { showToast } from '../utils/toast'
 import SciFiPanel from './SciFiPanel.vue'
 import type { PLDetail, PLDetailLine, PLTablePeriod } from '../types/vm'
 
 const store = useCockpitStore()
+/** 3.7.8：session.caps.export_pl_xlsx；缺省 true */
+const canExportPl = ref(true)
 
 const table = computed((): PLTablePeriod => {
   return store.vm?.pl?.table_by_period?.[store.period] || { rows: [], details: {} }
@@ -107,7 +110,21 @@ function closeDrawer() {
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') closeDrawer()
 }
-onMounted(() => document.addEventListener('keydown', onKey))
+onMounted(async () => {
+  document.addEventListener('keydown', onKey)
+  if (store.snapshotMode) {
+    canExportPl.value = false
+    return
+  }
+  try {
+    const s = (await fetchSession()) as { caps?: Record<string, boolean> }
+    if (s.caps && typeof s.caps.export_pl_xlsx === 'boolean') {
+      canExportPl.value = s.caps.export_pl_xlsx
+    }
+  } catch {
+    canExportPl.value = true
+  }
+})
 onUnmounted(() => document.removeEventListener('keydown', onKey))
 </script>
 <template>
@@ -119,7 +136,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
           <span v-if="plTag" class="tag">{{ plTag }}</span>
         </div>
         <button
-          v-if="!store.snapshotMode"
+          v-if="!store.snapshotMode && canExportPl"
           type="button"
           class="ghost mini pl-export-btn"
           data-testid="pl-export-excel"

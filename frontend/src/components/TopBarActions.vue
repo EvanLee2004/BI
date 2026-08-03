@@ -8,6 +8,8 @@ import DataModal from './base/DataModal.vue'
 
 const store = useCockpitStore()
 const isAdmin = ref(true) // 默认隐藏改密/退出，等 session
+/** 3.7.8：session.caps.export_page_html；缺省 true（存量兼容） */
+const canExportHtml = ref(true)
 const showPw = ref(false)
 const showLogoutConfirm = ref(false)
 const oldPw = ref('')
@@ -26,13 +28,23 @@ const exportAria = computed(() => exportScopeLabel.value)
 onMounted(async () => {
   if (store.snapshotMode) {
     isAdmin.value = true
+    canExportHtml.value = false
     return
   }
   try {
-    const s = await fetchSession()
-    isAdmin.value = !!(s as { is_admin?: boolean }).is_admin
+    const s = (await fetchSession()) as {
+      is_admin?: boolean
+      caps?: Record<string, boolean>
+    }
+    isAdmin.value = !!s.is_admin
+    if (s.caps && typeof s.caps.export_page_html === 'boolean') {
+      canExportHtml.value = s.caps.export_page_html
+    } else {
+      canExportHtml.value = true
+    }
   } catch {
     isAdmin.value = true
+    canExportHtml.value = true
   }
 })
 
@@ -143,7 +155,7 @@ async function savePw() {
     <!-- 全视口唯一横排：桌面文案+图标；≤520 仅图标仍横排不折叠 -->
     <div class="tb-actions" data-testid="tb-actions">
       <button
-        v-if="!store.archiveMode"
+        v-if="!store.archiveMode && canExportHtml"
         type="button"
         class="toggle export-html-btn"
         id="exportBtn"

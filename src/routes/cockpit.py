@@ -439,6 +439,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             cfg=cfg,
             force_whitelist=True,
         )
+        # 3.7.8：导出能力闸（API 再判，禁止只藏按钮）
+        import accounts as _acc_mod
+
+        acc_row = _acc_mod.find_account(cfg, root, user) if user else vacc
+        authz.require_cap(acc_row, authz.CAP_EXPORT_LEDGER_XLSX)
         who = user or _vacct(request) or "?"
         _audit(cfg, root, who, ("访问", "看端明细导出" + (f" bu={force_bu}" if force_bu else "")))
         caliber_all = bool(int(show_all or 0))

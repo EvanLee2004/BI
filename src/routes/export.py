@@ -175,11 +175,31 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fn}", "X-Filename": fn},
         )
 
+    def _session_acc(request: Request):
+        """当前会话账号行（管理员或看端）。"""
+        import accounts as _acc_mod
+
+        u = _user(request)
+        if u:
+            return _acc_mod.find_account(cfg, root, u)
+        return _vacc_row(request)
+
+    def _require_export_cap(request: Request, cap: str) -> None:
+        import authz as _az
+
+        acc = _session_acc(request)
+        if not acc:
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        _az.require_cap(acc, cap)
+
     @app.get("/api/v1/export.png")
     def api_export_png(request: Request, blk: str = ""):
         """2.7.8：整体页 PNG = 截 kanban_snapshot HTML（与 /api/v1/export.html 同源）。"""
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PAGE_PNG)
         return _export_png_body(bu_name=None, blk=blk)
 
     @app.get("/api/v1/export.html")
@@ -189,6 +209,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """
         if not _can_view_main(request):
             raise HTTPException(status_code=401, detail="请先登录看板")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PAGE_HTML)
         return _export_html_body(request, bu_name=None, blk=blk, theme=theme)
 
     @app.get("/api/v1/export/bu/{name}/png")
@@ -197,6 +220,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if not _can_view_bu(request, name):
             # 无权/未登录：与「不存在」对无权者同形 401（不先 404 泄露）
             raise HTTPException(status_code=401, detail="请先登录看板")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PAGE_PNG)
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
@@ -207,6 +233,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """2.2.9 / 2.7.2：BU 页导出快照 HTML（仅 v1）。2.6.3·D3：先鉴权；无权一律 401（不先 404）；有权再 404。"""
         if not _can_view_bu(request, name):
             raise HTTPException(status_code=401, detail="请先登录看板")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PAGE_HTML)
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")
@@ -301,6 +330,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_main(request):
             raise HTTPException(status_code=403, detail="无权导出整体管理利润表")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PL_XLSX)
         summary = _state.get("summary") or {}
         return _pl_xlsx_response(
             request,
@@ -318,6 +350,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=401, detail="请先登录看板")
         if not _can_view_bu(request, name):
             raise HTTPException(status_code=403, detail="无权查看该 BU")
+        import authz as _az
+
+        _require_export_cap(request, _az.CAP_EXPORT_PL_XLSX)
         page = _state.get("bu_pages", {}).get(name)
         if not page:
             raise HTTPException(status_code=404, detail="Not Found")

@@ -7,6 +7,8 @@ export type SessionLike = {
   can_main?: boolean
   is_admin?: boolean
   bus?: unknown
+  /** 3.7.8 账号能力矩阵 */
+  caps?: Record<string, boolean>
 }
 
 export function firstBuName(session: SessionLike | null | undefined): string | null {

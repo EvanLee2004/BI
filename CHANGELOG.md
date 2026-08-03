@@ -1,3 +1,28 @@
+## 3.7.8 · 2026-08-03（写锁死锁清零 · 账号能力矩阵 · 密码回显 · 异常假绿）
+
+### P0 · 写锁死锁
+- `_srv.recompute` 透传 `already_locked`；`start_refresh_async` 透传 `on_complete`
+- `manual.with_write_lock` 删除 TypeError→无 already_locked 二次抢锁死路径
+- `config_api` BU 保存 `recompute(..., already_locked=True)`
+- 集成测：连续保存 200；刷新持锁 409；包装签名断言
+
+### P0 · 账号能力矩阵（陆总统领）
+- 账号字段 `能力`：view_main / admin_access / data_refresh / data_write / manage_accounts / 六类 export_*
+- 存量缺字段按旧行为物化默认；保存时写盘
+- `/api/v1/session` 下发 `caps`；导出/写/刷/账号 API **服务端 403**
+- 至少一账号 admin+manage；总账号不可无管理
+- 设置页能力勾选矩阵 + 看端/PL/ledger 导出按钮按 caps 显隐
+
+### P0 · 管理员密码回显（MADR-0020）
+- `GET/POST /api/v1/admin/accounts` 回显看板账号明文；智云密码仍不下发
+- 审计不记密码值
+
+### P1 · 异常假绿
+- ExceptionOverview / AdminLayout：加载失败 → 错误态+重试，禁止「0 / 无待处理」假绿
+
+### 守卫
+- `tests/test_task_3_7_8_write_lock.py` · `tests/test_task_3_7_8_caps.py` · `tests/test_task_3_7_8_exceptions_false_green.py`
+
 ## 3.7.7 · 2026-08-02（桌面优先 Logo 放大 · cache-bust · P1 可读）
 
 ### P0 · Logo

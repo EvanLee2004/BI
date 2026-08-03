@@ -253,11 +253,11 @@ class TestViewerAuth(unittest.TestCase):
         self.assertIn(old.status_code, (401, 303))
         _, new = self._login("overall", "newpw1xx")
         self.assertEqual(new.status_code, 303)
-        # 3.7.5：管理员 accounts 不下发明文；新密码可登录、初始标清除
+        # 3.7.8：管理员 accounts 回显看板明文（MADR-0020）；新密码可登录、初始标清除
         a = self._admin()
         rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         row = next(x for x in rows if x["账号"] == "overall")
-        self.assertNotIn("密码", row)
+        self.assertEqual(row.get("密码"), "newpw1xx")
         self.assertTrue(row.get("password_set") is True)
         self.assertFalse(row["初始密码"])
         self.assertIsNotNone(accounts.authenticate(self.cfg, self.tmp, "overall", "newpw1xx"))
@@ -409,17 +409,19 @@ class TestViewerAuth(unittest.TestCase):
         for b in a.get("/api/v1/admin/bu_config").json()["bus"]:
             self.assertNotIn("密码", b)
             self.assertNotIn("密码hash", b)
-        # 3.7.5：管理员 accounts 不下发明文；仅非秘密状态
+        # 3.7.8：管理员 accounts 回显看板明文；看端/session 仍无密码字段
         rows = a.get("/api/v1/admin/accounts").json()["accounts"]
         self.assertTrue(rows)
         for r in rows:
-            self.assertNotIn("密码", r)
-            self.assertNotIn("password", r)
+            self.assertIn("密码", r)
+            self.assertNotIn("password", r)  # 英文字段名不下发
             self.assertNotIn("密码哈希", r)
             self.assertIn("password_set", r)
+            self.assertIn("caps", r)
         overall = next(x for x in rows if x["账号"] == "overall")
         self.assertIn("初始密码", overall)
         self.assertTrue(overall.get("password_set") is True)
+        self.assertEqual(overall.get("密码"), server.DEFAULT_VIEW_PW)
         # 自改密码弹窗仍在 partial + Vue（3.1.0：旧 cockpit.js 已删）
         pw = (ROOT / "static" / "templates" / "partials" / "pw_modal.html").read_text(encoding="utf-8")
         self.assertIn("请勿使用你在其他地方用的密码", pw)

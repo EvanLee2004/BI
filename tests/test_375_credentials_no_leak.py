@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""3.7.5 G1：P0 凭据不下发浏览器。
+"""3.7.5 G1 凭据边界 + 3.7.8 看板密码回显（MADR-0020）。
 
 红→绿契约：
 - GET settings 无智云密码/可逆等价值，仅 zhiyun_password_set 等状态
-- GET/POST accounts、reset 响应递归不含存储密码值/明文字段
-- POST settings 密码空 → 存储值不变；显式新密码后新密可登、旧密失效
+- GET/POST accounts：**允许**看板账号明文密码（管理员+manage）；**禁止**智云密码/token
+- reset 响应仍不回显新密（列表 GET 可见）
+- POST settings 密码空 → 智云存储值不变；显式新密码后新密可登、旧密失效
 - 未登录/无权限 401/403
 """
 
@@ -151,27 +152,35 @@ class TestCredentialsNoLeak375(unittest.TestCase):
         # 用户名可下发（非秘密状态）
         self.assertEqual(body.get("zhiyun_username"), "zy.user.old")
 
-    def test_get_accounts_no_plain_password(self):
+    def test_get_accounts_board_password_ok_zhiyun_not(self):
+        """3.7.8：看板明文可见；智云秘密不得出现在 accounts 响应。"""
         r = self.client.get("/api/v1/admin/accounts", headers=self.hdr)
         self.assertEqual(r.status_code, 200, r.text)
         body = r.json()
-        bad = _walk_secrets(body, self.secrets)
-        self.assertEqual(bad, [], f"accounts GET 泄密: {bad}")
+        # 允许看板 密码；仍禁智云/token 等
+        bad = [
+            x
+            for x in _walk_secrets(body, {self.SECRET_ZY, self.SECRET_ZY_NEW})
+            if "zhiyun" in x or "token" in x.lower() or "secret_value" in x
+        ]
+        self.assertEqual(bad, [], f"accounts GET 智云/token 泄密: {bad}")
         rows = body.get("accounts") or []
         overall = next(x for x in rows if x.get("账号") == "overall")
-        self.assertNotIn("密码", overall)
+        self.assertEqual(overall.get("密码"), self.SECRET_ACCT)
         self.assertNotIn("password", overall)
+        self.assertNotIn("zhiyun_password", body)
 
-    def test_post_accounts_response_no_password(self):
+    def test_post_accounts_roundtrip_board_password(self):
         r0 = self.client.get("/api/v1/admin/accounts", headers=self.hdr)
         rows = r0.json()["accounts"]
-        # 不带密码字段保存
+        # 原样回写（含明文密码字段）
         r = self.client.post(
             "/api/v1/admin/accounts", headers=self.hdr, json={"accounts": rows}
         )
         self.assertEqual(r.status_code, 200, r.text)
-        bad = _walk_secrets(r.json(), self.secrets)
-        self.assertEqual(bad, [], f"accounts POST 泄密: {bad}")
+        body = r.json()
+        overall = next(x for x in body["accounts"] if x.get("账号") == "overall")
+        self.assertEqual(overall.get("密码"), self.SECRET_ACCT)
         # 存储密码仍为旧值
         import accounts
 

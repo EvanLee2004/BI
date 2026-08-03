@@ -36,8 +36,11 @@ def _max_width_px(block: str) -> float | None:
 
 
 class Test377DesktopLogoTokens(unittest.TestCase):
-    def test_version_is_377(self):
-        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "3.7.7")
+    def test_version_at_least_377(self):
+        """Logo 守卫自 3.7.7 起生效；后续小版（如 3.7.8）仍须保持。"""
+        ver = VERSION.read_text(encoding="utf-8").strip()
+        parts = [int(x) for x in ver.split(".")[:3]]
+        self.assertGreaterEqual(tuple(parts + [0, 0, 0])[:3], (3, 7, 7), ver)
 
     def test_theme_tb_logo_desktop_ge40_max_not_40(self):
         css = THEME.read_text(encoding="utf-8")

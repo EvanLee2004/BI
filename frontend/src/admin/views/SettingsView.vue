@@ -38,6 +38,10 @@ const {
   acctList,
   acctPwShow,
   masterAccount,
+  CAP_KEYS,
+  CAP_LABELS,
+  setCap,
+  applyRoleTemplate,
   resetAcctPasswd,
   buList,
   salesPool,
@@ -217,9 +221,9 @@ import './settings-view.css'
       <el-col :span="24">
         <el-card shadow="never" class="scard">
           <template #header>
-            <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div><div class="sub">管理员 / 整体 / 按 BU；总账号不可删</div></div></div>
+            <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div><div class="sub">管理员 / 整体 / 按 BU；每账号能力勾选（陆总统领）；密码管理员可见；总账号不可删</div></div></div>
           </template>
-          <el-table :data="acctList" border size="small" max-height="360">
+          <el-table :data="acctList" border size="small" max-height="520" data-testid="acct-table">
             <el-table-column label="账号" width="140">
               <template #default="{ row, $index }">
                 <el-input v-model="row.账号" size="small" :readonly="isMaster(row)" @input="mark('acct')" />
@@ -265,13 +269,34 @@ import './settings-view.css'
                   :type="acctPwShow[$index] ? 'text' : 'password'"
                   style="width: 120px"
                   autocomplete="new-password"
+                  data-testid="acct-password"
                   :placeholder="row.password_set || row.初始密码 === false ? '留空不改' : '新账号必填'"
                   @input="() => { row.初始密码 = false; mark('acct') }"
                 />
-                <el-button text size="small" @click="acctPwShow[$index] = !acctPwShow[$index]">{{ acctPwShow[$index] ? '🙈' : '👁' }}</el-button>
+                <el-button
+                  text
+                  size="small"
+                  data-testid="acct-password-eye"
+                  @click="acctPwShow[$index] = !acctPwShow[$index]"
+                >{{ acctPwShow[$index] ? '🙈' : '👁' }}</el-button>
                 <el-button size="small" text @click="resetAcctPasswd(row)" :disabled="!String(row.账号 || '').trim()">设新密码</el-button>
                 <el-tag v-if="row.初始密码" type="warning" size="small">初始</el-tag>
                 <el-tag v-else-if="row.password_set" type="info" size="small" effect="plain">已设</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="能力" min-width="420">
+              <template #default="{ row }">
+                <div class="cap-matrix" data-testid="acct-caps">
+                  <el-checkbox
+                    v-for="k in CAP_KEYS"
+                    :key="k"
+                    :model-value="!!(row.能力 || {})[k]"
+                    :disabled="isMaster(row) && (k === 'admin_access' || k === 'manage_accounts')"
+                    size="small"
+                    @change="(on: string | number | boolean) => setCap(row, k, !!on)"
+                  >{{ CAP_LABELS[k] }}</el-checkbox>
+                  <el-button size="small" text @click="applyRoleTemplate(row)">应用角色默认</el-button>
+                </div>
               </template>
             </el-table-column>
             <el-table-column prop="最后登录" label="最后登录" width="140" />

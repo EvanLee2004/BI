@@ -7,15 +7,48 @@ import { jget, jpost, downloadBlob } from '../api'
 import { friendlyError } from '../../utils/friendlyError'
 import { SRC_MAP, salesArr } from '../utils'
 
+/** 3.7.8 账号能力 key（与后端 authz.FINE_CAP_KEYS 对齐） */
+export const CAP_KEYS = [
+  'view_main',
+  'admin_access',
+  'data_refresh',
+  'data_write',
+  'manage_accounts',
+  'export_page_html',
+  'export_page_png',
+  'export_pl_xlsx',
+  'export_ledger_xlsx',
+  'export_admin_detail',
+  'export_archive',
+] as const
+
+export type CapKey = (typeof CAP_KEYS)[number]
+
+export const CAP_LABELS: Record<CapKey, string> = {
+  view_main: '看整体',
+  admin_access: '进管理端',
+  data_refresh: '更新数据',
+  data_write: '改数/手填',
+  manage_accounts: '管账号',
+  export_page_html: '导出HTML',
+  export_page_png: '导出PNG',
+  export_pl_xlsx: '导出利润表',
+  export_ledger_xlsx: '导出明细',
+  export_admin_detail: '管端明细导出',
+  export_archive: '审计归档',
+}
+
 export type Acct = {
   账号?: string
   显示名?: string
   权限?: string
-  /** 仅编辑态：用户新填密码；GET 永不下发旧密 */
+  /** 3.7.8：管理端 GET 回显看板明文；编辑后可改；留空保存=不改 */
   密码?: string
   可见BU?: string[]
   初始密码?: boolean
   password_set?: boolean
+  能力?: Partial<Record<CapKey, boolean>>
+  caps?: Partial<Record<CapKey, boolean>>
 }
 
 export type BuItem = {
@@ -79,22 +112,73 @@ export function useSettingsForm() {
   }
 
   // —— 账号 ——
-  type Acct = {
+  type AcctLocal = Acct & {
     账号: string
-    显示名?: string
-    权限?: string
-    /** 仅编辑态新密；API 不回显 */
-    密码?: string
-    初始密码?: boolean
     最后登录?: string
-    可见BU?: string[]
-    password_set?: boolean
   }
-  const acctList = ref<Acct[]>([])
+  const acctList = ref<AcctLocal[]>([])
   const acctPwShow = ref<Record<number, boolean>>({})
   const masterAccount = ref('lushasha')
+  /** 角色默认模板（GET accounts 下发；失败则本地兜底） */
+  const capTemplates = ref<Record<string, Partial<Record<CapKey, boolean>>>>({})
   /** 智云密码是否已在服务端设置（GET 不回显明文） */
   const sZyPwdSet = ref(false)
+
+  function emptyCaps(allOn = false): Record<CapKey, boolean> {
+    const o = {} as Record<CapKey, boolean>
+    for (const k of CAP_KEYS) o[k] = allOn
+    return o
+  }
+
+  function ensureCaps(row: AcctLocal): Record<CapKey, boolean> {
+    const src = row.能力 || row.caps || {}
+    const o = emptyCaps(false)
+    for (const k of CAP_KEYS) {
+      if (typeof (src as Record<string, unknown>)[k] === 'boolean') {
+        o[k] = !!(src as Record<string, boolean>)[k]
+      }
+    }
+    row.能力 = o
+    return o
+  }
+
+  function setCap(row: AcctLocal, key: CapKey, on: boolean) {
+    const caps = ensureCaps(row)
+    // 总账号不可关管理
+    if (isMaster(row) && (key === 'admin_access' || key === 'manage_accounts') && !on) {
+      ElMessage.warning('总账号不可取消管理端入口或账号管理能力')
+      return
+    }
+    caps[key] = on
+    row.能力 = { ...caps }
+    mark('acct')
+  }
+
+  function applyRoleTemplate(row: AcctLocal) {
+    const role = permType(row)
+    const tpl =
+      capTemplates.value[role] ||
+      (role === '管理员'
+        ? emptyCaps(true)
+        : role === '整体'
+          ? {
+              ...emptyCaps(false),
+              view_main: true,
+              export_page_html: true,
+              export_page_png: true,
+              export_pl_xlsx: true,
+              export_ledger_xlsx: true,
+              export_admin_detail: true,
+              export_archive: true,
+            }
+          : emptyCaps(false))
+    row.能力 = { ...emptyCaps(false), ...tpl }
+    if (isMaster(row)) {
+      row.能力.admin_access = true
+      row.能力.manage_accounts = true
+    }
+    mark('acct')
+  }
 
   // —— BU ——
   type BuItem = { name: string; 负责人: string[] | string; 销售: string[]; 分摊比例: number | null }
@@ -272,8 +356,8 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    // 新账号须显式设密；不预填默认口令（3.7.5 不下发/不回显）
-    acctList.value.push({
+    // 新账号：安全默认（整体模板）+ 须显式设密
+    const row: AcctLocal = {
       账号: '',
       显示名: '',
       权限: '整体',
@@ -281,11 +365,22 @@ export function useSettingsForm() {
       初始密码: true,
       password_set: false,
       最后登录: '',
-    })
+      能力: {
+        ...emptyCaps(false),
+        view_main: true,
+        export_page_html: true,
+        export_page_png: true,
+        export_pl_xlsx: true,
+        export_ledger_xlsx: true,
+        export_admin_detail: true,
+        export_archive: true,
+      },
+    }
+    acctList.value.push(row)
     mark('acct')
   }
 
-  async function resetAcctPasswd(row: Acct) {
+  async function resetAcctPasswd(row: AcctLocal) {
     const acct = String(row.账号 || '').trim()
     if (!acct) {
       ElMessage.warning('请先填写账号名并保存')
@@ -293,7 +388,7 @@ export function useSettingsForm() {
     }
     try {
       const { value } = await ElMessageBox.prompt(
-        '请输入新密码（必填）。响应不回显明文；请自行告知用户后用新密码登录。',
+        '请输入新密码（必填）。保存后列表可见明文。',
         '设置新密码 · ' + acct,
         {
           inputPlaceholder: '新密码（必填）',
@@ -316,10 +411,7 @@ export function useSettingsForm() {
         `/api/v1/admin/accounts/${encodeURIComponent(acct)}/reset_passwd`,
         { new: typed },
       )
-      row.密码 = ''
-      row.初始密码 = false
-      row.password_set = true
-      ElMessage.success('已设置新密码（不回显明文）')
+      ElMessage.success('已设置新密码')
       await loadAccts()
     } catch {
       /* 取消 */
@@ -342,10 +434,22 @@ export function useSettingsForm() {
   }
   async function loadAccts() {
     try {
-      const d = await jget<{ accounts?: Acct[]; master_account?: string }>('/api/v1/admin/accounts')
-      // 3.7.5：API 不回显密码；编辑列保持空（留空=不改）
-      acctList.value = (d.accounts || []).map((a) => ({ ...a, 密码: '' }))
+      const d = await jget<{
+        accounts?: AcctLocal[]
+        master_account?: string
+        cap_templates?: Record<string, Partial<Record<CapKey, boolean>>>
+      }>('/api/v1/admin/accounts')
+      // 3.7.8：API 回显看板明文密码（MADR-0020）；智云密码仍不下发
+      acctList.value = (d.accounts || []).map((a) => {
+        const row: AcctLocal = {
+          ...a,
+          密码: a.密码 != null ? String(a.密码) : '',
+          能力: { ...emptyCaps(false), ...(a.能力 || a.caps || {}) },
+        }
+        return row
+      })
       if (d.master_account) masterAccount.value = d.master_account
+      if (d.cap_templates) capTemplates.value = d.cap_templates
       acctPwShow.value = {}
     } catch (e) {
       setMsgs.acct = '读取失败:' + String(e)
@@ -553,23 +657,31 @@ export function useSettingsForm() {
       return false
     }
     try {
-      // 空密码字段不提交（留空不改）；仅新填非空密码才带上
+      // 密码：有值则提交（含明文回显后未改）；空串=留空不改（后端沿用）
+      // 能力：整表提交，便于陆总统领
       const payload = acctList.value.map((a) => {
         const row: Record<string, unknown> = {
           账号: a.账号,
           显示名: a.显示名,
           权限: a.权限,
           可见BU: a.可见BU,
+          能力: ensureCaps(a),
         }
         const pw = String(a.密码 || '').trim()
         if (pw) row['密码'] = pw
         return row
       })
-      const d = await jpost<{ accounts?: Acct[]; master_account?: string; note?: string; count?: number }>(
-        '/api/v1/admin/accounts',
-        { accounts: payload },
-      )
-      acctList.value = (d.accounts || []).map((a) => ({ ...a, 密码: '' }))
+      const d = await jpost<{
+        accounts?: AcctLocal[]
+        master_account?: string
+        note?: string
+        count?: number
+      }>('/api/v1/admin/accounts', { accounts: payload })
+      acctList.value = (d.accounts || []).map((a) => ({
+        ...a,
+        密码: a.密码 != null ? String(a.密码) : '',
+        能力: { ...emptyCaps(false), ...(a.能力 || a.caps || {}) },
+      }))
       if (d.master_account) masterAccount.value = d.master_account
       setMsgs.acct = (d.note || '已保存') + '（共 ' + d.count + ' 个）'
       return true
@@ -701,6 +813,12 @@ export function useSettingsForm() {
     acctList,
     acctPwShow,
     masterAccount,
+    capTemplates,
+    CAP_KEYS,
+    CAP_LABELS,
+    ensureCaps,
+    setCap,
+    applyRoleTemplate,
     resetAcctPasswd,
     buList,
     salesPool,

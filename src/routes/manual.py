@@ -65,6 +65,15 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=401, detail="需要管理员登录")
         return user
 
+    def _require_write(request: Request) -> str:
+        """3.7.8：管理员会话 + data_write 能力。"""
+        import accounts as _acc_mod
+        import authz as _az
+
+        user = _require(request)
+        _az.require_cap(_acc_mod.find_account(cfg, root, user), _az.CAP_DATA_WRITE)
+        return user
+
     def _conn():
         return db.connect(cfg, root)
 
@@ -89,7 +98,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/api/v1/admin/adjust")
     def api_adjust(request: Request, payload: dict = Body(default={})):
-        user = _require(request)
+        user = _require_write(request)
         with with_write_lock(rebuild_std=True):
             conn = _conn()
             try:
@@ -116,7 +125,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         body: {目标表, 字段, 新值, 原因?, 类型?, 定位键列表:[...]}
         空列表/预检失败 → 400，不写库。
         """
-        user = _require(request)
+        user = _require_write(request)
         keys_raw = payload.get("定位键列表")
         if not isinstance(keys_raw, list) or not keys_raw:
             raise HTTPException(status_code=400, detail="定位键列表不能为空")
@@ -150,7 +159,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/adjust/{adj_id}/revoke")
     def api_revoke(request: Request, adj_id: int, payload: dict = Body(default={})):
         """撤销调整。任务书63·H-03：可选 reason 写入 config 审计。"""
-        user = _require(request)
+        user = _require_write(request)
         reason = str((payload or {}).get("reason") or "").strip()
         with with_write_lock(rebuild_std=True):
             conn = _conn()
@@ -175,7 +184,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/adjust/expired/revoke_all")
     def api_revoke_all_expired(request: Request, payload: dict = Body(default={})):
         """批量撤销全部「过期疑似」=一键听源头新值。前端走"点按钮→确认保存"两步，这里只管执行。"""
-        user = _require(request)
+        user = _require_write(request)
         reason = str((payload or {}).get("reason") or "").strip()
         with with_write_lock(rebuild_std=True):
             conn = _conn()
@@ -193,7 +202,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/adjust/{adj_id}/rearm")
     def api_rearm(request: Request, adj_id: int, payload: dict = Body(default={})):
         """坚持我的数（仅过期疑似、仅逐条）：原值刷新为源头现值→重新生效→立即重算。"""
-        user = _require(request)
+        user = _require_write(request)
         reason = str((payload or {}).get("reason") or "").strip()
         with with_write_lock(rebuild_std=True):
             conn = _conn()
@@ -240,7 +249,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/api/v1/admin/manual")
     def api_manual_set(request: Request, payload: dict = Body(default={})):
-        user = _require(request)
+        user = _require_write(request)
         item = payload.get("项目", "")
         if item not in {it["name"] for it in cfg["manual_items"]}:
             raise HTTPException(status_code=400, detail=f"未知手填项目：{item}")
@@ -264,7 +273,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         任务书63·F-02：先全量校验 → 原子事务内逐条 commit=False 写入 → 一次提交；
         任一条非法则整批不落库。
         """
-        user = _require(request)
+        user = _require_write(request)
         month = payload.get("归属月", "")
         default_scope = str(payload.get("范围") or "全公司").strip() or "全公司"
         items = payload.get("items") or []
@@ -491,7 +500,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/alloc_rates")
     def api_alloc_set(request: Request, payload: dict = Body(default={})):
         """写某月分摊（管理员）。兼容 ratios；扩展 overrides / detail_rules。"""
-        user = _require(request)
+        user = _require_write(request)
         month = str(payload.get("归属月") or "").strip()
         ratios = payload.get("ratios")
         overrides = payload.get("overrides")
@@ -547,7 +556,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def api_detax_set(request: Request, payload: dict = Body(default={})):
         """写费用去税率（管理员·全局一套·陆总0714）。payload={rates:{费用类别:税率%|null}}。
         税率 0~100；null/空/0 → 删行=该类别不去税（等价默认，页面数字回归红线中性）。"""
-        user = _require(request)
+        user = _require_write(request)
         rates = payload.get("rates")
         if not isinstance(rates, dict) or not rates:
             raise HTTPException(status_code=400, detail="rates 不能为空")
@@ -592,7 +601,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.post("/api/v1/admin/budget")
     def api_budget_set(request: Request, payload: dict = Body(default={})):
-        user = _require(request)
+        user = _require_write(request)
         metric = payload.get("指标", "")
         if metric not in db.BUDGET_METRICS:
             raise HTTPException(status_code=400, detail=f"未知预算指标：{metric}")
@@ -621,7 +630,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
         任务书63·F-02：先全量校验 → 原子事务内逐条 commit=False 写入 → 一次提交。
         """
-        user = _require(request)
+        user = _require_write(request)
         items = payload.get("items") or []
         if not isinstance(items, list) or not items:
             raise HTTPException(status_code=400, detail="items 不能为空")

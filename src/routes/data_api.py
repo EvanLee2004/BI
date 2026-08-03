@@ -217,6 +217,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         import io
         import openpyxl
 
+        import accounts as _acc_mod
+        import authz as _az
+
+        _u = _user(request)
+        _acc = _acc_mod.find_account(cfg, root, _u) if _u else _vacc_row(request)
+        _az.require_cap(_acc, _az.CAP_EXPORT_ADMIN_DETAIL)
         who = _user(request) or _vacct(request) or "?"
         _audit(cfg, root, who, ("访问", f"导出：{table}" + (f" bu={force_bu}" if force_bu else "")))
         conn = _conn()
@@ -820,7 +826,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def api_refresh(request: Request):
         """立即更新=完整 pipeline（fetch+重读+重建+重放），后台线程跑、立即返回（在线抓约80秒）。
         运行中互斥，重复点返回进行中；进度轮询 /api/v1/admin/refresh_status。"""
-        _require(request)
+        user = _require(request)
+        import accounts as _acc_mod
+        import authz as _az
+
+        _az.require_cap(_acc_mod.find_account(cfg, root, user), _az.CAP_DATA_REFRESH)
         if not start_refresh_async(cfg, root, "manual"):
             # 3.3.2：409 带 running，前端可区分「跟进中」vs「锁忙无会话」
             return JSONResponse(

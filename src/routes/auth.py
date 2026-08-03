@@ -226,18 +226,40 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         _audit(cfg, root, name, ("密码", f"账号 {name} 自改密码"))  # C3：不记密码内容
         return {"note": "密码已修改", "relogin": True}
 
+    def _require_manage_accounts(request: Request) -> str:
+        """3.7.8：管理员会话 + manage_accounts 能力。"""
+        import authz as _az
+
+        user = _require(request)
+        acc = accounts.find_account(cfg, root, user)
+        _az.require_cap(acc, _az.CAP_MANAGE_ACCOUNTS)
+        return user
+
     @app.get("/api/v1/admin/accounts")
     def api_accounts_get(request: Request):
-        """账号表（管理员会话）。3.7.5：绝不回传明文密码；仅非秘密状态字段。"""
-        _require(request)
-        rows = [accounts.public_row(a, with_password=False) for a in accounts.load_accounts(cfg, root)]
-        return {"accounts": rows, "count": len(rows), "master_account": accounts.MASTER_ACCOUNT}
+        """账号表（管理+manage 会话）。3.7.8：回传看板账号明文（MADR-0020）；智云密码仍不下发。"""
+        _require_manage_accounts(request)
+        rows = [
+            accounts.public_row(a, with_password=True)
+            for a in accounts.load_accounts(cfg, root)
+        ]
+        return {
+            "accounts": rows,
+            "count": len(rows),
+            "master_account": accounts.MASTER_ACCOUNT,
+            "cap_keys": list(__import__("authz").FINE_CAP_KEYS),
+            "cap_templates": {
+                "管理员": __import__("authz").caps_template("管理员"),
+                "整体": __import__("authz").caps_template("整体"),
+                "BU": __import__("authz").caps_template("BU"),
+            },
+        }
 
     @app.post("/api/v1/admin/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
-        """保存账号表（管理员）。至少保留一个管理员；总账号不可删。
-        3.7.5：响应不下发明文；条目密码留空/缺省=保留已存值。"""
-        user = _require(request)
+        """保存账号表。至少保留一个管理员；总账号不可删；至少一账号 admin+manage。
+        3.7.8：响应含明文密码；条目密码留空/缺省=保留已存值；能力字段物化。"""
+        user = _require_manage_accounts(request)
         raw = payload.get("accounts")
         if not isinstance(raw, list):
             raise HTTPException(status_code=400, detail="accounts 须为列表")
@@ -249,13 +271,18 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         _audit(cfg, root, user, _diff_accounts(old_accs, saved))
-        rows = [accounts.public_row(a, with_password=False) for a in saved]
-        return {"accounts": rows, "count": len(rows), "note": "已保存", "master_account": accounts.MASTER_ACCOUNT}
+        rows = [accounts.public_row(a, with_password=True) for a in saved]
+        return {
+            "accounts": rows,
+            "count": len(rows),
+            "note": "已保存",
+            "master_account": accounts.MASTER_ACCOUNT,
+        }
 
     @app.post("/api/v1/admin/accounts/{acct}/reset_passwd")
     def api_accounts_reset_passwd(request: Request, acct: str, payload: dict = Body(default={})):
-        """管理员显式设置新密码。3.7.5：body.new 必填非空；响应不回显明文。"""
-        user = _require(request)
+        """管理员显式设置新密码。3.7.8：body.new 必填非空；列表再 GET 可见明文。"""
+        user = _require_manage_accounts(request)
         new = payload.get("new") if isinstance(payload, dict) else None
         _plain, err = accounts.reset_password(cfg, root, acct, new if new is not None else None)
         if err:
@@ -264,5 +291,5 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         return {
             "status": "ok",
             "账号": acct,
-            "note": "已设置新密码；请用新密码登录（响应不回显明文）",
+            "note": "已设置新密码；请用新密码登录（列表可见明文）",
         }
