@@ -135,7 +135,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 detail="更新进行中，BU 配置已保存，请稍后再点重算或等刷新结束后自动对齐",
             )
         try:
-            recompute(cfg, root)
+            # 3.7.8 P0：已持 _LOCK，必须 already_locked=True，否则二次抢锁死锁
+            recompute(cfg, root, already_locked=True)
         finally:
             _LOCK.release()
         _audit(cfg, root, user, _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))))

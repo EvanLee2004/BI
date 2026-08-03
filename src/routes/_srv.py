@@ -15,9 +15,13 @@ def srv():
     return _srv
 
 
-def start_refresh_async(cfg, root=None, trigger="manual"):
-    return srv().start_refresh_async(cfg, root, trigger)
+def start_refresh_async(cfg, root=None, trigger="manual", on_complete=None):
+    """透传 on_complete（2.6.7 C-3 / 3.7.8）：定时 success 只在真成功时登记。"""
+    return srv().start_refresh_async(cfg, root, trigger, on_complete=on_complete)
 
 
-def recompute(cfg, root=None, *, rebuild_std: bool = False):
-    return srv().recompute(cfg, root, rebuild_std=rebuild_std)
+def recompute(cfg, root=None, *, rebuild_std: bool = False, already_locked: bool = False):
+    """透传 already_locked（3.7.8 P0）：写路径已持 _LOCK 时禁止二次抢锁死锁。"""
+    return srv().recompute(
+        cfg, root, rebuild_std=rebuild_std, already_locked=already_locked
+    )

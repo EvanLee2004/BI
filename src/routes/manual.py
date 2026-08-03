@@ -70,17 +70,18 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @contextmanager
     def with_write_lock(*, rebuild_std: bool = False):
-        """2.6.3·C1：非阻塞拿刷新锁 → 写库 → recompute(already_locked)；拿不到或 OperationalError → 409。"""
+        """2.6.3·C1 / 3.7.8：非阻塞拿锁 → 写库 → recompute(already_locked=True)。
+
+        禁止 TypeError→无 already_locked 再调 recompute（会二次抢 threading.Lock 死锁）。
+        测试桩须接受 **kwargs（或显式 already_locked）。
+        """
         if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
             raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL)
         try:
             try:
                 yield
-                # already_locked：避免同线程再抢 _LOCK 死锁；测试桩 lambda 忽略多余 kwargs
+                # already_locked：同线程已持 _LOCK，pipeline 内不得再 with _LOCK
                 recompute(cfg, root, rebuild_std=rebuild_std, already_locked=True)
-            except TypeError:
-                # 测试桩可能不接 already_locked
-                recompute(cfg, root, rebuild_std=rebuild_std)
             except sqlite3.OperationalError as e:
                 raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL) from e
         finally:
