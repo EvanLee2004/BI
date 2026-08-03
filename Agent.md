@@ -37,7 +37,7 @@
 
 ## 当前状态（以根 `VERSION` + 项目 `progress.md` 顶部为准 · 勿钉死下文旧号）
 
-- **版本**：读根目录 **`VERSION`**（文档收口时 **3.6.1**：首屏六段 + 重点客户独立章 + 日查「昨天」）。历史要点：3.6.0 CSRF/:8001；3.5.0 金额共同尺度/架构收束/reload；3.4.x 作战台与六档；3.3.x 分摊 int 分 / KPI 诚实；3.2.0 server 薄门面；3.1.0/3.0.0 去 render 双轨；2.7.x API v1 + sid-only + 维护页。
+- **版本**：读根目录 **`VERSION`** + 项目 `progress.md` 顶部（文档收口时 **3.7.7**：桌面 Logo/cache-bust；导出「其他 N 项」children；凭据不下发；调度真问题；候选预热发版；首屏六段 + KC 双饼/三池 + 日查「昨天」仍在）。历史：3.6.x 六段/KC/CSRF；3.5.0 金额轴诚实/reload；3.4.x 作战台；3.3.x 分摊 int 分；3.0.0 去 render 双轨；2.7.x API v1 + sid-only。
 - **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
 - **API 地图（业务/管理/运维均 `/api/v1/*`）**：
   - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号、user_stats…

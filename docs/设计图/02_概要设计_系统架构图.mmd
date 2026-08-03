@@ -1,15 +1,14 @@
-%% 系统架构 v2.2.0 · stage66 · 2026-07-21
-%% 可见：金额分整数 · 手填增量重算 · VM gen_vm_ts · 导出按需 · 管理端 Vue 单轨
+%% 系统架构 · VERSION 3.7.7 · 2026-08-03
 flowchart TB
-  U[浏览器/手机 内网] --> NGX
-  NGX["nginx :80<br/>dist 长缓存 · HTML no-store<br/>/api /admin /login /bu /export 反代"]
+  U[浏览器/手机] --> NGX
+  NGX["nginx<br/>dist 长缓存 · HTML no-store<br/>/api /admin /login /bu 反代<br/>Host 带端口 CSRF 同源"]
   NGX --> API
-  API["FastAPI 127.0.0.1:8018<br/>routes · api_v1 VM · auth<br/>管理端 Vue 单轨无 legacy admin.js"]
-  API --> RP["refresh_pipeline<br/>源指纹未变：手填跳过 std 重建<br/>调整 rebuild_std=True"]
-  API --> EXP["export 按需 assemble HTML<br/>不预装 user_html"]
-  RP --> DOM["profit 算账<br/>Decimal 分 ROUND_HALF_UP<br/>fen_to_yuan 仅显示层"]
+  API["FastAPI 127.0.0.1:8018<br/>routes · /api/v1/* · kanban_sid<br/>看端+管理端 Vue SPA"]
+  API --> RP["refresh_pipeline<br/>手填跳过 std 重建<br/>调整 rebuild_std=True"]
+  API --> EXP["export HTML/PNG/xlsx<br/>kanban_snapshot 同源"]
+  RP --> DOM["profit 算账<br/>int 分 · 管理利润表"]
   DOM --> DB[(SQLite 看板.db<br/>金额 INTEGER 分)]
-  ING["ingest 智云+SMB<br/>登录冷却24h · 7日行数<br/>Worksheet 探活"] --> DB
+  ING["ingest 智云四源+SMB台账<br/>短退避 · 新鲜度分层"] --> DB
   LOOP[ScheduleLoop 日更] --> ING
-  API --> DIST["frontend/dist Vue 看端+管理端<br/>gen_vm_ts 字段清单闸"]
-  DEV["开发：:8018 自挂 dist"] -.-> API
+  API --> DIST["frontend/dist<br/>Domain→VM→Vue<br/>theme.css?v=VERSION"]
+  PUB["publish_kanban.sh<br/>强制备份 · :8019 候选"] -.-> API

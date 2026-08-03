@@ -1,31 +1,30 @@
-%% 关键流程时序 v2.2.0 · stage66
+%% 关键流程时序 · VERSION 3.7.7 · 2026-08-03
 sequenceDiagram
   participant U as 用户/管理员
   participant N as nginx
   participant A as FastAPI
   participant R as refresh_pipeline
-  participant P as profit 分整数
+  participant P as profit int分
   participant D as SQLite
 
-  Note over A,R: 日更 ScheduleLoop / 一键更新 = do_full
+  Note over A,R: 日更 ScheduleLoop / 管理端更新数据 = do_full
   A->>R: do_full / generate
   R->>D: build_std + 重放调整
-  R->>P: summary_from_conn Decimal 分
-  R->>A: publish summary/fragments/views<br/>不预装 user_html
+  R->>P: summary_from_conn int 分
+  R->>A: publish summary → VM JSON
 
   Note over U,A: 手填保存 = 增量重算
-  U->>N: POST /api/manual
+  U->>N: POST /api/v1/admin/manual*
   N->>A: 
   A->>D: set_manual
-  A->>R: recompute rebuild_std=False<br/>源指纹未变跳过 std
+  A->>R: recompute rebuild_std=False
   R->>P: summary 重算
   R->>A: publish
 
   Note over U,A: 调整 = 重建 std + 重放
-  U->>A: POST /api/adjust
+  U->>A: POST /api/v1/admin/adjust*
   A->>R: recompute rebuild_std=True
 
-  Note over U,A: 导出 PNG 按需装配
-  U->>A: GET /export.png
-  A->>P: assemble_export_html 现场
-  A-->>U: PNG
+  Note over U,A: 导出按需
+  U->>A: GET /api/v1/export.html|png|pl.xlsx
+  A-->>U: 快照 / PNG / Excel

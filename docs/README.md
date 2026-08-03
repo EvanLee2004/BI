@@ -1,8 +1,7 @@
 # docs/ 索引（程序仓 · 产品文档）
 
-**更新：2026-07-29（VERSION=3.3.1）** · 仓库只保留**产品/运维/设计**文档。  
-AI 施工任务书、交付报告、验收证据、pixel 截图等**不进本仓**（工作区归档见下）。  
-**产品版本以根目录 `VERSION` 为准（现网 3.3.1）；变更史见根目录 [`../CHANGELOG.md`](../CHANGELOG.md)**（Keep a Changelog）。  
+**更新：2026-08-03（VERSION 以根目录 `VERSION` 为准，当前 **3.7.7**）** · 仓库保留产品/运维/设计文档与脱敏配图证据。  
+**产品版本只信**根 `VERSION` + 项目 `progress.md` 顶部 + `git rev-parse HEAD`；变更史见 [`../CHANGELOG.md`](../CHANGELOG.md)。  
 **SSOT 指针**：[文档SSOT指针.md](./文档SSOT指针.md) · 运维实况：[Runbook.md](./Runbook.md) §0。
 
 > **日常运维先看根目录 [README.md · 生产运维](../README.md#生产运维)**（入口、命令、nginx 铁律）；本页是文档地图。
@@ -16,7 +15,7 @@ AI 施工任务书、交付报告、验收证据、pixel 截图等**不进本仓
 | **根 [README · 生产运维](../README.md#生产运维)** | 入口两链接 · 日常命令 · nginx 根路径铁律 | **生产运维首页** |
 | **[文档SSOT指针.md](./文档SSOT指针.md)** | 版本/进度/铁律各文件唯一职责 | 文档对账 |
 | **[Ubuntu部署手册.md](./Ubuntu部署手册.md)** | Ubuntu 生产部署 how-to | 装机 / 升级 |
-| **[Runbook.md](./Runbook.md)** | 运维排障处方卡（§0=现网实况 3.3.1） | 坏了怎么查 |
+| **[Runbook.md](./Runbook.md)** | 运维排障处方卡（§0=现网实况；版本以机上 VERSION 为准） | 坏了怎么查 |
 | **[用户手册/](./用户手册/)** | 看板使用 + 管理端 + FAQ | 教同事 |
 | **[设计图/](./设计图/)** · **[images/](./images/)** | 架构/部署 SVG + README 用 PNG | 看系统长什么样 |
 | **[数据来源说明.md](./数据来源说明.md)** | 六源进料与路径 | 对口径 |

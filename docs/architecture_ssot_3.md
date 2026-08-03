@@ -1,6 +1,6 @@
 # 架构 SSOT · 3.2.0+
 
-> 现行结构锚 **3.2.0+**（server 薄门面 / 无 render 装运）。**产品 tip 以程序根 `VERSION` 为准**（现 **3.3.1**）。历史 fragments/render 合同见 `docs/archive/`。
+> 现行结构锚 **3.2.0+**（server 薄门面 / 无 render 装运）。**产品 tip 以程序根 `VERSION` + 项目 progress 顶部为准**（当前 **3.7.7**）。历史 fragments/render 合同见 `docs/archive/`。
 
 ## 看数主路径
 

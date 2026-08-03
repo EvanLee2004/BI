@@ -1,6 +1,6 @@
 # deploy/linux · Ubuntu **26.04** 部署资产
 
-> **产品现网**：根目录 `VERSION`（**3.3.1**）· 日常运维见根 `README.md#生产运维` 与 `docs/Runbook.md` §0。  
+> **产品现网**：根目录 `VERSION`（**3.7.7**，以文件为准）· 日常运维见根 `README.md#生产运维` 与 `docs/Runbook.md` §0。发版脚本 `publish_kanban.sh`（备份门闸 + 可选 :8019 候选预热）。  
 > 热加载（无交互 sudo）：`bash deploy/linux/reload_kanban.sh`。维护模式：`maintenance_on.sh` / `maintenance_off.sh`。
 
 Linux 为**唯一**部署线（Windows `.bat` / schtasks 已全线退役）。  

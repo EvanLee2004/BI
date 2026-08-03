@@ -1,13 +1,13 @@
 # Runbook：三张处方卡
 
-## 0. 生产环境实况（2026-07-31 · 以机上 `git rev-parse HEAD` + 仓内 `VERSION` 为准，勿钉死本表旧号）
+## 0. 生产环境实况（2026-08-03 · 以机上 `git rev-parse HEAD` + 仓内 `VERSION` + 项目 `progress.md` 顶部为准，勿钉死本表旧号）
 
 | 项 | 值 |
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **以机上 `cat VERSION` + `git rev-parse --short HEAD` 为准**。产品线当前文档对齐 **3.6.1**（首屏六段：一基本情况→二下单与回款→三重点客户下单情况追踪→四经营利润→五收入与毛利结构→六费用明细；日查「昨天」；重点客户独立章）。其上保留 3.6.0 CSRF/:8001、3.5.x 诚实金额、3.4.x 六档/作战台、维护页、业务/写/探活均 `/api/v1/*`、只 vue、单会话 `kanban_sid`、统一 `/login`、飞书 webhook 已废止。**上机与否以当次 RELEASER 记录为准**，本表不钉死生产 tip。 |
-| 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、Restart=always、StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；app 仅 `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`。**多 worker / Redis 未支持** |
+| 版本 | **以机上 `cat VERSION` + `git rev-parse --short HEAD` 为准**（文档收口时产品线 **3.7.7**）。人可见：首屏六段、重点客户双饼/三池、导出「其他 N 项」展开、凭据不下发、调度不误报漏跑、桌面 Logo 放大 + theme `?v=`。其上保留 3.7.3 候选预热、3.7.0 强制备份、3.6.x 六段/KC/CSRF/:8001、`/api/v1/*`、仅 `kanban_sid`、统一 `/login`、飞书 webhook 已废止。**上机 tip 以当次 RELEASER / 项目 progress 顶部为准**。 |
+| 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、**Restart=on-failure** + StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + ReadWritePaths；主 app `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`；发版可选 **:8019 候选预热** 后切主。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
 | 用户入口口径 | **首选（2026-07-30 海鹏）**：`http://dash.besteasy.com:8001`（**内外网统一**；**必须带 `:8001`**）。过渡期旧链：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`。用自己账号登录即可；**无**单独管理员登录 URL；管理端路径 `/admin` |
 | 会话 | 浏览器 cookie **仅 `kanban_sid`**。**上机后须重登**。探活 `GET /api/v1/health`；刷新状态 `GET /api/v1/admin/refresh_status` |

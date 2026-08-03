@@ -1,15 +1,16 @@
-# 甲骨易经营看板
+# 甲骨易经营看板（智能经营罗盘）
 
 **给财务与管理层用的经营利润驾驶舱** —— 每天自动汇总业务数据，算出税前利润，公司内网电脑和手机都能看。
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v3.6.1**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-07-31） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 定时刷新 |
+| **v3.7.7**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-08-02） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 候选预热发版 · 定时刷新 |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
-> **现网终态（3.6.1）**：看数 **Domain→VM→Vue**；首屏六段（下单回款与重点客户提前）；导出走 **kanban_snapshot**；**无** `render_*` 驾驶舱双轨。业务/管理/运维 API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
-> **3.6.1 要点**：板块顺序一～六；重点客户独立 sec + 分级说明/序号/分页；日查「昨天」；柱图观感。  
-> **3.6.0**：CSRF/:8001 Host 端口。**3.5.0**：金额折线诚实；KC 拆分；reload PID+runtime。**3.4.x**：结构条/三池。**3.3.x** 分摊 int 分。  
+> **现网 / 产品现状 SSOT**：项目根 `progress.md` 顶部 + 本仓 `VERSION` + `git rev-parse HEAD`（勿把下文历史号当真理）。  
+> **现网终态（3.7.x）**：看数 **Domain→VM→Vue**；首屏六段；重点客户独立章（双饼 / 三池 / 可取消筛选）；导出走 **kanban_snapshot** + 利润表 Excel（「其他 N 项」可展开 children）；**无** `render_*` 驾驶舱双轨。API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
+> **3.7.7～3.7.0 要点（摘要）**：桌面 Logo 放大 + theme cache-bust；导出展开「其他 N 项」；凭据不下发；调度只报真问题；抓数短退避 + 48h 新鲜度；HelpPopover；候选端口预热发版（3.7.3）+ 强制备份门闸（3.7.0）；下线「下单未填部门」。  
+> **3.6.x 沉淀**：首屏六段与 KC 双饼；CSRF/:8001 Host；金额轴诚实。更早见 CHANGELOG。  
 > **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)
@@ -34,7 +35,7 @@
 
 ## 界面长什么样
 
-下面截图来自本仓库 **演示数据** 离线跑通后的真实页面（非生产客户数据）。
+下面截图来自本仓库 **`_golden_data` 脱敏演示数据**，本机 `KANBAN_PROFILE=dev KANBAN_OFFLINE=1` 跑通后的真实页面（合成客户名「示例客户*」/「员工*」，**非生产客户数据**）。
 
 ### 登录
 
@@ -44,57 +45,66 @@
 
 ### 三套主题
 
-| 主题 | 定位 | 说明 |
+| 主题 | 定位 | 截图 |
 |------|------|------|
-| **霓虹**（默认） | 演示 / 投屏 | 近纯黑底、HUD 面板切角与发光、空间感背景；图表与 KPI 光效 |
-| **深空** | 日常办公 | 经典暗色；安静无装饰光效 |
-| **晨光** | 白天 / 打印 | 冷调科技白；干净可读 |
+| **霓虹**（默认） | 演示 / 投屏 | 见下「看端首页」 |
+| **深空** | 日常办公 | ![深空](docs/images/ui/02_viewer_home_dark.png) |
+| **晨光** | 白天 / 打印 | ![晨光](docs/images/ui/02_viewer_home_light.png) |
 
-顶栏主题钮循环：**霓虹 → 深空 → 晨光 → 霓虹**（文案含「深色」「浅色」字样以兼容自动化定位）。能力自 2.3.x 起，与当前版本号解耦。
+顶栏主题钮循环：**霓虹 → 深空 → 晨光 → 霓虹**（文案含「深色」「浅色」字样以兼容自动化定位）。发布后 theme 带 `?v=` + 产品版本（3.7.7）。
 
 ### 看端 · 基本情况与经营利润
 
 ![看端首页（霓虹·默认）](docs/images/ui/02_viewer_home_neon.png)
 
-![看端首页（深空）](docs/images/ui/02_viewer_home_dark.png)
+> **截图状态（2026-08-03 · v3.7.7 全量）**：`docs/images/ui/*`、用户手册截图、工程拓扑 PNG 均已按 **3.7.7** 重采/重渲（golden 脱敏，**无真实客户**）。
 
-> **截图状态（2026-07-31 · v3.7.1）**：`docs/images/ui/*` 仍可能是更旧演示批次（角标/板块顺序未必最新）。**2026-07-31 新采 offline 证据**见 `docs/验收证据/3_7_1/live/`（双饼、说明「?」、主题切换尽力、390；脱敏 golden，**无真实客户**）。现网代码布局仍为首屏六段 + 重点客户双饼/问号。**禁止**把含真实金额/客户名的截图提交进 git。
+顶栏：年份/周期、**数据更新至**、版本角标、主题、导出、改密、退出。桌面 Logo 约 42px。五张 KPI：下单、交付金额（「含税」+ 副行「不含税 · ÷1.06」）、毛利率、税前利润、回款。
 
-顶栏可选年份与主题；五张 KPI 卡一眼看到下单、交付、毛利率、税前利润、回款（交付金额小字「含税」、副行「不含税 · ÷1.06」；三主题均可 count-up；刷新有 logo 入场填充加载）。
+**首屏六段（整体=BU 同序 · 自 3.6.1 定型、现网 3.7.7 仍用）**：
 
-**首屏六段（3.6.1，整体=BU）**：基本情况 → **下单与回款**（日查含「昨天」）→ **重点客户下单情况追踪**（独立章）→ 经营利润 → 收入与毛利结构 → 费用明细。
+| 序号 | 区块 | 要点 |
+|------|------|------|
+| 一 | **基本情况** | 五张 KPI |
+| 二 | **下单与回款** | 日查（含「昨天」）→ 双榜 → 柱图 |
+| 三 | **重点客户下单情况追踪** | 六档、双饼、三池、连续月折线（自然年） |
+| 四 | **经营利润** | 趋势 + 管理利润表 |
+| 五 | **收入与毛利结构** | 按客户 / 销售排名 |
+| 六 | **费用明细** | 热力 + 台账表 |
+
+![重点客户](docs/images/ui/05_key_customers.png)
 
 ![看端利润区](docs/images/ui/03_viewer_profit_section.png)
 
-左：收入 / 成本 / 毛利率趋势；右：管理利润表（可点「查看构成」下钻）。位置在重点客户之后（段四）。
+左：收入 / 成本 / 毛利率趋势；右：管理利润表（「查看构成」；导出 Excel「其他 N 项」展开 children · 3.7.6）。
 
 ### 看端 · 结构与费用
 
 ![看端结构区](docs/images/ui/04_viewer_structure_section.png)
 
-收入与毛利按客户、按销售拆开（段五）；再往下是费用明细（段六）。下单与回款、重点客户已提前到段二 / 段三。
+![费用明细](docs/images/ui/12_viewer_expense_section.png)
 
 ### 手机
 
 ![看端手机](docs/images/ui/06_viewer_mobile.png)
 
-内网手机竖屏可扫一眼 KPI；复杂操作建议用电脑。
+内网手机竖屏可扫 KPI；390 宽已适配。复杂操作建议电脑。
 
 ### 管理端 · 控制台与设置
 
 ![管理端控制台](docs/images/ui/07_admin_console.png)
 
-管理员可嵌看驾驶舱、点「更新数据」、看体检灯色（绿=该抓的都抓到；红=有源本次未抓到；黄=抓齐仍有业务提醒）与「本次未抓到」横幅。
+管理员进入 `/admin`：嵌看驾驶舱、「更新数据」、体检灯（绿=该抓的都抓到；红=有源本次未抓到；黄=抓齐仍有业务提醒，如手填缺月）。未到点定时槽只算「待执行」，不误报漏跑（3.7.5）。
 
 ![管理端设置](docs/images/ui/08_admin_settings.png)
 
-账号、智云连接、备份与版本更新等集中在设置页。
+账号、智云连接、备份与版本更新等集中在设置页。**智云密码 / 账号密码接口永不回显明文**；留空=不改已存值；重置须手输新密码（3.7.5）。
 
 ### 管理端 · 日常维护
 
 | 场景 | 截图 |
 |------|------|
-| 异常总览 · 费用未分类等 | ![异常总览](docs/images/ui/09_admin_order_dept.png)（3.7.2 起「下单未填部门」已下线；截图文件名历史保留） |
+| 异常总览 · 费用未分类等 | ![异常总览](docs/images/ui/09_admin_order_dept.png)（3.7.2 起「下单未填部门」已下线；文件名历史保留） |
 | 人工填写 · 人力/分摊/去税 | ![人工填写](docs/images/ui/10_admin_manual.png) |
 | 数据调整 · 明细改数 | ![数据调整](docs/images/ui/11_admin_detail.png) |
 
@@ -240,9 +250,9 @@ flowchart LR
 
 ![部署拓扑](docs/images/deploy.png)
 
-- 进程：`systemd` 服务 `kanban`（开机自启、异常可自愈）  
-- 入口：nginx `:80` 托管 `frontend/dist` 并反代 API；**根路径 `/` 必须反代后端**（见运维节）  
-- 应用进程只监听本机 `127.0.0.1:8018`，不把 API 端口直接暴露到办公网  
+- 进程：`systemd` 服务 `kanban`（`Restart=on-failure` + StartLimit；开机自启）  
+- 入口：首选 **`http://dash.besteasy.com:8001`**（须带端口）；nginx 托管 `frontend/dist` 并反代 API；**根路径 `/` 必须反代后端**（见运维节）  
+- 应用主进程默认 **`127.0.0.1:8018`**；发版可用 **`:8019` 候选预热** 再切主（3.7.3）  
 - 定时：进程内 ScheduleLoop 日更 + cron 体检 / 备份  
 
 装机步骤：[docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) · **日常运维见下方 [生产运维](#生产运维)** · 排障处方：[docs/Runbook.md](docs/Runbook.md)
@@ -312,10 +322,11 @@ deploy/linux/          nginx / systemd 模板
 | 项 | 值 |
 |----|-----|
 | 代码目录 | `/opt/kanban/看板正式程序`（git，跟踪 `main`） |
-| 应用进程 | `systemd` 单元 **`kanban`** · User=`lee` · 监听 **`127.0.0.1:8018`** |
-| 对外 | **nginx** 站点 `kanban` · **`:80`** · 静态 `frontend/dist` + 反代 API |
-| 日更 | 进程内 **ScheduleLoop**（默认约 09:30 / 12:00 / 17:00，以管理端 `schedule_times` 为准） |
-| 其它 cron | 小时 healthcheck、每日备份（**不要**再指望 cron `run.py --scheduled` 刷新页面内存） |
+| 应用进程 | `systemd` 单元 **`kanban`** · User=`lee` · 主端口 **`127.0.0.1:8018`** |
+| 对外 | 首选 **`dash.besteasy.com:8001`**；nginx 静态 `frontend/dist` + 反代 API（Host 须带端口，见 CSRF 铁律） |
+| 日更 | 进程内 **ScheduleLoop**（时刻以管理端 `schedule_times` 为准） |
+| 发版 | `deploy/linux/publish_kanban.sh --pull`：强制库备份 → 可选 **:8019 候选预热** → health/runtime 对齐后切主；失败回退主进程（3.7.0+ / 3.7.3） |
+| 其它 cron | 小时 healthcheck、每日备份（**不要**靠 cron `run.py --scheduled` 刷新页面内存） |
 | 远程运维 | 家：`ssh kanban-home`；公司内网：`ssh kanban-lan`（密钥与跳板见工作区「公司电脑（部署机）」档案，**不进本仓**） |
 
 ### 3. 日常命令（在部署机上）
@@ -369,8 +380,10 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 
 ### 5. 发版后浏览器
 
-- `index.html` 为 `no-store`；带 hash 的 `/app/assets/*` 长缓存  
+- `index.html` 为 `no-store`；带 hash 的 `/app/assets/*` 长缓存；**theme.css 带 `?v=` 产品版本**（3.7.7）  
 - 管理端发版后若白屏 /「Failed to fetch dynamically imported module」：让用户 **强制刷新**（Ctrl/Cmd+Shift+R）或换浏览器清缓存  
+- 标准发版：部署机 `bash deploy/linux/publish_kanban.sh --pull`（可选 `--nginx-cutover`）；细节见 Runbook  
+
 
 ### 6. 坏了先看哪
 

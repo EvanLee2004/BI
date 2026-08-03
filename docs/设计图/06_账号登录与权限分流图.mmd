@@ -1,11 +1,13 @@
-%% 登录权限分流 v2.2.0 stage66
+%% 登录权限分流 · VERSION 3.7.7 · 2026-08-03
 flowchart TD
-  L["登录 API account+password"] --> G{权限}
-  G -->|管理员| ADM["管理端 Vue 单轨"]
-  G -->|整体| MAIN["全公司驾驶舱"]
-  G -->|BU| BU["仅本 BU 页"]
-  ADM --> SET["密码列明文可见"]
-  ADM --> MAN["手填增量重算"]
-  MAIN --> EXP["导出 PNG 按需装配"]
-  BU --> ISO["跨 BU 隔离"]
-  ZY["智云抓数登录"] -->|连败3次| CD["冷却24h 体检红"]
+  L["统一 /login<br/>cookie 仅 kanban_sid"] --> G{权限}
+  G -->|管理员| ADM["/admin 管理端 Vue"]
+  G -->|整体| MAIN["全公司驾驶舱 六段"]
+  G -->|BU| BU["仅本 BU 页隔离"]
+  ADM --> SET["账号/智云 密码不下发<br/>留空=不改 · 重置手输"]
+  ADM --> MAN["手填缺月=0 · 分摊/去税"]
+  ADM --> EXC["异常：费用未分类等<br/>无下单未填部门"]
+  MAIN --> EXP["导出 HTML/xlsx 快照"]
+  BU --> ISO["跨 BU 不泄漏"]
+  ZY["智云抓数"] -->|临时失败| BK["短退避 · 48h 新鲜副本"]
+  ZY -->|凭据/完整性失败| RED["体检红"]

@@ -1,6 +1,6 @@
 # 08 · 数据库设计（对齐 `src/schema.py` · 任务书33 修订）
 
-> 产品现网以根 **`VERSION`（3.3.1）** 为准 · 唯一 DDL 源：`src/schema.py`  
+> 产品现网以根 **`VERSION`（当前 3.7.7）** 为准 · 唯一 DDL 源：`src/schema.py`  
 > **SCHEMA_VERSION = 3**（金额库内 INTEGER **分**；算账路径 Decimal ROUND_HALF_UP，见 MADR-0022）  
 > **统计**：标准表 **5** + 人工/元数据表（含历史表）以 schema 为准。  
 > **库文件**：`数据/看板.db`（gitignore）。无独立 DB 服务。  
