@@ -72,7 +72,9 @@
 | 五 | **收入与毛利结构** | 按客户 / 销售排名 |
 | 六 | **费用明细** | 热力 + 台账表 |
 
-![重点客户](docs/images/ui/05_key_customers.png)
+![重点客户完整作战台](docs/images/ui/05_key_customers.png)
+
+上图含：三摘要卡、客户数/金额双饼、S～E 图例、三经营池名单（对比）、右侧需跟进/临界晋级行动队列（golden 合成客户名）。
 
 ![看端利润区](docs/images/ui/03_viewer_profit_section.png)
 
