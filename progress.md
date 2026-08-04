@@ -3,10 +3,10 @@
 
 ## 2026-08-04 · 3.7.12 期间费用构成展示收敛
 
-- VERSION **3.7.12** · 主仓 main（无新 worktree）；基线 `d5a1a63` / 3.7.11
+- VERSION **3.7.12** · tip **`861504d`**（完整 `861504d23b0054f321ea01488421a53711db9ed1`）· 主仓 main（无新 worktree）；基线 `d5a1a63` / 3.7.11
 - 去「按部门」展示；BU 藏「按利润中心」；整体 by_pc = 各 BU 分摊后 expense.total；列表与 total 守恒
-- 守卫 `tests/test_expense_views_3_7_12.py`；**未改**利润口径 / DailyQuery / 3.7.11 隔离
-- tip / push / 上机见收口时回填
+- 守卫 `tests/test_expense_views_3_7_12.py`；run_verify EXIT:0（1424）；**未改**利润口径 / DailyQuery / 3.7.11 隔离
+- push origin+gitee main；上机 `publish_kanban.sh --pull` **SUCCESS** · health **200** · runtime 3.7.12/`861504d`
 
 ## 2026-08-04 · 3.7.11 BU 页时间段查询隔离（ISO-01）
 
