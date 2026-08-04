@@ -3,10 +3,10 @@
 
 ## 2026-08-04 · 3.7.11 BU 页时间段查询隔离（ISO-01）
 
-- VERSION **3.7.11** · 主仓 main 施工（无新 worktree）；基线 `872ad12` / 3.7.10
+- VERSION **3.7.11** · tip **`80b48bf`**（完整 `80b48bf74f8cd514522fb654bf812f43478bb388`）· 主仓 main（无新 worktree）；基线 `872ad12` / 3.7.10
 - DailyQuery：BU→`/api/v1/bu_daily`，整体→`/api/v1/daily`；`buildDailyQueryUrl` 共用
 - 守卫 `tests/test_bu_daily_iso_3_7_11.py`；`run_verify` EXIT:0（1414）；**未改**利润口径/业务数据
-- tip / 上机：见 commit 后本条补全与项目根 progress
+- push origin+gitee main；上机 `publish_kanban.sh --pull` **SUCCESS** · health **200** · runtime 3.7.11/`80b48bf`
 
 ## 2026-08-04 · 3.7.10 导出能力文案收敛（三项内容）
 
