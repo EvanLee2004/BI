@@ -8,12 +8,12 @@ import { friendlyError } from '../../utils/friendlyError'
 import { SRC_MAP, salesArr } from '../utils'
 
 /**
- * 3.7.9：用户可勾能力仅看端四导出（与后端 authz.USER_EXPORT_KEYS 对齐）。
+ * 3.7.10：用户可勾能力仅三项「导出内容」（key 仍与后端看端导出对齐）。
  * 管理类 / view_main / 管端导出 / 归档 绑管理员角色，不进设置页勾选。
+ * 不展示 export_page_png（无顶栏 PNG 按钮）。
  */
 export const CAP_KEYS = [
   'export_page_html',
-  'export_page_png',
   'export_pl_xlsx',
   'export_ledger_xlsx',
 ] as const
@@ -21,10 +21,9 @@ export const CAP_KEYS = [
 export type CapKey = (typeof CAP_KEYS)[number]
 
 export const CAP_LABELS: Record<CapKey, string> = {
-  export_page_html: '导出HTML',
-  export_page_png: '导出PNG',
-  export_pl_xlsx: '导出利润表',
-  export_ledger_xlsx: '导出明细',
+  export_page_html: '全部视图',
+  export_pl_xlsx: '管理利润表',
+  export_ledger_xlsx: '收单台账明细',
 }
 
 export type Acct = {
@@ -132,7 +131,7 @@ export function useSettingsForm() {
   }
 
   function setCap(row: AcctLocal, key: CapKey, on: boolean) {
-    // 3.7.9：管理员行无能力勾；仅整体/BU 可改四导出
+    // 3.7.10：管理员行无能力勾；仅整体/BU 可改三项导出内容
     if (permType(row) === '管理员') return
     const caps = ensureCaps(row)
     caps[key] = on
@@ -154,12 +153,11 @@ export function useSettingsForm() {
         ? {
             ...emptyCaps(false),
             export_page_html: true,
-            export_page_png: true,
             export_pl_xlsx: true,
             export_ledger_xlsx: true,
           }
         : emptyCaps(false))
-    // 仅保留四导出
+    // 仅保留三项导出内容
     const next = emptyCaps(false)
     for (const k of CAP_KEYS) {
       if (typeof (tpl as Record<string, unknown>)[k] === 'boolean') {
@@ -346,7 +344,7 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    // 新账号：整体默认四导出开（3.7.9）+ 须显式设密
+    // 新账号：整体默认三项导出内容开（3.7.10）+ 须显式设密
     const row: AcctLocal = {
       账号: '',
       显示名: '',
@@ -358,7 +356,6 @@ export function useSettingsForm() {
       能力: {
         ...emptyCaps(false),
         export_page_html: true,
-        export_page_png: true,
         export_pl_xlsx: true,
         export_ledger_xlsx: true,
       },

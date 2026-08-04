@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""3.7.9：能力矩阵收敛硬规则（TDD）。
+"""3.7.9/3.7.10：能力矩阵收敛硬规则（TDD）。
 
-产品 SSOT：权限看范围；用户能力仅四导出；管理类绑管理员；
+产品 SSOT：权限看范围；用户能力仅看端导出；管理类绑管理员；
 非管理员脏 admin_access 等强制 false；can_main 仅角色。
+3.7.10：设置页展示三项内容向标签（全部视图/管理利润表/收单台账明细）。
 """
 from __future__ import annotations
 
@@ -362,22 +363,22 @@ class TestCapsHttp379(unittest.TestCase):
 
 
 class TestSettingsUiSource379(unittest.TestCase):
-    """G3 静态：设置页源码符合 §2.6（无浏览器）。"""
+    """G3 静态：设置页源码符合 §2.6（无浏览器）。3.7.10 三内容能力。"""
 
-    def test_cap_keys_only_four_exports(self):
+    def test_cap_keys_only_three_content_exports(self):
         form = (ROOT / "frontend/src/admin/composables/useSettingsForm.ts").read_text(
             encoding="utf-8"
         )
-        # CAP_KEYS 数组仅四导出
+        # CAP_KEYS 数组仅三项内容导出（无 export_page_png）
         self.assertIn("export_page_html", form)
+        self.assertIn("export_pl_xlsx", form)
         self.assertIn("export_ledger_xlsx", form)
-        # 用户可勾列表不含管理类 / 看整体
-        # 提取 CAP_KEYS = [ ... ] 段
         import re
 
         m = re.search(r"export const CAP_KEYS = \[([^\]]+)\]", form)
         self.assertIsNotNone(m)
         body = m.group(1)
+        self.assertNotIn("export_page_png", body)
         for banned in (
             "view_main",
             "admin_access",
@@ -386,8 +387,15 @@ class TestSettingsUiSource379(unittest.TestCase):
             "manage_accounts",
             "export_admin_detail",
             "export_archive",
+            "export_page_png",
         ):
             self.assertNotIn(f"'{banned}'", body, banned)
+        # 能力标签为内容向三词，禁止旧格式标签
+        self.assertIn("全部视图", form)
+        self.assertIn("管理利润表", form)
+        self.assertIn("收单台账明细", form)
+        for old_label in ("导出HTML", "导出PNG", "导出利润表", "导出明细"):
+            self.assertNotIn(old_label, form, old_label)
 
     def test_settings_view_admin_fixed_and_subtitle(self):
         vue = (ROOT / "frontend/src/admin/views/SettingsView.vue").read_text(
@@ -395,10 +403,16 @@ class TestSettingsUiSource379(unittest.TestCase):
         )
         self.assertIn("管理员 · 全部权限", vue)
         self.assertIn("管理员固定全权", vue)
-        self.assertIn("仅勾选看端导出", vue)
-        # 无「看整体」能力勾文案
+        # 3.7.10：三能力内容导向副标题
+        self.assertIn("全部视图", vue)
+        self.assertIn("管理利润表", vue)
+        self.assertIn("收单台账明细", vue)
+        self.assertNotIn("四导出", vue)
+        # 无「看整体」能力勾文案；无旧四词能力标签
         self.assertNotIn("看整体", vue)
         self.assertNotIn("进管理端", vue)
+        for old_label in ("导出HTML", "导出PNG", "导出利润表", "导出明细"):
+            self.assertNotIn(old_label, vue, old_label)
 
 
 if __name__ == "__main__":

@@ -221,7 +221,7 @@ import './settings-view.css'
       <el-col :span="24">
         <el-card shadow="never" class="scard">
           <template #header>
-            <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div><div class="sub">管理员固定全权；整体/BU 仅勾选看端导出；密码管理员可见；总账号不可删</div></div></div>
+            <div class="scard-h"><span class="ico">👥</span><div><div class="ttl">账号与权限</div><div class="sub">管理员固定全权；整体/BU 勾选可导出内容（全部视图 / 管理利润表 / 收单台账明细）；密码管理员可见；总账号不可删</div></div></div>
           </template>
           <el-table :data="acctList" border size="small" max-height="520" data-testid="acct-table">
             <el-table-column label="账号" width="140">
@@ -287,7 +287,7 @@ import './settings-view.css'
             <el-table-column label="能力" min-width="420">
               <template #default="{ row }">
                 <div class="cap-matrix" data-testid="acct-caps">
-                  <!-- 3.7.9：管理员固定全权，无细勾；整体/BU 仅四导出 -->
+                  <!-- 3.7.10：管理员固定全权，无细勾；整体/BU 仅三项导出内容 -->
                   <template v-if="permType(row) === '管理员'">
                     <span class="muted" data-testid="acct-caps-admin-fixed">管理员 · 全部权限</span>
                   </template>

@@ -1,6 +1,12 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-04 · 3.7.10 导出能力文案收敛（三项内容）
+
+- VERSION **3.7.10** · 主仓 main 施工（无新 worktree）
+- 设置页能力：全部视图 / 管理利润表 / 收单台账明细；去掉导出PNG 勾选与旧四词标签
+- 硬规则/权限列/利润口径不变；门禁 + push + 上机见项目 progress
+
 ## 2026-08-04 · 3.7.9 能力矩阵收敛（施工 REVIEW_READY 候选）
 
 - VERSION **3.7.9** · 分支 `task/20260804-caps-simplify` · worktree `kanban-379-caps-simplify`
