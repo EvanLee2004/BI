@@ -1,6 +1,12 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-04 · 3.7.9 能力矩阵收敛（施工 REVIEW_READY 候选）
+
+- VERSION **3.7.9** · 分支 `task/20260804-caps-simplify` · worktree `kanban-379-caps-simplify`
+- 权限管看范围；用户能力仅四导出；管理类绑管理员硬规则；设置页 UI 收敛
+- 证据 `docs/验收证据/3_7_9/`；**未** push / SSH / 部署
+
 ## 2026-08-03 · 文档 100% 对齐 3.7.7（续 · 工程图+全量 UI）
 
 - 全部 `docs/设计图/*.mmd` 更新为 3.7.7 口径并 mermaid 重渲 SVG → `docs/images/*.png`

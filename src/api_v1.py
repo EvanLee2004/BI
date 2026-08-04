@@ -132,7 +132,8 @@ def session_public(acc: dict | None, *, is_admin_session: bool = False) -> dict:
             "perm": accounts.PERM_ADMIN,
             "bus": [],
             "is_admin": True,
-            "can_main": bool(caps.get(authz.CAP_VIEW_MAIN, True)),
+            # 3.7.9：can_main 角色权威（管理员恒 true）
+            "can_main": authz.can_main(acc),
             "caps": caps,
         }
     return {

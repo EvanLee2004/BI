@@ -347,18 +347,23 @@ def _resolve_password_for_save(raw: dict, old: dict, acct: str, *, is_existing: 
 
 
 def _attach_caps_for_save(row: dict, raw: dict, old: dict) -> None:
-    """3.7.8：能力字段覆盖 / 沿用 / 物化角色默认。"""
+    """3.7.8/3.7.9：能力覆盖 / 沿用 / 物化；落盘前硬规则 materialize 清洗脏管理类。"""
     import authz as _authz
 
     if "能力" in raw and isinstance(raw.get("能力"), dict):
         cleaned = _authz.normalize_caps_field(raw.get("能力"))
         if cleaned is not None:
             row["能力"] = cleaned
-            return
-    if isinstance(old.get("能力"), dict):
+        elif isinstance(old.get("能力"), dict):
+            row["能力"] = dict(old["能力"])
+        else:
+            row["能力"] = _authz.materialize_caps(row)
+    elif isinstance(old.get("能力"), dict):
         row["能力"] = dict(old["能力"])
-        return
-    row["能力"] = _authz.materialize_caps(row)
+    else:
+        row["能力"] = _authz.materialize_caps(row)
+    # 3.7.9：写盘前物化硬规则（非管理员管理类 false；管理员全 true）
+    row["能力"] = _authz.materialize_caps({**row, "能力": row.get("能力")})
 
 
 def _normalize_account_row(raw: dict, existing: dict) -> dict | None:

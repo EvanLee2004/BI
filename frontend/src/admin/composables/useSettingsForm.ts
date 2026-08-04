@@ -7,35 +7,24 @@ import { jget, jpost, downloadBlob } from '../api'
 import { friendlyError } from '../../utils/friendlyError'
 import { SRC_MAP, salesArr } from '../utils'
 
-/** 3.7.8 账号能力 key（与后端 authz.FINE_CAP_KEYS 对齐） */
+/**
+ * 3.7.9：用户可勾能力仅看端四导出（与后端 authz.USER_EXPORT_KEYS 对齐）。
+ * 管理类 / view_main / 管端导出 / 归档 绑管理员角色，不进设置页勾选。
+ */
 export const CAP_KEYS = [
-  'view_main',
-  'admin_access',
-  'data_refresh',
-  'data_write',
-  'manage_accounts',
   'export_page_html',
   'export_page_png',
   'export_pl_xlsx',
   'export_ledger_xlsx',
-  'export_admin_detail',
-  'export_archive',
 ] as const
 
 export type CapKey = (typeof CAP_KEYS)[number]
 
 export const CAP_LABELS: Record<CapKey, string> = {
-  view_main: '看整体',
-  admin_access: '进管理端',
-  data_refresh: '更新数据',
-  data_write: '改数/手填',
-  manage_accounts: '管账号',
   export_page_html: '导出HTML',
   export_page_png: '导出PNG',
   export_pl_xlsx: '导出利润表',
   export_ledger_xlsx: '导出明细',
-  export_admin_detail: '管端明细导出',
-  export_archive: '审计归档',
 }
 
 export type Acct = {
@@ -143,12 +132,9 @@ export function useSettingsForm() {
   }
 
   function setCap(row: AcctLocal, key: CapKey, on: boolean) {
+    // 3.7.9：管理员行无能力勾；仅整体/BU 可改四导出
+    if (permType(row) === '管理员') return
     const caps = ensureCaps(row)
-    // 总账号不可关管理
-    if (isMaster(row) && (key === 'admin_access' || key === 'manage_accounts') && !on) {
-      ElMessage.warning('总账号不可取消管理端入口或账号管理能力')
-      return
-    }
     caps[key] = on
     row.能力 = { ...caps }
     mark('acct')
@@ -156,27 +142,31 @@ export function useSettingsForm() {
 
   function applyRoleTemplate(row: AcctLocal) {
     const role = permType(row)
+    if (role === '管理员') {
+      // 管理员固定全权，前端不写可关管理 key
+      row.能力 = emptyCaps(true)
+      mark('acct')
+      return
+    }
     const tpl =
       capTemplates.value[role] ||
-      (role === '管理员'
-        ? emptyCaps(true)
-        : role === '整体'
-          ? {
-              ...emptyCaps(false),
-              view_main: true,
-              export_page_html: true,
-              export_page_png: true,
-              export_pl_xlsx: true,
-              export_ledger_xlsx: true,
-              export_admin_detail: true,
-              export_archive: true,
-            }
-          : emptyCaps(false))
-    row.能力 = { ...emptyCaps(false), ...tpl }
-    if (isMaster(row)) {
-      row.能力.admin_access = true
-      row.能力.manage_accounts = true
+      (role === '整体'
+        ? {
+            ...emptyCaps(false),
+            export_page_html: true,
+            export_page_png: true,
+            export_pl_xlsx: true,
+            export_ledger_xlsx: true,
+          }
+        : emptyCaps(false))
+    // 仅保留四导出
+    const next = emptyCaps(false)
+    for (const k of CAP_KEYS) {
+      if (typeof (tpl as Record<string, unknown>)[k] === 'boolean') {
+        next[k] = !!(tpl as Record<string, boolean>)[k]
+      }
     }
+    row.能力 = next
     mark('acct')
   }
 
@@ -356,7 +346,7 @@ export function useSettingsForm() {
     return acctList.value.filter((a) => (a.权限 || '') === '管理员').length
   }
   function acctAdd() {
-    // 新账号：安全默认（整体模板）+ 须显式设密
+    // 新账号：整体默认四导出开（3.7.9）+ 须显式设密
     const row: AcctLocal = {
       账号: '',
       显示名: '',
@@ -367,13 +357,10 @@ export function useSettingsForm() {
       最后登录: '',
       能力: {
         ...emptyCaps(false),
-        view_main: true,
         export_page_html: true,
         export_page_png: true,
         export_pl_xlsx: true,
         export_ledger_xlsx: true,
-        export_admin_detail: true,
-        export_archive: true,
       },
     }
     acctList.value.push(row)

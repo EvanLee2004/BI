@@ -147,6 +147,7 @@ tests/test_375_responsive_admin.py
 tests/test_task_3_7_8_write_lock.py
 tests/test_task_3_7_8_caps.py
 tests/test_task_3_7_8_exceptions_false_green.py
+tests/test_task_3_7_9_caps.py
 tests/test_g4_key_customers_axis_3_6_0.py
 tests/test_g4_key_customers_ui_3_6_0.py
 tests/test_g5_boss_ui_3_6_0.py

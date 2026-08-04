@@ -25,9 +25,11 @@ class TestCapsMaterialize(unittest.TestCase):
         self.assertTrue(all(m[k] for k in authz.FINE_CAP_KEYS))
 
     def test_stock_main_exports_on_no_admin(self):
+        """3.7.9：存量整体四导出开；view_main 不再生效（can_main 走角色）。"""
         acc = {"账号": "m", "权限": accounts.PERM_MAIN}
         m = authz.materialize_caps(acc)
-        self.assertTrue(m[authz.CAP_VIEW_MAIN])
+        self.assertFalse(m[authz.CAP_VIEW_MAIN])
+        self.assertTrue(authz.can_main(acc))
         self.assertTrue(m[authz.CAP_EXPORT_PL_XLSX])
         self.assertTrue(m[authz.CAP_EXPORT_LEDGER_XLSX])
         self.assertFalse(m[authz.CAP_ADMIN_ACCESS])
@@ -42,6 +44,7 @@ class TestCapsMaterialize(unittest.TestCase):
         self.assertFalse(m[authz.CAP_ADMIN_ACCESS])
 
     def test_explicit_cap_override(self):
+        """3.7.9：仅四导出可覆盖；view_main 脏 true 强制 false。"""
         acc = {
             "账号": "m",
             "权限": accounts.PERM_MAIN,
@@ -49,8 +52,8 @@ class TestCapsMaterialize(unittest.TestCase):
         }
         m = authz.materialize_caps(acc)
         self.assertFalse(m[authz.CAP_EXPORT_PL_XLSX])
-        self.assertTrue(m[authz.CAP_VIEW_MAIN])
-        # unspecified keys keep role default
+        self.assertFalse(m[authz.CAP_VIEW_MAIN])
+        # unspecified user-export keys keep role default
         self.assertTrue(m[authz.CAP_EXPORT_LEDGER_XLSX])
 
     def test_master_forced_manage(self):
@@ -134,17 +137,17 @@ class TestCapsHttp(unittest.TestCase):
                     authz.CAP_DATA_WRITE: False,
                     authz.CAP_DATA_REFRESH: False,
                 }
+        # 3.7.9：管理员不可半开写/刷；用整体号测无管理类 403
         rows.append(
             {
                 "账号": "ops_ro",
-                "显示名": "只读管理",
-                "权限": accounts.PERM_ADMIN,
-                "密码": accounts.DEFAULT_ADMIN_PW,
+                "显示名": "整体无写刷",
+                "权限": accounts.PERM_MAIN,
+                "密码": accounts.DEFAULT_VIEW_PW,
                 "能力": {
-                    **{k: True for k in authz.FINE_CAP_KEYS},
-                    authz.CAP_DATA_WRITE: False,
-                    authz.CAP_DATA_REFRESH: False,
                     authz.CAP_EXPORT_PL_XLSX: True,
+                    authz.CAP_DATA_WRITE: True,  # 脏：须被硬规则抹掉
+                    authz.CAP_DATA_REFRESH: True,
                 },
             }
         )
@@ -203,18 +206,20 @@ class TestCapsHttp(unittest.TestCase):
         self.assertNotEqual(r.status_code, 403, r.text)
 
     def test_no_data_write_403(self):
-        hdr = self._login_admin("ops_ro")
+        """3.7.9：非管理员（含脏 data_write）写路径 401/403。"""
+        hdr = self._login_view("ops_ro")
         r = self.client.post(
             "/api/v1/admin/detax_rates",
             headers=hdr,
             json={"rates": {"房租": 6}},
         )
-        self.assertEqual(r.status_code, 403, r.text)
+        self.assertIn(r.status_code, (401, 403), r.text)
 
     def test_no_data_refresh_403(self):
-        hdr = self._login_admin("ops_ro")
+        """3.7.9：非管理员 refresh 401/403（管理员不可半关写刷）。"""
+        hdr = self._login_view("ops_ro")
         r = self.client.post("/api/v1/admin/refresh", headers=hdr)
-        self.assertEqual(r.status_code, 403, r.text)
+        self.assertIn(r.status_code, (401, 403), r.text)
 
     def test_admin_accounts_returns_plaintext_password(self):
         hdr = self._login_admin("lushasha")

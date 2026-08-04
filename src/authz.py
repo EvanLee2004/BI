@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""RBAC：账号级能力矩阵（3.7.8）+ 旧 CAN_* 兼容。
+"""RBAC：账号级能力矩阵（3.7.9 收敛）+ 旧 CAN_* 兼容。
 
-细粒度 key（账号字段「能力」object，全可选勾）：
-  view_main · admin_access · data_refresh · data_write · manage_accounts
-  export_page_html · export_page_png · export_pl_xlsx · export_ledger_xlsx
-  export_admin_detail · export_archive
-
-存量缺「能力」：按旧行为物化默认（管理员全开；整体/BU 可看范围 + 全部 export_*=true）。
-勾选以「能力」为准覆盖角色默认；总账号 lushasha 强制 admin_access+manage_accounts。
+3.7.9 产品规则（硬规则，服务端权威）：
+- 看什么 → 仅权限角色（管理员 / 整体 / 按 BU）
+- 用户可勾能力 → 仅看端四导出（export_page_html/png/pl_xlsx/ledger_xlsx）
+- 管理类 + 管端明细导出 + 审计归档 → 仅管理员恒 true；非管理员强制 false（忽略 JSON 脏 true）
+- can_main := is_admin OR is_main（忽略 能力.view_main / 旧 可看整体页 对 BU 的放宽）
+- is_admin := 角色管理员（禁止「非管理员 + 脏 admin_access」半管理）
+- 总账号 lushasha 不可降到无管理（管理员全开已覆盖）
 
 旧 CAN_EXPORT / CAN_ADMIN / CAN_VIEW_SALARY 仍由 caps_of 派生，兼容 test_authz。
 """
@@ -19,7 +19,7 @@ from typing import Any
 
 import accounts
 
-# ---- 细粒度能力（3.7.8 SSOT）----
+# ---- 细粒度能力（3.7.8 键名保留；3.7.9 语义收敛）----
 CAP_VIEW_MAIN = "view_main"
 CAP_ADMIN_ACCESS = "admin_access"
 CAP_DATA_REFRESH = "data_refresh"
@@ -46,6 +46,26 @@ FINE_CAP_KEYS: tuple[str, ...] = (
     CAP_EXPORT_ARCHIVE,
 )
 
+# 用户可独立开关的看端四导出（设置页唯一可勾项）
+USER_EXPORT_KEYS: tuple[str, ...] = (
+    CAP_EXPORT_PAGE_HTML,
+    CAP_EXPORT_PAGE_PNG,
+    CAP_EXPORT_PL_XLSX,
+    CAP_EXPORT_LEDGER_XLSX,
+)
+
+# 绑定管理员角色：非管理员 materialize 强制 false
+_ADMIN_BOUND_KEYS: tuple[str, ...] = (
+    CAP_VIEW_MAIN,
+    CAP_ADMIN_ACCESS,
+    CAP_DATA_REFRESH,
+    CAP_DATA_WRITE,
+    CAP_MANAGE_ACCOUNTS,
+    CAP_EXPORT_ADMIN_DETAIL,
+    CAP_EXPORT_ARCHIVE,
+)
+
+# 旧 CAN_EXPORT 派生：任一导出（含管理类导出）
 _EXPORT_KEYS: tuple[str, ...] = (
     CAP_EXPORT_PAGE_HTML,
     CAP_EXPORT_PAGE_PNG,
@@ -87,25 +107,11 @@ def role_key(acc: dict | None) -> str | None:
     return None
 
 
-def _legacy_view_main(acc: dict | None) -> bool:
-    """升级前 can_main 语义（不读 能力，避免递归）。"""
-    if not acc:
-        return False
-    if accounts.is_admin(acc):
-        return True
-    flag = acc.get("可看整体页")
-    if flag is True:
-        return True
-    if flag is False:
-        return False
-    return accounts.is_main(acc)
-
-
 def default_caps_for_role(acc: dict | None) -> dict[str, bool]:
-    """角色默认能力（存量无「能力」字段时的旧行为物化）。
+    """角色默认能力（存量无「能力」字段时物化）。
 
     - 管理员：全开
-    - 整体/BU：可看范围 + 全部 export_*=true；无 admin/write/refresh/manage
+    - 整体/BU 存量：四看端导出 true（保留 3.7.8 存量可达）；管理类全 false
     """
     out = {k: False for k in FINE_CAP_KEYS}
     rk = role_key(acc)
@@ -113,54 +119,50 @@ def default_caps_for_role(acc: dict | None) -> dict[str, bool]:
         return out
     if rk == accounts.PERM_ADMIN:
         return {k: True for k in FINE_CAP_KEYS}
-    # 整体 / BU：导出全开（与现网一致），管理/写/刷关
-    for k in _EXPORT_KEYS:
+    # 整体 / BU 存量：仅四看端导出开
+    for k in USER_EXPORT_KEYS:
         out[k] = True
-    out[CAP_VIEW_MAIN] = _legacy_view_main(acc)
-    out[CAP_ADMIN_ACCESS] = False
-    out[CAP_DATA_REFRESH] = False
-    out[CAP_DATA_WRITE] = False
-    out[CAP_MANAGE_ACCOUNTS] = False
     return out
 
 
 def caps_template(role: str) -> dict[str, bool]:
-    """新账号安全默认模板（设置页「应用角色默认」）。
+    """新账号 /「应用角色默认」模板（3.7.9）。
 
     - 管理员：全开
-    - 整体：view_main + 全部 export；无 admin/write/refresh/manage
-    - BU：关闭全部 export + 关闭 write/refresh/admin；view_main 关
+    - 整体：四导出 true；管理类 false
+    - BU：四导出 false；管理类 false
     """
     r = (role or "").strip()
     out = {k: False for k in FINE_CAP_KEYS}
     if r == accounts.PERM_ADMIN or r == "管理员":
         return {k: True for k in FINE_CAP_KEYS}
     if r == accounts.PERM_MAIN or r == "整体":
-        out[CAP_VIEW_MAIN] = True
-        for k in _EXPORT_KEYS:
+        for k in USER_EXPORT_KEYS:
             out[k] = True
         return out
-    # BU / 其它：安全默认
+    # BU / 其它：安全默认（四导出关）
     return out
 
 
 def materialize_caps(acc: dict | None) -> dict[str, bool]:
-    """解析账号能力：缺字段 → 角色默认；有「能力」→ 覆盖对应 key。
+    """解析账号能力（3.7.9 硬规则）。
 
-    总账号强制 admin_access + manage_accounts。
+    - 管理员角色：全部 fine key 恒 true（总号不可降权）
+    - 非管理员：仅四导出可读 JSON 覆盖；管理类/view_main/管端导出/归档强制 false
     """
-    base = default_caps_for_role(acc)
     if not acc:
-        return base
+        return {k: False for k in FINE_CAP_KEYS}
+    # 角色管理员：固定最高权限（忽略 JSON 降权）
+    if accounts.is_admin(acc):
+        return {k: True for k in FINE_CAP_KEYS}
+    base = default_caps_for_role(acc)
     raw = acc.get("能力")
     if isinstance(raw, dict):
-        for k in FINE_CAP_KEYS:
+        for k in USER_EXPORT_KEYS:
             if k in raw:
                 base[k] = bool(raw[k])
-    # 总账号不可降到无管理
-    if accounts.is_master_account(acc.get("账号")):
-        base[CAP_ADMIN_ACCESS] = True
-        base[CAP_MANAGE_ACCOUNTS] = True
+    for k in _ADMIN_BOUND_KEYS:
+        base[k] = False
     return base
 
 
@@ -204,8 +206,8 @@ def has_cap(acc: dict | None, cap: str, *, cfg: dict | None = None) -> bool:
 
 
 def is_admin(acc: dict | None) -> bool:
-    """能进管理端：admin_access（存量管理员角色默认 True）。"""
-    return has_fine_cap(acc, CAP_ADMIN_ACCESS)
+    """能进管理端：3.7.9 以角色管理员为准（与 materialize admin_access 一致）。"""
+    return accounts.is_admin(acc)
 
 
 def can_export(acc: dict | None, *, cfg: dict | None = None) -> bool:
@@ -217,8 +219,8 @@ def can_view_salary(acc: dict | None, *, cfg: dict | None = None) -> bool:
 
 
 def can_main(acc: dict | None) -> bool:
-    """能看整体页：view_main 能力（存量默认与旧 can_main 一致）。"""
-    return has_fine_cap(acc, CAP_VIEW_MAIN)
+    """能看整体页：3.7.9 仅管理员或整体权限（忽略 能力.view_main / 旧 可看整体页）。"""
+    return accounts.is_admin(acc) or accounts.is_main(acc)
 
 
 def can_see_bu(acc: dict | None, name: str) -> bool:
@@ -266,7 +268,10 @@ def validate_accounts_caps(rows: list[dict]) -> None:
 
 
 def normalize_caps_field(raw) -> dict[str, bool] | None:
-    """清洗客户端「能力」字段；非法 → None（表示不写，走默认）。"""
+    """清洗客户端「能力」字段；非法 → None（表示不写，走默认）。
+
+    3.7.9：仍接受全 fine key 输入，但 materialize 会硬规则覆盖管理类。
+    """
     if raw is None:
         return None
     if not isinstance(raw, dict):
@@ -349,11 +354,9 @@ def role_matrix_for_tests() -> dict[str, dict[str, bool]]:
 
 
 def assert_legacy_parity(acc: dict | None) -> dict[str, Any]:
-    """自检：authz 与 accounts 旧判断一致（调试用；存量无能力字段时）。"""
-    if acc and isinstance(acc.get("能力"), dict):
-        return {"is_admin": True, "can_main": True, "note": "能力字段覆盖，跳过严格 parity"}
+    """自检：3.7.9 is_admin/can_main 与 accounts 角色一致。"""
     return {
         "is_admin": is_admin(acc) == accounts.is_admin(acc),
         "can_main": can_main(acc)
-        == (accounts.is_admin(acc) or accounts.is_main(acc) or bool((acc or {}).get("可看整体页"))),
+        == (accounts.is_admin(acc) or accounts.is_main(acc)),
     }

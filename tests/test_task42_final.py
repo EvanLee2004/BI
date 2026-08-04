@@ -3,7 +3,6 @@
 """任务书42 阶段五终检：三种账号 TestClient 全流程 + health + 版本。"""
 from __future__ import annotations
 
-import io
 import shutil
 import sys
 import tempfile
@@ -154,12 +153,9 @@ class TestTask42Final(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertGreaterEqual(r.json()["total"], 1)
+        # 3.7.9：管端明细导出绑管理员；整体号无权（硬规则 CAP_EXPORT_ADMIN_DETAIL=false）
         r = c.get("/api/v1/admin/detail/export", params={"table": "费用明细", "year": "2026"})
-        self.assertEqual(r.status_code, 200)
-        import openpyxl
-
-        wb = openpyxl.load_workbook(io.BytesIO(r.content))
-        self.assertEqual([c.value for c in wb.active[1]], db.VIEW_EXPENSE_COLUMNS)
+        self.assertEqual(r.status_code, 403, r.text[:200])
         # 退出后再访问明细应 401（路径兼容 /logout 与 /api/v1/logout）
         for path in ("/logout", "/api/v1/logout", "/api/logout"):
             c.request("POST", path, follow_redirects=False)
