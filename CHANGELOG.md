@@ -1,4 +1,38 @@
+## 3.7.13 · 2026-08-04（管理端 PM + 对账体验 + 隔离加固）
+
+### A1 · 收入明细「项目经理」
+- `std_收入明细` 增列 `项目经理 TEXT`；存量库 `_ADD_COLUMNS` 兼容
+- `norm_project_detail` 读「项目经理」，空则回退「PM」
+- 管理端收入明细表头展示；**只读**（`NON_ADJUSTABLE`，不进改数字段）
+
+### A2 · 数据修正可读可搜
+- `list_adjustments` 按定位键 join 订单号/客户/销售
+- `LedgerView`：展示 SO/客户/销售/定位键/原因；文本搜索
+
+### A3 · 改数反馈闭环
+- `DetailView`：`saving` 禁连点；`await jpost`（服务端 recompute 完成）后再成功提示；列表必按库刷新
+
+### A4 · 过期疑似人话
+- 页说明：源头已改、页面用源头新值；可用 SO/定位键对单；原值=新值提示可撤销
+
+### B1 · BU 强制 `bu=`
+- 沿用 3.7.11：RankingsDual / ProfitStructure / useKeyCustomers 在 BU scope 带 `bu=`；守卫 `test_bu_daily_iso_3_7_11`
+
+### B2 · 同键调整收敛
+- `add_adjustment` / `add_adjustments_batch`：同(表,定位键,字段) 新生效时，旧「过期疑似」→ 已撤销
+
+### C1 · 改完好找行
+- 成功后按定位键写入搜索并重查；行高亮约 4 秒
+
+### C2 · 原值_* 说明
+- 收入明细 admin-note：算账看交付日/归属月；原值_*=智云底稿
+
+### 守卫
+- `tests/test_project_manager_3_7_13.py` · `tests/test_adjust_ux_3_7_13.py`
+- **未改** `src/profit` 算账公式 / 手填造数 / HTTPS / PM 排名 / 写锁 / ISO-01 日查 / 3.7.12 费用视图
+
 ## 3.7.12 · 2026-08-04（期间费用构成展示收敛）
+
 
 ### P0 · 展示维收敛 + 守恒
 - **删「按部门」**：ExpenseSection 去掉 tab/`mode=dept`；VM 看端不再下发 `by_dept`（台账列/入库/dept_budget 数据层保留）

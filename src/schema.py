@@ -27,6 +27,7 @@ STD_TABLES: dict[str, str] = {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             定位键 TEXT,                 -- SOD（明细行级）；见 04_设计变更_定位键策略
             订单号 TEXT, 客户 TEXT, 业务线 TEXT, 销售 TEXT,
+            项目经理 TEXT,               -- 3.7.13：智云「项目经理」/「PM」；管理端只读
             整单交付日期 TEXT, 交付额 INTEGER, 项目成本 INTEGER,
             归属月 TEXT,
             原值_交付日期 TEXT,          -- 规范化前的原始交付日期（重放不改）
@@ -69,8 +70,9 @@ STD_TABLES: dict[str, str] = {
 
 # R1 全字段可调=黑名单制：可调整字段 = 各 std 表全部列 − 黑名单（派生/系统字段锁死）。
 # 黑名单：id（主键）、定位键（调整匹配索引）、归属月（由日期字段派生）、原值_*（重放基准）、已删除（软删标记）。
+# 3.7.13：项目经理 入库只读，首版不可改（不进 ADJUSTABLE_FIELDS）。
 # 重放先把 std 重建成原始值，故重放当刻"当前值"即原始值；日期改值会连带重算 归属月（PERIOD_DATE_FIELD）。
-NON_ADJUSTABLE = ("id", "定位键", "归属月", "已删除")
+NON_ADJUSTABLE = ("id", "定位键", "归属月", "已删除", "项目经理")
 
 
 def _std_columns() -> dict[str, list[str]]:
@@ -216,7 +218,12 @@ HUMAN_TABLE_NAMES = tuple(HUMAN_TABLES.keys())
 
 # 版本升级时给存量库补列（不丢人工表）：表 → [(列名, 列定义)]
 _ADD_COLUMNS: dict[str, list[tuple[str, str]]] = {
-    "std_收入明细": [("原值_归属月", "TEXT"), ("已删除", "INTEGER DEFAULT 0"), ("销售", "TEXT")],
+    "std_收入明细": [
+        ("原值_归属月", "TEXT"),
+        ("已删除", "INTEGER DEFAULT 0"),
+        ("销售", "TEXT"),
+        ("项目经理", "TEXT"),  # 3.7.13
+    ],
     "std_下单": [
         ("原值_归属月", "TEXT"),
         ("已删除", "INTEGER DEFAULT 0"),

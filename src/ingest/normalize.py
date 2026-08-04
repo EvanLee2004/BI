@@ -60,12 +60,15 @@ def norm_project_detail(rows: list[dict[str, str]], c: dict) -> list[dict]:
         sod = r.get("SOD") or ""  # 定位键=SOD（明细行级，稳定）
         # 任务书64·D4：业务线走 config.columns.project_line，不硬编码列名
         line_col = c.get("project_line") or "业务线"
+        # 3.7.13：项目经理（智云列「项目经理」优先，空则回退「PM」）
+        pm = str(r.get("项目经理") or r.get("PM") or "").strip()
         out.append(
             {
                 "订单号": so,
                 "客户": str(r.get("客户", "")).strip(),
                 "业务线": str(r.get(line_col, "") or r.get("业务线", "")).strip(),
                 "销售": str(r.get("销售") or "").strip(),
+                "项目经理": pm,
                 "整单交付日期": iso,
                 "交付额": rev,
                 "项目成本": cost,

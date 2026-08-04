@@ -26,6 +26,18 @@ def _now() -> str:
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _revoke_same_key_expired_suspect(
+    conn: sqlite3.Connection, 目标表: str, 定位键: str, 字段: str
+) -> int:
+    """3.7.13 B2：同(表,定位键,字段) 新生效时，旧「过期疑似」→ 已撤销。返回撤销条数。"""
+    cur = conn.execute(
+        "UPDATE adj_调整记录 SET 状态='已撤销' "
+        "WHERE 目标表=? AND 定位键=? AND 字段=? AND 状态='过期疑似'",
+        (目标表, 定位键, 字段 or ""),
+    )
+    return int(cur.rowcount or 0)
+
+
 def add_adjustment(
     conn: sqlite3.Connection,
     经手人: str,
@@ -41,6 +53,7 @@ def add_adjustment(
     真实台账已实测有撞车行；R2 raw 批次层给行级定位后放开）。
 
     2.6.8 T3 幂等：同(目标表,定位键,字段) 已有「生效」→ 更新该条（多余生效兄弟一并撤销），不插第二行。
+    3.7.13 B2：同键新生效时，旧「过期疑似」一并撤销。
     """
 
     if 目标表 not in schema.STD_TABLE_NAMES:
@@ -86,6 +99,7 @@ def add_adjustment(
             "UPDATE adj_调整记录 SET 创建时间=?,经手人=?,原值=?,新值=?,原因=?,类型=?,状态='生效' WHERE id=?",
             (ts, 经手人, 原值, 新值_store, 原因, 类型, keep_id),
         )
+        _revoke_same_key_expired_suspect(conn, 目标表, 定位键, fld)
         conn.commit()
         return keep_id
     cur = conn.execute(
@@ -93,6 +107,7 @@ def add_adjustment(
         " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
         (ts, 经手人, 目标表, 定位键, fld, 原值, 新值_store, 原因, 类型),
     )
+    _revoke_same_key_expired_suspect(conn, 目标表, 定位键, fld)
     conn.commit()
     return cur.lastrowid
 
@@ -192,6 +207,7 @@ def add_adjustments_batch(
                     "UPDATE adj_调整记录 SET 创建时间=?,经手人=?,原值=?,新值=?,原因=?,类型=?,状态='生效' WHERE id=?",
                     (ts, 经手人, 原值, 新值_store, 原因, 类型, keep_id),
                 )
+                _revoke_same_key_expired_suspect(conn, 目标表, 定位键, fld)
                 ids.append(keep_id)
             else:
                 cur = conn.execute(
@@ -199,6 +215,7 @@ def add_adjustments_batch(
                     " VALUES(?,?,?,?,?,?,?,?,?, '生效')",
                     (ts, 经手人, 目标表, 定位键, fld, 原值, 新值_store, 原因, 类型),
                 )
+                _revoke_same_key_expired_suspect(conn, 目标表, 定位键, fld)
                 ids.append(int(cur.lastrowid))
         conn.commit()
     except Exception:
@@ -264,12 +281,56 @@ def rearm_adjustment(conn: sqlite3.Connection, adj_id: int) -> None:
     conn.commit()
 
 
+# 3.7.13 A2：各 std 表可 join 出的业务列（定位键 → 订单号/客户/销售）
+_ADJ_CTX_COLS: dict[str, tuple[str, ...]] = {
+    "std_收入明细": ("订单号", "客户", "销售"),
+    "std_下单": ("订单号", "客户", "销售"),
+    "std_回款": ("客户", "销售"),
+    "std_内部译员": ("销售",),
+    "std_费用明细": (),
+}
+
+
+def _lookup_adj_context(conn: sqlite3.Connection, 目标表: str, 定位键: str) -> dict[str, str]:
+    """按定位键从 std 表取 SO/客户/销售（供数据修正列表对账）。行缺失→空串。"""
+    empty = {"订单号": "", "客户": "", "销售": ""}
+    if 目标表 not in schema.STD_TABLE_NAMES or not 定位键:
+        return empty
+    cols = _ADJ_CTX_COLS.get(目标表)
+    if cols is None:
+        return empty
+    if not cols:
+        return empty
+    try:
+        row = conn.execute(
+            f"SELECT {','.join(cols)} FROM {目标表} WHERE 定位键=? AND 已删除=0 LIMIT 1",
+            (定位键,),
+        ).fetchone()
+    except sqlite3.Error:
+        return empty
+    if not row:
+        return empty
+    got = {c: ("" if v is None else str(v)) for c, v in zip(cols, row, strict=False)}
+    return {
+        "订单号": got.get("订单号", ""),
+        "客户": got.get("客户", ""),
+        "销售": got.get("销售", ""),
+    }
+
+
 def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
-    """调整列表。金额字段的 原值/新值 库内为分文本 → 返回**元**字符串（与改造前管理端元/元一致）。"""
+    """调整列表。金额字段的 原值/新值 库内为分文本 → 返回**元**字符串（与改造前管理端元/元一致）。
+
+    3.7.13 A2：附带 订单号/客户/销售（按定位键 join std），便于对账与搜索。
+    """
     cols = ["id", "创建时间", "经手人", "目标表", "定位键", "字段", "原值", "新值", "原因", "类型", "状态"]
     rows = conn.execute(f"SELECT {','.join(cols)} FROM adj_调整记录 ORDER BY id DESC").fetchall()
     out = [dict(zip(cols, r, strict=False)) for r in rows]
     for d in out:
+        ctx = _lookup_adj_context(conn, str(d.get("目标表") or ""), str(d.get("定位键") or ""))
+        d["订单号"] = ctx["订单号"]
+        d["客户"] = ctx["客户"]
+        d["销售"] = ctx["销售"]
         if not money.is_amount_field(str(d.get("字段") or "")):
             continue
         for k in ("原值", "新值"):
@@ -286,5 +347,6 @@ def list_adjustments(conn: sqlite3.Connection) -> list[dict]:
             except (ValueError, TypeError):
                 pass
     return out
+
 
 
