@@ -3,9 +3,9 @@
 
 ## 2026-08-04 · 3.7.10 导出能力文案收敛（三项内容）
 
-- VERSION **3.7.10** · 主仓 main 施工（无新 worktree）
+- VERSION **3.7.10** · tip **`2b2d5d2`**（完整 `2b2d5d2fa56cdc37e2618e5603fa0321d335c0c7`）· 主仓 main 施工（无新 worktree）
 - 设置页能力：全部视图 / 管理利润表 / 收单台账明细；去掉导出PNG 勾选与旧四词标签
-- 硬规则/权限列/利润口径不变；门禁 + push + 上机见项目 progress
+- 硬规则/权限列/利润口径不变；门禁 1400 EXIT:0；push origin+gitee；publish SUCCESS 上机
 
 ## 2026-08-04 · 3.7.9 能力矩阵收敛（施工 REVIEW_READY 候选）
 
