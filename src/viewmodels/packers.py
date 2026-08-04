@@ -272,34 +272,103 @@ def pack_profit_rank_by_period(summary: dict, *, embed_full: bool = False) -> di
     return out
 
 
-def pack_expense_views_by_period(summary: dict) -> dict[str, dict[str, Any]]:
-    """期间费用构成：四态横条数据（大类环形已有 donut_by_period）。"""
+# 3.7.12：展示维残差行（吃掉列表与期间费用 total 的差额；可解释、禁止双计）
+EXPENSE_RESIDUAL_CATEGORY = "其他/未归类"
+EXPENSE_RESIDUAL_PC = "公共剩余/未摊"
+
+
+def _fen_int(v) -> int:
+    try:
+        return int(v or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _with_expense_residual(
+    rows: list[tuple[str, int, list]],
+    total_fen: int,
+    residual_name: str,
+) -> list[tuple[str, int, list]]:
+    """列表金额（分）与 total 守恒：缺口/溢出并入 residual_name 一行。"""
+    rows = [(str(n), _fen_int(v), list(f or [])) for n, v, f in (rows or [])]
+    s = sum(v for _, v, _ in rows)
+    gap = _fen_int(total_fen) - s
+    if gap != 0:
+        rows.append((residual_name, gap, []))
+    return rows
+
+
+def _bu_expense_pc_rows(bu_pages: dict | None, pkey: str) -> list[tuple[str, int, list]]:
+    """整体「按利润中心」= 各业务 BU 同 period 的 periods[pk].expense.total（分摊后实际承担）。"""
+    if not bu_pages:
+        return []
+    rows: list[tuple[str, int, list]] = []
+    for name, page in (bu_pages or {}).items():
+        if not isinstance(page, dict):
+            continue
+        bsum = page.get("summary") if isinstance(page.get("summary"), dict) else None
+        if not bsum:
+            continue
+        p = (bsum.get("periods") or {}).get(pkey) or {}
+        if not isinstance(p, dict):
+            continue
+        tot = _fen_int((p.get("expense") or {}).get("total"))
+        label = str(page.get("name") or name or "").strip() or str(name)
+        if not label:
+            continue
+        rows.append((label, tot, []))
+    rows.sort(key=lambda r: (-r[1], r[0]))
+    return rows
+
+
+def pack_expense_views_by_period(
+    summary: dict,
+    *,
+    is_bu: bool = False,
+    bu_pages: dict | None = None,
+) -> dict[str, dict[str, Any]]:
+    """期间费用构成横条（大类环形已有 donut_by_period）。
+
+    3.7.12：
+    - 看端不再下发 by_dept（部门展示维删除；数据层 dept 仍可存）。
+    - BU 页不下发 by_pc（前端也不显示该 tab）。
+    - 整体 by_pc = 各 bu_pages[bu].summary.periods[pk].expense.total（分摊后 SSOT），
+      与台账直记 by_pc 半截路径二选一，禁止双轨。
+    - by_category / 整体 by_pc 与 periods[pk].expense.total **展示守恒**（残差单列）。
+    """
     import charts
     from viewmodels.format import _fine_to_rows
 
     P = summary.get("periods") or {}
     FT = summary.get("expense_fine_type") or {}
-    BP = summary.get("expense_by_profit_center") or {}
-    BD = summary.get("expense_by_department") or {}
     out: dict[str, dict[str, Any]] = {}
+    sink = frozenset(
+        {
+            "未分类",
+            "未标注明细类型",
+            EXPENSE_RESIDUAL_CATEGORY,
+            EXPENSE_RESIDUAL_PC,
+        }
+    )
 
     def hbar(rows, prefix):
-        if rows is None:
-            return []
         if not rows:
             return []
-        sink = frozenset({"未分类", "未标注明细类型"})
         ordered = [r for r in rows if r[0] not in sink] + [r for r in rows if r[0] in sink]
-        mx = max((v for _, v, _ in rows), default=1) or 1
+        mx = max((_fen_int(v) for _, v, _ in rows), default=1) or 1
         items = []
         for name, val, fine in ordered:
-            w = max(2.0, val / mx * 100)
-            fine_lines = [{"name": str(n), "amt_disp": charts.fmt_wan(a) + "万"} for n, a in (fine or [])]
+            val_i = _fen_int(val)
+            w = max(2.0, (abs(val_i) / mx) * 100.0) if mx else 2.0
+            fine_lines = [
+                {"name": str(n), "amt_disp": charts.fmt_wan(a) + "万"} for n, a in (fine or [])
+            ]
             items.append(
                 {
                     "key": f"{prefix}:{name}",
                     "name": str(name),
-                    "amt_disp": charts.fmt_wan(val) + "万",
+                    "value": val_i,
+                    "amt_disp": charts.fmt_wan(val_i) + "万",
                     "bar_w": w,
                     "sink": name in sink,
                     "fine": fine_lines,
@@ -311,12 +380,26 @@ def pack_expense_views_by_period(summary: dict) -> dict[str, dict[str, Any]]:
         if not isinstance(p, dict):
             continue
         e = p.get("expense") or {}
-        fine_rows = _fine_to_rows(FT.get(pkey) or {})
+        total_fen = _fen_int(e.get("total"))
+        fine_raw = _fine_to_rows(FT.get(pkey) or {})
+        fine_rows = _with_expense_residual(
+            [(n, _fen_int(v), f) for n, v, f in (fine_raw or [])],
+            total_fen,
+            EXPENSE_RESIDUAL_CATEGORY,
+        )
+        if is_bu:
+            pc_rows: list[tuple[str, int, list]] = []
+        else:
+            pc_rows = _with_expense_residual(
+                _bu_expense_pc_rows(bu_pages, pkey),
+                total_fen,
+                EXPENSE_RESIDUAL_PC,
+            )
         out[pkey] = {
-            "total_disp": charts.fmt_wan(e.get("total") or 0) + "万",
+            "total_disp": charts.fmt_wan(total_fen) + "万",
+            "total": total_fen,
             "by_category": hbar(fine_rows, "fine"),
-            "by_pc": hbar(BP.get(pkey), "pc") if BP.get(pkey) is not None else [],
-            "by_dept": hbar(BD.get(pkey), "dept") if BD.get(pkey) is not None else [],
+            "by_pc": hbar(pc_rows, "pc"),
         }
     return out
 

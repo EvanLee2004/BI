@@ -1,6 +1,13 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-04 · 3.7.12 期间费用构成展示收敛
+
+- VERSION **3.7.12** · 主仓 main（无新 worktree）；基线 `d5a1a63` / 3.7.11
+- 去「按部门」展示；BU 藏「按利润中心」；整体 by_pc = 各 BU 分摊后 expense.total；列表与 total 守恒
+- 守卫 `tests/test_expense_views_3_7_12.py`；**未改**利润口径 / DailyQuery / 3.7.11 隔离
+- tip / push / 上机见收口时回填
+
 ## 2026-08-04 · 3.7.11 BU 页时间段查询隔离（ISO-01）
 
 - VERSION **3.7.11** · tip **`80b48bf`**（完整 `80b48bf74f8cd514522fb654bf812f43478bb388`）· 主仓 main（无新 worktree）；基线 `872ad12` / 3.7.10

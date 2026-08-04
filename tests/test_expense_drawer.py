@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""期间费用：按类别 / 按利润中心 / 按部门 点击行 → 右侧抽屉展开明细。
+"""期间费用：按类别 / 按利润中心 点击行 → 右侧抽屉展开明细。
 
-门禁：
-1. 三态走抽屉（Teleport body + exp-drawer-panel/mask + openDrawer）
+门禁（3.7.12：已删按部门）：
+1. 列表态走抽屉（Teleport body + exp-drawer-panel/mask + openDrawer）
 2. 进度条列表仍在（exp-list / exp-bar-row / bar_w）
 3. 无 master-detail、无 openFine / 行内 ev-fine
-4. 仍绑定 by_category / by_pc / by_dept 与 openRow.fine（无前端金额四则）
+4. 仍绑定 by_category / by_pc 与 openRow.fine（无前端金额四则）；无 by_dept
 5. 环形 donut 不动
 6. dist 构建后含 exp-drawer-panel、不含 exp-md-detail
 """
@@ -59,8 +59,10 @@ class TestExpenseDrawer(unittest.TestCase):
         )
 
     def test_binds_vm_views_not_frontend_math(self):
-        for key in ("by_category", "by_pc", "by_dept"):
+        for key in ("by_category", "by_pc"):
             self.assertIn(key, self.code, f"须绑定 views.{key}")
+        self.assertNotIn("by_dept", self.code, "3.7.12 看端不得再绑 by_dept")
+        self.assertNotIn("exp-tab-dept", self.src, "3.7.12 不得有按部门 tab")
         self.assertIn("openRow.fine", self.code)
         money_ops = re.findall(
             r"\b(amt|value|amount|金额)\s*[\+\-\*/]",

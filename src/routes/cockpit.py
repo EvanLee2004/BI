@@ -89,10 +89,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             }
             out.update(_bu_nav_meta(cfg, root, {}))
             return JSONResponse(out)
-        vm = viewmodels.build_cockpit_vm(summary, cfg)
+        pages = _state.get("bu_pages") or {}
+        # 3.7.12：整体 by_pc 用各 BU 分摊后 expense.total（与 bu_pages 同源）
+        vm = viewmodels.build_cockpit_vm(summary, cfg, bu_pages=pages)
         out = vm.model_dump()
         # 整体页「业务 BU 分页」入口（与 fragments chrome_prefix 同源名单）
-        pages = _state.get("bu_pages") or {}
         out["bu_names"] = list(pages.keys())
         # 54.11 R-01：有 BU 配置但未生成分页时勿静默（管理员/整体可见提示）
         out.update(_bu_nav_meta(cfg, root, pages))

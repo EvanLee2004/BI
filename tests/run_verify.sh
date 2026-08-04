@@ -56,6 +56,7 @@ tests/test_adjust.py
 tests/test_server.py
 tests/test_admin_edit.py
 tests/test_expense_drawer.py
+tests/test_expense_views_3_7_12.py
 tests/test_auth.py
 tests/test_multibu.py
 tests/test_update.py

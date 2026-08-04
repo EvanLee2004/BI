@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import '../styles/components/ExpenseSection.css'
-/** 期间费用构成：环形（按大类） + 三态进度条列表（按类别 / 按利润中心 / 按部门）。
- *  2026-07-21：三态列表点某一行 → 右侧抽屉展开该项「费用明细」，与「管理利润表」(PLTable) 同一交互；
- *  取代早前的左右分栏 master-detail 与行内嵌展开。
+/** 期间费用构成：环形（按大类） + 列表（按类别；整体另有按利润中心）。
+ *  3.7.12：删除「按部门」展示维；BU 页不显示「按利润中心」；切 BU 时 pc/dept → donut。
+ *  2026-07-21：列表点某一行 → 右侧抽屉展开该项「费用明细」，与「管理利润表」(PLTable) 同一交互。
  *  54.14 R-20：center.total_disp 已含「万」，禁止再拼单位。
  *  铁律17：抽屉 position:fixed，必须 Teleport to body（与 PLTable 一致）。
  */
@@ -23,11 +23,13 @@ import { withWanUnit } from '../utils/disp'
 import { themeMode } from '../utils/theme'
 import type { ExpenseHBar, ExpenseVM } from '../types/vm'
 
-type ListMode = 'fine' | 'pc' | 'dept'
+type ListMode = 'fine' | 'pc'
 
 const store = useCockpitStore()
 const exp = computed((): Partial<ExpenseVM> => store.vm?.expense || {})
 const mode = ref<'donut' | ListMode>('donut')
+/** 整体页才显示「按利润中心」；BU 页仅按大类 + 按类别 */
+const showPcTab = computed(() => store.scope !== 'bu')
 
 const items = computed(() => {
   const by = exp.value.donut_by_period || {}
@@ -39,21 +41,18 @@ const center = computed(() => {
 })
 const views = computed(() => {
   const by = exp.value.views_by_period || {}
-  return by[store.period] || { total_disp: '', by_category: [], by_pc: [], by_dept: [] }
+  return by[store.period] || { total_disp: '', by_category: [], by_pc: [] }
 })
 
-const isListMode = computed(
-  () => mode.value === 'fine' || mode.value === 'pc' || mode.value === 'dept',
-)
+const isListMode = computed(() => mode.value === 'fine' || mode.value === 'pc')
 
 const hbar = computed((): ExpenseHBar[] => {
   if (mode.value === 'fine') return views.value.by_category || []
   if (mode.value === 'pc') return views.value.by_pc || []
-  if (mode.value === 'dept') return views.value.by_dept || []
   return []
 })
 
-/** 右侧抽屉：选中行 key；切 tab / 切周期都关闭清空（开合模型与 PLTable 抽屉一致）。 */
+/** 右侧抽屉：选中行 key；切 tab / 切周期 / 切 BU 都关闭清空（开合模型与 PLTable 抽屉一致）。 */
 const openKey = ref<string | null>(null)
 const drawerOpen = computed(() => isListMode.value && !!openKey.value)
 const openRow = computed((): ExpenseHBar | null => {
@@ -64,7 +63,7 @@ const openRow = computed((): ExpenseHBar | null => {
 const entityLabel = computed(() => {
   if (mode.value === 'fine') return '类别'
   if (mode.value === 'pc') return '利润中心'
-  return '部门'
+  return '项'
 })
 const emptyFineText = computed(() => `该${entityLabel.value}无细类明细`)
 
@@ -89,6 +88,19 @@ watch(
     openKey.value = null
   },
 )
+/** 3.7.12：切 BU / 回整体时，若 mode 曾是 pc（或旧 dept）必须 reset 到 donut */
+watch(
+  () => [store.scope, store.buName] as const,
+  () => {
+    if (mode.value === 'pc' || (mode.value as string) === 'dept') {
+      mode.value = 'donut'
+    }
+    openKey.value = null
+  },
+)
+watch(showPcTab, (ok) => {
+  if (!ok && mode.value === 'pc') mode.value = 'donut'
+})
 
 const legendColors = computed(() =>
   items.value.map((_, i) => SERIES_PALETTE[i % SERIES_PALETTE.length]),
@@ -182,8 +194,14 @@ const option = computed(() => {
     <div class="ev-tabs" style="display: flex; gap: 6px; padding: 4px 0 8px">
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'donut' }" data-testid="exp-tab-donut" @click="mode = 'donut'">按大类</button>
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'fine' }" data-testid="exp-tab-fine" @click="mode = 'fine'">按类别</button>
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'pc' }" data-testid="exp-tab-pc" @click="mode = 'pc'">按利润中心</button>
-      <button type="button" class="ev-tab mini" :class="{ on: mode === 'dept' }" data-testid="exp-tab-dept" @click="mode = 'dept'">按部门</button>
+      <button
+        v-if="showPcTab"
+        type="button"
+        class="ev-tab mini"
+        :class="{ on: mode === 'pc' }"
+        data-testid="exp-tab-pc"
+        @click="mode = 'pc'"
+      >按利润中心</button>
     </div>
     <div class="exp-body-fixed" data-testid="exp-body-fixed">
       <div v-if="mode === 'donut' && items.length" class="ev-body">
@@ -198,7 +216,7 @@ const option = computed(() => {
           </span>
         </div>
       </div>
-      <!-- 按类别 / 按利润中心 / 按部门：进度条列表，点行开右侧抽屉 -->
+      <!-- 按类别 / 按利润中心：进度条列表，点行开右侧抽屉 -->
       <div
         v-else-if="isListMode"
         class="ev-list exp-hbar-scroll"
@@ -248,4 +266,3 @@ const option = computed(() => {
     </Teleport>
   </SciFiPanel>
 </template>
-

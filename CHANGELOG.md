@@ -1,3 +1,17 @@
+## 3.7.12 · 2026-08-04（期间费用构成展示收敛）
+
+### P0 · 展示维收敛 + 守恒
+- **删「按部门」**：ExpenseSection 去掉 tab/`mode=dept`；VM 看端不再下发 `by_dept`（台账列/入库/dept_budget 数据层保留）
+- **BU 页**：仅「按大类」「按类别」；不显示「按利润中心」；切 BU 时若 mode 为 pc/dept → reset donut
+- **整体「按利润中心」**：每行 = 该 BU 同 period `expense.total`（分摊后实际承担，与 BU 页圆环/利润表期间费用一致）；禁止台账直记半截；缺额用「公共剩余/未摊」一行吃残差
+- **展示守恒**：`by_category` / 整体 `by_pc` 列表 `value`（int 分）加总 = `periods[pk].expense.total`（类别缺额→「其他/未归类」）
+- 周期跟顶栏 `store.period`；不改 DailyQuery；不改利润/分摊公式
+
+### 守卫
+- `tests/test_expense_views_3_7_12.py`：源码 tab 守卫 + packer 守恒 + by_pc=BU total + 禁读 ledger by_pc
+- `tests/test_expense_drawer.py`：去 by_dept 绑定
+- **未改**利润口径 / 3.7.11 bu_daily 隔离 / 手填造数
+
 ## 3.7.11 · 2026-08-04（BU 页时间段查询隔离 · ISO-01）
 
 ### P0 · BU 查询不再串全公司

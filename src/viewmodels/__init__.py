@@ -409,6 +409,7 @@ def _assemble_vm(
     cfg: dict | None = None,
     bu_name: str | None = None,
     embed_key_customers_full: bool = False,
+    bu_pages: dict | None = None,
 ) -> CockpitVM | BUPageVM:
     """任务书51·B3 / 3.2.0：VM 组装（趋势/回款/面积/刻度/环形/KPI/PL/费用/排名）。
 
@@ -478,7 +479,11 @@ def _assemble_vm(
     )
     expense = ExpenseVM(
         donut_by_period=donut,
-        views_by_period=packers.pack_expense_views_by_period(summary),
+        views_by_period=packers.pack_expense_views_by_period(
+            summary,
+            is_bu=is_bu,
+            bu_pages=None if is_bu else bu_pages,
+        ),
         donut_center_by_period=_donut_center_by_period(summary),
         **area,
     )
@@ -547,12 +552,19 @@ def _assemble_vm(
 
 
 def build_cockpit_vm(
-    summary: dict, cfg: dict | None = None, *, embed_key_customers_full: bool = False
+    summary: dict,
+    cfg: dict | None = None,
+    *,
+    embed_key_customers_full: bool = False,
+    bu_pages: dict | None = None,
 ) -> CockpitVM:
-    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。"""
+    """整体页 VM 薄包装（任务书51·B3 → _assemble_vm）。
+
+    bu_pages：3.7.12 整体「按利润中心」用各 BU 分摊后 expense.total 组装。
+    """
     views = _vue_core_views(summary)
     # 单行关键字参数：tests/test_task51_assemble_vm 源码守卫匹配 scope="整体"
-    return _assemble_vm(summary, views, scope="整体", cfg=cfg, embed_key_customers_full=embed_key_customers_full)  # type: ignore[return-value]
+    return _assemble_vm(summary, views, scope="整体", cfg=cfg, embed_key_customers_full=embed_key_customers_full, bu_pages=bu_pages)  # type: ignore[return-value]
 
 
 def build_bu_vm(

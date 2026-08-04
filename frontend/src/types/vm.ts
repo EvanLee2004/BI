@@ -105,6 +105,8 @@ export type ExpenseHBarLine = { name: string; amt_disp: string }
 export type ExpenseHBar = {
   key: string
   name: string
+  /** 金额 int 分（后端下发；前端只展示 amt_disp，禁止运算） */
+  value?: number
   amt_disp: string
   bar_w: number
   sink: boolean
@@ -112,9 +114,10 @@ export type ExpenseHBar = {
 }
 export type ExpenseViewsPeriod = {
   total_disp: string
+  /** 期间费用 total（int 分；与 by_* 列表可加总对齐） */
+  total?: number
   by_category: ExpenseHBar[]
   by_pc: ExpenseHBar[]
-  by_dept: ExpenseHBar[]
 }
 export type ExpenseVM = {
   area_categories: string[]

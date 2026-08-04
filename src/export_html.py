@@ -34,7 +34,13 @@ def _stub_vm(summary: dict | None, *, bu_name: str = "") -> dict:
     return out
 
 
-def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: str = "") -> dict:
+def _build_vm_from_summary(
+    summary: dict | None,
+    cfg: dict | None,
+    *,
+    bu_name: str = "",
+    bu_pages: dict | None = None,
+) -> dict:
     if not summary:
         return _stub_vm(summary, bu_name=bu_name)
     # 2.6.7 C-7：有真实 periods 的 summary 构建失败 → 显式抛错（禁止 stub 假成功）
@@ -47,7 +53,10 @@ def _build_vm_from_summary(summary: dict | None, cfg: dict | None, *, bu_name: s
                 bu_name, summary, cfg or {}, embed_key_customers_full=True
             ).model_dump()
         return viewmodels.build_cockpit_vm(
-            summary, cfg or {}, embed_key_customers_full=True
+            summary,
+            cfg or {},
+            embed_key_customers_full=True,
+            bu_pages=bu_pages,
         ).model_dump()
     except Exception:
         # 真数据（周期里已有算账字段）才硬失败；测试壳只有空 periods 仍 stub
@@ -131,7 +140,11 @@ def assemble_export_pack(
         cockpit = cockpit_vm
     else:
         summary = st.get("summary")
-        cockpit = _build_vm_from_summary(summary if isinstance(summary, dict) else None, cfg)
+        cockpit = _build_vm_from_summary(
+            summary if isinstance(summary, dict) else None,
+            cfg,
+            bu_pages=st.get("bu_pages") if isinstance(st.get("bu_pages"), dict) else None,
+        )
 
     if bu_vms is not None:
         bus = {k: v for k, v in bu_vms.items() if isinstance(v, dict)}

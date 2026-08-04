@@ -451,7 +451,9 @@ def generate(cfg, today, trigger="manual", root=None):
     summary.pop("_fragments", None)
     summary["_views"] = views
     try:  # VM 归档失败（磁盘满等）不影响出页面
-        cockpit_vm = viewmodels.build_cockpit_vm(summary, cfg).model_dump()
+        cockpit_vm = viewmodels.build_cockpit_vm(
+            summary, cfg, bu_pages=bu_pages
+        ).model_dump()
         bu_vms = {}
         for bname, page in (bu_pages or {}).items():
             bsum = page.get("summary") if isinstance(page, dict) else None
