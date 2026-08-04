@@ -1,3 +1,15 @@
+## 3.7.11 · 2026-08-04（BU 页时间段查询隔离 · ISO-01）
+
+### P0 · BU 查询不再串全公司
+- `DailyQuery`：`scope===bu` 且有 `buName` → `GET /api/v1/bu_daily?bu=…&start&end&top=2000`；整体页仍 `GET /api/v1/daily`
+- 查询 / 昨天 / 本月共用 `buildDailyQueryUrl` 纯函数
+- ISO-18：查询后「其余」沿用 dual.full_items，因载荷已是本 BU 而自愈
+- ISO-05/09/16：RankingsDual / ProfitStructure / useKeyCustomers 的 `bu=` 保留并加静态回归
+
+### 守卫
+- `tests/test_bu_daily_iso_3_7_11.py`：URL 真函数 + DailyQuery 源码契约 + 纯 BU daily=403 / bu_daily=200
+- **未改**利润/分摊口径、生产业务数据
+
 ## 3.7.10 · 2026-08-04（设置页导出能力文案收敛 · 三项内容）
 
 ### P0 · 能力勾选文案

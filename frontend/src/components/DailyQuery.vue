@@ -1,12 +1,14 @@
 <script setup lang="ts">
 /**
- * 按时间段查询（B-01）：日期区间 + 与全局周期联动 + 查询打 /api/v1/daily。
+ * 按时间段查询（B-01 · 3.7.11 ISO-01）：日期区间 + 与全局周期联动。
+ * BU 页 → /api/v1/bu_daily?bu=…；整体页 → /api/v1/daily（见 buildDailyQueryUrl）。
  * 查询结果写入 store（dailyDual），由下方 RankingsDual「原位」切换为区间双卡展示——
  * 本面板只保留查询控件与摘要，不再自渲染排名卡：回款情况总图不消失、版面不跳动。
  */
 import { computed, ref, watch } from 'vue'
 import { useCockpitStore } from '../stores/cockpit'
 import { ApiError } from '../api/client'
+import { buildDailyQueryUrl } from '../utils/buildDailyQueryUrl'
 import { thisMonthRangeYmd, yesterdayYmd } from '../utils/dailyDates'
 import { friendlyError } from '../utils/friendlyError'
 import SciFiPanel from './SciFiPanel.vue'
@@ -53,12 +55,14 @@ async function runQuery() {
   err.value = ''
   loading.value = true
   try {
-    const u =
-      '/api/v1/daily?start=' +
-      encodeURIComponent(start.value) +
-      '&end=' +
-      encodeURIComponent(end.value) +
-      '&top=2000'
+    // ISO-01：BU 页走 bu_daily；整体页走 daily。昨天/本月/查询共用本路径。
+    const u = buildDailyQueryUrl({
+      scope: store.scope,
+      buName: store.buName,
+      start: start.value,
+      end: end.value,
+      top: 2000,
+    })
     const r = await fetch(u, { credentials: 'same-origin' })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))

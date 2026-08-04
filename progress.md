@@ -1,6 +1,13 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-04 · 3.7.11 BU 页时间段查询隔离（ISO-01）
+
+- VERSION **3.7.11** · 主仓 main 施工（无新 worktree）；基线 `872ad12` / 3.7.10
+- DailyQuery：BU→`/api/v1/bu_daily`，整体→`/api/v1/daily`；`buildDailyQueryUrl` 共用
+- 守卫 `tests/test_bu_daily_iso_3_7_11.py`；`run_verify` EXIT:0（1414）；**未改**利润口径/业务数据
+- tip / 上机：见 commit 后本条补全与项目根 progress
+
 ## 2026-08-04 · 3.7.10 导出能力文案收敛（三项内容）
 
 - VERSION **3.7.10** · tip **`b02433d`**（完整 `b02433ddfd18307fe800c195d7081fc0e70441ba`；功能 `2b2d5d2`）· 主仓 main 施工（无新 worktree）
