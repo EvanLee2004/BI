@@ -3,9 +3,10 @@
 
 ## 2026-08-04 · 3.7.13 管理端 PM + 对账体验 + 隔离加固
 
-- VERSION **3.7.13** · 分支 `task/20260804-3.7.13-admin-pm-ledger-ux` → 合 main · 基线 `020f547` / 3.7.12
+- VERSION **3.7.13** · tip **`345e604`**（完整 `345e60434a50af65304029137bb0a3080ad805cd`）· 合 main · 基线 `020f547` / 3.7.12
 - A1 项目经理入库+只读；A2 修正列表 SO/客户/销售/定位键/原因可搜；A3 禁连点+recompute 后提示；A4 过期疑似人话；B1 沿用 3.7.11 bu=；B2 同键撤销过期疑似；C1 高亮；C2 原值_* 说明
 - 守卫 `tests/test_project_manager_3_7_13.py` · `tests/test_adjust_ux_3_7_13.py`（已入 run_verify）
+- push origin+gitee main；上机 `publish_kanban.sh --pull` **SUCCESS** · health **200** · runtime 3.7.13/`345e604`
 - **未改** profit 公式 / 手填 / HTTPS
 
 ## 2026-08-04 · 3.7.12 期间费用构成展示收敛
