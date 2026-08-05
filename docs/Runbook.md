@@ -41,7 +41,16 @@
 3. `findmnt /mnt/kanban-ledger` 是否 **cifs**  
 4. 管理端：结构化字段 + `ledger_path_exists` / `ledger_mount_ok` / `ledger_smb_password_set`  
 5. **禁止**擅自 umount 现网唯一挂载  
-6. 安装 apply：`sudo install -m755 deploy/linux/kanban-cifs-apply.sh /usr/local/sbin/kanban-cifs-apply` + sudoers 样例
+6. 安装 apply（一次）：  
+   ```bash
+   sudo install -m755 deploy/linux/kanban-cifs-apply.sh /usr/local/sbin/kanban-cifs-apply
+   sudo mkdir -p /etc/kanban && sudo chmod 755 /etc/kanban
+   sudo cp deploy/linux/sudoers.d-kanban-cifs /etc/sudoers.d/kanban-cifs
+   sudo chmod 440 /etc/sudoers.d/kanban-cifs && sudo visudo -cf /etc/sudoers.d/kanban-cifs
+   # unit：NoNewPrivileges=false + KANBAN_CIFS_USE_SUDO=1 + APPLY_SCRIPT=/usr/local/sbin/...
+   sudo cp deploy/linux/kanban.service /etc/systemd/system/kanban.service
+   sudo systemctl daemon-reload && sudo systemctl restart kanban
+   ```
 
 ## 1. 服务挂了
 

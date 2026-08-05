@@ -16,6 +16,8 @@ from typing import Any
 # 默认挂载点（可被本地配置覆盖；非「唯一不可覆盖生产常量」）
 DEFAULT_MOUNT_ROOT = "/mnt/kanban-ledger"
 DEFAULT_CRED_PATH = "/etc/kanban/cifs-ledger.cred"
+# 生产安装路径（sudoers 白名单）；优先于仓内 deploy 脚本
+INSTALLED_APPLY_SCRIPT = "/usr/local/sbin/kanban-cifs-apply"
 
 # 字段键
 KEY_SERVER = "ledger_smb_server"
@@ -24,7 +26,7 @@ KEY_RELPATH = "ledger_smb_relpath"
 KEY_USERNAME = "ledger_smb_username"
 KEY_MOUNT_ROOT = "ledger_mount_root"
 KEY_SHARE_PATH = "ledger_share_path"
-KEY_PASSWORD_SET = "ledger_smb_password_set"  # 仅探测用，可不落盘
+KEY_PASSWORD_SET = "ledger_smb_password_set"  # 本地配置布尔；不读 root 0600 正文
 
 SMB_LOCAL_KEYS = (
     KEY_SERVER,
@@ -33,6 +35,7 @@ SMB_LOCAL_KEYS = (
     KEY_USERNAME,
     KEY_MOUNT_ROOT,
     KEY_SHARE_PATH,
+    KEY_PASSWORD_SET,
 )
 
 _RE_SERVER = re.compile(r"^[A-Za-z0-9._\-]+$")
@@ -203,14 +206,28 @@ def cred_path() -> Path:
     return Path(os.environ.get("KANBAN_CIFS_CRED_PATH") or DEFAULT_CRED_PATH)
 
 
-def password_set_on_disk(path: Path | None = None) -> bool:
+def password_set_on_disk(path: Path | None = None, cfg: dict | None = None) -> bool:
+    """是否已配置共享密码（不读 root 0600 凭据正文）。
+
+    优先级：
+    1) 本地配置 ``ledger_smb_password_set``（apply 成功写 true）
+    2) cred 文件可 stat 且 size>0（lee 通常可 stat 不可 cat）
+    3) 可读时再扫 ``password=`` 行（测试 tmpdir / 非 0600）
+    """
+    if cfg is not None and cfg.get(KEY_PASSWORD_SET) is True:
+        return True
     p = path or cred_path()
     try:
-        if not p.is_file():
-            return False
+        st = p.stat()
+    except OSError:
+        return bool(cfg and cfg.get(KEY_PASSWORD_SET))
+    if st.st_size <= 0:
+        return False
+    # 可读则确认有 password= 非空；不可读则「文件非空」视为已设
+    try:
         text = p.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        return False
+        return True
     for line in text.splitlines():
         if line.strip().startswith("password=") and len(line.strip()) > len("password="):
             return True
@@ -274,7 +291,7 @@ def settings_public_view(cfg: dict) -> dict[str, Any]:
         KEY_SHARE_PATH: lsp,
         "ledger_path_exists": path_exists,
         "ledger_mount_ok": detect_mount_ok(mount_root, server or None),
-        "ledger_smb_password_set": password_set_on_disk(),
+        "ledger_smb_password_set": password_set_on_disk(cfg=cfg),
         "ledger_legacy_path_only": legacy_only,
         "ledger_migrate_hint": migrate_hint,
     }
@@ -285,28 +302,48 @@ def settings_public_view(cfg: dict) -> dict[str, Any]:
 
 
 def apply_script_path() -> str:
-    """受控脚本路径：环境变量优先，否则仓内 deploy 脚本（部署后可装到 /usr/local/sbin）。"""
+    """受控脚本路径：env → 已安装 /usr/local/sbin → 仓内 deploy。"""
     env = os.environ.get("KANBAN_CIFS_APPLY_SCRIPT")
     if env:
         return env
-    # 相对本文件：src/../deploy/linux/kanban-cifs-apply.sh
+    installed = Path(INSTALLED_APPLY_SCRIPT)
+    if installed.is_file():
+        return str(installed)
     here = Path(__file__).resolve().parents[1] / "deploy" / "linux" / "kanban-cifs-apply.sh"
     return str(here)
 
 
-def should_apply_credentials(payload: dict) -> bool:
-    """改 username 或显式提交非空 password 时才触发 apply。"""
-    if KEY_USERNAME in payload and str(payload.get(KEY_USERNAME) or "").strip():
-        # 仅当同时带了 password 或明确 apply 标志才真正改 cred
-        pass
+def use_sudo_for_apply() -> bool:
+    """是否 ``sudo -n`` 调 apply。
+
+    - ``KANBAN_CIFS_USE_SUDO=0/1`` 显式覆盖（测试用 0）
+    - 默认：脚本在 /usr/local/sbin 或 /usr/sbin → 要 sudo
+    """
+    env = os.environ.get("KANBAN_CIFS_USE_SUDO")
+    if env is not None:
+        return env.strip() == "1"
+    script = apply_script_path()
+    return script.startswith("/usr/local/sbin/") or script.startswith("/usr/sbin/")
+
+
+def should_apply_credentials(payload: dict, cfg: dict | None = None) -> bool:
+    """仅当真正改凭据时触发 apply。
+
+    - 提交了非空 password
+    - 或显式 ``ledger_smb_apply_creds=true``
+    - 或 username **相对 cfg 发生变更**（非「字段有值就 apply」）
+    路径-only / 智云-only 保存不得 remount。
+    """
     pw = payload.get("ledger_smb_password")
     if pw is not None and str(pw) != "":
         return True
     if payload.get("ledger_smb_apply_creds") is True:
         return True
-    # 改 username 且 password 留空：仍可重写 cred 的 username 行（密码保持）——需要脚本支持
-    if KEY_USERNAME in payload and str(payload.get(KEY_USERNAME) or "").strip():
-        return True
+    if cfg is not None and KEY_USERNAME in payload:
+        new = str(payload.get(KEY_USERNAME) or "").strip()
+        old = str(cfg.get(KEY_USERNAME) or "").strip()
+        if new and new != old:
+            return True
     return False
 
 
@@ -322,8 +359,9 @@ def run_cifs_apply(
     """调用受控脚本；失败抛 RuntimeError（人话）。不经 shell。"""
     script = apply_script_path()
     if not Path(script).is_file() and not os.environ.get("KANBAN_CIFS_APPLY_SCRIPT"):
-        # 允许测试注入假脚本
-        raise RuntimeError(f"CIFS 应用脚本不存在：{script}（请安装 deploy/linux/kanban-cifs-apply.sh）")
+        raise RuntimeError(
+            f"CIFS 应用脚本不存在：{script}（请 sudo install 到 {INSTALLED_APPLY_SCRIPT}）"
+        )
 
     cmd = [
         script,
@@ -345,8 +383,8 @@ def run_cifs_apply(
     # 测试 / 无 root：不 remount
     if os.environ.get("KANBAN_CIFS_SKIP_MOUNT") == "1":
         cmd.append("--skip-mount")
-    # 生产：sudo -n 固定脚本（见 sudoers.d-kanban-cifs）；测试默认关
-    if os.environ.get("KANBAN_CIFS_USE_SUDO") == "1":
+    # 生产默认 sudo -n（NoNewPrivileges 须关；见 kanban.service 3.7.15）
+    if use_sudo_for_apply():
         cmd = ["sudo", "-n", *cmd]
 
     try:

@@ -19,6 +19,65 @@ import ledger_cifs as lc  # noqa: E402
 import loaders  # noqa: E402
 
 
+class TestShouldApplyGate(unittest.TestCase):
+    def test_path_only_no_apply(self):
+        cfg = {lc.KEY_USERNAME: "u1"}
+        payload = {
+            lc.KEY_SERVER: "10.0.0.1",
+            lc.KEY_SHARE: "s",
+            lc.KEY_RELPATH: "a.xlsx",
+            lc.KEY_USERNAME: "u1",  # same as cfg — no apply
+        }
+        self.assertFalse(lc.should_apply_credentials(payload, cfg))
+
+    def test_password_triggers_apply(self):
+        self.assertTrue(
+            lc.should_apply_credentials({"ledger_smb_password": "x"}, {lc.KEY_USERNAME: "u"})
+        )
+
+    def test_username_change_triggers(self):
+        cfg = {lc.KEY_USERNAME: "old"}
+        self.assertTrue(
+            lc.should_apply_credentials({lc.KEY_USERNAME: "new"}, cfg)
+        )
+
+    def test_password_set_uses_cfg_flag_without_read(self):
+        self.assertTrue(lc.password_set_on_disk(cfg={lc.KEY_PASSWORD_SET: True}))
+
+    def test_password_set_unreadable_nonempty_file(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cred_unr_"))
+        self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
+        p = tmp / "c.cred"
+        p.write_text("username=u\npassword=secret\n", encoding="utf-8")
+        os.chmod(p, 0o000)
+        try:
+            # stat may work; read fails → True if size>0
+            self.assertTrue(lc.password_set_on_disk(p))
+        finally:
+            os.chmod(p, 0o600)
+
+    def test_use_sudo_default_off_for_repo_script(self):
+        old = os.environ.get("KANBAN_CIFS_USE_SUDO")
+        old_s = os.environ.get("KANBAN_CIFS_APPLY_SCRIPT")
+        try:
+            os.environ.pop("KANBAN_CIFS_USE_SUDO", None)
+            os.environ["KANBAN_CIFS_APPLY_SCRIPT"] = str(
+                ROOT / "deploy" / "linux" / "kanban-cifs-apply.sh"
+            )
+            self.assertFalse(lc.use_sudo_for_apply())
+            os.environ["KANBAN_CIFS_USE_SUDO"] = "1"
+            self.assertTrue(lc.use_sudo_for_apply())
+        finally:
+            if old is None:
+                os.environ.pop("KANBAN_CIFS_USE_SUDO", None)
+            else:
+                os.environ["KANBAN_CIFS_USE_SUDO"] = old
+            if old_s is None:
+                os.environ.pop("KANBAN_CIFS_APPLY_SCRIPT", None)
+            else:
+                os.environ["KANBAN_CIFS_APPLY_SCRIPT"] = old_s
+
+
 class TestAssembleAndValidate(unittest.TestCase):
     def test_assemble_posix_path(self):
         p = lc.assemble_ledger_share_path(

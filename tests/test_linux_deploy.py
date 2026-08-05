@@ -61,7 +61,11 @@ class TestLinuxDeployAssets(unittest.TestCase):
         self.assertIn("Group=lee", text)
         self.assertIn("KANBAN_SERVER_HOST=127.0.0.1", text)
         self.assertIn("KANBAN_SERVE_STATIC=0", text)
-        self.assertIn("NoNewPrivileges=true", text)
+        # 3.7.15：CIFS apply 须 sudo 提权 → NoNewPrivileges=false（sudoers 仍只放行固定脚本）
+        self.assertIn("NoNewPrivileges=false", text)
+        self.assertIn("KANBAN_CIFS_USE_SUDO=1", text)
+        self.assertIn("/usr/local/sbin/kanban-cifs-apply", text)
+        self.assertIn("/etc/kanban", text)
         self.assertIn("PrivateTmp=true", text)
         self.assertIn("ProtectSystem=strict", text)
         self.assertIn("ReadWritePaths=", text)

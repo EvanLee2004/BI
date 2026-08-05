@@ -331,17 +331,15 @@ def _apply_zhiyun_payload(cfg, root, payload: dict) -> tuple[str, str]:
     return cred_note, _resolve_zhiyun_conn_update(cfg, root, payload)
 
 
-def _apply_cifs_creds_if_needed(cfg, payload: dict) -> str:
-    """3.7.15：改 username/password 时调受控 apply 脚本；返回 note 片段。"""
+def _apply_cifs_creds_if_needed(cfg, root, payload: dict, updates: dict) -> str:
+    """3.7.15：仅密码变更 / username 真变更 / 显式 apply 时调脚本；写 password_set 标志。"""
     import ledger_cifs as _lc
 
-    if not _lc.should_apply_credentials(payload):
+    if not _lc.should_apply_credentials(payload, cfg):
         return ""
-    user = str(payload.get(_lc.KEY_USERNAME) if _lc.KEY_USERNAME in payload else cfg.get(_lc.KEY_USERNAME) or "")
-    user = user.strip()
-    if not user and not (payload.get("ledger_smb_password") not in (None, "")):
-        # 无用户名又无新密码 → 跳过
-        return ""
+    user = str(
+        payload.get(_lc.KEY_USERNAME) if _lc.KEY_USERNAME in payload else cfg.get(_lc.KEY_USERNAME) or ""
+    ).strip()
     if not user:
         user = str(cfg.get(_lc.KEY_USERNAME) or "").strip()
     if not user:
@@ -361,6 +359,10 @@ def _apply_cifs_creds_if_needed(cfg, payload: dict) -> str:
         )
     except RuntimeError as e:
         raise ValueError(str(e)) from e
+    # 成功：本地配置记 password_set（GET 不读 root 0600 正文）
+    if pw_s is not None:
+        cfg[_lc.KEY_PASSWORD_SET] = True
+        updates[_lc.KEY_PASSWORD_SET] = True
     return "；台账共享凭据已更新（本机 cred，未写入配置库）"
 
 
@@ -380,11 +382,10 @@ def save_settings(cfg, root, payload: dict) -> dict:
     # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
     updates = {"schedule_time": st, "schedule_times": times, "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
     _apply_optional_local_settings(cfg, payload, updates)
-    # 密码字段绝不写本地配置
-    loaders.write_local_config(cfg, root, updates)
-
+    # 先 apply（可能写 password_set），再落盘；密码正文绝不写本地配置
     cred_note, conn_note = _apply_zhiyun_payload(cfg, root, payload)
-    cifs_note = _apply_cifs_creds_if_needed(cfg, payload)
+    cifs_note = _apply_cifs_creds_if_needed(cfg, root, payload, updates)
+    loaders.write_local_config(cfg, root, updates)
     note = "已保存" + cred_note + conn_note + cifs_note
     # 仅当本次真的提交了更新时间时才动计划任务/cron（各卡就近保存；平台分支见 sync_schedule）
     if changed_times:

@@ -83,6 +83,8 @@ export function useSettingsForm() {
   const sLedgerSmbShare = ref('')
   const sLedgerSmbRelpath = ref('')
   const sLedgerSmbUsername = ref('')
+  /** 载入时的账号快照：仅账号真变更或改密时才带 username/apply */
+  const sLedgerSmbUsernameLoaded = ref('')
   const sLedgerSmbPassword = ref('')
   const sLedgerMountRoot = ref('/mnt/kanban-ledger')
   const sLedgerMigrateHint = ref('')
@@ -305,6 +307,7 @@ export function useSettingsForm() {
       sLedgerSmbShare.value = s.ledger_smb_share || ''
       sLedgerSmbRelpath.value = s.ledger_smb_relpath || ''
       sLedgerSmbUsername.value = s.ledger_smb_username || ''
+      sLedgerSmbUsernameLoaded.value = s.ledger_smb_username || ''
       sLedgerSmbPassword.value = ''
       sLedgerMountRoot.value = s.ledger_mount_root || '/mnt/kanban-ledger'
       sLedgerMigrateHint.value = s.ledger_migrate_hint || ''
@@ -639,8 +642,16 @@ export function useSettingsForm() {
       p.ledger_smb_share = sLedgerSmbShare.value
       p.ledger_smb_relpath = sLedgerSmbRelpath.value
       p.ledger_mount_root = sLedgerMountRoot.value || '/mnt/kanban-ledger'
-      if (sLedgerSmbUsername.value) p.ledger_smb_username = sLedgerSmbUsername.value
-      if (sLedgerSmbPassword.value) p.ledger_smb_password = sLedgerSmbPassword.value
+      // 凭据：仅改密 或 账号相对载入值变更 才提交（避免路径-only 误触发 apply/remount）
+      const userChanged =
+        (sLedgerSmbUsername.value || '').trim() !== (sLedgerSmbUsernameLoaded.value || '').trim()
+      if (sLedgerSmbPassword.value) {
+        p.ledger_smb_username = sLedgerSmbUsername.value
+        p.ledger_smb_password = sLedgerSmbPassword.value
+      } else if (userChanged && sLedgerSmbUsername.value) {
+        p.ledger_smb_username = sLedgerSmbUsername.value
+        p.ledger_smb_apply_creds = true
+      }
     } else if (sLedgerPath.value) {
       p.ledger_share_path = sLedgerPath.value
     }
@@ -690,6 +701,7 @@ export function useSettingsForm() {
         sLedgerSmbShare.value = s.ledger_smb_share || sLedgerSmbShare.value
         sLedgerSmbRelpath.value = s.ledger_smb_relpath || sLedgerSmbRelpath.value
         sLedgerSmbUsername.value = s.ledger_smb_username || sLedgerSmbUsername.value
+        sLedgerSmbUsernameLoaded.value = s.ledger_smb_username || sLedgerSmbUsernameLoaded.value
         sLedgerMountRoot.value = s.ledger_mount_root || sLedgerMountRoot.value
         sLedgerMigrateHint.value = s.ledger_migrate_hint || ''
         sLedgerLegacyOnly.value = !!s.ledger_legacy_path_only
