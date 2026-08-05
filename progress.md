@@ -6,7 +6,7 @@
 - VERSION **3.7.15** · 分支 `task/20260805-cifs-settings-3.7.15` · 基线 `aaa0830`
 - 结构化 smb 字段 + 拼装 `ledger_share_path`；密码只写 cred；apply 脚本 + sudoers 样例
 - 守卫 `tests/test_ledger_cifs_3_7_15.py`；**未** push（默认）；无真实 SMB 密码进仓
-- 候选 tip 见 `docs/验收证据/3_7_15/00_总控勾选.md`
+- 候选 tip **`5c557efb4be383cb4102b02fb574c2590bc638d1`** · REVIEW_READY · **未 push**
 
 ## 2026-08-05 · 3.7.14 审计全量修复（除密码）
 
