@@ -1,4 +1,29 @@
+## 3.7.14 · 2026-08-05（审计全量修复 · 除密码）
+
+### 安全 / 鉴权
+- **004**：登录锁 IP 与 CSRF 对称 — 仅 loopback 信任 `X-Forwarded-For` 最左 hop（`csrf_guard.client_ip_for_auth`）
+- **003**：Cookie `Secure` 仅 HTTPS 直连或 loopback + `X-Forwarded-Proto=https`；纯 HTTP 内网可登录
+- **005**：导出路径统一 未登录 **401** / 已登录无权限或无 cap **403**
+- **006**：导出失败对外 `detail` 固定短句脱敏（完整异常仅服务端日志）
+- **007**：CSP 加 `object-src 'none'` / `frame-src 'none'` / `worker-src`；仍保留 script/style `unsafe-inline`（Vue/ECharts 残余见施工报告）
+
+### 前端
+- **010**：主 VM 拉取世代闸 + AbortSignal（`fetchRace` / cockpit store）
+- **017**：`GET /api/v1/session` 单飞；登录成功/登出 `invalidateSessionCache`
+- **H20**：费用饼区与明细 `caliber_note` 区分「分摊/图表」vs「业务BU 原始行」
+
+### DOC / OPS（仓内）
+- Runbook §0.2 BESTEASY + gvfs vs 网络 vs CIFS 排障
+- CIFS 步骤单对齐现网 gvfs / 目标 `/mnt/kanban-ledger`
+- `kanban.service` 预留 `/mnt/kanban-ledger` 可读路径（未挂载无害）
+- 管理端设置只读 `ledger_path_exists`（管理员）
+
+### 守卫
+- `tests/test_audit_3_7_14_backend.py` · `tests/test_audit_3_7_14_frontend.py`
+- **未改** profit 公式 / 密码明文契约(001/002) / 生产 mount·umount / push
+
 ## 3.7.13 · 2026-08-04（管理端 PM + 对账体验 + 隔离加固）
+
 
 ### A1 · 收入明细「项目经理」
 - `std_收入明细` 增列 `项目经理 TEXT`；存量库 `_ADD_COLUMNS` 兼容

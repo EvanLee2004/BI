@@ -20,6 +20,27 @@
 > 连机（在家）：`ssh kanban-home`。若 `Permission denied` 但跳板 `ping` 通 → **先钥匙不是穿透坏了**：见 `公司电脑（部署机）/Agent.md`「连前必先解锁钥匙」与 **「双跳都用 hostup」（2026-08-01）**；总手册 `…/20260717_家中远程通路实测与复用手册.md` §0.0.1。  
 > sudo：交互 `ssh -t … sudo …`，或非交互管道 `sudo -S`（密码**不进仓库/git**）。
 
+## 0.2 共享盘 / BESTEASY 前置（3.7.14）
+
+生产收单台账依赖公司内网共享。**先分清形态**，再排障：
+
+| 形态 | 特征 | 说明 |
+|------|------|------|
+| **gvfs / gio**（现网 2026-08） | 路径含 `/run/user/…/gvfs/smb-share:…`；`gio mount -l` 见「财务部」 | 依赖图形/用户会话；锁屏/重启/会话断 → 路径 `exists=false` → 管道 local_fallback |
+| **网络可达** | `ping 192.168.10.151`、TCP **445** 通 | 仅说明 SMB 主机活；**≠** 已挂载可读 |
+| **CIFS/fstab**（目标态） | `/mnt/kanban-ledger` + fstab 行 | 系统级；步骤见 `docs/运维_收单台账CIFS_fstab步骤单_只写不执行.md`（**人白天执行**；AI/脚本不 mount） |
+
+**前置**：部署机连公司 Wi‑Fi **BESTEASY**（非 GUEST）。共享主机为 **`192.168.10.151`**（勿死盯 `192.168.1.151`）。
+
+**排障速查（台账红 / local_fallback）**：
+
+1. `nmcli -t -f active,ssid dev wifi` 是否 BESTEASY  
+2. `ping -c2 192.168.10.151`；445 是否通  
+3. `gio mount -l` / `ls /run/user/1000/gvfs/` 是否仍有「财务部」  
+4. 管理端设置：`ledger_share_path` 形态 + 只读字段 **`ledger_path_exists`**（3.7.14）  
+5. **禁止**为「修一下」而 `umount` / `gio mount -u` 现网 gvfs（会弄丢唯一挂载）  
+6. 长期：按 CIFS 步骤单切 `/mnt/kanban-ledger`（另授权运维窗）
+
 ## 1. 服务挂了
 
 1. 看服务：`systemctl status kanban`（active=正常；failed 看 `journalctl -u kanban -n50`）
@@ -36,6 +57,7 @@
    sudo nginx -t && sudo systemctl reload nginx
    ```
    **禁止**只 `git pull` 不 reload nginx。发版后管理端 chunk 404：用户强制刷新浏览器（Ctrl/Cmd+Shift+R）。
+9. **台账/共享盘**：见 §0.2（BESTEASY · gvfs vs CIFS）；勿 umount 现网。
 
 ## 0.1 发版上机铁律（3.7.0 · 备份 + 门闸）
 

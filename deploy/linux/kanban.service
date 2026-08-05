@@ -48,6 +48,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/opt/kanban/看板正式程序 /opt/kanban/看板正式程序/数据 /opt/kanban/看板正式程序/数据/日志 /opt/kanban/看板正式程序/数据/备份 /opt/kanban/看板正式程序/数据/年度归档 /run/user/1000 /home/lee
+# 3.7.14 OPS：未来 CIFS 固定挂载点（见 docs/运维_收单台账CIFS_fstab步骤单_只写不执行.md）
+# 未挂载时路径不存在无害；挂载后进程可读台账。本轮不在生产执行 mount/fstab。
+ReadWritePaths=/mnt/kanban-ledger
 
 [Install]
 WantedBy=multi-user.target

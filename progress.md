@@ -1,7 +1,16 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-05 · 3.7.14 审计全量修复（除密码）
+
+- VERSION **3.7.14** · 分支 `task/20260805-audit-fix-3.7.14` · 基线 `32a6a84e5ff24414ff8bbaaac48d6e97a8a40937`
+- 004/003/005/006/007/010/017/H20 + DOC/OPS 仓内；preflight 现网仍 gvfs、无 CIFS
+- 守卫 `tests/test_audit_3_7_14_backend.py` · `tests/test_audit_3_7_14_frontend.py`
+- **未** push / 生产 mount / 改密码契约 / profit 公式
+- 候选 tip 见 `docs/验收证据/3_7_14/00_总控勾选.md`
+
 ## 2026-08-04 · 3.7.13 管理端 PM + 对账体验 + 隔离加固
+
 
 - VERSION **3.7.13** · tip **`345e604`**（完整 `345e60434a50af65304029137bb0a3080ad805cd`）· 合 main · 基线 `020f547` / 3.7.12
 - A1 项目经理入库+只读；A2 修正列表 SO/客户/销售/定位键/原因可搜；A3 禁连点+recompute 后提示；A4 过期疑似人话；B1 沿用 3.7.11 bu=；B2 同键撤销过期疑似；C1 高亮；C2 原值_* 说明
