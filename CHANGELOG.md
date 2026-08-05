@@ -1,3 +1,12 @@
+## 3.7.16 · 2026-08-05（CSP frame-src 解禁管理端 iframe）
+
+### 安全 / 展示
+- CSP `frame-src` 由 `'none'` 改为 `'self'`：管理端「展示」ConsoleView / 历史快照同域 iframe 嵌主看板不再被 Chrome 屏蔽（「该内容被屏蔽了」）
+- 保留 `object-src 'none'`、`worker-src`、`frame-ancestors 'self'`；未改 profit / 密码契约
+
+### 守卫
+- `tests/test_g3_security_3_6_0.py`：`frame-src 'self'` 且不含 `frame-src 'none'`
+
 ## 3.7.15 · 2026-08-05（台账共享 CIFS 管理端可配置 · B 方案）
 
 ### 台账共享

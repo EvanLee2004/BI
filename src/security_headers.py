@@ -8,8 +8,10 @@ from typing import Any
 
 def default_security_headers(*, https: bool = False) -> dict[str, str]:
     # 3.7.14 AUDIT-007：在不破坏 Vue/ECharts 的前提下收紧。
-    # 仍保留 script/style 'unsafe-inline'（内联启动/主题与 ECharts 依赖；去之会白屏）→ 施工报告残余说明。
-    # 本轮可安全加：object-src / frame-src / worker-src 限制。
+    # 仍保留 script/style 'unsafe-inline'（内联启动/主题与 ECharts 依赖；去之会白屏）。
+    # object-src 'none' / worker-src 限制保留。
+    # 3.7.16：**frame-src 必须 'self'**——管理端「展示」ConsoleView / 历史快照用同域 iframe 嵌 /；
+    # frame-src 'none' 会在 Chrome 显示「该内容被屏蔽了」（nginx 亦要求 XFO=SAMEORIGIN 而非 DENY）。
     h = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "SAMEORIGIN",
@@ -23,7 +25,7 @@ def default_security_headers(*, https: bool = False) -> dict[str, str]:
             "font-src 'self' data:; "
             "connect-src 'self'; "
             "object-src 'none'; "
-            "frame-src 'none'; "
+            "frame-src 'self'; "
             "worker-src 'self' blob:; "
             "frame-ancestors 'self'; "
             "base-uri 'self'; "

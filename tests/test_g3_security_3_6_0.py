@@ -168,6 +168,12 @@ class TestCsrfAndHeaders(unittest.TestCase):
         self.assertIn("Content-Security-Policy", h)
         self.assertIn("Strict-Transport-Security", h)
         self.assertEqual(h["X-Content-Type-Options"], "nosniff")
+        # 3.7.16：管理端 ConsoleView/HistoryView 同域 iframe 嵌 /，禁止 frame-src 'none'
+        csp = h["Content-Security-Policy"]
+        self.assertIn("frame-src 'self'", csp)
+        self.assertNotIn("frame-src 'none'", csp)
+        self.assertIn("object-src 'none'", csp)
+        self.assertIn("worker-src", csp)
 
     def test_middleware_no_silent_pass_on_missing_origin(self):
         src = (
