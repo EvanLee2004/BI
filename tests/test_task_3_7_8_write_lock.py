@@ -230,20 +230,16 @@ class TestBuConfigAlreadyLocked(unittest.TestCase):
                     "公共费用分摊启用": bool(body.get("公共费用分摊启用")),
                 }
             resp = client.post("/api/v1/admin/bu_config", headers=hdr, json=payload)
-            # 可能 200 或业务 400；若 200 则 must already_locked
-            if resp.status_code == 200:
-                self.assertTrue(seen, "应调用 recompute")
-                self.assertTrue(seen[-1]["already_locked"] is True, seen)
-                self.assertTrue(_LOCK.acquire(blocking=False), "BU 写完锁应释放")
-                _LOCK.release()
-            else:
-                # 至少验证包装签名 + 源码路径：config 调用带 already_locked
-                src = (ROOT / "src/routes/config_api.py").read_text(encoding="utf-8")
-                self.assertIn("already_locked=True", src)
-                self.assertNotIn(
-                    "except TypeError",
-                    (ROOT / "src/routes/manual.py").read_text(encoding="utf-8"),
-                )
+            # TEST-002：禁止 400 时退化为「源码含 already_locked 字符串」假绿；必须真行为
+            self.assertEqual(
+                resp.status_code,
+                200,
+                f"BU config save must succeed for lock probe: {resp.status_code} {resp.text[:200]}",
+            )
+            self.assertTrue(seen, "应调用 recompute")
+            self.assertTrue(seen[-1]["already_locked"] is True, seen)
+            self.assertTrue(_LOCK.acquire(blocking=False), "BU 写完锁应释放")
+            _LOCK.release()
             server.recompute = orig
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

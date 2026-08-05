@@ -7,6 +7,36 @@
 set -e
 cd "$(dirname "$0")/.."
 export KANBAN_OFFLINE=1
+# TEST-ENV-001：独占 数据/ 与 DB，防并行 materialize 污染假红
+VERIFY_LOCK="${KANBAN_VERIFY_LOCK:-$PWD/数据/.verify.lock}"
+mkdir -p "$(dirname "$VERIFY_LOCK")" 2>/dev/null || true
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$VERIFY_LOCK"
+  if ! flock -n 9; then
+    echo "VERIFY locked by another run ($VERIFY_LOCK). Wait or set KANBAN_VERIFY_LOCK=..."
+    exit 75
+  fi
+  echo "[env] acquired verify flock $VERIFY_LOCK"
+else
+  # macOS 无 flock 时用 mkdir 锁
+  LOCKDIR="${VERIFY_LOCK}.d"
+  if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    # stale > 2h → steal
+    if [ -d "$LOCKDIR" ]; then
+      age=$(( $(date +%s) - $(stat -f %m "$LOCKDIR" 2>/dev/null || stat -c %Y "$LOCKDIR" 2>/dev/null || echo 0) ))
+      if [ "$age" -gt 7200 ]; then
+        rmdir "$LOCKDIR" 2>/dev/null || rm -rf "$LOCKDIR"
+        mkdir "$LOCKDIR" || { echo "VERIFY lock busy $LOCKDIR"; exit 75; }
+      else
+        echo "VERIFY locked ($LOCKDIR age=${age}s). Wait or remove stale lock."
+        exit 75
+      fi
+    fi
+  fi
+  trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT INT TERM
+  echo "[env] acquired verify mkdir-lock $LOCKDIR"
+fi
+
 # 注意：不要全局 export KANBAN_PROFILE=dev —— 会覆盖临时 root 的 data_dir=数据，弄坏 schedule/admin 单测。
 # 端到端步骤单独用 PROFILE=dev；单测依赖 materialize 写入的 数据/ 脱敏进料。
 PY=python3
