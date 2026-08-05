@@ -176,16 +176,10 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
             )
     except Exception as _e:
         logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
-    # 3–5) BE-001：rebuild + remap + migrate_manual + adj 同一 IMMEDIATE 事务
+    # 3–5) BE-001：rebuild + remap + migrate_manual + adj 同一 IMMEDIATE 事务（db.commit_immediate）
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
-    try:
-        conn.commit()
-    except Exception as _e:
-        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
-    prev_iso = conn.isolation_level
-    conn.isolation_level = None
-    try:
-        conn.execute("BEGIN IMMEDIATE")
+
+    def _std_rebuild_and_adj():
         _rebuild_std(conn, records, manage_txn=False)
         try:
             report["locator_remap"] = _remap_expense_adj_locators(
@@ -195,15 +189,8 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
             report["locator_remap"] = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
         report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root, commit=False)
         report["adjust"] = adjust.apply_adjustments(conn, now, commit=False)
-        conn.execute("COMMIT")
-    except Exception:
-        try:
-            conn.execute("ROLLBACK")
-        except Exception as _e:
-            logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
-        raise
-    finally:
-        conn.isolation_level = prev_iso
+
+    db.commit_immediate(conn, _std_rebuild_and_adj)
     report["duplicate_locators"] = db.audit_duplicate_locators(conn)
     report["db_check"] = db.pragma_quick_check(conn)
     _report_disk_and_db(cfg, root, report)
@@ -292,29 +279,17 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     """**轻量重算**（管理员保存后秒级重算用）：用缓存的原始记录重置标准表 → 重放全部生效调整。
     不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。
 
-    BE-001：rebuild + apply 同一 BEGIN IMMEDIATE 事务，中途失败整段回滚。
+    BE-001：rebuild + apply 同一 IMMEDIATE 事务（db.commit_immediate），中途失败整段回滚。
     """
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    try:
-        conn.commit()
-    except Exception as _e:
-        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
-    prev_iso = conn.isolation_level
-    conn.isolation_level = None
-    try:
-        conn.execute("BEGIN IMMEDIATE")
+    box: dict = {}
+
+    def _work():
         _rebuild_std(conn, records, manage_txn=False)
-        rep = adjust.apply_adjustments(conn, now, commit=False)
-        conn.execute("COMMIT")
-        return rep
-    except Exception:
-        try:
-            conn.execute("ROLLBACK")
-        except Exception as _e:
-            logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
-        raise
-    finally:
-        conn.isolation_level = prev_iso
+        box["rep"] = adjust.apply_adjustments(conn, now, commit=False)
+
+    db.commit_immediate(conn, _work)
+    return box.get("rep") or {"applied": 0, "expired": 0, "removed": 0, "skipped": 0, "missing": 0}
 
 
 def _zy_source_results(report: dict) -> dict:
