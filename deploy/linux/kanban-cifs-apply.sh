@@ -16,7 +16,8 @@ DRY_RUN=0
 SKIP_MOUNT=0
 
 usage() {
-  echo "用法: $0 --cred-file PATH --username U [--password P] [--server S] [--share SH] [--mount-root M] [--dry-run] [--skip-mount]" >&2
+  echo "用法: $0 --cred-file PATH --username U [--password-from-env|--password P] [--server S] [--share SH] [--mount-root M] [--dry-run] [--skip-mount]" >&2
+  echo "  密码优先：--password-from-env 读 KANBAN_CIFS_PASSWORD（SEC-001 禁止 argv 明文）" >&2
   exit 2
 }
 
@@ -24,6 +25,12 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --cred-file) CRED_FILE="${2:-}"; shift 2 ;;
     --username) USERNAME="${2:-}"; shift 2 ;;
+    # SEC-001：推荐 env 通道；--password 仍兼容但会进 argv（勿在生产新代码使用）
+    --password-from-env)
+      PASSWORD="${KANBAN_CIFS_PASSWORD:-}"
+      HAVE_PASSWORD=1
+      shift
+      ;;
     --password) PASSWORD="${2:-}"; HAVE_PASSWORD=1; shift 2 ;;
     --server) SERVER="${2:-}"; shift 2 ;;
     --share) SHARE="${2:-}"; shift 2 ;;
@@ -40,7 +47,7 @@ if [[ -z "$CRED_FILE" ]]; then
   exit 2
 fi
 if [[ -z "$USERNAME" && "$HAVE_PASSWORD" -eq 0 ]]; then
-  echo "须提供 --username 或 --password" >&2
+  echo "须提供 --username 或 --password-from-env/--password" >&2
   exit 2
 fi
 

@@ -112,7 +112,11 @@ def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str, secure: bool =
 
     ``secure`` 仅在 HTTPS / 可信转发 https 时为 True（3.7.14 AUDIT-003）；
     纯 HTTP 内网必须 False。
+
+    SEC-002：同步签发 csrf_token（非 HttpOnly，供双提交头读取）；主闸仍靠 Origin/Referer。
     """
+    import secrets as _secrets
+
     acc = accounts.find_account(cfg, root, account)
     tok = auth_session.make_token(sec, account, pw_ver=accounts.password_version_of(acc))
     resp.set_cookie(
@@ -124,13 +128,24 @@ def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str, secure: bool =
         path="/",
         secure=bool(secure),
     )
+    # 双提交 CSRF：JS 可读；与 X-CSRF-Token 头比对（csrf_guard.csrf_ok）
+    csrf = _secrets.token_urlsafe(24)
+    resp.set_cookie(
+        "csrf_token",
+        csrf,
+        max_age=SESSION_TTL,
+        httponly=False,
+        samesite="lax",
+        path="/",
+        secure=bool(secure),
+    )
     clear_legacy_cookies(resp)
     return resp
 
 
 def clear_all_session_cookies(resp):
-    """退出：清 sid + 两旧名。"""
-    for name in (SID_COOKIE, COOKIE, VCOOKIE):
+    """退出：清 sid + 两旧名 + csrf。"""
+    for name in (SID_COOKIE, COOKIE, VCOOKIE, "csrf_token"):
         resp.delete_cookie(name, path="/", httponly=True, samesite="lax")
     return resp
 

@@ -336,6 +336,9 @@ def resolve_expense_view_access(
         return bu_s, True, "admin"
     if vacc and table == "费用明细":
         return _bu_view_access(vacc, bu_s)
+    # AUTH-003：已登录但无该明细权限 → 403；未登录 → 401
+    if vacc:
+        raise HTTPException(status_code=403, detail="无权查看该明细（看端仅费用明细）")
     raise HTTPException(status_code=401, detail="需要登录")
 
 

@@ -376,8 +376,12 @@ def run_cifs_apply(
         "--mount-root",
         mount_root or DEFAULT_MOUNT_ROOT,
     ]
+    # SEC-001：密码经环境变量 KANBAN_CIFS_PASSWORD 传递，禁止 --password 进 argv（ps 可见）
+    env = os.environ.copy()
+    env.pop("KANBAN_CIFS_PASSWORD", None)
     if password is not None and str(password) != "":
-        cmd.extend(["--password", str(password)])
+        env["KANBAN_CIFS_PASSWORD"] = str(password)
+        cmd.append("--password-from-env")
     if dry_run or os.environ.get("KANBAN_CIFS_DRY_RUN") == "1":
         cmd.append("--dry-run")
     # 测试 / 无 root：不 remount
@@ -394,6 +398,7 @@ def run_cifs_apply(
             text=True,
             timeout=60,
             check=False,
+            env=env,
         )
     except FileNotFoundError as e:
         raise RuntimeError(f"无法执行 CIFS 应用脚本：{e}") from e

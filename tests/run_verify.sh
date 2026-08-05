@@ -58,6 +58,7 @@ tests/test_admin_edit.py
 tests/test_expense_drawer.py
 tests/test_expense_views_3_7_12.py
 tests/test_auth.py
+tests/test_auth_sec_p4.py
 tests/test_multibu.py
 tests/test_update.py
 tests/test_alloc_monthly.py

@@ -15,20 +15,28 @@ import api_v1
 from app_state import _state
 
 
-def _bu_nav_meta(cfg, root, pages: dict | None) -> dict:
-    """54.11 R-01：BU 导航元信息——配置条数 + 有配置但无分页时的可见提示（防静默）。"""
+def _bu_nav_meta(
+    cfg, root, pages: dict | None, *, expose_config_count: bool = True
+) -> dict:
+    """54.11 R-01：BU 导航元信息——配置条数 + 有配置但无分页时的可见提示（防静默）。
+
+    AUTH-002：纯 BU 账号不暴露 bu_config_count（全公司配置规模元数据）。
+    """
     import bu as _bu
 
     pages = pages or {}
     bucfg = _bu.load_bu_config(cfg, root)
     n_cfg = len(bucfg["bus"]) if bucfg else 0
     hint = ""
-    if n_cfg > 0 and not pages:
+    if n_cfg > 0 and not pages and expose_config_count:
         hint = (
             f"已配置 {n_cfg} 个业务 BU，但当前尚未生成 BU 分页（入口暂不可用）。"
             "请管理员在管理端点「更新数据」后刷新本页。"
         )
-    return {"bu_config_count": n_cfg, "bu_nav_hint": hint}
+    out: dict = {"bu_nav_hint": hint}
+    if expose_config_count:
+        out["bu_config_count"] = n_cfg
+    return out
 
 
 def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
@@ -210,8 +218,24 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         if not page:
             raise HTTPException(status_code=404, detail="BU 不存在或未配置")
         summary = page.get("summary")
+        pages = _state.get("bu_pages") or {}
+        vacc = _vacc_row(request)
+
+        def _visible_bu_names() -> tuple[list[str], str]:
+            """AUTH-001：空态与有数态共用裁剪，禁止泄露全公司 bu_names。"""
+            if _user(request):
+                return list(pages.keys()), "业务 BU 分页"
+            if vacc and accounts.is_main(vacc):
+                return list(pages.keys()), "业务 BU 分页"
+            my = accounts.bu_names_of(vacc) if vacc else []
+            existing = [n for n in my if n in pages]
+            return existing, "我的 BU"
+
+        expose_cfg = bool(_user(request) or (vacc and accounts.is_main(vacc)))
+
         # 2.2.4·G：BU 无 summary → 友好空态（非死门 503）
         if not summary:
+            names, label = _visible_bu_names()
             out = {
                 "scope": "bu",
                 "current_bu": name,
@@ -220,29 +244,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 "year_key": "",
                 "period_keys": [],
                 "kpi": {"cards_by_period": {}},
-                "bu_names": list((_state.get("bu_pages") or {}).keys()),
-                "bu_nav_label": "业务 BU 分页",
+                "bu_names": names,
+                "bu_nav_label": label,
             }
-            out.update(_bu_nav_meta(cfg, root, _state.get("bu_pages") or {}))
+            out.update(_bu_nav_meta(cfg, root, pages, expose_config_count=expose_cfg))
             return JSONResponse(out)
         vm = viewmodels.build_bu_vm(name, summary, cfg)
         out = vm.model_dump()
         # 多 BU 账号：可切换的本账号可见 BU（在已发布 bu_pages 内）
-        pages = _state.get("bu_pages") or {}
-        vacc = _vacc_row(request)
-        if _user(request):
-            out["bu_names"] = list(pages.keys())
-            out["bu_nav_label"] = "业务 BU 分页"
-        elif vacc and accounts.is_main(vacc):
-            out["bu_names"] = list(pages.keys())
-            out["bu_nav_label"] = "业务 BU 分页"
-        else:
-            my = accounts.bu_names_of(vacc) if vacc else []
-            existing = [n for n in my if n in pages]
-            out["bu_names"] = existing
-            out["bu_nav_label"] = "我的 BU"
+        names, label = _visible_bu_names()
+        out["bu_names"] = names
+        out["bu_nav_label"] = label
         out["current_bu"] = name
-        out.update(_bu_nav_meta(cfg, root, pages))
+        out.update(_bu_nav_meta(cfg, root, pages, expose_config_count=expose_cfg))
         return JSONResponse(out)
 
     @app.get("/api/v1/vm/ledger")
