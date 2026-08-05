@@ -322,6 +322,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
     archiveMode.value = false
     archiveDay.value = ''
     snapshotMode.value = false
+    // FE-001：scope 切换开始即清空区间排名，禁止跨整体/BU 残留
+    clearDaily()
     const gen = vmLoadGate.next()
     loading.value = true
     error.value = ''
@@ -336,9 +338,13 @@ export const useCockpitStore = defineStore('cockpit', () => {
       applyNavFromVm(data)
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
+      // 成功后再清一次，覆盖过期 daily 写回竞态
+      clearDaily()
     } catch (e) {
       if (vmLoadGate.isStale(gen.id)) return
       if (isAbortError(e)) return
+      // 失败不留旧 daily（与起始 clear 叠加，防中途 setDaily）
+      clearDaily()
       if (isAuthRequired(e)) {
         noteError(e)
         return
@@ -403,6 +409,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
       await loadArchive(archiveDay.value || archiveDayFromUrl())
       return
     }
+    // FE-001：切 BU 开始即清空区间排名，禁止整体→BU / BU→BU 串线
+    clearDaily()
     const gen = vmLoadGate.next()
     loading.value = true
     error.value = ''
@@ -418,8 +426,10 @@ export const useCockpitStore = defineStore('cockpit', () => {
       applyNavFromVm(data)
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
+      clearDaily()
     } catch (e) {
       if (vmLoadGate.isStale(gen.id) || isAbortError(e)) return
+      clearDaily()
       vm.value = null
       noteError(e)
     } finally {
@@ -554,6 +564,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
   function clearDaily() {
     dailyActive.value = false
     dailyDual.value = null
+    dailyRange.value = { start: '', end: '' }
   }
 
   /** 启动探测：若页内嵌了快照包则进入 snapshotMode */

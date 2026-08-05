@@ -7,9 +7,10 @@ import { showToast } from '../utils/toast'
 import DataModal from './base/DataModal.vue'
 
 const store = useCockpitStore()
-const isAdmin = ref(true) // 默认隐藏改密/退出，等 session
-/** 3.7.8：session.caps.export_page_html；缺省 true（存量兼容） */
-const canExportHtml = ref(true)
+/** FE-003：session 未到/失败时收紧（勿默认 admin 藏改密/退出；导出默认关） */
+const isAdmin = ref(false)
+/** 3.7.8：session.caps.export_page_html；未确认前 false（失败收紧） */
+const canExportHtml = ref(false)
 const showPw = ref(false)
 const showLogoutConfirm = ref(false)
 const oldPw = ref('')
@@ -43,8 +44,9 @@ onMounted(async () => {
       canExportHtml.value = true
     }
   } catch {
-    isAdmin.value = true
-    canExportHtml.value = true
+    // FE-003：失败按非管理员展示改密/退出；导出收紧
+    isAdmin.value = false
+    canExportHtml.value = false
   }
 })
 

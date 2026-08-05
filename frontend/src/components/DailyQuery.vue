@@ -51,9 +51,15 @@ function onDateEdit() {
   handEdit.value = true
 }
 
+/** FE-001：区间查询世代 — scope 切换后丢弃过期响应 */
+let dailyQueryGen = 0
+
 async function runQuery() {
   err.value = ''
   loading.value = true
+  const gen = ++dailyQueryGen
+  const scopeAtStart = store.scope
+  const buAtStart = store.buName
   try {
     // ISO-01：BU 页走 bu_daily；整体页走 daily。昨天/本月/查询共用本路径。
     const u = buildDailyQueryUrl({
@@ -64,6 +70,10 @@ async function runQuery() {
       top: 2000,
     })
     const r = await fetch(u, { credentials: 'same-origin' })
+    // 过期：scope 已变或更新的查询已发出
+    if (gen !== dailyQueryGen || store.scope !== scopeAtStart || store.buName !== buAtStart) {
+      return
+    }
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
       const detail = (d as { detail?: string }).detail || ''
@@ -71,6 +81,9 @@ async function runQuery() {
       throw new ApiError(r.status)
     }
     const d = await r.json()
+    if (gen !== dailyQueryGen || store.scope !== scopeAtStart || store.buName !== buAtStart) {
+      return
+    }
     const dual = (d.dual_rankings || null) as { sales?: RankViewBlk; customer?: RankViewBlk } | null
     store.setDaily(start.value, end.value, dual)
     const o = d.orders_disp || d.orders_total_disp || ''
@@ -79,11 +92,12 @@ async function runQuery() {
       (start.value === end.value ? '仅 ' + start.value : start.value + ' ~ ' + end.value) +
       (o || rc ? ` · 下单 ${o || '—'} / 回款 ${rc || '—'}` : '')
   } catch (e) {
+    if (gen !== dailyQueryGen) return
     console.warn('[daily]', e)
     err.value = friendlyError(e)
     store.clearDaily()
   } finally {
-    loading.value = false
+    if (gen === dailyQueryGen) loading.value = false
   }
 }
 

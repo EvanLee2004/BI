@@ -60,7 +60,11 @@ class TestF1NoStyleInBusiness(unittest.TestCase):
 
 
 class TestF2NoHardcodedColors(unittest.TestCase):
-    """硬编码色值只许出现在 tokens.css 与 admin/styles/admin.css；vendor 不扫。"""
+    """硬编码色值只许出现在 tokens.css 与 admin/styles/admin.css；vendor 不扫。
+
+    FE-002：图表 TS（chart-fx / dual-rank-option / echarts-theme / charts）纳入扫描；
+    色值经 utils/cssColor 回落表（与 tokens 对齐），图表文件本身禁止裸 hex/rgba。
+    """
 
     SCAN_ROOTS = [
         FE / "components",
@@ -68,6 +72,11 @@ class TestF2NoHardcodedColors(unittest.TestCase):
         FE / "App.vue",
         FE / "admin",
         FE / "views",
+        # FE-002 盲区补齐
+        FE / "chart-fx.ts",
+        FE / "dual-rank-option.ts",
+        FE / "echarts-theme.ts",
+        FE / "charts",
     ]
 
     TOKEN_FILES = {TOKENS.resolve(), ADMIN_TOKENS.resolve()}

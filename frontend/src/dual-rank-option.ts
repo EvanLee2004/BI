@@ -9,6 +9,7 @@ import {
   legendTextStyle,
 } from './chart-fx'
 import type { RankItem } from './types/vm'
+import { cssColor } from './utils/cssColor'
 
 export type DualRankBlkLike = {
   items?: RankItem[] | null
@@ -33,8 +34,13 @@ export function dualRankBarOption(
   const receipts = items.map((it) => Number(it.wr) || 0)
   const od = items.map((it) => it.order_disp || '')
   const rd = items.map((it) => it.receipt_disp || '')
-  const cO = '#a78bfa'
-  const cR = '#2dd4bf'
+  // FE-002：双条色走 token（cssColor），禁硬编码 hex
+  const cO = cssColor('--rank-primary-alt')
+  const cR = cssColor('--rank-secondary')
+  const cOEnd = cssColor('--rank-primary-soft-end')
+  const cREnd = cssColor('--rank-secondary-soft-end')
+  const cOGlow = cssColor('--rank-primary-glow')
+  const cRGlow = cssColor('--rank-secondary-glow')
   const n = Math.max(items.length, 1)
   /* 行高随条数放大：默认≥10 行时每行约 40px，最少 420 */
   const chartH = Math.max(narrow ? 360 : 420, n * (narrow ? 40 : 44) + 56)
@@ -103,7 +109,7 @@ export function dualRankBarOption(
             y2: 0,
             colorStops: [
               { offset: 0, color: cO },
-              { offset: 1, color: '#c4b5fd' },
+              { offset: 1, color: cOEnd },
             ],
           },
           borderRadius: [0, 4, 4, 0],
@@ -116,7 +122,7 @@ export function dualRankBarOption(
           fontSize: labelFs,
         }),
         emphasis: {
-          itemStyle: { shadowBlur: 4, shadowColor: 'rgba(167,139,250,0.45)' },
+          itemStyle: { shadowBlur: 4, shadowColor: cOGlow },
         },
       },
       {
@@ -133,7 +139,7 @@ export function dualRankBarOption(
             y2: 0,
             colorStops: [
               { offset: 0, color: cR },
-              { offset: 1, color: '#5eead4' },
+              { offset: 1, color: cREnd },
             ],
           },
           borderRadius: [0, 4, 4, 0],
@@ -146,7 +152,7 @@ export function dualRankBarOption(
           fontSize: labelFs,
         }),
         emphasis: {
-          itemStyle: { shadowBlur: 4, shadowColor: 'rgba(45,212,191,0.45)' },
+          itemStyle: { shadowBlur: 4, shadowColor: cRGlow },
         },
       },
     ],

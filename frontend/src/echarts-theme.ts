@@ -1,62 +1,84 @@
 /**
  * 任务书54·B：ECharts 主题全面从 SciFi kit CSS 变量派生（+ theme.css 业务色）。
  * 任务书54.1：V6 图表文字清晰度（轴/图例字号≥11、对比提高）。
- * 目标：图表与 kit 面板肉眼同一套设计；亮暗纯前端 CSS 切换。
+ * FE-002：色值一律经 cssColor（token 回落），本文件无硬编码 hex/rgba。
  */
 
-function cssVar(name: string, fallback: string): string {
-  if (typeof document === 'undefined') return fallback
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
+import { cssColor } from './utils/cssColor'
 
-/** 解析后的正文色（ECharts canvas 不能吃 CSS var()，图内 label 必须用 hex/rgb）。 */
+/** 解析后的正文色（ECharts canvas 不能吃 CSS var()，图内 label 必须用实色）。 */
 export function themeInkColor(): string {
   const mode = currentThemeMode()
   const isLight = mode === 'light'
-  return cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : '#eaf1ff'))
+  const isNeon = mode === 'neon'
+  return cssColor(
+    '--dsdk-text-color',
+    cssColor('--ink', isLight ? cssColor('--ink-light') : isNeon ? cssColor('--ink-neon') : cssColor('--ink')),
+  )
 }
 
 export function kanbanTheme(mode: 'neon' | 'dark' | 'light' = 'dark') {
   const isLight = mode === 'light'
   const isNeon = mode === 'neon'
-  const accent = cssVar(
+  const accent = cssColor(
     '--dsdk-accent-color-secondary',
-    cssVar('--blue', isLight ? '#0891b2' : isNeon ? '#2ff3ff' : '#22d3ee'),
+    cssColor('--blue', isLight ? cssColor('--blue-light') : isNeon ? cssColor('--blue-neon') : cssColor('--blue')),
   )
-  const purple = cssVar(
+  const purple = cssColor(
     '--dsdk-accent-color-main',
-    cssVar('--purple', isLight ? '#6d28d9' : isNeon ? '#d16bff' : '#c084fc'),
+    cssColor(
+      '--purple',
+      isLight ? cssColor('--purple-light') : isNeon ? cssColor('--purple-neon') : cssColor('--purple'),
+    ),
   )
-  const teal = cssVar('--teal', isLight ? '#0d9488' : isNeon ? '#2ee6c8' : '#2dd4bf')
-  const orange = cssVar(
+  const teal = cssColor('--teal', isLight ? cssColor('--teal-light') : isNeon ? cssColor('--teal-neon') : cssColor('--teal'))
+  const orange = cssColor(
     '--dsdk-warning-color',
-    cssVar('--orange', isLight ? '#c2410c' : isNeon ? '#ffd23f' : '#fbbf24'),
+    cssColor(
+      '--orange',
+      isLight ? cssColor('--orange-light') : isNeon ? cssColor('--orange-neon') : cssColor('--orange'),
+    ),
   )
-  const cost = cssVar('--cost', isLight ? '#8b9aab' : isNeon ? '#6b7fa0' : '#64769e')
-  const pos = cssVar(
+  const cost = cssColor(
+    '--cost',
+    isLight ? cssColor('--cost-light') : isNeon ? cssColor('--cost-neon') : cssColor('--cost'),
+  )
+  const pos = cssColor(
     '--dsdk-success-color',
-    cssVar('--pos', isLight ? '#0f766e' : isNeon ? '#3dffb0' : '#34d399'),
+    cssColor('--pos', isLight ? cssColor('--pos-light') : isNeon ? cssColor('--pos-neon') : cssColor('--pos')),
   )
-  const neg = cssVar(
+  const neg = cssColor(
     '--dsdk-danger-color',
-    cssVar('--neg', isLight ? '#c2410c' : isNeon ? '#ff5c85' : '#fb7185'),
+    cssColor('--neg', isLight ? cssColor('--neg-light') : isNeon ? cssColor('--neg-neon') : cssColor('--neg')),
   )
-  const ink = cssVar('--dsdk-text-color', cssVar('--ink', isLight ? '#15202b' : isNeon ? '#eef4ff' : '#eaf1ff'))
+  const ink = cssColor(
+    '--dsdk-text-color',
+    cssColor('--ink', isLight ? cssColor('--ink-light') : isNeon ? cssColor('--ink-neon') : cssColor('--ink')),
+  )
   /* V6：暗色/霓虹用更亮墨色、亮色用更深墨色，轴标签对比拉满 */
   const mut = isLight
-    ? cssVar('--dsdk-text-color-darker', cssVar('--mut', '#3d4a5c'))
-    : cssVar('--note', isNeon ? '#c5d2ec' : '#c5d0e8')
+    ? cssColor('--dsdk-text-color-darker', cssColor('--mut-chart-light'))
+    : cssColor('--note', isNeon ? cssColor('--note-neon') : cssColor('--note-dark'))
   const mut2 = isLight
-    ? cssVar('--dsdk-text-color-dim', cssVar('--mut2', '#4a5a6e'))
+    ? cssColor('--dsdk-text-color-dim', cssColor('--mut2'))
     : isNeon
-      ? '#b0c0e0'
-      : '#a8b6d4'
-  const line = cssVar(
+      ? cssColor('--mut2-neon')
+      : cssColor('--mut2-dark')
+  const line = cssColor(
     '--dsdk-panel-border-default',
-    cssVar('--line', isNeon ? 'rgba(47,243,255,.22)' : 'rgba(125,211,252,.16)'),
+    cssColor('--line', isNeon ? cssColor('--line-neon') : cssColor('--line')),
   )
-  const mono = cssVar('--dsdk-font-mono', cssVar('--mono', 'ui-monospace, monospace'))
+  const mono = cssColor('--dsdk-font-mono', 'ui-monospace, monospace')
+  const tipBg = isLight
+    ? cssColor('--chart-tooltip-bg-light')
+    : isNeon
+      ? cssColor('--chart-tooltip-bg-neon')
+      : cssColor('--chart-tooltip-bg-dark')
+  const tipShadow = isLight
+    ? cssColor('--chart-tooltip-shadow-light')
+    : isNeon
+      ? cssColor('--chart-tooltip-shadow-neon')
+      : cssColor('--chart-tooltip-shadow-dark')
 
   return {
     color: [accent, purple, teal, orange, cost, pos, accent, neg],
@@ -89,15 +111,11 @@ export function kanbanTheme(mode: 'neon' | 'dark' | 'light' = 'dark') {
       pageTextStyle: { color: mut2 },
     },
     tooltip: {
-      backgroundColor: isLight ? 'rgba(255,255,255,0.96)' : isNeon ? 'rgba(2,8,20,0.94)' : 'rgba(10,16,32,0.92)',
+      backgroundColor: tipBg,
       borderColor: accent,
       borderWidth: 1,
       textStyle: { color: ink, fontSize: 12 },
-      extraCssText: isLight
-        ? 'box-shadow:0 4px 16px rgba(8,145,178,.12);'
-        : isNeon
-          ? 'box-shadow:0 0 22px rgba(47,243,255,.35);'
-          : 'box-shadow:0 0 18px rgba(34,211,238,.25);',
+      extraCssText: tipShadow,
     },
   }
 }
@@ -108,4 +126,3 @@ export function currentThemeMode(): 'neon' | 'dark' | 'light' {
   if (ds === 'neon' || ds === 'dark' || ds === 'light') return ds
   return document.documentElement.classList.contains('theme-light') ? 'light' : 'dark'
 }
-

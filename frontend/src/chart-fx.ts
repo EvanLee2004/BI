@@ -1,9 +1,11 @@
 /**
  * 任务书54.4 · 图表性能/清晰度共享（纯 ECharts 原生，禁新库）。
  * 2.3.0 S3：fxLevel 1 仅霓虹+非 reduced-motion；0 时与 2.2.9 逐字段相同。
+ * FE-002：色值一律经 cssColor / seriesPalette，本文件无硬编码 hex/rgba。
  */
 
 import { themeInkColor, currentThemeMode } from './echarts-theme'
+import { cssColor, hexWithAlpha, seriesPalette, shadeHex } from './utils/cssColor'
 
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false
@@ -37,16 +39,16 @@ export function animBlock(_ms = 700): Record<string, unknown> {
   }
 }
 
-/** V6：图内正文/轴/图例统一清晰色（canvas 必须 hex） */
+/** V6：图内正文/轴/图例统一清晰色（canvas 必须实色） */
 export function chartTextColor(): string {
   return themeInkColor()
 }
 
 export function chartMutedColor(): string {
   const mode = currentThemeMode()
-  if (mode === 'light') return '#3d4a5c'
-  if (mode === 'neon') return '#c5d2ec'
-  return '#c5d0e8'
+  if (mode === 'light') return cssColor('--mut-chart-light')
+  if (mode === 'neon') return cssColor('--note-neon')
+  return cssColor('--note-dark')
 }
 
 /** 数字标签：字号≥11 + 细描边防糊 */
@@ -58,9 +60,13 @@ export function dataLabelStyle(extra: Record<string, unknown> = {}): Record<stri
     fontSize: 12,
     fontWeight: 600,
     color: ink,
-    textBorderColor: light ? 'rgba(255,255,255,0.92)' : 'rgba(4,8,20,0.85)',
+    textBorderColor: light
+      ? cssColor('--chart-label-stroke-light')
+      : cssColor('--chart-label-stroke-dark'),
     textBorderWidth: 2,
-    textShadowColor: light ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)',
+    textShadowColor: light
+      ? cssColor('--chart-label-shadow-light')
+      : cssColor('--chart-label-shadow-dark'),
     textShadowBlur: 0,
     ...extra,
   }
@@ -111,7 +117,7 @@ export function barGlowStyle(hex: string, soft = false): Record<string, unknown>
     },
     /* fx=0 时与 2.2.9 一致：shadowBlur: 0 */
     shadowBlur: fx ? 12 : 0,
-    shadowColor: fx ? hexToRgba(c, 0.5) : 'transparent',
+    shadowColor: fx ? hexWithAlpha(c, 0.5) : 'transparent',
     shadowOffsetY: 0,
     ...(fx
       ? {
@@ -130,7 +136,7 @@ export function lineGlowStyle(hex: string, width = 2.5): Record<string, unknown>
     color: hex,
     /* fx=0：shadowBlur: 0 */
     shadowBlur: fx ? 14 : 0,
-    shadowColor: fx ? hexToRgba(hex, 0.5) : 'transparent',
+    shadowColor: fx ? hexWithAlpha(hex, 0.5) : 'transparent',
   }
 }
 
@@ -138,11 +144,11 @@ export function pointGlowStyle(hex: string): Record<string, unknown> {
   const fx = fxLevel() === 1
   return {
     color: hex,
-    borderColor: '#fff',
+    borderColor: cssColor('--white'),
     borderWidth: 1,
     /* fx=0：shadowBlur: 0 */
     shadowBlur: fx ? 10 : 0,
-    shadowColor: fx ? hexToRgba(hex, 0.55) : 'transparent',
+    shadowColor: fx ? hexWithAlpha(hex, 0.55) : 'transparent',
   }
 }
 
@@ -159,8 +165,8 @@ export function areaGradient(hex: string): Record<string, unknown> | undefined {
       x2: 0,
       y2: 1,
       colorStops: [
-        { offset: 0, color: hexToRgba(hex, 0.35) },
-        { offset: 1, color: hexToRgba(hex, 0) },
+        { offset: 0, color: hexWithAlpha(hex, 0.35) },
+        { offset: 1, color: hexWithAlpha(hex, 0) },
       ],
     },
   }
@@ -186,7 +192,7 @@ export function pieEmphasis(): Record<string, unknown> {
     scaleSize: fx ? 10 : 8,
     itemStyle: {
       shadowBlur: fx ? 12 : 4,
-      shadowColor: fx ? 'rgba(47, 243, 255, 0.5)' : 'rgba(34, 211, 238, 0.35)',
+      shadowColor: fx ? cssColor('--chart-pie-glow-neon') : cssColor('--chart-pie-glow-dark'),
     },
     label: {
       fontSize: 13,
@@ -200,7 +206,7 @@ export function pieGlowItemStyle(hex: string): Record<string, unknown> {
   if (fxLevel() !== 1) return {}
   return {
     shadowBlur: 14,
-    shadowColor: hexToRgba(hex, 0.45),
+    shadowColor: hexWithAlpha(hex, 0.45),
     borderColor: shadeHex(hex, 0.25),
     borderWidth: 1,
   }
@@ -218,51 +224,19 @@ export function axisPointerStyle(): Record<string, unknown> {
   return {
     type: 'line',
     lineStyle: {
-      color: isLight ? 'rgba(8,145,178,.45)' : 'rgba(47,243,255,.45)',
+      color: isLight ? cssColor('--chart-axis-ptr-light') : cssColor('--chart-axis-ptr-neon'),
       width: 1,
     },
-    crossStyle: { color: isLight ? 'rgba(8,145,178,.25)' : 'rgba(47,243,255,.25)' },
+    crossStyle: {
+      color: isLight ? cssColor('--chart-axis-cross-light') : cssColor('--chart-axis-cross-neon'),
+    },
   }
 }
 
-/** 高对比系列色板（费用多折线等） */
-export const SERIES_PALETTE = [
-  '#22d3ee',
-  '#c084fc',
-  '#fbbf24',
-  '#34d399',
-  '#fb7185',
-  '#60a5fa',
-  '#f472b6',
-  '#2dd4bf',
-  '#a78bfa',
-  '#f59e0b',
-]
+/** 高对比系列色板（费用多折线等）— 自 token 派生 */
+export const SERIES_PALETTE = seriesPalette()
 
-function hexToRgba(hex: string, a: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!m) return hex
-  const n = parseInt(m[1], 16)
-  const r = (n >> 16) & 255
-  const g = (n >> 8) & 255
-  const b = n & 255
-  return `rgba(${r},${g},${b},${a})`
-}
-
-/** amount in [-1,1] darken/lighten hex */
-function shadeHex(hex: string, amount: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!m) return hex
-  const n = parseInt(m[1], 16)
-  let r = (n >> 16) & 255
-  let g = (n >> 8) & 255
-  let b = n & 255
-  const adj = (c: number) => {
-    if (amount < 0) return Math.max(0, Math.round(c * (1 + amount)))
-    return Math.min(255, Math.round(c + (255 - c) * amount))
-  }
-  r = adj(r)
-  g = adj(g)
-  b = adj(b)
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
-}
+// re-export for callers that need hex helpers without importing cssColor
+export { hexWithAlpha, shadeHex }
+// 兼容旧名
+export { hexWithAlpha as hexToRgba }
