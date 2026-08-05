@@ -146,6 +146,32 @@ def _default_program_root():
     return Path(__file__).resolve().parent.parent
 
 
+def _is_candidate_process() -> bool:
+    return str(os.environ.get("KANBAN_CANDIDATE") or "").strip() in (
+        "1",
+        "true",
+        "TRUE",
+        "yes",
+        "YES",
+    )
+
+
+def _boot_primary(cfg, root) -> None:
+    _write_boot_runtime_marker(root)
+    from boot_lifecycle import boot_first_refresh
+
+    boot_ok = boot_first_refresh(cfg, root, refresh)
+    if not boot_ok:
+        return
+    try:
+        import maintenance_mode as _mm
+
+        _mm.turn_off(cfg, root)
+    except Exception as e:
+        print(f"[server] maintenance turn_off 跳过：{type(e).__name__}: {e}")
+
+
+
 def serve(cfg=None, root=None):
     cfg = cfg or loaders.load_config()
     root = root or _default_program_root()
@@ -180,17 +206,6 @@ def serve(cfg=None, root=None):
         _start_background_services(cfg, root)
     uvicorn.run(app, host=host, port=port, log_level="info")
 
-
-def _is_candidate_process() -> bool:
-    return str(os.environ.get("KANBAN_CANDIDATE") or "").strip() in (
-        "1",
-        "true",
-        "TRUE",
-        "yes",
-        "YES",
-    )
-
-
 def _confirm_update_good():
     # OPS-005：冷启动全量刷新可能 >20s；等 has_data 或最多 180s 再清回滚标记
     import app_state as _as
@@ -208,21 +223,6 @@ def _confirm_update_good():
         updater.clear_rollback_marker(loaders.ROOT)
     except Exception as e:
         print(f"[server] clear_rollback_marker 跳过：{type(e).__name__}: {e}")
-
-
-def _boot_primary(cfg, root) -> None:
-    _write_boot_runtime_marker(root)
-    from boot_lifecycle import boot_first_refresh
-
-    boot_ok = boot_first_refresh(cfg, root, refresh)
-    if not boot_ok:
-        return
-    try:
-        import maintenance_mode as _mm
-
-        _mm.turn_off(cfg, root)
-    except Exception as e:
-        print(f"[server] maintenance turn_off 跳过：{type(e).__name__}: {e}")
 
 
 def _start_background_services(cfg, root) -> None:
