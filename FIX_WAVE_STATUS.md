@@ -7,10 +7,10 @@
 | P2 | BE-001~007/011 | done | 9b6c990 | targeted | atomic reapply；503 recompute；restore gate |
 | P3 | OPS+TEST-005 | done | 5b21ddc | publish OK | runtime align 默认；KANBAN_PORT |
 | P4 | AUTH/SEC | done | d10deb1 | targeted | empty bu_names；CIFS env；403；csrf |
-| P5 | FIN | done | 5ed3f45 | money OK | as_fen 拒 float；非法金额 raise；分摊边 |
+| P5 | FIN | done | 5ed3f45→7546a36 | money OK | as_fen 拒 float；yuan_to_fen/record/normalize raise；amount_cell_to_fen 边界 |
 | P6 | TEST 债 | done | 4f8c71f | | verify lock；write-lock 假绿消除 |
 | P7 | docs 对齐 | done | f2b3e2b | | VERSION 3.7.16 指针；无 audit 包 |
-| FINAL | 三门禁 | pending | | TYPECHECK/BUILD/VERIFY | 修 skeptic 后重跑 |
+| FINAL | 三门禁 | done | 7546a36 | TYPECHECK:0 BUILD:0 VERIFY:0 | passed=1514 skeptic fixes |
 
 状态枚举：`pending` | `in_progress` | `done` | `blocked`
 
