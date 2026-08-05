@@ -7,7 +7,7 @@
 - 004/003/005/006/007/010/017/H20 + DOC/OPS 仓内；preflight 现网仍 gvfs、无 CIFS
 - 守卫 `tests/test_audit_3_7_14_backend.py` · `tests/test_audit_3_7_14_frontend.py`
 - **未** push / 生产 mount / 改密码契约 / profit 公式
-- 候选 tip **`625c7b1940380f3f116b78c769077537c3b162c2`** · 控制卡 REVIEW_READY · **未 push**
+- 候选 tip **`8fd3479f55ee255c86246973f2c05535794a3bfe`** · 控制卡 REVIEW_READY · **未 push**
 
 ## 2026-08-04 · 3.7.13 管理端 PM + 对账体验 + 隔离加固
 
