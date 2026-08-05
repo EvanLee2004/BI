@@ -1,6 +1,7 @@
 # 架构 SSOT · 3.2.0+
 
-> 现行结构锚 **3.2.0+**（server 薄门面 / 无 render 装运）。**产品 tip 以程序根 `VERSION` + 项目 progress 顶部为准**（当前 **3.7.7**）。历史 fragments/render 合同见 `docs/archive/`。
+> 现行结构锚 **3.2.0+**（server 薄门面 / 无 render 装运）。**产品 tip 以程序根 `VERSION` + 项目 progress 顶部为准**（当前 **3.7.15**）。历史 fragments/render 合同见 `docs/archive/`。  
+> 台账：生产 **CIFS `/mnt/kanban-ledger`**；`src/ledger_cifs.py` + 管理端设置 B（密码只写 cred）。
 
 ## 看数主路径
 

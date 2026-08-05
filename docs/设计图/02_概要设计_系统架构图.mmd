@@ -1,4 +1,4 @@
-%% 系统架构 · VERSION 3.7.7 · 2026-08-03
+%% 系统架构 · VERSION 3.7.15 · 2026-08-05
 flowchart TB
   U[浏览器/手机] --> NGX
   NGX["nginx<br/>dist 长缓存 · HTML no-store<br/>/api /admin /login /bu 反代<br/>Host 带端口 CSRF 同源"]
@@ -6,9 +6,12 @@ flowchart TB
   API["FastAPI 127.0.0.1:8018<br/>routes · /api/v1/* · kanban_sid<br/>看端+管理端 Vue SPA"]
   API --> RP["refresh_pipeline<br/>手填跳过 std 重建<br/>调整 rebuild_std=True"]
   API --> EXP["export HTML/PNG/xlsx<br/>kanban_snapshot 同源"]
+  API --> SET["管理端设置<br/>台账 CIFS 可配置 B"]
   RP --> DOM["profit 算账<br/>int 分 · 管理利润表"]
   DOM --> DB[(SQLite 看板.db<br/>金额 INTEGER 分)]
-  ING["ingest 智云四源+SMB台账<br/>短退避 · 新鲜度分层"] --> DB
+  ING["ingest 智云四源+CIFS 台账<br/>短退避 · 新鲜度分层"] --> DB
+  CIFS["/mnt/kanban-ledger<br/>cifs · cred 0600"] --> ING
+  SET -.->|ledger_share_path| CIFS
   LOOP[ScheduleLoop 日更] --> ING
   API --> DIST["frontend/dist<br/>Domain→VM→Vue<br/>theme.css?v=VERSION"]
   PUB["publish_kanban.sh<br/>强制备份 · :8019 候选"] -.-> API

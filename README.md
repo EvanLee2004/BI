@@ -4,13 +4,14 @@
 
 | 当前版本 | 技术栈 | 生产形态 |
 |:---:|:---|:---|
-| **v3.7.7**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-08-02） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 候选预热发版 · 定时刷新 |
+| **v3.7.15**（以根目录 [`VERSION`](./VERSION) 为准 · 2026-08-05） | Python · SQLite · FastAPI · Vue 3 · ECharts | 公司 Ubuntu · nginx · systemd · 候选预热发版 · 定时刷新 · **CIFS 台账** |
 
 > 版本历史见 [`CHANGELOG.md`](./CHANGELOG.md)。业务数据与账号密码**不进本仓库**。  
 > **现网 / 产品现状 SSOT**：项目根 `progress.md` 顶部 + 本仓 `VERSION` + `git rev-parse HEAD`（勿把下文历史号当真理）。  
-> **现网终态（3.7.x）**：看数 **Domain→VM→Vue**；首屏六段；重点客户独立章（双饼 / 三池 / 可取消筛选）；导出走 **kanban_snapshot** + 利润表 Excel（「其他 N 项」可展开 children）；**无** `render_*` 驾驶舱双轨。API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
-> **3.7.7～3.7.0 要点（摘要）**：桌面 Logo 放大 + theme cache-bust；导出展开「其他 N 项」；凭据不下发；调度只报真问题；抓数短退避 + 48h 新鲜度；HelpPopover；候选端口预热发版（3.7.3）+ 强制备份门闸（3.7.0）；下线「下单未填部门」。  
-> **3.6.x 沉淀**：首屏六段与 KC 双饼；CSRF/:8001 Host；金额轴诚实。更早见 CHANGELOG。  
+> **现网终态（3.7.x）**：看数 **Domain→VM→Vue**；首屏六段；重点客户独立章；导出走 **kanban_snapshot** + 利润表 Excel；API 均 **`/api/v1/*`**；会话仅 **`kanban_sid`**。飞书 webhook **已废止**。  
+> **3.7.15**：管理端台账共享 **CIFS 可配置（B）**——服务器/共享/相对路径/账号可改，密码只写不回显，受控脚本写本机 cred 并 remount。  
+> **3.7.14**：审计加固（登录锁 XFF、导出 401/403、Cookie Secure 条件、前端竞态等）+ 生产台账 **CIFS 固定挂载**（非 gvfs）。  
+> **3.7.13～3.7.0 要点**：管理端 PM/对账；能力矩阵；候选预热发版；强制备份；桌面 Logo/theme cache-bust。更早见 CHANGELOG。  
 > **LICENSE**：公开仓尚未选型 → 待负责人拍板（勿擅自添加）。
 
 **运维入口速查** → [下方「生产运维」](#生产运维) · 详方 [docs/Runbook.md](docs/Runbook.md)

@@ -1,4 +1,4 @@
-%% 模块与组件 · VERSION 3.7.7 · 2026-08-03
+%% 模块与组件 · VERSION 3.7.15 · 2026-08-05
 flowchart TB
   subgraph FE["frontend/"]
     VU[Vue 看端 六段+KC]
@@ -12,15 +12,20 @@ flowchart TB
     DM["domain/ PL·费用·KC"]
     VM[viewmodels/]
     MY[money.py int 分]
-    IG[ingest 智云+台账]
+    IG[ingest 智云+CIFS台账]
+    CF[ledger_cifs 配置/apply]
     PB[publish_bluegreen]
   end
+  MNT["/mnt/kanban-ledger cifs"]
   VU --> RT
   AD --> RT
+  AD --> CF
   RT --> VM
   VM --> DM
   RT --> RP
   RP --> PR
   PR --> MY
   RP --> IG
+  IG --> MNT
+  CF -.-> MNT
   PB -.-> RT

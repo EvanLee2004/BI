@@ -1,21 +1,21 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
-## 2026-08-05 · 3.7.15 台账 CIFS 管理端可配置（B）
+## 2026-08-05 · 文档/图全量对齐 3.7.15（DIRECTOR）
 
-- VERSION **3.7.15** · 分支 `task/20260805-cifs-settings-3.7.15` · 基线 `aaa0830`
-- 结构化 smb 字段 + 拼装 `ledger_share_path`；密码只写 cred；apply 脚本 + sudoers 样例
-- 守卫 `tests/test_ledger_cifs_3_7_15.py`；**未** push（默认）；无真实 SMB 密码进仓
-- 候选 tip **`4642e410f974b4ea5329748f877baf8bd3c4d56f`** · REVIEW_READY · **未 push**
+- 现行文档：README / Runbook §0 / CIFS 步骤单 / Ubuntu 部署 §4 / Agent / SSOT 指针 / 部署架构 / 文档地图 / 部署机路径定稿
+- 设计图 mmd 抬头 3.7.15；拓扑含 CIFS+BESTEASY+apply
+- 历史任务书/归档图不改
 
-## 2026-08-05 · 3.7.14 审计全量修复（除密码）
+## 2026-08-05 · 3.7.15 台账 CIFS 管理端可配置（B）· PROD
 
+- VERSION **3.7.15** · tip **`ff23073`** · 已 push origin+gitee · publish SUCCESS
+- 结构化 smb 字段 + apply + sudoers；本地配置默认已灌；CIFS `/mnt/kanban-ledger`
+- 守卫 `tests/test_ledger_cifs_3_7_15.py`；门禁 1487
 
-- VERSION **3.7.14** · 分支 `task/20260805-audit-fix-3.7.14` · 基线 `32a6a84e5ff24414ff8bbaaac48d6e97a8a40937`
-- 004/003/005/006/007/010/017/H20 + DOC/OPS 仓内；preflight 现网仍 gvfs、无 CIFS
-- 守卫 `tests/test_audit_3_7_14_backend.py` · `tests/test_audit_3_7_14_frontend.py`
-- **未** push / 生产 mount / 改密码契约 / profit 公式
-- 候选 tip **`4642e410f974b4ea5329748f877baf8bd3c4d56f`** · 控制卡 REVIEW_READY · **未 push**
+## 2026-08-05 · 3.7.14 审计全量修复（除密码）· PROD
+
+- VERSION **3.7.14** · tip **`aaa0830`** · 已上生产；随后 CIFS 挂盘 + 卸 ToDesk
 
 ## 2026-08-04 · 3.7.13 管理端 PM + 对账体验 + 隔离加固
 

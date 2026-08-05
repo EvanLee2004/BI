@@ -106,36 +106,39 @@ python3 -m venv .venv
 
 ---
 
-## 4. 收单台账 CIFS / gvfs 挂载（最高风险项）
+## 4. 收单台账 CIFS 挂载（最高风险项 · 3.7.15 现网）
 
-> **真实共享 IP、共享名、子目录、文件名不写进本仓库（GitHub）**。  
-> 部署时对照机上 `/opt/kanban/运维笔记/收单台账路径.md` 或工作区「公司电脑（部署机）」夹（不上公开仓）。
+> **真实共享 IP、共享名、子目录、账号密码不写进本仓库（GitHub）**。  
+> 现网：**CIFS** `/mnt/kanban-ledger`（**非 gvfs**）。细则见 `docs/运维_收单台账CIFS_fstab步骤单_只写不执行.md` 与 `docs/Runbook.md` §0.2。
 
-共享源：`//【文件服务器】/【共享名】` → 挂到例如 `/mnt/caiwu`（或桌面 gvfs）。
+共享源：`//【文件服务器】/【共享名】` → 固定挂到 **`/mnt/kanban-ledger`**。
 
 ```bash
-sudo mkdir -p /mnt/caiwu
-sudo tee /etc/kanban-cifs.cred >/dev/null <<'EOF'
+sudo apt-get install -y cifs-utils
+sudo mkdir -p /mnt/kanban-ledger /etc/kanban
+sudo tee /etc/kanban/cifs-ledger.cred >/dev/null <<'EOF'
 username=【部署时手填】
 password=【部署时手填】
-domain=【若有】
 EOF
-sudo chmod 600 /etc/kanban-cifs.cred
+sudo chmod 600 /etc/kanban/cifs-ledger.cred
 # 凭证绝不进 git
 
-# fstab（_netdev = 等网络再挂；【】处换成机上运维笔记里的真实值）
-echo '//【文件服务器】/【共享名】 /mnt/caiwu cifs credentials=/etc/kanban-cifs.cred,iocharset=utf8,uid=kanban,gid=kanban,file_mode=0640,dir_mode=0750,_netdev,vers=3.0 0 0' | sudo tee -a /etc/fstab
+# fstab（_netdev / automount；【】处换成机上真实值）
+echo '//【文件服务器】/【共享名】 /mnt/kanban-ledger cifs credentials=/etc/kanban/cifs-ledger.cred,uid=lee,gid=lee,iocharset=utf8,file_mode=0644,dir_mode=0755,nofail,x-systemd.automount,_netdev 0 0' | sudo tee -a /etc/fstab
 
 sudo mount -a
-mount | grep caiwu
-ls /mnt/caiwu/   # 再进入运维笔记写明的子目录
+findmnt /mnt/kanban-ledger
+# 安装管理端改密用的受控脚本
+sudo install -m 755 deploy/linux/kanban-cifs-apply.sh /usr/local/sbin/kanban-cifs-apply
+sudo cp deploy/linux/sudoers.d-kanban-cifs /etc/sudoers.d/kanban-cifs
+sudo chmod 440 /etc/sudoers.d/kanban-cifs && sudo visudo -cf /etc/sudoers.d/kanban-cifs
 ```
 
-**看板配置**：管理端「设置 → 台账路径」填 **完整可达路径**（POSIX / gvfs / UNC 均可），**只落** `数据/本地配置.json`（gitignore）。
+**看板配置（3.7.15）**：管理端「设置 → 收单台账 · 公司共享盘」填 **服务器 / 共享名 / 相对路径 / 账号**（密码只写不回显），**只落** `数据/本地配置.json`（gitignore）并拼装 `ledger_share_path`。
 
 ```text
-# 示例形态（占位，非真实地址）
-/mnt/caiwu/【子目录】/收单台账.xlsx
+# 路径形态（占位）
+/mnt/kanban-ledger/【相对路径】/收单台账.xlsx
 ```
 
 `config.json` 出厂 `ledger_share_path` **留空**——真实路径不得写进 git。
@@ -143,9 +146,10 @@ ls /mnt/caiwu/   # 再进入运维笔记写明的子目录
 **挂不上时看板表现**：`fetch_ledger` 走上次本地副本 + 体检黄，管道不中断。自查：
 
 ```bash
-mount | grep caiwu
-ls -la /mnt/caiwu
+findmnt /mnt/kanban-ledger
+test -f /mnt/kanban-ledger/…/收单台账.xlsx
 journalctl -u kanban -n 50 --no-pager | grep -i 台账
+# Wi-Fi 须 BESTEASY
 ```
 
 ---

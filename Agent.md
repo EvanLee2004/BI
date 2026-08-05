@@ -37,7 +37,8 @@
 
 ## 当前状态（以根 `VERSION` + 项目 `progress.md` 顶部为准 · 勿钉死下文旧号）
 
-- **版本**：读根目录 **`VERSION`** + 项目 `progress.md` 顶部（文档收口时 **3.7.7**：桌面 Logo/cache-bust；导出「其他 N 项」children；凭据不下发；调度真问题；候选预热发版；首屏六段 + KC 双饼/三池 + 日查「昨天」仍在）。历史：3.6.x 六段/KC/CSRF；3.5.0 金额轴诚实/reload；3.4.x 作战台；3.3.x 分摊 int 分；3.0.0 去 render 双轨；2.7.x API v1 + sid-only。
+- **版本**：读根目录 **`VERSION`** + 项目 `progress.md` 顶部（文档收口时 **3.7.15**：台账 **CIFS 可配置 B**；3.7.14 审计加固 + 生产 CIFS 挂载；候选预热发版；首屏六段 + KC；API v1 + `kanban_sid`）。历史：3.7.x 能力矩阵/PM/费用视图；3.6.x 六段/KC/CSRF；3.0.0 去 render 双轨。  
+- **台账**：生产 **`/mnt/kanban-ledger`（cifs）**；管理端可改 server/share/relpath/账号；密码只写本机 cred；抓数仍 `ledger_share_path`。
 - **会话**：只认 **`kanban_sid`**；旧 cookie 不能登录（须重登）。
 - **API 地图（业务/管理/运维均 `/api/v1/*`）**：
   - 读：rankings/profit、rankings/full、admin/detail*、vm/*、daily、history、admin 配置手填预算账号、user_stats…
