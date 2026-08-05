@@ -26,8 +26,11 @@ class TestB2CatchUpSchedule(unittest.TestCase):
     def test_past_slot_fires_catchup(self):
         calls = []
 
-        def start(cfg, root, trigger="schedule"):
+        def start(cfg, root, trigger="schedule", on_complete=None):
+            # BE-011：须接 on_complete；真成功才登记 fired，避免二次补跑
             calls.append(trigger)
+            if on_complete:
+                on_complete(True)
             return True
 
         # 假时钟 09:35，计划 09:30
@@ -44,9 +47,12 @@ class TestB2CatchUpSchedule(unittest.TestCase):
     def test_busy_queues_retry(self):
         n = {"i": 0}
 
-        def start(cfg, root, trigger="schedule"):
+        def start(cfg, root, trigger="schedule", on_complete=None):
             n["i"] += 1
-            return n["i"] >= 2  # 第一次忙，第二次成功
+            ok = n["i"] >= 2  # 第一次忙，第二次成功
+            if ok and on_complete:
+                on_complete(True)
+            return ok
 
         def clock():
             return time.struct_time((2026, 7, 25, 9, 31, 0, 0, 0, -1))

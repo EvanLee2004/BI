@@ -146,6 +146,41 @@ def _default_program_root():
     return Path(__file__).resolve().parent.parent
 
 
+def serve(cfg=None, root=None):
+    cfg = cfg or loaders.load_config()
+    root = root or _default_program_root()
+    try:
+        from app_logging import setup_logging
+
+        setup_logging(cfg, root)
+    except Exception:
+        pass
+    # 3.7.3：候选预热进程（KANBAN_CANDIDATE=1）不写共享 runtime_marker、不跑 boot/调度
+    is_candidate = _is_candidate_process()
+    if is_candidate:
+        print(
+            "[server] candidate warm-up mode: skip runtime_marker write + "
+            "boot_first_refresh + schedule_loop"
+        )
+    else:
+        _boot_primary(cfg, root)
+    app = create_app(cfg, root)
+    import uvicorn
+
+    host = resolve_server_host(cfg)
+    port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
+    static_on = resolve_serve_static(cfg)
+    mode = "直连(挂static)" if static_on else "反代后端(无static挂载)"
+    print(f"[server] 内网服务 host={host} port={port} 模式={mode}")
+    print(
+        f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/"
+        "   管理员 /admin"
+    )
+    if not is_candidate:
+        _start_background_services(cfg, root)
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
 def _is_candidate_process() -> bool:
     return str(os.environ.get("KANBAN_CANDIDATE") or "").strip() in (
         "1",
@@ -199,40 +234,6 @@ def _start_background_services(cfg, root) -> None:
     except Exception as e:
         print(f"[server] schedule_loop 启动失败：{type(e).__name__}: {e}")
 
-
-def serve(cfg=None, root=None):
-    cfg = cfg or loaders.load_config()
-    root = root or _default_program_root()
-    try:
-        from app_logging import setup_logging
-
-        setup_logging(cfg, root)
-    except Exception:
-        pass
-    # 3.7.3：候选预热进程（KANBAN_CANDIDATE=1）不写共享 runtime_marker、不跑 boot/调度
-    is_candidate = _is_candidate_process()
-    if is_candidate:
-        print(
-            "[server] candidate warm-up mode: skip runtime_marker write + "
-            "boot_first_refresh + schedule_loop"
-        )
-    else:
-        _boot_primary(cfg, root)
-    app = create_app(cfg, root)
-    import uvicorn
-
-    host = resolve_server_host(cfg)
-    port = int(os.environ.get("KANBAN_PORT") or cfg.get("server_port", 8018))
-    static_on = resolve_serve_static(cfg)
-    mode = "直连(挂static)" if static_on else "反代后端(无static挂载)"
-    print(f"[server] 内网服务 host={host} port={port} 模式={mode}")
-    print(
-        f"[server] 用户端 http://{host if host not in ('0.0.0.0', '::') else '<本机IP>'}:{port}/"
-        "   管理员 /admin"
-    )
-    if not is_candidate:
-        _start_background_services(cfg, root)
-    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
