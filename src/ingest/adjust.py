@@ -90,48 +90,47 @@ def _cast(字段: str, 新值: str):
     return 新值
 
 
+def _apply_one_adjustment(conn, now: str, row) -> str:
+    """单条 adj 重放。返回 applied|expired|removed|skipped|missing。"""
+    aid, 目标表, 定位键, 字段, 原值, 新值, 类型 = row
+    if 目标表 not in schema.STD_TABLE_NAMES:
+        return "skipped"
+    match_rows = count_locator_matches(conn, 目标表, 定位键)
+    if not match_rows:
+        return "missing"
+    if len(match_rows) > 1:
+        mark_adjustment_expired(conn, aid)
+        return "expired"
+    if 类型 == "剔除":
+        soft_delete_by_locator(conn, 目标表, 定位键)
+        return "removed"
+    if 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
+        return "skipped"
+    current = select_field_by_locator(conn, 目标表, 字段, 定位键)
+    if not _values_match(current, 原值, 字段):
+        mark_adjustment_expired(conn, aid)
+        return "expired"
+    update_field_by_locator(conn, 目标表, 字段, _cast(字段, 新值), 定位键)
+    if schema.PERIOD_DATE_FIELD.get(目标表) == 字段:
+        parts = loaders.parse_date_parts(新值)
+        ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
+        update_field_by_locator(conn, 目标表, "归属月", ym, 定位键)
+    elif 目标表 == "std_费用明细" and 字段 in _LEDGER_DATE_FIELDS:
+        d, m = select_ledger_date_parts(conn, 定位键)
+        ym = _ledger_ym(d, m, int(now[:4]))
+        update_field_by_locator(conn, 目标表, "归属月", ym, 定位键)
+    return "applied"
+
+
 def apply_adjustments(conn: sqlite3.Connection, now: str, *, commit: bool = True) -> dict:
     """重放全部生效调整。返回 {applied, expired, removed, skipped, missing}。
 
     commit=False（BE-001）：由外层 IMMEDIATE 事务统一提交，避免 rebuild 已落盘而 adj 未完。
     """
-    applied = expired = removed = skipped = missing = 0
-    rows = list_active_adjustments(conn)
-    for aid, 目标表, 定位键, 字段, 原值, 新值, 类型 in rows:
-        if 目标表 not in schema.STD_TABLE_NAMES:
-            skipped += 1
-            continue
-        match_rows = count_locator_matches(conn, 目标表, 定位键)
-        if not match_rows:
-            missing += 1
-            continue
-        if len(match_rows) > 1:
-            mark_adjustment_expired(conn, aid)
-            expired += 1
-            continue
-
-        if 类型 == "剔除":
-            removed += soft_delete_by_locator(conn, 目标表, 定位键)
-            continue
-
-        if 字段 not in schema.ADJUSTABLE_FIELDS.get(目标表, {}):
-            skipped += 1
-            continue
-        current = select_field_by_locator(conn, 目标表, 字段, 定位键)
-        if not _values_match(current, 原值, 字段):
-            mark_adjustment_expired(conn, aid)
-            expired += 1
-            continue
-        update_field_by_locator(conn, 目标表, 字段, _cast(字段, 新值), 定位键)
-        if schema.PERIOD_DATE_FIELD.get(目标表) == 字段:
-            parts = loaders.parse_date_parts(新值)
-            ym = f"{parts[0]:04d}-{parts[1]:02d}" if parts else None
-            update_field_by_locator(conn, 目标表, "归属月", ym, 定位键)
-        elif 目标表 == "std_费用明细" and 字段 in _LEDGER_DATE_FIELDS:
-            d, m = select_ledger_date_parts(conn, 定位键)
-            ym = _ledger_ym(d, m, int(now[:4]))
-            update_field_by_locator(conn, 目标表, "归属月", ym, 定位键)
-        applied += 1
+    counts = {"applied": 0, "expired": 0, "removed": 0, "skipped": 0, "missing": 0}
+    for row in list_active_adjustments(conn):
+        key = _apply_one_adjustment(conn, now, row)
+        counts[key] = counts.get(key, 0) + 1
     if commit:
         conn.commit()
-    return {"applied": applied, "expired": expired, "removed": removed, "skipped": skipped, "missing": missing}
+    return counts
