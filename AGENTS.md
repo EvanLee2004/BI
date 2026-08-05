@@ -6,7 +6,7 @@
 
 轻量 BI 经营驾驶舱：读 6 数据源 → SQLite 分整数 → profit/domain 算账 → **Vue3 看端 + 管理端 SPA** + API v1 VM。  
 入口：`python run.py` / `python run.py --serve`。  
-**当前版本**：见根目录 `VERSION`（**3.7.7**）+ 项目 `progress.md` 顶部。Vue SPA + `/api/v1/*`；首屏六段 + KC；分摊 int 分；候选预热发版；凭据不下发；无 render 双轨。
+**当前版本**：见根目录 `VERSION`（**3.7.16**）+ 项目 `progress.md` 顶部。Vue SPA + `/api/v1/*`；首屏六段 + KC；分摊 int 分；候选预热发版；凭据不下发；无 render 双轨。
 
 ## 架构（摘要）
 

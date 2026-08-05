@@ -1,6 +1,11 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-05 · fix wave 收口（本 worktree）
+
+- VERSION **3.7.16** 基线 + fix wave P1–P7（FE daily clear / BE 原子写 / OPS 候选闸 / AUTH·SEC / FIN 入口 / 测试债 / 文档指针）
+- 门禁以 `KANBAN_OFFLINE=1 sh tests/run_verify.sh` 真实 EXIT 为准；禁止 push/生产
+
 ## 2026-08-05 · 文档/图全量对齐 3.7.15（DIRECTOR）
 
 - 现行文档：README / Runbook §0 / CIFS 步骤单 / Ubuntu 部署 §4 / Agent / SSOT 指针 / 部署架构 / 文档地图 / 部署机路径定稿

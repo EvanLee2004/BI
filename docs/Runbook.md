@@ -6,7 +6,7 @@
 |----|----|
 | 部署机 | 公司 Ubuntu 26.04 台式机 `lee-ThinkCentre-M755e-D182`（内网，用户 `lee`） |
 | 代码目录 | `/opt/kanban/看板正式程序`（git 仓库，HEAD=部署时 main） |
-| 版本 | **以机上 `cat VERSION` + `git rev-parse --short HEAD` 为准**（文档收口时产品线 **3.7.15** · tip 见项目 `progress.md`）。人可见：首屏六段、重点客户、管理端设置「台账共享 CIFS 可配置」、审计加固（3.7.14）、候选预热发版、强制备份、API `/api/v1/*`、仅 `kanban_sid`。飞书 webhook 已废止。 |
+| 版本 | **以机上 `cat VERSION` + `git rev-parse --short HEAD` 为准**（文档收口时产品线 **3.7.16** · tip 见项目 `progress.md`）。人可见：首屏六段、重点客户、管理端设置「台账共享 CIFS 可配置」、审计加固（3.7.14）、候选预热发版、强制备份、API `/api/v1/*`、仅 `kanban_sid`。飞书 webhook 已废止。**在线 restore 默认拒绝**（须先 stop 服务或 KANBAN_ALLOW_ONLINE_RESTORE=1）。候选预热默认对齐 version/commit。 |
 | 进程托管 | **systemd `kanban`**：**单 worker** User=**lee**、enabled+active、**Restart=on-failure** + StartLimit 5/120s；沙箱 NoNewPrivileges + PrivateTmp + ProtectSystem=strict + **ReadWritePaths 含 `/mnt/kanban-ledger`**；主 app `127.0.0.1:8018`、`KANBAN_SERVE_STATIC=0`；发版可选 **:8019 候选预热** 后切主。**多 worker / Redis 未支持** |
 | 对外入口 | **nginx** 站点 `kanban`（`:80` default_server）：`frontend/dist` + 反代 API；**`location = /` 必须反代后端**（2.4.3，禁 try_files index 抢根路径）；**server_tokens off**；安全头 nosniff / **`X-Frame-Options: SAMEORIGIN`** / Referrer-Policy |
 | 用户入口口径 | **首选（2026-07-30 海鹏）**：`http://dash.besteasy.com:8001`（**内外网统一**；**必须带 `:8001`**）。过渡期旧链：内网 `http://192.168.30.46`；外网 `http://101.254.102.94:8001`。用自己账号登录即可；**无**单独管理员登录 URL；管理端路径 `/admin` |

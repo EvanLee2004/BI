@@ -9,7 +9,7 @@
 | P4 | AUTH/SEC | done | b67b9b4 | targeted OK | empty bu_names; cifs env; 403 detail; csrf cookie |
 | P5 | FIN | done | c718d09 | money/alloc OK | dual float doc; invalid raise; residual; over100; ledger age; log |
 | P6 | TEST 债 | done | 2c07ccc | | verify lock; write-lock false-green removed |
-| P7 | docs 对齐 | done | (pending) | | VERSION 3.7.16 pointers; Runbook restore note |
+| P7 | docs 对齐 | done | b9173c4 | | VERSION 3.7.16 pointers; Runbook restore note |
 | FINAL | 三门禁 | pending | | TYPECHECK/BUILD/VERIFY | 全 0 才算完 |
 
 状态枚举：`pending` | `in_progress` | `done` | `blocked`
