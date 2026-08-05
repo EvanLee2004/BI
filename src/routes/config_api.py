@@ -223,14 +223,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["zhiyun_password_set"] = bool(str(creds.get("password") or "").strip())
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
-        # 3.7.14 OPS：管理员只读探测路径是否 exists（无密码、非管理员不可达本接口）
-        try:
-            import os as _os
+        # 3.7.15 B：结构化 CIFS 字段 + 探测；密码永不下发
+        import ledger_cifs as _lc
 
-            _lsp = str(out.get("ledger_share_path") or "").strip()
-            out["ledger_path_exists"] = bool(_lsp) and _os.path.exists(_lsp)
-        except Exception:
-            out["ledger_path_exists"] = False
+        out.update(_lc.settings_public_view(cfg))
         out["overall_see_salary"] = False  # 54.12 R-01 已废止开关
         out["run_log_keep_days"] = int(cfg.get("run_log_keep_days", 365) or 365)
         out["disk_free_min_ratio"] = float(cfg.get("disk_free_min_ratio", 0.10) or 0.10)
@@ -241,35 +237,73 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["backup_stats"] = {"count": len(baks), "mb": round(sum(p.stat().st_size for p in baks) / 1048576, 1)}
         return out
 
+    def _settings_audit_changes(
+        payload: dict,
+        res: dict,
+        *,
+        old_times: list,
+        old_keep,
+        old_lsp,
+        old_smb_server,
+    ) -> list[str]:
+        """设置变更审计条目（脱敏：无密码/完整 UNC）。"""
+        chg: list[str] = []
+        if ("schedule_times" in payload or "schedule_time" in payload) and res["schedule_times"] != old_times:
+            chg.append(f"更新时间 {'、'.join(old_times) or '—'}→{'、'.join(res['schedule_times'])}")
+        if "backup_keep_days" in payload and res["backup_keep_days"] != old_keep:
+            chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
+        note = res.get("note") or ""
+        if "智云账号已更新" in note:
+            chg.append("智云账号已更换")
+        if "智云连接配置已更新" in note:
+            chg.append("智云连接配置已更改（服务器/表ID）")
+        smb_keys = (
+            "ledger_share_path",
+            "ledger_smb_server",
+            "ledger_smb_share",
+            "ledger_smb_relpath",
+            "ledger_smb_username",
+            "ledger_mount_root",
+        )
+        if any(k in payload for k in smb_keys):
+            if str(res.get("ledger_share_path") or "") != str(old_lsp or ""):
+                chg.append("收单台账共享盘路径已更改")
+            elif str(payload.get("ledger_smb_server") or "") and str(
+                payload.get("ledger_smb_server") or ""
+            ) != str(old_smb_server or ""):
+                chg.append("台账共享服务器已更改")
+            else:
+                chg.append("台账共享配置已更改")
+        if "ledger_smb_password" in payload and str(payload.get("ledger_smb_password") or "") != "":
+            chg.append("台账共享凭据已更新")
+        elif "ledger_smb_username" in payload and "台账共享凭据已更新" in note:
+            chg.append("台账共享凭据已更新")
+        return chg
+
     @app.post("/api/v1/admin/settings")
     def api_settings_post(request: Request, payload: dict = Body(default={})):
         user = _require(request)
         old_times = get_schedule_times(cfg)
         old_keep = cfg.get("backup_keep_days")
         old_lsp = cfg.get("ledger_share_path")
+        old_smb_server = cfg.get("ledger_smb_server")
         try:
             res = save_settings(cfg, root, payload)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        chg = []  # C3：设置变更留痕（智云账号只记「已更换」不记值）
-        if ("schedule_times" in payload or "schedule_time" in payload) and res["schedule_times"] != old_times:
-            chg.append(f"更新时间 {'、'.join(old_times) or '—'}→{'、'.join(res['schedule_times'])}")
-        if "backup_keep_days" in payload and res["backup_keep_days"] != old_keep:
-            chg.append(f"备份保留 {old_keep}→{res['backup_keep_days']} 天")
-        if "智云账号已更新" in (res.get("note") or ""):
-            chg.append("智云账号已更换")
-        if "智云连接配置已更新" in (res.get("note") or ""):
-            chg.append("智云连接配置已更改（服务器/表ID）")
-        # 台账路径含内网服务器名（敏感）→ 只记「已更改」不落值（铁律16）
-        if (
-            "ledger_share_path" in payload
-            and str(payload.get("ledger_share_path") or "").strip() != str(old_lsp or "").strip()
-        ):
-            chg.append("收单台账共享盘路径已更改")
-        # 54.12 R-01：overall_see_salary 已废止，忽略 payload 中的该字段
-        # feishu_webhook_url 功能已删除：忽略 payload 中该字段，不记审计、不落盘
+        chg = _settings_audit_changes(
+            payload,
+            res,
+            old_times=old_times,
+            old_keep=old_keep,
+            old_lsp=old_lsp,
+            old_smb_server=old_smb_server,
+        )
         if chg:
-            _audit(cfg, root, user, ("设置", "设置：" + "；".join(chg)))
+            msg = "设置：" + "；".join(chg)
+            if "password" in msg.lower():
+                msg = "设置：台账/系统配置已更改"
+            _audit(cfg, root, user, ("设置", msg))
         return res
 
     # 2.6.7 B-7：/api/alerts/ack 与红色未读横幅一并下线；告警仍 append 写 数据/日志/告警.log

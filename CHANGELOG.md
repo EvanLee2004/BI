@@ -1,4 +1,18 @@
+## 3.7.15 · 2026-08-05（台账共享 CIFS 管理端可配置 · B 方案）
+
+### 台账共享
+- 管理端结构化字段：服务器 / 共享名 / 相对路径 / 账号 / 挂载根（默认 `/mnt/kanban-ledger`）
+- 系统拼装 `ledger_share_path` 供现有 fetch 使用
+- 密码只写不回显：GET 仅 `ledger_smb_password_set`；改密走受控脚本写本机 cred（0600）并 remount
+- 兼容仅有旧 `ledger_share_path`：尽量解析或只读 + 迁移提示
+- 部署：`deploy/linux/kanban-cifs-apply.sh` + `sudoers.d-kanban-cifs` 样例；Runbook/CIFS 步骤单对齐
+
+### 守卫
+- `tests/test_ledger_cifs_3_7_15.py`
+- **未改** profit 公式 / 看板密码明文契约；源码无真实 SMB 密码
+
 ## 3.7.14 · 2026-08-05（审计全量修复 · 除密码）
+
 
 ### 安全 / 鉴权
 - **004**：登录锁 IP 与 CSRF 对称 — 仅 loopback 信任 `X-Forwarded-For` 最左 hop（`csrf_guard.client_ip_for_auth`）

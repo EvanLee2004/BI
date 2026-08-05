@@ -1,7 +1,15 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
+## 2026-08-05 · 3.7.15 台账 CIFS 管理端可配置（B）
+
+- VERSION **3.7.15** · 分支 `task/20260805-cifs-settings-3.7.15` · 基线 `aaa0830`
+- 结构化 smb 字段 + 拼装 `ledger_share_path`；密码只写 cred；apply 脚本 + sudoers 样例
+- 守卫 `tests/test_ledger_cifs_3_7_15.py`；**未** push（默认）；无真实 SMB 密码进仓
+- 候选 tip 见 `docs/验收证据/3_7_15/00_总控勾选.md`
+
 ## 2026-08-05 · 3.7.14 审计全量修复（除密码）
+
 
 - VERSION **3.7.14** · 分支 `task/20260805-audit-fix-3.7.14` · 基线 `32a6a84e5ff24414ff8bbaaac48d6e97a8a40937`
 - 004/003/005/006/007/010/017/H20 + DOC/OPS 仓内；preflight 现网仍 gvfs、无 CIFS

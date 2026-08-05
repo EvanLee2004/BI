@@ -75,8 +75,18 @@ export function useSettingsForm() {
   const sZyUser = ref('')
   const sZyPwd = ref('')
   const sLedgerPath = ref('')
-  /** 3.7.14：管理员只读路径 exists 探测 */
+  /** 3.7.14 / 3.7.15：路径 exists / 挂载 / 密码已设置 */
   const sLedgerPathExists = ref<boolean | null>(null)
+  const sLedgerMountOk = ref<boolean | null>(null)
+  const sLedgerSmbPasswordSet = ref(false)
+  const sLedgerSmbServer = ref('')
+  const sLedgerSmbShare = ref('')
+  const sLedgerSmbRelpath = ref('')
+  const sLedgerSmbUsername = ref('')
+  const sLedgerSmbPassword = ref('')
+  const sLedgerMountRoot = ref('/mnt/kanban-ledger')
+  const sLedgerMigrateHint = ref('')
+  const sLedgerLegacyOnly = ref(false)
   const sZyUrl = ref('')
   const sTblOrders = ref('')
   const sTblReceipts = ref('')
@@ -265,6 +275,15 @@ export function useSettingsForm() {
         zhiyun_password_set?: boolean
         ledger_share_path?: string
         ledger_path_exists?: boolean
+        ledger_mount_ok?: boolean
+        ledger_smb_password_set?: boolean
+        ledger_smb_server?: string
+        ledger_smb_share?: string
+        ledger_smb_relpath?: string
+        ledger_smb_username?: string
+        ledger_mount_root?: string
+        ledger_migrate_hint?: string
+        ledger_legacy_path_only?: boolean
         run_log_keep_days?: number
         disk_free_min_ratio?: number
         zhiyun_conn?: { base_url?: string; tables?: Record<string, string> }
@@ -280,6 +299,16 @@ export function useSettingsForm() {
       sLedgerPath.value = s.ledger_share_path || ''
       sLedgerPathExists.value =
         typeof s.ledger_path_exists === 'boolean' ? s.ledger_path_exists : null
+      sLedgerMountOk.value = typeof s.ledger_mount_ok === 'boolean' ? s.ledger_mount_ok : null
+      sLedgerSmbPasswordSet.value = !!s.ledger_smb_password_set
+      sLedgerSmbServer.value = s.ledger_smb_server || ''
+      sLedgerSmbShare.value = s.ledger_smb_share || ''
+      sLedgerSmbRelpath.value = s.ledger_smb_relpath || ''
+      sLedgerSmbUsername.value = s.ledger_smb_username || ''
+      sLedgerSmbPassword.value = ''
+      sLedgerMountRoot.value = s.ledger_mount_root || '/mnt/kanban-ledger'
+      sLedgerMigrateHint.value = s.ledger_migrate_hint || ''
+      sLedgerLegacyOnly.value = !!s.ledger_legacy_path_only
       sLogKeep.value = s.run_log_keep_days != null ? s.run_log_keep_days : 365
       sDiskMin.value =
         s.disk_free_min_ratio != null ? Math.round(Number(s.disk_free_min_ratio) * 100) : 10
@@ -603,7 +632,18 @@ export function useSettingsForm() {
   }
   async function saveZhiyun() {
     setMsgs.zy = '保存中…'
-    const p: Record<string, unknown> = { ledger_share_path: sLedgerPath.value }
+    const p: Record<string, unknown> = {}
+    // 3.7.15：结构化台账 CIFS；有结构化字段则优先，否则退回旧完整路径
+    if (sLedgerSmbServer.value || sLedgerSmbShare.value || sLedgerSmbRelpath.value) {
+      p.ledger_smb_server = sLedgerSmbServer.value
+      p.ledger_smb_share = sLedgerSmbShare.value
+      p.ledger_smb_relpath = sLedgerSmbRelpath.value
+      p.ledger_mount_root = sLedgerMountRoot.value || '/mnt/kanban-ledger'
+      if (sLedgerSmbUsername.value) p.ledger_smb_username = sLedgerSmbUsername.value
+      if (sLedgerSmbPassword.value) p.ledger_smb_password = sLedgerSmbPassword.value
+    } else if (sLedgerPath.value) {
+      p.ledger_share_path = sLedgerPath.value
+    }
     if (sZyUser.value || sZyPwd.value) {
       p.zhiyun_username = sZyUser.value
       // 留空不改：仅当用户明确填入新密码时才传
@@ -620,12 +660,39 @@ export function useSettingsForm() {
       }
     }
     try {
-      const d = await jpost<{ note?: string }>('/api/v1/admin/settings', p)
+      const d = await jpost<{ note?: string; ledger_share_path?: string }>('/api/v1/admin/settings', p)
       setMsgs.zy = d.note || '已保存'
       sZyPwd.value = ''
+      sLedgerSmbPassword.value = ''
+      if (d.ledger_share_path) sLedgerPath.value = String(d.ledger_share_path)
       try {
-        const s = await jget<{ zhiyun_password_set?: boolean }>('/api/v1/admin/settings')
+        const s = await jget<{
+          zhiyun_password_set?: boolean
+          ledger_smb_password_set?: boolean
+          ledger_path_exists?: boolean
+          ledger_mount_ok?: boolean
+          ledger_share_path?: string
+          ledger_smb_server?: string
+          ledger_smb_share?: string
+          ledger_smb_relpath?: string
+          ledger_smb_username?: string
+          ledger_mount_root?: string
+          ledger_migrate_hint?: string
+          ledger_legacy_path_only?: boolean
+        }>('/api/v1/admin/settings')
         sZyPwdSet.value = !!s.zhiyun_password_set
+        sLedgerSmbPasswordSet.value = !!s.ledger_smb_password_set
+        sLedgerPathExists.value =
+          typeof s.ledger_path_exists === 'boolean' ? s.ledger_path_exists : null
+        sLedgerMountOk.value = typeof s.ledger_mount_ok === 'boolean' ? s.ledger_mount_ok : null
+        if (s.ledger_share_path) sLedgerPath.value = s.ledger_share_path
+        sLedgerSmbServer.value = s.ledger_smb_server || sLedgerSmbServer.value
+        sLedgerSmbShare.value = s.ledger_smb_share || sLedgerSmbShare.value
+        sLedgerSmbRelpath.value = s.ledger_smb_relpath || sLedgerSmbRelpath.value
+        sLedgerSmbUsername.value = s.ledger_smb_username || sLedgerSmbUsername.value
+        sLedgerMountRoot.value = s.ledger_mount_root || sLedgerMountRoot.value
+        sLedgerMigrateHint.value = s.ledger_migrate_hint || ''
+        sLedgerLegacyOnly.value = !!s.ledger_legacy_path_only
       } catch {
         /* ignore */
       }
@@ -790,6 +857,16 @@ export function useSettingsForm() {
     sZyPwdSet,
     sLedgerPath,
     sLedgerPathExists,
+    sLedgerMountOk,
+    sLedgerSmbPasswordSet,
+    sLedgerSmbServer,
+    sLedgerSmbShare,
+    sLedgerSmbRelpath,
+    sLedgerSmbUsername,
+    sLedgerSmbPassword,
+    sLedgerMountRoot,
+    sLedgerMigrateHint,
+    sLedgerLegacyOnly,
     sZyUrl,
     sTblOrders,
     sTblReceipts,

@@ -26,6 +26,16 @@ const {
   sZyPwdSet,
   sLedgerPath,
   sLedgerPathExists,
+  sLedgerMountOk,
+  sLedgerSmbPasswordSet,
+  sLedgerSmbServer,
+  sLedgerSmbShare,
+  sLedgerSmbRelpath,
+  sLedgerSmbUsername,
+  sLedgerSmbPassword,
+  sLedgerMountRoot,
+  sLedgerMigrateHint,
+  sLedgerLegacyOnly,
   sZyUrl,
   sTblOrders,
   sTblReceipts,
@@ -197,15 +207,68 @@ import './settings-view.css'
                 @input="mark('zy')"
               />
             </el-form-item>
-            <el-form-item label="收单台账共享盘路径">
-              <el-input v-model="sLedgerPath" placeholder="共享盘路径" @input="mark('zy')" />
-              <div
-                v-if="sLedgerPathExists !== null"
-                class="muted"
-                style="margin-top: 4px; font-size: 12px"
-                data-testid="ledger-path-exists"
-              >
-                路径探测：{{ sLedgerPathExists ? '存在可读' : '当前不存在（gvfs 断会话或未挂载时常见）' }}
+            <el-divider content-position="left">收单台账 · 公司共享盘（CIFS）</el-divider>
+            <p class="muted" style="margin: 0 0 8px; font-size: 12px; line-height: 1.45">
+              系统开机自动挂载；此处改服务器/文件夹/账号后点保存即可。密码留空表示不修改。部署机须连公司
+              <b>BESTEASY</b> Wi‑Fi（见 Runbook）。
+            </p>
+            <el-form-item label="服务器">
+              <el-input
+                v-model="sLedgerSmbServer"
+                placeholder="例如内网文件服务器 IP 或主机名"
+                data-testid="ledger-smb-server"
+                @input="mark('zy')"
+              />
+            </el-form-item>
+            <el-form-item label="共享名">
+              <el-input v-model="sLedgerSmbShare" placeholder="共享文件夹名" data-testid="ledger-smb-share" @input="mark('zy')" />
+            </el-form-item>
+            <el-form-item label="台账相对路径">
+              <el-input
+                v-model="sLedgerSmbRelpath"
+                placeholder="共享内相对路径，如 部门/收单台账.xlsx"
+                data-testid="ledger-smb-relpath"
+                @input="mark('zy')"
+              />
+            </el-form-item>
+            <el-form-item label="挂载根（高级）">
+              <el-input v-model="sLedgerMountRoot" placeholder="/mnt/kanban-ledger" data-testid="ledger-mount-root" @input="mark('zy')" />
+            </el-form-item>
+            <el-form-item label="共享账号">
+              <el-input
+                v-model="sLedgerSmbUsername"
+                autocomplete="username"
+                placeholder="SMB 用户名"
+                data-testid="ledger-smb-username"
+                @input="mark('zy')"
+              />
+            </el-form-item>
+            <el-form-item :label="sLedgerSmbPasswordSet ? '共享密码（已设置；留空不改）' : '共享密码'">
+              <el-input
+                v-model="sLedgerSmbPassword"
+                type="password"
+                show-password
+                autocomplete="new-password"
+                :placeholder="sLedgerSmbPasswordSet ? '已设置；留空不改' : '请输入密码'"
+                data-testid="ledger-smb-password"
+                @input="mark('zy')"
+              />
+            </el-form-item>
+            <el-form-item label="拼装路径（只读）">
+              <el-input v-model="sLedgerPath" readonly data-testid="ledger-share-path-ro" />
+              <div class="muted" style="margin-top: 4px; font-size: 12px" data-testid="ledger-path-status">
+                <span v-if="sLedgerPathExists !== null">
+                  路径：{{ sLedgerPathExists ? '存在可读' : '当前不存在' }}
+                </span>
+                <span v-if="sLedgerMountOk !== null"> · 挂载：{{ sLedgerMountOk ? 'CIFS 已挂' : '未挂/非 CIFS' }}</span>
+                <span> · 密码：{{ sLedgerSmbPasswordSet ? '已配置' : '未配置' }}</span>
+              </div>
+              <div v-if="sLedgerMigrateHint" class="muted" style="margin-top: 4px; font-size: 12px" data-testid="ledger-migrate-hint">
+                {{ sLedgerMigrateHint }}
+              </div>
+              <div v-if="sLedgerLegacyOnly" class="muted" style="margin-top: 4px; font-size: 12px">
+                旧版完整路径模式：可继续只改下方兼容字段，或改填上方结构化字段后保存。
+                <el-input v-model="sLedgerPath" placeholder="旧 ledger_share_path" style="margin-top: 6px" @input="mark('zy')" />
               </div>
             </el-form-item>
             <el-button type="primary" plain style="margin-top: 8px" @click="zyDrawer = true">智云服务器与抓取表（一般不用改）</el-button>

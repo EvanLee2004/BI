@@ -245,12 +245,25 @@ def _parse_backup_keep_days(cfg, payload: dict) -> int:
     return keep
 
 
-def _apply_optional_local_settings(cfg, payload: dict, updates: dict) -> None:
-    """收单路径 / 日志保留 / 磁盘阈值 → cfg + updates（就地改）。"""
+def _apply_ledger_share_from_payload(cfg, payload: dict, updates: dict) -> None:
+    """3.7.15：结构化 smb 优先；否则旧 ledger_share_path。"""
+    import ledger_cifs as _lc
+
+    structured = _lc.merge_structured(cfg, payload)
+    if structured:
+        for k, v in structured.items():
+            cfg[k] = v
+            updates[k] = v
+        return
     if "ledger_share_path" in payload:
         lsp = str(payload.get("ledger_share_path") or "").strip()
         cfg["ledger_share_path"] = lsp
         updates["ledger_share_path"] = lsp
+
+
+def _apply_optional_local_settings(cfg, payload: dict, updates: dict) -> None:
+    """收单路径 / 日志保留 / 磁盘阈值 → cfg + updates（就地改）。"""
+    _apply_ledger_share_from_payload(cfg, payload, updates)
     # 54.12 R-01：工资全端隐藏，不再接受 overall_see_salary 开关
     # 飞书 webhook 功能已删除：payload 中 feishu_webhook_url 一律忽略（不写 updates）
     cfg.pop("feishu_webhook_url", None)
@@ -318,6 +331,39 @@ def _apply_zhiyun_payload(cfg, root, payload: dict) -> tuple[str, str]:
     return cred_note, _resolve_zhiyun_conn_update(cfg, root, payload)
 
 
+def _apply_cifs_creds_if_needed(cfg, payload: dict) -> str:
+    """3.7.15：改 username/password 时调受控 apply 脚本；返回 note 片段。"""
+    import ledger_cifs as _lc
+
+    if not _lc.should_apply_credentials(payload):
+        return ""
+    user = str(payload.get(_lc.KEY_USERNAME) if _lc.KEY_USERNAME in payload else cfg.get(_lc.KEY_USERNAME) or "")
+    user = user.strip()
+    if not user and not (payload.get("ledger_smb_password") not in (None, "")):
+        # 无用户名又无新密码 → 跳过
+        return ""
+    if not user:
+        user = str(cfg.get(_lc.KEY_USERNAME) or "").strip()
+    if not user:
+        raise ValueError("更新共享盘凭据须填写账号")
+    pw = payload.get("ledger_smb_password")
+    pw_s = None if pw is None or str(pw) == "" else str(pw)
+    server = str(cfg.get(_lc.KEY_SERVER) or "")
+    share = str(cfg.get(_lc.KEY_SHARE) or "")
+    mount_root = str(cfg.get(_lc.KEY_MOUNT_ROOT) or _lc.DEFAULT_MOUNT_ROOT)
+    try:
+        _lc.run_cifs_apply(
+            username=user,
+            password=pw_s,
+            server=server,
+            share=share,
+            mount_root=mount_root,
+        )
+    except RuntimeError as e:
+        raise ValueError(str(e)) from e
+    return "；台账共享凭据已更新（本机 cred，未写入配置库）"
+
+
 def save_settings(cfg, root, payload: dict) -> dict:
     """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
     改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
@@ -334,19 +380,28 @@ def save_settings(cfg, root, payload: dict) -> dict:
     # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
     updates = {"schedule_time": st, "schedule_times": times, "backup_keep_days": keep, "zhiyun_auto_fetch": auto}
     _apply_optional_local_settings(cfg, payload, updates)
+    # 密码字段绝不写本地配置
     loaders.write_local_config(cfg, root, updates)
 
     cred_note, conn_note = _apply_zhiyun_payload(cfg, root, payload)
-    note = "已保存" + cred_note + conn_note
+    cifs_note = _apply_cifs_creds_if_needed(cfg, payload)
+    note = "已保存" + cred_note + conn_note + cifs_note
     # 仅当本次真的提交了更新时间时才动计划任务/cron（各卡就近保存；平台分支见 sync_schedule）
     if changed_times:
         note += sync_schedule(times, root)
+    import ledger_cifs as _lc
+
     return {
         "schedule_time": st,
         "schedule_times": times,
         "backup_keep_days": keep,
         "zhiyun_auto_fetch": auto,
         "ledger_share_path": cfg.get("ledger_share_path", ""),
+        _lc.KEY_SERVER: cfg.get(_lc.KEY_SERVER, ""),
+        _lc.KEY_SHARE: cfg.get(_lc.KEY_SHARE, ""),
+        _lc.KEY_RELPATH: cfg.get(_lc.KEY_RELPATH, ""),
+        _lc.KEY_USERNAME: cfg.get(_lc.KEY_USERNAME, ""),
+        _lc.KEY_MOUNT_ROOT: cfg.get(_lc.KEY_MOUNT_ROOT, _lc.DEFAULT_MOUNT_ROOT),
         "overall_see_salary": False,  # 54.12 R-01 已废止开关，固定 False 兼容旧前端
         "run_log_keep_days": int(cfg.get("run_log_keep_days", 365) or 365),
         "disk_free_min_ratio": float(cfg.get("disk_free_min_ratio", 0.10) or 0.10),

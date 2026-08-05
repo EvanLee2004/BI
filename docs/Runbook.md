@@ -30,16 +30,18 @@
 | **网络可达** | `ping 192.168.10.151`、TCP **445** 通 | 仅说明 SMB 主机活；**≠** 已挂载可读 |
 | **CIFS/fstab**（目标态） | `/mnt/kanban-ledger` + fstab 行 | 系统级；步骤见 `docs/运维_收单台账CIFS_fstab步骤单_只写不执行.md`（**人白天执行**；AI/脚本不 mount） |
 
-**前置**：部署机连公司 Wi‑Fi **BESTEASY**（非 GUEST）。共享主机为 **`192.168.10.151`**（勿死盯 `192.168.1.151`）。
+**前置**：部署机连公司 Wi‑Fi **BESTEASY**（非 GUEST）。共享主机以管理端/本地配置为准（现网常见 **`192.168.10.151`**）。
+
+**3.7.15 管理端 B 方案**：设置页「收单台账 · 公司共享盘」可改服务器/共享名/相对路径/账号；密码**留空=不改**、永不回显。保存非密到 `数据/本地配置.json` 并拼装 `ledger_share_path`；改账号/密码走受控脚本 `deploy/linux/kanban-cifs-apply.sh`（sudoers 样例 `sudoers.d-kanban-cifs`）写 `/etc/kanban/cifs-ledger.cred` 并 remount。**禁止**把真实密码写进 git。
 
 **排障速查（台账红 / local_fallback）**：
 
 1. `nmcli -t -f active,ssid dev wifi` 是否 BESTEASY  
-2. `ping -c2 192.168.10.151`；445 是否通  
-3. `gio mount -l` / `ls /run/user/1000/gvfs/` 是否仍有「财务部」  
-4. 管理端设置：`ledger_share_path` 形态 + 只读字段 **`ledger_path_exists`**（3.7.14）  
-5. **禁止**为「修一下」而 `umount` / `gio mount -u` 现网 gvfs（会弄丢唯一挂载）  
-6. 长期：按 CIFS 步骤单切 `/mnt/kanban-ledger`（另授权运维窗）
+2. `ping` 配置中的服务器；445 是否通  
+3. `findmnt /mnt/kanban-ledger` 是否 **cifs**  
+4. 管理端：结构化字段 + `ledger_path_exists` / `ledger_mount_ok` / `ledger_smb_password_set`  
+5. **禁止**擅自 umount 现网唯一挂载  
+6. 安装 apply：`sudo install -m755 deploy/linux/kanban-cifs-apply.sh /usr/local/sbin/kanban-cifs-apply` + sudoers 样例
 
 ## 1. 服务挂了
 

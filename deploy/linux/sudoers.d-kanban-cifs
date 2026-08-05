@@ -1,0 +1,9 @@
+# 甲骨易经营看板 · CIFS 台账 apply（3.7.15）
+# 安装：sudo cp deploy/linux/sudoers.d-kanban-cifs /etc/sudoers.d/kanban-cifs
+#       sudo chmod 440 /etc/sudoers.d/kanban-cifs && sudo visudo -cf /etc/sudoers.d/kanban-cifs
+# 仅允许 lee（或部署 User）无密码执行固定脚本，禁止任意 shell。
+#
+# 默认：
+lee ALL=(root) NOPASSWD: /usr/local/sbin/kanban-cifs-apply
+# 若脚本仍在仓库路径（开发机），可另加一行（部署机按实际路径）：
+# lee ALL=(root) NOPASSWD: /opt/kanban/看板正式程序/deploy/linux/kanban-cifs-apply.sh

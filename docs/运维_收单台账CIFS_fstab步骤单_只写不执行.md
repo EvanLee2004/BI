@@ -1,7 +1,7 @@
 # 收单台账共享盘 · CIFS/fstab 步骤单（**只写不执行**）
 
-> 2.6.8 T4 产出 · 2026-07-27 · **3.7.14 对齐现网实况（G8）**  
-> **本文件仅供白天在公司由运维/明昊手动执行。代码/Goal/脚本绝不改 `/etc/fstab`、不动现网 gvfs、不写 smb 凭据、不 umount。**
+> 2.6.8 T4 产出 · 2026-07-27 · **3.7.14 对齐** · **3.7.15 管理端 B 方案**  
+> **本文件仅供白天在公司由运维/明昊手动执行。AI Goal 默认不改生产 fstab/cred/umount；管理端改密走受控 apply 脚本（另装 sudoers）。**
 
 ## 现网实况（2026-08-05 preflight · 与审计 08 一致）
 
@@ -52,8 +52,19 @@
 
 - 路径改回 gvfs 或仅本地副本；注释 fstab 行；`sudo umount /mnt/kanban-ledger`（**仅人授权**）。
 
+## 3.7.15 与管理端 B 对齐
+
+| 项 | 说明 |
+|----|------|
+| 本地配置 | `ledger_smb_*` + 派生 `ledger_share_path`（无密码） |
+| 本机 cred | `/etc/kanban/cifs-ledger.cred` mode 0600 |
+| 应用脚本 | `deploy/linux/kanban-cifs-apply.sh` → 建议 `/usr/local/sbin/kanban-cifs-apply` |
+| sudoers | `deploy/linux/sudoers.d-kanban-cifs` 仅允许固定脚本 |
+| 抓数 | 仍读 `ledger_share_path`（行为不变） |
+| 兼容 | 仅有旧 `ledger_share_path` 时 GET 尽量解析或只读 + 迁移提示 |
+
 ## 禁止
 
 - 把真实账号/密码写进本仓库或公开文档。
-- 在无人值守脚本 / AI Goal 里改 fstab、写 cred、umount gvfs、reboot 验收。
-- 管理端存 SMB 密码并自动 mount（方案③，明确不做）。
+- 在无人值守脚本 / AI Goal 里改 fstab、写 cred、umount、reboot 验收（无控制卡预授权）。
+- Python 进程内任意 `sudo` shell；仅文档化 apply 接口。
