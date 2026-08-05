@@ -1,1 +1,0 @@
-.exp-heat-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.exp-heat-legend{font-size:12px;color:var(--mut, var(--note));margin:0 0 8px;line-height:1.4}.exp-heat-fill{min-height:300px;height:360px;width:100%;min-width:0;border-radius:var(--radius-md, 10px)}@media (max-width: 520px){.exp-heat-fill{min-width:560px;height:320px}.exp-heat-legend{font-size:11px}}
