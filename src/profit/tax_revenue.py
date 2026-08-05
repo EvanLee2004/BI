@@ -52,8 +52,8 @@ def split_tax(gross_fen: int, vat_rate: float) -> dict[str, int]:
 def compute_revenue_cost(project_rows, cols_cfg, start, end, vat_rate):
     dcol, rcol, ccol = cols_cfg["project_delivery_date"], cols_cfg["project_revenue"], cols_cfg["project_cost"]
     matched = [r for r in project_rows if periods.date_in_range(loaders.parse_date_parts(r.get(dcol)), start, end)]
-    gross = sum(money.as_fen(r.get(rcol)) for r in matched)
-    cost = sum(money.as_fen(r.get(ccol)) for r in matched)
+    gross = sum(money.amount_cell_to_fen(r.get(rcol)) for r in matched)
+    cost = sum(money.amount_cell_to_fen(r.get(ccol)) for r in matched)
     tax = split_tax(gross, vat_rate)
     return {**tax, "delivery_count": len(matched), "system_direct_cost": int(cost)}
 
@@ -64,7 +64,7 @@ def _sum_amount_in_period(rows, amount_col, date_col, start, end, extra=None):
         if extra and not extra(r):
             continue
         if periods.date_in_range(loaders.parse_date_parts(r.get(date_col)), start, end):
-            tot += money.as_fen(r.get(amount_col))
+            tot += money.amount_cell_to_fen(r.get(amount_col))
     return int(tot)
 
 
@@ -94,7 +94,7 @@ def compute_name_month_totals(rows, name_col, amount_col, date_col, year: int, n
         n = str(r.get(name_col) or "").strip()
         if n not in want:
             continue
-        acc[n][m - 1] += money.as_fen(r.get(amount_col))
+        acc[n][m - 1] += money.amount_cell_to_fen(r.get(amount_col))
     return {n: [round(v, 2) for v in vals] for n, vals in acc.items()}
 
 
@@ -152,7 +152,7 @@ def compute_ranking(rows, name_col, amount_col, date_col, start, end, top=10, em
         raw_name = name_of(r) if name_of else r.get(name_col)
         name = str(raw_name or "").strip() or empty_label
         a = agg.setdefault(name, [0.0, 0])
-        a[0] += money.as_fen(r.get(amount_col))
+        a[0] += money.amount_cell_to_fen(r.get(amount_col))
         a[1] += 1
     total = round(sum(v[0] for v in agg.values()), 2)
     uf = agg.pop(empty_label, None)
@@ -186,8 +186,8 @@ def compute_profit_ranking(
             continue
         name = str(r.get(name_col) or "").strip() or empty_label
         a = agg.setdefault(name, [0, 0, 0])
-        a[0] += money.as_fen(r.get(rcol))
-        a[1] += money.as_fen(r.get(ccol))
+        a[0] += money.amount_cell_to_fen(r.get(rcol))
+        a[1] += money.amount_cell_to_fen(r.get(ccol))
         a[2] += 1
 
     def _row(name, g):

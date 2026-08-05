@@ -305,7 +305,7 @@ def _accumulate_rows(
         if not periods.date_in_range(parts, start, end):
             continue
         name = str(r.get("客户") or "").strip()
-        fen = int(money.as_fen(r.get(amount_col)))
+        fen = int(money.amount_cell_to_fen(r.get(amount_col)))
         if not name:
             if fen:
                 unfilled_amt += fen

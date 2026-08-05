@@ -36,6 +36,13 @@ class TestFin001NoBareFloatInAsFen(unittest.TestCase):
     def test_yuan_to_fen_is_yuan_path(self):
         self.assertEqual(money.yuan_to_fen(100.5), 10050)
 
+    def test_amount_cell_to_fen_boundary(self):
+        """边界：int=分，float=元；as_fen 仍拒 float。"""
+        self.assertEqual(money.amount_cell_to_fen(10050), 10050)
+        self.assertEqual(money.amount_cell_to_fen(100.5), 10050)
+        with self.assertRaises(TypeError):
+            money.as_fen(100.5)
+
 
 class TestFin002RejectBadAmountsOnIngress(unittest.TestCase):
     def test_yuan_to_fen_rejects_garbage(self):

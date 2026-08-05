@@ -260,7 +260,7 @@ def _row_month_cat_amt(row, ledger_year, lcols, cfg, year, profit_center, c_amt,
         pc = str(row[c_pc] if len(row) > c_pc else "").strip()
         if pc != profit_center:
             return None
-    amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
+    amt = money.amount_cell_to_fen(row[c_amt] if len(row) > c_amt else None)
     if not amt:
         return None
     cat, is_unc = columns.classify_expense_category(row, cfg, lcols)
@@ -391,7 +391,7 @@ def compute_daily(order_rows, receipt_rows, cols_cfg, start, end, top=10, sales_
             if not periods.date_in_range(d, start, end):
                 continue
             slot = days.setdefault(f"{d[0]:04d}-{d[1]:02d}-{d[2]:02d}", [0.0, 0, 0.0, 0])
-            slot[ai] += money.as_fen(r.get(amount_col))
+            slot[ai] += money.amount_cell_to_fen(r.get(amount_col))
             slot[ci] += 1
 
     _acc(order_rows, cols_cfg["order_amount"], cols_cfg["order_date"], 0, 1)
@@ -470,7 +470,7 @@ def detax_ledger_rows(ledger_header, ledger_rows, detax_rates):
         fine = str(fine_raw).strip() if fine_raw not in (None, "") else ""
         r = detax_rates.get(fine)
         if r and float(r) > 0 and len(row) > c_amt:
-            amt_fen = money.as_fen(row[c_amt])
+            amt_fen = money.amount_cell_to_fen(row[c_amt])
             if amt_fen:
                 lst = list(row)
                 # 任务书66·A：分上 Decimal ÷ (1+税率/100)，ROUND_HALF_UP；写回 int 分
@@ -492,7 +492,7 @@ def compute_ledger_expenses(ledger_rows, ledger_year, start, end, cfg, lcols):
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        amt = int(money.amount_cell_to_fen(row[c_amt] if len(row) > c_amt else None) or 0)
         if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
@@ -517,7 +517,7 @@ def compute_expenses_by_fine_type(ledger_rows, ledger_year, start, end, cfg, lco
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        amt = int(money.amount_cell_to_fen(row[c_amt] if len(row) > c_amt else None) or 0)
         if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):
@@ -547,7 +547,7 @@ def compute_expenses_by_group(ledger_rows, ledger_year, start, end, cfg, lcols, 
     for row in ledger_rows:
         if is_manual_alloc_ledger_row(row, cfg, lcols):
             continue  # 任务书61·J
-        amt = int(money.as_fen(row[c_amt] if len(row) > c_amt else None) or 0)
+        amt = int(money.amount_cell_to_fen(row[c_amt] if len(row) > c_amt else None) or 0)
         if amt == 0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):

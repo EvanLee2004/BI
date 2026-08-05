@@ -141,10 +141,10 @@ def as_fen(val: Any) -> int:
     """算账层统一入分（FIN-001 **单一语义：只认已是分**）。
 
     - **int**（非 bool）= 已是分（db.load_* 必须 int() 后再传入）
-    - **float** = **拒绝** TypeError（禁止与 _fen_amount 分/元双语义并存）
-      进料请 ``yuan_to_fen(元)``；库读请 ``int(...)``
+    - **float** = **拒绝** TypeError（禁止与「float=元」双语义）
+      进料请 ``yuan_to_fen(元)``；库读请 ``int(...)``；混合单元格用 ``amount_cell_to_fen``
     - **纯整数字符串** = 分（adj 原值等）
-    - **带小数点的 str** = 元文本（xlsx 残留路径，走 yuan_to_fen）
+    - **带小数点的 str** = 元文本（走 yuan_to_fen）
     - None/空 → 0
     """
     if val is None:
@@ -168,6 +168,26 @@ def as_fen(val: Any) -> int:
             return 0
     f = yuan_to_fen(s)  # 小数点 str → 元；非法 raise
     return 0 if f is None else f
+
+
+def amount_cell_to_fen(val: Any) -> int:
+    """边界入分：兼容「库 int 分」与「文件 float/str 元」。
+
+    - int → 分
+    - float → **元**（xlsx/openpyxl 单元格）→ yuan_to_fen
+    - str → as_fen 规则（整字=分，小数点=元）
+    FIN-001：双语义**只允许**出现在本边界函数，禁止在 as_fen 内。
+    """
+    if val is None or val == "":
+        return 0
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        fen = yuan_to_fen(val)
+        return 0 if fen is None else fen
+    return as_fen(val)
 
 
 def fen_to_yuan(fen: Any) -> float:

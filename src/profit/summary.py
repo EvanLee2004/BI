@@ -251,7 +251,7 @@ def scan_unknown_profit_centers(ledger_rows, ledger_year, lcols, cfg, bu_names, 
     for row in ledger_rows:
         if not row:
             continue
-        amt = money.as_fen(row[c_amt] if len(row) > c_amt else None)
+        amt = money.amount_cell_to_fen(row[c_amt] if len(row) > c_amt else None)
         if amt == 0.0:
             continue
         if not periods.date_in_range(periods.ledger_row_date(row, ledger_year, lcols), start, end):

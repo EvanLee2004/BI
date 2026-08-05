@@ -79,10 +79,10 @@ def manual_for_period(cfg, filled, start, end, cur_date) -> dict[str, int]:
     for ym in ms:
         for k, v in filled.get(ym, {}).items():
             if k in out:
-                out[k] += money.as_fen(v)
+                out[k] += money.amount_cell_to_fen(v)
             else:
                 # 配置外项目也累加（兼容后加项）
-                out[k] = out.get(k, 0) + money.as_fen(v)
+                out[k] = out.get(k, 0) + money.amount_cell_to_fen(v)
     return {k: int(v) for k, v in out.items()}
 
 
