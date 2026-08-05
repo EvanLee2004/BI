@@ -331,12 +331,25 @@ def _apply_zhiyun_payload(cfg, root, payload: dict) -> tuple[str, str]:
     return cred_note, _resolve_zhiyun_conn_update(cfg, root, payload)
 
 
-def _apply_cifs_creds_if_needed(cfg, root, payload: dict, updates: dict) -> str:
-    """3.7.15：仅密码变更 / username 真变更 / 显式 apply 时调脚本；写 password_set 标志。"""
+def _apply_cifs_creds_if_needed(
+    cfg,
+    root,
+    payload: dict,
+    updates: dict,
+    *,
+    cfg_before: dict | None = None,
+) -> str:
+    """3.7.15：仅密码变更 / username 真变更 / 显式 apply 时调脚本；写 password_set 标志。
+
+    ``cfg_before`` 必须是 merge 前的快照：username 变更判定不能用已写回的 cfg
+   （否则 new==old 永远不 apply）。
+    """
     import ledger_cifs as _lc
 
-    if not _lc.should_apply_credentials(payload, cfg):
+    gate_cfg = cfg_before if cfg_before is not None else cfg
+    if not _lc.should_apply_credentials(payload, gate_cfg):
         return ""
+    # 账号/服务器等取 merge 后生效值（payload 优先）
     user = str(
         payload.get(_lc.KEY_USERNAME) if _lc.KEY_USERNAME in payload else cfg.get(_lc.KEY_USERNAME) or ""
     ).strip()
@@ -369,6 +382,8 @@ def _apply_cifs_creds_if_needed(cfg, root, payload: dict, updates: dict) -> str:
 def save_settings(cfg, root, payload: dict) -> dict:
     """校验并落盘设置（支持各卡就近保存：只传要改的字段即可）。
     改运行中 cfg + 重写 config.json。Windows 上改更新时间会顺手同步计划任务（多时间点=多任务）。"""
+    import ledger_cifs as _lc
+
     times, st, changed_times = _parse_schedule_times_payload(cfg, payload)
     keep = _parse_backup_keep_days(cfg, payload)
     auto = (
@@ -377,6 +392,17 @@ def save_settings(cfg, root, payload: dict) -> dict:
         else bool(cfg.get("zhiyun_auto_fetch", False))
     )
 
+    # apply 门闩必须用 merge 前快照（username 变更判定）
+    cfg_before = {
+        _lc.KEY_USERNAME: cfg.get(_lc.KEY_USERNAME),
+        _lc.KEY_SERVER: cfg.get(_lc.KEY_SERVER),
+        _lc.KEY_SHARE: cfg.get(_lc.KEY_SHARE),
+        _lc.KEY_RELPATH: cfg.get(_lc.KEY_RELPATH),
+        _lc.KEY_MOUNT_ROOT: cfg.get(_lc.KEY_MOUNT_ROOT),
+        _lc.KEY_SHARE_PATH: cfg.get(_lc.KEY_SHARE_PATH),
+        _lc.KEY_PASSWORD_SET: cfg.get(_lc.KEY_PASSWORD_SET),
+    }
+
     cfg["schedule_time"], cfg["backup_keep_days"], cfg["zhiyun_auto_fetch"] = st, keep, auto
     cfg["schedule_times"] = times
     # 落到机器本地覆盖文件（数据/本地配置.json），**绝不写 config.json** → git 工作区干净 → 一键更新可用。
@@ -384,13 +410,14 @@ def save_settings(cfg, root, payload: dict) -> dict:
     _apply_optional_local_settings(cfg, payload, updates)
     # 先 apply（可能写 password_set），再落盘；密码正文绝不写本地配置
     cred_note, conn_note = _apply_zhiyun_payload(cfg, root, payload)
-    cifs_note = _apply_cifs_creds_if_needed(cfg, root, payload, updates)
+    cifs_note = _apply_cifs_creds_if_needed(
+        cfg, root, payload, updates, cfg_before=cfg_before
+    )
     loaders.write_local_config(cfg, root, updates)
     note = "已保存" + cred_note + conn_note + cifs_note
     # 仅当本次真的提交了更新时间时才动计划任务/cron（各卡就近保存；平台分支见 sync_schedule）
     if changed_times:
         note += sync_schedule(times, root)
-    import ledger_cifs as _lc
 
     return {
         "schedule_time": st,

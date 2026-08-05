@@ -276,6 +276,85 @@ class TestHttpSettings3715(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json().get("ledger_share_path"), "/mnt/kanban-ledger/legacy/only.xlsx")
 
+    def test_username_only_change_calls_apply_via_save_settings(self):
+        """真实入口 save_settings：merge 后 username 已写入 cfg，门闩须用 merge 前快照。
+
+        无 password、无 ledger_smb_apply_creds，仅改 username → 仍须 call apply。
+        """
+        import settings_io
+
+        cfg = {
+            lc.KEY_SERVER: "10.20.30.40",
+            lc.KEY_SHARE: "财务部",
+            lc.KEY_RELPATH: "team/台账.xlsx",
+            lc.KEY_USERNAME: "user_old",
+            lc.KEY_MOUNT_ROOT: "/mnt/kanban-ledger",
+            lc.KEY_SHARE_PATH: "/mnt/kanban-ledger/team/台账.xlsx",
+            "schedule_time": "09:30",
+            "schedule_times": ["09:30"],
+            "backup_keep_days": 30,
+            "zhiyun_auto_fetch": False,
+        }
+        tmp = Path(tempfile.mkdtemp(prefix="t3715_userchg_"))
+        self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
+        (tmp / "数据").mkdir()
+        # write_local_config 需要 data_dir
+        cfg["data_dir"] = "数据"
+        with mock.patch("ledger_cifs.run_cifs_apply", return_value="ok") as m:
+            with mock.patch("loaders.write_local_config"):
+                res = settings_io.save_settings(
+                    cfg,
+                    tmp,
+                    {
+                        lc.KEY_SERVER: "10.20.30.40",
+                        lc.KEY_SHARE: "财务部",
+                        lc.KEY_RELPATH: "team/台账.xlsx",
+                        lc.KEY_USERNAME: "user_new",  # 变更；无 password / 无 apply flag
+                        lc.KEY_MOUNT_ROOT: "/mnt/kanban-ledger",
+                    },
+                )
+        m.assert_called_once()
+        kwargs = m.call_args.kwargs
+        self.assertEqual(kwargs.get("username"), "user_new")
+        self.assertIn("台账共享凭据已更新", res.get("note") or "")
+
+    def test_http_username_only_change_calls_apply(self):
+        """HTTP POST：先落盘旧账号，再只改 username（无 flag）→ apply 被调。"""
+        hdr = self._login_admin()
+        # seed structured + username
+        with mock.patch("ledger_cifs.run_cifs_apply", return_value="ok"):
+            r0 = self.client.post(
+                "/api/v1/admin/settings",
+                headers=hdr,
+                json={
+                    lc.KEY_SERVER: "10.20.30.40",
+                    lc.KEY_SHARE: "财务部",
+                    lc.KEY_RELPATH: "team/台账.xlsx",
+                    lc.KEY_USERNAME: "http_old",
+                    lc.KEY_MOUNT_ROOT: "/mnt/kanban-ledger",
+                    "ledger_smb_password": "fixture_pw_not_prod",
+                },
+            )
+            self.assertEqual(r0.status_code, 200, r0.text)
+
+        with mock.patch("ledger_cifs.run_cifs_apply", return_value="ok") as m:
+            r = self.client.post(
+                "/api/v1/admin/settings",
+                headers=hdr,
+                json={
+                    lc.KEY_SERVER: "10.20.30.40",
+                    lc.KEY_SHARE: "财务部",
+                    lc.KEY_RELPATH: "team/台账.xlsx",
+                    lc.KEY_USERNAME: "http_new",
+                    lc.KEY_MOUNT_ROOT: "/mnt/kanban-ledger",
+                    # 无 password、无 ledger_smb_apply_creds
+                },
+            )
+            self.assertEqual(r.status_code, 200, r.text)
+            m.assert_called_once()
+            self.assertEqual(m.call_args.kwargs.get("username"), "http_new")
+            self.assertNotIn("fixture_pw_not_prod", r.text)
+
 
 class TestApplyScriptTmpdir(unittest.TestCase):
     def test_script_writes_cred_0600(self):
