@@ -27,13 +27,12 @@ def candidate_health_ok(
     runtime_commit: str | None = None,
     disk_commit: str | None = None,
     runtime_pid: str | int | None = None,
-    require_runtime_align: bool = False,
+    require_runtime_align: bool = True,
 ) -> tuple[bool, str]:
     """旁路候选预热成功判据。
 
-    默认（require_runtime_align=False）：health 200 即通过。
-    候选不写共享 runtime_marker，避免盖住主进程标记；故默认不强制 metrics 对齐。
-    严格模式才校验 version/commit/pid（主进程切流后用 publish_preflight）。
+    OPS-002 / TEST-005：生产默认 require_runtime_align=True，须 version/commit 与磁盘对齐。
+    仅显式 False 时退化为 health 200（调试用，禁止生产）。
     """
     try:
         code = int(health_code)

@@ -15,13 +15,18 @@ from publish_bluegreen import (
 
 
 class TestCandidateHealth(unittest.TestCase):
-    def test_ok_http_only(self):
+    def test_default_requires_align(self):
+        """OPS-002/TEST-005：默认 require_runtime_align=True，仅 200 不够。"""
         ok, reason = candidate_health_ok(health_code=200)
+        self.assertFalse(ok, reason)
+
+    def test_loose_http_only(self):
+        ok, reason = candidate_health_ok(health_code=200, require_runtime_align=False)
         self.assertTrue(ok, reason)
         self.assertEqual(reason, "ok_http_200")
 
     def test_bad_health(self):
-        ok, reason = candidate_health_ok(health_code=503)
+        ok, reason = candidate_health_ok(health_code=503, require_runtime_align=False)
         self.assertFalse(ok)
         self.assertIn("health_not_200", reason)
 
@@ -37,6 +42,17 @@ class TestCandidateHealth(unittest.TestCase):
         )
         self.assertFalse(ok)
         self.assertIn("version_mismatch", reason)
+
+    def test_strict_ok_when_aligned(self):
+        ok, reason = candidate_health_ok(
+            health_code=200,
+            runtime_version="3.7.16",
+            disk_version="3.7.16",
+            runtime_commit="abc1234",
+            disk_commit="abc1234",
+            runtime_pid=42,
+        )
+        self.assertTrue(ok, reason)
 
 
 class TestUpstreamRender(unittest.TestCase):

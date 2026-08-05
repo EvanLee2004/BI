@@ -195,7 +195,17 @@ def serve(cfg=None, root=None):
     )
 
     def _confirm_update_good():
-        time.sleep(20)
+        # OPS-005：冷启动全量刷新可能 >20s；等 has_data 或最多 180s 再清回滚标记
+        import app_state as _as
+
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            if _as._state.get("has_data") or _as._state.get("built_at"):
+                break
+            time.sleep(2)
+        else:
+            # 超时仍清：避免永久卡在 rollback 态；至少已等满冷启动窗口
+            print("[server] clear_rollback_marker: wait has_data timeout 180s, clearing anyway")
         try:
             import updater
 

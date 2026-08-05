@@ -12,9 +12,18 @@ HEALTH_URL="${KANBAN_HEALTH_URL:-http://127.0.0.1:8018/api/v1/health}"
 echo "[reload] root=$ROOT $(date '+%Y-%m-%d %H:%M:%S')"
 
 # --- helpers ---
+# OPS-004：只杀主端口 --serve，勿波及候选预热 (KANBAN_PORT=8019)
+PRIMARY_PORT="${KANBAN_PORT:-8018}"
 list_serve_pids() {
-  # 中文路径在 ps 中可能变成 ????; 部署机单实例，匹配 run.py --serve 即可
-  ps -eo pid=,cmd= | awk '/run\.py --serve/ { print $1 }' | sort -u
+  local port="${1:-$PRIMARY_PORT}"
+  # 排除候选端口进程；优先保留带主端口 env 的进程
+  ps -eo pid=,args= 2>/dev/null | awk -v p="$port" '
+    /run\.py --serve/ {
+      if ($0 ~ /KANBAN_PORT=/ && $0 !~ ("KANBAN_PORT=" p)) next
+      if ($0 ~ /KANBAN_CANDIDATE=1/) next
+      print $1
+    }
+  ' | sort -u
 }
 
 first_pid() {

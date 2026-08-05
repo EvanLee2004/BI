@@ -41,7 +41,8 @@ Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 # nginx 反代生产：后端只绑回环、不挂 static（由 nginx :80 伺服）
 Environment=KANBAN_SERVER_HOST=127.0.0.1
 Environment=KANBAN_SERVE_STATIC=0
-Environment=KANBAN_SERVER_PORT=8018
+# OPS-001：代码读 KANBAN_PORT（非 KANBAN_SERVER_PORT）
+Environment=KANBAN_PORT=8018
 # 3.7.15 CIFS B：管理端改密走 sudo 固定脚本（见 sudoers.d-kanban-cifs）
 Environment=KANBAN_CIFS_USE_SUDO=1
 Environment=KANBAN_CIFS_APPLY_SCRIPT=/usr/local/sbin/kanban-cifs-apply

@@ -126,17 +126,28 @@ PY
 
 candidate_ok_check() {
   local url="$1"
-  local out code
+  local out code ver commit pid
   out="$(probe_health "$url")"
   code="$(printf '%s\n' "$out" | sed -n '1p')"
-  # 候选默认只要求 HTTP 200（不写共享 marker，不强制 metrics 对齐）
-  ROOT="$ROOT" CODE="$code" "$PY_BIN" - <<'PY'
+  ver="$(printf '%s\n' "$out" | sed -n '2p')"
+  commit="$(printf '%s\n' "$out" | sed -n '3p')"
+  pid="$(printf '%s\n' "$out" | sed -n '4p')"
+  # OPS-002：候选默认对齐 version/commit（与文档一致）；仅 KANBAN_CANDIDATE_LOOSE=1 放宽
+  ROOT="$ROOT" CODE="$code" RV="$ver" RC="$commit" RP="$pid" \
+  DV="$DISK_VERSION" DC="$DISK_COMMIT" LOOSE="${KANBAN_CANDIDATE_LOOSE:-0}" \
+  "$PY_BIN" - <<'PY'
 import os, sys
 sys.path.insert(0, os.path.join(os.environ["ROOT"], "src"))
 from publish_bluegreen import candidate_health_ok
+loose = os.environ.get("LOOSE") == "1"
 ok, reason = candidate_health_ok(
     health_code=os.environ.get("CODE") or "000",
-    require_runtime_align=False,
+    runtime_version=os.environ.get("RV") or "",
+    disk_version=os.environ.get("DV") or "",
+    runtime_commit=os.environ.get("RC") or "",
+    disk_commit=os.environ.get("DC") or "",
+    runtime_pid=os.environ.get("RP") or "",
+    require_runtime_align=not loose,
 )
 print("1" if ok else "0")
 print(reason)
@@ -324,6 +335,7 @@ sys.path.insert(0, os.path.join(os.environ["ROOT"], "src"))
 from publish_preflight import declare_publish_success
 from reload_verify import parse_health_metrics
 m = parse_health_metrics(os.environ.get("BODY") or "")
+# OPS-003：不传 process_switch_ok=True 跳过 PID 复验；由 declare 内 verify_process_switch
 ok, reason = declare_publish_success(
     health_code=os.environ.get("CODE") or "000",
     runtime_version=str(m.get("version") or ""),
@@ -332,7 +344,7 @@ ok, reason = declare_publish_success(
     disk_commit=os.environ.get("DC") or "",
     runtime_pid=m.get("pid") or "",
     backup_ok=os.environ.get("BOK") == "1",
-    process_switch_ok=True,
+    process_switch_ok=None,
 )
 print(f"export PUB_OK={'1' if ok else '0'}")
 print(f"export PUB_REASON={reason!r}")
