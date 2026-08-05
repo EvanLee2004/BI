@@ -6,7 +6,7 @@
 - VERSION **3.7.15** · 分支 `task/20260805-cifs-settings-3.7.15` · 基线 `aaa0830`
 - 结构化 smb 字段 + 拼装 `ledger_share_path`；密码只写 cred；apply 脚本 + sudoers 样例
 - 守卫 `tests/test_ledger_cifs_3_7_15.py`；**未** push（默认）；无真实 SMB 密码进仓
-- 候选 tip **`5c557efb4be383cb4102b02fb574c2590bc638d1`** · REVIEW_READY · **未 push**
+- 候选 tip **`f54daa94ae165d2351ecd372abef1d7751d0e37d`** · REVIEW_READY · **未 push**
 
 ## 2026-08-05 · 3.7.14 审计全量修复（除密码）
 
@@ -15,7 +15,7 @@
 - 004/003/005/006/007/010/017/H20 + DOC/OPS 仓内；preflight 现网仍 gvfs、无 CIFS
 - 守卫 `tests/test_audit_3_7_14_backend.py` · `tests/test_audit_3_7_14_frontend.py`
 - **未** push / 生产 mount / 改密码契约 / profit 公式
-- 候选 tip **`675d4713086abb95bf08a441d4ee8376d883940f`** · 控制卡 REVIEW_READY · **未 push**
+- 候选 tip **`f54daa94ae165d2351ecd372abef1d7751d0e37d`** · 控制卡 REVIEW_READY · **未 push**
 
 ## 2026-08-04 · 3.7.13 管理端 PM + 对账体验 + 隔离加固
 
