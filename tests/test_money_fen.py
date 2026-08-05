@@ -31,7 +31,10 @@ class TestYuanFenConvert(unittest.TestCase):
         self.assertIsNone(money.yuan_to_fen(None))
         self.assertIsNone(money.yuan_to_fen(""))
         self.assertIsNone(money.yuan_to_fen("-"))
-        self.assertEqual(money.yuan_to_fen("not-a-number"), 0)
+        # FIN-002：非法金额默认拒入，不再静默 0
+        with self.assertRaises(ValueError):
+            money.yuan_to_fen("not-a-number")
+        self.assertEqual(money.yuan_to_fen("not-a-number", on_invalid="zero"), 0)
         # 超大金额
         self.assertEqual(money.yuan_to_fen("999999999.99"), 99999999999)
 

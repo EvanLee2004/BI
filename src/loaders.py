@@ -267,7 +267,12 @@ def data_dir(cfg: dict, root: Path | None = None) -> Path:
 
 
 # ---------------- 通用解析 ----------------
-def parse_amount(val: Any) -> float:
+def parse_amount(val: Any, *, on_invalid: str = "zero") -> float:
+    """解析金额为 float **元**。
+
+    FIN-002：非空非法文本默认仍 ``zero``（校验/统计软路径）；进料规范化请
+    ``on_invalid='raise'`` 或先 ``amount_parse_fails`` 拒行。
+    """
     if val is None:
         return 0.0
     s = str(val).replace(",", "").strip()
@@ -276,6 +281,8 @@ def parse_amount(val: Any) -> float:
     try:
         return float(s)
     except ValueError:
+        if on_invalid == "raise":
+            raise ValueError(f"非法金额（非数字）：{val!r}") from None
         return 0.0
 
 

@@ -93,21 +93,64 @@ class TestBe001AtomicReapply(unittest.TestCase):
 class TestBe002HonestRecomputeError(unittest.TestCase):
     def test_with_write_lock_source_maps_recompute_ope_to_503(self):
         src = (ROOT / "src" / "routes" / "manual.py").read_text(encoding="utf-8")
-        # 结构：recompute 在 yield 之后；OperationalError → 503
         self.assertIn("status_code=503", src)
         self.assertIn("已保存", src)
-        # 禁止 recompute 失败走 409 忙
-        m = __import__("re").search(
-            r"def with_write_lock[\s\S]*?finally:\s*\n\s*_LOCK\.release\(\)",
-            src,
-        )
-        self.assertTrue(m, "with_write_lock body")
-        body = m.group(0)
-        # recompute 块内不应 raise 409
-        after_yield = body.split("yield", 1)[-1]
-        # 写库阶段可 409；recompute 后须 503
-        self.assertIn("503", after_yield)
-        self.assertIn("recompute", after_yield)
+
+    def test_recompute_operational_error_returns_503_not_409(self):
+        """BE-002 行为注入：yield 写库成功后 recompute 抛 OperationalError → HTTP 503。"""
+        import accounts
+        import server
+        from app_state import _LOCK, _state
+        from fastapi.testclient import TestClient
+
+        tmp = Path(tempfile.mkdtemp(prefix="be002_"))
+        try:
+            shutil.copy2(ROOT / "config.json", tmp / "config.json")
+            (tmp / "数据").mkdir()
+            cfg = loaders.load_config(tmp)
+            accounts.seed_defaults(cfg, tmp)
+            orig = server.recompute
+
+            def _boom(cfg, root=None, *, rebuild_std=False, already_locked=False, **k):
+                raise sqlite3.OperationalError("injected database is locked")
+
+            server.recompute = _boom  # type: ignore[assignment]
+            _state["refreshing"] = None
+            while _LOCK.locked():
+                try:
+                    _LOCK.release()
+                except RuntimeError:
+                    break
+            app = server.create_app(cfg, root=tmp)
+            client = TestClient(app, follow_redirects=False)
+            r = client.post(
+                "/admin/login",
+                data={"account": "lushasha", "password": accounts.DEFAULT_ADMIN_PW},
+            )
+            sid = r.cookies.get(server.SID_COOKIE) or r.cookies.get(server.COOKIE)
+            hdr = {"Cookie": f"{server.SID_COOKIE}={sid}"}
+            # detax_rates 走 with_write_lock（写成功后 recompute）
+            resp = client.post(
+                "/api/v1/admin/detax_rates",
+                headers=hdr,
+                json={"rates": {"语言": 0.03}},
+            )
+            self.assertEqual(
+                resp.status_code,
+                503,
+                f"recompute OPE must be 503 not 409: {resp.status_code} {resp.text[:300]}",
+            )
+            detail = ""
+            try:
+                detail = str((resp.json() or {}).get("detail") or "")
+            except Exception:
+                detail = resp.text
+            self.assertIn("已保存", detail)
+            self.assertNotEqual(resp.status_code, 409)
+            server.recompute = orig
+        finally:
+            server.recompute = orig  # type: ignore[name-defined]
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class TestBe006OnlineRestoreBlocked(unittest.TestCase):

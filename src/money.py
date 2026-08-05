@@ -94,12 +94,13 @@ def yuan_text_to_fen_text(s: Any) -> str:
     return "" if fen is None else str(int(fen))
 
 
-def yuan_to_fen(val: Any, *, on_invalid: str = "zero") -> int | None:
+def yuan_to_fen(val: Any, *, on_invalid: str = "raise") -> int | None:
     """元 → 分。None/空串 → None。
 
+    FIN-002：默认 ``on_invalid='raise'``——非法非空文本拒入（不静默当 0）。
     on_invalid:
-      - ``zero``（默认兼容）：非法文本 → 0（FIN-002 旧路径）
-      - ``raise``：非法 → ValueError（进料严闸）
+      - ``raise``（默认）：非法 → ValueError
+      - ``zero``：非法文本 → 0（仅显式兼容旧调用）
       - ``none``：非法 → None
 
     注意：入参必须是**元**。库内已是分的 int 请用 as_fen / 直接用，勿再 yuan_to_fen。
@@ -111,6 +112,19 @@ def yuan_to_fen(val: Any, *, on_invalid: str = "zero") -> int | None:
     if isinstance(val, int) and not isinstance(val, bool):
         # 元整数（管理端/API 常传 100 表示 100 元）
         return val * 100
+    if isinstance(val, float):
+        import math
+
+        if not math.isfinite(val):
+            if on_invalid == "raise":
+                raise ValueError(f"非法金额（非有限 float）：{val!r}") from None
+            if on_invalid == "none":
+                return None
+            return 0
+        # 合法 float 元
+        d = Decimal(str(val))
+        fen = (d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return int(fen)
     s = str(val).strip()
     if s == "" or s == "-":
         return None
@@ -128,13 +142,13 @@ def yuan_to_fen(val: Any, *, on_invalid: str = "zero") -> int | None:
 
 
 def as_fen(val: Any) -> int:
-    """算账层统一入分（FIN-001 单一语义）。
+    """算账层统一入分（FIN-001 **单一语义：只认已是分**）。
 
-    - **int**（非 bool）= **已是分**（db.load_* 必须 int() 后再传入）
-    - **float** = **禁止**（双语义雷：as_fen 旧按元、_fen_amount 按分）。
-      进料请 ``yuan_to_fen``；库读请 ``int``。残留 float 仅兼容按**元**解析并 warning。
+    - **int**（非 bool）= 已是分（db.load_* 必须 int() 后再传入）
+    - **float** = **拒绝** TypeError（禁止与 _fen_amount 分/元双语义并存）
+      进料请 ``yuan_to_fen(元)``；库读请 ``int(...)``
     - **纯整数字符串** = 分（adj 原值等）
-    - **带小数点的 str** = 元（xlsx 进料文本）
+    - **带小数点的 str** = 元文本（xlsx 残留路径，走 yuan_to_fen）
     - None/空 → 0
     """
     if val is None:
@@ -144,18 +158,10 @@ def as_fen(val: Any) -> int:
     if isinstance(val, int):
         return val
     if isinstance(val, float):
-        # FIN-001：裸 float 语义歧义；兼容旧路径按元，但打日志便于清残留
-        import logging
-        import math
-
-        if not math.isfinite(val):
-            raise ValueError(f"as_fen 拒绝非有限 float：{val!r}")
-        logging.getLogger("kanban.money").warning(
-            "as_fen received float %r — treat as 元 via yuan_to_fen; prefer int 分 or yuan_to_fen at ingress",
-            val,
+        raise TypeError(
+            "as_fen 拒绝 float：算账层只认 int 分；进料用 yuan_to_fen(元)，库读 int()。"
+            f" got {val!r}"
         )
-        f = yuan_to_fen(val)
-        return 0 if f is None else f
     s = str(val).strip()
     if s == "" or s == "-":
         return 0
@@ -164,7 +170,7 @@ def as_fen(val: Any) -> int:
             return int(s)
         except ValueError:
             return 0
-    f = yuan_to_fen(s)
+    f = yuan_to_fen(s)  # 小数点 str → 元；非法 raise
     return 0 if f is None else f
 
 
@@ -241,14 +247,18 @@ def fen_to_yuan_or_none(fen: Any) -> float | None:
 
 
 def record_amounts_to_fen(table: str, record: dict) -> dict:
-    """拷贝记录，将 std 金额列元→分（定位键已在 normalize 用元算好，勿改键）。"""
+    """拷贝记录，将 std 金额列元→分（定位键已在 normalize 用元算好，勿改键）。
+
+    FIN-002：非法金额 raise，禁止静默写成 0 分入库。
+    """
     cols = STD_MONEY_COLS.get(table) or ()
     if not cols:
         return record
     out = dict(record)
     for c in cols:
         if c in out:
-            out[c] = yuan_to_fen(out[c])
+            fen = yuan_to_fen(out[c], on_invalid="raise")
+            out[c] = 0 if fen is None else fen
     return out
 
 

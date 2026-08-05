@@ -19,7 +19,8 @@ import loaders
 
 
 def _amt(raw: Any) -> float:
-    return loaders.parse_amount(raw)
+    """FIN-002：规范化进料拒非法金额（红灯），禁止 N/A 静默变 0 参与定位键/入库。"""
+    return loaders.parse_amount(raw, on_invalid="raise")
 
 
 def _iso_and_month(raw: Any) -> tuple[str, str | None]:
