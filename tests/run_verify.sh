@@ -170,6 +170,7 @@ tests/test_task_3_3_3_no_target_calibration_label.py
 # 无共享进程态（或只读静态文件）
 PARALLEL="
 tests/test_fetch_zhiyun.py
+tests/test_fin_p5_money_alloc.py
 tests/test_fe001_daily_clear_scope.py
 tests/test_version.py
 tests/test_schedule.py

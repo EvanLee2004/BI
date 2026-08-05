@@ -94,8 +94,13 @@ def yuan_text_to_fen_text(s: Any) -> str:
     return "" if fen is None else str(int(fen))
 
 
-def yuan_to_fen(val: Any) -> int | None:
-    """元 → 分。None/空串 → None；非法/空解析 → 0（与 parse_amount 空按 0 一致的写入侧）。
+def yuan_to_fen(val: Any, *, on_invalid: str = "zero") -> int | None:
+    """元 → 分。None/空串 → None。
+
+    on_invalid:
+      - ``zero``（默认兼容）：非法文本 → 0（FIN-002 旧路径）
+      - ``raise``：非法 → ValueError（进料严闸）
+      - ``none``：非法 → None
 
     注意：入参必须是**元**。库内已是分的 int 请用 as_fen / 直接用，勿再 yuan_to_fen。
     """
@@ -113,17 +118,23 @@ def yuan_to_fen(val: Any) -> int | None:
     try:
         d = Decimal(s)
     except (InvalidOperation, ValueError):
+        if on_invalid == "raise":
+            raise ValueError(f"非法金额（非数字）：{val!r}") from None
+        if on_invalid == "none":
+            return None
         return 0
     fen = (d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return int(fen)
 
 
 def as_fen(val: Any) -> int:
-    """算账层统一入分。
+    """算账层统一入分（FIN-001 单一语义）。
 
-    - **int**（非 bool）= 已是分（db.load_* 必须 int() 后再传入，避免 SQLite float 分被当元）
-    - **float / 带小数点的 str** = 元（xlsx 进料）
+    - **int**（非 bool）= **已是分**（db.load_* 必须 int() 后再传入）
+    - **float** = **禁止**（双语义雷：as_fen 旧按元、_fen_amount 按分）。
+      进料请 ``yuan_to_fen``；库读请 ``int``。残留 float 仅兼容按**元**解析并 warning。
     - **纯整数字符串** = 分（adj 原值等）
+    - **带小数点的 str** = 元（xlsx 进料文本）
     - None/空 → 0
     """
     if val is None:
@@ -133,7 +144,16 @@ def as_fen(val: Any) -> int:
     if isinstance(val, int):
         return val
     if isinstance(val, float):
-        # 仅当确为「元」浮点（xlsx）；库读路径不得传 float
+        # FIN-001：裸 float 语义歧义；兼容旧路径按元，但打日志便于清残留
+        import logging
+        import math
+
+        if not math.isfinite(val):
+            raise ValueError(f"as_fen 拒绝非有限 float：{val!r}")
+        logging.getLogger("kanban.money").warning(
+            "as_fen received float %r — treat as 元 via yuan_to_fen; prefer int 分 or yuan_to_fen at ingress",
+            val,
+        )
         f = yuan_to_fen(val)
         return 0 if f is None else f
     s = str(val).strip()

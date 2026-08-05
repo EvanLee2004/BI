@@ -65,6 +65,34 @@ def _fallback_detail(reason: str, meta: dict) -> str:
     )
 
 
+
+def _apply_ledger_freshness(cfg: dict, out: dict) -> dict:
+    """FIN-006：台账 local_fallback 超过 max 小时标 stale_red（默认 48h 与智云对齐）。"""
+    if out.get("status") != "local_fallback":
+        return out
+    try:
+        max_h = float(cfg.get("ledger_fallback_max_age_hours", 48) or 48)
+    except (TypeError, ValueError):
+        max_h = 48.0
+    age_h = out.get("local_age_hours")
+    if age_h is None:
+        # 从 mtime 推
+        try:
+            import time
+            mtime = out.get("local_mtime")
+            if mtime:
+                age_h = max(0.0, (time.time() - float(mtime)) / 3600.0)
+        except (TypeError, ValueError):
+            age_h = None
+    if age_h is not None and age_h > max_h:
+        out = dict(out)
+        out["stale"] = True
+        out["stale_hours"] = round(float(age_h), 1)
+        out["detail"] = (out.get("detail") or "") + f"（本地副本已超 {max_h:.0f}h，须尽快恢复共享）"
+        out["yellow"] = True
+    return out
+
+
 def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:  # noqa: C901
     """尝试从共享路径把收单台账拉到 数据/收单台账.xlsx。
     返回 {status: 'fetched'|'local_fallback'|'no_source', detail: str, ...}。
@@ -123,12 +151,12 @@ def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:  # noqa: C901
             return out
         except OSError as e:
             if local.exists():
-                return {
+                return _apply_ledger_freshness(cfg, {
                     "status": "local_fallback",
                     "detail": _fallback_detail(f"共享可达但复制失败：{e}", meta),
                     "reason": "copy_failed",
                     **meta,
-                }
+                })
             return {
                 "status": "no_source",
                 "detail": f"共享可达但复制失败且无本地副本：{e}",
@@ -144,12 +172,12 @@ def fetch_ledger(cfg: dict, root: Path | None = None) -> dict:  # noqa: C901
     if last_err:
         why += f"（{last_err}）"
     if local.exists():
-        return {
+        return _apply_ledger_freshness(cfg, {
             "status": "local_fallback",
             "detail": _fallback_detail(why, meta) + hint,
             "reason": "unreachable",
             **meta,
-        }
+        })
     return {
         "status": "no_source",
         "detail": f"共享不可达且无本地副本：{share}{hint}",

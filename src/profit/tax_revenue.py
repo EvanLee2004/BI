@@ -32,6 +32,9 @@ def split_tax(gross_fen: int, vat_rate: float) -> dict[str, int]:
 
     任务书66·A：在分上 Decimal 除法 + ROUND_HALF_UP（弃 fen→元 float→round→分）。
     net = gross / (1+vat_rate)；vat = gross - net（守恒）。
+
+    FIN-003：公司 bulk Σ(gross) 再 split 与逐实体 split 再 Σ 在奇数分场景可差 1 分；
+    产品口径以**本函数单次 bulk**为准；排名 per-entity 路径独立调用，脚注见排名 VM 说明。
     """
     if not gross_fen:
         return {"revenue_gross": 0, "revenue_net": 0, "vat": 0}

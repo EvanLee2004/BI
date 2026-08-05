@@ -74,6 +74,8 @@ def _values_match(current, 原值: str, 字段: str = "") -> bool:
 
 
 def _cast(字段: str, 新值: str):
+    # FIN-008：金额字段纯整数字符串=分（adj 库内存分）；带小数点=元→yuan_to_fen。
+    # 管理端 API 应只提交元 Decimal；勿把「100 元」写成纯整数「100」。
     if 字段 in _AMOUNT_FIELDS:
         s = "" if 新值 is None else str(新值).strip()
         if s == "":

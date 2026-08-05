@@ -165,9 +165,13 @@ def inject_manual_alloc_into_breakdowns(pman, cfg, fine_by_cat, by_pc, by_dept):
 
 
 def _fen_amount(val) -> int:
-    """算账入分：int 已是分；float 按历史「分的 float 壳」取整分；其余走 money.as_fen。
+    """算账入分（FIN-001 对照 as_fen）：
 
-    2.6.13：禁止把 float 分误当元再 ×100（as_fen 对 float 按元解析）。
+    - int → 已是分
+    - float → **分的 float 壳**（历史 SQLite REAL），round 到整分；**不是元**
+    - 其余 → money.as_fen（str 整数=分，str 小数=元）
+
+    2.6.13 / FIN-001：禁止把 float 分误当元再 ×100（as_fen 对 float 按元解析）。
     """
     if val is None or val == "":
         return 0

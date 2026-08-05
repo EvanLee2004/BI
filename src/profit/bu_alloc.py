@@ -168,11 +168,19 @@ def _shares_pct_rules(fine: str, amt: int, item_rules: dict[str, dict]) -> list[
     total_pct = sum(float((r or {}).get("value") or 0) for r in item_rules.values())
     if total_pct > 100.0 + 1e-9:
         raise ValueError(f"明细「{fine}」比例合计 {total_pct:.1f}% 超过 100%")
-    return [
+    shares = [
         (str(bu), _share_by_pct(amt, float((r or {}).get("value") or 0)))
         for bu, r in item_rules.items()
         if float((r or {}).get("value") or 0)
     ]
+    # FIN-004：比例合计恰为 100% 时，尾差 1 分归最后一 BU（HALF_UP 累加可能少 1）
+    if shares and abs(total_pct - 100.0) < 1e-9:
+        allocated = sum(s for _, s in shares)
+        residual = int(amt) - allocated
+        if residual:
+            bu, s = shares[-1]
+            shares[-1] = (bu, s + residual)
+    return shares
 
 
 def _shares_yuan_rules(fine: str, amt: int, item_rules: dict[str, dict]) -> list[tuple[str, int]]:
@@ -212,8 +220,16 @@ def _shares_for_detail_item(
         raise ValueError(f"明细「{fine}」未知模式：{mode}")
     total_pct = sum(float(v or 0) for v in default_ratios.values())
     if total_pct > 100.0 + 1e-9:
+        # FIN-005：算账层闸，禁止超摊负公共
         raise ValueError(f"默认分摊比例合计 {total_pct:.1f}% 超过 100%")
-    return [(str(bu), _share_by_pct(amt, float(pct))) for bu, pct in default_ratios.items() if pct]
+    shares = [(str(bu), _share_by_pct(amt, float(pct))) for bu, pct in default_ratios.items() if pct]
+    # FIN-004：100% 默认层尾差归最后一 BU
+    if shares and abs(total_pct - 100.0) < 1e-9:
+        residual = int(amt) - sum(s for _, s in shares)
+        if residual:
+            bu, s = shares[-1]
+            shares[-1] = (bu, s + residual)
+    return shares
 
 
 def allocate_public_details_for_month(

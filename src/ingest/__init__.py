@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import datetime
 import os
 from pathlib import Path
@@ -127,8 +129,8 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
                     cfg,
                     f"【经营看板告警】跨年归档失败：{ya.get('detail') or ya.get('status')}",
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
     except Exception as e:
         report["year_archive"] = {
             "status": "error",
@@ -151,8 +153,8 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
                     alert_event("zhiyun_login_cooldown", "智云凭据疑似错误需人工检查")
                 else:
                     alert_event("zhiyun_login_cooldown", "智云登录短退避（临时失败，稍后自动恢复）")
-            except Exception:
-                pass
+            except Exception as _e:
+                logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
         if isinstance(report.get("fetch_zhiyun"), dict) and report["fetch_zhiyun"].get("_meta_freshness"):
             report["data_freshness"] = report["fetch_zhiyun"].pop("_meta_freshness")
 
@@ -172,14 +174,14 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
                     "text": f"收单台账缺 {miss.get('year')} 页，找亮晶建",
                 }
             )
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
     # 3–5) BE-001：rebuild + remap + migrate_manual + adj 同一 IMMEDIATE 事务
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
     try:
         conn.commit()
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
     prev_iso = conn.isolation_level
     conn.isolation_level = None
     try:
@@ -197,8 +199,8 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
     except Exception:
         try:
             conn.execute("ROLLBACK")
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
         raise
     finally:
         conn.isolation_level = prev_iso
@@ -220,8 +222,8 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
         from notify import maybe_alert_pipeline
 
         maybe_alert_pipeline(cfg, report, root)
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
 
     report["records"] = records  # 供 server 缓存做"秒级重算"（不落日志）
     if own:
@@ -295,8 +297,8 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         conn.commit()
-    except Exception:
-        pass
+    except Exception as _e:
+        logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
     prev_iso = conn.isolation_level
     conn.isolation_level = None
     try:
@@ -308,8 +310,8 @@ def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     except Exception:
         try:
             conn.execute("ROLLBACK")
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.getLogger('kanban.ingest').exception('swallowed: %s', _e)
         raise
     finally:
         conn.isolation_level = prev_iso
