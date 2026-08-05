@@ -88,9 +88,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     ):
         """兼容旧 form：统一鉴权 + 分流（管理员写 acookie；非管理员写 vcookie）。"""
         import login_guard
+        from csrf_guard import client_ip_from_request
 
         account = (account or identity or "").strip()
-        ip = (request.client.host if request.client else "") or ""
+        ip = client_ip_from_request(request)
         if login_guard.is_locked(account, cfg, ip=ip):
             return RedirectResponse(
                 login_redirect.login_url(next_path="/admin", msg=login_guard.lock_message(cfg)),
@@ -117,9 +118,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         )
         resp = RedirectResponse(redir, status_code=303)
         if authz.is_admin(acc):
-            return _set_acookie(resp, account)
+            return _set_acookie(resp, account, request)
         if callable(_set_vcookie):
-            return _set_vcookie(resp, account)
+            return _set_vcookie(resp, account, request)
         return resp
 
     @app.get("/admin", response_class=HTMLResponse)

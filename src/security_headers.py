@@ -7,6 +7,9 @@ from typing import Any
 
 
 def default_security_headers(*, https: bool = False) -> dict[str, str]:
+    # 3.7.14 AUDIT-007：在不破坏 Vue/ECharts 的前提下收紧。
+    # 仍保留 script/style 'unsafe-inline'（内联启动/主题与 ECharts 依赖；去之会白屏）→ 施工报告残余说明。
+    # 本轮可安全加：object-src / frame-src / worker-src 限制。
     h = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "SAMEORIGIN",
@@ -19,6 +22,9 @@ def default_security_headers(*, https: bool = False) -> dict[str, str]:
             "img-src 'self' data: blob:; "
             "font-src 'self' data:; "
             "connect-src 'self'; "
+            "object-src 'none'; "
+            "frame-src 'none'; "
+            "worker-src 'self' blob:; "
             "frame-ancestors 'self'; "
             "base-uri 'self'; "
             "form-action 'self'"

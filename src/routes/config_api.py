@@ -223,6 +223,14 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         out["zhiyun_password_set"] = bool(str(creds.get("password") or "").strip())
         out["zhiyun_conn"] = read_zhiyun_conn(cfg, root)  # 服务器地址+四表ID（内置默认+本地覆盖的生效值）
         out["ledger_share_path"] = cfg.get("ledger_share_path", "")  # 收单台账共享盘路径（界面填·落本地覆盖）
+        # 3.7.14 OPS：管理员只读探测路径是否 exists（无密码、非管理员不可达本接口）
+        try:
+            import os as _os
+
+            _lsp = str(out.get("ledger_share_path") or "").strip()
+            out["ledger_path_exists"] = bool(_lsp) and _os.path.exists(_lsp)
+        except Exception:
+            out["ledger_path_exists"] = False
         out["overall_see_salary"] = False  # 54.12 R-01 已废止开关
         out["run_log_keep_days"] = int(cfg.get("run_log_keep_days", 365) or 365)
         out["disk_free_min_ratio"] = float(cfg.get("disk_free_min_ratio", 0.10) or 0.10)

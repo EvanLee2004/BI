@@ -60,20 +60,27 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     def _redir_after_login(acc: dict, next_raw: str | None = None) -> str:
         return login_redirect.resolve_login_redirect(acc, next_raw, bu_pages=_bu_pages())
 
-    def _finish_login(acc: dict, account: str, *, next_raw: str | None = None, as_json: bool = False):
+    def _finish_login(
+        acc: dict,
+        account: str,
+        *,
+        request: Request,
+        next_raw: str | None = None,
+        as_json: bool = False,
+    ):
         """写 cookie + 分流；as_json 供 /api/v1/login。"""
         redir = _redir_after_login(acc, next_raw)
         if authz.is_admin(acc):
             if as_json:
                 sess = api_v1.session_public(acc, is_admin_session=True)
                 resp = JSONResponse({"ok": True, "redirect": redir, "session": sess})
-                return _set_acookie(resp, account)
-            return _set_acookie(RedirectResponse(redir, status_code=303), account)
+                return _set_acookie(resp, account, request)
+            return _set_acookie(RedirectResponse(redir, status_code=303), account, request)
         if as_json:
             sess = api_v1.session_public(acc)
             resp = JSONResponse({"ok": True, "redirect": redir, "session": sess})
-            return _set_vcookie(resp, account)
-        return _set_vcookie(RedirectResponse(redir, status_code=303), account)
+            return _set_vcookie(resp, account, request)
+        return _set_vcookie(RedirectResponse(redir, status_code=303), account, request)
 
     @app.get("/", response_class=HTMLResponse)
     def user_page(request: Request):
@@ -126,9 +133,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     ):
         """兼容旧 form POST：成功重定向；失败回统一登录（错误见 query）。"""
         import login_guard
+        from csrf_guard import client_ip_from_request
 
         account = account.strip()
-        ip = (request.client.host if request.client else "") or ""
+        ip = client_ip_from_request(request)
         if login_guard.is_locked(account, cfg, ip=ip):
             return RedirectResponse(
                 login_redirect.login_url(msg=login_guard.lock_message(cfg)),
@@ -145,7 +153,7 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
         _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
-        return _finish_login(acc, account, next_raw=next or None, as_json=False)
+        return _finish_login(acc, account, request=request, next_raw=next or None, as_json=False)
 
     @app.get("/bu/{name}", response_class=HTMLResponse)
     def bu_page(name: str, request: Request):
@@ -183,12 +191,13 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/login")
     def api_v1_login(request: Request, payload: dict = Body(default={})):
         import login_guard
+        from csrf_guard import client_ip_from_request
 
         account = str(payload.get("account") or "").strip()
         password = str(payload.get("password") or "")
         next_raw = payload.get("next") or payload.get("redirect") or ""
         next_raw = str(next_raw) if next_raw else ""
-        ip = (request.client.host if request.client else "") or ""
+        ip = client_ip_from_request(request)
         if login_guard.is_locked(account, cfg, ip=ip):
             raise HTTPException(status_code=429, detail=login_guard.lock_message(cfg))
         acc = accounts.authenticate(cfg, root, account, password)
@@ -199,7 +208,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         login_guard.clear_failures(account, ip=ip)
         accounts.mark_login(cfg, root, account)
         _audit(cfg, root, account, ("访问", f"登录成功：{account}"))
-        return _finish_login(acc, account, next_raw=next_raw or None, as_json=True)
+        return _finish_login(
+            acc, account, request=request, next_raw=next_raw or None, as_json=True
+        )
 
     @app.post("/api/v1/logout")
     def api_v1_logout(request: Request):

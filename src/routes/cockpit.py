@@ -339,9 +339,12 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
                 "audience": audience,
                 "caliber_mode": "all" if caliber_all else "period_expense",
                 "caliber_note": (
-                    "台账全量（含成本/非利润表）"
+                    "台账全量（含成本/非利润表）。上方饼图/分摊大数可含分摊入本线的期间费用；"
+                    "本表明细仅「业务BU」归属本线的收单原始行，无行≠无费用。"
                     if caliber_all
-                    else "仅期间费用大类（与上方图表口径一致；已剔成本/非利润表）"
+                    else "仅期间费用大类（已剔成本/非利润表）。"
+                    "上方饼图/列表可含分摊入本线的期间费用；"
+                    "本表明细仅「业务BU」=本线的收单原始行，无行≠上方无费用。"
                 ),
             }
         )

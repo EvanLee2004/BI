@@ -241,14 +241,37 @@ def build_app(cfg, root=None) -> FastAPI:  # noqa: C901  # 纯装配分发壳（
         )
         return _BU_NAV_TPL.format(aria_label="我的 BU 分页", label="我的 BU", links=links)
 
-    def _set_sid_cookie(resp, account: str):
-        return _session_ctx.apply_sid_cookie(resp, sec=sec, cfg=cfg, root=root, account=account)
+    def _set_sid_cookie(resp, account: str, request=None):
+        secure = False
+        if request is not None:
+            from csrf_guard import cookie_secure_for_request
 
-    def _set_vcookie(resp, account: str):
-        return _set_sid_cookie(resp, account)
+            try:
+                client_host = request.client.host if request.client else ""
+            except Exception:
+                client_host = ""
+            try:
+                scheme = request.url.scheme
+            except Exception:
+                scheme = "http"
+            try:
+                forwarded_proto = request.headers.get("x-forwarded-proto")
+            except Exception:
+                forwarded_proto = None
+            secure = cookie_secure_for_request(
+                client_host=client_host,
+                scheme=scheme,
+                forwarded_proto=forwarded_proto,
+            )
+        return _session_ctx.apply_sid_cookie(
+            resp, sec=sec, cfg=cfg, root=root, account=account, secure=secure
+        )
 
-    def _set_acookie(resp, account: str):
-        return _set_sid_cookie(resp, account)
+    def _set_vcookie(resp, account: str, request=None):
+        return _set_sid_cookie(resp, account, request=request)
+
+    def _set_acookie(resp, account: str, request=None):
+        return _set_sid_cookie(resp, account, request=request)
 
     def _frontend_mode() -> str:
         """3.2.0：恒 vue（看端/管理端均 Vue dist）。"""

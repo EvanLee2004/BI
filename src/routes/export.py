@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from urllib.parse import quote
@@ -17,6 +18,13 @@ from fastapi.responses import JSONResponse, Response
 
 import db
 from app_state import _state, _EXPORT_LOCK
+
+_log = logging.getLogger("kanban.export")
+
+# AUDIT-006：对外固定短句；完整异常仅服务端日志
+_EXPORT_FAIL_DETAIL = "导出失败，请稍后重试或联系管理员"
+_EXPORT_PNG_FAIL_DETAIL = "截图导出失败，请稍后重试或联系管理员"
+_EXPORT_XLSX_FAIL_DETAIL = "生成管理利润表失败，请稍后重试或联系管理员"
 
 
 def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在子 handler
@@ -109,10 +117,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except HTTPException:
             raise
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(
-                status_code=503,
-                detail=f"导出快照失败（{type(e).__name__}: {e}）；请确认 frontend/dist-snapshot 已构建",
-            ) from e
+            _log.exception("export snapshot build failed: %s", e)
+            raise HTTPException(status_code=503, detail=_EXPORT_FAIL_DETAIL) from e
         if "data-export-fallback" in html and 'data-export-fallback="1"' in html:
             raise HTTPException(status_code=503, detail="导出拒绝残壳 fallback")
         if "kanban_snapshot" not in html and "__KANBAN_SNAPSHOT__" not in html:
@@ -155,10 +161,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             try:
                 png = _screenshot_png(html, blk)
             except Exception as e:  # noqa: BLE001 chromium 未装/超时等
-                raise HTTPException(
-                    status_code=503,
-                    detail=f"截图失败（{type(e).__name__}）；部署机需先 playwright install chromium",
-                ) from e
+                _log.exception("export png screenshot failed: %s", e)
+                raise HTTPException(status_code=503, detail=_EXPORT_PNG_FAIL_DETAIL) from e
         except HTTPException:
             raise
         finally:
@@ -192,11 +196,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
             raise HTTPException(status_code=401, detail="请先登录看板")
         _az.require_cap(acc, cap)
 
+    def _require_login_for_export(request: Request):
+        """未登录 → 401；已登录返回账号行。"""
+        acc = _session_acc(request)
+        if not acc:
+            raise HTTPException(status_code=401, detail="请先登录看板")
+        return acc
+
     @app.get("/api/v1/export.png")
     def api_export_png(request: Request, blk: str = ""):
         """2.7.8：整体页 PNG = 截 kanban_snapshot HTML（与 /api/v1/export.html 同源）。"""
+        _require_login_for_export(request)
         if not _can_view_main(request):
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=403, detail="无权导出整体页")
         import authz as _az
 
         _require_export_cap(request, _az.CAP_EXPORT_PAGE_PNG)
@@ -207,8 +219,9 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         """2.2.9 / 2.7.2：整体页导出静态可交互快照 HTML（仅 `/api/v1/export.html`）。
         2.3.0：?theme=neon|dark|light。
         """
+        _require_login_for_export(request)
         if not _can_view_main(request):
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=403, detail="无权导出整体页")
         import authz as _az
 
         _require_export_cap(request, _az.CAP_EXPORT_PAGE_HTML)
@@ -216,10 +229,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/export/bu/{name}/png")
     def api_bu_export_png(name: str, request: Request, blk: str = ""):
-        """2.7.8：BU PNG = 截同源 kanban_snapshot HTML。2.6.3·D3 先鉴权。"""
+        """2.7.8：BU PNG。3.7.14：未登录 401；已登录无权 403（不先 404 泄露）。"""
+        _require_login_for_export(request)
         if not _can_view_bu(request, name):
-            # 无权/未登录：与「不存在」对无权者同形 401（不先 404 泄露）
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=403, detail="无权导出该业务线")
         import authz as _az
 
         _require_export_cap(request, _az.CAP_EXPORT_PAGE_PNG)
@@ -230,9 +243,10 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
     @app.get("/api/v1/export/bu/{name}/html")
     def api_bu_export_html(name: str, request: Request, blk: str = "", theme: str = ""):
-        """2.2.9 / 2.7.2：BU 页导出快照 HTML（仅 v1）。2.6.3·D3：先鉴权；无权一律 401（不先 404）；有权再 404。"""
+        """2.2.9 / 2.7.2：BU 页导出。3.7.14：未登录 401；已登录无权 403；有权再 404。"""
+        _require_login_for_export(request)
         if not _can_view_bu(request, name):
-            raise HTTPException(status_code=401, detail="请先登录看板")
+            raise HTTPException(status_code=403, detail="无权导出该业务线")
         import authz as _az
 
         _require_export_cap(request, _az.CAP_EXPORT_PAGE_HTML)
@@ -308,10 +322,8 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         except KeyError as e:
             raise HTTPException(status_code=400, detail="未知周期") from e
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(
-                status_code=503,
-                detail=f"生成管理利润表 Excel 失败（{type(e).__name__}: {e}）",
-            ) from e
+            _log.exception("export pl.xlsx failed: %s", e)
+            raise HTTPException(status_code=503, detail=_EXPORT_XLSX_FAIL_DETAIL) from e
 
         who = _user(request) or _vacct(request) or "?"
         _audit(cfg, root, who, ("访问", f"导出管理利润表Excel scope={scope_label} blk={period_key}"))

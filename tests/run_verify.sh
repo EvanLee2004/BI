@@ -152,6 +152,7 @@ tests/test_task_3_7_9_caps.py
 tests/test_bu_daily_iso_3_7_11.py
 tests/test_project_manager_3_7_13.py
 tests/test_adjust_ux_3_7_13.py
+tests/test_audit_3_7_14_backend.py
 tests/test_g4_key_customers_axis_3_6_0.py
 tests/test_g4_key_customers_ui_3_6_0.py
 tests/test_g5_boss_ui_3_6_0.py
@@ -245,6 +246,7 @@ tests/test_g0_2_7_5_tax_labels.py
 tests/test_task_2_3_3_manual_rename.py
 tests/test_task_2_4_0_display.py
 tests/test_task_2_4_0_schema.py
+tests/test_audit_3_7_14_frontend.py
 "
 # 本轮真实结果：每文件独立 stats，避免并行写竞态（禁止只看静态 skip 位点）
 RUNTIME_STATS_DIR=$(mktemp -d -t kanban_rt.XXXXXX)

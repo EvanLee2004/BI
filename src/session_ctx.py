@@ -107,8 +107,12 @@ def resolve_session(
     )
 
 
-def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str):
-    """登录：只写 kanban_sid，删两旧名。"""
+def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str, secure: bool = False):
+    """登录：只写 kanban_sid，删两旧名。
+
+    ``secure`` 仅在 HTTPS / 可信转发 https 时为 True（3.7.14 AUDIT-003）；
+    纯 HTTP 内网必须 False。
+    """
     acc = accounts.find_account(cfg, root, account)
     tok = auth_session.make_token(sec, account, pw_ver=accounts.password_version_of(acc))
     resp.set_cookie(
@@ -118,6 +122,7 @@ def apply_sid_cookie(resp, *, sec: dict, cfg, root, account: str):
         httponly=True,
         samesite="lax",
         path="/",
+        secure=bool(secure),
     )
     clear_legacy_cookies(resp)
     return resp

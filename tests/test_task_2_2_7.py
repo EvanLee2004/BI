@@ -268,11 +268,12 @@ class TestHistoryAndExportHttp(unittest.TestCase):
             return_value=(snap_html, "snapshot"),
         ):
             cbu, _ = self._login_view("user_a")
-            self.assertEqual(cbu.get("/api/v1/export.html").status_code, 401)
+            # 3.7.14：已登录无整体权 / 无权 BU → 403（未登录仍 401）
+            self.assertEqual(cbu.get("/api/v1/export.html").status_code, 403)
             self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU甲')}/html").status_code, 200)
-            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 401)
-            # 2.6.3·D3：无权对不存在名与无权对他 BU 同 401
-            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
+            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 403)
+            # 无权对不存在名与无权对他 BU 同 403（不 404 泄露）
+            self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 403)
 
 
 class TestVersion227(unittest.TestCase):

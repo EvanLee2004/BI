@@ -311,7 +311,8 @@ class TestExportHttp229(unittest.TestCase):
 
     def test_export_bu_isolation_body(self):
         cbu = self._login_view("user_a")
-        self.assertEqual(cbu.get("/api/v1/export.html").status_code, 401)
+        # 3.7.14 AUDIT-005：已登录无整体权 → 403（未登录仍 401）
+        self.assertEqual(cbu.get("/api/v1/export.html").status_code, 403)
         r = cbu.get(f"/api/v1/export/bu/{quote('BU甲')}/html")
         self.assertEqual(r.status_code, 200, r.text[:300])
         body = r.text
@@ -325,9 +326,9 @@ class TestExportHttp229(unittest.TestCase):
         self.assertEqual(list(pack["bu"].keys()), ["BU甲"])
         self.assertEqual(pack.get("cockpit") or {}, {})
         self.assertNotIn("BU乙", json.dumps(pack, ensure_ascii=False))
-        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 401)
-        # 2.6.3·D3：无权看「不存在」与无权看他 BU 同 401（不 404 泄露存在性）
-        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 401)
+        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('BU乙')}/html").status_code, 403)
+        # 3.7.14：已登录无权看「不存在」与无权看他 BU 同 403（不 404 泄露存在性）
+        self.assertEqual(cbu.get(f"/api/v1/export/bu/{quote('不存在')}/html").status_code, 403)
 
     def test_offline_export_not_residual_shell(self):
         """KANBAN_OFFLINE=1 仍须真快照，禁止 fallback 残壳假成功。"""

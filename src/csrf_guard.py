@@ -38,6 +38,59 @@ def is_loopback_client(client_host: str | None) -> bool:
     return False
 
 
+def client_ip_for_auth(
+    *,
+    client_host: str | None,
+    x_forwarded_for: str | None = None,
+) -> str:
+    """登录锁 / 鉴权用客户端 IP（与 CSRF S-13 信任边界对称）。
+
+    仅 loopback（含 TestClient）来源才信任 ``X-Forwarded-For`` **最左**非空 hop；
+    外网直连忽略伪造 XFF，只用 ``client.host``。
+    """
+    host = (client_host or "").strip()
+    if is_loopback_client(host) and x_forwarded_for:
+        for hop in str(x_forwarded_for).split(","):
+            h = hop.strip()
+            if h:
+                return h
+    return host
+
+
+def client_ip_from_request(request) -> str:
+    """从 Starlette/FastAPI Request 取登录锁 IP。"""
+    host = ""
+    try:
+        if request.client is not None:
+            host = request.client.host or ""
+    except Exception:
+        host = ""
+    try:
+        xff = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    except Exception:
+        xff = None
+    return client_ip_for_auth(client_host=host, x_forwarded_for=xff)
+
+
+def cookie_secure_for_request(
+    *,
+    client_host: str | None,
+    scheme: str | None = None,
+    forwarded_proto: str | None = None,
+) -> bool:
+    """Cookie Secure：仅 HTTPS 直连，或 loopback 反代且 X-Forwarded-Proto=https。
+
+    纯 HTTP 内网必须为 False，否则浏览器不存 cookie、登不上。
+    """
+    sch = (scheme or "http").split(",")[0].strip().lower()
+    if sch == "https":
+        return True
+    if is_loopback_client(client_host) and forwarded_proto:
+        fp = str(forwarded_proto).split(",")[0].strip().lower()
+        return fp == "https"
+    return False
+
+
 def effective_port(port: int | None, scheme: str) -> int:
     """显式端口优先；缺省：https→443，其它→80。"""
     if port is not None:
