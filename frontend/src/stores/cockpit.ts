@@ -8,10 +8,23 @@ import {
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ApiError, fetchBuVm, fetchCockpitVm, fetchSession } from '../api/client'
+import { createGenerationGate } from '../utils/fetchRace'
 import type { PageVM, RankViewBlk } from '../types/vm'
+
+/** 3.7.14 AUDIT-010：主数据拉取世代闸 — 周期/BU 切换 abort 上一代并丢弃过期写回 */
+const vmLoadGate = createGenerationGate()
 
 function isAuthRequired(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401
+}
+
+function isAbortError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const name = (err as { name?: string }).name
+  if (name === 'AbortError') return true
+  // DOMException / fetch abort
+  const msg = String((err as { message?: string }).message || '')
+  return /abort/i.test(msg)
 }
 
 /** 2.2.9 导出快照包（与后端 assemble_export_pack 对齐） */
@@ -309,12 +322,14 @@ export const useCockpitStore = defineStore('cockpit', () => {
     archiveMode.value = false
     archiveDay.value = ''
     snapshotMode.value = false
+    const gen = vmLoadGate.next()
     loading.value = true
     error.value = ''
     authRequired.value = false
     errorStatus.value = 0
     try {
-      const data = await fetchCockpitVm()
+      const data = await fetchCockpitVm({ signal: gen.signal })
+      if (vmLoadGate.isStale(gen.id)) return
       vm.value = data
       scope.value = 'main'
       buName.value = ''
@@ -322,6 +337,8 @@ export const useCockpitStore = defineStore('cockpit', () => {
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
+      if (vmLoadGate.isStale(gen.id)) return
+      if (isAbortError(e)) return
       if (isAuthRequired(e)) {
         noteError(e)
         return
@@ -330,12 +347,14 @@ export const useCockpitStore = defineStore('cockpit', () => {
       if (isOverallForbiddenError(e) || (e instanceof ApiError && e.status === 403)) {
         try {
           const sess = (await fetchSession()) as SessionLike
+          if (vmLoadGate.isStale(gen.id)) return
           const dest = buPathFromSession(sess)
           if (dest) {
             navigateToBuPath(dest)
             return
           }
         } catch (se) {
+          if (vmLoadGate.isStale(gen.id)) return
           if (isAuthRequired(se)) {
             noteError(se)
             return
@@ -345,7 +364,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
       }
       noteError(e)
     } finally {
-      loading.value = false
+      if (!vmLoadGate.isStale(gen.id)) loading.value = false
     }
   }
 
@@ -384,6 +403,7 @@ export const useCockpitStore = defineStore('cockpit', () => {
       await loadArchive(archiveDay.value || archiveDayFromUrl())
       return
     }
+    const gen = vmLoadGate.next()
     loading.value = true
     error.value = ''
     authRequired.value = false
@@ -392,16 +412,18 @@ export const useCockpitStore = defineStore('cockpit', () => {
     buName.value = name
     scope.value = 'bu'
     try {
-      const data = await fetchBuVm(name)
+      const data = await fetchBuVm(name, { signal: gen.signal })
+      if (vmLoadGate.isStale(gen.id)) return
       vm.value = data
       applyNavFromVm(data)
       const keys = data.period_keys || []
       period.value = data.year_key || keys[0] || ''
     } catch (e) {
+      if (vmLoadGate.isStale(gen.id) || isAbortError(e)) return
       vm.value = null
       noteError(e)
     } finally {
-      loading.value = false
+      if (!vmLoadGate.isStale(gen.id)) loading.value = false
     }
   }
 

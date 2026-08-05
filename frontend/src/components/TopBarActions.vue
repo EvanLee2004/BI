@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** 顶栏工具：主题外的 导出｜密码｜退出。2.6.7：去掉 ⋯ 折叠；退出二次确认（DataModal）；管理员无密码/无退出。 */
 import { computed, onMounted, ref } from 'vue'
-import { fetchSession } from '../api/client'
+import { fetchSession, invalidateSessionCache } from '../api/client'
 import { useCockpitStore } from '../stores/cockpit'
 import { showToast } from '../utils/toast'
 import DataModal from './base/DataModal.vue'
@@ -52,6 +52,7 @@ async function doLogout() {
   showLogoutConfirm.value = false
   try {
     await fetch('/api/v1/logout', { method: 'POST', credentials: 'same-origin' })
+    invalidateSessionCache()
   } catch {
     /* ignore */
   }

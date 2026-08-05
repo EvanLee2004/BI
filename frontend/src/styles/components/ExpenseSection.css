@@ -24,3 +24,10 @@
   background: var(--rank-others-bg-hover);
   outline: 1px solid var(--line-cyan-35);
 }
+/* H20 口径旁注 */
+.exp-caliber-note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--mut, var(--mut-label));
+  line-height: 1.45;
+}

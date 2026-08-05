@@ -32,7 +32,9 @@ const dateTo = ref('')
 const filterQ = ref('')
 /** R-45：默认期间费用口径；开=台账全量 */
 const showAll = ref(false)
-const caliberNote = ref('仅期间费用大类（与上方图表口径一致；已剔成本/非利润表）')
+const caliberNote = ref(
+  '仅期间费用大类（已剔成本/非利润表）。上方饼图/列表可含分摊入本线的期间费用；本表明细仅「业务BU」=本线的收单原始行，无行≠上方无费用。',
+)
 
 /** 每列已选取值（Excel 多选，可含 ""）；空数组/缺键=该列不筛 */
 const colIns = ref<Record<string, string[]>>({})

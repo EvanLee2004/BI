@@ -2,6 +2,7 @@
 import '../styles/components/LoginView.css'
 /** 2.5.0：全员唯一登录页（看端霓虹壳）；支持 ?next= 安全回跳（后端白名单） */
 import { onMounted, ref } from 'vue'
+import { invalidateSessionCache } from '../api/client'
 import SciFiPanel from './SciFiPanel.vue'
 
 const account = ref('')
@@ -45,6 +46,8 @@ async function submit() {
       msg.value = d.detail || '登录失败'
       return
     }
+    // AUDIT-017：登录成功后失效 session 单飞缓存
+    invalidateSessionCache()
     window.location.href = d.redirect || '/'
   } catch (e) {
     msg.value = String(e)

@@ -25,6 +25,7 @@ const {
   sZyPwd,
   sZyPwdSet,
   sLedgerPath,
+  sLedgerPathExists,
   sZyUrl,
   sTblOrders,
   sTblReceipts,
@@ -198,6 +199,14 @@ import './settings-view.css'
             </el-form-item>
             <el-form-item label="收单台账共享盘路径">
               <el-input v-model="sLedgerPath" placeholder="共享盘路径" @input="mark('zy')" />
+              <div
+                v-if="sLedgerPathExists !== null"
+                class="muted"
+                style="margin-top: 4px; font-size: 12px"
+                data-testid="ledger-path-exists"
+              >
+                路径探测：{{ sLedgerPathExists ? '存在可读' : '当前不存在（gvfs 断会话或未挂载时常见）' }}
+              </div>
             </el-form-item>
             <el-button type="primary" plain style="margin-top: 8px" @click="zyDrawer = true">智云服务器与抓取表（一般不用改）</el-button>
             <el-drawer v-model="zyDrawer" title="智云服务器与抓取表" direction="rtl" size="420px" append-to-body>

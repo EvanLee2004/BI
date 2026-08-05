@@ -1,4 +1,5 @@
 import { friendlyError } from '../utils/friendlyError'
+import { createSessionSingleflight } from '../utils/sessionSingleflight'
 
 /**
  * 管理端 API 客户端（credentials: same-origin · 与 static/admin jget/jpost 对齐）
@@ -80,12 +81,20 @@ export async function adminLogin(account: string, password: string): Promise<{ o
   })
   const j = await r.json().catch(() => ({}))
   if (r.ok && j && j.redirect) {
+    invalidateSessionCache()
     return { ok: true, redirect: j.redirect as string }
   }
   const m = (j && (j.detail || j.message)) || '账号或密码不正确'
   return { ok: false, detail: typeof m === 'string' ? m : '账号或密码不正确' }
 }
 
+/** AUDIT-017：管理端 session 单飞 */
+const sessionSf = createSessionSingleflight(() => jget<Record<string, unknown>>('/api/v1/session'))
+
 export async function fetchSession(): Promise<Record<string, unknown>> {
-  return jget('/api/v1/session')
+  return sessionSf.get()
+}
+
+export function invalidateSessionCache(): void {
+  sessionSf.invalidate()
 }

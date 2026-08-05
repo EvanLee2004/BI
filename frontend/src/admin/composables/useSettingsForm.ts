@@ -75,6 +75,8 @@ export function useSettingsForm() {
   const sZyUser = ref('')
   const sZyPwd = ref('')
   const sLedgerPath = ref('')
+  /** 3.7.14：管理员只读路径 exists 探测 */
+  const sLedgerPathExists = ref<boolean | null>(null)
   const sZyUrl = ref('')
   const sTblOrders = ref('')
   const sTblReceipts = ref('')
@@ -262,6 +264,7 @@ export function useSettingsForm() {
         zhiyun_username?: string
         zhiyun_password_set?: boolean
         ledger_share_path?: string
+        ledger_path_exists?: boolean
         run_log_keep_days?: number
         disk_free_min_ratio?: number
         zhiyun_conn?: { base_url?: string; tables?: Record<string, string> }
@@ -275,6 +278,8 @@ export function useSettingsForm() {
       sZyPwd.value = ''
       sZyPwdSet.value = !!s.zhiyun_password_set
       sLedgerPath.value = s.ledger_share_path || ''
+      sLedgerPathExists.value =
+        typeof s.ledger_path_exists === 'boolean' ? s.ledger_path_exists : null
       sLogKeep.value = s.run_log_keep_days != null ? s.run_log_keep_days : 365
       sDiskMin.value =
         s.disk_free_min_ratio != null ? Math.round(Number(s.disk_free_min_ratio) * 100) : 10
@@ -784,6 +789,7 @@ export function useSettingsForm() {
     sZyPwd,
     sZyPwdSet,
     sLedgerPath,
+    sLedgerPathExists,
     sZyUrl,
     sTblOrders,
     sTblReceipts,
