@@ -94,37 +94,38 @@ def yuan_text_to_fen_text(s: Any) -> str:
     return "" if fen is None else str(int(fen))
 
 
+def _yuan_invalid(val: Any, on_invalid: str, msg: str) -> int | None:
+    """FIN-002 非法金额处置。"""
+    if on_invalid == "raise":
+        raise ValueError(msg) from None
+    if on_invalid == "none":
+        return None
+    return 0
+
+
+def _decimal_yuan_to_fen(d: Decimal) -> int:
+    return int((d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
 def yuan_to_fen(val: Any, *, on_invalid: str = "raise") -> int | None:
     """元 → 分。None/空串 → None。
 
     FIN-002：默认 ``on_invalid='raise'``——非法非空文本拒入（不静默当 0）。
-    on_invalid:
-      - ``raise``（默认）：非法 → ValueError
-      - ``zero``：非法文本 → 0（仅显式兼容旧调用）
-      - ``none``：非法 → None
-
-    注意：入参必须是**元**。库内已是分的 int 请用 as_fen / 直接用，勿再 yuan_to_fen。
+    on_invalid: ``raise``（默认）| ``zero`` | ``none``。
+    注意：入参必须是**元**。库内已是分的 int 请用 as_fen / 直接用。
     """
     if val is None:
         return None
     if isinstance(val, bool):
         return int(val) * 100
     if isinstance(val, int) and not isinstance(val, bool):
-        # 元整数（管理端/API 常传 100 表示 100 元）
         return val * 100
     if isinstance(val, float):
         import math
 
         if not math.isfinite(val):
-            if on_invalid == "raise":
-                raise ValueError(f"非法金额（非有限 float）：{val!r}") from None
-            if on_invalid == "none":
-                return None
-            return 0
-        # 合法 float 元
-        d = Decimal(str(val))
-        fen = (d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        return int(fen)
+            return _yuan_invalid(val, on_invalid, f"非法金额（非有限 float）：{val!r}")
+        return _decimal_yuan_to_fen(Decimal(str(val)))
     s = str(val).strip()
     if s == "" or s == "-":
         return None
@@ -132,13 +133,8 @@ def yuan_to_fen(val: Any, *, on_invalid: str = "raise") -> int | None:
     try:
         d = Decimal(s)
     except (InvalidOperation, ValueError):
-        if on_invalid == "raise":
-            raise ValueError(f"非法金额（非数字）：{val!r}") from None
-        if on_invalid == "none":
-            return None
-        return 0
-    fen = (d * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return int(fen)
+        return _yuan_invalid(val, on_invalid, f"非法金额（非数字）：{val!r}")
+    return _decimal_yuan_to_fen(d)
 
 
 def as_fen(val: Any) -> int:
