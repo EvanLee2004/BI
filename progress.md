@@ -1,4 +1,6 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
+
+> **3.7.17** tip 待 publish 后写生产钉；功能 `68c5002` 审查收口波。
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
 
 ## 2026-08-05 · fix wave 收口（本 worktree）
