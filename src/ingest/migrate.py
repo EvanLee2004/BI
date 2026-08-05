@@ -19,9 +19,18 @@ def manual_is_empty(conn: sqlite3.Connection) -> bool:
 
 
 def migrate_manual(
-    cfg: dict, conn: sqlite3.Connection, root: Path | None = None, 经手人: str = "迁移", 时间: str = ""
+    cfg: dict,
+    conn: sqlite3.Connection,
+    root: Path | None = None,
+    经手人: str = "迁移",
+    时间: str = "",
+    *,
+    commit: bool = True,
 ) -> dict:
-    """把手填 xlsx 导入 manual_手填。返回 {status, imported, detail}。"""
+    """把手填 xlsx 导入 manual_手填。返回 {status, imported, detail}。
+
+    commit=False：外层事务统一提交（BE-001 与 rebuild/adj 同事务时）。
+    """
     if not manual_is_empty(conn):
         return {"status": "skipped", "imported": 0, "detail": "manual_手填 已有数据，跳过迁移（不覆盖人工表）"}
 
@@ -40,7 +49,8 @@ def migrate_manual(
                 fen = 0
             upsert_manual_row(conn, 归属月, 项目, fen, stamp, 经手人)
             n += 1
-    conn.commit()
+    if commit:
+        conn.commit()
     return {"status": "migrated", "imported": n, "detail": f"手填 xlsx → manual_手填 共 {n} 条"}
 
 

@@ -174,18 +174,34 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
             )
     except Exception:
         pass
-    # 3) 全量重建标准表（人工表不动）
-    _rebuild_std(conn, records)
+    # 3–5) BE-001：rebuild + remap + migrate_manual + adj 同一 IMMEDIATE 事务
     report["counts"] = {t: len(records[t]) for t in _STD_ORDER}
-    # 3b) 2.6.8 T2：费用定位键含「事项」后，把仅旧键可唯一对应的 adj 迁到新键（防失配计数飙升）
     try:
-        report["locator_remap"] = _remap_expense_adj_locators(conn, records.get("std_费用明细") or [])
-    except Exception as e:
-        report["locator_remap"] = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
-    # 4) 一次性迁移手填（仅当 manual_手填 为空）
-    report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root)
-    # 5) 重放调整 + 过期校验（改数不改结果、只记指令）
-    report["adjust"] = adjust.apply_adjustments(conn, now)
+        conn.commit()
+    except Exception:
+        pass
+    prev_iso = conn.isolation_level
+    conn.isolation_level = None
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _rebuild_std(conn, records, manage_txn=False)
+        try:
+            report["locator_remap"] = _remap_expense_adj_locators(
+                conn, records.get("std_费用明细") or []
+            )
+        except Exception as e:
+            report["locator_remap"] = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
+        report["migrate_manual"] = migrate.migrate_manual(cfg, conn, root, commit=False)
+        report["adjust"] = adjust.apply_adjustments(conn, now, commit=False)
+        conn.execute("COMMIT")
+    except Exception:
+        try:
+            conn.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        conn.isolation_level = prev_iso
     report["duplicate_locators"] = db.audit_duplicate_locators(conn)
     report["db_check"] = db.pragma_quick_check(conn)
     _report_disk_and_db(cfg, root, report)
@@ -213,10 +229,11 @@ def build_std_db(  # noqa: C901  # 2.6.3 管道步骤：归档/缺 sheet/备份�
     return report
 
 
-def _rebuild_std(conn, records: dict) -> None:
+def _rebuild_std(conn, records: dict, *, manage_txn: bool = True) -> None:
     """全量重建标准表（人工表不动）。SQL 在 db_write.rebuild_std_tables。
 
     2.6.8：剥掉 normalize 临时字段（_legacy_定位键 等）再入库。
+    manage_txn=False：嵌套 BE-001 外层事务。
     """
     clean: dict = {}
     for t, rows in (records or {}).items():
@@ -227,7 +244,7 @@ def _rebuild_std(conn, records: dict) -> None:
             {k: v for k, v in r.items() if not str(k).startswith("_")} if isinstance(r, dict) else r
             for r in rows
         ]
-    rebuild_std_tables(conn, clean)
+    rebuild_std_tables(conn, clean, manage_txn=manage_txn)
 
 
 def _remap_expense_adj_locators(conn, expense_rows: list) -> dict:
@@ -272,11 +289,30 @@ def _remap_expense_adj_locators(conn, expense_rows: list) -> dict:
 def reapply(cfg: dict, conn, records: dict, today=None) -> dict:
     """**轻量重算**（管理员保存后秒级重算用）：用缓存的原始记录重置标准表 → 重放全部生效调整。
     不 fetch、不读 xlsx（无新数据）。返回 adjust 报告。
+
+    BE-001：rebuild + apply 同一 BEGIN IMMEDIATE 事务，中途失败整段回滚。
     """
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    _rebuild_std(conn, records)
-    rep = adjust.apply_adjustments(conn, now)
-    return rep
+    try:
+        conn.commit()
+    except Exception:
+        pass
+    prev_iso = conn.isolation_level
+    conn.isolation_level = None
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _rebuild_std(conn, records, manage_txn=False)
+        rep = adjust.apply_adjustments(conn, now, commit=False)
+        conn.execute("COMMIT")
+        return rep
+    except Exception:
+        try:
+            conn.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        conn.isolation_level = prev_iso
 
 
 def _zy_source_results(report: dict) -> dict:

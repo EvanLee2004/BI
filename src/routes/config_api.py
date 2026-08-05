@@ -120,25 +120,19 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
         old = bu.load_bu_config(cfg, root) or {"bus": [], "公共费用分摊启用": False}
         old_bus, old_alloc = old["bus"], bool(old.get("公共费用分摊启用"))
         new_alloc = bool(payload.get("公共费用分摊启用", False))
-        try:
-            saved = bu.save_bu_config(cfg, root, bus, 公共费用分摊启用=new_alloc)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        # 刷新进行中：配置已落盘，但 recompute 延后（与 manual 写路径同口径）
+        # BE-003：先抢锁再落盘，避免 409 时「文件新、页面旧」
         from app_state import _LOCK, _state
 
         if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
-            _audit(
-                cfg,
-                root,
-                user,
-                _diff_bu_config(old_bus, saved["bus"], old_alloc, bool(saved.get("公共费用分摊启用"))),
-            )
             raise HTTPException(
                 status_code=409,
-                detail="更新进行中，BU 配置已保存，请稍后再点重算或等刷新结束后自动对齐",
+                detail="更新进行中，请稍后再保存 BU 配置",
             )
         try:
+            try:
+                saved = bu.save_bu_config(cfg, root, bus, 公共费用分摊启用=new_alloc)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
             # 3.7.8 P0：已持 _LOCK，必须 already_locked=True，否则二次抢锁死锁
             recompute(cfg, root, already_locked=True)
         finally:
@@ -283,6 +277,11 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/settings")
     def api_settings_post(request: Request, payload: dict = Body(default={})):
         user = _require(request)
+        # BE-004：刷新中拒写设置，避免 schedule/备份配置与管道竞态
+        from app_state import _state
+
+        if _state.get("refreshing"):
+            raise HTTPException(status_code=409, detail="更新进行中，请稍后再保存设置")
         old_times = get_schedule_times(cfg)
         old_keep = cfg.get("backup_keep_days")
         old_lsp = cfg.get("ledger_share_path")

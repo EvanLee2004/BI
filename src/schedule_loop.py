@@ -471,7 +471,7 @@ class ScheduleLoop:
                 self.cfg, self.root, trigger="schedule", on_complete=_on_complete
             )
         except TypeError:
-            # 兼容旧签名 mock：无 on_complete 时启动即成功（单测）
+            # BE-011：无 on_complete 的旧签名禁止登记 success（生产入口必须带回调）
             try:
                 ok = self.start_refresh_async_fn(self.cfg, self.root, trigger="schedule")
             except TypeError:
@@ -481,9 +481,12 @@ class ScheduleLoop:
                     log.warning("schedule_loop: start_refresh_async failed: %s", e)
                     return False
             else:
-                # 旧 mock 返回 True 即视为管道成功
                 if ok:
-                    _on_complete(True)
+                    log.error(
+                        "schedule_loop: start_refresh_async lacks on_complete; "
+                        "refusing fake success (BE-011) — update caller to pass on_complete"
+                    )
+                    # 启动了但不记 success/fired；从队列移出防同 tick 连发，下一分钟 plan 可再补
             if not isinstance(ok, bool):
                 return False
         except Exception as e:

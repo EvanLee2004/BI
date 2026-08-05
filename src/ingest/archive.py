@@ -103,20 +103,63 @@ def backup_db(  # noqa: C901  # 2.6.3·D5 pre-restore 清理分支
     if method != "vacuum_into":
         out["detail"] = "VACUUM INTO 失败，已回退 copy2（体检黄）"
         out["yellow"] = True
+        # BE-007：降级须落本机告警，禁止静默
+        try:
+            import logging
+
+            logging.getLogger("kanban.backup").warning(
+                "backup_db degraded to copy2: path=%s", dst
+            )
+        except Exception:
+            pass
     return out
 
 
 def restore_db_from_backup(
-    cfg: dict, backup_path: Path | str, root: Path | None = None
+    cfg: dict,
+    backup_path: Path | str,
+    root: Path | None = None,
+    *,
+    allow_online: bool = False,
 ) -> dict:
     """从每日滚动备份恢复看板.db（覆盖当前库）。测试/演练用；部署手册「恢复演练」章节同步骤。
+
+    BE-006：默认拒绝在线 restore（服务可能仍持 WAL/连接）。须先 systemctl stop kanban，
+    或显式 allow_online=True / 环境变量 KANBAN_ALLOW_ONLINE_RESTORE=1（仅应急）。
 
     步骤：停写 → copy2 备份→目标 → 下次 connect 自动 migrate/建表。
     返回 {status, path, detail}。
     """
+    import os
+
     src = Path(backup_path)
     if not src.exists() or not src.is_file():
         return {"status": "error", "detail": f"备份不存在：{src}"}
+
+    env_allow = os.environ.get("KANBAN_ALLOW_ONLINE_RESTORE", "").strip() == "1"
+    if not allow_online and not env_allow:
+        # 探测进程内刷新/写锁：在 serve 进程内调用时直接拒绝
+        try:
+            from app_state import _LOCK, _state
+
+            if _state.get("refreshing") or _LOCK.locked():
+                return {
+                    "status": "error",
+                    "detail": "服务刷新/写锁进行中，禁止在线 restore；请先停服后再恢复",
+                    "code": "online_restore_blocked",
+                }
+        except Exception:
+            pass
+        # 默认策略：无 allow 标志即拒绝（防运维误在线 copy2）
+        return {
+            "status": "error",
+            "detail": (
+                "在线 restore 已禁用：请先 systemctl stop kanban 后恢复，"
+                "或设 KANBAN_ALLOW_ONLINE_RESTORE=1 / allow_online=True（仅应急）"
+            ),
+            "code": "online_restore_blocked",
+        }
+
     dst = db.db_path(cfg, root)
     dst.parent.mkdir(parents=True, exist_ok=True)
     # 恢复前再留一份当前库（若存在）

@@ -67,8 +67,19 @@ def insert_std_records(conn: sqlite3.Connection, table: str, records: list[dict]
     conn.executemany(sql, rows)
 
 
-def rebuild_std_tables(conn: sqlite3.Connection, records: dict) -> None:
-    """清表+插入单事务（BEGIN IMMEDIATE）。"""
+def rebuild_std_tables(
+    conn: sqlite3.Connection, records: dict, *, manage_txn: bool = True
+) -> None:
+    """清表+插入。
+
+    manage_txn=True（默认）：BEGIN IMMEDIATE … COMMIT 自管事务。
+    manage_txn=False（BE-001）：调用方已在 IMMEDIATE 事务内，只写 std 不 commit。
+    """
+    if not manage_txn:
+        schema.reset_std_tables(conn, commit=False)
+        for t in _STD_ORDER:
+            insert_std_records(conn, t, records.get(t) or [])
+        return
     try:
         conn.commit()
     except Exception:
@@ -229,11 +240,7 @@ def remap_adj_locators(
             (new, table, old),
         )
         n += int(cur.rowcount or 0)
-    if n:
-        try:
-            conn.commit()
-        except Exception:
-            pass
+    # BE-001：嵌在外层 IMMEDIATE 事务时不自行 commit（commit=由调用方）
     return n
 
 

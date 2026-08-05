@@ -118,8 +118,8 @@ class TestBackupRestoreA6(unittest.TestCase):
             self.assertEqual(m["2026-06"]["闲置人力"], 9999900)  # 分
             conn.close()
 
-            # 恢复
-            res = archive.restore_db_from_backup(cfg, bak_path, tmp)
+            # 恢复（测试/演练：显式 allow_online，绕过 BE-006 默认拒在线）
+            res = archive.restore_db_from_backup(cfg, bak_path, tmp, allow_online=True)
             self.assertEqual(res["status"], "ok")
             conn = db.connect(cfg, tmp)
             m2 = db.load_manual(cfg, conn)

@@ -245,13 +245,18 @@ class TestScheduleLoop(unittest.TestCase):
     """任务书60：进程内 ScheduleLoop（假时钟 + mock，无真等）。"""
 
     def test_t60_1_fires_once_per_minute(self):
-        """T-60-1：命中 schedule_times → 调 start_refresh_async(trigger=schedule)；同分钟不二次。"""
+        """T-60-1：命中 schedule_times → 调 start_refresh_async(trigger=schedule)；同分钟不二次。
+
+        BE-011：mock 必须接受 on_complete；真成功只在回调 success=True 后登记 fired。
+        """
         import schedule_loop as sl
 
         calls = []
 
-        def mock_start(cfg, root, trigger="manual"):
+        def mock_start(cfg, root, trigger="manual", on_complete=None):
             calls.append({"cfg": cfg, "root": root, "trigger": trigger})
+            if on_complete:
+                on_complete(True)
             return True
 
         cfg = {"_mark": "same-cfg-object"}
@@ -279,9 +284,12 @@ class TestScheduleLoop(unittest.TestCase):
         calls = []
         results = [False, True]
 
-        def mock_start(cfg, root, trigger="manual"):
+        def mock_start(cfg, root, trigger="manual", on_complete=None):
             calls.append(trigger)
-            return results.pop(0)
+            ok = results.pop(0)
+            if ok and on_complete:
+                on_complete(True)
+            return ok
 
         fixed = time.struct_time((2026, 7, 20, 12, 0, 0, 0, 201, -1))
         loop = sl.ScheduleLoop(

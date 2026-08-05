@@ -42,6 +42,7 @@ def publish(cfg, summary, *, bu_pages=None, views=None):
 
     bu_pages 条目只保留 name/summary/views。
     2.6.3·C2：构造完整快照 dict 后 **一次引用替换** 发布字段。
+    BE-005：先组 pub 包再 bulk update，读侧可用 published_snapshot() 取一致视图。
     """
     has = summary is not None
     slim_bu = None
@@ -57,6 +58,15 @@ def publish(cfg, summary, *, bu_pages=None, views=None):
             }
     built = time.strftime("%Y-%m-%d %H:%M:%S")
     prev = dict(_state)
+    final_views = views if views is not None else prev.get("views")
+    final_bu = slim_bu if slim_bu is not None else prev.get("bu_pages")
+    pub = {
+        "summary": summary,
+        "views": final_views,
+        "bu_pages": final_bu if final_bu is not None else {},
+        "built_at": built,
+        "has_data": has,
+    }
     snap = {
         **prev,
         "summary": summary,
@@ -64,6 +74,7 @@ def publish(cfg, summary, *, bu_pages=None, views=None):
         "admin_html": "ready" if has else "",
         "built_at": built,
         "export_html_cache": None,
+        "pub": pub,
     }
     snap.pop("fragments", None)
     snap.pop("user_html", None)
@@ -77,7 +88,7 @@ def publish(cfg, summary, *, bu_pages=None, views=None):
     import app_state as _as
 
     if getattr(_as, "_state", None) is _state:
-        # 同对象：用新映射覆盖键，不 clear
+        # 同对象：用新映射覆盖键，不 clear；pub 键先写供读侧一致快照
         stale = [k for k in list(_state.keys()) if k not in snap]
         _state.update(snap)
         for k in stale:

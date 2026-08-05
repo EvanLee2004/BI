@@ -269,8 +269,13 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
     @app.post("/api/v1/admin/accounts")
     def api_accounts_post(request: Request, payload: dict = Body(default={})):
         """保存账号表。至少保留一个管理员；总账号不可删；至少一账号 admin+manage。
-        3.7.8：响应含明文密码；条目密码留空/缺省=保留已存值；能力字段物化。"""
+        3.7.8：响应含明文密码；条目密码留空/缺省=保留已存值；能力字段物化。
+        BE-004：刷新进行中返回 409，与写库路径互斥语义对齐（最小处理）。"""
         user = _require_manage_accounts(request)
+        from app_state import _state
+
+        if _state.get("refreshing"):
+            raise HTTPException(status_code=409, detail="更新进行中，请稍后再保存账号")
         raw = payload.get("accounts")
         if not isinstance(raw, list):
             raise HTTPException(status_code=400, detail="accounts 须为列表")

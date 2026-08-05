@@ -83,16 +83,32 @@ def register(app, d):  # noqa: C901  # 纯路由/装配分发壳，复杂度在�
 
         禁止 TypeError→无 already_locked 再调 recompute（会二次抢 threading.Lock 死锁）。
         测试桩须接受 **kwargs（或显式 already_locked）。
+
+        BE-002：yield 内写库失败 → 409 忙；**已写库后** recompute 失败 → 503「已保存待重算」，
+        禁止再 409 谎称忙（客户端会误以为未落库）。
         """
         if _state.get("refreshing") or not _LOCK.acquire(blocking=False):
             raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL)
         try:
             try:
                 yield
+            except sqlite3.OperationalError as e:
+                raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL) from e
+            try:
                 # already_locked：同线程已持 _LOCK，pipeline 内不得再 with _LOCK
                 recompute(cfg, root, rebuild_std=rebuild_std, already_locked=True)
             except sqlite3.OperationalError as e:
-                raise HTTPException(status_code=409, detail=_WRITE_BUSY_DETAIL) from e
+                raise HTTPException(
+                    status_code=503,
+                    detail="已保存，重算未完成，请稍后刷新页面或点「更新数据」",
+                ) from e
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(
+                    status_code=503,
+                    detail="已保存，重算失败，请稍后刷新页面",
+                ) from e
         finally:
             _LOCK.release()
 

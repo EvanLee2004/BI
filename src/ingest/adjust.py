@@ -88,8 +88,11 @@ def _cast(字段: str, 新值: str):
     return 新值
 
 
-def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
-    """重放全部生效调整。返回 {applied, expired, removed, skipped, missing}。"""
+def apply_adjustments(conn: sqlite3.Connection, now: str, *, commit: bool = True) -> dict:
+    """重放全部生效调整。返回 {applied, expired, removed, skipped, missing}。
+
+    commit=False（BE-001）：由外层 IMMEDIATE 事务统一提交，避免 rebuild 已落盘而 adj 未完。
+    """
     applied = expired = removed = skipped = missing = 0
     rows = list_active_adjustments(conn)
     for aid, 目标表, 定位键, 字段, 原值, 新值, 类型 in rows:
@@ -127,5 +130,6 @@ def apply_adjustments(conn: sqlite3.Connection, now: str) -> dict:
             ym = _ledger_ym(d, m, int(now[:4]))
             update_field_by_locator(conn, 目标表, "归属月", ym, 定位键)
         applied += 1
-    conn.commit()
+    if commit:
+        conn.commit()
     return {"applied": applied, "expired": expired, "removed": removed, "skipped": skipped, "missing": missing}

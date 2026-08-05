@@ -177,6 +177,7 @@ tests/test_admin_static.py
 tests/test_admin_vue_54d.py
 tests/test_no_html_in_py.py
 tests/test_b_p1_contract.py
+tests/test_be_write_atomicity_p2.py
 tests/test_year2027.py
 tests/test_split_static.py
 tests/test_linux_deploy.py
