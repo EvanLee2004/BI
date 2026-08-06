@@ -1,7 +1,13 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 
-> **3.7.17** tip 待 publish 后写生产钉；功能 `68c5002` 审查收口波。
+> **3.7.18** 管理端 UX 三连（顶栏上次更新 / 设置页排版 / 密码列常显掩码）；tip 待 push+publish 后钉。
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
+
+## 2026-08-06 · 3.7.18 管理端三连 UX
+
+- VERSION **3.7.18**：顶栏 pill「上次更新 YYYY-MM-DD HH:mm」；设置页 max-width 1360 + 中区三运维卡 + 智云通栏；账号密码列掩码+眼+设新密码+标签
+- 守卫 `tests/test_admin_ux_3_7_18.py`；证据 `docs/验收证据/3_7_18_admin_ux/`
+- **未改** profit / golden / 调度漏跑判定 / 智云·CIFS 明文回显
 
 ## 2026-08-05 · fix wave 收口（本 worktree）
 

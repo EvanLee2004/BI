@@ -6,6 +6,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, downloadBlob } from '../api'
 import { friendlyError } from '../../utils/friendlyError'
 import { SRC_MAP, salesArr } from '../utils'
+import {
+  ACCT_PW_FIXED_MASK,
+  acctPasswordDisplayValue,
+  acctPasswordPlaceholder,
+  canRevealAcctPassword,
+  isAcctPasswordReadonly,
+  isLocalNewAcct,
+  passwordForSave,
+} from '../utils/acctPassword'
 
 /**
  * 3.7.10：用户可勾能力仅三项「导出内容」（key 仍与后端看端导出对齐）。
@@ -35,6 +44,8 @@ export type Acct = {
   可见BU?: string[]
   初始密码?: boolean
   password_set?: boolean
+  /** 3.7.18：本地新加未落库 */
+  _localNew?: boolean
   能力?: Partial<Record<CapKey, boolean>>
   caps?: Partial<Record<CapKey, boolean>>
 }
@@ -389,6 +400,7 @@ export function useSettingsForm() {
       密码: '',
       初始密码: true,
       password_set: false,
+      _localNew: true,
       最后登录: '',
       能力: {
         ...emptyCaps(false),
@@ -398,6 +410,24 @@ export function useSettingsForm() {
       },
     }
     acctList.value.push(row)
+    mark('acct')
+  }
+
+  /** 3.7.18：眼睛切换；无真值则 toast，不展示空框明文 */
+  function toggleAcctPwShow(index: number, row: AcctLocal) {
+    if (!canRevealAcctPassword(row)) {
+      ElMessage.info('请使用设新密码查看/重置')
+      return
+    }
+    acctPwShow.value = { ...acctPwShow.value, [index]: !acctPwShow.value[index] }
+  }
+
+  function onAcctPasswordInput(row: AcctLocal, index: number, v: string) {
+    if (isAcctPasswordReadonly(row)) return
+    // 用户改写时勿把固定掩码当值存入
+    if (v === ACCT_PW_FIXED_MASK) return
+    row.密码 = v
+    row.初始密码 = false
     mark('acct')
   }
 
@@ -465,6 +495,7 @@ export function useSettingsForm() {
         const row: AcctLocal = {
           ...a,
           密码: a.密码 != null ? String(a.密码) : '',
+          _localNew: false,
           能力: { ...emptyCaps(false), ...(a.能力 || a.caps || {}) },
         }
         return row
@@ -725,7 +756,7 @@ export function useSettingsForm() {
       return false
     }
     try {
-      // 密码：有值则提交（含明文回显后未改）；空串=留空不改（后端沿用）
+      // 密码：有真值则提交；空串/固定掩码=留空不改（后端沿用）
       // 能力：整表提交，便于陆总统领
       const payload = acctList.value.map((a) => {
         const row: Record<string, unknown> = {
@@ -735,7 +766,7 @@ export function useSettingsForm() {
           可见BU: a.可见BU,
           能力: ensureCaps(a),
         }
-        const pw = String(a.密码 || '').trim()
+        const pw = passwordForSave(a.密码)
         if (pw) row['密码'] = pw
         return row
       })
@@ -748,6 +779,7 @@ export function useSettingsForm() {
       acctList.value = (d.accounts || []).map((a) => ({
         ...a,
         密码: a.密码 != null ? String(a.密码) : '',
+        _localNew: false,
         能力: { ...emptyCaps(false), ...(a.能力 || a.caps || {}) },
       }))
       if (d.master_account) masterAccount.value = d.master_account
@@ -899,6 +931,14 @@ export function useSettingsForm() {
     setCap,
     applyRoleTemplate,
     resetAcctPasswd,
+    toggleAcctPwShow,
+    onAcctPasswordInput,
+    acctPasswordDisplayValue,
+    acctPasswordPlaceholder,
+    isAcctPasswordReadonly,
+    canRevealAcctPassword,
+    isLocalNewAcct,
+    ACCT_PW_FIXED_MASK,
     buList,
     salesPool,
     buPicked,

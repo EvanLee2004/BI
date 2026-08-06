@@ -54,6 +54,12 @@ const {
   setCap,
   applyRoleTemplate,
   resetAcctPasswd,
+  toggleAcctPwShow,
+  onAcctPasswordInput,
+  acctPasswordDisplayValue,
+  acctPasswordPlaceholder,
+  isAcctPasswordReadonly,
+  canRevealAcctPassword,
   buList,
   salesPool,
   buPicked,
@@ -108,19 +114,17 @@ import './settings-view.css'
 <template>
 
   <div class="settings">
-    <el-row :gutter="16">
-      <!-- 版本 -->
+    <el-row :gutter="12">
+      <!-- 上区：版本通栏（紧凑） -->
       <el-col :span="24">
-        <el-card shadow="never" class="scard">
+        <el-card shadow="never" class="scard scard--compact">
           <template #header>
             <div class="scard-h"><span class="ico">🧭</span><div><div class="ttl">版本与更新</div><div class="sub">检查更新 / 一键更新 / 更新日志</div></div></div>
           </template>
-          <div class="ver-now">
+          <div class="ver-row">
             <span class="num">{{ verNum }}</span>
-            <el-tag size="small" style="margin-left: 8px">{{ verStage }}</el-tag>
-            <span class="muted" style="margin-left: 8px">{{ verNext }}</span>
-          </div>
-          <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+            <el-tag size="small">{{ verStage }}</el-tag>
+            <span class="muted">{{ verNext }}</span>
             <el-button size="small" @click="checkUpdate">检查更新</el-button>
             <el-button size="small" text @click="verDrawer = true">更新日志 ›</el-button>
             <span class="muted">{{ vuMsg }}</span>
@@ -138,10 +142,9 @@ import './settings-view.css'
         </el-card>
       </el-col>
 
-      <!-- 2.7.4：双列堆叠——左列自动更新→运行日志，右列备份→智云；两列顶对齐 -->
-      <el-col :xs="24" :md="12">
-        <!-- 自动更新 -->
-        <el-card shadow="never" class="scard" @input="mark('sched')" @change="mark('sched')">
+      <!-- 中区：运维三卡并排（宽屏等高节奏） -->
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="scard scard--ops" @input="mark('sched')" @change="mark('sched')">
           <template #header>
             <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div><div class="sub">每天多个时间点完整更新</div></div></div>
           </template>
@@ -152,28 +155,12 @@ import './settings-view.css'
           <el-button size="small" text style="margin-top: 8px" @click="schedAdd">＋ 添加时间点</el-button>
           <div class="muted foot">{{ setMsgs.sched }}</div>
         </el-card>
-        <!-- 运行日志 / 磁盘（仅本机） -->
-        <el-card shadow="never" class="scard">
-          <template #header>
-            <div class="scard-h"><span class="ico">📋</span><div><div class="ttl">运行日志 · 磁盘</div><div class="sub">仅本机日志与体检阈值</div></div></div>
-          </template>
-          <el-form label-position="top">
-            <el-form-item label="运行日志保留（天）">
-              <el-input-number v-model="sLogKeep" :min="30" :max="3650" @change="mark('alert')" />
-            </el-form-item>
-            <el-form-item label="磁盘告警阈值（% 剩余以下体检红）">
-              <el-input-number v-model="sDiskMin" :min="1" :max="50" @change="mark('alert')" />
-            </el-form-item>
-          </el-form>
-          <div class="muted">{{ setMsgs.alert }}</div>
-        </el-card>
       </el-col>
 
-      <el-col :xs="24" :md="12">
-        <!-- 备份 -->
-        <el-card shadow="never" class="scard">
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="scard scard--ops">
           <template #header>
-            <div class="scard-h"><span class="ico">🗄</span><div><div class="ttl">备份清理 · 审计归档</div><div class="sub">备份保留天数 + 按年导出</div></div></div>
+            <div class="scard-h"><span class="ico">🗄</span><div><div class="ttl">备份清理 · 审计</div><div class="sub">备份保留天数 + 按年导出</div></div></div>
           </template>
           <div class="field-row">
             <span>备份保留</span>
@@ -181,48 +168,92 @@ import './settings-view.css'
             <span class="muted">天</span>
           </div>
           <div class="muted">{{ sBakInfo }}</div>
-          <div class="field-row" style="margin-top: 12px">
+          <div class="field-row" style="margin-top: 10px">
             <span>导出归档年份</span>
             <el-input-number v-model="sArchYear" :min="2020" :max="2099" controls-position="right" />
             <el-button size="small" @click="exportArchive">导出归档 Excel</el-button>
           </div>
           <div class="muted">{{ sArchMsg || setMsgs.backup }}</div>
         </el-card>
-        <!-- 智云 -->
+      </el-col>
+
+      <el-col :xs="24" :md="8">
+        <el-card shadow="never" class="scard scard--ops">
+          <template #header>
+            <div class="scard-h"><span class="ico">📋</span><div><div class="ttl">运行日志 · 磁盘</div><div class="sub">仅本机日志与体检阈值</div></div></div>
+          </template>
+          <el-form label-position="left" label-width="148px" class="ops-form">
+            <el-form-item label="运行日志保留（天）">
+              <el-input-number v-model="sLogKeep" :min="30" :max="3650" @change="mark('alert')" />
+            </el-form-item>
+            <el-form-item label="磁盘告警阈值（%）">
+              <el-input-number v-model="sDiskMin" :min="1" :max="50" @change="mark('alert')" />
+            </el-form-item>
+          </el-form>
+          <div class="muted">剩余低于阈值体检红 · {{ setMsgs.alert }}</div>
+        </el-card>
+      </el-col>
+
+      <!-- 下区：智云通栏 -->
+      <el-col :span="24">
         <el-card shadow="never" class="scard">
           <template #header>
             <div class="scard-h"><span class="ico">🔑</span><div><div class="ttl">智云账号 · 台账路径</div><div class="sub">只存本机，不进代码库</div></div></div>
           </template>
-          <el-form label-position="top">
-            <el-form-item label="智云账号">
-              <el-input v-model="sZyUser" autocomplete="username" @input="mark('zy')" />
-            </el-form-item>
-            <el-form-item :label="sZyPwdSet ? '智云密码（已设置；留空不改）' : '智云密码'">
-              <el-input
-                v-model="sZyPwd"
-                type="password"
-                show-password
-                autocomplete="new-password"
-                :placeholder="sZyPwdSet ? '已设置；留空不改' : '请输入密码'"
-                @input="mark('zy')"
-              />
-            </el-form-item>
+          <el-form label-position="top" class="zy-form">
+            <div class="form-grid-2">
+              <el-form-item label="智云账号">
+                <el-input v-model="sZyUser" autocomplete="username" @input="mark('zy')" />
+              </el-form-item>
+              <el-form-item :label="sZyPwdSet ? '智云密码（已设置；留空不改）' : '智云密码'">
+                <el-input
+                  v-model="sZyPwd"
+                  type="password"
+                  show-password
+                  autocomplete="new-password"
+                  :placeholder="sZyPwdSet ? '已设置；留空不改' : '请输入密码'"
+                  @input="mark('zy')"
+                />
+              </el-form-item>
+            </div>
             <el-divider content-position="left">收单台账 · 公司共享盘（CIFS）</el-divider>
-            <p class="muted" style="margin: 0 0 8px; font-size: 12px; line-height: 1.45">
+            <p class="muted zy-hint">
               系统开机自动挂载；此处改服务器/文件夹/账号后点保存即可。密码留空表示不修改。部署机须连公司
               <b>BESTEASY</b> Wi‑Fi（见 Runbook）。
             </p>
-            <el-form-item label="服务器">
-              <el-input
-                v-model="sLedgerSmbServer"
-                placeholder="例如内网文件服务器 IP 或主机名"
-                data-testid="ledger-smb-server"
-                @input="mark('zy')"
-              />
-            </el-form-item>
-            <el-form-item label="共享名">
-              <el-input v-model="sLedgerSmbShare" placeholder="共享文件夹名" data-testid="ledger-smb-share" @input="mark('zy')" />
-            </el-form-item>
+            <div class="form-grid-2">
+              <el-form-item label="服务器">
+                <el-input
+                  v-model="sLedgerSmbServer"
+                  placeholder="例如内网文件服务器 IP 或主机名"
+                  data-testid="ledger-smb-server"
+                  @input="mark('zy')"
+                />
+              </el-form-item>
+              <el-form-item label="共享名">
+                <el-input v-model="sLedgerSmbShare" placeholder="共享文件夹名" data-testid="ledger-smb-share" @input="mark('zy')" />
+              </el-form-item>
+              <el-form-item label="共享账号">
+                <el-input
+                  v-model="sLedgerSmbUsername"
+                  autocomplete="username"
+                  placeholder="SMB 用户名"
+                  data-testid="ledger-smb-username"
+                  @input="mark('zy')"
+                />
+              </el-form-item>
+              <el-form-item :label="sLedgerSmbPasswordSet ? '共享密码（已设置；留空不改）' : '共享密码'">
+                <el-input
+                  v-model="sLedgerSmbPassword"
+                  type="password"
+                  show-password
+                  autocomplete="new-password"
+                  :placeholder="sLedgerSmbPasswordSet ? '已设置；留空不改' : '请输入密码'"
+                  data-testid="ledger-smb-password"
+                  @input="mark('zy')"
+                />
+              </el-form-item>
+            </div>
             <el-form-item label="台账相对路径">
               <el-input
                 v-model="sLedgerSmbRelpath"
@@ -231,46 +262,28 @@ import './settings-view.css'
                 @input="mark('zy')"
               />
             </el-form-item>
-            <el-form-item label="挂载根（高级）">
-              <el-input v-model="sLedgerMountRoot" placeholder="/mnt/kanban-ledger" data-testid="ledger-mount-root" @input="mark('zy')" />
-            </el-form-item>
-            <el-form-item label="共享账号">
-              <el-input
-                v-model="sLedgerSmbUsername"
-                autocomplete="username"
-                placeholder="SMB 用户名"
-                data-testid="ledger-smb-username"
-                @input="mark('zy')"
-              />
-            </el-form-item>
-            <el-form-item :label="sLedgerSmbPasswordSet ? '共享密码（已设置；留空不改）' : '共享密码'">
-              <el-input
-                v-model="sLedgerSmbPassword"
-                type="password"
-                show-password
-                autocomplete="new-password"
-                :placeholder="sLedgerSmbPasswordSet ? '已设置；留空不改' : '请输入密码'"
-                data-testid="ledger-smb-password"
-                @input="mark('zy')"
-              />
-            </el-form-item>
-            <el-form-item label="拼装路径（只读）">
-              <el-input v-model="sLedgerPath" readonly data-testid="ledger-share-path-ro" />
-              <div class="muted" style="margin-top: 4px; font-size: 12px" data-testid="ledger-path-status">
-                <span v-if="sLedgerPathExists !== null">
-                  路径：{{ sLedgerPathExists ? '存在可读' : '当前不存在' }}
-                </span>
-                <span v-if="sLedgerMountOk !== null"> · 挂载：{{ sLedgerMountOk ? 'CIFS 已挂' : '未挂/非 CIFS' }}</span>
-                <span> · 密码：{{ sLedgerSmbPasswordSet ? '已配置' : '未配置' }}</span>
-              </div>
-              <div v-if="sLedgerMigrateHint" class="muted" style="margin-top: 4px; font-size: 12px" data-testid="ledger-migrate-hint">
-                {{ sLedgerMigrateHint }}
-              </div>
-              <div v-if="sLedgerLegacyOnly" class="muted" style="margin-top: 4px; font-size: 12px">
-                旧版完整路径模式：可继续只改下方兼容字段，或改填上方结构化字段后保存。
-                <el-input v-model="sLedgerPath" placeholder="旧 ledger_share_path" style="margin-top: 6px" @input="mark('zy')" />
-              </div>
-            </el-form-item>
+            <div class="form-grid-2">
+              <el-form-item label="挂载根（高级）">
+                <el-input v-model="sLedgerMountRoot" placeholder="/mnt/kanban-ledger" data-testid="ledger-mount-root" @input="mark('zy')" />
+              </el-form-item>
+              <el-form-item label="拼装路径（只读）">
+                <el-input v-model="sLedgerPath" readonly data-testid="ledger-share-path-ro" />
+              </el-form-item>
+            </div>
+            <div class="muted path-status" data-testid="ledger-path-status">
+              <span v-if="sLedgerPathExists !== null">
+                路径：{{ sLedgerPathExists ? '存在可读' : '当前不存在' }}
+              </span>
+              <span v-if="sLedgerMountOk !== null"> · 挂载：{{ sLedgerMountOk ? 'CIFS 已挂' : '未挂/非 CIFS' }}</span>
+              <span> · 密码：{{ sLedgerSmbPasswordSet ? '已配置' : '未配置' }}</span>
+            </div>
+            <div v-if="sLedgerMigrateHint" class="muted path-status" data-testid="ledger-migrate-hint">
+              {{ sLedgerMigrateHint }}
+            </div>
+            <div v-if="sLedgerLegacyOnly" class="muted path-status">
+              旧版完整路径模式：可继续只改下方兼容字段，或改填上方结构化字段后保存。
+              <el-input v-model="sLedgerPath" placeholder="旧 ledger_share_path" style="margin-top: 6px" @input="mark('zy')" />
+            </div>
             <el-button type="primary" plain style="margin-top: 8px" @click="zyDrawer = true">智云服务器与抓取表（一般不用改）</el-button>
             <el-drawer v-model="zyDrawer" title="智云服务器与抓取表" direction="rtl" size="420px" append-to-body>
               <el-form label-position="top">
@@ -333,27 +346,31 @@ import './settings-view.css'
                 </template>
               </template>
             </el-table-column>
-            <el-table-column label="密码" width="280">
+            <el-table-column label="密码" min-width="320">
               <template #default="{ row, $index }">
-                <el-input
-                  v-model="row.密码"
-                  size="small"
-                  :type="acctPwShow[$index] ? 'text' : 'password'"
-                  style="width: 120px"
-                  autocomplete="new-password"
-                  data-testid="acct-password"
-                  :placeholder="row.password_set || row.初始密码 === false ? '留空不改' : '新账号必填'"
-                  @input="() => { row.初始密码 = false; mark('acct') }"
-                />
-                <el-button
-                  text
-                  size="small"
-                  data-testid="acct-password-eye"
-                  @click="acctPwShow[$index] = !acctPwShow[$index]"
-                >{{ acctPwShow[$index] ? '🙈' : '👁' }}</el-button>
-                <el-button size="small" text @click="resetAcctPasswd(row)" :disabled="!String(row.账号 || '').trim()">设新密码</el-button>
-                <el-tag v-if="row.初始密码" type="warning" size="small">初始</el-tag>
-                <el-tag v-else-if="row.password_set" type="info" size="small" effect="plain">已设</el-tag>
+                <div class="acct-pw-row" data-testid="acct-password-row">
+                  <el-input
+                    :model-value="acctPasswordDisplayValue(row)"
+                    size="small"
+                    :type="acctPwShow[$index] ? 'text' : 'password'"
+                    class="acct-pw-input"
+                    autocomplete="new-password"
+                    data-testid="acct-password"
+                    :readonly="isAcctPasswordReadonly(row)"
+                    :placeholder="acctPasswordPlaceholder(row)"
+                    @update:model-value="(v: string) => onAcctPasswordInput(row, $index, v)"
+                  />
+                  <el-button
+                    text
+                    size="small"
+                    data-testid="acct-password-eye"
+                    :disabled="!canRevealAcctPassword(row) && isAcctPasswordReadonly(row)"
+                    @click="toggleAcctPwShow($index, row)"
+                  >{{ acctPwShow[$index] ? '🙈' : '👁' }}</el-button>
+                  <el-button size="small" text data-testid="acct-password-reset" @click="resetAcctPasswd(row)" :disabled="!String(row.账号 || '').trim()">设新密码</el-button>
+                  <el-tag v-if="row.初始密码" type="warning" size="small">初始</el-tag>
+                  <el-tag v-else-if="row.password_set" type="info" size="small" effect="plain">已设</el-tag>
+                </div>
               </template>
             </el-table-column>
             <el-table-column label="能力" min-width="420">

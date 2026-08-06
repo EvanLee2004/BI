@@ -32,7 +32,14 @@ class TestResponsive375(unittest.TestCase):
         css = (FE / "admin/views/settings-view.css").read_text(encoding="utf-8")
         self.assertIn("el-input-number", css)
         self.assertIn("--admin-panel", css)
-        self.assertIn("max-width: 1200px", css)
+        # 3.7.18：设置页 max-width 放宽至 1280–1400（曾 1200）
+        import re
+
+        m = re.search(r"\.settings\s*\{[^}]*max-width:\s*(\d+)px", css)
+        self.assertIsNotNone(m, "settings 须声明 max-width")
+        mw = int(m.group(1))
+        self.assertGreaterEqual(mw, 1200)
+        self.assertLessEqual(mw, 1400)
 
     def test_detail_truncation_title_path(self):
         vue = (FE / "admin/views/DetailView.vue").read_text(encoding="utf-8")

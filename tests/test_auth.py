@@ -434,7 +434,7 @@ class TestViewerAuth(unittest.TestCase):
             "my_passwd" in blob or "/api/v1/my_passwd" in blob or "passwd" in blob.lower(),
             "Vue 须有改密入口",
         )
-        # Vue 管理端：明文密码列 + 可选重置
+        # Vue 管理端：密码列（3.7.18 经 display helper 掩码）+ 可选重置
         vue_settings = (
             Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "composables" / "useSettingsForm.ts"
         ).read_text(encoding="utf-8")
@@ -443,8 +443,13 @@ class TestViewerAuth(unittest.TestCase):
         vue_view = (
             Path(__file__).resolve().parents[1] / "frontend" / "src" / "admin" / "views" / "SettingsView.vue"
         ).read_text(encoding="utf-8")
-        self.assertIn("row.密码", vue_view)
+        # 3.7.18：绑定 acctPasswordDisplayValue(row)，不再 v-model="row.密码" 空框
+        self.assertTrue(
+            "row.密码" in vue_view or "acctPasswordDisplayValue" in vue_view,
+            "设置页须有账号密码列绑定",
+        )
         self.assertIn("acctPwShow", vue_view)
+        self.assertIn("设新密码", vue_view)
 
     def test_initial_password_yellow_flag(self):
         a = self._admin()

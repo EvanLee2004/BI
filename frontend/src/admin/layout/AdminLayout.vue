@@ -4,6 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, AdminApiError } from '../api'
 import { syncThemeFromDom } from '../../utils/theme'
+import {
+  buildLastUpdatePillLabel,
+  buildLastUpdatePillTitle,
+  pickLastUpdateRaw,
+} from '../utils/lastUpdateLabel'
 
 const route = useRoute()
 const router = useRouter()
@@ -221,24 +226,10 @@ function pillClass(result: unknown) {
   return 'y'
 }
 
-function shortReason(h: Record<string, unknown>) {
-  const rr = ((h.run_reasons as string[]) || [])[0] || ''
-  if (rr) return rr.length > 36 ? rr.slice(0, 36) + '…' : rr
-  const w = ((h.warnings as string[]) || [])[0] || ''
-  return w ? (w.length > 36 ? w.slice(0, 36) + '…' : w) : ''
-}
-
-const healthLabel = computed(() => {
-  const h = health.value || {}
-  const result = (h.result as string) || '?'
-  let label = '体检 ' + result
-  const nWarn = ((h.warnings as string[]) || []).length
-  if (result && result !== '绿') {
-    const s = shortReason(h)
-    if (s) label += ' · ' + s
-  } else if (nWarn) label += ' · ' + nWarn + '警'
-  return label + ' ▾'
-})
+/** 3.7.18：顶栏只显示「上次更新」；管道原因/告警仅在浮层 */
+const healthLabel = computed(() => buildLastUpdatePillLabel(health.value || {}))
+const healthPillTitle = computed(() => buildLastUpdatePillTitle(health.value || {}))
+const healthLastUpdate = computed(() => pickLastUpdateRaw(health.value || {}) || '—')
 
 const fetchBanners = computed(() => ((health.value?.fetch_banners as { text?: string }[]) || []) as { text?: string }[])
 
@@ -510,7 +501,7 @@ import './admin-layout.css'
         class="admin-pill"
         data-testid="admin-health-pill"
         :class="pillClass(health?.result)"
-        :title="(healthRunReasons[0] || healthWarnings[0] || healthLabel)"
+        :title="healthPillTitle"
         role="button"
         :aria-expanded="healthOpen"
         @click="toggleHealthPop"
@@ -528,7 +519,10 @@ import './admin-layout.css'
       role="dialog"
       aria-label="体检明细"
     >
-      <h4>体检明细 · 运行 {{ healthRunTime }}</h4>
+      <h4>体检明细 · 上次更新 {{ healthLastUpdate }}</h4>
+      <p v-if="healthRunTime && healthRunTime !== '?'" class="muted" style="margin: 0 0 6px; font-size: 12px">
+        管道运行时间：{{ healthRunTime }}
+      </p>
       <p class="health-pop-hint muted">页外滚动 / 点外部 / Esc 可收起；浮层内可滚读</p>
       <div class="grp" data-testid="health-gaps">
         <div class="k">⓪ 业务缺口（可展开）</div>
