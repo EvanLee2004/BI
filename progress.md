@@ -6,6 +6,7 @@
 ## 2026-08-06 · 3.7.18 管理端三连 UX
 
 - VERSION **3.7.18**：顶栏 pill「上次更新 YYYY-MM-DD HH:mm」；设置页 max-width 1360 + 中区三运维卡 + 智云通栏；账号密码列掩码+眼+设新密码+标签
+- 发版：`runtime_identity` 仅采信本进程 marker（修候选预热误读主进程旧 version/commit）
 - 守卫 `tests/test_admin_ux_3_7_18.py`；证据 `docs/验收证据/3_7_18_admin_ux/`
 - **未改** profit / golden / 调度漏跑判定 / 智云·CIFS 明文回显
 

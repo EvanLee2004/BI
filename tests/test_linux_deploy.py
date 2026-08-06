@@ -428,12 +428,31 @@ class TestRuntimeMarker35(unittest.TestCase):
             (g / "refs" / "heads" / "main").write_text(
                 "d6422fed01475ccd0004d7e2f2f260b33574ea14\n", encoding="utf-8"
             )
-            w = rm.write_runtime_marker(root, pid=99)
+            import os as _os
+
+            # 本进程 pid 写入 marker 才被 runtime_identity 采信（跨 pid 视为主进程旧 marker）
+            w = rm.write_runtime_marker(root, pid=_os.getpid())
             self.assertEqual(w.get("version"), "3.5.0")
             self.assertTrue(str(w.get("git_commit", "")).startswith("d6422fe"))
             ident = rm.runtime_identity(root)
             self.assertTrue(ident.get("git_commit", "").startswith("d6422fe"))
-            self.assertEqual(ident.get("pid"), 99)
+            self.assertEqual(ident.get("pid"), _os.getpid())
+            self.assertTrue(ident.get("marker"))
+            # 外进程 pid 的 marker 不得盖住即时 VERSION/commit（候选预热场景）
+            stale = {
+                "version": "0.0.0",
+                "git_commit": "deadbeef" * 5,
+                "pid": 99,
+                "written_at": "2020-01-01 00:00:00",
+            }
+            (root / "数据" / "runtime_marker.json").write_text(
+                __import__("json").dumps(stale), encoding="utf-8"
+            )
+            ident2 = rm.runtime_identity(root)
+            self.assertEqual(ident2.get("version"), "3.5.0")
+            self.assertTrue(str(ident2.get("git_commit", "")).startswith("d6422fe"))
+            self.assertEqual(ident2.get("pid"), _os.getpid())
+            self.assertFalse(ident2.get("marker"))
 
     def test_reload_checks_git_commit_field(self):
         text = (LINUX / "reload_kanban.sh").read_text(encoding="utf-8")

@@ -137,14 +137,33 @@ def read_runtime_marker(root: Path | str | None = None) -> dict[str, Any]:
 
 
 def runtime_identity(root: Path | str | None = None) -> dict[str, Any]:
-    """供 health：marker 优先，否则即时探测。"""
+    """供 health：本进程 marker 优先，否则即时探测。
+
+    3.7.18：共享 marker 属于主进程；候选预热（KANBAN_CANDIDATE）不写 marker，
+    若仍读主进程旧 marker 会导致 publish 对齐永远失败。仅当 marker.pid == 当前
+    进程 pid 时采信 marker 中的 version/commit。
+    """
     root_p = program_root(root)
     m = read_runtime_marker(root_p)
+    cur_pid = int(os.getpid())
+    use_marker = False
+    try:
+        use_marker = bool(m) and m.get("pid") is not None and int(m.get("pid")) == cur_pid
+    except (TypeError, ValueError):
+        use_marker = False
+    if use_marker:
+        ver = str(m.get("version") or "")
+        gc = str(m.get("git_commit") or "")
+        written = str(m.get("written_at") or "")
+    else:
+        ver = ""
+        gc = ""
+        written = ""
     out = {
-        "version": str(m.get("version") or _read_version(root_p) or ""),
-        "git_commit": str(m.get("git_commit") or _read_git_commit(root_p) or ""),
-        "pid": int(m.get("pid") or os.getpid()),
-        "written_at": str(m.get("written_at") or ""),
-        "marker": bool(m),
+        "version": ver or str(_read_version(root_p) or ""),
+        "git_commit": gc or str(_read_git_commit(root_p) or ""),
+        "pid": cur_pid,
+        "written_at": written,
+        "marker": use_marker,
     }
     return out
