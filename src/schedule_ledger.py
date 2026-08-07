@@ -138,9 +138,12 @@ def plan_catchup(
     now_hhmm: str,
     ledger_slots: dict[str, Any],
 ) -> tuple[str | None, list[str]]:
-    """决定补跑：只补最新应跑时槽一次；更早未满足 → coalesced。
+    """决定下一槽：每个配置时点独立完整刷新（3.7.19）。
 
-    返回 (slot_to_run | None, coalesced_slots)。
+    - due = 已过点（含当前 HH:MM）的 planned 槽
+    - 未 success 的 due 槽均算未完成（含 failed / 历史 skipped_coalesced / 无记录）
+    - 每次最多返回 **最早** 一个未完成 due 槽；不再因「当日已有 success」coalesce 其余槽
+    - 返回 (slot_to_run | None, coalesced_slots)；coalesced 恒为 []（兼容旧调用方）
     """
     def mins(hhmm: str) -> int:
         h, m = hhmm.split(":")
@@ -151,43 +154,14 @@ def plan_catchup(
     if not due:
         return None, []
 
-    # 已有今日任意 success 覆盖全量时，后续可 satisfied
-    any_success = False
-    for s in planned_slots:
+    unfinished: list[str] = []
+    for s in due:
         st = (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
-        if st == "success":
-            any_success = True
-            break
-
-    # 最新 due 若已 success → 不跑（更早未 success 仍可 coalesced 记盘）
-    latest = due[-1]
-    st_latest = (ledger_slots.get(slot_key(business_date, latest)) or {}).get("status")
-    if st_latest == "success":
-        coal = [
-            s
-            for s in due
-            if s != latest
-            and (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
-            not in ("success", "skipped_coalesced")
-        ]
-        return None, coal
-
-    if any_success and st_latest != "failed":
-        # 当日已有一次全量成功：全部未 success 的 due（含最新）写 coalesced，不再补跑
-        coalesced = [
-            s
-            for s in due
-            if (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
-            not in ("success", "skipped_coalesced")
-        ]
-        return None, coalesced
-
-    coalesced = []
-    for s in due[:-1]:
-        st = (ledger_slots.get(slot_key(business_date, s)) or {}).get("status")
-        if st not in ("success", "skipped_coalesced"):
-            coalesced.append(s)
-    return latest, coalesced
+        if st != "success":
+            unfinished.append(s)
+    if not unfinished:
+        return None, []
+    return unfinished[0], []
 
 
 def _hhmm_mins(hhmm: str) -> int:

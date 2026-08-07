@@ -9,7 +9,7 @@
 - 判据改为「今天这个时间点已过且今天还没成功跑过 → 补跑」（不再要求 hhmm 精确相等）
 - start_refresh_async 返回 False 时排队重试不丢
 - 跑批台账：当天计划几次/成功几次/漏哪次；/api/v1/health 可取 schedule_ledger()
-- 漏跑 → 体检黄 + 告警
+- 3.7.19：漏跑不进体检黄、不发用户告警；每配置时点独立完整刷新
 """
 
 from __future__ import annotations
@@ -48,29 +48,24 @@ def _hhmm_to_minutes(hhmm: str) -> int:
 def health_messages_from_schedule(sched: dict | None) -> tuple[list[str], bool]:
     """从 schedule_ledger 快照生成 health run_reasons 片段。
 
-    3.7.5 准则：upcoming（待执行）永不进 reasons、不称漏跑、不抬黄。
-    返回 (messages, yellow_nudge)。data_api.api_health 唯一调用入口，便于假时钟单测。
+    3.7.5：upcoming（待执行）永不进 reasons、不称漏跑、不抬黄。
+    3.7.19：missed 漏跑**不**进 messages、**不**抬黄、不发用户告警；failed 可 info 不抬黄；
+    pending 待补仍可 info、不抬黄。返回 (messages, yellow_nudge)。
     """
     sched = sched or {}
-    miss = list(sched.get("missed") or [])
     pend = list(sched.get("pending") or [])
     up = list(sched.get("upcoming") or [])
     failed = list(sched.get("failed") or [])
     up_set = set(up)
-    miss = [t for t in miss if t not in up_set]
     pend = [t for t in pend if t not in up_set]
     msgs: list[str] = []
+    # 3.7.19：调度类不抬黄（漏跑假阳性曾长期污染体检）
     yellow = False
-    if miss:
-        md = sched.get("missed_date") or ""
-        msgs.append(f"定时刷新漏跑{(' ' + md) if md else ''}：{', '.join(miss)}")
-        yellow = True
     if failed:
         msgs.append(f"定时刷新本次失败：{', '.join(failed)}")
-        yellow = True
     if pend:
         msgs.append(f"定时刷新待补：{', '.join(pend)}")
-    # upcoming 仅信息态，不入 reasons
+    # missed / upcoming 不入 reasons
     return msgs, yellow
 
 
@@ -176,7 +171,10 @@ def schedule_ledger(cfg=None, root=None) -> dict:
 
 
 def _roll_ledger_to_date(date_iso: str, planned: list[str]) -> None:
-    """跨日：昨日未成功 → missed（带日期）并告警；重置今日集合。"""
+    """跨日：重置今日集合。3.7.19 起不因「内存未记 success」发漏跑告警/抬黄。
+
+    仍可在内存记 missed 供调试字段，但不调用 maybe_alert_text，health 亦不展示漏跑。
+    """
     old_date = _SCHEDULE_LEDGER.get("date") or ""
     old_planned = list(_SCHEDULE_LEDGER.get("planned") or [])
     old_success = set(_SCHEDULE_LEDGER.get("success") or [])
@@ -184,16 +182,11 @@ def _roll_ledger_to_date(date_iso: str, planned: list[str]) -> None:
     if old_date and old_miss:
         _SCHEDULE_LEDGER["missed"] = old_miss
         _SCHEDULE_LEDGER["missed_date"] = old_date
-        log.warning("schedule_loop: missed runs on %s: %s", old_date, old_miss)
-        try:
-            from notify import maybe_alert_text
-
-            maybe_alert_text(
-                loaders.load_config(strict=False),
-                f"【经营看板告警】定时刷新漏跑 {old_date}：{', '.join(old_miss)}",
-            )
-        except Exception:
-            pass
+        log.info(
+            "schedule_loop: day roll %s unfinished slots (no alert): %s",
+            old_date,
+            old_miss,
+        )
     _SCHEDULE_LEDGER["date"] = date_iso
     _SCHEDULE_LEDGER["planned"] = list(planned or [])
     _SCHEDULE_LEDGER["success"] = []
@@ -300,7 +293,7 @@ class ScheduleLoop:
     def tick(self) -> bool:  # noqa: C901  # 2.6.3·B2 补跑/排队/台账分支
         """执行一次检查。返回是否成功启动了刷新。
 
-        3.6.0：磁盘账本 + plan_catchup —— 只补最新应跑槽；更早槽 coalesced。
+        3.7.19：磁盘账本 + plan_catchup —— 每点独立完整刷新；每次只启最早未 success 的 due 槽。
         """
         try:
             times = list(self.load_times_fn() or [])
@@ -335,31 +328,13 @@ class ScheduleLoop:
             if _d == date_iso:
                 k = _sl.slot_key(date_iso, _s)
                 slots_map.setdefault(k, {"status": "success", "slot": _s, "business_date": date_iso})
-        # plan_catchup：只补最新 due；更早未成功 → coalesced
-        target, coalesced = _sl.plan_catchup(
+        # plan_catchup：最早未完成 due；3.7.19 不再写 skipped_coalesced
+        target, _coalesced = _sl.plan_catchup(
             business_date=date_iso,
             planned_slots=times,
             now_hhmm=hhmm,
             ledger_slots=slots_map,
         )
-        for cslot in coalesced:
-            if (date_iso, cslot) in self.fired:
-                continue
-            st = (slots_map.get(_sl.slot_key(date_iso, cslot)) or {}).get("status")
-            if st == "success":
-                continue
-            if dd is None:
-                continue
-            try:
-                _sl.upsert_slot(
-                    dd,
-                    business_date=date_iso,
-                    slot=cslot,
-                    status="skipped_coalesced",
-                    trigger="schedule",
-                )
-            except Exception as e:
-                log.warning("schedule_ledger coalesced write failed: %s", e)
 
         # 失败重试：队列中的槽优先（且未 success）
         want: list[str] = []
@@ -375,7 +350,7 @@ class ScheduleLoop:
         if not want:
             return False
 
-        # 优先跑 plan_catchup 的最新槽；否则队列最早
+        # 优先 plan_catchup 的最早未完成槽；否则队列最早
         if target and target in want:
             run_slot = target
         else:

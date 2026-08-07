@@ -15,6 +15,7 @@ const {
   canUpdate,
   updatePayload,
   scheduleTimes,
+  scheduleLastRunSub,
   sKeep,
   sLogKeep,
   sDiskMin,
@@ -146,7 +147,7 @@ import './settings-view.css'
       <el-col :xs="24" :md="8">
         <el-card shadow="never" class="scard scard--ops" @input="mark('sched')" @change="mark('sched')">
           <template #header>
-            <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div><div class="sub">每天多个时间点完整更新</div></div></div>
+            <div class="scard-h"><span class="ico">⏰</span><div><div class="ttl">自动更新</div><div class="sub">{{ scheduleLastRunSub }}</div></div></div>
           </template>
           <div v-for="(t, i) in scheduleTimes" :key="i" class="sched-row">
             <el-time-select v-model="scheduleTimes[i]" start="00:00" step="00:30" end="23:30" placeholder="时间" style="width: 120px" @change="mark('sched')" />

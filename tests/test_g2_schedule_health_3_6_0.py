@@ -23,7 +23,8 @@ class TestScheduleLedgerDurable(unittest.TestCase):
         led = load_ledger(tmp)
         self.assertIn("2026-07-31|09:30", led["slots"])
 
-    def test_plan_catchup_only_latest(self):
+    def test_plan_catchup_earliest_unfinished(self):
+        """3.7.19：多槽未完成时返回最早 due，不 coalesce 其余。"""
         from schedule_ledger import plan_catchup, slot_key
 
         planned = ["09:30", "12:00", "17:00"]
@@ -34,21 +35,34 @@ class TestScheduleLedgerDurable(unittest.TestCase):
             now_hhmm="23:00",
             ledger_slots=slots,
         )
-        self.assertEqual(run, "17:00")
-        self.assertEqual(coal, ["09:30", "12:00"])
+        self.assertEqual(run, "09:30")
+        self.assertEqual(coal, [])
 
-        # 最新已 success → 不补
-        slots[slot_key("2026-07-31", "17:00")] = {"status": "success"}
+        # 仅最早 success → 下一个未完成
+        slots[slot_key("2026-07-31", "09:30")] = {"status": "success"}
         run2, coal2 = plan_catchup(
             business_date="2026-07-31",
             planned_slots=planned,
             now_hhmm="23:00",
             ledger_slots=slots,
         )
-        self.assertIsNone(run2)
+        self.assertEqual(run2, "12:00")
+        self.assertEqual(coal2, [])
 
-    def test_any_success_coalesces_all_due_including_latest(self):
-        """早槽已 success 后，晚间 due 的未跑槽（含最新）全部 coalesced，不重复补跑。"""
+        # 全部 success → 不补
+        for s in planned:
+            slots[slot_key("2026-07-31", s)] = {"status": "success"}
+        run3, coal3 = plan_catchup(
+            business_date="2026-07-31",
+            planned_slots=planned,
+            now_hhmm="23:00",
+            ledger_slots=slots,
+        )
+        self.assertIsNone(run3)
+        self.assertEqual(coal3, [])
+
+    def test_early_success_does_not_coalesce_later_slots(self):
+        """3.7.19：早槽 success 后晚间 due 仍要独立完整刷新。"""
         from schedule_ledger import plan_catchup, slot_key
 
         planned = ["09:30", "12:00", "17:00"]
@@ -59,8 +73,8 @@ class TestScheduleLedgerDurable(unittest.TestCase):
             now_hhmm="23:00",
             ledger_slots=slots,
         )
-        self.assertIsNone(run)
-        self.assertEqual(set(coal), {"12:00", "17:00"})
+        self.assertEqual(run, "12:00")
+        self.assertEqual(coal, [])
 
     def test_day_summary_future_not_pending(self):
         """已过点才 pending；未来 12:00/17:00 在 10:01 不算待补跑。"""
@@ -116,9 +130,10 @@ class TestHealthLayers(unittest.TestCase):
 
 
 class TestScheduleLoopWiresLedger(unittest.TestCase):
-    """生产 ScheduleLoop 路径：磁盘 success 后重启不重复补；多槽只补一次。"""
+    """生产 ScheduleLoop 路径：每点独立完整刷新；success 槽不重跑。"""
 
-    def test_multi_due_runs_only_latest_and_coalesces(self):
+    def test_multi_due_runs_earliest_then_next(self):
+        """3.7.19：多 due 未完成时每 tick 跑最早槽；不写 skipped_coalesced。"""
         import time as _time
         from schedule_ledger import get_slot
         from schedule_loop import ScheduleLoop
@@ -130,7 +145,6 @@ class TestScheduleLoopWiresLedger(unittest.TestCase):
 
         def start_fn(*_a, **kw):
             calls.append(kw.get("on_complete") or _a)
-            # 立即回调成功（同步）— 旧签名路径会 TypeError 后走 trigger 签名
             on_c = kw.get("on_complete")
             if on_c:
                 on_c(True)
@@ -148,18 +162,26 @@ class TestScheduleLoopWiresLedger(unittest.TestCase):
         )
         self.assertTrue(loop.tick())
         self.assertEqual(len(calls), 1)
-        # 最新 17:00 success；更早 coalesced
-        self.assertIn(("2026-07-31", "17:00"), loop.fired)
+        self.assertIn(("2026-07-31", "09:30"), loop.fired)
         c0930 = get_slot(tmp, "2026-07-31", "09:30")
+        self.assertEqual((c0930 or {}).get("status"), "success")
+        # 第二 tick 跑 12:00
+        self.assertTrue(loop.tick())
+        self.assertEqual(len(calls), 2)
+        self.assertIn(("2026-07-31", "12:00"), loop.fired)
         c1200 = get_slot(tmp, "2026-07-31", "12:00")
-        self.assertEqual((c0930 or {}).get("status"), "skipped_coalesced")
-        self.assertEqual((c1200 or {}).get("status"), "skipped_coalesced")
-        # 再次 tick 不重复
+        self.assertEqual((c1200 or {}).get("status"), "success")
+        self.assertNotEqual((c1200 or {}).get("status"), "skipped_coalesced")
+        # 第三 tick 跑 17:00
+        self.assertTrue(loop.tick())
+        self.assertIn(("2026-07-31", "17:00"), loop.fired)
+        # 全部完成后不再启动
         n0 = len(calls)
         self.assertFalse(loop.tick())
         self.assertEqual(len(calls), n0)
 
-    def test_restart_hydrates_success_no_re_run(self):
+    def test_restart_hydrates_success_skips_that_slot(self):
+        """磁盘已 success 的槽 hydrate 后不重跑；未完成槽仍会补。"""
         import time as _time
         from schedule_ledger import upsert_slot
         from schedule_loop import ScheduleLoop
@@ -167,8 +189,9 @@ class TestScheduleLoopWiresLedger(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(tmp, True))
         cfg = {"data_dir": str(tmp), "db_path": "看板.db"}
-        # 任一时槽成功 = 当日全量已覆盖（plan_catchup any_success）
         upsert_slot(tmp, business_date="2026-07-31", slot="09:30", status="success")
+        upsert_slot(tmp, business_date="2026-07-31", slot="12:00", status="success")
+        upsert_slot(tmp, business_date="2026-07-31", slot="17:00", status="success")
 
         calls: list = []
 

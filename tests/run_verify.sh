@@ -170,6 +170,7 @@ tests/test_task_2_4_0_calc.py
 tests/test_g0_offline_gate.py
 tests/test_g1_lifecycle_3_6_0.py
 tests/test_g2_schedule_health_3_6_0.py
+tests/test_schedule_per_slot_3_7_19.py
 tests/test_g3_security_3_6_0.py
 tests/test_375_credentials_no_leak.py
 tests/test_375_schedule_slot_states.py

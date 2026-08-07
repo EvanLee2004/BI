@@ -1,3 +1,17 @@
+## 3.7.19 — 2026-08-07
+
+### 定时刷新（每点完整更新）
+- `plan_catchup`：每个 `schedule_times` 时点独立完整刷新；禁止「当日任意 success 后后续槽 skipped_coalesced」
+- 多槽未完成时从早到晚每次只启 1 个；busy 排队保留
+- health：`missed` 漏跑不进 `run_reasons`、不抬黄；跨日不再发「定时刷新漏跑」用户告警
+- 设置页自动更新卡副文案：`到点完整更新 · 最后一次：YYYY-MM-DD HH:mm`（`run_time`→`built_at`）
+
+### 守卫
+- `tests/test_schedule_per_slot_3_7_19.py`；对齐 `test_g2_schedule_health_3_6_0` / `test_375_schedule_slot_states`
+
+### 未改
+- profit 公式 / 鉴权 CSRF / CIFS / 看板密码明文契约
+
 ## 3.7.17 — 2026-08-05
 
 - 审查收口修复波：FE 区间排名跨 scope 清空；写路径原子/诚实错误；restore 安全；发版候选对齐；BU 空态名单；CIFS 密码通道；金额入口与非法金额；测试假绿与门禁锁；tsx 本地钉死。

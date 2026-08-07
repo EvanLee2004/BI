@@ -1,10 +1,11 @@
 /**
  * 设置页状态与保存逻辑（54.13 从 SettingsView 纯搬家）。
  */
-import { inject, onMounted, reactive, ref } from 'vue'
+import { computed, inject, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { jget, jpost, downloadBlob } from '../api'
 import { friendlyError } from '../../utils/friendlyError'
+import { pickLastUpdateRaw } from '../utils/lastUpdateLabel'
 import { SRC_MAP, salesArr } from '../utils'
 import {
   ACCT_PW_FIXED_MASK,
@@ -77,6 +78,12 @@ export function useSettingsForm() {
 
   // —— 设置表单 ——
   const scheduleTimes = ref<string[]>(['09:30'])
+  /** 3.7.19：自动更新卡副文案 — 最后一次业务更新时间（run_time → built_at） */
+  const scheduleLastRunSub = computed(() => {
+    const h = (health as { value?: { run_time?: unknown; built_at?: unknown } | null })?.value
+    const t = pickLastUpdateRaw(h || null)
+    return t ? `到点完整更新 · 最后一次：${t}` : '到点完整更新 · 最后一次：—'
+  })
   const sKeep = ref(30)
   const sLogKeep = ref(365)
   const sDiskMin = ref(10)
@@ -890,6 +897,7 @@ export function useSettingsForm() {
     canUpdate,
     updatePayload,
     scheduleTimes,
+    scheduleLastRunSub,
     sKeep,
     sLogKeep,
     sDiskMin,

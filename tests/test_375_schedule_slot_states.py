@@ -204,7 +204,7 @@ class TestHealthScheduleMessages375(unittest.TestCase):
         self.assertFalse(any("漏跑" in m for m in msgs2))
         self.assertFalse(yellow2)  # 待补不抬黄（与 data_api 一致：仅 miss/failed 抬黄）
 
-        # 跨日 missed → 漏跑 + 黄
+        # 3.7.19：跨日 missed → 不进 reasons、不抬黄（假漏跑污染已下线）
         msgs3, yellow3 = health_messages_from_schedule(
             {
                 "upcoming": ["12:00"],
@@ -214,10 +214,10 @@ class TestHealthScheduleMessages375(unittest.TestCase):
                 "failed": [],
             }
         )
-        self.assertTrue(any("漏跑" in m and "17:00" in m and "2026-08-01" in m for m in msgs3))
-        # upcoming 不得混入漏跑列表
-        self.assertFalse(any("12:00" in m and "漏跑" in m for m in msgs3))
-        self.assertTrue(yellow3)
+        blob3 = " ".join(msgs3)
+        self.assertNotIn("漏跑", blob3)
+        self.assertNotIn("17:00", blob3)
+        self.assertFalse(yellow3)
 
     def test_data_api_health_uses_shipped_helper(self):
         """源码契约：api_health 调用 health_messages_from_schedule，不内联重写过滤。"""
