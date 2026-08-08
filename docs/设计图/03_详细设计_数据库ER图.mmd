@@ -1,28 +1,46 @@
-%% 数据库 ER 要点 · VERSION 3.7.15 · 金额 int 分 · 2026-08-03
+%% 数据库 ER 要点 · VERSION 3.7.19 · 金额 int 分 · 2026-08-08
+%% 字段名用 ASCII（mermaid-cli 不接受中文 attribute 标识符）；中文语义见节点注释
 erDiagram
-  STD_ORDERS ||--o{ ADJ : "定位键"
-  STD_RECEIPTS ||--o{ ADJ : "定位键"
-  STD_PROJECT ||--o{ ADJ : "定位键"
-  MANUAL ||--|| SUMMARY : "手填元→分入库"
-  DETAX ||--o{ STD_LEDGER : "去税分上 ROUND_HALF_UP"
-  META_RUN ||--o{ HEALTH : "结果绿黄红 info"
+  STD_ORDERS ||--o{ ADJ : "locate_key"
+  STD_RECEIPTS ||--o{ ADJ : "locate_key"
+  STD_PROJECT ||--o{ ADJ : "locate_key"
+  MANUAL ||--|| SUMMARY : "manual_to_fen"
+  DETAX ||--o{ STD_LEDGER : "detax_round_half_up"
+  META_RUN ||--o{ HEALTH : "green_yellow_red"
 
   STD_ORDERS {
-    int 下单预估额_分
-    text 定位键
+    int order_amt_fen
+    text locate_key
   }
   STD_RECEIPTS {
-    int 到账金额_分
-    text 定位键
+    int receipt_amt_fen
+    text locate_key
+  }
+  STD_PROJECT {
+    int deliver_amt_fen
+    text locate_key
   }
   ADJ {
-    text 原值_分
-    text 新值_分
+    text old_amt_fen
+    text new_amt_fen
+    text locate_key
   }
   MANUAL {
-    int 金额_分
+    int amt_fen
   }
   META_RUN {
-    text 结果
-    text 体检JSON_含info
+    text result
+    text health_json
+  }
+  SUMMARY {
+    int profit_fen
+  }
+  HEALTH {
+    text lamp
+  }
+  DETAX {
+    real rate
+  }
+  STD_LEDGER {
+    int fee_fen
   }

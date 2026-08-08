@@ -1,13 +1,13 @@
-%% 关键流程时序 · VERSION 3.7.15 · 2026-08-05
+%% 关键流程时序 · VERSION 3.7.19 · 2026-08-08
 sequenceDiagram
   participant U as 用户/管理员
   participant N as nginx
-  participant A as FastAPI
+  participant A as FastAPI+authz
   participant R as refresh_pipeline
   participant P as profit int分
   participant D as SQLite
 
-  Note over A,R: 日更 ScheduleLoop / 管理端更新数据 = do_full
+  Note over A,R: 日更 ScheduleLoop 每时点 do_full / 管理端更新数据
   A->>R: do_full / generate
   R->>D: build_std + 重放调整
   R->>P: summary_from_conn int 分
@@ -25,6 +25,10 @@ sequenceDiagram
   U->>A: POST /api/v1/admin/adjust*
   A->>R: recompute rebuild_std=True
 
-  Note over U,A: 导出按需
+  Note over U,A: 看端读数：会话闸 + BU 过滤
+  U->>A: GET /api/v1/vm/* / rankings/*
+  A-->>U: value_disp 展示串（无权限 401/403）
+
+  Note over U,A: 导出按需 + 导出 cap
   U->>A: GET /api/v1/export.html|png|pl.xlsx
-  A-->>U: 快照 / PNG / Excel
+  A-->>U: 快照 / PNG / Excel（无 cap → 403）

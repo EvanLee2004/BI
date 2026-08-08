@@ -1,9 +1,9 @@
-%% 部署拓扑 · VERSION 3.7.15 · 2026-08-05
+%% 部署拓扑 · VERSION 3.7.19 · 2026-08-08
 flowchart LR
-  subgraph Desktop["Ubuntu /opt/kanban · VERSION 3.7.15"]
+  subgraph Desktop["Ubuntu /opt/kanban · VERSION 3.7.19"]
     NGX["nginx · dist + 反代<br/>dash.besteasy.com:8001"]
     SYS["systemd kanban<br/>Restart=on-failure<br/>RWPaths+/mnt/kanban-ledger"]
-    LOOP["ScheduleLoop 日更<br/>schedule_times"]
+    LOOP["ScheduleLoop 日更<br/>每时点完整刷新"]
     CRON["cron 体检/备份<br/>无 run.py --scheduled"]
     PY["主进程 127.0.0.1:8018<br/>KANBAN_SERVE_STATIC=0"]
     CAND["发版候选 :8019 预热<br/>health 通过后切主"]

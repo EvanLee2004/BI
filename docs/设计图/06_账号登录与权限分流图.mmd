@@ -1,13 +1,16 @@
-%% 登录权限分流 · VERSION 3.7.15 · 2026-08-05
+%% 登录权限分流与隔离 · VERSION 3.7.19 · 2026-08-08
 flowchart TD
-  L["统一 /login<br/>cookie 仅 kanban_sid"] --> G{权限}
-  G -->|管理员| ADM["/admin 管理端 Vue"]
-  G -->|整体| MAIN["全公司驾驶舱 六段"]
-  G -->|BU| BU["仅本 BU 页隔离"]
-  ADM --> SET["账号/智云 密码不下发<br/>留空=不改 · 重置手输"]
+  L["统一 /login<br/>cookie 仅 kanban_sid"] --> G{角色 服务端权威}
+  G -->|管理员| ADM["/admin 管理端 Vue<br/>管理类能力恒 true"]
+  G -->|整体| MAIN["全公司驾驶舱 六段<br/>can_main · 可下钻各 BU"]
+  G -->|按 BU| BU["仅绑定 BU 页<br/>无「← 整体」"]
+  ADM --> SET["账号/智云密码不下发<br/>留空=不改 · 重置手输"]
   ADM --> MAN["手填缺月=0 · 分摊/去税"]
-  ADM --> EXC["异常：费用未分类等<br/>无下单未填部门"]
-  MAIN --> EXP["导出 HTML/xlsx 快照"]
-  BU --> ISO["跨 BU 不泄漏"]
+  ADM --> EXC["异常总览 · 用户统计<br/>检查/一键更新"]
+  MAIN --> CAP1["能力：仅可勾四导出<br/>HTML/PNG/利润表/台账"]
+  BU --> CAP2["能力：四导出默认关可勾<br/>管理类强制 false"]
+  MAIN --> EXP["导出 cap 闸<br/>无 cap → 403"]
+  BU --> ISO["跨 BU 不泄漏<br/>API 401/403 + 销售过滤"]
+  BU --> GATE["nginx 根 / 反代<br/>纯 BU 303 → /bu/xxx"]
   ZY["智云抓数"] -->|临时失败| BK["短退避 · 48h 新鲜副本"]
   ZY -->|凭据/完整性失败| RED["体检红"]

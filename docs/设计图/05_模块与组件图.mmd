@@ -1,4 +1,4 @@
-%% 模块与组件 · VERSION 3.7.15 · 2026-08-05
+%% 模块与组件 · VERSION 3.7.19 · 2026-08-08
 flowchart TB
   subgraph FE["frontend/"]
     VU[Vue 看端 六段+KC]
@@ -7,6 +7,7 @@ flowchart TB
   end
   subgraph BE["src/"]
     RT["routes /api/v1/*"]
+    AZ["authz 角色+能力矩阵"]
     RP[refresh_pipeline]
     PR["profit/ 算账禁区"]
     DM["domain/ PL·费用·KC"]
@@ -20,6 +21,7 @@ flowchart TB
   VU --> RT
   AD --> RT
   AD --> CF
+  RT --> AZ
   RT --> VM
   VM --> DM
   RT --> RP

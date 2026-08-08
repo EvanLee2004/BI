@@ -1,18 +1,39 @@
 # 甲骨易经营看板（智能经营罗盘）
 
-给财务与管理层用的**经营利润驾驶舱**：把散落在智云、收单台账、手填表里的数据接到一起，按统一规则算到税前利润，在公司内网电脑和手机上一页看清。
+[![Version](https://img.shields.io/badge/version-3.7.19-blue)](./VERSION)
+[![Stack](https://img.shields.io/badge/stack-Python%20%7C%20FastAPI%20%7C%20Vue3%20%7C%20SQLite-informational)](#技术栈)
+[![Deploy](https://img.shields.io/badge/deploy-Ubuntu%20%7C%20nginx%20%7C%20systemd-success)](#生产运维)
+
+> **一句话**：给财务与管理层用的经营利润驾驶舱——自动汇总智云、收单台账与手填数据，算到税前利润，公司内网电脑和手机都能看。
 
 | 项 | 说明 |
 |:---|:---|
-| **当前版本** | **v3.7.19**（以根目录 [`VERSION`](./VERSION) 为准） |
-| **技术栈** | Python · SQLite · FastAPI · Vue 3 · ECharts |
-| **生产形态** | 公司 Ubuntu · nginx · systemd · 候选预热发版 · 定时刷新 · CIFS 台账 |
+| **当前版本** | **v3.7.19**（只信根目录 [`VERSION`](./VERSION)） |
 | **变更史** | [`CHANGELOG.md`](./CHANGELOG.md) |
-
-> **现状以何为准**：本仓 `VERSION` + 项目根 `progress.md` 顶部 + `git rev-parse HEAD`。下文不钉死历史小版本号。  
-> **业务数据与账号密码不进本仓库。** 公开仓 LICENSE 待负责人选型（勿擅自添加）。
+| **现状 SSOT** | `VERSION` + 项目根 `progress.md` 顶部 + `git rev-parse HEAD` |
+| **仓库** | [GitHub](https://github.com/EvanLee2004/BI) · [Gitee](https://gitee.com/Lee157/oracleeasy--bi) |
+| **业务数据** | **不进本仓库**；演示截图为 `_golden_data` 脱敏样例 |
 
 **运维速查** → [生产运维](#生产运维) · 故障处方 [docs/Runbook.md](docs/Runbook.md)
+
+---
+
+## 目录
+
+- [它解决什么问题](#它解决什么问题)
+- [核心能力](#核心能力)
+- [谁用、能做什么](#谁用能做什么)
+- [权限与隔离](#权限与隔离)
+- [界面一览](#界面一览)
+- [数从哪来](#数从哪来)
+- [利润怎么算](#利润怎么算摘要)
+- [快速开始](#快速开始本机)
+- [系统架构](#系统架构)
+- [目录与模块](#目录与模块)
+- [生产运维](#生产运维)
+- [文档地图](#文档地图)
+- [质量与发布](#质量与发布约定)
+- [许可证与数据安全](#许可证与数据安全)
 
 ---
 
@@ -20,14 +41,34 @@
 
 语言服务公司日常要盯：下了多少单、交付了多少、毛利怎样、费用花在哪、回款到账了没有、税前还剩多少。
 
-以前这些数分散在多套系统与 Excel 里，对一遍很慢。本系统把它们接到一起，按统一规则算完，做成一页驾驶舱：
+以前这些数分散在智云、Excel 台账和手填表里，对一遍很慢。本系统把它们接到一起，按统一规则算完，做成一页驾驶舱：
 
-- **管理层**看全公司，也能下钻各业务线（BU）
-- **业务线负责人**只看自己线的数，看不到别人的
-- **财务管理员**在后台改明细、填人力/分摊、对异常、一键更新程序
+| 角色 | 看到什么 |
+|------|----------|
+| **管理层** | 全公司 KPI / 利润表 / 结构排名，可下钻各业务线（BU） |
+| **业务线负责人** | **只看自己线**，看不到其他 BU |
+| **财务管理员** | 后台改明细、填人力/分摊、对异常、一键更新程序 |
 
 金额全部在**服务端**算好；浏览器只负责展示和切换年/季/月。  
 页面数字是**管理确认口径**（比完整财务记账更前置），方便日常经营讨论，**不是**替代总账或报税。
+
+---
+
+## 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| **首屏六段** | 基本情况 → 下单与回款 → 重点客户 → 经营利润 → 收入毛利结构 → 费用明细（整体与 BU 同序） |
+| **三角色分流** | 整体 / 按 BU / 管理员；服务端 `authz` 权威，前端仅展示 |
+| **能力矩阵** | 权限管「看什么」；用户可勾仅四导出；管理类能力仅管理员 |
+| **BU 严格隔离** | API 401/403 + 销售→BU 过滤 + 纯 BU 根路径 303；跨 BU 不泄漏 |
+| **定时完整刷新** | 每个 `schedule_times` 时点各自完整更新；漏跑不抬体检黄 |
+| **候选预热发版** | `:8019` 预热通过后切主 `:8018`；失败回退 |
+| **CIFS 台账** | 生产 `/mnt/kanban-ledger`；管理端可配置共享；密码只写不回显 |
+| **三主题** | 霓虹（投屏）/ 深空（日常）/ 晨光（白天打印） |
+| **导出** | HTML 快照 · PNG · 利润表 Excel（按 cap 闸） |
+| **数据体检** | 绿=抓齐无提醒 / 黄=抓齐有业务提醒 / 红=有源未抓到或硬故障 |
+| **金额 int 分** | 库内与算账全整数分，避免浮点误差；前端零金额运算 |
 
 ---
 
@@ -35,17 +76,69 @@
 
 | 角色 | 怎么进 | 能做什么 |
 |------|--------|----------|
-| 管理层（整体） | 登录 · 权限「整体」 | 全公司 KPI、利润表、结构、排名；进入各 BU；导出 HTML 快照 / 利润表 Excel |
-| 业务线负责人 | 登录 · 权限「BU」+ 可见名单 | 只看绑定业务线（可多个，顶栏「我的 BU」切换；**无「← 整体」**）；本 BU 快照 / 利润表 Excel |
-| 财务管理员 | `/admin` | 改明细、手填与分摊、预算、异常、用户统计、销售归属、账号、检查/一键更新 |
+| 管理层（整体） | 登录 · 权限「整体」 | 全公司 KPI、利润表、结构、排名；进入各 BU；导出（若 cap 开启） |
+| 业务线负责人 | 登录 · 权限「按 BU」+ 可见名单 | 只看绑定业务线（可多个，顶栏「我的 BU」切换；**无「← 整体」**） |
+| 财务管理员 | 角色「管理员」→ `/admin` | 改明细、手填与分摊、预算、异常、用户统计、销售归属、账号、检查/一键更新 |
 
 全员只发**两个根链接**即可（见 [访问入口](#1-访问入口只发这两个)），用各自账号登录；系统按权限自动进整体或业务线。
 
 ---
 
+## 权限与隔离
+
+> **铁律：看什么由服务端角色决定；浏览器按钮隐藏只是体验，真正拦在 API。**
+
+### 1. 角色（看什么）
+
+| 角色 | `can_main` | 可见范围 | 管理端 |
+|------|------------|----------|--------|
+| **管理员** | 是 | 全公司 + 全部 BU | 是（管理类能力恒 true） |
+| **整体** | 是 | 全公司 + 可下钻各 BU | 否 |
+| **按 BU** | 否 | 仅账号绑定的 BU 名单 | 否 |
+
+- `can_main`：**仅**管理员或整体（忽略账号 JSON 里脏的 `view_main`）
+- 绑定多个 BU 时，顶栏「我的 BU」切换；**没有**「← 整体」按钮
+
+### 2. 能力矩阵（能导出什么）
+
+3.7.9 收敛规则：
+
+| 能力类别 | 谁说了算 |
+|----------|----------|
+| **管理类**（刷新数据、改数、管账号、管端明细导出、归档） | **仅管理员角色**；非管理员强制 false，忽略 JSON 脏 true |
+| **看端四导出**（页面 HTML / PNG / 利润表 xlsx / 台账 xlsx） | 设置页可勾；整体默认开，BU 新号默认关 |
+
+无对应 cap 的导出请求 → **403**（未登录 → **401**）。
+
+### 3. 隔离怎么落地（四层）
+
+```text
+① 会话     cookie 仅 kanban_sid（旧 cookie 无效，须重登）
+② 路由闸   FastAPI + authz：未登录 401 / 无角色或无 cap 403
+③ 数据过滤 排名、利润、VM、导出均按销售→BU 映射过滤
+④ 入口分流 nginx 根路径 / 必须反代后端；纯 BU 会话 303 → /bu/{name}
+```
+
+| 场景 | 行为 |
+|------|------|
+| BU 账号打开其他 BU 的 URL/API | 拒绝（403）或看不到数据 |
+| BU 账号打开公司根 `/` | 后端 303 到其业务线（nginx 须 `proxy_pass`，见 [nginx 铁律](#4-nginx-铁律必守)） |
+| 非管理员调管理端写接口 | 403 |
+| 导出无 cap | 403（已登录）或 401（未登录） |
+| 密码 | 智云/账号密码接口**永不回显明文**；留空=不改；重置须手输 |
+
+### 4. 分流图（3.7.19）
+
+![登录与权限隔离](docs/images/auth.png)
+
+实现入口：`src/authz.py` · `src/session_ctx.py` · `src/routes/*`。决策记录见 [docs/madr/](docs/madr/)（含密码明文产品决策 MADR-0020）。
+
+---
+
 ## 界面一览
 
-截图来自仓库 **`_golden_data` 脱敏演示数据**（合成客户名「示例客户*」/「员工*」），**非生产客户数据**。本机可用 `KANBAN_PROFILE=dev KANBAN_OFFLINE=1` 复现。
+截图来自仓库 **`_golden_data` 脱敏演示数据**（合成客户名「示例客户*」/「员工*」），**非生产客户数据**。  
+本机复现：`KANBAN_PROFILE=dev KANBAN_OFFLINE=1 python run.py --serve`
 
 ### 登录
 
@@ -79,17 +172,15 @@
 | 五 | **收入与毛利结构** | 按客户 / 销售排名 |
 | 六 | **费用明细** | 热力 + 台账表 |
 
-整体与 BU 同序。
-
 ![重点客户 · 多客金额对比折线](docs/images/ui/05_key_customers_compare.png)
 
-点名单「对比」后的作战台：左池 S/A/B 名单；右为 **对比 N 客** + **金额对比** 折线（1～12 月下单预估）。未点对比时右侧为需跟进 / 临界晋级行动队列。
+点名单「对比」后的作战台：左池 S/A/B 名单；右为 **对比 N 客** + **金额对比** 折线。未点对比时右侧为行动队列。
 
 ![重点客户 · 默认作战台](docs/images/ui/05_key_customers.png)
 
 ![看端利润区](docs/images/ui/03_viewer_profit_section.png)
 
-左：收入 / 成本 / 毛利率趋势；右：管理利润表（可「查看构成」；导出 Excel 时「其他 N 项」展开子项）。
+左：收入 / 成本 / 毛利率趋势；右：管理利润表（可「查看构成」；Excel 导出时「其他 N 项」展开子项）。
 
 ### 看端 · 结构与费用
 
@@ -107,7 +198,7 @@
 
 ![管理端控制台](docs/images/ui/07_admin_console.png)
 
-管理员进入 `/admin`：嵌看驾驶舱、「更新数据」、体检灯：
+管理员进入 `/admin`：嵌看驾驶舱、「更新数据」、体检灯。
 
 | 灯色 | 含义 |
 |------|------|
@@ -115,7 +206,7 @@
 | 黄 | 抓齐，仍有业务提醒（如手填缺月） |
 | 红 | 有源本次未抓到，或硬故障 |
 
-未到点的定时槽只算「待执行」，不误报漏跑。
+未到点的定时槽只算「待执行」，不误报漏跑。到点后每个时点各自完整刷新（3.7.19）。
 
 ![管理端设置](docs/images/ui/08_admin_settings.png)
 
@@ -174,6 +265,17 @@
 
 ## 快速开始（本机）
 
+### 技术栈
+
+| 层 | 选型 |
+|----|------|
+| 后端 | Python 3.12 · FastAPI · SQLite（金额 INTEGER 分） |
+| 算账 | `src/profit/` + `src/domain/` + `src/viewmodels/` |
+| 前端 | Vue 3 · ECharts · Element Plus（管理端）· Vite |
+| 生产 | Ubuntu · nginx · systemd · CIFS · 候选预热发版 |
+
+### 安装与运行
+
 ```bash
 # GitHub
 git clone https://github.com/EvanLee2004/BI.git && cd BI
@@ -209,14 +311,14 @@ python run.py --serve     # 起服务，默认 http://127.0.0.1:8018
 
 ---
 
-## 系统怎么串起来
+## 系统架构
 
 ```text
-浏览器 / 手机 → nginx(:80) → Vue 静态页 + API → 算账引擎 → SQLite
+浏览器 / 手机 → nginx → Vue 静态页 + API(/api/v1/*) → authz 闸 → 算账引擎 → SQLite
 数据进来：智云 / 共享盘台账 / 管理端手填 → 清洗与调整重放 → 入库 → 预计算 → 看端取「已算好的结果」
 ```
 
-### 数据流（Mermaid）
+### 数据流
 
 ```mermaid
 flowchart LR
@@ -229,6 +331,7 @@ flowchart LR
     IN[抓取与清洗]
     DB[(SQLite 分整数)]
     ENG[算账引擎]
+    AZ[authz]
     API[FastAPI]
     VU[Vue 看端/管理端]
   end
@@ -241,35 +344,36 @@ flowchart LR
   IN --> DB
   DB --> ENG
   ENG --> API
+  AZ --> API
   API --> VU
   NGX --> VU
   NGX --> API
 ```
 
-- **BU 利润表**：每个业务线一张「缩小版公司表」——只汇总该线销售名下的收入/成本/费用（经销售→BU 映射）
-- **金额只在服务端算**；浏览器只展示 `value_disp` 等展示串
-- **会话**：仅 cookie `kanban_sid`；API 均在 `/api/v1/*`
-- **导出**：看端 HTML 快照走 `kanban_snapshot`；利润表可导出 Excel
+### 工程图（3.7.19 · 图源 `docs/设计图/*.mmd`）
 
-### 架构与部署图
-
-| 图 | 说明 |
+| 图 | 内容 |
 |----|------|
-| ![系统架构](docs/images/architecture.png) | 逻辑架构 |
-| ![部署拓扑](docs/images/deploy.png) | 公司机：systemd `kanban` · nginx · 主端口 `127.0.0.1:8018` · 候选预热可用 `:8019` |
-| ![模块组件](docs/images/modules.png) | 模块关系 |
-| ![登录分流](docs/images/auth.png) | 登录与权限 |
-| ![运行逻辑](docs/images/howto-run.png) | 每天怎么跑 |
-| ![关键时序](docs/images/sequence.png) · ![数据库 ER](docs/images/er.png) | 关键时序与数据模型 |
+| ![系统架构](docs/images/architecture.png) | 逻辑架构：nginx 铁律 · authz · CIFS · ScheduleLoop 每点完整 · 候选预热 |
+| ![部署拓扑](docs/images/deploy.png) | 公司机：systemd · nginx · `:8018` / `:8019` · CIFS mount |
+| ![模块组件](docs/images/modules.png) | 前后端模块与 authz / profit 禁区 |
+| ![登录权限](docs/images/auth.png) | 角色 · 能力 · BU 隔离 · 导出 cap |
+| ![运行逻辑](docs/images/howto-run.png) | 白话：每天怎么跑 |
+| ![关键时序](docs/images/sequence.png) | 全量刷新 / 手填增量 / 调整重建 / 导出门 |
+| ![数据库 ER](docs/images/er.png) | 金额 INTEGER 分 · 调整定位键 |
 
-库内存金额用「分」整数，避免浮点误差；账号与 BU 配置在 JSON 文件里，不在业务库表中。  
+- **BU 利润表**：每个业务线一张「缩小版公司表」——只汇总该线销售名下的收入/成本/费用  
+- **金额只在服务端算**；浏览器只展示 `value_disp` 等展示串  
+- **会话**：仅 cookie `kanban_sid`；业务/管理/运维 API 均在 `/api/v1/*`  
+- **定时（3.7.19）**：`schedule_times` 每个时点各自完整刷新；漏跑不进体检黄、不发用户告警  
+
 图注清单：[docs/images/FIGURES.md](docs/images/FIGURES.md) · 矢量源：[docs/设计图/](docs/设计图/)
 
-装机步骤：[docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) · 排障：[docs/Runbook.md](docs/Runbook.md)
+装机：[docs/Ubuntu部署手册.md](docs/Ubuntu部署手册.md) · 排障：[docs/Runbook.md](docs/Runbook.md)
 
 ---
 
-## 目录导读
+## 目录与模块
 
 ```text
 run.py                 更新管道 / 启动服务
@@ -277,7 +381,7 @@ config.json            税率、文件名、刷新时刻等出厂默认（机器
 VERSION                当前产品版本号（管理端展示读这里）
 CHANGELOG.md           变更记录
 frontend/              Vue 源码与构建产物 dist/
-src/                   抓数、库、算账、HTTP 路由、一键更新等
+src/                   抓数、库、算账、HTTP 路由、鉴权、一键更新
 static/                登录页、主题、导出用 HTML 模板等
 数据/                  本机业务数据与账号（gitignore，不进仓库）
 tests/                 回归与契约测试
@@ -289,14 +393,15 @@ deploy/linux/          nginx / systemd 模板与发版脚本
 |------|------|
 | `src/ingest/` | 智云/台账抓取与清洗（**`fetch_zhiyun.py` 业务降级点勿改**） |
 | `src/db*` / `src/domain/` | 入库、金额「分」、领域计算 |
-| `src/profit/` | 算账引擎（口径禁区） |
+| `src/profit/` | 算账引擎（**口径禁区**） |
+| `src/authz.py` | 角色 + 能力矩阵 + require_cap |
 | `src/routes/` | HTTP：登录、驾驶舱、管理端、导出 |
 | `src/notify.py` + `src/alert_store.py` | **本机**告警（零外发；飞书 webhook 已废止） |
 | `frontend/src/` | Vue 看端 + 管理端 |
 | `tests/run_verify.sh` | 一键门禁 |
 | `deploy/linux/` | systemd / nginx / 发版脚本 |
 
-一键更新（管理端「检查更新」）：对配置的 git 远端 `fetch`，落后时 `git pull --ff-only`，依赖变化会装包，再由看门狗重启服务。工作区被改脏会拒绝更新，以免覆盖人工改动。  
+一键更新（管理端「检查更新」）：对配置的 git 远端 `fetch`，落后时 `git pull --ff-only`，依赖变化会装包，再由看门狗重启服务。工作区被改脏会拒绝更新。  
 **注意**：若本次变更含 `deploy/linux/nginx-kanban.conf`，一键更新**不会**自动改系统 nginx——须运维手动同步 conf 并 `reload`。
 
 ---
@@ -325,7 +430,7 @@ deploy/linux/          nginx / systemd 模板与发版脚本
 | 代码目录 | `/opt/kanban/看板正式程序`（git，跟踪 `main`） |
 | 应用进程 | `systemd` 单元 **`kanban`** · User=`lee` · 主端口 **`127.0.0.1:8018`** |
 | 对外 | 首选 **`dash.besteasy.com:8001`**；nginx 静态 `frontend/dist` + 反代 API |
-| 日更 | 进程内 **ScheduleLoop**（时刻以管理端 `schedule_times` 为准；每个时点各自完整刷新） |
+| 日更 | 进程内 **ScheduleLoop**（每个 `schedule_times` 时点各自完整刷新 · 3.7.19） |
 | 发版 | `deploy/linux/publish_kanban.sh --pull`：强制库备份 → 可选 **:8019 候选预热** → health/runtime 对齐后切主 |
 | 其它 cron | 小时 healthcheck、每日备份（**不要**靠 cron `run.py --scheduled` 刷新页面内存） |
 | 远程运维 | 家：`ssh kanban-home`；公司内网：`ssh kanban-lan`（密钥与跳板见工作区本地档案，**不进本仓**） |
@@ -394,6 +499,7 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 | 页面数据不随「到点」变 | `/api/v1/health` 的 `built_at`；日志是否有 `schedule_loop`；管理端是否点过「更新数据」 |
 | 体检黄/红 | 管理端控制台详情；手填缺月 / 未抓到源等（黄≠服务挂了） |
 | 一键更新被拒 | 工作区是否脏（如把日志写进了代码目录） |
+| BU 账号能看到别人线 | 立刻查 `authz` 与账号「可见 BU」配置；属安全事故 |
 
 完整处方卡 → [docs/Runbook.md](docs/Runbook.md)。
 
@@ -419,6 +525,7 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 | 接口与库表清单 | [docs/softeng/](docs/softeng/) |
 | 为什么这样设计 | [docs/madr/](docs/madr/) |
 | 系统教学向总览 | [docs/系统教学说明_甲骨易智能经营罗盘_v1.md](docs/系统教学说明_甲骨易智能经营罗盘_v1.md) |
+| 图集与导出铁律 | [docs/images/FIGURES.md](docs/images/FIGURES.md) |
 | 文档总索引 | [docs/README.md](docs/README.md) |
 
 ---
@@ -427,7 +534,7 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 
 - 核心数字有回归基准：库内计算结果与基准 JSON 对齐；多周期金额一致性有自动化检查
 - **前端展示串由后端给出**，浏览器不做金额运算，避免口径漂移
-- 发布只走 `main`；推远端前会检查是否误带真实金额、客户名、账号口令等敏感内容
+- 发布只走 `main`；推远端前检查是否误带真实金额、客户名、账号口令等敏感内容
 - 公开仓库**不推送** git tag / GitHub Release（版本以 `VERSION` + `CHANGELOG` 为准）
 - 全量自检：在项目根、**优先 `.venv/bin/python`**，`KANBAN_OFFLINE=1 sh tests/run_verify.sh`；启动时会物化脱敏 `_golden_data`。判绿看真实退出码，勿用 `| tail` 假绿
 
@@ -435,5 +542,6 @@ grep -A12 'location = /' /etc/nginx/sites-enabled/kanban | head -15
 
 ## 许可证与数据安全
 
-本仓库代码用于甲骨易内部经营看板。  
+本仓库代码用于甲骨易内部经营看板。公开仓 LICENSE 待负责人选型（勿擅自添加）。
+
 **请勿**把 `数据/` 下的真实 Excel、数据库、账号文件提交进 git 或发到公开渠道。演示截图仅使用本地 golden / 离线样例数据生成。
