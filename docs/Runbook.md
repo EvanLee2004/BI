@@ -167,7 +167,7 @@ sudo grep -n 'proxy_set_header Host' /etc/nginx/sites-available/kanban
 4. `sudo systemctl start kanban`，curl `/api/v1/health` 绿/黄可接受
 5. 一键更新（管理端按钮）走 `git pull --ff-only` + 依赖同步 + `.update_rollback` 自愈（铁律18）；坏版本看门狗自动回滚
 6. 口径配置：管理端 UI/API 已下线；引擎默认直通。紧急改口径仅运维层（代码默认值 / DB，见 MADR-0012）
-7. **账号密码（任务书64·P / MADR-0020）**：`看板账号.json` **明文为真相源**（管理员设置页可见可改）；写盘 `chmod 0o600`。保留：防爆破、改密踢会话、SESSION_TTL=12h、审计不记明文。生产若从未上过 63 哈希版则零迁移。
+7. **账号密码（任务书64·P / MADR-0020）**：`看板账号.json` **明文为真相源**（管理员设置页可见可改）；写盘 `chmod 0o600`。保留：防爆破、改密踢会话、SESSION_TTL=7d（3.7.20）、审计不记明文。生产若从未上过 63 哈希版则零迁移。
 
 ## 3. 备份恢复
 

@@ -1,7 +1,14 @@
 > **现网 SSOT 不在本文件**：请先看**项目根** `../progress.md` 顶部（VERSION / tip / 生产）。  
 
+> **3.7.20** 会话 TTL 统一 7 天（SESSION_TTL=604800）；cookie max_age 与 token exp 同源；无滑动续期。
 > **3.7.19** 每点完整定时更新 + 去漏跑黄 + 设置卡最后跑时；main 直改。
 > 本文件只记程序仓内施工流水，可落后于项目 progress。
+
+## 2026-08-10 · 3.7.20 会话 TTL 统一 7 天
+
+- VERSION **3.7.20**：`SESSION_TTL` 12h→7d；`kanban_sid`/`csrf_token` max_age 与 token exp 同源
+- 守卫 `tests/test_session_ttl_3_7_20.py`；证据 `docs/验收证据/3_7_20/`
+- **未改** profit / CIFS / CSRF Secure / 账号明文契约
 
 ## 2026-08-07 · 3.7.19 每点完整定时更新
 

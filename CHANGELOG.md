@@ -1,3 +1,16 @@
+## 3.7.20 — 2026-08-10
+
+### 会话 TTL 统一 7 天
+- `SESSION_TTL`：12h（43200s）→ **7 天**（`7 * 24 * 3600` = 604800s）；唯一 SSOT 在 `app_state.py`
+- `kanban_sid` cookie `max_age` 与 HMAC token `exp` **同源**该常量；管理端 / 看端 / BU **同一 TTL**
+- **无**滑动续期、**无**「记住我」、**无**双 TTL、cookie 名仍仅 `kanban_sid`
+- 改密 / 退出 / 密码版本 bump 踢会话逻辑不变
+- 上线后：旧 12h token 自然过期即可；**重登一次**拿 7 天 cookie
+- 守卫：`tests/test_session_ttl_3_7_20.py`（T1–T6）
+
+### 未改
+- profit 公式 / CIFS / CSRF Secure / 账号明文契约（MADR-0020）/ login_guard 阈值
+
 ## 3.7.19 — 2026-08-07
 
 ### 定时刷新（每点完整更新）

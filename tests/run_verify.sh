@@ -117,6 +117,7 @@ tests/test_task43_nginx_mode.py
 tests/test_task_2_4_3_entry.py
 tests/test_task_2_5_0_login.py
 tests/test_task_2_6_0_session.py
+tests/test_session_ttl_3_7_20.py
 tests/test_task_2_6_1_budget_pct_display.py
 tests/test_task_2_6_1_rankings_full_and_scroll.py
 tests/test_task_2_6_5_profit_rank_modal.py

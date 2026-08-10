@@ -21,7 +21,7 @@ SID_COOKIE = "kanban_sid"
 # 遗留名：2.7.1 起不再读；登录/退出时 delete 清浏览器残留
 COOKIE = "kanban_session"  # legacy name — delete only
 VCOOKIE = "kanban_view"  # legacy name — delete only
-SESSION_TTL = 12 * 3600  # 任务书63·H-05/H-06 过渡：管理端会话 ≤12h
+SESSION_TTL = 7 * 24 * 3600  # 3.7.20：统一 7 天（原 12h / 任务书63）
 
 # 服务内存态：summary + views + bu_pages；不预装整页 HTML。
 # 3.2.0：无 user_html；有 summary/has_data 即 ready。导出走 kanban_snapshot。
