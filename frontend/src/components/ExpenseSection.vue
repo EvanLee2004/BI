@@ -191,10 +191,7 @@ const option = computed(() => {
     panel-class="exp-donut-card"
     style="margin-top: 16px"
   >
-    <!-- H20：饼/分摊大数 vs 下方明细「业务BU 原始行」口径区分（不改 profit 公式） -->
-    <p class="exp-caliber-note muted" data-testid="exp-caliber-note">
-      饼图与列表为大类期间费用（业务线页可含分摊入本线）；下方费用明细仅为「业务BU」归属本线的收单原始行，无明细行不等于上方无费用。
-    </p>
+    <!-- 3.7.21 看端不再展示口径旁注 -->
     <div class="ev-tabs" style="display: flex; gap: 6px; padding: 4px 0 8px">
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'donut' }" data-testid="exp-tab-donut" @click="mode = 'donut'">按大类</button>
       <button type="button" class="ev-tab mini" :class="{ on: mode === 'fine' }" data-testid="exp-tab-fine" @click="mode = 'fine'">按类别</button>

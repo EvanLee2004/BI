@@ -32,9 +32,6 @@ const dateTo = ref('')
 const filterQ = ref('')
 /** R-45：默认期间费用口径；开=台账全量 */
 const showAll = ref(false)
-const caliberNote = ref(
-  '仅期间费用大类（已剔成本/非利润表）。上方饼图/列表可含分摊入本线的期间费用；本表明细仅「业务BU」=本线的收单原始行，无行≠上方无费用。',
-)
 
 /** 每列已选取值（Excel 多选，可含 ""）；空数组/缺键=该列不筛 */
 const colIns = ref<Record<string, string[]>>({})
@@ -202,7 +199,6 @@ async function load() {
     colKinds.value = km
     rows.value = d.rows || []
     total.value = d.total || 0
-    if (d.caliber_note) caliberNote.value = String(d.caliber_note)
     const forbidden = new Set(d.forbidden || ['定位键', '收单月份', '归属月', '提单人', '提单人部门', '配音费合同号'])
     for (const c of columns.value) {
       if (forbidden.has(c)) {
@@ -424,7 +420,6 @@ function hasColFilter(c: string): boolean {
 </script>
 <template>
   <SciFiPanel title="费用明细" :tag="info">
-    <p class="ledger-caliber-note" data-testid="ledger-caliber-note">{{ caliberNote }}</p>
     <div
       class="ledger-tools"
       data-testid="ledger-date-tools"

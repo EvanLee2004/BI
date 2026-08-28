@@ -284,6 +284,7 @@ tests/test_task_2_3_3_manual_rename.py
 tests/test_task_2_4_0_display.py
 tests/test_task_2_4_0_schema.py
 tests/test_audit_3_7_14_frontend.py
+tests/test_caliber_notes_hidden_3_7_21.py
 tests/test_admin_ux_3_7_18.py
 "
 # 本轮真实结果：每文件独立 stats，避免并行写竞态（禁止只看静态 skip 位点）

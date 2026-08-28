@@ -141,14 +141,20 @@ console.log('ok');
 
 
 class TestH20ExpenseCopy(unittest.TestCase):
-    def test_expense_or_ledger_copy_distinguishes_caliber(self):
+    """3.7.21：看端口径旁注从 Vue 删除（全员不渲染）；不再要求源码里出现那组灰字。"""
+
+    def test_expense_or_ledger_copy_not_rendered(self):
         exp = (FE / "components" / "ExpenseSection.vue").read_text(encoding="utf-8")
         led = (FE / "components" / "LedgerTable.vue").read_text(encoding="utf-8")
         blob = exp + "\n" + led
-        # 须出现业务BU/原始行 与 分摊/图表 口径区分之一组清晰中文
-        has_raw = "业务BU" in blob and ("原始" in blob or "台账行" in blob or "明细" in blob)
-        has_alloc = "分摊" in blob or "图表" in blob or "饼" in blob or "期间费用" in blob
-        self.assertTrue(has_raw and has_alloc, "H20 费用区文案须区分饼/分摊与明细业务BU 原始行")
+        self.assertNotIn('data-testid="exp-caliber-note"', blob)
+        self.assertNotIn('data-testid="ledger-caliber-note"', blob)
+        self.assertNotIn('class="exp-caliber-note"', blob)
+        self.assertNotIn('class="ledger-caliber-note"', blob)
+        for needle in ("已剔成本/非利润表", "无行≠上方无费用", "无明细行不等于上方无费用"):
+            self.assertNotIn(needle, blob)
+        self.assertIn("显示全部台账记录", led)
+
 
 
 if __name__ == "__main__":
